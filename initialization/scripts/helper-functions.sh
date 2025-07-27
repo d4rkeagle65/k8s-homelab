@@ -4,7 +4,7 @@ function keyscan_knownhosts {
     user=$1
     target=$2
 
-    if [[ $user -eq 'root' ]]; then
+    if [[ $user == 'root' ]]; then
         userpath="/root"
     else
         userpath="/home/${user}"
