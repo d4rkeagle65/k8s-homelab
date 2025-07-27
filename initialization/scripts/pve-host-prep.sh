@@ -1,5 +1,6 @@
 #!/usr/bin/bash
 scriptDir=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+echo $scriptDir
 
 # Modules
 # Configure and Load for k8s
@@ -15,8 +16,8 @@ update-initramfs -u
 # On VMs this would not be required, but LXCs cannot update the value.
 nf_conntrack_max=$((65536*$(cat /proc/cpuinfo | grep processor | wc -l)))
 sysctlFile="/etc/sysctl.d/k8s-sysctl.conf"
-cp "$(dirname "${scriptDir}")/k8s-sysctl.conf" $sysctlFile
-echo "net.netfilter.nf_conntrack_max      = ${nfconntrack_max}" >> $sysctlFile
+cp "$(dirname "${scriptDir}")/configs/k8s-sysctl.conf" $sysctlFile
+echo -e "\nnet.netfilter.nf_conntrack_max      = ${nf_conntrack_max}" >> $sysctlFile
 sysctl --system
 
 # Disable Swap
