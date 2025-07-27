@@ -38,7 +38,7 @@ else
         pveIP=$(jq -r ".nodelist[\"${pveHost}\"].ip" /etc/pve/.members)
 
         # Add vHost to Known Hosts To Prevent Prompt
-        keyscan_knownhosts "root" "${pveHost}"
+        keyscan_knownhosts "root" "${pveIP}"
 
         # Clone This Repo to Each vHost and Run vHost Prep Script
         printf "%s\n" "${gitInstall_repoClone[@]}"
@@ -46,9 +46,10 @@ else
         gitInstall_repoClone[4]="bash ${repoDest}/initialization/scripts/pve-host-prep.sh"
         for (( i=0; i<"${#gitInstall_repoClone[@]}"; i++ )); do
             echo "Command: ${gitInstall_repoClone[$i]}"
-            ssh "root@${pveHost}" "${gitInstall_repoClone[$i]}"
+            ssh "root@${pveIP}" "${gitInstall_repoClone[$i]}"
         done
         echo "Done with ${pveHost}"
     done
     echo "PVE Host End"
 fi
+
