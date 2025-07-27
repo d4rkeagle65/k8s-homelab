@@ -11,7 +11,8 @@ declare -A gitInstall_repoClone
 gitInstall_repoClone[0]=""
 gitInstall_repoClone[1]="apt update"
 gitInstall_repoClone[2]="apt install -y git"
-gitInstall_repoClone[3]="git clone ${repoUrl} ${repoDest}"
+gitInstall_repoClone[3]="if [ -d \"${repoDest}\" ]; then rm -Rf ${repoDest}; fi"
+gitInstall_repoClone[4]="git clone ${repoUrl} ${repoDest}"
 
 # Get Names of Executing vHost
 exeHost=$(hostname)
@@ -19,7 +20,7 @@ exeHost=$(hostname)
 if ! [ -x "$(command -v pveversion)" ]; then
     echo "Workstation Start"
     gitInstall_repoClone[0]="echo Running on ${INIT_PVE_HOST}"
-    gitInstall_repoClone[4]="bash ${repoDest}/initialization/init-k8s-pve-lxc.sh" 
+    gitInstall_repoClone[5]="bash ${repoDest}/initialization/init-k8s-pve-lxc.sh" 
     keyscan_knownhosts $(whoami) "${INIT_PVE_HOST}"
     printf "%s\n" "${gitInstall_repoClone[@]}"
     for (( i=0; i<"${#gitInstall_repoClone[@]}"; i++ )); do
@@ -43,7 +44,7 @@ else
         # Clone This Repo to Each vHost and Run vHost Prep Script
         printf "%s\n" "${gitInstall_repoClone[@]}"
         gitInstall_repoClone[0]="echo Running on ${pveHost}"
-        gitInstall_repoClone[4]="bash ${repoDest}/initialization/scripts/pve-host-prep.sh"
+        gitInstall_repoClone[5]="bash ${repoDest}/initialization/scripts/pve-host-prep.sh"
         for (( i=0; i<"${#gitInstall_repoClone[@]}"; i++ )); do
             echo "Command: ${gitInstall_repoClone[$i]}"
             ssh "root@${pveIP}" "${gitInstall_repoClone[$i]}"
