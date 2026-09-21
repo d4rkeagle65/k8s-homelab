@@ -16,3 +16,11 @@ spec:
   # Not auto-detected by this script (out of scope). Fill in by hand, e.g.:
   #   - name: some-other-release
   dependsOn: []
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-substitutions
+        namespace: flux-system
+      - kind: Secret
+        name: cluster-substitutions
+        namespace: flux-system
