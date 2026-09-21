@@ -28,20 +28,20 @@ spec:
                 value: "1000"
               - name: TZ
                 value: ${TIMEZONE}
-              - name: SONARR__APP__POSTGRESHOST
+              - name: SONARR__POSTGRES__HOST
                 value: sonarr-postgres-rw
-              - name: SONARR__APP__POSTGRESPORT
+              - name: SONARR__POSTGRES__PORT
                 value: "5432"
-              - name: SONARR__APP__POSTGRESUSER
+              - name: SONARR__POSTGRES__USER
                 value: sonarr
-              - name: SONARR__APP__POSTGRESPASSWORD
+              - name: SONARR__POSTGRES__PASSWORD
                 valueFrom:
                   secretKeyRef:
                     name: sonarr-postgres-app
                     key: password
-              - name: SONARR__APP__POSTGRESMAINDB
+              - name: SONARR__POSTGRES__MAINDB
                 value: sonarr-main
-              - name: SONARR__APP__POSTGRESLOGDB
+              - name: SONARR__POSTGRES__LOGDB
                 value: sonarr-log
             resources:
               requests:
