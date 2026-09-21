@@ -1,0 +1,9 @@
+# Scaffold only. This script never generates an age key (out of scope --
+# see the task spec's non-goals). Replace the placeholder recipient below
+# with your real age public key (`age-keygen -o age.agekey` run OUTSIDE
+# this repo, keep age.agekey out of git) before encrypting anything with
+# SOPS.
+creation_rules:
+  - path_regex: kubernetes/.*\.sops\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1REPLACE-WITH-YOUR-REAL-AGE-PUBLIC-KEY

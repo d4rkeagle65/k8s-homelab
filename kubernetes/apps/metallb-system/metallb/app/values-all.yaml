@@ -1,0 +1,181 @@
+controller:
+  affinity: {}
+  enabled: true
+  extraContainers: []
+  image:
+    repository: quay.io/metallb/controller
+  labels: {}
+  livenessProbe:
+    enabled: true
+    failureThreshold: 3
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  logLevel: info
+  nodeSelector: {}
+  podAnnotations: {}
+  priorityClassName: ""
+  readinessProbe:
+    enabled: true
+    failureThreshold: 3
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  resources: {}
+  runtimeClassName: ""
+  securityContext:
+    fsGroup: 65534
+    runAsNonRoot: true
+    runAsUser: 65534
+  serviceAccount:
+    annotations: {}
+    create: true
+    name: ""
+  strategy:
+    type: RollingUpdate
+  tlsCipherSuites: ""
+  tlsMinVersion: VersionTLS12
+  tolerations: []
+crds:
+  enabled: true
+  global: {}
+  validationFailurePolicy: Fail
+frrk8s:
+  enabled: false
+  external: false
+  namespace: ""
+fullnameOverride: ""
+imagePullSecrets: []
+loadBalancerClass: ""
+nameOverride: ""
+prometheus:
+  controllerMetricsTLSSecret: ""
+  metricsPort: 7472
+  namespace: ""
+  podMonitor:
+    additionalLabels: {}
+    annotations: {}
+    enabled: false
+    jobLabel: app.kubernetes.io/name
+    metricRelabelings: []
+    relabelings: []
+  prometheusRule:
+    additionalLabels: {}
+    addressPoolExhausted:
+      enabled: true
+      excludePools: ""
+      labels:
+        severity: critical
+    addressPoolUsage:
+      enabled: true
+      excludePools: ""
+      thresholds:
+      - labels:
+          severity: warning
+        percent: 75
+      - labels:
+          severity: warning
+        percent: 85
+      - labels:
+          severity: critical
+        percent: 95
+    annotations: {}
+    bgpSessionDown:
+      enabled: true
+      labels:
+        severity: critical
+    configNotLoaded:
+      enabled: true
+      labels:
+        severity: warning
+    enabled: false
+    extraAlerts: []
+    staleConfig:
+      enabled: true
+      labels:
+        severity: warning
+  rbacPrometheus: true
+  rbacProxy:
+    repository: gcr.io/kubebuilder/kube-rbac-proxy
+    tag: v0.12.0
+  scrapeAnnotations: false
+  serviceAccount: ""
+  serviceMonitor:
+    controller:
+      additionalLabels: {}
+      annotations: {}
+      tlsConfig:
+        insecureSkipVerify: true
+    enabled: false
+    jobLabel: app.kubernetes.io/name
+    metricRelabelings: []
+    relabelings: []
+    speaker:
+      additionalLabels: {}
+      annotations: {}
+      tlsConfig:
+        insecureSkipVerify: true
+  speakerMetricsTLSSecret: ""
+rbac:
+  create: true
+speaker:
+  affinity: {}
+  enabled: true
+  excludeInterfaces:
+    enabled: true
+  extraContainers: []
+  frr:
+    enabled: true
+    image:
+      repository: quay.io/frrouting/frr
+      tag: 9.1.0
+    metricsPort: 7473
+    resources: {}
+  frrMetrics:
+    resources: {}
+  ignoreExcludeLB: false
+  image:
+    repository: quay.io/metallb/speaker
+  labels: {}
+  livenessProbe:
+    enabled: true
+    failureThreshold: 3
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  logLevel: info
+  memberlist:
+    enabled: true
+    mlBindAddrOverride: ""
+    mlBindPort: 7946
+    mlSecretKeyPath: /etc/ml_secret_key
+  nodeSelector: {}
+  podAnnotations: {}
+  priorityClassName: ""
+  readinessProbe:
+    enabled: true
+    failureThreshold: 3
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  reloader:
+    resources: {}
+  resources: {}
+  runtimeClassName: ""
+  securityContext: {}
+  serviceAccount:
+    annotations: {}
+    create: true
+    name: ""
+  startupProbe:
+    enabled: true
+    failureThreshold: 30
+    periodSeconds: 5
+  tolerateMaster: true
+  tolerations: []
+  updateStrategy:
+    type: RollingUpdate

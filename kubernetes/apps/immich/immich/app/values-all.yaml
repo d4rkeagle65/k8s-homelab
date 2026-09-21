@@ -1,0 +1,177 @@
+common:
+  configMaps: {}
+  configMapsFromFolder:
+    autoDetectBinary: false
+    configMapsOverrides: {}
+    enabled: false
+  controllers: {}
+  defaultPodOptions:
+    affinity: {}
+    annotations: {}
+    automountServiceAccountToken: false
+    dnsConfig: {}
+    enableServiceLinks: false
+    hostAliases: []
+    hostIPC: false
+    hostNetwork: false
+    hostPID: false
+    imagePullSecrets: []
+    labels: {}
+    nodeSelector: {}
+    resizePolicy: []
+    resourceClaims: []
+    resources: {}
+    schedulingGates: []
+    securityContext: {}
+    tolerations: []
+    topologySpreadConstraints: []
+  defaultPodOptionsStrategy: overwrite
+  global:
+    alwaysAppendIdentifierToResourceName: false
+    annotations: {}
+    createDefaultServiceAccount: true
+    labels: {}
+    propagateGlobalMetadataToPods: false
+  ingress: {}
+  networkpolicies: {}
+  persistence: {}
+  podMonitor: {}
+  rawResources: {}
+  rbac:
+    bindings: {}
+    roles: {}
+  route: {}
+  secrets: {}
+  secretsFromFolder:
+    enabled: false
+    overrides: {}
+  service: {}
+  serviceAccount: {}
+  serviceMonitor: {}
+controllers:
+  main:
+    containers:
+      main:
+        env:
+          DB_DATABASE_NAME: immich
+          DB_HOSTNAME: immich-postgres-rw
+          DB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                key: password
+                name: immich-postgres-app
+          DB_USERNAME:
+            valueFrom:
+              secretKeyRef:
+                key: username
+                name: immich-postgres-app
+          IMMICH_MACHINE_LEARNING_URL: '{{ printf "http://%s-machine-learning:3003" .Release.Name }}'
+          REDIS_HOSTNAME: '{{ printf "%s-valkey" .Release.Name }}'
+          REDIS_URL:
+            valueFrom:
+              secretKeyRef:
+                key: REDIS_URL
+                name: immich-redis-url
+        image:
+          tag: v3.1.0
+immich:
+  configuration: {}
+  configurationKind: ConfigMap
+  metrics:
+    enabled: false
+  persistence:
+    library:
+      existingClaim: immich-data
+machine-learning:
+  controllers:
+    main:
+      containers:
+        main:
+          env:
+            HF_XET_CACHE: /cache/huggingface-xet
+            MPLCONFIGDIR: /cache/matplotlib-config
+            TRANSFORMERS_CACHE: /cache
+          image:
+            pullPolicy: IfNotPresent
+            repository: ghcr.io/immich-app/immich-machine-learning
+            tag: v3.1.0
+  enabled: true
+  persistence:
+    cache:
+      accessMode: ReadWriteMany
+      enabled: true
+      size: 10Gi
+      type: emptyDir
+power-tools:
+  enabled: true
+  env:
+    EXTERNAL_IMMICH_URL: '{{ .Values.server.ingress.main.hosts.host }}'
+    IMMICH_API_KEY:
+      valueFrom:
+        secretKeyRef:
+          key: password
+          name: immich-api-key
+    IMMICH_URL: http://immich-server.immich.svc.${CLUSTER_DOMAIN}:80
+  image:
+    pullPolicy: IfNotPresent
+    repository: ghcr.io/varun-raj/immich-power-tools
+    tag: 0.19.0
+  ingress:
+    main:
+      annotations:
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      enabled: true
+      hosts:
+      - host: immichpt.${BASE_DOMAIN}
+        paths:
+        - path: /
+      ingressClassName: nginx
+  service:
+    main:
+      enabled: true
+      ports:
+        http:
+          enabled: true
+          port: 3000
+          protocol: HTTP
+      type: ClusterIP
+server:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            pullPolicy: IfNotPresent
+            repository: ghcr.io/immich-app/immich-server
+  enabled: true
+  ingress:
+    main:
+      annotations:
+        cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      className: nginx
+      enabled: true
+      hosts:
+      - host: immich.${BASE_DOMAIN}
+        paths:
+        - path: /
+      tls:
+      - hosts:
+        - immich.${BASE_DOMAIN}
+        secretName: immich-http-tls
+valkey:
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            pullPolicy: IfNotPresent
+            repository: docker.io/valkey/valkey
+            tag: 9.0-alpine@sha256:1be494495248d53e3558b198a1c704e6b559d5e99fe4c926e14a8ad24d76c6fa
+  enabled: false
+  persistence:
+    data:
+      accessMode: ReadWriteOnce
+      enabled: true
+      size: 1Gi
+      type: emptyDir

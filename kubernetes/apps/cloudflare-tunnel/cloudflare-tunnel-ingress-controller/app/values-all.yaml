@@ -1,0 +1,83 @@
+affinity: {}
+cloudflare:
+  accountId: ""
+  apiToken: ""
+  secretRef:
+    accountIDKey: account_id
+    apiTokenKey: api_token
+    name: cloudflare-tunnel-secret
+    tunnelNameKey: tunnel_name
+  tunnelName: ""
+cloudflared:
+  affinity: {}
+  extraArgs: []
+  image:
+    pullPolicy: IfNotPresent
+    repository: ghcr.io/strrl/cloudflared
+    tag: 2026.7.3-host-metrics.1
+  nodeSelector: {}
+  pdb:
+    enabled: false
+  podAnnotations: {}
+  podAntiAffinity: false
+  podLabels: {}
+  podSecurityContext: {}
+  probes:
+    liveness: {}
+    readiness: {}
+    startup: {}
+  protocol: auto
+  replicaCount: 1
+  resources: {}
+  securityContext: {}
+  tolerations: []
+  topologySpreadConstraints: []
+  volumeMounts: []
+  volumes: []
+clusterDomain: cluster.local
+dnsCommentTemplate: managed by cloudflare-tunnel-ingress-controller, tunnel [{{.TunnelName}}]
+fullnameOverride: ""
+healthProbe:
+  port: 8081
+image:
+  pullPolicy: IfNotPresent
+  repository: cr.strrl.dev/strrl/cloudflare-tunnel-ingress-controller
+  tag: ""
+imagePullSecrets: []
+ingressClass:
+  controllerValue: strrl.dev/cloudflare-tunnel-ingress-controller
+  isDefaultClass: false
+  name: cloudflare-tunnel
+leaderElection:
+  enabled: false
+metrics:
+  port: 9090
+nameOverride: ""
+nodeSelector: {}
+podAnnotations: {}
+podSecurityContext: {}
+replicaCount: 1
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+securityContext: {}
+serviceAccount:
+  annotations: {}
+  create: true
+  name: ""
+serviceMonitor:
+  cloudflared:
+    honorLabels: false
+    jobLabel: ""
+    scheme: http
+  create: false
+  interval: ""
+  labels: {}
+  metricRelabelings: []
+  relabelings: []
+  scrapeTimeout: ""
+tolerations: []

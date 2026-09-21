@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    pv.kubernetes.io/bound-by-controller: "yes"
+  finalizers:
+  - kubernetes.io/pv-protection
+  name: emby-media-pv
+spec:
+  accessModes:
+  - ReadWriteMany
+  capacity:
+    storage: 5Ti
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: emby-media
+    namespace: emby
+  nfs:
+    path: /volume1/media
+    server: ${NAS_HOSTNAME}
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-retain-rwo
+  volumeMode: Filesystem

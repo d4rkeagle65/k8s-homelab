@@ -1,0 +1,78 @@
+additionalVolumeMounts: []
+additionalVolumes: []
+affinity: {}
+env:
+  ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+  TZ: ${TIMEZONE}
+fullnameOverride: ""
+image:
+  pullPolicy: IfNotPresent
+  registry: docker.io
+  repository: manictime/manictimeserver
+  tag: 2026.2.2
+imagePullSecrets: []
+ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+  className: nginx
+  enabled: true
+  hosts:
+  - host: manictime.${BASE_DOMAIN}
+    paths:
+    - /
+  tls:
+  - hosts:
+    - manictime.${BASE_DOMAIN}
+    secretName: manictime-tls
+livenessProbe:
+  enabled: true
+nameOverride: ""
+nodeSelector: {}
+persistence:
+  annotations: {}
+  enabled: true
+  mountPath: /app/Data
+  selector: {}
+  size: 10Gi
+  storageClass: nfs-retain-rwo
+podAnnotations: {}
+podSecurityContext: {}
+rbac:
+  k8sLocking:
+    enabled: true
+readinessProbe:
+  enabled: true
+replicaCount: 1
+resources:
+  limits:
+    memory: 1Gi
+  requests:
+    cpu: 50m
+    memory: 256Mi
+securityContext: {}
+service:
+  httpNodePort: 0
+  httpPort: 8080
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  create: true
+  name: ""
+settings:
+  database:
+    coreDatabase: ManicTimeCore
+    host: manictime-pg-rw
+    password: ""
+    passwordSecret:
+      key: password
+      name: manictime-pg-app
+    port: 5432
+    reportsDatabase: ManicTimeReports
+    sslMode: Prefer
+    user: manictime
+  existingSecret: ""
+  extra:
+    automaticVersionCheck:
+      enabled: false
+  seed: true
+tolerations: []

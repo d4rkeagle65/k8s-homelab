@@ -1,0 +1,134 @@
+adminPasswordKey: ""
+adminUsername: admin
+adminUsernameKey: ""
+affinity: {}
+allowAdminParty: false
+annotations: {}
+autoSetup:
+  defaultDatabases:
+  - _global_changes
+  enabled: true
+  image:
+    pullPolicy: Always
+    repository: curlimages/curl
+    tag: latest
+cluster:
+  clusterSize: 1
+clusterSize: 1
+cookieAuthSecretKey: ""
+couchdbConfig:
+  chttpd:
+    bind_address: any
+    enable_cors: true
+    max_http_request_size: 4294967296
+    require_valid_user: true
+  chttpd_auth:
+    require_valid_user: true
+  cors:
+    credentials: true
+    origins: app://obsidian.md,capacitor://localhost,http://localhost
+  couchdb:
+    max_document_size: 50000000
+    uuid: ${COUCHDB_UUID}
+  httpd:
+    WWW-Authenticate: Basic realm=\"couchdb\"
+    enable_cors: true
+  log:
+    level: debug
+createAdminSecret: false
+dns:
+  clusterDomainSuffix: ${CLUSTER_DOMAIN}
+enableSearch: false
+erlangCookieKey: ""
+erlangFlags:
+  name: couchdb
+extraEnv: []
+extraEnvTemplate: false
+extraPorts: []
+extraSecretName: obsidian-couchdb
+image:
+  pullPolicy: IfNotPresent
+  repository: couchdb
+  tag: 3.5.0
+ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    nginx.ingress.kubernetes.io/proxy-body-size: 10g
+  className: nginx
+  enabled: true
+  hosts:
+  - obsidian.${BASE_DOMAIN}
+  path: /
+  tls:
+  - hosts:
+    - obsidian.${BASE_DOMAIN}
+    secretName: couchdb-http-tls
+initImage:
+  pullPolicy: Always
+  repository: busybox
+  tag: latest
+initResources: {}
+labels: {}
+lifecycle: {}
+lifecycleTemplate: false
+livenessProbe:
+  enabled: true
+  failureThreshold: 3
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+networkPolicy:
+  enabled: true
+persistentVolume:
+  accessModes:
+  - ReadWriteOnce
+  annotations: {}
+  enabled: true
+  existingClaims: []
+  size: 10Gi
+persistentVolumeClaimRetentionPolicy:
+  enabled: false
+  whenDeleted: Retain
+  whenScaled: Retain
+placementConfig:
+  enabled: false
+  image:
+    repository: caligrafix/couchdb-autoscaler-placement-manager
+    tag: 0.1.0
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+podManagementPolicy: Parallel
+priorityClassName: ""
+prometheusPort:
+  bind_address: 0.0.0.0
+  enabled: false
+  port: 17986
+readinessProbe:
+  enabled: true
+  failureThreshold: 3
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+resources: {}
+searchImage:
+  pullPolicy: IfNotPresent
+  repository: kocolosk/couchdb-search
+  tag: 0.2.0
+service:
+  annotations: {}
+  enabled: true
+  externalPort: 5984
+  extraPorts: []
+  labels: {}
+  port: 5984
+  targetPort: 5984
+  type: ClusterIP
+serviceAccount:
+  create: true
+  enabled: true
+sidecars: {}
+tolerations: []
+topologySpreadConstraints: {}

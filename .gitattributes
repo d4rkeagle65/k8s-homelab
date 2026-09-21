@@ -1,0 +1,8 @@
+# Every file this script writes uses LF line endings, regardless of the
+# platform it runs on (Python's `newline="\n"` on write disables line-ending
+# translation). Without this, a Windows git config with core.autocrlf=true
+# rewrites everything to CRLF on checkout, which defeats the "re-running
+# against an unchanged cluster produces zero diffs" property the generator
+# is built around: every file would show as changed the moment git touches
+# line endings.
+* text=auto eol=lf

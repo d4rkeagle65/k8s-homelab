@@ -1,0 +1,80 @@
+additionalVolumeMounts:
+- mountPath: /mnt/synmedia
+  name: emby-media
+  readOnly: false
+additionalVolumes:
+- name: emby-media
+  persistentVolumeClaim:
+    claimName: emby-media
+affinity: {}
+env:
+  PGID: "999"
+  PUID: "1027"
+  TZ: ${TIMEZONE}
+fullnameOverride: ""
+image:
+  pullPolicy: IfNotPresent
+  registry: docker.io
+  repository: linuxserver/emby
+  tag: version-4.9.1.90
+imagePullSecrets: []
+ingress:
+  annotations: {}
+  enabled: false
+  hosts: []
+  tls: []
+livenessProbe:
+  enabled: true
+  failureThreshold: 6
+  initialDelaySeconds: 60
+  path: /emby/System/Ping
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 5
+nameOverride: ""
+nodeSelector: {}
+persistence:
+  annotations: {}
+  enabled: true
+  mountPath: /config
+  selector: {}
+  size: 10Gi
+  storageClass: nfs-retain-rwo
+podAnnotations: {}
+podSecurityContext:
+  fsGroup: 999
+readinessProbe:
+  enabled: true
+  failureThreshold: 6
+  initialDelaySeconds: 60
+  path: /emby/System/Ping
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 5
+replicaCount: 1
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+securityContext: {}
+service:
+  httpNodePort: 0
+  httpPort: 8096
+  httpsNodePort: 0
+  httpsPort: 8920
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  create: true
+  name: ""
+startupProbe:
+  enabled: true
+  failureThreshold: 30
+  initialDelaySeconds: 0
+  path: /emby/System/Ping
+  periodSeconds: 10
+  timeoutSeconds: 5
+tolerations: []

@@ -1,0 +1,48 @@
+#!/bin/sh
+# GitOps pre-commit gate: blocks the commit if scripts/tests/ (structure +
+# secret-hygiene checks) doesn't pass. This is what stops a credential the
+# generator's own redaction pass missed from reaching git history in the
+# first place -- activate it once per clone with:
+#   git config core.hooksPath .githooks
+# Bypass only with `git commit --no-verify`, and only if you're certain.
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+PYTHON=""
+for candidate in python3 python py; do
+    # On Windows, `python`/`python3` on PATH can be a Microsoft Store
+    # "app execution alias" stub that exists on disk (so `command -v`
+    # finds it) but exits non-zero and prints a redirect message instead
+    # of running -- confirm the candidate actually works, not just exists.
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" --version >/dev/null 2>&1; then
+        PYTHON="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    echo "pre-commit: no Python interpreter found on PATH (tried python3, python, py)." >&2
+    echo "pre-commit: install Python, then: pip install -r scripts/requirements-test.txt" >&2
+    echo "pre-commit: or bypass with git commit --no-verify (not recommended)." >&2
+    exit 1
+fi
+
+if ! "$PYTHON" -m pytest --version >/dev/null 2>&1; then
+    echo "pre-commit: pytest is not installed. Run: pip install -r scripts/requirements-test.txt" >&2
+    echo "pre-commit: or bypass this check with git commit --no-verify (not recommended)." >&2
+    exit 1
+fi
+
+echo "pre-commit: running scripts/tests (structure + secret-hygiene checks)..."
+if ! "$PYTHON" -m pytest scripts/tests -q; then
+    echo "" >&2
+    echo "pre-commit: BLOCKED -- scripts/tests failed. Fix the finding, or if it's a" >&2
+    echo "confirmed false positive, add its exact value to docs/secrets-scan-allowlist.txt." >&2
+    echo "Bypass with git commit --no-verify only if you are certain." >&2
+    exit 1
+fi
+
+echo "pre-commit: OK"

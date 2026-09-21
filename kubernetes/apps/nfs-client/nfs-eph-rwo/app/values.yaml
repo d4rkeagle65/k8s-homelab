@@ -1,0 +1,7 @@
+nfs:
+  path: /volume1/k8sData
+  server: ${NFS_SERVER}
+storageClass:
+  defaultClass: true
+  name: nfs-eph-rwo
+  provisionerName: ${CLUSTER_DOMAIN}/nfs-eph-rwo

@@ -1,0 +1,11 @@
+# Applied manually once, then tracked by git.
+# Overrides used by the cluster-test Kustomization only.
+# The base cluster-substitutions ConfigMap must also define SUBDOMAIN_SUFFIX: ""
+# (add it there so production never errors on an undefined variable).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-substitutions-test
+  namespace: flux-system
+data:
+  SUBDOMAIN_SUFFIX: "-test"

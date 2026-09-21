@@ -1,0 +1,48 @@
+autoSetup:
+  enabled: true
+cluster:
+  clusterSize: 1
+clusterSize: 1
+couchdbConfig:
+  chttpd:
+    enable_cors: true
+    max_http_request_size: 4294967296
+    require_valid_user: true
+  chttpd_auth:
+    require_valid_user: true
+  cors:
+    credentials: true
+    origins: app://obsidian.md,capacitor://localhost,http://localhost
+  couchdb:
+    max_document_size: 50000000
+    uuid: ${COUCHDB_UUID}
+  httpd:
+    WWW-Authenticate: Basic realm=\"couchdb\"
+    enable_cors: true
+  log:
+    level: debug
+createAdminSecret: false
+dns:
+  clusterDomainSuffix: ${CLUSTER_DOMAIN}
+extraSecretName: obsidian-couchdb
+image:
+  tag: 3.5.0
+ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    nginx.ingress.kubernetes.io/proxy-body-size: 10g
+  className: nginx
+  enabled: true
+  hosts:
+  - obsidian.${BASE_DOMAIN}
+  tls:
+  - hosts:
+    - obsidian.${BASE_DOMAIN}
+    secretName: couchdb-http-tls
+persistentVolume:
+  enabled: true
+  size: 10Gi
+service:
+  enabled: true
+  port: 5984
+  type: ClusterIP

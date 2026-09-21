@@ -1,0 +1,8 @@
+nfs:
+  path: /volume1/k8sData
+  server: ${NFS_SERVER}
+storageClass:
+  name: nfs-retain-rwo
+  onDelete: retain
+  provisionerName: ${CLUSTER_DOMAIN}/nfs-retain-rwo
+  reclaimPolicy: Retain

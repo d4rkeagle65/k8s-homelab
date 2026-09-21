@@ -1,0 +1,87 @@
+authentik:
+  cookie_domain: ${BASE_DOMAIN}
+  enabled: true
+  host: https://auth.${BASE_DOMAIN}
+  log_level: debug
+  postgresql:
+    host: authentik-postgres-rw
+    name: authentik
+global:
+  env:
+  - name: AUTHENTIK_POSTGRESQL__USER
+    valueFrom:
+      secretKeyRef:
+        key: username
+        name: authentik-postgres-app
+  - name: AUTHENTIK_POSTGRESQL__PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: authentik-postgres-app
+  - name: AUTHENTIK_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: authentik-secret-key
+  - name: AUTHENTIK_BOOTSTRAP_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: authentik-secret-bootstrap
+  - name: AUTHENTIK_BOOTSTRAP_EMAIL
+    valueFrom:
+      secretKeyRef:
+        key: email
+        name: authentik-secret-bootstrap
+  image:
+    pullPolicy: IfNotPresent
+    repository: ghcr.io/goauthentik/server
+    tag: "2026.5"
+server:
+  containerPorts:
+    http: 9000
+    https: 9443
+  enabled: true
+  ingress:
+    enabled: true
+    hosts:
+    - auth.${BASE_DOMAIN}
+    https: false
+    ingressClassName: nginx
+    tls:
+    - hosts:
+      - auth.${BASE_DOMAIN}
+      secretName: auth-http-tls
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  service:
+    servicePortHttp: 80
+    servicePortHttpName: http
+    servicePortHttps: 443
+    servicePortHttpsName: https
+    type: ClusterIP
+worker:
+  enabled: true
+  env:
+  - name: AUTHENTIK_LDAP__TLS_CERT_FILE
+    value: /certs/ldap-authentik/tls.crt
+  - name: AUTHENTIK_LDAP__TLS_KEY_FILE
+    value: /certs/ldap-authentik/tls.key
+  - name: AUTHENTIK_LDAP__TLS_CA_FILE
+    value: /certs/ldap-authentik/tls.crt
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  volumeMounts:
+  - mountPath: /certs/ldap-authentik
+    name: ldap-cert
+    readOnly: true
+  volumes:
+  - name: ldap-cert
+    secret:
+      secretName: ldap-authentik-tls

@@ -1,0 +1,44 @@
+affinity: {}
+image:
+  pullPolicy: IfNotPresent
+  repository: registry.k8s.io/sig-storage/nfs-subdir-external-provisioner
+  tag: v4.0.2
+imagePullSecrets: []
+labels: {}
+leaderElection:
+  enabled: true
+nfs:
+  path: /volume1/k8sData
+  reclaimPolicy: Retain
+  server: ${NFS_SERVER}
+  volumeName: nfs-subdir-external-provisioner-root
+nodeSelector: {}
+podAnnotations: {}
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+podSecurityContext: {}
+podSecurityPolicy:
+  enabled: false
+rbac:
+  create: true
+replicaCount: 1
+resources: {}
+securityContext: {}
+serviceAccount:
+  annotations: {}
+  create: true
+storageClass:
+  accessModes: ReadWriteOnce
+  allowVolumeExpansion: true
+  annotations: {}
+  archiveOnDelete: true
+  create: true
+  defaultClass: false
+  name: nfs-retain-rwo
+  onDelete: retain
+  provisionerName: ${CLUSTER_DOMAIN}/nfs-retain-rwo
+  reclaimPolicy: Retain
+  volumeBindingMode: Immediate
+strategyType: Recreate
+tolerations: []

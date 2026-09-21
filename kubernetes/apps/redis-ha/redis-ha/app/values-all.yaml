@@ -1,0 +1,372 @@
+additionalAffinities: {}
+affinity: ""
+auth: true
+authKey: auth
+authSecretAnnotations: {}
+configmap:
+  labels: {}
+configmapTest:
+  image:
+    repository: koalaman/shellcheck
+    tag: v0.11.0
+  resources: {}
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+emptyDir: {}
+existingSecret: redis-ha-creds
+exporter:
+  address: localhost
+  enabled: false
+  extraArgs: {}
+  image: quay.io/oliver006/redis_exporter
+  livenessProbe:
+    httpGet:
+      path: /metrics
+      port: 9121
+    initialDelaySeconds: 15
+    periodSeconds: 15
+    timeoutSeconds: 3
+  port: 9121
+  portName: exporter-port
+  pullPolicy: IfNotPresent
+  readinessProbe:
+    httpGet:
+      path: /metrics
+      port: 9121
+    initialDelaySeconds: 15
+    periodSeconds: 15
+    successThreshold: 2
+    timeoutSeconds: 3
+  resources: {}
+  scrapePath: /metrics
+  script: ""
+  serviceMonitor:
+    disableAPICheck: false
+    enabled: false
+    endpointAdditionalProperties: {}
+    interval: ""
+    labels: {}
+    metricRelabelings: []
+    namespace: ""
+    relabelings: []
+    telemetryPath: ""
+    timeout: ""
+  tag: v1.86.0
+extraContainers: []
+extraInitContainers: []
+extraLabels: {}
+extraVolumes: []
+fullnameOverride: ""
+global:
+  compatibility:
+    openshift:
+      adaptSecurityContext: auto
+  priorityClassName: ""
+haproxy:
+  IPv6:
+    enabled: true
+  additionalAffinities: {}
+  additionalPorts: []
+  affinity: ""
+  annotations: {}
+  checkFall: 1
+  checkInterval: 1s
+  containerPort: 6379
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  deploymentAnnotations: {}
+  deploymentStrategy:
+    type: RollingUpdate
+  emptyDir: {}
+  enabled: false
+  hardAntiAffinity: true
+  image:
+    pullPolicy: IfNotPresent
+    repository: public.ecr.aws/docker/library/haproxy
+    tag: 3.3.10-alpine
+  imagePullSecrets: []
+  init:
+    resources: {}
+  labels: {}
+  lifecycle: {}
+  metrics:
+    enabled: false
+    port: 9101
+    portName: http-exporter-port
+    scrapePath: /metrics
+    serviceMonitor:
+      disableAPICheck: false
+      enabled: false
+      endpointAdditionalProperties: {}
+      interval: ""
+      labels: {}
+      namespace: ""
+      telemetryPath: ""
+      timeout: ""
+  networkPolicy:
+    annotations: {}
+    egressRules: []
+    enabled: false
+    ingressRules: []
+    labels: {}
+  podAnnotations: {}
+  podDisruptionBudget: {}
+  priorityClassName: ""
+  readOnly:
+    enabled: false
+    port: 6380
+  replicas: 3
+  resources: {}
+  securityContext:
+    fsGroup: 99
+    runAsNonRoot: true
+    runAsUser: 99
+  service:
+    clusterIP: ""
+    externalIPs: {}
+    ipFamilies: []
+    ipFamilyPolicy: ""
+    labels: {}
+    loadBalancerSourceRanges: []
+    type: ClusterIP
+  serviceAccount:
+    automountToken: true
+    create: true
+  serviceAccountName: redis-sa
+  servicePort: 6379
+  stickyBalancing: false
+  tests:
+    resources: {}
+  timeout:
+    check: 2s
+    client: 330s
+    connect: 4s
+    server: 330s
+    tunnel: 1h
+  tls:
+    certMountPath: /tmp/
+    enabled: false
+    secretName: ""
+hardAntiAffinity: true
+hostPath:
+  chown: true
+  path: ""
+image:
+  pullPolicy: IfNotPresent
+  repository: public.ecr.aws/docker/library/redis
+  tag: 8.2.4-alpine
+imagePullSecrets: []
+init:
+  resources: {}
+labels: {}
+nameOverride: ""
+networkPolicy:
+  annotations: {}
+  egressRules:
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+    selectors:
+    - namespaceSelector: {}
+    - ipBlock:
+        cidr: 169.254.0.0/16
+  enabled: false
+  ingressRules: []
+  labels: {}
+nodeSelector: {}
+persistentVolume:
+  accessModes:
+  - ReadWriteOnce
+  annotations: {}
+  enabled: true
+  labels: {}
+  size: 10Gi
+  storageClass: nfs-retain-rwo
+podDisruptionBudget: {}
+podManagementPolicy: OrderedReady
+priorityClassName: ""
+prometheusRule:
+  additionalLabels: {}
+  enabled: false
+  interval: 10s
+  rules: []
+rbac:
+  create: true
+redis:
+  annotations: {}
+  authClients: ""
+  config:
+    maxmemory: "0"
+    maxmemory-policy: volatile-lru
+    min-replicas-max-lag: 5
+    min-replicas-to-write: 1
+    rdbchecksum: "yes"
+    rdbcompression: "yes"
+    repl-diskless-sync: "yes"
+    save: 900 1
+  customArgs: []
+  customCommand: []
+  disableCommands:
+  - FLUSHDB
+  - FLUSHALL
+  envFrom: []
+  extraVolumeMounts: []
+  lifecycle:
+    preStop:
+      exec:
+        command:
+        - /bin/sh
+        - /readonly-config/trigger-failover-if-master.sh
+  livenessProbe:
+    enabled: true
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 15
+  masterGroupName: mymaster
+  minReadySeconds: 0
+  podAnnotations: {}
+  port: 6379
+  readinessProbe:
+    enabled: true
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 15
+  resources: {}
+  startupProbe:
+    enabled: true
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 15
+  terminationGracePeriodSeconds: 60
+  updateStrategy:
+    type: RollingUpdate
+replicas: 3
+restore:
+  existingSecret: false
+  redis:
+    source: ""
+  s3:
+    access_key: ""
+    region: ""
+    secret_key: ""
+    source: ""
+  ssh:
+    key: ""
+    source: ""
+  timeout: 600
+ro_replicas: ""
+schedulerName: ""
+securityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+sentinel:
+  auth: true
+  authClients: ""
+  authKey: sentinel-password
+  config:
+    down-after-milliseconds: 10000
+    failover-timeout: 180000
+    maxclients: 10000
+    parallel-syncs: 5
+  customArgs: []
+  customCommand: []
+  customConfig: ""
+  existingSecret: redis-ha-creds
+  extraVolumeMounts: []
+  lifecycle: {}
+  livenessProbe:
+    enabled: true
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 15
+  port: 26379
+  quorum: 2
+  readinessProbe:
+    enabled: true
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 3
+    timeoutSeconds: 15
+  resources: {}
+  startupProbe:
+    enabled: true
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 15
+serviceAccount:
+  annotations: {}
+  automountToken: false
+  create: true
+  name: ""
+serviceLabels: {}
+splitBrainDetection:
+  interval: 60
+  livenessProbe:
+    exec:
+      command:
+      - cat
+      - /readonly-config/redis.conf
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 15
+  readinessProbe:
+    exec:
+      command:
+      - sh
+      - -c
+      - test -d /proc/1
+    failureThreshold: 5
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    successThreshold: 1
+    timeoutSeconds: 15
+  resources: {}
+  retryInterval: 10
+sysctlImage:
+  command: []
+  enabled: false
+  mountHostSys: false
+  pullPolicy: Always
+  registry: public.ecr.aws/docker/library
+  repository: busybox
+  resources: {}
+  tag: 1.38.0
+tls:
+  caCertFile: ca.crt
+  certFile: redis.crt
+  keyFile: redis.key
+tolerations: []
+topologySpreadConstraints:
+  enabled: false
+  maxSkew: ""
+  topologyKey: ""
+  whenUnsatisfiable: ""

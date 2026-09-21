@@ -1,0 +1,502 @@
+additionalObjects: []
+authentik:
+  cookie_domain: ${BASE_DOMAIN}
+  email:
+    from: ""
+    host: ""
+    password: ""
+    port: 587
+    timeout: 30
+    use_ssl: false
+    use_tls: false
+    username: ""
+  enabled: true
+  error_reporting:
+    enabled: false
+    environment: k8s
+    send_pii: false
+  events:
+    context_processors:
+      asn: /geoip/GeoLite2-ASN.mmdb
+      geoip: /geoip/GeoLite2-City.mmdb
+  existingSecret:
+    secretName: ""
+  host: https://auth.${BASE_DOMAIN}
+  log_level: debug
+  outposts:
+    container_image_base: ghcr.io/goauthentik/%(type)s:%(version)s
+  postgresql:
+    host: authentik-postgres-rw
+    name: authentik
+    password: ""
+    port: 5432
+    user: authentik
+  secret_key: ""
+  web:
+    path: /
+blueprints:
+  configMaps: []
+  secrets: []
+fullnameOverride: ""
+geoip:
+  accountId: ""
+  containerSecurityContext: {}
+  editionIds: GeoLite2-City GeoLite2-ASN
+  enabled: false
+  env: []
+  envFrom: []
+  existingSecret:
+    accountId: account_id
+    licenseKey: license_key
+    secretName: ""
+  image:
+    digest: ""
+    pullPolicy: IfNotPresent
+    repository: ghcr.io/maxmind/geoipupdate
+    tag: v7.1.1
+  licenseKey: ""
+  resources: {}
+  updateInterval: 8
+  volumeMounts: []
+global:
+  addPrometheusAnnotations: false
+  additionalLabels: {}
+  affinity:
+    nodeAffinity:
+      matchExpressions: []
+      type: hard
+    podAntiAffinity: soft
+  deploymentAnnotations: {}
+  deploymentStrategy: {}
+  env:
+  - name: AUTHENTIK_POSTGRESQL__USER
+    valueFrom:
+      secretKeyRef:
+        key: username
+        name: authentik-postgres-app
+  - name: AUTHENTIK_POSTGRESQL__PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: authentik-postgres-app
+  - name: AUTHENTIK_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: authentik-secret-key
+  - name: AUTHENTIK_BOOTSTRAP_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        key: password
+        name: authentik-secret-bootstrap
+  - name: AUTHENTIK_BOOTSTRAP_EMAIL
+    valueFrom:
+      secretKeyRef:
+        key: email
+        name: authentik-secret-bootstrap
+  envFrom: []
+  fullnameOverride: ""
+  hostAliases: []
+  image:
+    digest: ""
+    pullPolicy: IfNotPresent
+    repository: ghcr.io/goauthentik/server
+    tag: "2026.5"
+  imagePullSecrets: []
+  nameOverride: ""
+  namespaceOverride: ""
+  nodeSelector: {}
+  podAnnotations: {}
+  podLabels: {}
+  priorityClassName: ""
+  revisionHistoryLimit: 3
+  secretAnnotations: {}
+  security:
+    allowInsecureImages: true
+  securityContext: {}
+  tolerations: []
+  topologySpreadConstraints: []
+  volumeMounts: []
+  volumes: []
+kubeVersionOverride: ""
+nameOverride: ""
+postgresql:
+  auth:
+    database: authentik
+    username: authentik
+  backup:
+    resourcesPreset: none
+  enabled: false
+  image:
+    registry: docker.io
+    repository: library/postgres
+    tag: 17.10-bookworm
+  metrics:
+    image:
+      repository: prometheuscommunity/postgres-exporter
+      tag: v0.19.1
+    resourcesPreset: none
+  passwordUpdateJob:
+    resourcesPreset: none
+  primary:
+    args:
+    - -c
+    - config_file=/bitnami/postgresql/conf/postgresql.conf
+    - -c
+    - hba_file=/bitnami/postgresql/conf/pg_hba.conf
+    configuration: |
+      listen_addresses = '*'
+      port = '5432'
+      wal_level = 'replica'
+      fsync = 'on'
+      hot_standby = 'on'
+      log_connections = 'false'
+      log_disconnections = 'false'
+      log_hostname = 'false'
+      client_min_messages = 'error'
+      include_dir = 'conf.d'
+    containerSecurityContext:
+      readOnlyRootFilesystem: true
+    extendedConfiguration: |
+      max_connections = 500
+    extraEnvVars:
+    - name: POSTGRES_DB
+      value: '{{ (include "postgresql.v1.database" .) }}'
+    extraVolumeMounts:
+    - mountPath: /var/run/postgresql
+      name: postgresql-socket
+    extraVolumes:
+    - emptyDir: {}
+      name: postgresql-socket
+    pgHbaConfiguration: |
+      host     all             all             0.0.0.0/0               scram-sha-256
+      host     all             all             ::/0                    scram-sha-256
+      local    all             all                                     scram-sha-256
+      host     all             all        127.0.0.1/32                 scram-sha-256
+      host     all             all        ::1/128                      scram-sha-256
+    resourcesPreset: none
+  readReplicas:
+    resourcesPreset: none
+  volumePermissions:
+    image:
+      repository: debian
+      tag: 13-slim
+    resourcesPreset: none
+prometheus:
+  rules:
+    additionalRuleGroupAnnotations: {}
+    annotations: {}
+    enabled: false
+    labels: {}
+    namespace: ""
+    selector: {}
+server:
+  affinity: {}
+  autoscaling:
+    behavior: {}
+    enabled: false
+    maxReplicas: 5
+    metrics: []
+    minReplicas: 1
+    targetCPUUtilizationPercentage: 50
+  containerPorts:
+    http: 9000
+    https: 9443
+    metrics: 9300
+  containerSecurityContext: {}
+  deploymentAnnotations: {}
+  deploymentStrategy: {}
+  dnsConfig: {}
+  dnsPolicy: ""
+  enabled: true
+  env: []
+  envFrom: []
+  extraContainers: []
+  hostNetwork: false
+  image:
+    digest: ""
+    pullPolicy: ""
+    repository: ""
+    tag: ""
+  imagePullSecrets: []
+  ingress:
+    annotations: {}
+    enabled: true
+    extraPaths: []
+    hosts:
+    - auth.${BASE_DOMAIN}
+    https: false
+    ingressClassName: nginx
+    labels: {}
+    pathType: Prefix
+    paths:
+    - '{{ .Values.authentik.web.path }}'
+    tls:
+    - hosts:
+      - auth.${BASE_DOMAIN}
+      secretName: auth-http-tls
+  initContainers: []
+  lifecycle: {}
+  livenessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: '{{ .Values.authentik.web.path }}-/health/live/'
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 3
+  metrics:
+    enabled: false
+    service:
+      annotations: {}
+      clusterIP: ""
+      labels: {}
+      portName: metrics
+      servicePort: 9300
+      type: ClusterIP
+    serviceMonitor:
+      annotations: {}
+      enabled: false
+      interval: 30s
+      labels: {}
+      metricRelabelings: []
+      namespace: ""
+      relabelings: []
+      scheme: ""
+      scrapeTimeout: 3s
+      selector: {}
+      tlsConfig: {}
+  name: server
+  nodeSelector: {}
+  pdb:
+    annotations: {}
+    enabled: false
+    labels: {}
+    maxUnavailable: ""
+    minAvailable: ""
+  podAnnotations: {}
+  podLabels: {}
+  priorityClassName: ""
+  readinessProbe:
+    failureThreshold: 3
+    httpGet:
+      path: '{{ .Values.authentik.web.path }}-/health/ready/'
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 3
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  route:
+    main:
+      additionalRules: []
+      annotations: {}
+      apiVersion: gateway.networking.k8s.io/v1
+      enabled: false
+      filters: []
+      hostnames: []
+      https: false
+      httpsRedirect: false
+      kind: HTTPRoute
+      labels: {}
+      matches:
+      - path:
+          type: PathPrefix
+          value: '{{ .Values.authentik.web.path }}'
+      parentRefs: []
+  securityContext: {}
+  service:
+    annotations: {}
+    externalIPs: []
+    externalTrafficPolicy: ""
+    labels: {}
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    nodePortHttp: 30080
+    nodePortHttps: 30443
+    servicePortHttp: 80
+    servicePortHttpName: http
+    servicePortHttps: 443
+    servicePortHttpsName: https
+    sessionAffinity: ""
+    sessionAffinityConfig: {}
+    type: ClusterIP
+  startupProbe:
+    failureThreshold: 60
+    httpGet:
+      path: '{{ .Values.authentik.web.path }}-/health/live/'
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 3
+  terminationGracePeriodSeconds: 30
+  tolerations: []
+  topologySpreadConstraints: []
+  volumeMounts: []
+  volumes: []
+serviceAccount:
+  annotations: {}
+  clusterRole:
+    enabled: true
+  create: true
+  fullnameOverride: authentik
+  global:
+    addPrometheusAnnotations: false
+    additionalLabels: {}
+    affinity:
+      nodeAffinity:
+        matchExpressions: []
+        type: hard
+      podAntiAffinity: soft
+    deploymentAnnotations: {}
+    deploymentStrategy: {}
+    env: []
+    envFrom: []
+    fullnameOverride: ""
+    hostAliases: []
+    image:
+      digest: ""
+      pullPolicy: IfNotPresent
+      repository: ghcr.io/goauthentik/server
+      tag: ""
+    imagePullSecrets: []
+    nameOverride: ""
+    namespaceOverride: ""
+    nodeSelector: {}
+    podAnnotations: {}
+    podLabels: {}
+    priorityClassName: ""
+    revisionHistoryLimit: 3
+    secretAnnotations: {}
+    security:
+      allowInsecureImages: true
+    securityContext: {}
+    tolerations: []
+    topologySpreadConstraints: []
+    volumeMounts: []
+    volumes: []
+  kubeVersionOverride: ""
+  nameOverride: ""
+  serviceAccountSecret:
+    enabled: false
+worker:
+  affinity: {}
+  autoscaling:
+    behavior: {}
+    enabled: false
+    maxReplicas: 5
+    metrics: []
+    minReplicas: 1
+    targetCPUUtilizationPercentage: 50
+  containerPorts:
+    http: 9000
+    metrics: 9300
+  containerSecurityContext: {}
+  deploymentAnnotations: {}
+  deploymentStrategy: {}
+  dnsConfig: {}
+  dnsPolicy: ""
+  enabled: true
+  env:
+  - name: AUTHENTIK_LDAP__TLS_CERT_FILE
+    value: /certs/ldap-authentik/tls.crt
+  - name: AUTHENTIK_LDAP__TLS_KEY_FILE
+    value: /certs/ldap-authentik/tls.key
+  - name: AUTHENTIK_LDAP__TLS_CA_FILE
+    value: /certs/ldap-authentik/tls.crt
+  envFrom: []
+  extraContainers: []
+  hostNetwork: false
+  image:
+    digest: ""
+    pullPolicy: ""
+    repository: ""
+    tag: ""
+  imagePullSecrets: []
+  initContainers: []
+  lifecycle: {}
+  livenessProbe:
+    exec:
+      command:
+      - ak
+      - healthcheck
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 3
+  metrics:
+    enabled: false
+    service:
+      annotations: {}
+      clusterIP: ""
+      labels: {}
+      portName: metrics
+      servicePort: 9300
+      type: ClusterIP
+    serviceMonitor:
+      annotations: {}
+      enabled: false
+      interval: 30s
+      labels: {}
+      metricRelabelings: []
+      namespace: ""
+      relabelings: []
+      scheme: ""
+      scrapeTimeout: 3s
+      selector: {}
+      tlsConfig: {}
+  name: worker
+  nodeSelector: {}
+  pdb:
+    annotations: {}
+    enabled: false
+    labels: {}
+    maxUnavailable: ""
+    minAvailable: ""
+  podAnnotations: {}
+  podLabels: {}
+  priorityClassName: ""
+  readinessProbe:
+    exec:
+      command:
+      - ak
+      - healthcheck
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 3
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+  securityContext: {}
+  startupProbe:
+    exec:
+      command:
+      - ak
+      - healthcheck
+    failureThreshold: 60
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 3
+  terminationGracePeriodSeconds: 30
+  tolerations: []
+  topologySpreadConstraints: []
+  volumeMounts:
+  - mountPath: /certs/ldap-authentik
+    name: ldap-cert
+    readOnly: true
+  volumes:
+  - name: ldap-cert
+    secret:
+      secretName: ldap-authentik-tls

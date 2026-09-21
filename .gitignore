@@ -1,0 +1,44 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# Python bytecode / test cache from scripts/ and scripts/tests/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Backed up locally, never committed: built-in/system/operator-owned/
+# dynamically-provisioned cluster resources (see skipfilter.py's
+# classify_cluster_locality) and the operator's real variable-substitution
+# mapping (varsub.py). Both are regenerated/maintained locally; committing
+# either defeats the point (git would think it owns bootstrap-managed
+# objects that change under a Kubernetes upgrade, or would leak the exact
+# values variable substitution exists to keep out of git).
+/kubernetes/.local/
+
+# Raw non-Helm resource capture: local backup / staging area only, not the
+# GitOps source of truth. Items get hand-curated into
+# kubernetes/apps/<namespace>/<app>/ over time (see README's next-steps).
+# Committing raw/ as-is means shipping cluster-generated cruft (uid,
+# resourceVersion, internal service DNS, cluster IPs) that isn't
+# re-appliable and isn't authoritative.
+/kubernetes/raw/
+
+/docs/
+
+/secrets/
+
+# Never commit real SOPS age keys or other private key material
+*.age
+*.pem
+*_rsa
+*_ed25519
+id_rsa*
+id_ed25519*
+
+
+
