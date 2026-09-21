@@ -9,3 +9,6 @@ resources:
   - media/sabnzbd/ks.yaml
   - media/qbittorrent/ks.yaml
   - media/lidarr/ks.yaml
+  - media/jellyseerr/ks.yaml
+  - media/whisparr/ks.yaml
+  - media/tdarr/ks.yaml

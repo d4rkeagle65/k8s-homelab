@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lidarr-migrate-script
+  namespace: media-test
+data:
+  migrate.py: |
+    import sqlite3
+    import psycopg2
+    import os
+
+    PG_HOST = "lidarr-postgres-rw"
+    PG_USER = "lidarr"
+    PG_PASS = os.environ["PGPASSWORD"]
+
+    MIGRATIONS = [
+        ("/config/lidarr.db", "lidarr-main"),
+        ("/config/logs.db",   "lidarr-log"),
+    ]
+
+    def get_pg_columns(cur, table):
+        cur.execute(
+            "SELECT column_name, data_type FROM information_schema.columns "
+            "WHERE table_schema='public' AND table_name=%s", (table,)
+        )
+        return {row[0].lower(): (row[0], row[1]) for row in cur.fetchall()}
+
+    def migrate(sqlite_path, pg_db):
+        print(f"\n=== {sqlite_path} -> {pg_db} ===")
+        try:
+            sq = sqlite3.connect(sqlite_path)
+            sq.row_factory = sqlite3.Row
+        except Exception as e:
+            print(f"Cannot open {sqlite_path}: {e}")
+            return
+
+        pg = psycopg2.connect(host=PG_HOST, user=PG_USER, password=PG_PASS, dbname=pg_db)
+        pgc = pg.cursor()
+
+        sq_tables = sq.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        for (tname,) in sq_tables:
+            rows = sq.execute(f'SELECT * FROM "{tname}"').fetchall()
+            if not rows:
+                print(f"  {tname}: 0 rows, skipping")
+                continue
+
+            sq_cols = [d[0].lower() for d in sq.execute(f'SELECT * FROM "{tname}" LIMIT 0').description]
+            pg_col_map = get_pg_columns(pgc, tname.lower())
+
+            if not pg_col_map:
+                print(f"  {tname}: no matching PG table, skipping")
+                continue
+
+            matched = []
+            for sc in sq_cols:
+                if sc in pg_col_map:
+                    matched.append((sc, pg_col_map[sc][0], pg_col_map[sc][1]))
+
+            if not matched:
+                print(f"  {tname}: no matching columns, skipping")
+                continue
+
+            pg_col_names = [m[1] for m in matched]
+            sq_col_indices = [sq_cols.index(m[0]) for m in matched]
+            pg_types = [m[2] for m in matched]
+
+            col_list = ", ".join(f'"{c}"' for c in pg_col_names)
+            placeholders = ", ".join(["%s"] * len(pg_col_names))
+            insert_sql = f'INSERT INTO "{tname.lower()}" ({col_list}) VALUES ({placeholders}) ON CONFLICT DO NOTHING'
+
+            count = 0
+            for row in rows:
+                vals = []
+                for idx, dtype in zip(sq_col_indices, pg_types):
+                    v = row[idx]
+                    if dtype == "boolean" and isinstance(v, int):
+                        v = bool(v)
+                    vals.append(v)
+                pgc.execute(insert_sql, vals)
+                count += 1
+
+            pg.commit()
+            print(f"  {tname}: {count} rows inserted")
+
+        sq.close()
+        pg.close()
+
+    for sqlite_path, pg_db in MIGRATIONS:
+        migrate(sqlite_path, pg_db)
+
+    print("\n=== Migration complete ===")
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lidarr-python-migrate
+  namespace: media-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: lidarr-test-config
+        - name: script
+          configMap:
+            name: lidarr-migrate-script
+      containers:
+        - name: migrate
+          image: python:3.12-slim
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: script
+              mountPath: /scripts
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lidarr-postgres-app
+                  key: password
+          command:
+            - bash
+            - -c
+            - "pip install psycopg2-binary --quiet && python3 /scripts/migrate.py"

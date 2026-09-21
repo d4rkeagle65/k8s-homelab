@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lidarr-rename-tables
+  namespace: media-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: psql
+          image: postgres:16
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lidarr-postgres-app
+                  key: password
+          command:
+            - bash
+            - -c
+            - |
+              set -e
+              HOST="lidarr-postgres-rw"
+              USER="lidarr"
+
+              for DB in lidarr-main lidarr-log; do
+                echo "=== Renaming tables in $DB to lowercase ==="
+                psql -h "$HOST" -U "$USER" -d "$DB" -t -c \
+                  "SELECT format('ALTER TABLE IF EXISTS %I RENAME TO %I;', tablename, lower(tablename)) FROM pg_tables WHERE schemaname='public' AND tablename != lower(tablename);" \
+                  > /tmp/rename_${DB//-/_}.sql
+                cat /tmp/rename_${DB//-/_}.sql
+                psql -h "$HOST" -U "$USER" -d "$DB" -f /tmp/rename_${DB//-/_}.sql
+                echo "=== Done with $DB ==="
+              done

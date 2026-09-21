@@ -1,0 +1,82 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: whisparr-test
+  namespace: media-test
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: ghcr.io/hotio/whisparr
+              tag: latest
+            env:
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: WHISPARR__POSTGRES__HOST
+                value: whisparr-postgres-rw
+              - name: WHISPARR__POSTGRES__PORT
+                value: "5432"
+              - name: WHISPARR__POSTGRES__USER
+                value: whisparr
+              - name: WHISPARR__POSTGRES__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: whisparr-postgres-app
+                    key: password
+              - name: WHISPARR__POSTGRES__MAINDB
+                value: whisparr-main
+              - name: WHISPARR__POSTGRES__LOGDB
+                value: whisparr-log
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 6969
+    ingress:
+      main:
+        className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        hosts:
+          - host: whisparr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: whisparr-test-tls
+            hosts:
+              - whisparr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      config:
+        existingClaim: whisparr-test-config
+        globalMounts:
+          - path: /config
+      synmedia:
+        existingClaim: synmedia-nfs
+        globalMounts:
+          - path: /synmedia

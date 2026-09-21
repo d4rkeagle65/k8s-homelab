@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lidarr-fix-casing
+  namespace: media-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: psql
+          image: postgres:16
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lidarr-postgres-app
+                  key: password
+          command:
+            - bash
+            - -c
+            - |
+              set -e
+              HOST="lidarr-postgres-rw"
+              USER="lidarr"
+              DB="lidarr-main"
+              echo "=== Fixing incorrect casing in $DB ==="
+              psql -h "$HOST" -U "$USER" -d "$DB" -c \
+                "ALTER TABLE IF EXISTS \"Indexerstatus\" RENAME TO \"IndexerStatus\";"
+              psql -h "$HOST" -U "$USER" -d "$DB" -c \
+                "ALTER TABLE IF EXISTS \"Metadatafiles\" RENAME TO \"MetadataFiles\";"
+              psql -h "$HOST" -U "$USER" -d "$DB" -c \
+                "ALTER TABLE IF EXISTS \"Notificationstatus\" RENAME TO \"NotificationStatus\";"
+              echo "=== Done ==="

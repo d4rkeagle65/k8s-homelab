@@ -1,0 +1,132 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tdarr-test
+  namespace: media-test
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          server:
+            image:
+              repository: ghcr.io/haveagitgat/tdarr
+              tag: latest
+            env:
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: UMASK_SET
+                value: "002"
+              - name: serverIP
+                value: "0.0.0.0"
+              - name: serverPort
+                value: "8266"
+              - name: webUIPort
+                value: "8265"
+              - name: internalNode
+                value: "false"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+          node:
+            image:
+              repository: ghcr.io/haveagitgat/tdarr_node
+              tag: latest
+            env:
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: UMASK_SET
+                value: "002"
+              - name: nodeName
+                value: tdarr-internal-node
+              - name: serverIP
+                value: "localhost"
+              - name: serverPort
+                value: "8266"
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                memory: 4Gi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 8265
+          server:
+            port: 8266
+    ingress:
+      main:
+        className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        hosts:
+          - host: tdarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: tdarr-test-tls
+            hosts:
+              - tdarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      server:
+        existingClaim: tdarr-test-server
+        advancedMounts:
+          main:
+            server:
+              - path: /app/server
+      configs:
+        existingClaim: tdarr-test-configs
+        advancedMounts:
+          main:
+            server:
+              - path: /app/configs
+            node:
+              - path: /app/configs
+      logs:
+        existingClaim: tdarr-test-logs
+        advancedMounts:
+          main:
+            server:
+              - path: /app/logs
+            node:
+              - path: /app/logs
+      transcode-cache:
+        type: emptyDir
+        advancedMounts:
+          main:
+            node:
+              - path: /temp
+      synmedia:
+        existingClaim: synmedia-nfs
+        advancedMounts:
+          main:
+            server:
+              - path: /synmedia
+            node:
+              - path: /synmedia

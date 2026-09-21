@@ -1,0 +1,84 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lidarr-restore-case
+  namespace: media-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: psql
+          image: postgres:16
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lidarr-postgres-app
+                  key: password
+          command:
+            - bash
+            - -c
+            - |
+              set -e
+              HOST="lidarr-postgres-rw"
+              USER="lidarr"
+
+              rename_in_db() {
+                local DB=$1
+                shift
+                echo "=== Restoring PascalCase in $DB ==="
+                for pair in "$@"; do
+                  from="${pair%%:*}"
+                  to="${pair##*:}"
+                  psql -h "$HOST" -U "$USER" -d "$DB" -c \
+                    "ALTER TABLE IF EXISTS \"$from\" RENAME TO \"$to\";" && \
+                    echo "  $from -> $to" || echo "  SKIP $from"
+                done
+              }
+
+              rename_in_db "lidarr-main" \
+                "albums:Albums" \
+                "albumreleases:AlbumReleases" \
+                "artists:Artists" \
+                "artistmetadata:ArtistMetadata" \
+                "blacklist:Blacklist" \
+                "blocklist:Blocklist" \
+                "commands:Commands" \
+                "config:Config" \
+                "customfilters:CustomFilters" \
+                "customformats:CustomFormats" \
+                "delayprofiles:DelayProfiles" \
+                "downloadclientstatus:DownloadClientStatus" \
+                "downloadclients:DownloadClients" \
+                "downloadhistory:DownloadHistory" \
+                "extrafiles:ExtraFiles" \
+                "history:History" \
+                "importlists:ImportLists" \
+                "importlistexclusions:ImportListExclusions" \
+                "importliststatus:ImportListStatus" \
+                "indexerstatuses:IndexerStatuses" \
+                "indexers:Indexers" \
+                "lyricfiles:LyricFiles" \
+                "metadata:Metadata" \
+                "metadataprofiles:MetadataProfiles" \
+                "namingconfig:NamingConfig" \
+                "notifications:Notifications" \
+                "pendingrelease:PendingRelease" \
+                "pendingreleases:PendingReleases" \
+                "qualitydefinitions:QualityDefinitions" \
+                "qualityprofiles:QualityProfiles" \
+                "releaseprofiles:ReleaseProfiles" \
+                "remotepathmappings:RemotePathMappings" \
+                "rootfolders:RootFolders" \
+                "scheduledtasks:ScheduledTasks" \
+                "tags:Tags" \
+                "tracks:Tracks" \
+                "trackfiles:TrackFiles" \
+                "users:Users" \
+                "versioninfo:VersionInfo"
+
+              rename_in_db "lidarr-log" \
+                "logs:Logs"
+
+              echo "=== Done ==="

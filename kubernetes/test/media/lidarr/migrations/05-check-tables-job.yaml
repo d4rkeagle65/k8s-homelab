@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: lidarr-check-tables
+  namespace: media-test
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: psql
+          image: postgres:16
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lidarr-postgres-app
+                  key: password
+          command:
+            - bash
+            - -c
+            - |
+              HOST="lidarr-postgres-rw"
+              USER="lidarr"
+              DB="lidarr-main"
+              echo "=== Tables still lowercase in $DB ==="
+              psql -h "$HOST" -U "$USER" -d "$DB" -c \
+                "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename = lower(tablename) ORDER BY tablename;"
+              echo "=== All tables in $DB ==="
+              psql -h "$HOST" -U "$USER" -d "$DB" -c \
+                "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;"

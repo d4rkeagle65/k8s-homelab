@@ -1,0 +1,17 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: whisparr-postgres
+  namespace: media-test
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:16
+  storage:
+    size: 2Gi
+    storageClass: nfs-retain-rwo
+  bootstrap:
+    initdb:
+      database: whisparr-main
+      owner: whisparr
+      postInitSQL:
+        - CREATE DATABASE "whisparr-log" OWNER whisparr;
