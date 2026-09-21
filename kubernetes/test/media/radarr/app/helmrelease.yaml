@@ -22,9 +22,27 @@ spec:
               repository: linuxserver/radarr
               tag: latest
             env:
-              PUID: "1000"
-              PGID: "1000"
-              TZ: ${TIMEZONE}
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: RADARR__POSTGRES__HOST
+                value: radarr-postgres-rw
+              - name: RADARR__POSTGRES__PORT
+                value: "5432"
+              - name: RADARR__POSTGRES__USER
+                value: radarr
+              - name: RADARR__POSTGRES__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: radarr-postgres-app
+                    key: password
+              - name: RADARR__POSTGRES__MAINDB
+                value: radarr-main
+              - name: RADARR__POSTGRES__LOGDB
+                value: radarr-log
             resources:
               requests:
                 cpu: 50m
