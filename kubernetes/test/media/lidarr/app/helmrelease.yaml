@@ -1,0 +1,82 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: lidarr-test
+  namespace: media-test
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: linuxserver/lidarr
+              tag: latest
+            env:
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: LIDARR__POSTGRES__HOST
+                value: lidarr-postgres-rw
+              - name: LIDARR__POSTGRES__PORT
+                value: "5432"
+              - name: LIDARR__POSTGRES__USER
+                value: lidarr
+              - name: LIDARR__POSTGRES__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: lidarr-postgres-app
+                    key: password
+              - name: LIDARR__POSTGRES__MAINDB
+                value: lidarr-main
+              - name: LIDARR__POSTGRES__LOGDB
+                value: lidarr-log
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 512Mi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 8686
+    ingress:
+      main:
+        className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        hosts:
+          - host: lidarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - hosts:
+              - lidarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            secretName: lidarr-test-tls
+    persistence:
+      config:
+        existingClaim: lidarr-test-config
+        globalMounts:
+          - path: /config
+      synmedia:
+        existingClaim: synmedia-nfs
+        globalMounts:
+          - path: /synmedia

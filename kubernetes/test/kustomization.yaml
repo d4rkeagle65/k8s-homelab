@@ -8,3 +8,4 @@ resources:
   - media/prowlarr/ks.yaml
   - media/sabnzbd/ks.yaml
   - media/qbittorrent/ks.yaml
+  - media/lidarr/ks.yaml
