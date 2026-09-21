@@ -29,7 +29,7 @@ spec:
               - name: TZ
                 value: ${TIMEZONE}
               - name: SONARR__APP__POSTGRESHOST
-                value: sonarr-postgres-rw.media-test.svc.${CLUSTER_DOMAIN}
+                value: sonarr-postgres-rw
               - name: SONARR__APP__POSTGRESPORT
                 value: "5432"
               - name: SONARR__APP__POSTGRESUSER
