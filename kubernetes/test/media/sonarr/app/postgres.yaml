@@ -10,7 +10,7 @@ spec:
     storageClass: nfs-retain-rwo
   bootstrap:
     initdb:
-      databases:
-        - sonarr-main
-        - sonarr-log
+      database: sonarr-main
       owner: sonarr
+      postInitApplicationSQL:
+        - CREATE DATABASE "sonarr-log" OWNER sonarr;
