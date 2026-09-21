@@ -58,6 +58,8 @@ spec:
     ingress:
       main:
         className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
         hosts:
           - host: sonarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             paths:
@@ -65,6 +67,10 @@ spec:
                 service:
                   identifier: main
                   port: http
+        tls:
+          - secretName: sonarr-test-tls
+            hosts:
+              - sonarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
     persistence:
       config:
         existingClaim: sonarr-test-config
