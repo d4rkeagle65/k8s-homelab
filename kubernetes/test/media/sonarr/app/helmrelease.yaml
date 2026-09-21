@@ -23,9 +23,9 @@ spec:
               tag: latest
             env:
               - name: PUID
-                value: "1000"
+                value: "${PUID}"
               - name: PGID
-                value: "1000"
+                value: "${PGID}"
               - name: TZ
                 value: ${TIMEZONE}
               - name: SONARR__POSTGRES__HOST
