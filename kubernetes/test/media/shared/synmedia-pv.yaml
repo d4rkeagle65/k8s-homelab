@@ -16,7 +16,7 @@ spec:
     server: ${NFS_SERVER}
     path: /volume1/media
   mountOptions:
-    - nfsvers=4.1
+    - nfsvers=3
     - hard
     - timeo=600
     - retrans=2
