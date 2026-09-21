@@ -5,4 +5,4 @@ resources:
   - media/shared
   - media/sonarr/ks.yaml
   - media/radarr/ks.yaml
-  - media/jackett/ks.yaml
+  - media/prowlarr/ks.yaml

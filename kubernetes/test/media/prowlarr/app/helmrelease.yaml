@@ -1,0 +1,78 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prowlarr-test
+  namespace: media-test
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: linuxserver/prowlarr
+              tag: latest
+            env:
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: PROWLARR__POSTGRES__HOST
+                value: prowlarr-postgres-rw
+              - name: PROWLARR__POSTGRES__PORT
+                value: "5432"
+              - name: PROWLARR__POSTGRES__USER
+                value: prowlarr
+              - name: PROWLARR__POSTGRES__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: prowlarr-postgres-app
+                    key: password
+              - name: PROWLARR__POSTGRES__MAINDB
+                value: prowlarr-main
+              - name: PROWLARR__POSTGRES__LOGDB
+                value: prowlarr-log
+            resources:
+              requests:
+                cpu: 25m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 9696
+    ingress:
+      main:
+        className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        hosts:
+          - host: prowlarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - hosts:
+              - prowlarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            secretName: prowlarr-test-tls
+    persistence:
+      config:
+        existingClaim: prowlarr-test-config
+        globalMounts:
+          - path: /config

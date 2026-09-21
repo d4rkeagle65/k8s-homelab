@@ -1,0 +1,16 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: prowlarr-postgres
+  namespace: media-test
+spec:
+  instances: 2
+  storage:
+    size: 2Gi
+    storageClass: nfs-retain-rwo
+  bootstrap:
+    initdb:
+      database: prowlarr-main
+      owner: prowlarr
+      postInitApplicationSQL:
+        - CREATE DATABASE "prowlarr-log" OWNER prowlarr;
