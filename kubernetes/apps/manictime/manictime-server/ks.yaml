@@ -4,6 +4,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: manictime-server
+  namespace: flux-system
 spec:
   interval: 30m
   path: ./kubernetes/apps/manictime/manictime-server/app
