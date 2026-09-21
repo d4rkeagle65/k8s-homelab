@@ -22,15 +22,33 @@ spec:
               repository: linuxserver/sonarr
               tag: latest
             env:
-              PUID: "1000"
-              PGID: "1000"
-              TZ: ${TIMEZONE}
+              - name: PUID
+                value: "1000"
+              - name: PGID
+                value: "1000"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: SONARR__APP__POSTGRESHOST
+                value: sonarr-postgres-rw.media-test.svc.${CLUSTER_DOMAIN}
+              - name: SONARR__APP__POSTGRESPORT
+                value: "5432"
+              - name: SONARR__APP__POSTGRESUSER
+                value: sonarr
+              - name: SONARR__APP__POSTGRESPASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: sonarr-postgres-app
+                    key: password
+              - name: SONARR__APP__POSTGRESMAINDB
+                value: sonarr-main
+              - name: SONARR__APP__POSTGRESLOGDB
+                value: sonarr-log
             resources:
               requests:
-                cpu: 50m
-                memory: 256Mi
-              limits:
+                cpu: 100m
                 memory: 512Mi
+              limits:
+                memory: 2Gi
     service:
       main:
         controller: main
@@ -40,8 +58,6 @@ spec:
     ingress:
       main:
         className: nginx
-        annotations:
-          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
         hosts:
           - host: sonarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             paths:
@@ -49,10 +65,6 @@ spec:
                 service:
                   identifier: main
                   port: http
-        tls:
-          - hosts:
-              - sonarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
-            secretName: sonarr-test-tls
     persistence:
       config:
         existingClaim: sonarr-test-config
