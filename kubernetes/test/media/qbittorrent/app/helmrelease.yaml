@@ -1,0 +1,69 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: qbittorrent-test
+  namespace: media-test
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: linuxserver/qbittorrent
+              tag: latest
+            env:
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: WEBUI_PORT
+                value: "8080"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 8080
+    ingress:
+      main:
+        className: nginx
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        hosts:
+          - host: qbittorrent${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - hosts:
+              - qbittorrent${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            secretName: qbittorrent-test-tls
+    persistence:
+      config:
+        existingClaim: qbittorrent-test-config
+        globalMounts:
+          - path: /config
+      synmedia:
+        existingClaim: synmedia-nfs
+        globalMounts:
+          - path: /synmedia

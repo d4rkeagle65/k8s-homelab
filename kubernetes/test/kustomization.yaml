@@ -6,3 +6,5 @@ resources:
   - media/sonarr/ks.yaml
   - media/radarr/ks.yaml
   - media/prowlarr/ks.yaml
+  - media/sabnzbd/ks.yaml
+  - media/qbittorrent/ks.yaml
