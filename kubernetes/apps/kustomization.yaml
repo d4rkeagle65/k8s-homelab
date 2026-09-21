@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - authentik
+  - cert-manager
+  - cloudflare-tunnel
+  - cnpg-system
+  - emby
+  - immich
+  - ingress-nginx
+  - manictime
+  - metallb-system
+  - nfs-client
+  - obsidian
+  - redis-ha
