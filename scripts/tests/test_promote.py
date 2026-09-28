@@ -53,13 +53,16 @@ def test_pvc_unpins_dynamic_volume_keeps_static_and_disables_prune():
     assert promote.clean_for_gitops(pvc("synmedia-nfs"))["spec"]["volumeName"] == "synmedia-nfs"
 
 
-def test_workload_bookkeeping_is_dropped():
+def test_workload_bookkeeping_is_dropped_but_pod_template_kept():
+    restarted = {"kubectl.kubernetes.io/restartedAt": "2026-09-01"}
     deploy = {"kind": "Deployment", "metadata": {"name": "d", "annotations": {"deployment.kubernetes.io/revision": "13"}},
               "spec": {"template": {"metadata": {"creationTimestamp": None, "labels": {"app": "d"},
-                                                 "annotations": {"kubectl.kubernetes.io/restartedAt": "2026-09-01"}}}}}
+                                                 "annotations": dict(restarted)}}}}
     cleaned = promote.clean_for_gitops(deploy)
     assert "annotations" not in cleaned["metadata"]
-    assert cleaned["spec"]["template"]["metadata"] == {"labels": {"app": "d"}}
+    # Dropping restartedAt changes the pod template once Flux adopts the
+    # Deployment, which rolls every pod (this happened to babybuddy).
+    assert cleaned["spec"]["template"]["metadata"] == {"labels": {"app": "d"}, "annotations": restarted}
 
     sts = {"kind": "StatefulSet", "metadata": {"name": "m"}, "spec": {"volumeClaimTemplates": [
         {"metadata": {"name": "data", "creationTimestamp": None}, "status": {"phase": "Pending"}}]}}

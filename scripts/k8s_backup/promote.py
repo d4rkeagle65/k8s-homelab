@@ -37,8 +37,6 @@ _BOOKKEEPING_ANNOTATIONS = (
     "volume.kubernetes.io/storage-provisioner",
     "volume.kubernetes.io/selected-node",
 )
-# Set by `kubectl rollout restart`; in git it would only ever be stale.
-_POD_TEMPLATE_ANNOTATIONS = ("kubectl.kubernetes.io/restartedAt",)
 
 
 def manifest_filename(kind: str, name: str) -> str:
@@ -126,11 +124,14 @@ def clean_for_gitops(obj: dict) -> dict:
     _drop(metadata.get("annotations"), _BOOKKEEPING_ANNOTATIONS)
     _drop_empty(metadata, "annotations")
 
+    # Nothing else in the pod template is touched -- in particular not the
+    # kubectl.kubernetes.io/restartedAt left by `kubectl rollout restart`.
+    # When Flux adopts an object it drops kubectl's field ownership, so any
+    # template field missing from the manifest is deleted, and deleting it
+    # changes the template: a rollout of every pod.
     template_meta = (spec.get("template") or {}).get("metadata")
     if isinstance(template_meta, dict):
         template_meta.pop("creationTimestamp", None)
-        _drop(template_meta.get("annotations"), _POD_TEMPLATE_ANNOTATIONS)
-        _drop_empty(template_meta, "annotations")
 
     if kind == "StatefulSet":
         for template in spec.get("volumeClaimTemplates") or []:
