@@ -18,5 +18,5 @@ spec:
       name: cluster-substitutions
       optional: true
     - kind: Secret
-      name: cluster-substitutions-secret
+      name: cluster-substitutions
       optional: true

@@ -19,6 +19,7 @@ from pathlib import Path
 
 from . import constants, flux, headers, helmcli, inventory, kube, secretscan, skipfilter, varsub, yamlio
 from .filetracker import FileTracker, RunReport
+from .fluxowner import FluxOwnership
 from .neat import neat
 from .ownership import capture_owner, is_handwritten
 from .paths import sanitize_filename
@@ -96,10 +97,13 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     if substitutions:
         print(f"Loaded {len(substitutions)} variable substitution(s) from kubernetes/.local/variable-substitutions.yaml")
 
+    # Empty (so nothing counts as foreign) on a cluster without Flux.
+    flux_owner = FluxOwnership(kube.get_all(context, "kustomizations.kustomize.toolkit.fluxcd.io")[0])
+
     print("Capturing Helm releases and values...")
     helm_repos = helmcli.repo_list(context)
     release_infos = _capture_helm_releases(
-        sink, context, helm_repos, timestamp, warnings, redactions, verbose, substitutions
+        sink, context, helm_repos, timestamp, warnings, redactions, verbose, substitutions, flux_owner
     )
 
     print("Capturing Helm repositories...")
@@ -107,14 +111,16 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
 
     print("Capturing cluster-scoped resources...")
     cluster_counts, cluster_raw, local_counts = _capture_cluster_resources(
-        sink, context, warnings, redactions, verbose, substitutions
+        sink, context, warnings, redactions, verbose, substitutions, flux_owner
     )
 
     print("Writing local (gitignored) substitution manifests...")
     _write_local_substitution_manifests(sink, substitutions)
 
     print("Capturing namespaced non-Helm resources...")
-    raw_counts = _capture_namespaced_resources(sink, context, warnings, redactions, verbose, substitutions)
+    raw_counts = _capture_namespaced_resources(
+        sink, context, warnings, redactions, verbose, substitutions, flux_owner
+    )
     _write_raw_readme(sink)
 
     print("Capturing secrets metadata...")
@@ -163,8 +169,16 @@ def _resolve_chart_source(context, chart_name, chart_version, helm_repos, verbos
     return {"resolved": False, "kind": None, "repoName": None, "reason": reason}
 
 
-def _capture_helm_releases(sink: Sink, context, helm_repos, timestamp, warnings, redactions, verbose, substitutions):
+def _capture_helm_releases(
+    sink: Sink, context, helm_repos, timestamp, warnings, redactions, verbose, substitutions, flux_owner
+):
     releases_list = helmcli.list_releases(context)
+    # A Helm release installed by helm-controller carries no Flux labels
+    # itself; its HelmRelease CR does.
+    flux_helmreleases = {
+        (hr["metadata"].get("namespace"), hr["metadata"].get("name")): hr
+        for hr in kube.get_all(context, "helmreleases.helm.toolkit.fluxcd.io")[0]
+    }
     if not sink.dry_run:
         helmcli.repo_update(context)
     else:
@@ -177,6 +191,11 @@ def _capture_helm_releases(sink: Sink, context, helm_repos, timestamp, warnings,
     for rel in releases_list:
         name = rel["name"]
         namespace = rel["namespace"]
+        foreign = flux_owner.foreign_reason(flux_helmreleases.get((namespace, name), {}))
+        if foreign:
+            if verbose:
+                print(f"  skip {namespace}/{name}: {foreign}", file=sys.stderr)
+            continue
         meta = helmcli.get_metadata(context, name, namespace)
         chart_name = meta.get("chart", "")
         chart_version = meta.get("version", "")
@@ -286,7 +305,7 @@ def _write_helm_repository_files(sink: Sink, helm_repos, timestamp) -> list[str]
     return names
 
 
-def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbose, substitutions):
+def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbose, substitutions, flux_owner):
     """Writes to kubernetes/cluster/<kind>/ (git-tracked) for resources that
     are genuinely the operator's own, and to kubernetes/.local/cluster/<kind>/
     (gitignored, still backed up) for ones that are built-in/system/operator-
@@ -311,7 +330,7 @@ def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbos
         kept = 0
         kept_local = 0
         for item in items:
-            reason = skipfilter.should_skip(kind, item)
+            reason = skipfilter.should_skip(kind, item) or flux_owner.foreign_reason(item)
             meta = item.get("metadata", {})
             if reason:
                 if verbose:
@@ -340,7 +359,7 @@ def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbos
     return counts, raw_items, local_counts
 
 
-def _capture_namespaced_resources(sink: Sink, context, warnings, redactions, verbose, substitutions):
+def _capture_namespaced_resources(sink: Sink, context, warnings, redactions, verbose, substitutions, flux_owner):
     counts: dict[str, int] = {}
     for kind in constants.NAMESPACED_RESOURCE_KINDS:
         items, warn = kube.get_all(context, kind)
@@ -356,7 +375,7 @@ def _capture_namespaced_resources(sink: Sink, context, warnings, redactions, ver
             ns = meta.get("namespace")
             if not ns or ns in constants.BUILTIN_NAMESPACES_TO_SKIP:
                 continue
-            reason = skipfilter.should_skip(kind, item)
+            reason = skipfilter.should_skip(kind, item) or flux_owner.foreign_reason(item)
             if reason:
                 if verbose:
                     print(f"  [raw] skip {ns}/{kind}/{meta.get('name')}: {reason}", file=sys.stderr)

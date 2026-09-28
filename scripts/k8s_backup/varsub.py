@@ -36,7 +36,9 @@ LOCAL_CONFIGMAP_PATH = ("kubernetes", ".local", "cluster-substitutions-configmap
 LOCAL_SECRET_PATH = ("kubernetes", ".local", "cluster-substitutions-secret.yaml")
 
 SUBSTITUTIONS_CONFIGMAP_NAME = "cluster-substitutions"
-SUBSTITUTIONS_SECRET_NAME = "cluster-substitutions-secret"
+# Same name as the ConfigMap (a Secret and a ConfigMap may share one): this is
+# what the live cluster has, and what every hand-written ks.yaml references.
+SUBSTITUTIONS_SECRET_NAME = "cluster-substitutions"
 
 _EXAMPLE_TEMPLATE = """\
 # Local, gitignored: exact literal values to replace with a placeholder in

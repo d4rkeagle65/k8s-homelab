@@ -69,8 +69,23 @@ _GITATTRIBUTES = """\
 """
 
 
-def gitignore() -> str:
-    return _GITIGNORE
+_GITIGNORE_EXTRAS_HEADER = "# Added by hand (kept by generate):"
+
+
+def gitignore(existing: str = "") -> str:
+    """The managed .gitignore, plus every pattern from `existing` that it
+    doesn't already contain, so a line the operator added (e.g. /docs/)
+    survives a re-run instead of being silently dropped.
+    """
+    managed = {line.strip() for line in _GITIGNORE.splitlines()}
+    extras: list[str] = []
+    for line in existing.splitlines():
+        line = line.strip()
+        if line and line != _GITIGNORE_EXTRAS_HEADER and line not in managed and line not in extras:
+            extras.append(line)
+    if not extras:
+        return _GITIGNORE
+    return _GITIGNORE + "\n" + _GITIGNORE_EXTRAS_HEADER + "\n" + "\n".join(extras) + "\n"
 
 
 def gitattributes() -> str:

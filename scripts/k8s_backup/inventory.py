@@ -75,7 +75,7 @@ def build_variable_substitutions_md(substitutions: list[dict]) -> str:
         "",
         "To restore onto a fresh cluster (or one where the local files were lost): "
         "recreate a ConfigMap named `cluster-substitutions` and/or a Secret named "
-        "`cluster-substitutions-secret`, both in `flux-system`, with the keys below.",
+        "`cluster-substitutions`, both in `flux-system`, with the keys below.",
         "",
     ]
     if not substitutions:

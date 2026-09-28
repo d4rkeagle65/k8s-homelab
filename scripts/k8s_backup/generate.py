@@ -5,10 +5,12 @@ captured values.yaml (the "source of truth" values file per the task spec).
 
 Owns: kubernetes/apps/*/*/app/{helmrelease.yaml,kustomization.yaml},
 kubernetes/apps/*/*/ks.yaml, kubernetes/apps/*/kustomization.yaml,
+kubernetes/apps/kustomization.yaml,
 kubernetes/flux/meta/repositories/kustomization.yaml,
 kubernetes/flux/config/cluster.yaml, kubernetes/flux/config/cluster-resources.yaml,
 kubernetes/cluster/kustomization.yaml, docs/variable-substitutions.md,
-.sops.yaml, .gitignore, README.md.
+.sops.yaml, .gitignore (lines added by hand are kept), and README.md only
+when none exists yet -- an existing one is the operator's.
 Release folders with a `.handwritten` marker are skipped (ownership.py).
 """
 
@@ -41,6 +43,7 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
 
     print("Generating per-namespace kustomizations...")
     _generate_namespace_kustomizations(sink, timestamp)
+    _generate_apps_kustomization(sink, timestamp)
 
     print("Generating repository and cluster kustomizations...")
     repo_count = _generate_repository_kustomization(sink, timestamp)
@@ -49,8 +52,9 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     # Load substitutions once so both the apps and cluster-resources
     # Kustomizations can wire postBuild.substituteFrom for the same
     # ConfigMap/Secret. Without this on the apps root, ${PLACEHOLDER}
-    # tokens in child ks.yaml files (and their HelmReleases) are treated
-    # as literal strings at reconcile time.
+    # tokens in the child ks.yaml files are treated as literal strings at
+    # reconcile time. (Each child ks.yaml wires its own for its
+    # HelmRelease -- Flux doesn't inherit postBuild.)
     substitutions = varsub.load_substitutions(root)
     has_configmap = varsub.render_configmap(substitutions) is not None
     has_secret = varsub.render_secret(substitutions) is not None
@@ -90,7 +94,9 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     print("Writing top-level scaffold files...")
     prior_timestamp, prior_context = _read_prior_capture_meta(root)
     stats = _gather_stats_from_disk(root)
-    sink.write_text(root / ".gitignore", scaffold.gitignore())
+    gitignore_path = root / ".gitignore"
+    existing_gitignore = gitignore_path.read_text(encoding="utf-8") if gitignore_path.is_file() else ""
+    sink.write_text(gitignore_path, scaffold.gitignore(existing_gitignore))
     sink.write_text(root / ".gitattributes", scaffold.gitattributes())
     hook_path = sink.write_text(root / ".githooks" / "pre-commit", scaffold.pre_commit_hook())
     if not dry_run:
@@ -99,10 +105,11 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
         current_mode = os.stat(hook_path).st_mode
         os.chmod(hook_path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     sink.write_text(root / ".sops.yaml", scaffold.sops_yaml_scaffold())
-    sink.write_text(
-        root / "README.md",
-        scaffold.readme(timestamp=prior_timestamp, context=prior_context, stats=stats),
-    )
+    if not (root / "README.md").exists():
+        sink.write_text(
+            root / "README.md",
+            scaffold.readme(timestamp=prior_timestamp, context=prior_context, stats=stats),
+        )
     (root / ".github").mkdir(parents=True, exist_ok=True)
 
     tracker.sweep_orphans()
@@ -182,6 +189,8 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
                 target_namespace=namespace,
                 path=f"./kubernetes/apps/{namespace}/{release_name}/app",
                 interval=constants.HELMRELEASE_KS_INTERVAL,
+                configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
+                secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
             )
             sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc, timestamp)
             count += 1
@@ -204,6 +213,19 @@ def _generate_namespace_kustomizations(sink: Sink, timestamp: str) -> None:
             if (release_dir / "ks.yaml").exists():
                 resources.append(f"{release_dir.name}/ks.yaml")
         sink.write_yaml_stable(ns_dir / "kustomization.yaml", flux.kustomization_file(resources), timestamp)
+
+
+def _generate_apps_kustomization(sink: Sink, timestamp: str) -> None:
+    """kubernetes/apps/kustomization.yaml -- what the root `cluster` Flux
+    Kustomization applies. Lists every namespace folder that got a
+    kustomization.yaml above, so a newly captured namespace is actually
+    deployed rather than sitting on disk unreferenced.
+    """
+    apps_root = sink.root / "kubernetes" / "apps"
+    if not apps_root.exists():
+        return
+    namespaces = [p.name for p in apps_root.iterdir() if (p / "namespace.yaml").exists()]
+    sink.write_yaml_stable(apps_root / "kustomization.yaml", flux.kustomization_file(namespaces), timestamp)
 
 
 def _generate_repository_kustomization(sink: Sink, timestamp: str) -> int:

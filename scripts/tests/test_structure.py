@@ -117,7 +117,7 @@ def test_local_substitution_manifests_are_well_formed(repo_root, load_yaml):
     if has_secret_vars:
         doc = load_yaml(secret_path)
         assert doc["kind"] == "Secret"
-        assert doc["metadata"]["name"] == "cluster-substitutions-secret"
+        assert doc["metadata"]["name"] == "cluster-substitutions"
         assert doc["metadata"]["namespace"] == "flux-system"
 
 

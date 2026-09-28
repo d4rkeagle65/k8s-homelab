@@ -49,6 +49,7 @@ GENERATE_PATTERNS = [
     "kubernetes/apps/*/*/app/kustomization.yaml",
     "kubernetes/apps/*/*/ks.yaml",
     "kubernetes/apps/*/kustomization.yaml",
+    "kubernetes/apps/kustomization.yaml",
     "kubernetes/flux/meta/repositories/kustomization.yaml",
     "kubernetes/flux/config/cluster.yaml",
     "kubernetes/flux/config/cluster-resources.yaml",
@@ -58,7 +59,8 @@ GENERATE_PATTERNS = [
     ".gitignore",
     ".gitattributes",
     ".githooks/pre-commit",
-    "README.md",
+    # Not README.md: generate only writes one when none exists, so owning it
+    # would make the orphan sweep delete an operator-written README.
 ]
 
 

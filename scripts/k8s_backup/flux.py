@@ -70,12 +70,26 @@ def helm_release(
     }
 
 
+def substitute_from(configmap_name: str | None, secret_name: str | None) -> list[dict]:
+    """postBuild.substituteFrom entries. Both optional so Flux doesn't fail
+    before the operator has created the ConfigMap/Secret on the cluster.
+    """
+    refs = []
+    if configmap_name:
+        refs.append({"kind": "ConfigMap", "name": configmap_name, "optional": True})
+    if secret_name:
+        refs.append({"kind": "Secret", "name": secret_name, "optional": True})
+    return refs
+
+
 def flux_kustomization(
     *,
     name: str,
     target_namespace: str,
     path: str,
     interval: str,
+    configmap_name: str,
+    secret_name: str,
     depends_on_comment: str = (
         "Not auto-detected by this script (out of scope). Fill in by hand, e.g.:\n"
         "  - name: some-other-release"
@@ -89,6 +103,12 @@ def flux_kustomization(
     spec["targetNamespace"] = target_namespace
     spec["dependsOn"] = []
     spec.yaml_set_comment_before_after_key("dependsOn", before=depends_on_comment, indent=2)
+    # Always wired, not only when a local substitutions file exists: Flux
+    # does not inherit postBuild from the parent `cluster` Kustomization, so
+    # without this every ${PLACEHOLDER} in this release's HelmRelease values
+    # reaches the cluster as a literal string. The refs are optional, so
+    # this is harmless on a cluster with no substitutions at all.
+    spec["postBuild"] = {"substituteFrom": substitute_from(configmap_name, secret_name)}
     return {
         "apiVersion": "kustomize.toolkit.fluxcd.io/v1",
         "kind": "Kustomization",
@@ -141,8 +161,10 @@ def root_cluster_kustomization(
 ) -> dict:
     """Flux Kustomization for kubernetes/apps/ (the per-app Flux
     Kustomization CRs). postBuild.substituteFrom is applied here so
-    ${PLACEHOLDER} tokens in the child ks.yaml files (and, transitively,
-    the HelmRelease values they build) resolve at reconciliation time.
+    ${PLACEHOLDER} tokens in the child ks.yaml files themselves resolve at
+    reconciliation time. It does NOT reach the HelmReleases those children
+    build -- Flux doesn't inherit postBuild -- which is why
+    flux_kustomization() wires its own.
     Both refs are optional so Flux doesn't fail before the operator has
     created the ConfigMap/Secret on the cluster.
     https://fluxcd.io/flux/components/kustomize/kustomizations/#post-build-variable-substitution
@@ -154,13 +176,9 @@ def root_cluster_kustomization(
         "sourceRef": {"kind": "GitRepository", "name": FLUX_NAMESPACE},
         "wait": True,
     }
-    substitute_from = []
-    if has_configmap and configmap_name:
-        substitute_from.append({"kind": "ConfigMap", "name": configmap_name, "optional": True})
-    if has_secret and secret_name:
-        substitute_from.append({"kind": "Secret", "name": secret_name, "optional": True})
-    if substitute_from:
-        spec["postBuild"] = {"substituteFrom": substitute_from}
+    refs = substitute_from(configmap_name if has_configmap else None, secret_name if has_secret else None)
+    if refs:
+        spec["postBuild"] = {"substituteFrom": refs}
     return {
         "apiVersion": "kustomize.toolkit.fluxcd.io/v1",
         "kind": "Kustomization",
@@ -197,13 +215,9 @@ def cluster_resources_kustomization(
         "prune": True,
         "sourceRef": {"kind": "GitRepository", "name": FLUX_NAMESPACE},
     }
-    substitute_from = []
-    if has_configmap:
-        substitute_from.append({"kind": "ConfigMap", "name": configmap_name, "optional": True})
-    if has_secret:
-        substitute_from.append({"kind": "Secret", "name": secret_name, "optional": True})
-    if substitute_from:
-        spec["postBuild"] = {"substituteFrom": substitute_from}
+    refs = substitute_from(configmap_name if has_configmap else None, secret_name if has_secret else None)
+    if refs:
+        spec["postBuild"] = {"substituteFrom": refs}
     return {
         "apiVersion": "kustomize.toolkit.fluxcd.io/v1",
         "kind": "Kustomization",

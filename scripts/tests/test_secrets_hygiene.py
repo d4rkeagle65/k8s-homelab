@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import csv
 import re
+import subprocess
 
 import pytest
 
@@ -28,6 +29,23 @@ _DATA_KEY_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 SKIP_DIR_NAMES = {".git"}
 SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf"}
+
+
+def _gitignored(repo_root, paths):
+    """The subset of `paths` git ignores. Empty if git isn't available or
+    this isn't a git checkout, so the caller then checks everything.
+    """
+    # NUL-delimited (-z): text-mode stdin on Windows would turn "\n" into
+    # "\r\n" and git would then match nothing.
+    rels = "\0".join(p.relative_to(repo_root).as_posix() for p in paths)
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(repo_root), "check-ignore", "-z", "--stdin"],
+            input=rels.encode("utf-8"), capture_output=True,
+        )
+    except OSError:
+        return set()
+    return {repo_root / rel for rel in proc.stdout.decode("utf-8").split("\0") if rel}
 
 
 def _text_files(all_files):
@@ -197,9 +215,10 @@ def test_no_substitution_literal_leaks_outside_local(repo_root, all_files):
         pytest.skip("no variable substitutions configured")
 
     local_root = repo_root / "kubernetes" / ".local"
+    ignored = _gitignored(repo_root, all_files)
     offenders = []
     for path in all_files:
-        if path.is_relative_to(local_root):
+        if path.is_relative_to(local_root) or path in ignored:
             continue
         try:
             text = path.read_text(encoding="utf-8")
