@@ -31,9 +31,15 @@ def test_output_equal_to_scripts_dir_is_rejected():
 
 
 def test_scripts_dir_inside_output_is_rejected():
-    # e.g. --output resolving to scripts/'s parent or higher.
+    # e.g. --output resolving to scripts/'s grandparent or higher.
     with pytest.raises(ToolError):
-        _check_output_is_safe(_SCRIPT_SOURCE_DIR.parent)
+        _check_output_is_safe(_SCRIPT_SOURCE_DIR.parent.parent)
+
+
+def test_output_equal_to_own_repo_is_accepted():
+    # The in-repo workflow the README documents: run from the repo root as
+    # `python scripts/backup.py all --output .`.
+    _check_output_is_safe(_SCRIPT_SOURCE_DIR.parent)
 
 
 def test_sibling_output_directory_is_accepted():

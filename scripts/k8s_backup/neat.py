@@ -35,6 +35,15 @@ _RUNTIME_ANNOTATIONS = (
     "kubectl.kubernetes.io/last-applied-configuration",
 )
 
+# Stamped by kustomize-controller on everything it applies, naming the Flux
+# Kustomization that applied it. Never in the source manifest, and it flips
+# whenever two Kustomizations apply the same object, so keeping it would put
+# churn into every capture of a Flux-managed resource.
+_RUNTIME_LABELS = (
+    "kustomize.toolkit.fluxcd.io/name",
+    "kustomize.toolkit.fluxcd.io/namespace",
+)
+
 
 def neat(obj: dict) -> dict:
     """Return a cleaned deep copy of a single Kubernetes manifest."""
@@ -52,15 +61,17 @@ def neat(obj: dict) -> dict:
             if not annotations:
                 metadata.pop("annotations", None)
 
-        # Every Namespace gets this label auto-added by the API server
-        # (the NamespaceDefaultLabelName feature, stable since 1.21) -- it's
-        # never something a user set, so it's pure noise in a backup.
-        if obj.get("kind") == "Namespace":
-            labels = metadata.get("labels")
-            if isinstance(labels, dict):
+        labels = metadata.get("labels")
+        if isinstance(labels, dict):
+            for key in _RUNTIME_LABELS:
+                labels.pop(key, None)
+            # Every Namespace gets this label auto-added by the API server
+            # (the NamespaceDefaultLabelName feature, stable since 1.21) --
+            # it's never something a user set, so it's pure noise in a backup.
+            if obj.get("kind") == "Namespace":
                 labels.pop("kubernetes.io/metadata.name", None)
-                if not labels:
-                    metadata.pop("labels", None)
+            if not labels:
+                metadata.pop("labels", None)
 
     # A hand-authored static PersistentVolume's claimRef expresses binding
     # *intent* (name/namespace of the PVC it should bind to) -- keep that.

@@ -11,6 +11,7 @@ resources:
 - immich.yaml
 - ingress-nginx.yaml
 - jetstack.yaml
+- longhorn.yaml
 - metallb.yaml
 - nfs-subdir.yaml
 - strrl.yaml

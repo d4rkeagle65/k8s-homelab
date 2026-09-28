@@ -21,7 +21,7 @@ from . import constants, flux, headers, helmcli, inventory, kube, secretscan, sk
 from .filetracker import FileTracker, RunReport
 from .fluxowner import FluxOwnership
 from .neat import neat
-from .ownership import capture_owner, is_handwritten
+from .ownership import capture_owner, handwritten_protected_paths, is_handwritten
 from .paths import sanitize_filename
 from .sink import Sink
 
@@ -159,6 +159,19 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     return tracker.report, stats
 
 
+def _chart_source_from_helmrelease(helmrelease: dict | None) -> dict | None:
+    """The chart source a live Flux HelmRelease already declares. Authoritative
+    for anything Flux installed, and needs neither `helm repo list` nor a
+    fresh local index -- without it, one repo missing from this machine (or
+    one failed `helm repo update`) flips a release to unresolved, and
+    generate then writes `sourceRef: REPLACE-ME` into a working HelmRelease.
+    """
+    ref = ((helmrelease or {}).get("spec", {}).get("chart", {}).get("spec", {}) or {}).get("sourceRef") or {}
+    if ref.get("kind") and ref.get("name"):
+        return {"resolved": True, "kind": ref["kind"], "repoName": ref["name"], "reason": None}
+    return None
+
+
 def _resolve_chart_source(context, chart_name, chart_version, helm_repos, verbose):
     for repo in helm_repos:
         repo_name = repo["name"]
@@ -233,7 +246,9 @@ def _capture_helm_releases(
                 # to stay byte-faithful to `helm get values` where possible.
                 sink.write_text(app_dir / filename, _ensure_nl(raw_text))
 
-        source = _resolve_chart_source(context, chart_name, chart_version, helm_repos, verbose)
+        source = _chart_source_from_helmrelease(flux_helmreleases.get((namespace, name))) or _resolve_chart_source(
+            context, chart_name, chart_version, helm_repos, verbose
+        )
         if not source["resolved"]:
             warnings.append(f"{namespace}/{name}: {source['reason']}")
 
@@ -264,10 +279,15 @@ def _capture_helm_releases(
             sink.write_yaml(release_dir / "release.yaml", release_doc, header=header)
         infos.append(release_doc)
 
+    # A namespace.yaml a hand-written release depends on is the operator's,
+    # not a capture: never overwrite it.
+    protected = handwritten_protected_paths(sink.root)
     for ns in sorted({info["namespace"] for info in infos}):
+        path = sink.root / "kubernetes" / "apps" / ns / "namespace.yaml"
+        if path.relative_to(sink.root).as_posix() in protected:
+            continue
         ns_obj = kube.get_namespace(context, ns)
         if ns_obj:
-            path = sink.root / "kubernetes" / "apps" / ns / "namespace.yaml"
             cleaned_ns = _neat_and_redact(ns_obj, f"apps/{ns}/namespace.yaml", redactions, verbose, substitutions)
             sink.write_yaml(path, cleaned_ns)
 

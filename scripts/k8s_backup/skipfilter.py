@@ -40,6 +40,8 @@ _BUILTIN_OR_INFRA_NAMESPACES = {"default", "kube-system", "kube-public", "kube-n
 # (the one-namespace-per-app convention), never one of these.
 _INFRA_SUBJECT_NAMESPACES = {"default", "kube-system", "kube-public", "kube-node-lease"}
 
+_LONGHORN_MANAGED_STORAGECLASSES = {"longhorn", "longhorn-static"}
+
 
 def _is_builtin_rbac_name(name: str) -> bool:
     return name in _BUILTIN_CLUSTERROLE_EXACT or name.startswith(_BUILTIN_CLUSTERROLE_PREFIXES)
@@ -109,5 +111,15 @@ def should_skip(kind: str, obj: dict) -> str | None:
         return "auto-generated kube-root-ca.crt ConfigMap"
     if kind_norm == "serviceaccount" and name == "default":
         return "auto-generated default ServiceAccount"
+    # longhorn-manager builds these from its longhorn-storageclass ConfigMap
+    # (which the Helm release owns) and carries no label or ownerReference
+    # saying so. Committing them would have cluster-resources fight the
+    # manager. A StorageClass you create for Longhorn yourself is kept.
+    if (
+        kind_norm == "storageclass"
+        and obj.get("provisioner") == "driver.longhorn.io"
+        and name in _LONGHORN_MANAGED_STORAGECLASSES
+    ):
+        return "created by longhorn-manager from its Helm-managed ConfigMap"
 
     return None

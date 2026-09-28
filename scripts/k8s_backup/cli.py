@@ -73,9 +73,17 @@ def _check_output_is_safe(output: Path) -> None:
     path specified`. Even short of that crash, --output landing inside
     scripts/ (or scripts/ landing inside --output) lets generate.py's
     FileTracker treat this tool's own source files as orphans to sweep.
+
+    One exception: --output exactly equal to scripts/'s parent. That is the
+    repo this tool lives in, run as documented (`python scripts/backup.py
+    all --output .`). Neither hazard applies there: _copy_scripts_into_repo()
+    skips a destination equal to its own source, and FileTracker only scans
+    kubernetes/, docs/ and a few top-level files -- never scripts/.
     """
     src = _SCRIPT_SOURCE_DIR.resolve()
     out = output.resolve()
+    if out == src.parent:
+        return
     if out == src or out.is_relative_to(src) or src.is_relative_to(out):
         raise ToolError(
             f"--output ({out}) overlaps with this tool's own source directory ({src}). "

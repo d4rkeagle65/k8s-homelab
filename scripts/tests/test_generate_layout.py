@@ -116,12 +116,13 @@ def test_flux_ownership_skips_only_hand_written_entrypoints():
     assert owner.foreign_reason(_obj("emby")) is None
     assert owner.foreign_reason(_obj("sonarr")) is None
     assert owner.foreign_reason(_obj("cluster-resources")) is None
-    assert owner.foreign_reason(_obj("flux-system")) is None
     assert owner.foreign_reason(_obj(None)) is None
     assert owner.foreign_reason(_obj("unknown-ks")) is None  # can't resolve: capture as before
     assert "cluster-shared" in owner.foreign_reason(_obj("cluster-shared"))
     assert "cluster-test" in owner.foreign_reason(_obj("cluster-test"))
     assert "cluster-test" in owner.foreign_reason(_obj("sonarr-test"))
+    # Flux's own namespace/RBAC, applied straight from gotk-components.yaml.
+    assert "flux-system" in owner.foreign_reason(_obj("flux-system"))
 
 
 def test_flux_ownership_is_empty_without_flux():
