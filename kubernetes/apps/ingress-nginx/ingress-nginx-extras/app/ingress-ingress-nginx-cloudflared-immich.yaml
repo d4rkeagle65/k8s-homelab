@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-nginx-cloudflared-immich
+  namespace: ingress-nginx
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: immich.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: ingress-nginx-controller
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  - host: immich.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: ingress-nginx-controller
+            port:
+              number: 443
+        path: /
+        pathType: Prefix

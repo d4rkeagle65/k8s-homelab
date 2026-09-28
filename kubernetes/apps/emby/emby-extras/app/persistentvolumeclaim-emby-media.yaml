@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: emby-media
-  namespace: emby
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
+  name: emby-media
+  namespace: emby
 spec:
   accessModes:
   - ReadWriteMany

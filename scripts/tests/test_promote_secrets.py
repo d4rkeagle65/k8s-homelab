@@ -54,6 +54,8 @@ def test_generated_secrets_are_not_promoted():
     assert promote.generated_secret_reason(_secret(type="helm.sh/release.v1"))
     assert promote.generated_secret_reason(_secret(metadata={"annotations": {"cert-manager.io/certificate-name": "c"}}))
     assert promote.generated_secret_reason(_secret(metadata={"labels": {"cnpg.io/cluster": "db"}}))
+    certgen = _secret(name="ingress-nginx-admission", data={"ca": _b64("c"), "cert": _b64("c"), "key": _b64("k")})
+    assert "kube-webhook-certgen" in promote.generated_secret_reason(certgen)
     assert promote.generated_secret_reason(_secret()) is None
 
 

@@ -1,10 +1,10 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: authentik-postgres
-  namespace: authentik
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
+  name: authentik-postgres
+  namespace: authentik
 spec:
   affinity:
     podAntiAffinityType: preferred

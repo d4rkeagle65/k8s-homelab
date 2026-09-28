@@ -15,40 +15,25 @@ How the repo is managed:
 
 Run everything from the repo root with `python scripts/backup.py all --output .`.
 
+Database backups are handled outside this repo and the cluster config, so
+nothing here tracks them.
+
 ## In progress
 
-- [ ] **Promote the leftover pieces of Helm namespaces.** Markers are in place for
-  `authentik/authentik-extras`, `immich/immich-extras` and `emby/emby-extras`.
-  A scratch run against the live cluster showed no changes beyond Flux's own
-  labels. What each one picks up:
-  - **authentik**: the Cloudflare Ingress, the `authentik-ingress-nginx` Service,
-    the LDAP Certificate, the `authentik-postgres` database, and 3 Secrets
-    (`authentik-secret-bootstrap`, `authentik-secret-key`, `redis-password`).
-    Authentik's own outposts are skipped.
-  - **immich**: immich-power-tools (Deployment, Service, Ingress), the
-    `immich-data` PVC, the `immich-postgres` database, and 4 Secrets
-    (`immich-postgres-superuser`, `immich-power-tools-apikey`, `immich-redis-url`,
-    `redis-password`).
-  - **emby**: the Ingress and the `emby-media` PVC.
+- [ ] **Promote the ingress-nginx and manictime extras.** Markers are in place for
+  `ingress-nginx/ingress-nginx-extras` and `manictime/manictime-extras`. A scratch
+  run showed no changes to the live objects:
+  - **ingress-nginx**: the 3 Cloudflare-tunnel Ingresses (babybuddy,
+    babybuddy-mcp, immich) and the 3 custom-header ConfigMaps (`empty-headers`,
+    `ingress-nginx-custom-headers`, `nginx-config`).
+  - **manictime**: the `manictime-pg` database definition.
 
-  Steps:
-  1. `python scripts/backup.py capture --output .` seeds the 7 Secrets' values
-     locally; their manifests are held back.
-  2. `kubectl apply -f kubernetes/.local/cluster-substitutions-secret.yaml`
-  3. `python scripts/backup.py all --output .`
-  4. Check that every `secret-*.yaml` holds only `${...}` values, run
-     `python -m pytest scripts/tests -q`, then commit and push.
+  No Secrets are involved (the chart-generated `ingress-nginx-admission`
+  certificate is skipped), so there's no local apply step:
+  `python scripts/backup.py all --output .`, run the tests, then commit and push.
 
 ## Next
 
-- [ ] **Back up the databases.** None of the 9 CloudNativePG clusters has a backup
-  configured: authentik, immich, manictime, babybuddy, and lidarr, prowlarr,
-  radarr, sonarr, whisparr in media. Their data is protected only by the
-  Synology's NFS snapshots.
-  - **Decision needed**: the backup target. Options are an S3-compatible bucket
-    (MinIO on the Synology, Backblaze B2, Wasabi) or an NFS share.
-  - **Then**: turn on continuous WAL archiving, add a nightly `ScheduledBackup`
-    per cluster, and do one test restore.
 - [ ] **Move the databases onto Longhorn.** All 9 run on NFS, which is a known
   reliability risk for Postgres.
   - Create a `longhorn-db` StorageClass with 1 replica and local data (CNPG
@@ -56,14 +41,6 @@ Run everything from the repo root with `python scripts/backup.py all --output .`
     instances.
   - This also fixes babybuddy's database, which asks for the `nfs-client`
     StorageClass that no longer exists.
-  - Do this after backups are in place.
-- [ ] **Promote the ingress-nginx extras.** The three Cloudflare-tunnel Ingresses
-  (babybuddy, babybuddy-mcp, immich) and the custom-header ConfigMaps
-  (`empty-headers`, `ingress-nginx-custom-headers`, `nginx-config`) are only on
-  the cluster. They are external access, so this is the next promotion:
-  `ingress-nginx/ingress-nginx-extras/.promote`.
-- [ ] **Promote the manictime extras.** The `manictime-pg` database definition is
-  only on the cluster: `manictime/manictime-extras/.promote`.
 - [ ] **Fix babybuddy's PVC.** `babybuddy/babybuddy-config` still asks for the
   missing `nfs-client` StorageClass. It works while bound, but a rebuild would
   leave it Pending. Migrate the data to a PVC on `nfs-retain-rwo`, or create an
@@ -129,3 +106,7 @@ Run everything from the repo root with `python scripts/backup.py all --output .`
   mqtt and noip-duc; capture now collects CloudNativePG `Cluster` definitions.
 - 2026-09-28: Promoted Secrets as `${PLACEHOLDER}`s, with their values in the
   local `cluster-substitutions` Secret (babybuddy-mcp, noip-duc).
+- 2026-09-28: Promoted `authentik-extras`, `immich-extras` and `emby-extras`,
+  including the authentik and immich database definitions and 7 Secrets.
+  Capture now skips Authentik-managed outposts and Lost PVCs. No restarts on
+  adoption.
