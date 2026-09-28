@@ -1,0 +1,6 @@
+# Hand-authored. Resources shared across releases that the generator does not
+# capture or own (e.g. static NFS PV/PVC used by every media app).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- media

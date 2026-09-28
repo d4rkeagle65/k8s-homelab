@@ -9,6 +9,7 @@ kubernetes/flux/meta/repositories/kustomization.yaml,
 kubernetes/flux/config/cluster.yaml, kubernetes/flux/config/cluster-resources.yaml,
 kubernetes/cluster/kustomization.yaml, docs/variable-substitutions.md,
 .sops.yaml, .gitignore, README.md.
+Release folders with a `.handwritten` marker are skipped (ownership.py).
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from pathlib import Path
 
 from . import constants, flux, inventory, scaffold, varsub, yamlio
 from .filetracker import FileTracker, RunReport
-from .ownership import generate_owns
+from .ownership import generate_owner, is_handwritten
 from .sink import Sink
 
 
@@ -30,7 +31,7 @@ def _now_iso() -> str:
 
 
 def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
-    tracker = FileTracker(root, generate_owns, dry_run=dry_run)
+    tracker = FileTracker(root, generate_owner(root), dry_run=dry_run)
     sink = Sink(root, dry_run, tracker)
     timestamp = _now_iso()
     warnings: list[str] = []
@@ -124,6 +125,8 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
     for ns_dir in sorted(p for p in apps_root.iterdir() if p.is_dir()):
         namespace = ns_dir.name
         for release_dir in sorted(p for p in ns_dir.iterdir() if p.is_dir()):
+            if is_handwritten(release_dir):
+                continue
             release_yaml = release_dir / "release.yaml"
             values_yaml = release_dir / "app" / "values.yaml"
             if not release_yaml.exists() or not values_yaml.exists():

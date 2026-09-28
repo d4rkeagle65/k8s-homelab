@@ -8,11 +8,22 @@ invocation didn't touch it, and vice versa for `generate` alone.
 fnmatch's `*` matches across `/`, but every segment it stands in for here
 is a Kubernetes namespace or release name, and those can't contain `/`
 (DNS-1123 label), so it can't accidentally span directory boundaries.
+
+Hand-written releases are the exception. A release folder containing a
+`.handwritten` marker file is authored by hand rather than captured, so
+neither phase may sweep anything inside it, nor the namespace.yaml and
+Helm repository files it depends on (see handwritten_protected_paths).
 """
 
 from __future__ import annotations
 
 import fnmatch
+from pathlib import Path
+from typing import Callable
+
+from . import yamlio
+
+HANDWRITTEN_MARKER = ".handwritten"
 
 CAPTURE_PATTERNS = [
     "docs/*",
@@ -61,3 +72,60 @@ def capture_owns(rel: str) -> bool:
 
 def generate_owns(rel: str) -> bool:
     return _matches(rel, GENERATE_PATTERNS)
+
+
+def is_handwritten(release_dir: Path) -> bool:
+    return (release_dir / HANDWRITTEN_MARKER).is_file()
+
+
+def handwritten_release_dirs(root: Path) -> list[Path]:
+    apps = root / "kubernetes" / "apps"
+    if not apps.is_dir():
+        return []
+    return sorted(p.parent for p in apps.glob(f"*/*/{HANDWRITTEN_MARKER}") if p.is_file())
+
+
+def handwritten_protected_paths(root: Path) -> set[str]:
+    """Repo-relative paths neither phase may sweep because a hand-written
+    release needs them: every file in the release folder, its namespace's
+    namespace.yaml (capture only writes that for namespaces with a live
+    Helm release, so it would otherwise vanish before the first deploy),
+    and each Helm repository file its helmrelease.yaml's sourceRef names
+    (capture only writes repositories from the local `helm repo list`).
+    """
+    protected: set[str] = set()
+    source_names: set[str] = set()
+    for release_dir in handwritten_release_dirs(root):
+        protected.update(p.relative_to(root).as_posix() for p in release_dir.rglob("*") if p.is_file())
+        namespace_yaml = release_dir.parent / "namespace.yaml"
+        protected.add(namespace_yaml.relative_to(root).as_posix())
+        hr_path = release_dir / "app" / "helmrelease.yaml"
+        if hr_path.is_file():
+            hr = yamlio.read_yaml_file(hr_path) or {}
+            source_ref = hr.get("spec", {}).get("chart", {}).get("spec", {}).get("sourceRef", {})
+            if source_ref.get("name"):
+                source_names.add(source_ref["name"])
+
+    repo_dir = root / "kubernetes" / "flux" / "meta" / "repositories"
+    if source_names and repo_dir.is_dir():
+        for path in repo_dir.glob("*.yaml"):
+            if path.name == "kustomization.yaml":
+                continue
+            doc = yamlio.read_yaml_file(path) or {}
+            if doc.get("metadata", {}).get("name") in source_names:
+                protected.add(path.relative_to(root).as_posix())
+    return protected
+
+
+def _excluding(owns: Callable[[str], bool], protected: set[str]) -> Callable[[str], bool]:
+    return lambda rel: owns(rel) and rel not in protected
+
+
+def capture_owner(root: Path) -> Callable[[str], bool]:
+    """capture_owns, minus anything a hand-written release depends on."""
+    return _excluding(capture_owns, handwritten_protected_paths(root))
+
+
+def generate_owner(root: Path) -> Callable[[str], bool]:
+    """generate_owns, minus anything a hand-written release depends on."""
+    return _excluding(generate_owns, handwritten_protected_paths(root))

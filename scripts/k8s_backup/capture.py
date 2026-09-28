@@ -3,6 +3,7 @@
 Owns: docs/*, kubernetes/raw/**, kubernetes/cluster/<kind>/*.yaml,
 kubernetes/apps/<ns>/namespace.yaml, kubernetes/apps/<ns>/<release>/release.yaml,
 kubernetes/apps/<ns>/<release>/app/values*.yaml, kubernetes/flux/meta/repositories/<repo>.yaml.
+Release folders with a `.handwritten` marker are never written to (ownership.py).
 
 Does not write any Flux HelmRelease/Kustomization CR or kustomization.yaml --
 that synthesis is generate.py's job, and it reads what this module wrote
@@ -19,7 +20,7 @@ from pathlib import Path
 from . import constants, flux, headers, helmcli, inventory, kube, secretscan, skipfilter, varsub, yamlio
 from .filetracker import FileTracker, RunReport
 from .neat import neat
-from .ownership import capture_owns
+from .ownership import capture_owner, is_handwritten
 from .paths import sanitize_filename
 from .sink import Sink
 
@@ -63,7 +64,7 @@ def _neat_and_redact(
 
 
 def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
-    tracker = FileTracker(root, capture_owns, dry_run=dry_run)
+    tracker = FileTracker(root, capture_owner(root), dry_run=dry_run)
     sink = Sink(root, dry_run, tracker)
     timestamp = _now_iso()
     warnings: list[str] = []
@@ -186,8 +187,14 @@ def _capture_helm_releases(sink: Sink, context, helm_repos, timestamp, warnings,
         if verbose:
             print(f"  {namespace}/{name}: {chart_name}-{chart_version}", file=sys.stderr)
 
-        app_dir = sink.root / "kubernetes" / "apps" / namespace / name / "app"
-        for filename, all_values in (("values.yaml", False), ("values-all.yaml", True)):
+        release_dir = sink.root / "kubernetes" / "apps" / namespace / name
+        handwritten = is_handwritten(release_dir)
+        app_dir = release_dir / "app"
+        # A hand-written release is still inventoried below, but its folder
+        # is never written to: captured files there would make generate
+        # treat it as a captured release and overwrite the hand-written CRs.
+        value_files = () if handwritten else (("values.yaml", False), ("values-all.yaml", True))
+        for filename, all_values in value_files:
             raw_text = helmcli.get_values_yaml(context, name, namespace, all_values=all_values)
             values_data = yamlio.parse_yaml_string(raw_text) or {}
             found = secretscan.redact_credentials(values_data)
@@ -234,11 +241,8 @@ def _capture_helm_releases(sink: Sink, context, helm_repos, timestamp, warnings,
             timestamp,
             extra_lines=["Backup identity record; not a Kubernetes manifest, never applied."],
         )
-        sink.write_yaml(
-            sink.root / "kubernetes" / "apps" / namespace / name / "release.yaml",
-            release_doc,
-            header=header,
-        )
+        if not handwritten:
+            sink.write_yaml(release_dir / "release.yaml", release_doc, header=header)
         infos.append(release_doc)
 
     for ns in sorted({info["namespace"] for info in infos}):

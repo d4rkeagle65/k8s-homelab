@@ -13,6 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from k8s_backup.ownership import handwritten_protected_paths, is_handwritten
 
 REQUIRED_TOP_FILES = ["README.md", ".gitignore", ".gitattributes", ".sops.yaml"]
 REQUIRED_TOP_DIRS = ["docs", "kubernetes", "scripts", ".github"]
@@ -222,6 +223,8 @@ RELEASE_REQUIRED_FILES = [
     "app/values.yaml",
     "app/values-all.yaml",
 ]
+# Written by capture; a hand-written release (.handwritten marker) has none.
+CAPTURED_RELEASE_FILES = {"release.yaml", "app/values.yaml", "app/values-all.yaml"}
 
 
 @pytest.mark.parametrize("rel_file", RELEASE_REQUIRED_FILES)
@@ -229,6 +232,13 @@ def test_every_release_has_required_files(repo_root, rel_file):
     found_any = False
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
         found_any = True
+        if is_handwritten(release_dir):
+            if rel_file in CAPTURED_RELEASE_FILES:
+                assert not (release_dir / rel_file).exists(), (
+                    f"{ns_name}/{release_name}/{rel_file}: hand-written releases must not carry "
+                    "captured files -- generate would treat the folder as captured"
+                )
+                continue
         assert (release_dir / rel_file).is_file(), f"{ns_name}/{release_name}/{rel_file} missing"
     if not found_any:
         pytest.skip("no releases captured")
@@ -249,6 +259,8 @@ def test_ks_yaml_matches_its_release(repo_root, load_yaml):
 
 def test_helmrelease_matches_its_release(repo_root, load_yaml):
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
+        if is_handwritten(release_dir):
+            continue  # no release.yaml to match; see test_handwritten_helmrelease_is_consistent
         release_meta = load_yaml(release_dir / "release.yaml")
         hr = load_yaml(release_dir / "app" / "helmrelease.yaml")
         assert hr["apiVersion"] == "helm.toolkit.fluxcd.io/v2"
@@ -274,6 +286,25 @@ def test_helmrelease_matches_its_release(repo_root, load_yaml):
             )
 
 
+def test_handwritten_helmrelease_is_consistent(repo_root, load_yaml):
+    repo_dir = repo_root / "kubernetes" / "flux" / "meta" / "repositories"
+    repo_names = {
+        load_yaml(p)["metadata"]["name"] for p in repo_dir.glob("*.yaml") if p.name != "kustomization.yaml"
+    }
+    for ns_name, release_name, release_dir in _release_dirs(repo_root):
+        if not is_handwritten(release_dir):
+            continue
+        hr = load_yaml(release_dir / "app" / "helmrelease.yaml")
+        assert hr["apiVersion"] == "helm.toolkit.fluxcd.io/v2"
+        assert hr["kind"] == "HelmRelease"
+        assert hr["metadata"]["name"] == release_name
+        source_ref = hr["spec"]["chart"]["spec"]["sourceRef"]
+        assert source_ref["name"] in repo_names, (
+            f"{ns_name}/{release_name}: sourceRef {source_ref['name']!r} has no file in "
+            "kubernetes/flux/meta/repositories/"
+        )
+
+
 def test_app_kustomization_lists_helmrelease(repo_root, load_yaml):
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
         doc = load_yaml(release_dir / "app" / "kustomization.yaml")
@@ -296,10 +327,13 @@ GENERATED_YAML_GLOBS = [
 
 
 def test_generated_files_carry_the_generated_header(repo_root):
+    handwritten = handwritten_protected_paths(repo_root)
     checked = 0
     for pattern in GENERATED_YAML_GLOBS:
         for path in repo_root.glob(pattern):
             if path.name == "kustomization.yaml" and "repositories" in path.parts:
+                continue
+            if path.relative_to(repo_root).as_posix() in handwritten:
                 continue
             checked += 1
             first_line = path.read_text(encoding="utf-8").splitlines()[0]

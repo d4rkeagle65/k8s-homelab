@@ -1,0 +1,105 @@
+# Test overlay. Only lists releases currently under test; everything else
+# comes from ../apps. Never add cluster-wide infra (cert-manager, metallb,
+# ingress-nginx, cnpg, nfs-client, cloudflare-tunnel) here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- media/namespace.yaml   # media-test
+- media/shared           # PV synmedia-nfs-test + PVC synmedia-nfs in media-test
+- ../apps/media/sonarr/ks.yaml
+- ../apps/media/radarr/ks.yaml
+- ../apps/media/prowlarr/ks.yaml
+- ../apps/media/sabnzbd/ks.yaml
+- ../apps/media/qbittorrent/ks.yaml
+- ../apps/media/lidarr/ks.yaml
+- ../apps/media/jellyseerr/ks.yaml
+- ../apps/media/whisparr/ks.yaml
+- ../apps/media/tdarr/ks.yaml
+patches:
+# Every media Kustomization: deploy into media-test and layer test values on top.
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+  patch: |-
+    - op: replace
+      path: /spec/targetNamespace
+      value: media-test
+    - op: add
+      path: /spec/postBuild/substituteFrom/-
+      value:
+        kind: ConfigMap
+        name: cluster-substitutions-test
+        optional: true
+# Unique names in flux-system so test never collides with production.
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: sonarr
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: sonarr-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: radarr
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: radarr-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: prowlarr
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: prowlarr-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: sabnzbd
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: sabnzbd-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: qbittorrent
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: qbittorrent-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: lidarr
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: lidarr-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: jellyseerr
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: jellyseerr-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: whisparr
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: whisparr-test
+- target:
+    group: kustomize.toolkit.fluxcd.io
+    kind: Kustomization
+    name: tdarr
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: tdarr-test

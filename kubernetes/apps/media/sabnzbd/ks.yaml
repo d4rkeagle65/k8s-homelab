@@ -1,24 +1,21 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: cluster-test
+  name: sabnzbd
   namespace: flux-system
 spec:
-  suspend: true  # test env offline; set false to bring it back
   interval: 10m
-  path: ./kubernetes/test
+  path: ./kubernetes/apps/media/sabnzbd/app
   prune: true
+  targetNamespace: media
+  dependsOn: []
   sourceRef:
     kind: GitRepository
     name: flux-system
-  wait: false
   postBuild:
     substituteFrom:
     - kind: ConfigMap
       name: cluster-substitutions
-      optional: true
-    - kind: ConfigMap
-      name: cluster-substitutions-test
       optional: true
     - kind: Secret
       name: cluster-substitutions-secret

@@ -13,3 +13,4 @@ resources:
   - nfs-client
   - obsidian
   - redis-ha
+  - media
