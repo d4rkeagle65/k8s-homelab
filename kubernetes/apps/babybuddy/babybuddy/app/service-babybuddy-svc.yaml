@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: babybuddy-svc
+  namespace: babybuddy
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: babybuddy
+  sessionAffinity: None
+  type: ClusterIP

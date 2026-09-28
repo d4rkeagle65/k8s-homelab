@@ -60,6 +60,10 @@ NAMESPACED_RESOURCE_KINDS = [
     "poddisruptionbudget",
     "certificate.cert-manager.io",
     "issuer.cert-manager.io",
+    # CloudNativePG database definitions: without this a Postgres cluster
+    # that isn't part of a Helm chart is in no backup at all. Its Pods,
+    # PVCs, Services and Secrets carry ownerReferences and stay skipped.
+    "cluster.postgresql.cnpg.io",
 ]
 
 HELMRELEASE_INTERVAL = "30m"

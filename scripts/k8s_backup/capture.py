@@ -21,7 +21,14 @@ from . import constants, flux, headers, helmcli, inventory, kube, secretscan, sk
 from .filetracker import FileTracker, RunReport
 from .fluxowner import FluxOwnership
 from .neat import neat
-from .ownership import capture_owner, handwritten_protected_paths, is_handwritten
+from . import promote
+from .ownership import (
+    PROMOTE_MARKER,
+    capture_owner,
+    handwritten_protected_paths,
+    is_handwritten,
+    promoted_release_dirs,
+)
 from .paths import sanitize_filename
 from .sink import Sink
 
@@ -94,6 +101,11 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
             print(f"  [auto-seed] {desc}", file=sys.stderr)
 
     substitutions = varsub.load_substitutions(root)
+    for bare in varsub.bare_placeholders(root):
+        warnings.append(
+            f"variable substitution placeholder '{bare}' has no ${{...}} wrapper; treated as "
+            f"'${{{bare}}}' so Flux substitutes it back. Update kubernetes/.local/variable-substitutions.yaml to match."
+        )
     if substitutions:
         print(f"Loaded {len(substitutions)} variable substitution(s) from kubernetes/.local/variable-substitutions.yaml")
 
@@ -380,33 +392,154 @@ def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbos
 
 
 def _capture_namespaced_resources(sink: Sink, context, warnings, redactions, verbose, substitutions, flux_owner):
-    counts: dict[str, int] = {}
+    """Each namespaced resource that passes the skip filters goes to
+    kubernetes/raw/<ns>/<kind>/ -- or, for a namespace with a promoted
+    release (promote.py), into that release's app/ as a Flux-applied
+    manifest. Returns per-kind counts of the raw ones.
+    """
+    promoted, ambiguous = _promoted_namespaces(sink.root, warnings)
+
+    fetched: dict[str, list[dict]] = {}
+    failed_kinds: list[str] = []
     for kind in constants.NAMESPACED_RESOURCE_KINDS:
         items, warn = kube.get_all(context, kind)
         if warn:
             warnings.append(warn)
+            failed_kinds.append(kind)
             if verbose:
                 print(f"  [raw] {warn}", file=sys.stderr)
-            counts[kind] = 0
             continue
-        kept = 0
+        fetched[kind] = items
+
+    sts_claims: dict[str, list] = {}
+    for sts in fetched.get("statefulset", []):
+        ns = sts.get("metadata", {}).get("namespace")
+        sts_claims.setdefault(ns, []).extend(promote.statefulset_claim_names([sts]))
+
+    promoted_docs: dict[str, list[tuple[str, dict]]] = {ns: [] for ns in promoted}
+    held: dict[str, list[str]] = {ns: [] for ns in promoted}
+    if failed_kinds:
+        for ns in promoted:
+            held[ns].append(f"could not list {', '.join(failed_kinds)}")
+
+    counts: dict[str, int] = {kind: 0 for kind in constants.NAMESPACED_RESOURCE_KINDS}
+    for kind, items in fetched.items():
         for item in items:
             meta = item.get("metadata", {})
             ns = meta.get("namespace")
-            if not ns or ns in constants.BUILTIN_NAMESPACES_TO_SKIP:
+            if not ns or ns in constants.BUILTIN_NAMESPACES_TO_SKIP or ns in ambiguous:
                 continue
             reason = skipfilter.should_skip(kind, item) or flux_owner.foreign_reason(item)
+            if not reason and ns in promoted and kind == "persistentvolumeclaim":
+                if any(p.match(meta.get("name", "")) for p in sts_claims.get(ns, [])):
+                    reason = "created from a StatefulSet volumeClaimTemplate"
             if reason:
                 if verbose:
                     print(f"  [raw] skip {ns}/{kind}/{meta.get('name')}: {reason}", file=sys.stderr)
                 continue
+
+            if ns in promoted:
+                filename = promote.manifest_filename(kind, meta["name"])
+                release_dir = promoted[ns]
+                label = f"{release_dir.relative_to(sink.root).as_posix()}/app/{filename}"
+                before = len(redactions)
+                cleaned = _neat_and_redact(item, label, redactions, verbose, substitutions)
+                if len(redactions) > before:
+                    held[ns].append(f"{kind}/{meta['name']} needed credential redaction")
+                promoted_docs[ns].append((filename, promote.clean_for_gitops(cleaned)))
+                continue
+
             name = sanitize_filename(meta["name"])
             path = sink.root / "kubernetes" / "raw" / ns / kind / f"{name}.yaml"
             label = f"raw/{ns}/{kind}/{name}.yaml"
             sink.write_yaml(path, _neat_and_redact(item, label, redactions, verbose, substitutions))
-            kept += 1
-        counts[kind] = kept
+            counts[kind] += 1
+
+    if promoted:
+        storage_classes, sc_warn = kube.get_all(context, "storageclass")
+        existing = None if sc_warn else {sc["metadata"]["name"] for sc in storage_classes}
+        for ns, docs in promoted_docs.items():
+            for filename, doc in docs:
+                for sc in promote.storage_classes_used(doc):
+                    if existing is not None and sc not in existing:
+                        warnings.append(
+                            f"{promoted[ns].relative_to(sink.root).as_posix()}/app/{filename}: StorageClass "
+                            f"'{sc}' doesn't exist on this cluster. Fine while already bound, but on a "
+                            "rebuild this would stay Pending."
+                        )
+
+    known_vars = {varsub._var_name(s["placeholder"]) for s in substitutions or []}
+    for ns, release_dir in promoted.items():
+        _write_promoted_release(
+            sink, context, ns, release_dir, promoted_docs[ns], held[ns], known_vars,
+            warnings, redactions, verbose, substitutions,
+        )
+    for dirs in ambiguous.values():
+        for release_dir in dirs:
+            sink.tracker.keep_existing(_promoted_manifest_paths(release_dir) + [release_dir.parent / "namespace.yaml"])
+    # A kind that failed to list says nothing about whether its objects
+    # still exist: keep last run's raw copies rather than sweep the backup.
+    raw_root = sink.root / "kubernetes" / "raw"
+    for kind in failed_kinds:
+        sink.tracker.keep_existing(raw_root.glob(f"*/{kind}/*.yaml"))
     return counts
+
+
+def _promoted_namespaces(root: Path, warnings: list[str]) -> tuple[dict[str, Path], dict[str, list[Path]]]:
+    """Namespace -> its promoted release folder. A namespace can only be
+    promoted into one release; with several markers it's promoted into
+    none (their existing manifests are held) until that's resolved.
+    """
+    by_ns: dict[str, list[Path]] = {}
+    for release_dir in promoted_release_dirs(root):
+        by_ns.setdefault(release_dir.parent.name, []).append(release_dir)
+    promoted, ambiguous = {}, {}
+    for ns, dirs in by_ns.items():
+        if len(dirs) == 1:
+            promoted[ns] = dirs[0]
+        else:
+            ambiguous[ns] = dirs
+            names = ", ".join(d.name for d in dirs)
+            warnings.append(
+                f"{ns}: more than one release is marked {PROMOTE_MARKER} ({names}); a namespace "
+                "can only be promoted into one. Nothing in it was re-captured this run."
+            )
+    return promoted, ambiguous
+
+
+def _promoted_manifest_paths(release_dir: Path) -> list[Path]:
+    app_dir = release_dir / "app"
+    if not app_dir.is_dir():
+        return []
+    return [p for p in app_dir.glob("*.yaml") if p.name != "kustomization.yaml"]
+
+
+def _write_promoted_release(
+    sink: Sink, context, ns, release_dir, docs, held_reasons, known_vars, warnings, redactions, verbose, substitutions
+):
+    namespace_yaml = release_dir.parent / "namespace.yaml"
+    protected = handwritten_protected_paths(sink.root)
+    if not sink.tracker.was_written(namespace_yaml) and namespace_yaml.relative_to(sink.root).as_posix() not in protected:
+        ns_obj = kube.get_namespace(context, ns)
+        if ns_obj:
+            label = f"apps/{ns}/namespace.yaml"
+            sink.write_yaml(namespace_yaml, _neat_and_redact(ns_obj, label, redactions, verbose, substitutions))
+        else:
+            sink.tracker.keep_existing([namespace_yaml])
+
+    rel = release_dir.relative_to(sink.root).as_posix()
+    if held_reasons:
+        # Rewriting (or sweeping) these would have Flux apply a redaction
+        # placeholder, or prune a live object that merely failed to list.
+        sink.tracker.keep_existing(_promoted_manifest_paths(release_dir))
+        warnings.append(
+            f"{rel}: promoted manifests left unchanged this run -- " + "; ".join(held_reasons)
+        )
+        return
+    if not docs:
+        warnings.append(f"{rel}: marked {PROMOTE_MARKER}, but namespace '{ns}' has nothing to promote")
+    for filename, doc in docs:
+        sink.write_yaml(release_dir / "app" / filename, promote.escape_foreign_variables(doc, known_vars))
 
 
 _RAW_README = """# kubernetes/raw
@@ -419,6 +552,11 @@ Move items into `kubernetes/apps/<namespace>/<app>/app/` by hand as you
 curate them; this script will stop re-writing a file here once the live
 resource it came from is deleted or starts matching the skip filter (for
 example, once it's adopted into a Helm release).
+
+Or promote a whole namespace: create an empty
+`kubernetes/apps/<namespace>/<app>/.promote` and the next capture writes
+its resources there instead, cleaned up to be applied by Flux (see the
+generator's `promote.py`).
 """
 
 

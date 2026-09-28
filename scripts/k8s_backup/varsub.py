@@ -83,6 +83,28 @@ def _load_raw_entries(root: Path) -> list:
     return list(data) if data else []
 
 
+_BARE_VAR_NAME = re.compile(r"^[_A-Za-z][_A-Za-z0-9]*$")
+
+
+def normalize_placeholder(placeholder: str) -> str:
+    """`NAME` -> `${NAME}`. A bare name is just ordinary text once it's in a
+    manifest: capture swaps the literal for it and Flux's postBuild
+    substitution, which only expands `${NAME}`, never swaps it back.
+    """
+    return f"${{{placeholder}}}" if _BARE_VAR_NAME.match(placeholder) else placeholder
+
+
+def bare_placeholders(root: Path) -> list[str]:
+    """Placeholders in the local file written without the `${...}` wrapper
+    (load_substitutions() wraps them), so the operator can be told to fix it.
+    """
+    return [
+        str(e.get("placeholder"))
+        for e in _load_raw_entries(root)
+        if isinstance(e, dict) and e.get("placeholder") and _BARE_VAR_NAME.match(str(e["placeholder"]))
+    ]
+
+
 def load_substitutions(root: Path) -> list[dict]:
     entries = []
     for entry in _load_raw_entries(root):
@@ -94,7 +116,7 @@ def load_substitutions(root: Path) -> list[dict]:
             entries.append(
                 {
                     "literal": str(literal),
-                    "placeholder": str(placeholder),
+                    "placeholder": normalize_placeholder(str(placeholder)),
                     "sensitivity": entry.get("sensitivity", "configmap"),
                     "note": entry.get("note", ""),
                 }

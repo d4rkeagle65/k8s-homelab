@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  name: homeassistant
+  namespace: homeassistant
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: homeassistant.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: homeassistant
+            port:
+              number: 8123
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - homeassistant.${BASE_DOMAIN}
+    secretName: homeassistant-http-tls

@@ -24,7 +24,7 @@ from pathlib import Path
 
 from . import constants, flux, inventory, scaffold, varsub, yamlio
 from .filetracker import FileTracker, RunReport
-from .ownership import generate_owner, is_handwritten
+from .ownership import PROMOTE_MARKER, generate_owner, is_handwritten, is_promoted
 from .sink import Sink
 
 
@@ -134,6 +134,10 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
         for release_dir in sorted(p for p in ns_dir.iterdir() if p.is_dir()):
             if is_handwritten(release_dir):
                 continue
+            if is_promoted(release_dir):
+                if _generate_promoted_scaffolding(sink, namespace, release_dir, timestamp, warnings):
+                    count += 1
+                continue
             release_yaml = release_dir / "release.yaml"
             values_yaml = release_dir / "app" / "values.yaml"
             if not release_yaml.exists() or not values_yaml.exists():
@@ -199,6 +203,28 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
                 print(f"  {namespace}/{release_name}")
 
     return count
+
+
+def _generate_promoted_scaffolding(sink: Sink, namespace: str, release_dir: Path, timestamp, warnings) -> bool:
+    """app/kustomization.yaml and ks.yaml for a promoted release, whose
+    app/ manifests capture wrote (see promote.py).
+    """
+    app_dir = release_dir / "app"
+    manifests = sorted(p.name for p in app_dir.glob("*.yaml") if p.name != "kustomization.yaml") if app_dir.is_dir() else []
+    if not manifests:
+        warnings.append(f"{namespace}/{release_dir.name}: marked {PROMOTE_MARKER} but has no manifests yet; run `capture` first")
+        return False
+    sink.write_yaml_stable(app_dir / "kustomization.yaml", flux.kustomization_file(manifests), timestamp)
+    ks_doc = flux.flux_kustomization(
+        name=release_dir.name,
+        target_namespace=namespace,
+        path=f"./kubernetes/apps/{namespace}/{release_dir.name}/app",
+        interval=constants.HELMRELEASE_KS_INTERVAL,
+        configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
+        secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
+    )
+    sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc, timestamp)
+    return True
 
 
 def _generate_namespace_kustomizations(sink: Sink, timestamp: str) -> None:

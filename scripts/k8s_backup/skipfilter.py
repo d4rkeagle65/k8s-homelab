@@ -25,7 +25,7 @@ import re
 # recreate will change out from under you.
 _BUILTIN_CLUSTERROLE_PREFIXES = ("system:", "kubeadm:", "tigera-operator")
 _BUILTIN_CLUSTERROLE_EXACT = {"admin", "edit", "view", "cluster-admin"}
-_DYNAMIC_PV_NAME_RE = re.compile(
+DYNAMIC_PV_NAME_RE = re.compile(
     r"^pvc-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
 )
 
@@ -77,7 +77,7 @@ def classify_cluster_locality(kind: str, obj: dict) -> str | None:
         if subject_namespaces and subject_namespaces <= _INFRA_SUBJECT_NAMESPACES:
             return "binds a ServiceAccount that lives in a built-in namespace, not one this repo deploys into"
 
-    if kind_norm == "persistentvolume" and _DYNAMIC_PV_NAME_RE.match(name):
+    if kind_norm == "persistentvolume" and DYNAMIC_PV_NAME_RE.match(name):
         return "dynamically provisioned by a StorageClass; recreated automatically alongside its PVC"
 
     if kind_norm == "priorityclass" and name.startswith("system-"):
@@ -111,6 +111,14 @@ def should_skip(kind: str, obj: dict) -> str | None:
         return "auto-generated kube-root-ca.crt ConfigMap"
     if kind_norm == "serviceaccount" and name == "default":
         return "auto-generated default ServiceAccount"
+    # CloudNativePG writes this into every namespace holding a Cluster,
+    # without an ownerReference, and rewrites it on each operator upgrade.
+    if (
+        kind_norm == "configmap"
+        and name == "cnpg-default-monitoring"
+        and "cnpg.io/operatorVersion" in (metadata.get("annotations") or {})
+    ):
+        return "created by the CloudNativePG operator"
     # longhorn-manager builds these from its longhorn-storageclass ConfigMap
     # (which the Helm release owns) and carries no label or ownerReference
     # saying so. Committing them would have cluster-resources fight the

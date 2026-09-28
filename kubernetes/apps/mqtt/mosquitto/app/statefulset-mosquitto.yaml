@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mosquitto
+  namespace: mqtt
+spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: mosquitto
+  serviceName: mosquitto
+  template:
+    metadata:
+      labels:
+        app: mosquitto
+    spec:
+      containers:
+      - image: eclipse-mosquitto:2
+        imagePullPolicy: IfNotPresent
+        name: mosquitto
+        ports:
+        - containerPort: 1883
+          name: mqtt
+          protocol: TCP
+        - containerPort: 9001
+          name: websockets
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /mosquitto/config/mosquitto.conf
+          name: config
+          subPath: mosquitto.conf
+        - mountPath: /mosquitto/data
+          name: data
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: mosquitto-config
+        name: config
+      - name: data
+        persistentVolumeClaim:
+          claimName: mosquitto-data
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate

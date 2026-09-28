@@ -24,6 +24,9 @@ from typing import Callable
 from . import yamlio
 
 HANDWRITTEN_MARKER = ".handwritten"
+# See promote.py: capture writes the namespace's non-Helm resources into
+# this folder's app/ instead of kubernetes/raw/.
+PROMOTE_MARKER = ".promote"
 
 CAPTURE_PATTERNS = [
     "docs/*",
@@ -80,6 +83,32 @@ def is_handwritten(release_dir: Path) -> bool:
     return (release_dir / HANDWRITTEN_MARKER).is_file()
 
 
+def is_promoted(release_dir: Path) -> bool:
+    return (release_dir / PROMOTE_MARKER).is_file() and not is_handwritten(release_dir)
+
+
+def promoted_release_dirs(root: Path) -> list[Path]:
+    apps = root / "kubernetes" / "apps"
+    if not apps.is_dir():
+        return []
+    return sorted(p.parent for p in apps.glob(f"*/*/{PROMOTE_MARKER}") if is_promoted(p.parent))
+
+
+def _promoted_manifest_owner(root: Path) -> Callable[[str], bool]:
+    """The manifests capture writes into a promoted release's app/ -- every
+    .yaml there except generate's kustomization.yaml.
+    """
+    prefixes = tuple(f"{d.relative_to(root).as_posix()}/app/" for d in promoted_release_dirs(root))
+
+    def owns(rel: str) -> bool:
+        if not prefixes or not rel.startswith(prefixes) or not rel.endswith(".yaml"):
+            return False
+        rest = rel[len(next(p for p in prefixes if rel.startswith(p))):]
+        return "/" not in rest and rest != "kustomization.yaml"
+
+    return owns
+
+
 def handwritten_release_dirs(root: Path) -> list[Path]:
     apps = root / "kubernetes" / "apps"
     if not apps.is_dir():
@@ -124,8 +153,10 @@ def _excluding(owns: Callable[[str], bool], protected: set[str]) -> Callable[[st
 
 
 def capture_owner(root: Path) -> Callable[[str], bool]:
-    """capture_owns, minus anything a hand-written release depends on."""
-    return _excluding(capture_owns, handwritten_protected_paths(root))
+    """capture_owns plus promoted releases' manifests, minus anything a
+    hand-written release depends on."""
+    promoted = _promoted_manifest_owner(root)
+    return _excluding(lambda rel: capture_owns(rel) or promoted(rel), handwritten_protected_paths(root))
 
 
 def generate_owner(root: Path) -> Callable[[str], bool]:

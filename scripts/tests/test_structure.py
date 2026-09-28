@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from k8s_backup.ownership import handwritten_protected_paths, is_handwritten
+from k8s_backup.ownership import handwritten_protected_paths, is_handwritten, is_promoted
 
 REQUIRED_TOP_FILES = ["README.md", ".gitignore", ".gitattributes", ".sops.yaml"]
 REQUIRED_TOP_DIRS = ["docs", "kubernetes", "scripts", ".github"]
@@ -225,6 +225,8 @@ RELEASE_REQUIRED_FILES = [
 ]
 # Written by capture; a hand-written release (.handwritten marker) has none.
 CAPTURED_RELEASE_FILES = {"release.yaml", "app/values.yaml", "app/values-all.yaml"}
+# A promoted release (.promote marker) is plain manifests, not a Helm release.
+PROMOTED_RELEASE_FILES = {"ks.yaml", "app/kustomization.yaml"}
 
 
 @pytest.mark.parametrize("rel_file", RELEASE_REQUIRED_FILES)
@@ -232,6 +234,13 @@ def test_every_release_has_required_files(repo_root, rel_file):
     found_any = False
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
         found_any = True
+        if is_promoted(release_dir):
+            present = (release_dir / rel_file).exists()
+            assert present == (rel_file in PROMOTED_RELEASE_FILES), (
+                f"{ns_name}/{release_name}/{rel_file}: a promoted release has exactly "
+                f"{sorted(PROMOTED_RELEASE_FILES)} of these"
+            )
+            continue
         if is_handwritten(release_dir):
             if rel_file in CAPTURED_RELEASE_FILES:
                 assert not (release_dir / rel_file).exists(), (
@@ -259,8 +268,8 @@ def test_ks_yaml_matches_its_release(repo_root, load_yaml):
 
 def test_helmrelease_matches_its_release(repo_root, load_yaml):
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
-        if is_handwritten(release_dir):
-            continue  # no release.yaml to match; see test_handwritten_helmrelease_is_consistent
+        if is_handwritten(release_dir) or is_promoted(release_dir):
+            continue  # no release.yaml to match
         release_meta = load_yaml(release_dir / "release.yaml")
         hr = load_yaml(release_dir / "app" / "helmrelease.yaml")
         assert hr["apiVersion"] == "helm.toolkit.fluxcd.io/v2"
@@ -307,12 +316,34 @@ def test_handwritten_helmrelease_is_consistent(repo_root, load_yaml):
 
 def test_app_kustomization_lists_helmrelease(repo_root, load_yaml):
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
+        if is_promoted(release_dir):
+            continue  # see test_promoted_release_is_consistent
         doc = load_yaml(release_dir / "app" / "kustomization.yaml")
         assert "helmrelease.yaml" in doc["resources"], f"{ns_name}/{release_name}"
         assert "values.yaml" not in doc["resources"], (
             f"{ns_name}/{release_name}: values.yaml is a Helm values file, not a manifest -- "
             "it must never appear in a Kustomize resources: list"
         )
+
+
+def test_promoted_release_is_consistent(repo_root, load_yaml):
+    from k8s_backup.secretscan import REDACTION_PLACEHOLDER
+
+    for ns_name, release_name, release_dir in _release_dirs(repo_root):
+        if not is_promoted(release_dir):
+            continue
+        app_dir = release_dir / "app"
+        manifests = {p.name for p in app_dir.glob("*.yaml") if p.name != "kustomization.yaml"}
+        assert set(load_yaml(app_dir / "kustomization.yaml")["resources"]) == manifests, (
+            f"{ns_name}/{release_name}: app/kustomization.yaml doesn't list exactly the manifests in app/"
+        )
+        for name in manifests:
+            text = (app_dir / name).read_text(encoding="utf-8")
+            assert REDACTION_PLACEHOLDER not in text, (
+                f"{ns_name}/{release_name}/app/{name}: Flux would apply the redaction placeholder"
+            )
+            doc = load_yaml(app_dir / name)
+            assert doc["metadata"].get("namespace") in (None, ns_name), f"{ns_name}/{release_name}/app/{name}"
 
 
 GENERATED_YAML_GLOBS = [

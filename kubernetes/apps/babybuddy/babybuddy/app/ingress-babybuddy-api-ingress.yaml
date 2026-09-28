@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  name: babybuddy-api-ingress
+  namespace: babybuddy
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: bb.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: babybuddy-svc
+            port:
+              number: 8000
+        path: /api
+        pathType: Prefix
+  tls:
+  - hosts:
+    - bb.${BASE_DOMAIN}
+    secretName: babybuddy-http-tls

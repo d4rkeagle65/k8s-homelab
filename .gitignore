@@ -28,10 +28,6 @@ __pycache__/
 # re-appliable and isn't authoritative.
 /kubernetes/raw/
 
-/docs/
-
-/secrets/
-
 # Never commit real SOPS age keys or other private key material
 *.age
 *.pem
@@ -40,5 +36,6 @@ __pycache__/
 id_rsa*
 id_ed25519*
 
-
-
+# Added by hand (kept by generate):
+/docs/
+/secrets/

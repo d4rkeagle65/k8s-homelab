@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  name: babybuddy-mcp
+  namespace: babybuddy-mcp
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: bb-mcp.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: babybuddy-mcp
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - bb-mcp.${BASE_DOMAIN}
+    secretName: babybuddy-mcp-tls

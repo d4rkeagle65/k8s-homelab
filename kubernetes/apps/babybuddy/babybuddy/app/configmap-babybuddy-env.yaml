@@ -1,0 +1,12 @@
+apiVersion: v1
+data:
+  CSRF_TRUSTED_ORIGINS: https://bb.${BASE_DOMAIN}
+  DB_ENGINE: django.db.backends.postgresql
+  DB_HOST: babybuddy-postgres-rw
+  DB_NAME: babybuddy
+  PROXY_HEADER: HTTP_X_AUTHENTIK_USERNAME
+  REVERSE_PROXY_AUTH: "True"
+kind: ConfigMap
+metadata:
+  name: babybuddy-env
+  namespace: babybuddy

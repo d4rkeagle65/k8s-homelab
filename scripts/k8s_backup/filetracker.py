@@ -62,6 +62,20 @@ class FileTracker:
         else:
             self.report.unchanged.append(rel)
 
+    def keep_existing(self, paths) -> None:
+        """Count owned files that are on disk but weren't rewritten this run
+        as current, so sweep_orphans() leaves them alone. For output that
+        must be held as-is when this run's data for it can't be trusted.
+        """
+        for path in paths:
+            rel = path.relative_to(self.root).as_posix()
+            if rel in self._before and rel not in self._seen:
+                self._seen.add(rel)
+                self.report.unchanged.append(rel)
+
+    def was_written(self, path: Path) -> bool:
+        return path.relative_to(self.root).as_posix() in self._seen
+
     def sweep_orphans(self) -> None:
         orphaned = sorted(set(self._before) - self._seen)
         for rel in orphaned:
