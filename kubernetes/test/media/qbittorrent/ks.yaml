@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./kubernetes/test/media/qbittorrent/app
+  path: ./kubernetes/apps/media/qbittorrent/app
   prune: true
   sourceRef:
     kind: GitRepository
