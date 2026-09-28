@@ -42,6 +42,13 @@ _INFRA_SUBJECT_NAMESPACES = {"default", "kube-system", "kube-public", "kube-node
 
 _LONGHORN_MANAGED_STORAGECLASSES = {"longhorn", "longhorn-static"}
 
+# app.kubernetes.io/managed-by values naming a controller that creates the
+# object and keeps reconciling it -- neither backed up as yours nor promoted,
+# or Flux and that controller would fight over it.
+_CONTROLLER_MANAGED_BY = {
+    "goauthentik.io",  # Authentik's outpost Deployments, Services and token Secrets
+}
+
 
 def _is_builtin_rbac_name(name: str) -> bool:
     return name in _BUILTIN_CLUSTERROLE_EXACT or name.startswith(_BUILTIN_CLUSTERROLE_PREFIXES)
@@ -96,6 +103,9 @@ def should_skip(kind: str, obj: dict) -> str | None:
     labels = metadata.get("labels") or {}
     if labels.get("app.kubernetes.io/managed-by") == "Helm":
         return "managed-by=Helm (captured via Helm release)"
+    managed_by = labels.get("app.kubernetes.io/managed-by")
+    if managed_by in _CONTROLLER_MANAGED_BY:
+        return f"managed-by={managed_by} (created and reconciled by that controller)"
 
     annotations = metadata.get("annotations") or {}
     if "meta.helm.sh/release-name" in annotations:

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    storage.k8s.io/name: nfs
+  name: immich-data
+  namespace: immich
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 256Gi
+  storageClassName: nfs-retain-rwo
+  volumeMode: Filesystem

@@ -440,6 +440,13 @@ def _capture_namespaced_resources(
             if not reason and ns in promoted and kind == "persistentvolumeclaim":
                 if any(p.match(meta.get("name", "")) for p in sts_claims.get(ns, [])):
                     reason = "created from a StatefulSet volumeClaimTemplate"
+                elif (item.get("status") or {}).get("phase") == "Lost":
+                    # Its volume is gone: debris, never something to rebuild.
+                    reason = "Lost (its PersistentVolume no longer exists)"
+                    warnings.append(
+                        f"{ns}/{meta.get('name')}: PVC is Lost -- its volume no longer exists. "
+                        "Not promoted; delete it if nothing needs it."
+                    )
             if reason:
                 if verbose:
                     print(f"  [raw] skip {ns}/{kind}/{meta.get('name')}: {reason}", file=sys.stderr)

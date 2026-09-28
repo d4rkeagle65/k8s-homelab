@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+  name: immich-power-tools-ingress
+  namespace: immich
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: immichpt.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: immich-power-tools-svc
+            port:
+              number: 3000
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - immichpt.${BASE_DOMAIN}
+    secretName: immichpt-http-tls

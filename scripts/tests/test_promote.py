@@ -232,3 +232,13 @@ def test_bare_placeholder_is_wrapped_so_flux_substitutes_it():
     assert normalize_placeholder("Child1") == "${Child1}"
     assert normalize_placeholder("${BASE_DOMAIN}") == "${BASE_DOMAIN}"
     assert normalize_placeholder("not a var name") == "not a var name"
+
+
+def test_lost_pvcs_are_not_promoted(tmp_path, monkeypatch):
+    _mark(tmp_path)
+    lost = _obj("PersistentVolumeClaim", "redis-data-old-0", status={"phase": "Lost"})
+    _serve(monkeypatch, {**CLUSTER, "persistentvolumeclaim": [*CLUSTER["persistentvolumeclaim"], lost]})
+    _, warnings = _capture(tmp_path)
+    assert not (tmp_path / APP / "persistentvolumeclaim-redis-data-old-0.yaml").exists()
+    assert (tmp_path / APP / "persistentvolumeclaim-babybuddy-config.yaml").is_file()
+    assert any("PVC is Lost" in w for w in warnings)

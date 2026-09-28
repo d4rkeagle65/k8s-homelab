@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-power-tools
+  namespace: immich
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: immich-power-tools
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-06-14T17:41:12-04:00"
+      labels:
+        app: immich-power-tools
+        env: production
+    spec:
+      containers:
+      - env:
+        - name: IMMICH_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: immich-apikey
+              name: immich-power-tools-apikey
+        - name: GOOGLE_MAPS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: maps-apikey
+              name: immich-power-tools-apikey
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: gemini-apikey
+              name: immich-power-tools-apikey
+        - name: IMMICH_URL
+          value: https://immich.${BASE_DOMAIN}
+        - name: EXTERNAL_IMMICH_URL
+          value: https://immich.${BASE_DOMAIN}
+        - name: DB_HOST
+          value: immich-postgres-rw
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: immich-postgres-app
+        - name: DB_DATABASE_NAME
+          value: immich
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: immich-postgres-app
+        - name: DB_PORT
+          value: "5432"
+        image: ghcr.io/varun-raj/immich-power-tools:0.18.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /api/health
+            port: 3000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 10
+        name: server
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 128m
+            memory: 256Mi
+          requests:
+            cpu: 80m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

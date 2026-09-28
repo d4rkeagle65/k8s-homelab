@@ -87,3 +87,13 @@ def test_longhorn_manager_storageclasses_are_skipped():
     # A Longhorn class you define yourself is still yours to capture.
     assert should_skip("storageclass", sc("longhorn-1replica")) is None
     assert should_skip("storageclass", sc("longhorn", provisioner="example.com/other")) is None
+
+
+def test_controller_managed_objects_are_skipped():
+    from k8s_backup.skipfilter import should_skip
+
+    outpost = {"kind": "Deployment", "metadata": {"name": "ak-outpost-ldap",
+               "labels": {"app.kubernetes.io/managed-by": "goauthentik.io"}}}
+    assert "goauthentik.io" in should_skip("deployment", outpost)
+    mine = {"kind": "Deployment", "metadata": {"name": "x", "labels": {"app.kubernetes.io/managed-by": "kustomize"}}}
+    assert should_skip("deployment", mine) is None
