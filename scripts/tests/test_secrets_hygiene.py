@@ -48,6 +48,19 @@ def _gitignored(repo_root, paths):
     return {repo_root / rel for rel in proc.stdout.decode("utf-8").split("\0") if rel}
 
 
+def _local_secret_store(repo_root, paths):
+    """Files under kubernetes/.local/ that git ignores: the local-only store
+    that is SUPPOSED to hold real values -- the rendered cluster-substitutions
+    Secret, variable-substitutions.yaml with promoted Secrets' values, the
+    full-fidelity cluster backup. The content scans below skip them, but
+    only while git really ignores them: the moment .local/ could be
+    committed, they're scanned again.
+    """
+    local_root = repo_root / "kubernetes" / ".local"
+    local = [p for p in paths if p.is_relative_to(local_root)]
+    return _gitignored(repo_root, local) if local else set()
+
+
 def _text_files(all_files):
     for path in all_files:
         if path.suffix.lower() in SKIP_SUFFIXES:
@@ -74,8 +87,18 @@ def test_no_secret_manifests_captured(all_yaml_files, load_yaml, repo_root):
     (see varsub.py), not something scraped off a live cluster object. It's
     gitignored and exists so Flux's postBuild.substituteFrom has something
     to apply -- allowlisted by exact path, not by weakening this check.
+
+    A promoted Secret (promote.templated_secret) is the other: every value
+    is exactly one ${VAR} placeholder (or empty), the real value living only
+    in that local Secret. One literal value anywhere and it's an offender.
     """
     from k8s_backup.varsub import LOCAL_SECRET_PATH
+
+    placeholder = re.compile(r"^\$\{[_A-Za-z][_A-Za-z0-9]*\}$")
+
+    def only_placeholders(doc):
+        values = [*(doc.get("data") or {}).values(), *(doc.get("stringData") or {}).values()]
+        return all(v in ("", None) or (isinstance(v, str) and placeholder.match(v)) for v in values)
 
     allowed_path = repo_root.joinpath(*LOCAL_SECRET_PATH)
     offenders = []
@@ -86,7 +109,7 @@ def test_no_secret_manifests_captured(all_yaml_files, load_yaml, repo_root):
             doc = load_yaml(path)
         except Exception:
             continue
-        if isinstance(doc, dict) and doc.get("kind") == "Secret":
+        if isinstance(doc, dict) and doc.get("kind") == "Secret" and not only_placeholders(doc):
             offenders.append(path)
     assert not offenders, (
         "found a captured Secret manifest -- this generator must never write Secret "
@@ -95,8 +118,11 @@ def test_no_secret_manifests_captured(all_yaml_files, load_yaml, repo_root):
 
 
 def test_high_confidence_credential_patterns(repo_root, all_files, allowlist):
+    local_store = _local_secret_store(repo_root, all_files)
     offenders = []
     for path in _text_files(all_files):
+        if path in local_store:
+            continue
         try:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
@@ -153,8 +179,11 @@ def test_values_files_have_no_plaintext_credentials(repo_root, load_yaml, allowl
 
 
 def test_no_high_entropy_secrets_in_captured_manifests(repo_root, all_yaml_files, load_yaml, allowlist):
+    local_store = _local_secret_store(repo_root, all_yaml_files)
     offenders = []
     for path in all_yaml_files:
+        if path in local_store:
+            continue
         try:
             data = load_yaml(path)
         except Exception:
@@ -179,8 +208,11 @@ def test_no_env_var_credentials_in_captured_manifests(repo_root, all_yaml_files,
     CronJob/etc -- the single most common way a credential ends up baked
     into a pod spec instead of behind `valueFrom.secretKeyRef`.
     """
+    local_store = _local_secret_store(repo_root, all_yaml_files)
     offenders = []
     for path in all_yaml_files:
+        if path in local_store:
+            continue
         try:
             data = load_yaml(path)
         except Exception:

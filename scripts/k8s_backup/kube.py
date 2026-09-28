@@ -62,6 +62,18 @@ def get_namespaced(context: str | None, kind: str, namespace: str) -> tuple[list
     return (data or {}).get("items", []), None
 
 
+def get_object(context: str | None, kind: str, namespace: str, name: str) -> tuple[dict | None, str | None]:
+    """One object, or (None, warning) if it can't be read -- including when
+    it doesn't exist.
+    """
+    data, err = procutil.run_json_tolerant(
+        _base_args(context) + ["get", kind, name, "-n", namespace, "-o", "json"]
+    )
+    if err is not None:
+        return None, f"could not get {kind} {namespace}/{name}: {err}"
+    return data, None
+
+
 def list_secrets(context: str | None, namespace: str) -> list[dict]:
     data = procutil.run_json(
         _base_args(context) + ["get", "secret", "-n", namespace, "-o", "json"]

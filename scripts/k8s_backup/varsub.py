@@ -312,17 +312,54 @@ def auto_seed(root: Path, cluster_raw: dict, ingress_items: list[dict], dry_run:
     if not new_entries:
         return []
 
-    combined = existing + new_entries
+    _write_entries(root, existing + new_entries)
+    return added_descriptions
+
+
+def sync_secret_entries(root: Path, wanted: dict[str, tuple[str, str]], source: str, dry_run: bool) -> list[str]:
+    """Make sure every placeholder in `wanted` ({placeholder: (literal,
+    note)}) has a `sensitivity: secret` entry holding that literal: adds
+    missing ones, and updates ones added earlier with the same `source`
+    whose literal has changed (a rotated password). An entry written by
+    hand for the same placeholder is left alone. Never removes one -- an
+    entry disappearing would blank a value Flux still substitutes.
+    Returns what changed, by placeholder and note only, never a value.
+    """
+    if dry_run or not wanted:
+        return []
+    entries = _load_raw_entries(root)
+    by_placeholder = {
+        normalize_placeholder(str(e["placeholder"])): e
+        for e in entries
+        if isinstance(e, dict) and e.get("placeholder")
+    }
+    changes = []
+    for placeholder, (literal, note) in wanted.items():
+        entry = by_placeholder.get(placeholder)
+        if entry is None:
+            entries.append(
+                {"literal": literal, "placeholder": placeholder, "note": note, "sensitivity": "secret", "source": source}
+            )
+            changes.append(f"added {placeholder} ({note})")
+        elif entry.get("source") == source and str(entry.get("literal")) != literal:
+            entry["literal"] = literal
+            changes.append(f"updated {placeholder} ({note}): the live value changed")
+    if changes:
+        _write_entries(root, entries)
+    return changes
+
+
+def _write_entries(root: Path, entries: list) -> None:
     path = local_substitutions_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     header = (
         "# Local, gitignored: exact literal values replaced with a placeholder in every\n"
         "# git-tracked captured file. Entries marked `source: auto` were detected\n"
-        "# automatically (ACME emails, non-IP NFS server hostnames); add your own for\n"
-        "# anything else. Never committed -- that would defeat the point.\n"
+        "# automatically (ACME emails, non-IP NFS server hostnames); `source: auto-secret`\n"
+        "# entries hold a promoted Secret's values (base64, as the Secret stores them).\n"
+        "# Add your own for anything else. Never committed -- that would defeat the point.\n"
     )
-    yamlio.write_yaml_file(path, combined, header=header)
-    return added_descriptions
+    yamlio.write_yaml_file(path, entries, header=header)
 
 
 def _var_name(placeholder: str) -> str:

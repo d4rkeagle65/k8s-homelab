@@ -13,6 +13,9 @@ a rebuilt cluster. clean_for_gitops() strips what the cluster assigned on
 its own and that would break or pin a rebuild: a Service's allocated
 cluster IP and node ports, a PVC's binding to one specific dynamically
 provisioned PV, controller finalizers and bookkeeping annotations.
+
+Secrets are promoted too, but their values never reach git: see
+templated_secret().
 """
 
 from __future__ import annotations
@@ -27,7 +30,7 @@ from .skipfilter import DYNAMIC_PV_NAME_RE
 # disappears from git -- for the kinds whose deletion loses data.
 # https://fluxcd.io/flux/components/kustomize/kustomizations/#prune
 PRUNE_ANNOTATION = "kustomize.toolkit.fluxcd.io/prune"
-_PRUNE_DISABLED_KINDS = {"PersistentVolumeClaim", "Cluster"}
+_PRUNE_DISABLED_KINDS = {"PersistentVolumeClaim", "Cluster", "Secret"}
 
 _BOOKKEEPING_ANNOTATIONS = (
     "deployment.kubernetes.io/revision",
@@ -156,3 +159,81 @@ def clean_for_gitops(obj: dict) -> dict:
         metadata.setdefault("annotations", {})[PRUNE_ANNOTATION] = "disabled"
 
     return obj
+
+
+# ---- Secrets -----------------------------------------------------------------
+#
+# A promoted Secret goes to git with every value replaced by a ${VAR}
+# placeholder. The value itself -- base64, exactly as the Secret stores it --
+# goes into the gitignored kubernetes/.local/variable-substitutions.yaml as a
+# `sensitivity: secret` entry, which capture renders into
+# kubernetes/.local/cluster-substitutions-secret.yaml; once that's applied to
+# the cluster, Flux's postBuild substitution puts the value back. Base64
+# because it's always a plain YAML scalar: a raw value holding a newline, a
+# ": " or a leading quote would corrupt the manifest Flux substitutes into.
+
+SECRET_SEED_SOURCE = "auto-secret"
+
+_GENERATED_SECRET_TYPES = {
+    "kubernetes.io/service-account-token",
+    "bootstrap.kubernetes.io/token",
+    "helm.sh/release.v1",
+}
+
+
+def generated_secret_reason(secret: dict) -> str | None:
+    """Why a Secret is recreated by something else and so isn't promoted,
+    or None. (ownerReferences and Helm-managed are skipfilter's job.)
+    """
+    metadata = secret.get("metadata", {})
+    annotations = metadata.get("annotations") or {}
+    labels = metadata.get("labels") or {}
+    if secret.get("type") in _GENERATED_SECRET_TYPES:
+        return f"type {secret['type']}"
+    if "cert-manager.io/certificate-name" in annotations:
+        return "issued by cert-manager"
+    if "cnpg.io/cluster" in labels:
+        return "created by CloudNativePG"
+    return None
+
+
+def secret_placeholder(namespace: str, name: str, key: str) -> str:
+    """`${NOIP_DUC_CREDENTIALS_NOIP_PASSWORD}` for key NOIP_PASSWORD of
+    noip-duc/noip-duc-credentials: the namespace is left out when the Secret
+    name already starts with it. Always a valid Flux variable name.
+    """
+    base = name if name.startswith(namespace) else f"{namespace}-{name}"
+    var = re.sub(r"[^A-Za-z0-9]", "_", f"{base}_{key}").upper()
+    if var[0].isdigit():
+        var = f"_{var}"
+    return f"${{{var}}}"
+
+
+def templated_secret(secret: dict) -> tuple[dict, dict[str, str]]:
+    """(manifest, {placeholder: base64 value}) for an already-neat()ed
+    Secret. An empty value is written as-is; it holds nothing to hide.
+    """
+    metadata = secret.get("metadata", {})
+    namespace, name = metadata.get("namespace", ""), metadata["name"]
+    values: dict[str, str] = {}
+    data: dict[str, str] = {}
+    for key, value in sorted((secret.get("data") or {}).items()):
+        if not value:
+            data[key] = ""
+            continue
+        placeholder = secret_placeholder(namespace, name, key)
+        data[key] = placeholder
+        values[placeholder] = value
+
+    out_meta: dict = {"name": name, "namespace": namespace}
+    if metadata.get("labels"):
+        out_meta["labels"] = dict(metadata["labels"])
+    annotations = dict(metadata.get("annotations") or {})
+    annotations[PRUNE_ANNOTATION] = "disabled"
+    out_meta["annotations"] = annotations
+
+    manifest = {"apiVersion": "v1", "kind": "Secret", "metadata": out_meta, "type": secret.get("type", "Opaque")}
+    if secret.get("immutable"):
+        manifest["immutable"] = True
+    manifest["data"] = data
+    return manifest, values

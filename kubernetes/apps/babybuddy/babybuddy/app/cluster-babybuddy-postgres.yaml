@@ -1,10 +1,10 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: babybuddy-postgres
-  namespace: babybuddy
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
+  name: babybuddy-postgres
+  namespace: babybuddy
 spec:
   affinity:
     podAntiAffinityType: preferred

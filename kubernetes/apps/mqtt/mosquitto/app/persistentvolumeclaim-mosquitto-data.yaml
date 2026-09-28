@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mosquitto-data
-  namespace: mqtt
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
+  name: mosquitto-data
+  namespace: mqtt
 spec:
   accessModes:
   - ReadWriteOnce
