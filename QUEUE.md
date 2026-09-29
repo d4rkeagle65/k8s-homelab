@@ -22,22 +22,19 @@ nothing here tracks them.
 
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
-  Released PVs of the 9 moved databases, all of `media-test` and
-  `babybuddy-config` were deleted, and their folders were moved into a
+  Released PVs of the 9 moved databases, all of `media-test`,
+  `babybuddy-config`, and the old `paperless`, `fasten`, `gitlab`, `redis`,
+  `emby-config`, `immich-data` and `manictime-server-data` volumes were
+  deleted, and their folders were moved into a
   `_deleted-pvs-2026-09-29` folder beside each one. Those holding folders are
   listed in `/root/deleted-pvs-2026-09-29.txt` on the Synology; each PV's
   original path is in the gitignored
-  `kubernetes/.local/released-pvs-2026-09-29.csv`. As root on the Synology:
+  `kubernetes/.local/released-pvs-2026-09-29.csv` (and
+  `pv-folders-to-delete-2.txt` for the second batch). As root on the Synology:
   - check: `sort -u /root/deleted-pvs-2026-09-29.txt | while read -r d; do du -sh "$d"; done`
   - delete: `sort -u /root/deleted-pvs-2026-09-29.txt | while read -r d; do rm -rf -- "$d"; done`
 
   Shell deletes skip Synology's Recycle Bin, so this can't be undone.
-- [ ] **Decide on the other Released PVs**, which aren't from the database
-  move and may hold real data: `paperless` (5, including the documents),
-  `fasten` (3), `gitlab-postgres-1`, `redis-data-redis-master-0`,
-  `emby-config` (2), `immich-data` (256Gi; confirm immich's live PVC points
-  elsewhere first) and `manictime-server-data`. Same steps as above, with the
-  filter changed.
 - [ ] **Decide what to do with Longhorn.** It's installed and running, but it
   can't serve volumes on these LXC nodes, and its default disks sit on the 8 GiB
   root filesystems. Either uninstall it through Flux or keep it for a future
