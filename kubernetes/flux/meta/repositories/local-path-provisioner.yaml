@@ -1,0 +1,16 @@
+# local-path-provisioner's Helm chart is only published in its git repo
+# (deploy/chart/), not in a Helm repository. Pinned to a release tag; fetch
+# only the chart directory.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: local-path-provisioner
+  namespace: flux-system
+spec:
+  interval: 2h
+  url: https://github.com/rancher/local-path-provisioner
+  ref:
+    tag: v0.0.37
+  ignore: |
+    /*
+    !/deploy/chart/

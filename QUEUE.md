@@ -20,20 +20,29 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Move the databases onto Longhorn.** All 9 run on NFS, which is a known
-  reliability risk for Postgres.
-  - Create a `longhorn-db` StorageClass with 1 replica and local data (CNPG
-    already replicates), and migrate one cluster at a time by rolling its
-    instances.
-  - This also fixes babybuddy's database, which asks for the `nfs-client`
-    StorageClass that no longer exists.
-- [ ] **Finish babybuddy's PVC move (in progress).** Live since 2026-09-29:
-  babybuddy runs on `babybuddy-config-v2` (`nfs-retain-rwo`). The data was
-  copied and verified identical with `diff -r`. The Flux Kustomization
-  `babybuddy` is **suspended** until the matching git change (Deployment
-  `claimName` plus the new PVC manifest) is merged; resume it after the push.
-  Once babybuddy is confirmed healthy, delete the old `babybuddy-config` PVC
-  (its PV is `Retain`, so the NFS data stays as a fallback until you remove it).
+- [ ] **Move the databases off NFS onto local disk.** All 9 run on NFS, which is a
+  known reliability risk for Postgres. This also fixes babybuddy's database,
+  which asks for the missing `nfs-client` StorageClass.
+  - **Longhorn can't do it.** The nodes are Proxmox LXC containers, and a test
+    volume on 2026-09-29 faulted: the replica process exits on all three workers.
+    Making Longhorn work would need privileged, loosened containers, or VMs.
+  - **Plan instead**: local-path-provisioner v0.0.37 with a `local-db`
+    StorageClass (`WaitForFirstConsumer`, `Retain`, workers only), on a 128G
+    ZFS dataset per worker LXC at `/opt/local-path-provisioner` (done
+    2026-09-29, containers 104/105/106, `backup=0`). CNPG's own replication
+    covers node loss. Migrate one cluster at a time by rolling its instances;
+    CNPG accepts the StorageClass change (checked with a server-side dry-run).
+  - **Next**: merge branch `local-path-storage`, test a throwaway volume on each
+    worker, then pilot on whisparr.
+- [ ] **Decide what to do with Longhorn.** It's installed and running, but it
+  can't serve volumes on these LXC nodes, and its default disks sit on the 8 GiB
+  root filesystems. Either uninstall it through Flux or keep it for a future
+  move of the workers to VMs.
+- [ ] **Delete babybuddy's old PVC** once you're happy with the move.
+  babybuddy has run on `babybuddy-config-v2` (`nfs-retain-rwo`) since
+  2026-09-29, with the change in git and Flux resumed. Then run
+  `kubectl delete pvc babybuddy-config -n babybuddy`; its PV is `Retain`, so
+  the NFS data stays until you remove it.
 
 ## Cleanup
 

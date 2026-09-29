@@ -98,7 +98,9 @@ def test_every_repository_cr_is_helmrepo_or_ocirepo(repo_root, load_yaml):
         if path.name == "kustomization.yaml":
             continue
         doc = load_yaml(path)
-        assert doc["kind"] in ("HelmRepository", "OCIRepository"), path
+        # GitRepository: a chart that's only published in a git repo (e.g.
+        # local-path-provisioner), referenced by a hand-written HelmRelease.
+        assert doc["kind"] in ("HelmRepository", "OCIRepository", "GitRepository"), path
         assert doc["apiVersion"] == "source.toolkit.fluxcd.io/v1", path
         assert doc["metadata"]["namespace"] == "flux-system", path
 
