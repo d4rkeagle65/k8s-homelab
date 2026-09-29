@@ -430,3 +430,14 @@ def test_no_windows_unsafe_filenames(all_files, repo_root):
             continue
         bad = UNSAFE_FILENAME_CHARS & set(path.name)
         assert not bad, f"{path.relative_to(repo_root)} contains characters unsafe on Windows: {bad}"
+
+
+def test_no_namespace_is_defined_twice(repo_root):
+    # Applied by both `cluster` (apps/) and `cluster-resources` (cluster/),
+    # the two Flux Kustomizations would keep relabelling it.
+    apps = repo_root / "kubernetes" / "apps"
+    cluster_ns = repo_root / "kubernetes" / "cluster" / "namespace"
+    if not apps.is_dir() or not cluster_ns.is_dir():
+        return  # nothing under kubernetes/cluster/namespace/, so nothing twice
+    both = sorted(p.stem for p in cluster_ns.glob("*.yaml") if (apps / p.stem / "namespace.yaml").is_file())
+    assert not both, f"namespaces in both apps/<ns>/namespace.yaml and cluster/namespace/: {both}"

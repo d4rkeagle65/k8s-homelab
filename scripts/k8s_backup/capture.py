@@ -366,6 +366,20 @@ def _write_helm_repository_files(sink: Sink, helm_repos, timestamp) -> list[str]
     return names
 
 
+def _namespace_owned_by_apps(root: Path, kind: str, item: dict) -> str | None:
+    """A namespace with a kubernetes/apps/<ns>/ folder is written there (as
+    namespace.yaml) and applied by `cluster`. Writing it under
+    kubernetes/cluster/ as well would have `cluster-resources` apply it too,
+    and the two Kustomizations would keep relabelling it.
+    """
+    if kind.split(".", 1)[0].lower() != "namespace":
+        return None
+    name = item.get("metadata", {}).get("name", "")
+    if name and (root / "kubernetes" / "apps" / name).is_dir():
+        return f"written to kubernetes/apps/{name}/namespace.yaml instead"
+    return None
+
+
 def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbose, substitutions, flux_owner):
     """Writes to kubernetes/cluster/<kind>/ (git-tracked) for resources that
     are genuinely the operator's own, and to kubernetes/.local/cluster/<kind>/
@@ -391,7 +405,11 @@ def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbos
         kept = 0
         kept_local = 0
         for item in items:
-            reason = skipfilter.should_skip(kind, item) or flux_owner.foreign_reason(item)
+            reason = (
+                skipfilter.should_skip(kind, item)
+                or flux_owner.foreign_reason(item)
+                or _namespace_owned_by_apps(sink.root, kind, item)
+            )
             meta = item.get("metadata", {})
             if reason:
                 if verbose:

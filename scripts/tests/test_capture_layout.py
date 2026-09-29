@@ -97,3 +97,14 @@ def test_controller_managed_objects_are_skipped():
     assert "goauthentik.io" in should_skip("deployment", outpost)
     mine = {"kind": "Deployment", "metadata": {"name": "x", "labels": {"app.kubernetes.io/managed-by": "kustomize"}}}
     assert should_skip("deployment", mine) is None
+
+
+def test_namespace_with_an_apps_folder_is_not_captured_under_cluster(tmp_path):
+    (tmp_path / "kubernetes/apps/emby").mkdir(parents=True)
+    emby = {"kind": "Namespace", "metadata": {"name": "emby"}}
+    tandoor = {"kind": "Namespace", "metadata": {"name": "tandoor"}}
+    assert capture._namespace_owned_by_apps(tmp_path, "namespace", emby)
+    # No app: it stays under kubernetes/cluster/namespace/.
+    assert capture._namespace_owned_by_apps(tmp_path, "namespace", tandoor) is None
+    # Other kinds are never affected.
+    assert capture._namespace_owned_by_apps(tmp_path, "persistentvolume", {"metadata": {"name": "emby"}}) is None
