@@ -1,10 +1,10 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: manictime-pg
-  namespace: manictime
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
+  name: manictime-pg
+  namespace: manictime
 spec:
   affinity:
     podAntiAffinityType: preferred

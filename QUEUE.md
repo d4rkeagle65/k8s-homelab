@@ -27,36 +27,22 @@ nothing here tracks them.
     instances.
   - This also fixes babybuddy's database, which asks for the `nfs-client`
     StorageClass that no longer exists.
-- [ ] **Fix babybuddy's PVC.** `babybuddy/babybuddy-config` still asks for the
-  missing `nfs-client` StorageClass. It works while bound, but a rebuild would
-  leave it Pending. Migrate the data to a PVC on `nfs-retain-rwo`, or create an
-  `nfs-client` StorageClass as an alias.
+- [ ] **Finish babybuddy's PVC move (in progress).** Live since 2026-09-29:
+  babybuddy runs on `babybuddy-config-v2` (`nfs-retain-rwo`). The data was
+  copied and verified identical with `diff -r`. The Flux Kustomization
+  `babybuddy` is **suspended** until the matching git change (Deployment
+  `claimName` plus the new PVC manifest) is merged; resume it after the push.
+  Once babybuddy is confirmed healthy, delete the old `babybuddy-config` PVC
+  (its PV is `Retain`, so the NFS data stays as a fallback until you remove it).
 
 ## Cleanup
 
-- [ ] **Never `kubectl apply` the local substitution ConfigMap as it is.** The live
-  `cluster-substitutions` ConfigMap has `MEDIA_PUID`, `MEDIA_PGID` and
-  `SUBDOMAIN_SUFFIX`, but they aren't in `variable-substitutions.yaml`, so every
-  capture renders `kubernetes/.local/cluster-substitutions-configmap.yaml`
-  without them. Applying that file would delete those keys, and Flux would put
-  empty strings into the media apps. Until the tool can hold config-only
-  variables (values that aren't literal replacements), add keys with
-  `kubectl patch configmap cluster-substitutions -n flux-system --type merge -p "data: {KEY: 'value'}"`.
 
-- [ ] **Delete the Lost PVCs.** Their volumes are gone, nothing uses them, and all
-  of them ask for `nfs-client`:
-  - `kubectl delete pvc redis-data-redis-node-0 redis-data-redis-replicas-0 -n default`
-  - `kubectl delete pvc redis-data-immich-redis-master-0 -n immich`
-- [ ] **Back up `kubernetes/.local/`** somewhere safe. It's the only copy of the
-  promoted Secrets' values outside the cluster until there's a keystore.
-- [ ] **Fix the bare placeholders** in `kubernetes/.local/variable-substitutions.yaml`:
-  write `Child1` and `Child2` as `'${Child1}'` and `'${Child2}'`. Capture warns
-  about this every run.
-- [ ] **Delete `_to_delete/`** once nothing in it is needed.
-- [ ] **Decide on `test/media/jackett`**, the only test-only app. Either add it to
-  `test/kustomization.yaml` or delete it.
+- [ ] **`test/media/jackett`** stays as a test-only app for now; not listed in
+  `test/kustomization.yaml`.
 
 ## Later
+
 
 - [ ] **Keystore.** Replace the local `cluster-substitutions` Secret with an
   External Secrets operator backed by Vault, 1Password or Bitwarden. The
@@ -109,3 +95,20 @@ nothing here tracks them.
   and 3 header ConfigMaps) and `manictime-extras` (the `manictime-pg` database).
   Everything you manage yourself is now in git. Capture skips
   kube-webhook-certgen certificates.
+- 2026-09-29: Added a second, isolated ingress-nginx controller
+  (`ingress-nginx-isolated`, IngressClass `nginx-isolated`) with its own MetalLB
+  IP from `${ISOLATED_INGRESS_IP}` (now `.52`) and `failurePolicy: Ignore` on
+  its webhook, and moved ManicTime Server onto it so an isolated VLAN can reach
+  only that service.
+- 2026-09-29: Cleanup done: deleted all three Lost PVCs, wrapped the
+  `Child1`/`Child2` placeholders, backed up `kubernetes/.local/`, and deleted
+  the merged branch.
+- 2026-09-29: Config-only substitution variables (`replace: false`): rendered
+  for Flux, never find-and-replaced. Added `MEDIA_PUID`, `MEDIA_PGID` and
+  `SUBDOMAIN_SUFFIX` that way, so the local `cluster-substitutions` ConfigMap now
+  matches the live one exactly and is safe to `kubectl apply`. Capture warns
+  whenever the live ConfigMap or Secret has keys the local files would drop.
+- 2026-09-29: Put the main ingress-nginx controller's
+  `externalTrafficPolicy: Local` (previously only set by `kubectl edit`) into
+  its Helm values, nested under `controller.service`. The rendered chart changes
+  only the Service, which is already `Local` live, so there's no restart.

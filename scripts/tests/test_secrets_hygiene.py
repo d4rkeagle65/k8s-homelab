@@ -242,7 +242,9 @@ def test_no_substitution_literal_leaks_outside_local(repo_root, all_files):
     """
     from k8s_backup.varsub import load_substitutions
 
-    substitutions = load_substitutions(repo_root)
+    # Config-only entries (`replace: false`, e.g. MEDIA_PUID) are values for
+    # Flux to substitute, not literals kept out of git -- "1000" may appear anywhere.
+    substitutions = [s for s in load_substitutions(repo_root) if s["replace"]]
     if not substitutions:
         pytest.skip("no variable substitutions configured")
 

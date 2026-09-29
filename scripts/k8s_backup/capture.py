@@ -133,6 +133,7 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
 
     print("Writing local (gitignored) substitution manifests...")
     _write_local_substitution_manifests(sink, substitutions)
+    _check_live_substitutions(context, substitutions, warnings)
 
     print("Capturing namespaced non-Helm resources...")
     raw_counts = _capture_namespaced_resources(
@@ -325,6 +326,29 @@ def _write_local_substitution_manifests(sink: Sink, substitutions: list[dict]) -
     secret = varsub.render_secret(substitutions)
     if secret:
         sink.write_yaml(sink.root.joinpath(*varsub.LOCAL_SECRET_PATH), secret)
+
+
+def _check_live_substitutions(context, substitutions, warnings) -> None:
+    """Warn when the live cluster-substitutions ConfigMap/Secret holds keys
+    the rendered local file doesn't: `kubectl apply` of that file would
+    delete them, and Flux would then substitute empty strings. (Keys whose
+    values merely differ are expected until the file is next applied.)
+    """
+    rendered = {
+        "configmap": (varsub.render_configmap(substitutions) or {}).get("data") or {},
+        "secret": (varsub.render_secret(substitutions) or {}).get("stringData") or {},
+    }
+    local_files = {"configmap": varsub.LOCAL_CONFIGMAP_PATH, "secret": varsub.LOCAL_SECRET_PATH}
+    for kind, name in (("configmap", varsub.SUBSTITUTIONS_CONFIGMAP_NAME), ("secret", varsub.SUBSTITUTIONS_SECRET_NAME)):
+        live, _ = kube.get_object(context, kind, "flux-system", name)
+        missing = sorted(set((live or {}).get("data") or {}) - set(rendered[kind]))
+        if missing:
+            warnings.append(
+                f"live {kind} flux-system/{name} has key(s) {', '.join(missing)} that aren't in "
+                "kubernetes/.local/variable-substitutions.yaml, so `kubectl apply -f "
+                f"{'/'.join(local_files[kind])}` would DELETE them. Add each as an entry "
+                "(`replace: false` if it's a plain config value, not a literal to replace)."
+            )
 
 
 def _write_helm_repository_files(sink: Sink, helm_repos, timestamp) -> list[str]:

@@ -8,6 +8,7 @@ resources:
 - deployment-babybuddy-server.yaml
 - ingress-babybuddy-api-ingress.yaml
 - ingress-babybuddy-ingress.yaml
+- persistentvolumeclaim-babybuddy-config-v2.yaml
 - persistentvolumeclaim-babybuddy-config.yaml
 - service-authentik-outpost.yaml
 - service-babybuddy-svc.yaml

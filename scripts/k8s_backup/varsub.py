@@ -106,30 +106,49 @@ def bare_placeholders(root: Path) -> list[str]:
 
 
 def load_substitutions(root: Path) -> list[dict]:
+    """Every entry, each with `replace`: False for a config-only entry
+    (`replace: false` in the file) -- a value Flux substitutes, like
+    MEDIA_PUID, but not a literal to find and replace in captured output
+    (replacing every "1000" in the repo would be nonsense). Config-only
+    entries still render into the local ConfigMap/Secret, so applying those
+    files never drops a key the cluster relies on.
+    """
     entries = []
     for entry in _load_raw_entries(root):
         if not isinstance(entry, dict):
             continue
         literal = entry.get("literal")
         placeholder = entry.get("placeholder")
-        if literal and placeholder:
-            entries.append(
-                {
-                    "literal": str(literal),
-                    "placeholder": normalize_placeholder(str(placeholder)),
-                    "sensitivity": entry.get("sensitivity", "configmap"),
-                    "note": entry.get("note", ""),
-                }
-            )
+        replace = entry.get("replace", True) is not False
+        # A config-only value may legitimately be empty (a suffix that's
+        # blank in production); an empty literal to replace would match
+        # everywhere.
+        if not placeholder or literal is None or (replace and not literal):
+            continue
+        entries.append(
+            {
+                "literal": str(literal),
+                "placeholder": normalize_placeholder(str(placeholder)),
+                "sensitivity": entry.get("sensitivity", "configmap"),
+                "note": entry.get("note", ""),
+                "replace": replace,
+            }
+        )
     return entries
+
+
+def _replaceable(substitutions: list[dict]) -> list[dict]:
+    return [s for s in substitutions if s.get("replace", True)]
 
 
 def apply_substitutions(obj: Any, substitutions: list[dict]) -> int:
     """Mutate `obj` in place, replacing every occurrence of each literal
     with its placeholder in any string leaf (exact match or as a substring
     of a longer string, e.g. an email embedded in a larger sentence).
-    Returns the number of leaf values touched.
+    Returns the number of leaf values touched. Config-only entries
+    (`replace: false`) are never replaced.
     """
+    substitutions = _replaceable(substitutions)
     if not substitutions:
         return 0
     # Longest literal first: if both "user@example.com" and "example.com"
@@ -175,6 +194,7 @@ def apply_substitutions_text(text: str, substitutions: list[dict]) -> str:
     fixed once already: an auto-seeded note that named the actual domain)
     still can't leak it into a git-tracked file.
     """
+    substitutions = _replaceable(substitutions)
     if not substitutions:
         return text
     for sub in sorted(substitutions, key=lambda s: len(s["literal"]), reverse=True):
@@ -357,6 +377,8 @@ def _write_entries(root: Path, entries: list) -> None:
         "# git-tracked captured file. Entries marked `source: auto` were detected\n"
         "# automatically (ACME emails, non-IP NFS server hostnames); `source: auto-secret`\n"
         "# entries hold a promoted Secret's values (base64, as the Secret stores them).\n"
+        "# `replace: false` marks a config-only variable: rendered for Flux to substitute,\n"
+        "# never searched for and replaced in captured files (e.g. MEDIA_PUID).\n"
         "# Add your own for anything else. Never committed -- that would defeat the point.\n"
     )
     yamlio.write_yaml_file(path, entries, header=header)

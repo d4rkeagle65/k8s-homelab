@@ -181,3 +181,39 @@ def test_generated_secrets_stay_out(tmp_path, monkeypatch):
     _run(tmp_path)
     assert not list((tmp_path / APP).glob("secret-*.yaml"))
     assert varsub.load_substitutions(tmp_path) == []
+
+
+# ---- config-only variables and the live-drift check -------------------------------
+
+def test_config_only_entries_render_but_never_replace(tmp_path):
+    varsub._write_entries(tmp_path, [
+        {"literal": "1000", "placeholder": "${MEDIA_PUID}", "replace": False},
+        {"literal": "", "placeholder": "${SUBDOMAIN_SUFFIX}", "replace": False},  # empty is a real value
+        {"literal": "", "placeholder": "${EMPTY_REPLACEMENT}"},  # would match everywhere: dropped
+        {"literal": "example.com", "placeholder": "${BASE_DOMAIN}"},
+    ])
+    subs = varsub.load_substitutions(tmp_path)
+    assert {s["placeholder"]: s["replace"] for s in subs} == {
+        "${MEDIA_PUID}": False, "${SUBDOMAIN_SUFFIX}": False, "${BASE_DOMAIN}": True}
+    assert varsub.render_configmap(subs)["data"] == {
+        "MEDIA_PUID": "1000", "SUBDOMAIN_SUFFIX": "", "BASE_DOMAIN": "example.com"}
+
+    doc = {"size": "1000Mi", "host": "app.example.com"}
+    varsub.apply_substitutions(doc, subs)
+    assert doc == {"size": "1000Mi", "host": "app.${BASE_DOMAIN}"}
+    assert varsub.apply_substitutions_text("uid 1000 at example.com", subs) == "uid 1000 at ${BASE_DOMAIN}"
+
+
+def test_live_keys_missing_locally_are_warned(tmp_path, monkeypatch):
+    varsub._write_entries(tmp_path, [{"literal": "example.com", "placeholder": "${BASE_DOMAIN}"}])
+    subs = varsub.load_substitutions(tmp_path)
+    live = {"configmap": {"data": {"BASE_DOMAIN": "x", "MEDIA_PUID": "y"}}, "secret": {"data": {}}}
+    monkeypatch.setattr(kube, "get_object", lambda c, kind, ns, name: (live[kind], None))
+    warnings: list[str] = []
+    capture._check_live_substitutions(None, subs, warnings)
+    assert len(warnings) == 1 and "MEDIA_PUID" in warnings[0] and "DELETE" in warnings[0]
+
+    live["configmap"]["data"].pop("MEDIA_PUID")
+    warnings.clear()
+    capture._check_live_substitutions(None, subs, warnings)
+    assert warnings == []
