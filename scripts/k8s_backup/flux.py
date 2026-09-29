@@ -12,6 +12,7 @@ apiVersions verified against Flux's own docs (fetched 2026-09-12):
 from __future__ import annotations
 
 from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.scalarstring import LiteralScalarString
 
 from .constants import FLUX_NAMESPACE
 
@@ -148,12 +149,34 @@ def oci_repository(*, name: str, url: str, interval: str, tag: str | None = None
     }
 
 
-def kustomization_file(resources: list[str]) -> dict:
-    return {
+def kustomization_file(resources: list[str], *, protect_namespaces: bool = False) -> dict:
+    doc = {
         "apiVersion": "kustomize.config.k8s.io/v1beta1",
         "kind": "Kustomization",
         "resources": sorted(resources),
     }
+    if protect_namespaces:
+        doc["patches"] = [NAMESPACE_PRUNE_PATCH]
+    return doc
+
+
+# Deleting a Namespace deletes everything in it, including the PVCs, database
+# Clusters and Secrets whose own `prune: disabled` would otherwise keep them.
+# So Flux never prunes a Namespace; one that's no longer wanted is deleted by
+# hand. With a target, kustomize applies the patch to every Namespace in the
+# build and ignores the name in it.
+# https://fluxcd.io/flux/components/kustomize/kustomizations/#prune
+NAMESPACE_PRUNE_PATCH = {
+    "target": {"kind": "Namespace"},
+    "patch": LiteralScalarString(
+        "apiVersion: v1\n"
+        "kind: Namespace\n"
+        "metadata:\n"
+        "  name: any\n"
+        "  annotations:\n"
+        "    kustomize.toolkit.fluxcd.io/prune: disabled\n"
+    ),
+}
 
 
 def root_cluster_kustomization(
