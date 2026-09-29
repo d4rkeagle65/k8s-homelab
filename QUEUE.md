@@ -7,7 +7,8 @@ How the repo is managed:
 
 - **Helm releases**: captured from the cluster by `capture`; `generate`
   writes their Flux files.
-- **`.handwritten` releases** (media, longhorn): the tool never touches them.
+- **`.handwritten` releases** (media, ingress-nginx-isolated,
+  local-path-provisioner): the tool never touches them.
 - **`.promote` releases**: capture writes the namespace's non-Helm objects
   into `app/`, and Secrets go to git as `${PLACEHOLDER}`s.
 - **Secret values**: live only in the gitignored
@@ -35,10 +36,6 @@ nothing here tracks them.
   - delete: `sort -u /root/deleted-pvs-2026-09-29.txt | while read -r d; do rm -rf -- "$d"; done`
 
   Shell deletes skip Synology's Recycle Bin, so this can't be undone.
-- [ ] **Decide what to do with Longhorn.** It's installed and running, but it
-  can't serve volumes on these LXC nodes, and its default disks sit on the 8 GiB
-  root filesystems. Either uninstall it through Flux or keep it for a future
-  move of the workers to VMs.
 
 ## Cleanup
 
@@ -53,10 +50,6 @@ nothing here tracks them.
   External Secrets operator backed by Vault, 1Password or Bitwarden. The
   `${...}` manifests in git stay as they are; only what creates the
   `cluster-substitutions` Secret in `flux-system` changes.
-- [ ] **Longhorn follow-ups.**
-  - Set a backup target so volume snapshots leave the nodes.
-  - Put the UI behind Authentik. It has no login, so for now use
-    `kubectl port-forward -n longhorn-system svc/longhorn-frontend 8080:80`.
 - [ ] **Namespaces defined twice.** Every app namespace is in both
   `apps/<ns>/namespace.yaml` (`cluster`) and `cluster/namespace/<ns>.yaml`
   (`cluster-resources`), so the two Flux Kustomizations keep relabelling it.
@@ -69,6 +62,8 @@ nothing here tracks them.
 
 ## Done
 
+- 2026-09-29: Uninstalled Longhorn through Flux (it can't serve volumes on
+  these LXC nodes), then removed its `longhorn-system` namespace.
 - 2026-09-29: Resumed the 6 Kustomizations suspended for the database move.
 - 2026-09-29: Deleted babybuddy's old `babybuddy-config` PVC; its PV is
   `Released` (`Retain`) until the old-volume cleanup.

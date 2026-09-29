@@ -79,7 +79,7 @@ Every `kubernetes/apps/<namespace>/<release>/` folder is one of these:
 - **Captured Helm release (the default).** capture writes `release.yaml` and
   `app/values.yaml` from the live Helm release. generate turns `values.yaml` into
   `app/helmrelease.yaml`, so `values.yaml` is the file you edit.
-- **`.handwritten`** (e.g. `media/*`, `longhorn-system/longhorn`,
+- **`.handwritten`** (e.g. `media/*`, `local-path-storage/local-path-provisioner`,
   `ingress-nginx-isolated`). The tool never writes to or deletes anything in the
   folder. You write `ks.yaml` and `app/*` yourself. Its `namespace.yaml` and
   the HelmRepository its HelmRelease uses are protected too.
@@ -117,7 +117,7 @@ in `dependencies.py`:
 - The operator's own `ks.yaml` gets `wait: true`. Without it Flux marks it
   Ready as soon as the HelmRelease object is applied, before Helm has
   installed the CRDs, and `dependsOn` wouldn't wait for anything. A
-  `.handwritten` operator (e.g. `longhorn`) needs `wait: true` added by hand
+  `.handwritten` operator needs `wait: true` added by hand
   before anything depends on it.
 - To add an operator, add its API group and chart to `OPERATOR_CHARTS`, then
   run generate. A dependency the table can't express means making the app

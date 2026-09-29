@@ -52,9 +52,9 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
 - **Databases (CloudNativePG)** use the `local-db` StorageClass: node-local disk
   on the workers, `Retain`.
 - **App data** uses NFS-backed classes such as `nfs-retain-rwo`.
-- **Longhorn is installed but can't serve volumes here.** The nodes are LXC
-  containers on ZFS, with no block devices or iSCSI. Don't use it or propose
-  block-storage CSIs.
+- **No block storage.** The nodes are LXC containers on ZFS, with no block
+  devices or iSCSI. Longhorn was tried and uninstalled for that reason; don't
+  propose it or other block-storage CSIs.
 
 ## How changes are made
 
