@@ -32,8 +32,28 @@ nothing here tracks them.
     2026-09-29, containers 104/105/106, `backup=0`). CNPG's own replication
     covers node loss. Migrate one cluster at a time by rolling its instances;
     CNPG accepts the StorageClass change (checked with a server-side dry-run).
-  - **Next**: merge branch `local-path-storage`, test a throwaway volume on each
-    worker, then pilot on whisparr.
+  - **Provisioner live** (2026-09-29, commit `be0e008`). A throwaway volume on
+    each worker bound on its own node's dataset and took an fsync'd write as
+    UID 26 (CNPG's postgres user), then cleaned up.
+  - **whisparr done** (2026-09-29): both instances on `local-db`, primary on
+    w03a and replica on w01a. The switchover took 15s, with one failed whisparr
+    query during it and none since. The old NFS PVs are Released/Retain as a
+    fallback.
+  - **Per-database procedure** (the `cnpg` plugin isn't installed):
+    1. `flux suspend kustomization <ks>`
+    2. Patch `spec.storage.storageClass: local-db` on the Cluster.
+    3. Delete the replica's PVC (`--wait=false`), then its pod. Wait for the new
+       instance to be streaming with 0 bytes behind.
+    4. Switch over by patching the Cluster **status** with `targetPrimary`,
+       `targetPrimaryTimestamp` and `phase: Switchover in progress`.
+    5. Replace the old primary the same way as step 3.
+    6. Set `storageClass: local-db` in git, confirm `flux diff` shows 0
+       changes, push, then `flux resume kustomization <ks>`.
+
+    Single-instance databases (immich, manictime) first scale to 2 instances,
+    switch over, then go back to 1.
+  - **Remaining**: prowlarr, lidarr, radarr, sonarr (media), authentik, babybuddy,
+    immich, manictime.
 - [ ] **Decide what to do with Longhorn.** It's installed and running, but it
   can't serve volumes on these LXC nodes, and its default disks sit on the 8 GiB
   root filesystems. Either uninstall it through Flux or keep it for a future

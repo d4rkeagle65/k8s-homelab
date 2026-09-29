@@ -171,6 +171,26 @@ Secret values) appear in manifests as `${NAME}`. Flux fills them in from the
 3. Apply the local Secret.
 4. Run `all` again.
 
+### Move a CloudNativePG database onto `local-db`
+
+`migrate-cnpg-to-local-db.ps1` rebuilds a database's instances on local disk
+one at a time. Its only interruption is one switchover of a few seconds. Run it
+with `-PlanOnly` first to see the state and plan; it asks before starting and
+before the switchover.
+
+```
+./scripts/migrate-cnpg-to-local-db.ps1 -Namespace media -Cluster prowlarr-postgres -Kustomization prowlarr -GitFile kubernetes/apps/media/prowlarr/app/postgres.yaml
+```
+
+- **Safety checks:** it only proceeds while the database is healthy, and only
+  switches over once a replica is streaming and caught up.
+- **Single-instance databases** are scaled to 2 and back to 1 automatically.
+- **Re-running** is safe: if it stops, fix the cause and run it again.
+- **At the end** it sets `storageClass` in the git file and runs `flux diff`, then
+  prints the `git add`/`commit`/`push` and `flux resume` commands. Flux stays
+  suspended for that app until you run them.
+- **Old NFS volumes** are never deleted (they're `Retain`).
+
 ### Applying the local ConfigMap and Secret
 
 ```

@@ -7,7 +7,7 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:16
   storage:
     size: 2Gi
-    storageClass: nfs-retain-rwo
+    storageClass: local-db
   bootstrap:
     initdb:
       database: whisparr-main
