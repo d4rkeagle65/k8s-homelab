@@ -6,7 +6,7 @@ image:
 ingress:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
-  className: nginx
+  className: nginx-isolated
   enabled: true
   hosts:
   - host: manictime.${BASE_DOMAIN}

@@ -18,20 +18,6 @@ Run everything from the repo root with `python scripts/backup.py all --output .`
 Database backups are handled outside this repo and the cluster config, so
 nothing here tracks them.
 
-## In progress
-
-- [ ] **Promote the ingress-nginx and manictime extras.** Markers are in place for
-  `ingress-nginx/ingress-nginx-extras` and `manictime/manictime-extras`. A scratch
-  run showed no changes to the live objects:
-  - **ingress-nginx**: the 3 Cloudflare-tunnel Ingresses (babybuddy,
-    babybuddy-mcp, immich) and the 3 custom-header ConfigMaps (`empty-headers`,
-    `ingress-nginx-custom-headers`, `nginx-config`).
-  - **manictime**: the `manictime-pg` database definition.
-
-  No Secrets are involved (the chart-generated `ingress-nginx-admission`
-  certificate is skipped), so there's no local apply step:
-  `python scripts/backup.py all --output .`, run the tests, then commit and push.
-
 ## Next
 
 - [ ] **Move the databases onto Longhorn.** All 9 run on NFS, which is a known
@@ -47,6 +33,15 @@ nothing here tracks them.
   `nfs-client` StorageClass as an alias.
 
 ## Cleanup
+
+- [ ] **Never `kubectl apply` the local substitution ConfigMap as it is.** The live
+  `cluster-substitutions` ConfigMap has `MEDIA_PUID`, `MEDIA_PGID` and
+  `SUBDOMAIN_SUFFIX`, but they aren't in `variable-substitutions.yaml`, so every
+  capture renders `kubernetes/.local/cluster-substitutions-configmap.yaml`
+  without them. Applying that file would delete those keys, and Flux would put
+  empty strings into the media apps. Until the tool can hold config-only
+  variables (values that aren't literal replacements), add keys with
+  `kubectl patch configmap cluster-substitutions -n flux-system --type merge -p "data: {KEY: 'value'}"`.
 
 - [ ] **Delete the Lost PVCs.** Their volumes are gone, nothing uses them, and all
   of them ask for `nfs-client`:
@@ -110,3 +105,7 @@ nothing here tracks them.
   including the authentik and immich database definitions and 7 Secrets.
   Capture now skips Authentik-managed outposts and Lost PVCs. No restarts on
   adoption.
+- 2026-09-28: Promoted `ingress-nginx-extras` (the 3 Cloudflare-tunnel Ingresses
+  and 3 header ConfigMaps) and `manictime-extras` (the `manictime-pg` database).
+  Everything you manage yourself is now in git. Capture skips
+  kube-webhook-certgen certificates.
