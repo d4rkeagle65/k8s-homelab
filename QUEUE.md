@@ -20,40 +20,16 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Move the databases off NFS onto local disk.** All 9 run on NFS, which is a
-  known reliability risk for Postgres. This also fixes babybuddy's database,
-  which asks for the missing `nfs-client` StorageClass.
-  - **Longhorn can't do it.** The nodes are Proxmox LXC containers, and a test
-    volume on 2026-09-29 faulted: the replica process exits on all three workers.
-    Making Longhorn work would need privileged, loosened containers, or VMs.
-  - **Plan instead**: local-path-provisioner v0.0.37 with a `local-db`
-    StorageClass (`WaitForFirstConsumer`, `Retain`, workers only), on a 128G
-    ZFS dataset per worker LXC at `/opt/local-path-provisioner` (done
-    2026-09-29, containers 104/105/106, `backup=0`). CNPG's own replication
-    covers node loss. Migrate one cluster at a time by rolling its instances;
-    CNPG accepts the StorageClass change (checked with a server-side dry-run).
-  - **Provisioner live** (2026-09-29, commit `be0e008`). A throwaway volume on
-    each worker bound on its own node's dataset and took an fsync'd write as
-    UID 26 (CNPG's postgres user), then cleaned up.
-  - **whisparr done** (2026-09-29): both instances on `local-db`, primary on
-    w03a and replica on w01a. The switchover took 15s, with one failed whisparr
-    query during it and none since. The old NFS PVs are Released/Retain as a
-    fallback.
-  - **Per-database procedure** (the `cnpg` plugin isn't installed):
-    1. `flux suspend kustomization <ks>`
-    2. Patch `spec.storage.storageClass: local-db` on the Cluster.
-    3. Delete the replica's PVC (`--wait=false`), then its pod. Wait for the new
-       instance to be streaming with 0 bytes behind.
-    4. Switch over by patching the Cluster **status** with `targetPrimary`,
-       `targetPrimaryTimestamp` and `phase: Switchover in progress`.
-    5. Replace the old primary the same way as step 3.
-    6. Set `storageClass: local-db` in git, confirm `flux diff` shows 0
-       changes, push, then `flux resume kustomization <ks>`.
-
-    Single-instance databases (immich, manictime) first scale to 2 instances,
-    switch over, then go back to 1.
-  - **Remaining**: prowlarr, lidarr, radarr, sonarr (media), authentik, babybuddy,
-    immich, manictime.
+- [ ] **Resume the 6 Flux Kustomizations still suspended from the database
+  move**: `authentik-extras`, `babybuddy`, `immich-extras`, `manictime-extras`,
+  `radarr`, `sonarr`. Their git changes are pushed (`774dacf`), and on
+  2026-09-29 `flux diff` showed 0 changes for each, so resuming changes nothing.
+  Run `flux resume kustomization <name>` for each.
+- [ ] **Delete the old NFS database volumes** once you're comfortable. Each of
+  the 9 databases left its pre-move NFS PVs `Released` with `Retain`, as a
+  fallback. List them with
+  `kubectl get pv | Select-String Released`. Delete the PV objects, then the
+  folders on the Synology.
 - [ ] **Decide what to do with Longhorn.** It's installed and running, but it
   can't serve volumes on these LXC nodes, and its default disks sit on the 8 GiB
   root filesystems. Either uninstall it through Flux or keep it for a future
@@ -141,3 +117,15 @@ nothing here tracks them.
   `externalTrafficPolicy: Local` (previously only set by `kubectl edit`) into
   its Helm values, nested under `controller.service`. The rendered chart changes
   only the Service, which is already `Local` live, so there's no restart.
+- 2026-09-29: Moved all 9 CloudNativePG databases off NFS onto local disk.
+  - **Why not Longhorn:** the nodes are Proxmox LXC containers on ZFS. A test
+    volume faulted, because ZFS has no file-extent support and the containers
+    have no block-device access.
+  - **Storage:** local-path-provisioner v0.0.37 (`be0e008`) provides the
+    `local-db` StorageClass (`Retain`, created on the pod's node, workers only),
+    on a 128G ZFS dataset per worker LXC at `/opt/local-path-provisioner`.
+  - **The move:** instances were rolled one at a time with
+    `scripts/migrate-cnpg-to-local-db.ps1`, with one switchover of a few
+    seconds each. Commits: whisparr `3e6567c`, lidarr `4413dce`, the rest `774dacf`.
+  - **Also fixed:** babybuddy's database no longer asks for the missing
+    `nfs-client` class.
