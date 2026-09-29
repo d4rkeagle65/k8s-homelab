@@ -50,10 +50,6 @@ nothing here tracks them.
   External Secrets operator backed by Vault, 1Password or Bitwarden. The
   `${...}` manifests in git stay as they are; only what creates the
   `cluster-substitutions` Secret in `flux-system` changes.
-- [ ] **Namespaces defined twice.** Every app namespace is in both
-  `apps/<ns>/namespace.yaml` (`cluster`) and `cluster/namespace/<ns>.yaml`
-  (`cluster-resources`), so the two Flux Kustomizations keep relabelling it.
-  Untangle this carefully: Flux can delete a namespace while it's being moved.
 - [ ] **Test environment runbook.** `suspend: true` on `cluster-test` only freezes
   it. To tear it down: suspend `flux-system`, resume `cluster-test`, delete it,
   then resume `flux-system`. Write that down, or script it.
@@ -62,6 +58,10 @@ nothing here tracks them.
 
 ## Done
 
+- 2026-09-29: Namespaces defined once. generate marks every Namespace
+  `prune: disabled` (deleted by hand now), and a namespace with an app folder
+  is only in `apps/<ns>/namespace.yaml`; `cluster/namespace/` holds the rest.
+  Removed the unused `redis` and `tandoor` namespaces.
 - 2026-09-29: Uninstalled Longhorn through Flux (it can't serve volumes on
   these LXC nodes), then removed its `longhorn-system` namespace.
 - 2026-09-29: Resumed the 6 Kustomizations suspended for the database move.

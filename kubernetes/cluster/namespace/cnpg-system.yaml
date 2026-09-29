@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    name: cnpg-system
-  name: cnpg-system
-spec:
-  finalizers:
-  - kubernetes

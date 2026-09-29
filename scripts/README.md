@@ -62,6 +62,10 @@ is rewritten on every run; change its source instead.
 |---|---|
 | capture | `apps/<ns>/<release>/release.yaml` and `app/values.yaml`, `app/values-all.yaml` (Helm releases) |
 | capture | `apps/<ns>/namespace.yaml`, `cluster/<kind>/*.yaml`, `flux/meta/repositories/*.yaml` |
+
+A namespace is written once: to `apps/<ns>/namespace.yaml` when it has an app
+folder (applied by `cluster`), otherwise to `cluster/namespace/<ns>.yaml`
+(applied by `cluster-resources`). A test fails if one is in both.
 | capture | `apps/<ns>/<app>/app/<kind>-<name>.yaml` in `.promote` folders |
 | capture | `kubernetes/.local/` and `kubernetes/raw/` (gitignored), and `docs/` |
 | generate | `app/helmrelease.yaml`, `app/kustomization.yaml`, `ks.yaml`, `apps/<ns>/kustomization.yaml`, `apps/kustomization.yaml` |
