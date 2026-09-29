@@ -240,6 +240,9 @@ python -m pytest scripts/tests/test_structure.py -q -k promote # filter by test 
   values and leaked substitution values. It skips gitignored `kubernetes/.local/`.
 - The other test files cover the tool's own behaviour and use temporary folders
   only.
+- In a fresh clone with no `kubernetes/.local/` (e.g. a cloud session), the
+  checks on capture's untracked output (`docs/`, `kubernetes/raw/`) skip, and
+  `generate` still produces exactly the committed files.
 
 If a secret scan flags something you've confirmed is harmless, add the exact
 value to `docs/secrets-scan-allowlist.txt` rather than changing the test.

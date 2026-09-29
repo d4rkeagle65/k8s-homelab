@@ -154,8 +154,6 @@ def root_cluster_kustomization(
     path: str = "./kubernetes/apps",
     interval: str = "10m",
     *,
-    has_configmap: bool = False,
-    has_secret: bool = False,
     configmap_name: str | None = None,
     secret_name: str | None = None,
 ) -> dict:
@@ -166,7 +164,9 @@ def root_cluster_kustomization(
     build -- Flux doesn't inherit postBuild -- which is why
     flux_kustomization() wires its own.
     Both refs are optional so Flux doesn't fail before the operator has
-    created the ConfigMap/Secret on the cluster.
+    created the ConfigMap/Secret on the cluster. Like flux_kustomization(),
+    they're wired whether or not a local substitutions file exists, so a
+    clone without kubernetes/.local/ generates the same file.
     https://fluxcd.io/flux/components/kustomize/kustomizations/#post-build-variable-substitution
     """
     spec: dict = {
@@ -176,7 +176,7 @@ def root_cluster_kustomization(
         "sourceRef": {"kind": "GitRepository", "name": FLUX_NAMESPACE},
         "wait": True,
     }
-    refs = substitute_from(configmap_name if has_configmap else None, secret_name if has_secret else None)
+    refs = substitute_from(configmap_name, secret_name)
     if refs:
         spec["postBuild"] = {"substituteFrom": refs}
     return {
@@ -192,8 +192,6 @@ def root_cluster_kustomization(
 
 def cluster_resources_kustomization(
     *,
-    has_configmap: bool,
-    has_secret: bool,
     interval: str = "30m",
     configmap_name: str,
     secret_name: str,
@@ -207,6 +205,8 @@ def cluster_resources_kustomization(
     varsub.py's variable substitution -- both refs are optional so Flux
     doesn't fail reconciliation before the operator has created the
     ConfigMap/Secret on the cluster (see varsub.render_configmap/_secret).
+    Always wired, as in root_cluster_kustomization(): dropping them in a
+    clone without kubernetes/.local/ would blank every ${PLACEHOLDER} here.
     https://fluxcd.io/flux/components/kustomize/kustomizations/#post-build-variable-substitution
     """
     spec: dict = {
@@ -215,7 +215,7 @@ def cluster_resources_kustomization(
         "prune": True,
         "sourceRef": {"kind": "GitRepository", "name": FLUX_NAMESPACE},
     }
-    refs = substitute_from(configmap_name if has_configmap else None, secret_name if has_secret else None)
+    refs = substitute_from(configmap_name, secret_name)
     if refs:
         spec["postBuild"] = {"substituteFrom": refs}
     return {

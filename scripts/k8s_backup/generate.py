@@ -49,22 +49,19 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     repo_count = _generate_repository_kustomization(sink, timestamp)
     cluster_count = _generate_cluster_kustomization(sink, timestamp)
 
-    # Load substitutions once so both the apps and cluster-resources
-    # Kustomizations can wire postBuild.substituteFrom for the same
-    # ConfigMap/Secret. Without this on the apps root, ${PLACEHOLDER}
-    # tokens in the child ks.yaml files are treated as literal strings at
-    # reconcile time. (Each child ks.yaml wires its own for its
-    # HelmRelease -- Flux doesn't inherit postBuild.)
+    # Both the apps and cluster-resources Kustomizations wire
+    # postBuild.substituteFrom for the same ConfigMap/Secret. Without it on
+    # the apps root, ${PLACEHOLDER} tokens in the child ks.yaml files are
+    # treated as literal strings at reconcile time. (Each child ks.yaml
+    # wires its own for its HelmRelease -- Flux doesn't inherit postBuild.)
+    # The refs don't depend on the local substitutions file, so a clone
+    # without kubernetes/.local/ generates the same files.
     substitutions = varsub.load_substitutions(root)
-    has_configmap = varsub.render_configmap(substitutions) is not None
-    has_secret = varsub.render_secret(substitutions) is not None
 
     print("Generating root Flux Kustomization...")
     sink.write_yaml_stable(
         root / "kubernetes" / "flux" / "config" / "cluster.yaml",
         flux.root_cluster_kustomization(
-            has_configmap=has_configmap,
-            has_secret=has_secret,
             configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
             secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
         ),
@@ -75,8 +72,6 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
         sink.write_yaml_stable(
             root / "kubernetes" / "flux" / "config" / "cluster-resources.yaml",
             flux.cluster_resources_kustomization(
-                has_configmap=has_configmap,
-                has_secret=has_secret,
                 configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
                 secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
             ),
