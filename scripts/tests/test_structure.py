@@ -297,6 +297,7 @@ def test_every_release_has_required_files(repo_root, rel_file):
 
 
 def test_ks_yaml_matches_its_release(repo_root, load_yaml):
+    kustomizations = {release_name for _, release_name, _ in _release_dirs(repo_root)}
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
         doc = load_yaml(release_dir / "ks.yaml")
         assert doc["apiVersion"] == "kustomize.toolkit.fluxcd.io/v1"
@@ -305,7 +306,12 @@ def test_ks_yaml_matches_its_release(repo_root, load_yaml):
         assert doc["metadata"]["namespace"] == "flux-system"
         assert doc["spec"]["targetNamespace"] == ns_name
         assert doc["spec"]["path"] == f"./kubernetes/apps/{ns_name}/{release_name}/app"
-        assert doc["spec"]["dependsOn"] == []
+        # A dependency on a Kustomization that doesn't exist never becomes Ready.
+        for dep in doc["spec"]["dependsOn"]:
+            assert dep["name"] in kustomizations and dep["name"] != release_name, (
+                f"{ns_name}/{release_name}/ks.yaml: dependsOn {dep['name']!r} isn't another "
+                "Kustomization under kubernetes/apps/"
+            )
         assert doc["spec"]["prune"] is True
 
 

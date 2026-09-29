@@ -46,9 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _check_tools() -> None:
-    require_tool("kubectl", "Install it from https://kubernetes.io/docs/tasks/tools/.")
-    require_tool("helm", "Install it from https://helm.sh/docs/intro/install/.")
+def _check_tools(subcommand: str) -> None:
+    # generate reads only the local tree, so it runs without cluster tools.
+    if subcommand in ("capture", "all"):
+        require_tool("kubectl", "Install it from https://kubernetes.io/docs/tasks/tools/.")
+        require_tool("helm", "Install it from https://helm.sh/docs/intro/install/.")
     try:
         import ruamel.yaml  # noqa: F401
     except ImportError as exc:
@@ -152,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        _check_tools()
+        _check_tools(args.subcommand)
     except ToolError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

@@ -22,7 +22,7 @@ import re
 import stat
 from pathlib import Path
 
-from . import constants, flux, inventory, scaffold, varsub, yamlio
+from . import constants, dependencies, flux, inventory, scaffold, varsub, yamlio
 from .filetracker import FileTracker, RunReport
 from .ownership import PROMOTE_MARKER, generate_owner, is_handwritten, is_promoted
 from .sink import Sink
@@ -123,6 +123,7 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
         warnings.append("kubernetes/apps does not exist yet; run `capture` first")
         return 0
 
+    operators = dependencies.operator_kustomizations(apps_root)
     count = 0
     for ns_dir in sorted(p for p in apps_root.iterdir() if p.is_dir()):
         namespace = ns_dir.name
@@ -130,7 +131,7 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
             if is_handwritten(release_dir):
                 continue
             if is_promoted(release_dir):
-                if _generate_promoted_scaffolding(sink, namespace, release_dir, timestamp, warnings):
+                if _generate_promoted_scaffolding(sink, namespace, release_dir, timestamp, warnings, operators):
                     count += 1
                 continue
             release_yaml = release_dir / "release.yaml"
@@ -190,6 +191,10 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
                 interval=constants.HELMRELEASE_KS_INTERVAL,
                 configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
                 secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
+                depends_on=dependencies.depends_on(
+                    release_name, [release_dir / "app" / f for f in manifest_files], operators
+                ),
+                wait=release_name in operators.values(),
             )
             sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc, timestamp)
             count += 1
@@ -200,7 +205,9 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
     return count
 
 
-def _generate_promoted_scaffolding(sink: Sink, namespace: str, release_dir: Path, timestamp, warnings) -> bool:
+def _generate_promoted_scaffolding(
+    sink: Sink, namespace: str, release_dir: Path, timestamp, warnings, operators: dict[str, str]
+) -> bool:
     """app/kustomization.yaml and ks.yaml for a promoted release, whose
     app/ manifests capture wrote (see promote.py).
     """
@@ -217,6 +224,8 @@ def _generate_promoted_scaffolding(sink: Sink, namespace: str, release_dir: Path
         interval=constants.HELMRELEASE_KS_INTERVAL,
         configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
         secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
+        depends_on=dependencies.depends_on(release_dir.name, [app_dir / m for m in manifests], operators),
+        wait=release_dir.name in operators.values(),
     )
     sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc, timestamp)
     return True

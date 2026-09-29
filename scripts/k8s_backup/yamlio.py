@@ -116,3 +116,8 @@ def write_text_file(path: Path, content: str, *, dry_run: bool = False) -> str:
 
 def read_yaml_file(path: Path) -> Any:
     return parse_yaml_string(path.read_text(encoding="utf-8"))
+
+
+def read_yaml_documents(path: Path) -> list[Any]:
+    """Every document in a (possibly multi-document) YAML file."""
+    return list(_yaml.load_all(path.read_text(encoding="utf-8")))

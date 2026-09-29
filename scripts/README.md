@@ -96,6 +96,33 @@ Every `kubernetes/apps/<namespace>/<release>/` folder is one of these:
 - **What capture skips:** anything Helm, an operator or Longhorn recreates on its
   own, and anything applied by `shared/` or `test/`.
 
+## Startup order (`dependsOn`)
+
+generate fills in `spec.dependsOn` on each `ks.yaml` it writes, so an app waits
+for the operator whose API its manifests use. The table is `OPERATOR_CHARTS`
+in `dependencies.py`:
+
+| The app's `app/` has an object in API group | It depends on the release that installs chart |
+|---|---|
+| `postgresql.cnpg.io` (a database `Cluster`) | `cloudnative-pg` (here `cnpg`) |
+| `cert-manager.io` (a `Certificate`, `Issuer`) | `cert-manager` |
+| `metallb.io` | `metallb` |
+| `longhorn.io` | `longhorn` |
+
+- Only the manifests in `app/` count. What a HelmRelease renders in the cluster
+  can't be seen offline, so a chart that creates a database adds nothing.
+- A `cert-manager.io/cluster-issuer` annotation doesn't count: the Ingress
+  applies without cert-manager, and the certificate is issued once it's up.
+- The dependency is added only when that operator's release is in `apps/`.
+- The operator's own `ks.yaml` gets `wait: true`. Without it Flux marks it
+  Ready as soon as the HelmRelease object is applied, before Helm has
+  installed the CRDs, and `dependsOn` wouldn't wait for anything. A
+  `.handwritten` operator (e.g. `longhorn`) needs `wait: true` added by hand
+  before anything depends on it.
+- To add an operator, add its API group and chart to `OPERATOR_CHARTS`, then
+  run generate. A dependency the table can't express means making the app
+  `.handwritten`.
+
 ## Recipes
 
 ### Change a Helm release's settings
@@ -117,7 +144,9 @@ Every `kubernetes/apps/<namespace>/<release>/` folder is one of these:
    Copy an existing hand-written release as a template.
    - The `ks.yaml` `metadata.name` must equal the folder name.
    - `targetNamespace` must equal `<ns>`.
-   - Leave `dependsOn` as `[]`; the tests require it.
+   - Set `dependsOn` to the operators it needs (e.g. `- name: cnpg` for a
+     database `Cluster`), or `[]`. generate doesn't touch it here; the tests
+     only check each name is another Kustomization under `apps/`.
 2. Run `python scripts/backup.py generate --output .` to add it to
    `apps/<ns>/kustomization.yaml` and `apps/kustomization.yaml`.
 3. Test, commit, push.
@@ -268,5 +297,6 @@ copy the changed files over there as well.
 | `fluxowner.py` | Works out which Flux Kustomization applied an object |
 | `skipfilter.py` | What capture skips (Helm-managed, operator-owned, built-in) |
 | `neat.py` | Strips runtime fields from captured objects |
+| `dependencies.py` | Works out each generated `ks.yaml`'s `dependsOn` |
 | `secretscan.py` | Credential detection and redaction |
 | `flux.py`, `scaffold.py`, `inventory.py` | Builders for Flux CRs, scaffold files and the docs |

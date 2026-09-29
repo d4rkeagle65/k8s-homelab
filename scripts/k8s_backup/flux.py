@@ -90,9 +90,11 @@ def flux_kustomization(
     interval: str,
     configmap_name: str,
     secret_name: str,
+    depends_on: list[dict] | None = None,
+    wait: bool = False,
     depends_on_comment: str = (
-        "Not auto-detected by this script (out of scope). Fill in by hand, e.g.:\n"
-        "  - name: some-other-release"
+        "Set by generate: the operators whose APIs this app's manifests use\n"
+        "(scripts/k8s_backup/dependencies.py)."
     ),
 ) -> dict:
     spec = CommentedMap()
@@ -101,7 +103,12 @@ def flux_kustomization(
     spec["prune"] = True
     spec["sourceRef"] = {"kind": "GitRepository", "name": FLUX_NAMESPACE}
     spec["targetNamespace"] = target_namespace
-    spec["dependsOn"] = []
+    if wait:
+        # Without it this Kustomization is Ready as soon as its HelmRelease
+        # object is applied, before Helm has installed anything, so a
+        # dependsOn on it wouldn't wait for the operator's CRDs.
+        spec["wait"] = True
+    spec["dependsOn"] = depends_on or []
     spec.yaml_set_comment_before_after_key("dependsOn", before=depends_on_comment, indent=2)
     # Always wired, not only when a local substitutions file exists: Flux
     # does not inherit postBuild from the parent `cluster` Kustomization, so

@@ -240,8 +240,10 @@ just the cluster-reading half or just the local YAML-synthesis half.
 - **No age key is generated.** `.sops.yaml` is a scaffold with a
   placeholder recipient; replace it with a real key before encrypting
   anything.
-- **Inter-app `dependsOn` relationships are not inferred.** Every `ks.yaml`
-  has an empty `spec.dependsOn` with a comment; fill those in by hand.
+- **`dependsOn` covers operators only.** A generated `ks.yaml` depends on
+  the operator whose API its own manifests use (CloudNativePG,
+  cert-manager, MetalLB, Longhorn; see `scripts/k8s_backup/dependencies.py`).
+  Other startup order between apps is not inferred.
 - **Flux is not installed and nothing here has been applied.** This script
   is read-only against the cluster and write-only against this directory.
 
@@ -303,8 +305,8 @@ bug.
    comment in each affected file).
 2. Curate `kubernetes/raw/` into proper `kubernetes/apps/<namespace>/<app>/`
    directories where it makes sense.
-3. Fill in `spec.dependsOn` on the `ks.yaml` files that need a startup
-   order (e.g. anything depending on CloudNativePG or Authentik).
+3. Add any startup order `dependsOn` doesn't infer (e.g. an app that needs
+   Authentik running), by making that release `.handwritten`.
 4. Generate a real age key and update `.sops.yaml`, then start moving
    secrets into SOPS-encrypted files per `docs/sops-planning.md`.
 5. Install Flux, create a `GitRepository` named `flux-system` pointing at

@@ -127,3 +127,90 @@ def test_flux_ownership_skips_only_hand_written_entrypoints():
 
 def test_flux_ownership_is_empty_without_flux():
     assert FluxOwnership([]).foreign_reason(_obj("cluster-test")) is None
+
+
+OPERATOR_RELEASES = {
+    "kubernetes/apps/cnpg-system/namespace.yaml": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: cnpg-system\n",
+    "kubernetes/apps/cnpg-system/cnpg/release.yaml": (
+        "release: cnpg\nnamespace: cnpg-system\nchart: cloudnative-pg\nchartVersion: 1.0.0\n"
+        "chartSource:\n  resolved: true\n  kind: HelmRepository\n  name: cnpg\n"
+    ),
+    "kubernetes/apps/cnpg-system/cnpg/app/values.yaml": "{}\n",
+    "kubernetes/apps/cnpg-system/cnpg/app/cluster-own.yaml": (
+        "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: own\n"
+    ),
+}
+
+
+def _depends_on(root: Path, rel: str) -> list:
+    return _yaml.load((root / rel).read_text(encoding="utf-8"))["spec"]["dependsOn"]
+
+
+def test_ks_depends_on_the_operator_whose_api_it_uses(tmp_path):
+    _write(tmp_path, CAPTURED_RELEASE | OPERATOR_RELEASES | {
+        "kubernetes/apps/emby/emby/app/cluster-emby.yaml": (
+            "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: emby\n"
+        ),
+        # Promoted, with cert-manager's API but no cert-manager in the repo.
+        "kubernetes/apps/emby/emby-extras/.promote": "",
+        "kubernetes/apps/emby/emby-extras/app/objects.yaml": (
+            "apiVersion: cert-manager.io/v1\nkind: Certificate\nmetadata:\n  name: a\n---\n"
+            "apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: b\n"
+        ),
+    })
+    generate.run(tmp_path, dry_run=False, verbose=False)
+
+    assert _depends_on(tmp_path, "kubernetes/apps/emby/emby/ks.yaml") == [{"name": "cnpg"}]
+    assert _depends_on(tmp_path, "kubernetes/apps/emby/emby-extras/ks.yaml") == [{"name": "cnpg"}]
+    # The operator never depends on itself, and waits for its HelmRelease
+    # so that being Ready means its CRDs exist.
+    operator_ks = _yaml.load((tmp_path / "kubernetes/apps/cnpg-system/cnpg/ks.yaml").read_text(encoding="utf-8"))
+    assert operator_ks["spec"]["dependsOn"] == []
+    assert operator_ks["spec"]["wait"] is True
+    emby_ks = _yaml.load((tmp_path / "kubernetes/apps/emby/emby/ks.yaml").read_text(encoding="utf-8"))
+    assert "wait" not in emby_ks["spec"]
+
+
+def test_ks_ignores_operator_annotations_and_helm_values(tmp_path):
+    _write(tmp_path, CAPTURED_RELEASE | {
+        "kubernetes/apps/cert-manager/namespace.yaml": (
+            "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: cert-manager\n"
+        ),
+        "kubernetes/apps/cert-manager/cert-manager/release.yaml": (
+            "release: cert-manager\nnamespace: cert-manager\nchart: cert-manager\nchartVersion: 1.0.0\n"
+            "chartSource:\n  resolved: true\n  kind: HelmRepository\n  name: jetstack\n"
+        ),
+        "kubernetes/apps/cert-manager/cert-manager/app/values.yaml": "{}\n",
+        "kubernetes/apps/emby/emby/app/values.yaml": (
+            "ingress:\n  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\n"
+        ),
+        "kubernetes/apps/emby/emby/app/ingress-emby.yaml": (
+            "apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: emby\n"
+            "  annotations:\n    cert-manager.io/cluster-issuer: letsencrypt\n"
+        ),
+    })
+    generate.run(tmp_path, dry_run=False, verbose=False)
+
+    assert _depends_on(tmp_path, "kubernetes/apps/emby/emby/ks.yaml") == []
+
+
+def test_handwritten_operator_is_found_by_its_helmrelease(tmp_path):
+    _write(tmp_path, CAPTURED_RELEASE | {
+        "kubernetes/apps/longhorn-system/namespace.yaml": (
+            "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: longhorn-system\n"
+        ),
+        "kubernetes/apps/longhorn-system/longhorn/.handwritten": "",
+        "kubernetes/apps/longhorn-system/longhorn/ks.yaml": "kind: Kustomization\nmetadata:\n  name: longhorn\n",
+        "kubernetes/apps/longhorn-system/longhorn/app/helmrelease.yaml": (
+            "apiVersion: helm.toolkit.fluxcd.io/v2\nkind: HelmRelease\nmetadata:\n  name: longhorn\n"
+            "spec:\n  chart:\n    spec:\n      chart: longhorn\n"
+        ),
+        "kubernetes/apps/emby/emby/app/recurringjob.yaml": (
+            "apiVersion: longhorn.io/v1beta2\nkind: RecurringJob\nmetadata:\n  name: nightly\n"
+        ),
+    })
+    generate.run(tmp_path, dry_run=False, verbose=False)
+
+    assert _depends_on(tmp_path, "kubernetes/apps/emby/emby/ks.yaml") == [{"name": "longhorn"}]
+    # Still never written to.
+    assert "dependsOn" not in (tmp_path / "kubernetes/apps/longhorn-system/longhorn/ks.yaml").read_text()
