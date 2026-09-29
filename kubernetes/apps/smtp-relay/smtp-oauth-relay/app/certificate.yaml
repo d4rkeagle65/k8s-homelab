@@ -1,5 +1,5 @@
 # The relay's STARTTLS certificate. Clients must connect by this name for
-# it to validate; point it at SMTP_RELAY_IP in local DNS.
+# it to validate; point it at the main ingress address in local DNS.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:

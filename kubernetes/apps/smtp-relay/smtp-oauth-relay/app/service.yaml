@@ -1,14 +1,12 @@
-# A fixed LAN address, so clients outside the cluster (Vaultwarden) can reach
-# it. SMTP_RELAY_IP must be in the cluster-substitutions ConfigMap, inside the
-# MetalLB pool, before this is deployed.
+# Reached from outside the cluster on the main ingress address, port 8025:
+# ingress-nginx forwards that port here as raw TCP (`tcp:` in its values), so
+# STARTTLS and the certificate stay with the relay.
 apiVersion: v1
 kind: Service
 metadata:
   name: smtp-oauth-relay
-  annotations:
-    metallb.io/loadBalancerIPs: ${SMTP_RELAY_IP}
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: smtp-oauth-relay
   ports:
