@@ -255,7 +255,9 @@ def _generate_apps_kustomization(sink: Sink, timestamp: str) -> None:
     if not apps_root.exists():
         return
     namespaces = [p.name for p in apps_root.iterdir() if (p / "namespace.yaml").exists()]
-    sink.write_yaml_stable(apps_root / "kustomization.yaml", flux.kustomization_file(namespaces), timestamp)
+    sink.write_yaml_stable(
+        apps_root / "kustomization.yaml", flux.kustomization_file(namespaces, protect_namespaces=True), timestamp
+    )
 
 
 def _generate_repository_kustomization(sink: Sink, timestamp: str) -> int:
@@ -277,7 +279,9 @@ def _generate_cluster_kustomization(sink: Sink, timestamp: str) -> int:
         if kind_dir.is_dir()
         for f in kind_dir.glob("*.yaml")
     )
-    sink.write_yaml_stable(cluster_dir / "kustomization.yaml", flux.kustomization_file(resources), timestamp)
+    sink.write_yaml_stable(
+        cluster_dir / "kustomization.yaml", flux.kustomization_file(resources, protect_namespaces=True), timestamp
+    )
     return len(resources)
 
 

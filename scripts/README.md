@@ -69,7 +69,10 @@ is rewritten on every run; change its source instead.
 | generate | `.gitignore` (lines you add are kept), `.sops.yaml`, `.githooks/pre-commit`, and `README.md` only if missing |
 
 Both phases delete files they own that no longer correspond to anything, e.g.
-a release that was uninstalled. Anything they don't own, such as
+a release that was uninstalled. Flux then removes the release, but never its
+Namespace: generate marks every Namespace `prune: disabled`, because deleting
+one deletes everything in it. Delete an unused Namespace with
+`kubectl delete namespace <ns>`. Anything they don't own, such as
 `flux/config/shared.yaml`, `test/`, `shared/` and `QUEUE.md`, is never touched.
 
 ## Three kinds of release folder

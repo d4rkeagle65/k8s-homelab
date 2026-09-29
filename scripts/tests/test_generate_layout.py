@@ -214,3 +214,20 @@ def test_handwritten_operator_is_found_by_its_helmrelease(tmp_path):
     assert _depends_on(tmp_path, "kubernetes/apps/emby/emby/ks.yaml") == [{"name": "longhorn"}]
     # Still never written to.
     assert "dependsOn" not in (tmp_path / "kubernetes/apps/longhorn-system/longhorn/ks.yaml").read_text()
+
+
+def test_namespaces_are_never_pruned(tmp_path):
+    # Both Kustomizations that apply Namespaces patch them prune: disabled,
+    # so neither can delete one (and everything in it) when it drops it.
+    _write(tmp_path, CAPTURED_RELEASE | {
+        "kubernetes/cluster/namespace/emby.yaml": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: emby\n",
+    })
+    generate.run(tmp_path, dry_run=False, verbose=False)
+
+    for rel in ("kubernetes/apps/kustomization.yaml", "kubernetes/cluster/kustomization.yaml"):
+        doc = _yaml.load((tmp_path / rel).read_text(encoding="utf-8"))
+        [patch] = doc["patches"]
+        assert patch["target"] == {"kind": "Namespace"}
+        body = _yaml.load(patch["patch"])
+        assert body["kind"] == "Namespace"
+        assert body["metadata"]["annotations"] == {"kustomize.toolkit.fluxcd.io/prune": "disabled"}

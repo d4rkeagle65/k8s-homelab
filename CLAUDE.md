@@ -42,6 +42,9 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
     the cluster before anything using it is pushed. Only the owner can do that.
 - **Keep `kustomize.toolkit.fluxcd.io/prune: disabled`** on promoted PVCs,
   database `Cluster`s and Secrets. It stops Flux deleting their data.
+  generate also sets it on every Namespace (a patch in `apps/` and
+  `cluster/kustomization.yaml`), since deleting a Namespace deletes everything
+  in it. A Namespace that's no longer wanted is deleted by hand.
 - **Tests:** `pip install -r scripts/requirements-test.txt`, then
   `python -m pytest scripts/tests -q`. The pre-commit hook runs them once
   `git config core.hooksPath .githooks` is set (generate sets it). Don't bypass
