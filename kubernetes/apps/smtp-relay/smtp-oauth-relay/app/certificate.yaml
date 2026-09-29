@@ -1,0 +1,15 @@
+# The relay's STARTTLS certificate. Clients must connect by this name for
+# it to validate; point it at SMTP_RELAY_IP in local DNS.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: smtp-oauth-relay
+spec:
+  dnsNames:
+  - smtp-relay.${BASE_DOMAIN}
+  issuerRef:
+    kind: ClusterIssuer
+    name: cloudflare-letsencrypt
+  privateKey:
+    rotationPolicy: Always
+  secretName: smtp-oauth-relay-tls

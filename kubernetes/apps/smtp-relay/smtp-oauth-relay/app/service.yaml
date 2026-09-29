@@ -1,0 +1,18 @@
+# A fixed LAN address, so clients outside the cluster (Vaultwarden) can reach
+# it. SMTP_RELAY_IP must be in the cluster-substitutions ConfigMap, inside the
+# MetalLB pool, before this is deployed.
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp-oauth-relay
+  annotations:
+    metallb.io/loadBalancerIPs: ${SMTP_RELAY_IP}
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: smtp-oauth-relay
+  ports:
+  - name: smtp
+    port: 8025
+    targetPort: smtp
+    protocol: TCP

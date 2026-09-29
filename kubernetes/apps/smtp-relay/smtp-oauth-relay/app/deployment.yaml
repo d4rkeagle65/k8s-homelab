@@ -1,0 +1,90 @@
+# SMTP to Microsoft 365 over Graph with OAuth client credentials, for clients
+# that can only do SMTP AUTH (https://github.com/JustinIven/smtp-oauth-relay).
+# It holds no credentials: each client logs in with its Entra app's
+# tenant_id@client_id and client secret, which the relay passes to Microsoft.
+# Based on its Kubernetes guide (docs/installation/kubernetes.md).
+#
+# The relay reads its certificate only at startup, so after cert-manager
+# renews it the liveness probe fails on the changed file and the pod restarts
+# with the new one. Scripts use $VAR, never the braced form Flux substitutes.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smtp-oauth-relay
+  labels:
+    app.kubernetes.io/name: smtp-oauth-relay
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: smtp-oauth-relay
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: smtp-oauth-relay
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: smtp-oauth-relay
+        image: ghcr.io/justiniven/smtp-oauth-relay:1.7.0
+        command: ["/bin/sh", "-ec"]
+        args:
+        - |
+          sha256sum /certs/tls.crt > /tmp/loaded-cert.sha256
+          exec python main.py
+        env:
+        - name: LOG_LEVEL
+          value: INFO
+        - name: TLS_SOURCE
+          value: file
+        - name: REQUIRE_TLS
+          value: "true"
+        - name: TLS_CERT_FILEPATH
+          value: /certs/tls.crt
+        - name: TLS_KEY_FILEPATH
+          value: /certs/tls.key
+        ports:
+        - name: smtp
+          containerPort: 8025
+          protocol: TCP
+        readinessProbe:
+          tcpSocket:
+            port: smtp
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "sha256sum -c --status /tmp/loaded-cert.sha256"]
+          initialDelaySeconds: 10
+          periodSeconds: 60
+          failureThreshold: 2
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: certs
+          mountPath: /certs
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: certs
+        secret:
+          secretName: smtp-oauth-relay-tls
+      - name: tmp
+        emptyDir: {}
