@@ -1,0 +1,24 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: bitwarden-cli
+  namespace: flux-system
+spec:
+  interval: 30m
+  path: ./kubernetes/apps/external-secrets/bitwarden-cli/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: external-secrets
+  # ClusterSecretStore is an external-secrets CRD.
+  dependsOn:
+  - name: external-secrets
+  postBuild:
+    substituteFrom:
+    - kind: ConfigMap
+      name: cluster-substitutions
+      optional: true
+    - kind: Secret
+      name: cluster-substitutions
+      optional: true
