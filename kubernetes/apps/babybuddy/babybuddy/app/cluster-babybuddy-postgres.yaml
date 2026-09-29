@@ -74,5 +74,5 @@ spec:
   storage:
     resizeInUseVolumes: true
     size: 1Gi
-    storageClass: nfs-client
+    storageClass: local-db
   switchoverDelay: 3600

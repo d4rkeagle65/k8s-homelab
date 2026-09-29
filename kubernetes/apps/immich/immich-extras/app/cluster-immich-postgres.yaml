@@ -80,5 +80,5 @@ spec:
   storage:
     resizeInUseVolumes: true
     size: 16Gi
-    storageClass: nfs-retain-rwo
+    storageClass: local-db
   switchoverDelay: 3600
