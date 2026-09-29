@@ -57,10 +57,6 @@ nothing here tracks them.
   - Set a backup target so volume snapshots leave the nodes.
   - Put the UI behind Authentik. It has no login, so for now use
     `kubectl port-forward -n longhorn-system svc/longhorn-frontend 8080:80`.
-- [ ] **Startup order (`dependsOn`).** All generated `ks.yaml` files have an empty
-  `dependsOn`, and Flux copes by retrying. Worth adding:
-  - apps with a Postgres database depend on `cnpg`;
-  - apps with Certificates depend on `cert-manager`.
 - [ ] **Namespaces defined twice.** Every app namespace is in both
   `apps/<ns>/namespace.yaml` (`cluster`) and `cluster/namespace/<ns>.yaml`
   (`cluster-resources`), so the two Flux Kustomizations keep relabelling it.
@@ -73,6 +69,10 @@ nothing here tracks them.
 
 ## Done
 
+- 2026-09-29: Startup order. generate fills in `dependsOn` on each generated
+  `ks.yaml` from the operator APIs its manifests use (`cnpg`, `cert-manager`),
+  and sets `wait: true` on the operators. The hand-written *arr apps depend
+  on `cnpg` by hand.
 - 2026-09-28: Finished the media move to shared base plus test overlay. Removed
   the orphaned `production/` tree and the stale test copies.
 - 2026-09-28: Fixed the generator:

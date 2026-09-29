@@ -292,3 +292,65 @@ def test_no_public_ip_addresses(repo_root, all_yaml_files, load_yaml, allowlist)
         "is intentional (e.g. a public DNS target that's supposed to be here), "
         f"add the exact IP to docs/secrets-scan-allowlist.txt: {offenders}"
     )
+
+
+_PLACEHOLDER_RE = re.compile(r"^\$\{[A-Za-z_][A-Za-z0-9_]*\}$")
+_HOSTNAME_LABEL = "kubernetes.io/hostname"
+# local-path-provisioner's catch-all entry; a keyword, not a node.
+_NODE_PATH_MAP_DEFAULT = "DEFAULT_PATH_FOR_NON_LISTED_NODES"
+
+
+def _node_names(obj, path=""):
+    """(field path, value) for every field that names a Kubernetes node:
+    `nodeName`, a `kubernetes.io/hostname` nodeSelector or affinity term,
+    and local-path-provisioner's `nodePathMap[].node`.
+    """
+    if isinstance(obj, dict):
+        if isinstance(obj.get("nodeName"), str):
+            yield f"{path}.nodeName", obj["nodeName"]
+        if isinstance(obj.get(_HOSTNAME_LABEL), str):
+            yield f"{path}.{_HOSTNAME_LABEL}", obj[_HOSTNAME_LABEL]
+        if obj.get("key") == _HOSTNAME_LABEL and isinstance(obj.get("values"), list):
+            for i, value in enumerate(obj["values"]):
+                yield f"{path}.values[{i}]", value
+        if isinstance(obj.get("nodePathMap"), list):
+            for i, entry in enumerate(obj["nodePathMap"]):
+                if isinstance(entry, dict) and entry.get("node") != _NODE_PATH_MAP_DEFAULT:
+                    yield f"{path}.nodePathMap[{i}].node", entry.get("node")
+        for key, value in obj.items():
+            yield from _node_names(value, f"{path}.{key}")
+    elif isinstance(obj, list):
+        for i, value in enumerate(obj):
+            yield from _node_names(value, f"{path}[{i}]")
+
+
+def test_node_names_are_placeholders(repo_root, all_yaml_files):
+    """Node names are hostnames, which stay out of this public repo. Unlike
+    test_no_substitution_literal_leaks_outside_local this needs no local
+    file, so it also runs in a fresh clone: every field that names a node
+    must be a ${VARIABLE} from the cluster-substitutions ConfigMap.
+    """
+    local_root = repo_root / "kubernetes" / ".local"
+    ignored = _gitignored(repo_root, all_yaml_files)
+    offenders = []
+    for path in all_yaml_files:
+        if path.is_relative_to(local_root) or path in ignored:
+            continue
+        try:
+            docs = list(_yaml_all(path))
+        except Exception:
+            continue
+        for doc in docs:
+            for field_path, value in _node_names(doc):
+                if not (isinstance(value, str) and _PLACEHOLDER_RE.match(value)):
+                    offenders.append((path.relative_to(repo_root).as_posix(), field_path))
+    assert not offenders, (
+        "a node name is written out in a git-tracked file; use a ${VARIABLE} "
+        f"placeholder instead (the value is not shown here): {offenders}"
+    )
+
+
+def _yaml_all(path):
+    from ruamel.yaml import YAML
+
+    return YAML(typ="safe").load_all(path.read_text(encoding="utf-8"))

@@ -267,6 +267,9 @@ python -m pytest scripts/tests/test_structure.py -q -k promote # filter by test 
 - `test_structure.py` checks the tree matches what the generator promises.
 - `test_secrets_hygiene.py` scans every file for credentials, captured Secret
   values and leaked substitution values. It skips gitignored `kubernetes/.local/`.
+  It also requires every field naming a node (`nodeName`, a
+  `kubernetes.io/hostname` selector, local-path-provisioner's `nodePathMap`) to
+  be a `${VARIABLE}`; that check needs no local files.
 - The other test files cover the tool's own behaviour and use temporary folders
   only.
 - In a fresh clone with no `kubernetes/.local/` (e.g. a cloud session), the
