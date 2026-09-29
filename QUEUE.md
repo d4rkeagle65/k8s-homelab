@@ -20,11 +20,6 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Resume the 6 Flux Kustomizations still suspended from the database
-  move**: `authentik-extras`, `babybuddy`, `immich-extras`, `manictime-extras`,
-  `radarr`, `sonarr`. Their git changes are pushed (`774dacf`), and on
-  2026-09-29 `flux diff` showed 0 changes for each, so resuming changes nothing.
-  Run `flux resume kustomization <name>` for each.
 - [ ] **Delete the old NFS database volumes** once you're comfortable. Each of
   the 9 databases left its pre-move NFS PVs `Released` with `Retain`, as a
   fallback. List them with
@@ -34,11 +29,6 @@ nothing here tracks them.
   can't serve volumes on these LXC nodes, and its default disks sit on the 8 GiB
   root filesystems. Either uninstall it through Flux or keep it for a future
   move of the workers to VMs.
-- [ ] **Delete babybuddy's old PVC** once you're happy with the move.
-  babybuddy has run on `babybuddy-config-v2` (`nfs-retain-rwo`) since
-  2026-09-29, with the change in git and Flux resumed. Then run
-  `kubectl delete pvc babybuddy-config -n babybuddy`; its PV is `Retain`, so
-  the NFS data stays until you remove it.
 
 ## Cleanup
 
@@ -69,6 +59,9 @@ nothing here tracks them.
 
 ## Done
 
+- 2026-09-29: Resumed the 6 Kustomizations suspended for the database move.
+- 2026-09-29: Deleted babybuddy's old `babybuddy-config` PVC; its PV is
+  `Released` (`Retain`) until the old-volume cleanup.
 - 2026-09-29: Startup order. generate fills in `dependsOn` on each generated
   `ks.yaml` from the operator APIs its manifests use (`cnpg`, `cert-manager`),
   and sets `wait: true` on the operators. The hand-written *arr apps depend
