@@ -291,6 +291,8 @@ def test_every_release_has_required_files(repo_root, rel_file):
                     "captured files -- generate would treat the folder as captured"
                 )
                 continue
+            if rel_file == "app/helmrelease.yaml":
+                continue  # a hand-written release may be plain manifests
         assert (release_dir / rel_file).is_file(), f"{ns_name}/{release_name}/{rel_file} missing"
     if not found_any:
         pytest.skip("no releases captured")
@@ -350,9 +352,10 @@ def test_handwritten_helmrelease_is_consistent(repo_root, load_yaml):
         load_yaml(p)["metadata"]["name"] for p in repo_dir.glob("*.yaml") if p.name != "kustomization.yaml"
     }
     for ns_name, release_name, release_dir in _release_dirs(repo_root):
-        if not is_handwritten(release_dir):
-            continue
-        hr = load_yaml(release_dir / "app" / "helmrelease.yaml")
+        hr_path = release_dir / "app" / "helmrelease.yaml"
+        if not is_handwritten(release_dir) or not hr_path.is_file():
+            continue  # plain manifests have no HelmRelease to check
+        hr = load_yaml(hr_path)
         assert hr["apiVersion"] == "helm.toolkit.fluxcd.io/v2"
         assert hr["kind"] == "HelmRelease"
         assert hr["metadata"]["name"] == release_name
@@ -368,6 +371,11 @@ def test_app_kustomization_lists_helmrelease(repo_root, load_yaml):
         if is_promoted(release_dir):
             continue  # see test_promoted_release_is_consistent
         doc = load_yaml(release_dir / "app" / "kustomization.yaml")
+        if is_handwritten(release_dir) and not (release_dir / "app" / "helmrelease.yaml").is_file():
+            # Plain manifests: whatever is in app/ must be listed.
+            on_disk = sorted(q.name for q in (release_dir / "app").glob("*.yaml") if q.name != "kustomization.yaml")
+            assert sorted(doc["resources"]) == on_disk, f"{ns_name}/{release_name}"
+            continue
         assert "helmrelease.yaml" in doc["resources"], f"{ns_name}/{release_name}"
         assert "values.yaml" not in doc["resources"], (
             f"{ns_name}/{release_name}: values.yaml is a Helm values file, not a manifest -- "

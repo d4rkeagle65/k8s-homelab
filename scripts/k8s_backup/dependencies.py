@@ -33,6 +33,7 @@ OPERATOR_CHARTS = {
     "cert-manager.io": "cert-manager",
     "metallb.io": "metallb",
     "longhorn.io": "longhorn",
+    "external-secrets.io": "external-secrets",
 }
 
 

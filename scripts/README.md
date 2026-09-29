@@ -115,6 +115,7 @@ in `dependencies.py`:
 | `cert-manager.io` (a `Certificate`, `Issuer`) | `cert-manager` |
 | `metallb.io` | `metallb` |
 | `longhorn.io` | `longhorn` |
+| `external-secrets.io` (an `ExternalSecret`, `SecretStore`) | `external-secrets` |
 
 - Only the manifests in `app/` count. What a HelmRelease renders in the cluster
   can't be seen offline, so a chart that creates a database adds nothing.

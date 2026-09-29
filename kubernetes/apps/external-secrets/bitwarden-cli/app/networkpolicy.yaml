@@ -1,0 +1,23 @@
+# bw serve has no authentication: anything that can reach it can read the
+# vault. Only the External Secrets controller may. A podSelector with no
+# namespaceSelector matches pods in this namespace only, which is why the
+# CLI runs alongside the operator.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bitwarden-cli-from-external-secrets
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bitwarden-cli
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: external-secrets
+          app.kubernetes.io/instance: external-secrets
+    ports:
+    - port: 8087
+      protocol: TCP

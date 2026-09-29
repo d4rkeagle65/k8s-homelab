@@ -1,0 +1,171 @@
+# The Bitwarden CLI, logged in to Vaultwarden, serving its vault API
+# (`bw serve`) for External Secrets. Based on the external-secrets Bitwarden
+# example: https://external-secrets.io/latest/examples/bitwarden/
+#
+# The CLI is Bitwarden's own release, downloaded by the init container and
+# checked against a pinned SHA256, rather than a third-party image that would
+# handle the vault password. It needs glibc and libstdc++, which the official
+# node image has; node is also what the liveness probe uses.
+#
+# Its login is the `bitwarden-cli` Secret, created by hand and never in git:
+#   BW_HOST                           Vaultwarden URL
+#   BW_CLIENTID, BW_CLIENTSECRET      the account's API key (recommended), or
+#   BW_USERNAME                       its email, for password login
+#   BW_PASSWORD                       master password (unlocks the vault)
+#
+# Scripts use $VAR, never the braced form: Flux substitutes that one.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bitwarden-cli
+  labels:
+    app.kubernetes.io/name: bitwarden-cli
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bitwarden-cli
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bitwarden-cli
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: fetch-cli
+        image: alpine:3.22
+        command: ["/bin/sh", "-ec"]
+        args:
+        - |
+          # Bitwarden CLI 2026.9.0, bw-oss-linux (amd64).
+          VERSION=2026.9.0
+          SHA256=b34fcaa0a8c96df0783e09ed6c9c22003497e5b429351c42127206b794c6b69b
+          wget -q -O /tmp/bw.zip "https://github.com/bitwarden/clients/releases/download/cli-v$VERSION/bw-oss-linux-$VERSION.zip"
+          echo "$SHA256  /tmp/bw.zip" | sha256sum -c -
+          unzip -o -q /tmp/bw.zip -d /opt/bw
+          chmod 0755 /opt/bw/bw
+          rm /tmp/bw.zip
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: cli
+          mountPath: /opt/bw
+        - name: tmp
+          mountPath: /tmp
+      containers:
+      - name: bitwarden-cli
+        image: node:22-bookworm-slim
+        command: ["/bin/bash", "-ec"]
+        args:
+        - |
+          export PATH=/opt/bw:$PATH
+          bw config server "$BW_HOST" >/dev/null
+          if [ -n "$BW_CLIENTID" ]; then
+            echo "Logging in with the API key"
+            bw login --apikey >/dev/null
+            BW_SESSION=$(bw unlock --passwordenv BW_PASSWORD --raw)
+          else
+            echo "Logging in with username and password"
+            BW_SESSION=$(bw login "$BW_USERNAME" --passwordenv BW_PASSWORD --raw)
+          fi
+          export BW_SESSION
+          bw unlock --check
+          # --hostname all: bw serve 2026.6.0+ otherwise rejects requests
+          # addressed to the Service name. The NetworkPolicy limits who can
+          # reach it; bw serve itself has no authentication.
+          exec bw serve --hostname all --port 8087
+        env:
+        - name: BITWARDENCLI_APPDATA_DIR
+          value: /data
+        - name: HOME
+          value: /tmp
+        - name: BW_HOST
+          valueFrom:
+            secretKeyRef:
+              name: bitwarden-cli
+              key: BW_HOST
+        - name: BW_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: bitwarden-cli
+              key: BW_PASSWORD
+        - name: BW_CLIENTID
+          valueFrom:
+            secretKeyRef:
+              name: bitwarden-cli
+              key: BW_CLIENTID
+              optional: true
+        - name: BW_CLIENTSECRET
+          valueFrom:
+            secretKeyRef:
+              name: bitwarden-cli
+              key: BW_CLIENTSECRET
+              optional: true
+        - name: BW_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: bitwarden-cli
+              key: BW_USERNAME
+              optional: true
+        ports:
+        - name: http
+          containerPort: 8087
+          protocol: TCP
+        # Exec probes, so they don't depend on how the NetworkPolicy treats
+        # kubelet traffic. The liveness probe also pulls vault changes: bw
+        # serve only syncs when asked.
+        startupProbe:
+          exec:
+            command: ["node", "-e", "require('net').connect(8087,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+          periodSeconds: 5
+          failureThreshold: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command: ["node", "-e", "require('net').connect(8087,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command: ["node", "-e", "fetch('http://127.0.0.1:8087/sync?force=true',{method:'POST'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+          periodSeconds: 120
+          timeoutSeconds: 30
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 10m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: cli
+          mountPath: /opt/bw
+          readOnly: true
+        - name: data
+          mountPath: /data
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: cli
+        emptyDir: {}
+      - name: data
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
