@@ -53,6 +53,11 @@ spec:
     # make it the cluster default.
     ingressClass:
       enabled: false
+    # aliasHeadersStrategy: delete drops request headers whose names alias
+    # another's (X_Auth_User for X-Auth-User). Python/PHP apps read both as one
+    # variable, so a client could otherwise spoof the X-authentik-* headers the
+    # Authentik forward-auth sets (babybuddy). nginx drops them by default.
+    # https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/#aliasheadersstrategy
     ports:
       web:
         # Traefik limits reading a whole request (body included) to 60s by
@@ -61,10 +66,22 @@ spec:
         transport:
           respondingTimeouts:
             readTimeout: 0
+        http:
+          aliasHeadersStrategy: delete
       websecure:
         transport:
           respondingTimeouts:
             readTimeout: 0
+        http:
+          aliasHeadersStrategy: delete
+      # Internal (dashboard/API and metrics; not exposed): set so Traefik
+      # doesn't warn about every entry point.
+      traefik:
+        http:
+          aliasHeadersStrategy: delete
+      metrics:
+        http:
+          aliasHeadersStrategy: delete
       # smtp-oauth-relay, as ingress-nginx's `tcp:` does today.
       smtp:
         port: 8025
@@ -72,6 +89,8 @@ spec:
           default: true
         exposedPort: 8025
         protocol: TCP
+        http:
+          aliasHeadersStrategy: delete
     service:
       annotations:
         metallb.io/loadBalancerIPs: ${TRAEFIK_IP}
