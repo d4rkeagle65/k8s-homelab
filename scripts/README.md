@@ -117,6 +117,7 @@ in `dependencies.py`:
 | `metallb.io` | `metallb` |
 | `longhorn.io` | `longhorn` |
 | `external-secrets.io` (an `ExternalSecret`, `SecretStore`) | `external-secrets` |
+| `traefik.io` (an `IngressRoute`, `Middleware`) | `traefik` |
 
 - Only the manifests in `app/` count. What a HelmRelease renders in the cluster
   can't be seen offline, so a chart that creates a database adds nothing.
