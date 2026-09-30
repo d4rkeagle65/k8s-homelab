@@ -201,6 +201,14 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 the next sync. capture reads the live Secret, so from then on it replaces the
 new value.
 
+`scripts/vaultwarden-fields.ps1` does this from PowerShell, through the
+bitwarden-cli pod. With no arguments it lists the field names (never values),
+whether each is base64 (used in a Secret's `data:`), synced, and which Flux
+Kustomizations use it. `./scripts/vaultwarden-fields.ps1 NAME` asks for the
+new value without echoing it, base64-encodes it when needed, writes it,
+force-syncs, waits for the `cluster-secrets` Secret to have it, and prints the
+`flux reconcile` commands to run. `-New` adds a field that doesn't exist yet.
+
 capture finds some private values on its own (an ACME email, a non-IP NFS
 hostname, your main Ingress domain) and every promoted Secret's value. Anything
 not in Vaultwarden yet is replaced in that run's output anyway, and listed with
