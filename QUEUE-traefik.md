@@ -102,7 +102,7 @@ If Traefik's Service stays `<pending>` after nginx's shows no external IP:
       leaves it: Traefik finds the Ingresses through it (Traefik's guide,
       "Preserve the IngressClass"). Check:
       `kubectl get ingressclass nginx -o jsonpath="{.metadata.annotations}"`.
-- [ ] 4b, one merge:
+- [x] 4b, one merge (merged 2026-09-30):
   - The `nginx` IngressClass as a standalone object in the Traefik app
     (`ingressclass-nginx.yaml`), so Flux takes it over from Helm.
   - `apps/ingress-nginx/` removed (the release, `ingress-nginx-extras`' nginx-only
@@ -127,29 +127,47 @@ If Traefik's Service stays `<pending>` after nginx's shows no external IP:
       Mirrors today's setup, so the isolated VLAN still reaches only ManicTime.
 - [ ] Test, cut over, remove `ingress-nginx-isolated`.
 
-## Pi-hole: pointing names at TRAEFIK_IP
+## Pi-hole: pointing names at a new address
 
-Pi-hole v6 keeps local DNS records in `/etc/pihole/pihole.toml` (`[dns]`,
-`hosts = [ "IP HOSTNAME [HOSTNAME ...]", ... ]`) and reloads when the file is
-rewritten. CNAME records point at names, so they follow on their own. On the
-Pi-hole (prefix with `docker exec <container>` if it runs in Docker):
+Pi-hole v6 keeps local DNS in `/etc/pihole/pihole.toml` (`[dns]`) and reloads
+when the file is rewritten. The app names are **CNAMEs**, not address records:
+`cnameRecords` has `"<app>.<domain>,k8snginx.<local domain>"` (ManicTime's
+target is `k8snginx-isolated.<local domain>`), and `hosts` has the one address
+record each target resolves to, `"<ip> k8snginx.<local domain>"`. So:
+
+- **Moving every name at once** means changing that one `hosts` entry, or, as
+  in Batch 3, moving the address itself to the new controller (no DNS change).
+- **Testing one name** means pointing its CNAME at a second target name with
+  the test address. (Batch 2's per-name command edited `hosts` entries only,
+  so it matched nothing for CNAME'd names; some Batch 2 tests likely still
+  reached nginx. babybuddy did reach Traefik, since it failed there.)
+
+On the Pi-hole (prefix with `docker exec <container>` if it runs in Docker):
 
 ```bash
-OLD='<INGRESS_IP>'; NEW='<TRAEFIK_IP>'           # the real addresses
-OLD_RE=$(printf '%s' "$OLD" | sed 's/\./\\./g')
 sudo cp /etc/pihole/pihole.toml "/etc/pihole/pihole.toml.bak-$(date +%F-%H%M)"
-grep -n "\"$OLD_RE " /etc/pihole/pihole.toml     # records on OLD
-
-# Batch 2, one name at a time (a record listing several names moves all of them):
-NAME='<hostname>'
-sudo sed -i "s/\"$OLD_RE \($NAME\b\)/\"$NEW \1/" /etc/pihole/pihole.toml
-
-# Before the Batch 3 merge, put a test name back (swap OLD and NEW first):
-# OLD='<TRAEFIK_IP>'; NEW='<INGRESS_IP>', then the two lines above.
-
-grep -n "\"$NEW " /etc/pihole/pihole.toml && nslookup "$NAME" 127.0.0.1
+LOCAL='<local domain>'; TEST_IP='<test address>'; TARGET="k8stest.$LOCAL"
+# Once: an address record for the test target, as the first `hosts` entry.
+sudo sed -i "0,/^  hosts = \[/s//&\n    \"$TEST_IP $TARGET\",/" /etc/pihole/pihole.toml
+# Per name: repoint its CNAME (OLD_TARGET is what it points at today).
+APP='<app>.<domain>'; OLD_TARGET="k8snginx-isolated.$LOCAL"
+sudo sed -i "s/\"$APP,$OLD_TARGET\"/\"$APP,$TARGET\"/" /etc/pihole/pihole.toml
+grep -n -E "$TARGET|\"$APP," /etc/pihole/pihole.toml && dig +short "$APP" @127.0.0.1
 # Rollback: copy the .bak file back over pihole.toml.
 ```
+
+Check the `hosts = [` line matches your file (`grep -n "hosts = \[" ...`)
+before running the first `sed`.
+
+### `local=/<local domain>/` (added 2026-09-30)
+
+`misc.dnsmasq_lines` has `local=/<local domain>/`, so Pi-hole answers that domain
+only from its own records. Before, it forwarded what it couldn't answer (e.g.
+the AAAA lookup for `k8snginx.<local domain>`, which has only an A record) to
+the DHCP server by conditional forwarding, which never replied. Vaultwarden's
+resolver waits for the AAAA answer, so its SSO discovery timed out. Side effect:
+hostnames only the DHCP server knows no longer resolve under that domain. The
+better long-term fix is the DHCP server answering, then removing the line.
 
 ## Later (optional)
 
