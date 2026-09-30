@@ -1,6 +1,6 @@
 # Reached from outside the cluster on the main ingress address, port 8025:
-# ingress-nginx forwards that port here as raw TCP (`tcp:` in its values), so
-# STARTTLS and the certificate stay with the relay.
+# Traefik forwards that port here as raw TCP (the IngressRouteTCP in its
+# HelmRelease), so STARTTLS and the certificate stay with the relay.
 apiVersion: v1
 kind: Service
 metadata:

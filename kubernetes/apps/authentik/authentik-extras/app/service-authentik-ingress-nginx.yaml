@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: authentik-ingress-nginx
-  namespace: authentik
-spec:
-  externalName: ingress-nginx-controller.ingress-nginx.svc.${CLUSTER_DOMAIN}
-  sessionAffinity: None
-  type: ExternalName

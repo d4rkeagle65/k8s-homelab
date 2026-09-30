@@ -102,19 +102,23 @@ If Traefik's Service stays `<pending>` after nginx's shows no external IP:
       leaves it: Traefik finds the Ingresses through it (Traefik's guide,
       "Preserve the IngressClass"). Check:
       `kubectl get ingressclass nginx -o jsonpath="{.metadata.annotations}"`.
-- [ ] 4b: keep the `nginx` IngressClass as a standalone object in git
-      (`controller: k8s.io/ingress-nginx`), so Flux takes it over from Helm.
-- [ ] Remove the `ingress-nginx` release (keep its HelmRepository: `ingress-nginx-isolated` uses it until Batch 5); drop
-      the nginx-only config in `ingress-nginx-extras` (log format and custom
-      header ConfigMaps).
-- [ ] Remove `authentik-extras`' `authentik-ingress-nginx` ExternalName Service
-      (points at the nginx controller; nothing in git uses it).
-- [ ] Turn Traefik's status publishing on (safe once nginx is gone).
-- [ ] Remove the `TRAEFIK_IP` field and its ExternalSecret entry once nothing
-      uses it.
-- [ ] Delete the `ingress-nginx` namespace by hand afterwards (namespaces aren't
-      pruned), and check `kubectl get validatingwebhookconfigurations` has no
-      `ingress-nginx-admission` left (it would block every Ingress change).
+- [ ] 4b, one merge:
+  - The `nginx` IngressClass as a standalone object in the Traefik app
+    (`ingressclass-nginx.yaml`), so Flux takes it over from Helm.
+  - `apps/ingress-nginx/` removed (the release, `ingress-nginx-extras`' nginx-only
+    ConfigMaps, the namespace files). Flux uninstalls the chart; the Namespace
+    itself stays (prune disabled). The `ingress-nginx` HelmRepository stays:
+    `ingress-nginx-isolated` uses it until Batch 5.
+  - `authentik-extras`' `authentik-ingress-nginx` ExternalName Service removed
+    (pointed at the nginx controller; nothing used it).
+  - Traefik's status publishing on (`publishService`).
+  - `TRAEFIK_IP`'s ExternalSecret entry removed.
+- [ ] After: the IngressClass is still there; apps work; Ingresses show
+      `INGRESS_IP` as their address; no `ingress-nginx-admission` in
+      `kubectl get validatingwebhookconfigurations` (it would block every
+      Ingress change). Then by hand: `kubectl delete namespace ingress-nginx`,
+      delete the `TRAEFIK_IP` field in Vaultwarden, and run `all` to check
+      capture brings nothing back.
 
 ## Batch 5: ingress-nginx-isolated (repeat batches 1-4 for ManicTime)
 
