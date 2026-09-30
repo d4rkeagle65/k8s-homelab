@@ -46,9 +46,12 @@ spec:
         command: ["/bin/sh", "-ec"]
         args:
         - |
-          # Bitwarden CLI 2026.9.0, bw-oss-linux (amd64).
-          VERSION=2026.9.0
-          SHA256=b34fcaa0a8c96df0783e09ed6c9c22003497e5b429351c42127206b794c6b69b
+          # Bitwarden CLI, bw-oss-linux (amd64). Held at 2026.8.0: 2026.9.0
+          # runs a key-ID migration after unlocking that calls an endpoint
+          # Vaultwarden doesn't have (404), and the CLI crashes. Check a
+          # newer release against Vaultwarden before upgrading.
+          VERSION=2026.8.0
+          SHA256=d8bbc213d3dbdb701709386af6ea3bd763482f922ae0b538fdc3fdb88b1b1704
           wget -q -O /tmp/bw.zip "https://github.com/bitwarden/clients/releases/download/cli-v$VERSION/bw-oss-linux-$VERSION.zip"
           echo "$SHA256  /tmp/bw.zip" | sha256sum -c -
           unzip -o -q /tmp/bw.zip -d /opt/bw
