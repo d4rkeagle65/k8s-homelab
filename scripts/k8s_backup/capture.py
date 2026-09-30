@@ -17,7 +17,7 @@ import datetime as dt
 import sys
 from pathlib import Path
 
-from . import constants, flux, headers, helmcli, inventory, kube, secretscan, skipfilter, varsub, yamlio
+from . import constants, flux, helmcli, inventory, kube, secretscan, skipfilter, varsub, yamlio
 from .filetracker import FileTracker, RunReport
 from .fluxowner import FluxOwnership
 from .neat import neat
@@ -272,23 +272,23 @@ def _capture_helm_releases(
             "appVersion": app_version,
             "revision": revision,
             "status": status,
-            "capturedAt": timestamp,
             "chartSource": {
                 "resolved": source["resolved"],
                 "kind": source["kind"],
                 "name": source["repoName"],
             },
         }
-        # Plain (non-sticky) header: release.yaml's own capturedAt field
-        # already changes every run by design (it's a backup log entry,
-        # like docs/inventory.md), so a sticky header timestamp here would
-        # just be inconsistent with the body.
-        header = headers.generated_header(
-            timestamp,
-            extra_lines=["Backup identity record; not a Kubernetes manifest, never applied."],
-        )
+        # Stable header, no capture time in the body: the file only changes
+        # when the release does (chart version, a Helm upgrade, status), so
+        # an unchanged cluster gives a clean `git status`. docs/inventory.md
+        # records when each capture ran.
         if not handwritten:
-            sink.write_yaml(release_dir / "release.yaml", release_doc, header=header)
+            sink.write_yaml_stable(
+                release_dir / "release.yaml",
+                release_doc,
+                timestamp,
+                extra_lines=["Backup identity record; not a Kubernetes manifest, never applied."],
+            )
         infos.append(release_doc)
 
     # A namespace.yaml a hand-written release depends on is the operator's,

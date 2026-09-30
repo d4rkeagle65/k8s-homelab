@@ -47,8 +47,9 @@ output is `./homelab`, which is wrong from here.
 2. Run it: `python scripts/backup.py all --output .`
 3. Read the **warnings** at the end of the output (see
    [Warnings](#warnings-and-what-to-do)). Some of them need action before you commit.
-4. Review: `git status` and `git diff`. Timestamp and `revision:` changes in
-   `release.yaml` are normal on every run.
+4. Review: `git status` and `git diff`. On an unchanged cluster there's nothing
+   to review; a `release.yaml` changes only when its release did (a new chart
+   version, or a `revision:` bump from a Helm upgrade).
 5. Test: `python -m pytest scripts/tests -q`
 6. Commit (the hook runs the tests again), push, then have Flux pick it up:
    `flux reconcile kustomization cluster --with-source`
