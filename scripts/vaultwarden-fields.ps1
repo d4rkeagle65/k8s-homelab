@@ -83,6 +83,8 @@ function Get-VariableUsage {
         if (-not $text) { continue }
         $isSecret = $text -match '(?m)^kind:\s*Secret\s*$'
         $rel = $file.FullName.Substring($root.Length + 1) -replace '\\', '/'
+        # capture's gitignored local copies (.local/, raw/) aren't applied by Flux.
+        if ($rel -match '^(\.local|raw)/') { continue }
         foreach ($m in [regex]::Matches($text, '(?<!\$)\$\{([A-Za-z0-9_]+)\}')) {
             $var = $m.Groups[1].Value
             if (-not $usage[$var]) { $usage[$var] = @{} }
