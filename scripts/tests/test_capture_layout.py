@@ -138,3 +138,28 @@ def test_failed_cluster_listing_keeps_existing_files(tmp_path, monkeypatch):
     capture._capture_cluster_resources(sink, None, [], [], False, [], FluxOwnership([]))
     tracker.sweep_orphans()
     assert issuer.is_file()
+
+
+def test_release_record_is_unchanged_when_the_release_is(tmp_path, monkeypatch):
+    monkeypatch.setattr(kube, "get_namespace", lambda c, ns: {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns}})
+    monkeypatch.setattr(capture.helmcli, "list_releases", lambda c: [{"name": "emby", "namespace": "emby"}])
+    meta = {"chart": "emby", "version": "1.0.0", "appVersion": "4.9", "revision": 3, "status": "deployed"}
+    monkeypatch.setattr(capture.helmcli, "get_metadata", lambda c, name, ns: dict(meta))
+    monkeypatch.setattr(capture.helmcli, "get_values_yaml", lambda *a, **k: "{}\n")
+    monkeypatch.setattr(capture.helmcli, "repo_update", lambda c: None)
+    monkeypatch.setattr(kube, "get_all", lambda c, kind: ([], None))
+    monkeypatch.setattr(capture, "_resolve_chart_source", lambda *a: {
+        "resolved": True, "kind": "HelmRepository", "repoName": "r", "reason": None,
+    })
+    path = tmp_path / "kubernetes/apps/emby/emby/release.yaml"
+
+    def run(timestamp):
+        tracker = FileTracker(tmp_path, capture_owner(tmp_path))
+        capture._capture_helm_releases(Sink(tmp_path, False, tracker), None, [], timestamp, [], [], False, [], capture.FluxOwnership([]))
+        return path.read_text(encoding="utf-8")
+
+    first = run("2026-01-01T00:00:00Z")
+    assert run("2026-02-01T00:00:00Z") == first  # a later capture of the same release
+    meta["revision"] = 4
+    upgraded = run("2026-03-01T00:00:00Z")
+    assert "revision: 4" in upgraded and "2026-03-01T00:00:00Z" in upgraded
