@@ -12,6 +12,7 @@ from pathlib import Path
 
 from k8s_backup import capture, kube
 from k8s_backup.filetracker import FileTracker
+from k8s_backup.fluxowner import FluxOwnership
 from k8s_backup.neat import neat
 from k8s_backup.ownership import capture_owner
 from k8s_backup.sink import Sink
@@ -108,3 +109,32 @@ def test_namespace_with_an_apps_folder_is_not_captured_under_cluster(tmp_path):
     assert capture._namespace_owned_by_apps(tmp_path, "namespace", tandoor) is None
     # Other kinds are never affected.
     assert capture._namespace_owned_by_apps(tmp_path, "persistentvolume", {"metadata": {"name": "emby"}}) is None
+
+
+def test_capture_stops_if_flux_kustomizations_cannot_be_listed(monkeypatch):
+    import pytest
+
+    unreachable = "could not list 'kustomizations.kustomize.toolkit.fluxcd.io': Unable to connect to the server"
+    monkeypatch.setattr(kube, "get_all", lambda c, kind: ([], unreachable))
+    with pytest.raises(capture.ToolError, match="Nothing was written"):
+        capture._flux_ownership(None)
+
+    # No Flux on this cluster at all: nothing is foreign, and that's fine.
+    no_flux = "could not list 'kustomizations...': error: the server doesn't have a resource type \"kustomizations\""
+    monkeypatch.setattr(kube, "get_all", lambda c, kind: ([], no_flux))
+    obj = {"metadata": {"labels": {"kustomize.toolkit.fluxcd.io/name": "cluster-shared",
+                                   "kustomize.toolkit.fluxcd.io/namespace": "flux-system"}}}
+    assert capture._flux_ownership(None).foreign_reason(obj) is None
+
+
+def test_failed_cluster_listing_keeps_existing_files(tmp_path, monkeypatch):
+    issuer = tmp_path / "kubernetes/cluster/clusterissuer.cert-manager.io/letsencrypt.yaml"
+    issuer.parent.mkdir(parents=True)
+    issuer.write_text("apiVersion: cert-manager.io/v1\nkind: ClusterIssuer\nmetadata:\n  name: letsencrypt\n")
+    monkeypatch.setattr(kube, "get_all", lambda c, kind: ([], f"could not list '{kind}': Unable to connect to the server"))
+
+    tracker = FileTracker(tmp_path, capture_owner(tmp_path))
+    sink = Sink(tmp_path, False, tracker)
+    capture._capture_cluster_resources(sink, None, [], [], False, [], FluxOwnership([]))
+    tracker.sweep_orphans()
+    assert issuer.is_file()
