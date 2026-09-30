@@ -263,7 +263,7 @@ controller:
       enabled: true
       labels: {}
     externalIPs: []
-    externalTrafficPolicy: ""
+    externalTrafficPolicy: Local
     internal:
       annotations: {}
       appProtocol: true
@@ -410,5 +410,6 @@ serviceAccount:
   automountServiceAccountToken: true
   create: true
   name: ""
-tcp: {}
+tcp:
+  "8025": smtp-relay/smtp-oauth-relay:8025
 udp: {}
