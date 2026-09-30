@@ -95,8 +95,7 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     }
     preseed_ingress = kube.get_all(context, "ingress")[0]
 
-    # Empty (so nothing counts as foreign) on a cluster without Flux.
-    flux_owner = FluxOwnership(kube.get_all(context, "kustomizations.kustomize.toolkit.fluxcd.io")[0])
+    flux_owner = _flux_ownership(context)
 
     substitutions = _load_substitutions(root, context, warnings)
     live_values = {varsub._var_name(s["placeholder"]): s["literal"] for s in substitutions}
@@ -307,6 +306,23 @@ def _capture_helm_releases(
     return infos
 
 
+def _flux_ownership(context) -> FluxOwnership:
+    """Which Flux Kustomization applied each object, so objects from Flux
+    itself, cluster-shared and cluster-test are never captured (see
+    fluxowner.py). Empty on a cluster without Flux. Any other failure to
+    list stops the run: with nothing counted as foreign, capture would write
+    Flux's own RBAC and cluster-shared's objects under kubernetes/cluster/,
+    where cluster-resources would start applying them too.
+    """
+    items, err = kube.get_all(context, "kustomizations.kustomize.toolkit.fluxcd.io")
+    if err and "the server doesn't have a resource type" not in err:
+        raise ToolError(
+            f"{err}\nStopping: without Flux's Kustomizations, objects Flux applies itself would be "
+            "captured as if they were yours. Nothing was written. Check cluster access and re-run."
+        )
+    return FluxOwnership(items)
+
+
 def _load_substitutions(root: Path, context, warnings) -> list[dict]:
     """What Flux substitutes: the live cluster-secrets Secret, and the
     cluster-settings ConfigMap as committed in git (see varsub.py). On a
@@ -385,6 +401,13 @@ def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbos
             warnings.append(warn)
             if verbose:
                 print(f"  [cluster] {warn}", file=sys.stderr)
+            # A failed listing says nothing about whether the objects still
+            # exist: keep last run's files, or the sweep would delete them
+            # from git and cluster-resources would prune the live objects.
+            sink.tracker.keep_existing(
+                list((sink.root / "kubernetes" / "cluster" / kind).glob("*.yaml"))
+                + list((sink.root / "kubernetes" / ".local" / "cluster" / kind).glob("*.yaml"))
+            )
             raw_items[kind] = []
             counts[kind] = 0
             local_counts[kind] = 0
