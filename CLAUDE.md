@@ -62,6 +62,15 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
   devices or iSCSI. Longhorn was tried and uninstalled for that reason; don't
   propose it or other block-storage CSIs.
 
+## Cluster DNS
+
+- **The cluster domain itself starts with `svc.`**, and `${CLUSTER_DOMAIN}`
+  holds the whole of it. So an in-cluster service name is
+  `<service>.<namespace>.svc.${CLUSTER_DOMAIN}`, which comes out as
+  `...svc.svc.<rest of the domain>`. That doubled `svc` is correct: don't drop
+  either one, or the name stops resolving. Changing the cluster domain would be
+  a cluster-wide migration, not a manifest edit.
+
 ## How changes are made
 
 - Work on a branch, never directly on `main`.
