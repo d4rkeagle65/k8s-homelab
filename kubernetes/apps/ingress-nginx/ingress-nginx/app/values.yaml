@@ -1,5 +1,3 @@
 controller:
   service:
-    externalTrafficPolicy: Local
-tcp:
-  "8025": smtp-relay/smtp-oauth-relay:8025
+    type: ClusterIP
