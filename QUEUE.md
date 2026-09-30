@@ -59,11 +59,10 @@ nothing here tracks them.
      move every app's Ingress, including nginx-specific annotations (Authentik's
      `auth-url`) and the relay's TCP port 8025 (`tcp:` in the ingress-nginx values).
 
-- [ ] **Test environment runbook.** `suspend: true` on `cluster-test` only freezes
-  it. To tear it down: suspend `flux-system`, resume `cluster-test`, delete it,
-  then resume `flux-system`. Write that down, or script it.
 ## Done
 
+- 2026-09-30: Test environment runbook: "Bring the test environment up, and take
+  it down" in `scripts/README.md`.
 - 2026-09-30: kubectl version skew fixed: the local client is now v1.34.12
   (server 1.33), in `%LOCALAPPDATA%\kubectl`, first on the user PATH.
 - 2026-09-30: Keystore. Substitution variables now come from Vaultwarden:
