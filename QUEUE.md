@@ -46,6 +46,19 @@ nothing here tracks them.
 ## Later
 
 
+- [ ] **Replace ingress-nginx.** The project is retired: best-effort maintenance
+  ended in March 2026, and there will be no more releases or security fixes
+  (see its README and
+  https://www.kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/).
+  Both controllers (`ingress-nginx`, `ingress-nginx-isolated`) run 1.13.9.
+  1. Interim: upgrade both to the final release (controller 1.15.1 at last
+     check), keeping them in step.
+  2. Check what reaches them from the internet; that sets the urgency.
+  3. Pick a replacement (Traefik reads the same `Ingress` objects; a Gateway API
+     implementation such as Envoy Gateway means rewriting them as routes), then
+     move every app's Ingress, including nginx-specific annotations (Authentik's
+     `auth-url`) and the relay's TCP port 8025 (`tcp:` in the ingress-nginx values).
+
 - [ ] **Test environment runbook.** `suspend: true` on `cluster-test` only freezes
   it. To tear it down: suspend `flux-system`, resume `cluster-test`, delete it,
   then resume `flux-system`. Write that down, or script it.
