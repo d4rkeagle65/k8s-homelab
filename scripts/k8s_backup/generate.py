@@ -8,7 +8,7 @@ kubernetes/apps/*/*/ks.yaml, kubernetes/apps/*/kustomization.yaml,
 kubernetes/apps/kustomization.yaml,
 kubernetes/flux/meta/repositories/kustomization.yaml,
 kubernetes/flux/config/cluster.yaml, kubernetes/flux/config/cluster-resources.yaml,
-kubernetes/cluster/kustomization.yaml, docs/variable-substitutions.md,
+kubernetes/cluster/kustomization.yaml,
 .sops.yaml, .gitignore (lines added by hand are kept), and README.md only
 when none exists yet -- an existing one is the operator's.
 Release folders with a `.handwritten` marker are skipped (ownership.py).
@@ -22,7 +22,7 @@ import re
 import stat
 from pathlib import Path
 
-from . import constants, dependencies, flux, inventory, scaffold, varsub, yamlio
+from . import constants, dependencies, flux, inventory, scaffold, yamlio
 from .filetracker import FileTracker, RunReport
 from .ownership import PROMOTE_MARKER, generate_owner, is_handwritten, is_promoted
 from .sink import Sink
@@ -50,41 +50,22 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     cluster_count = _generate_cluster_kustomization(sink, timestamp)
 
     # Both the apps and cluster-resources Kustomizations wire
-    # postBuild.substituteFrom for the same ConfigMap/Secret. Without it on
-    # the apps root, ${PLACEHOLDER} tokens in the child ks.yaml files are
-    # treated as literal strings at reconcile time. (Each child ks.yaml
-    # wires its own for its HelmRelease -- Flux doesn't inherit postBuild.)
-    # The refs don't depend on the local substitutions file, so a clone
-    # without kubernetes/.local/ generates the same files.
-    substitutions = varsub.load_substitutions(root)
-
+    # postBuild.substituteFrom for cluster-settings and cluster-secrets.
+    # Without it on the apps root, ${PLACEHOLDER} tokens in the child ks.yaml
+    # files are treated as literal strings at reconcile time. (Each child
+    # ks.yaml wires its own for its HelmRelease -- Flux doesn't inherit
+    # postBuild.)
     print("Generating root Flux Kustomization...")
     sink.write_yaml_stable(
-        root / "kubernetes" / "flux" / "config" / "cluster.yaml",
-        flux.root_cluster_kustomization(
-            configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
-            secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
-        ),
-        timestamp,
+        root / "kubernetes" / "flux" / "config" / "cluster.yaml", flux.root_cluster_kustomization(), timestamp
     )
 
     if (root / "kubernetes" / "cluster").exists():
         sink.write_yaml_stable(
             root / "kubernetes" / "flux" / "config" / "cluster-resources.yaml",
-            flux.cluster_resources_kustomization(
-                configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
-                secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
-            ),
+            flux.cluster_resources_kustomization(),
             timestamp,
         )
-        # Defense-in-depth: this doc is built FROM `substitutions`, so it
-        # shouldn't be able to leak a literal value in the first place, but
-        # a future note field embedding one (as BASE_DOMAIN's briefly did)
-        # shouldn't reach this git-tracked file either way.
-        doc = varsub.apply_substitutions_text(
-            inventory.build_variable_substitutions_md(substitutions), substitutions
-        )
-        sink.write_text(root / "docs" / "variable-substitutions.md", doc)
 
     print("Writing top-level scaffold files...")
     prior_timestamp, prior_context = _read_prior_capture_meta(root)
@@ -189,8 +170,6 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
                 target_namespace=namespace,
                 path=f"./kubernetes/apps/{namespace}/{release_name}/app",
                 interval=constants.HELMRELEASE_KS_INTERVAL,
-                configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
-                secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
                 depends_on=dependencies.depends_on(
                     release_name, [release_dir / "app" / f for f in manifest_files], operators
                 ),
@@ -222,8 +201,6 @@ def _generate_promoted_scaffolding(
         target_namespace=namespace,
         path=f"./kubernetes/apps/{namespace}/{release_dir.name}/app",
         interval=constants.HELMRELEASE_KS_INTERVAL,
-        configmap_name=varsub.SUBSTITUTIONS_CONFIGMAP_NAME,
-        secret_name=varsub.SUBSTITUTIONS_SECRET_NAME,
         depends_on=dependencies.depends_on(release_dir.name, [app_dir / m for m in manifests], operators),
         wait=release_dir.name in operators.values(),
     )

@@ -34,6 +34,10 @@ CAPTURE_PATTERNS = [
     "kubernetes/raw/*/*/*.yaml",
     "kubernetes/cluster/*/*.yaml",
     "kubernetes/.local/cluster/*/*.yaml",
+    "kubernetes/.local/substitutions-cache.yaml",
+    "kubernetes/.local/vaultwarden-pending.yaml",
+    # No longer written (cluster-secrets replaced them), but still owned, so
+    # the next capture deletes these copies of every value.
     "kubernetes/.local/cluster-substitutions-configmap.yaml",
     "kubernetes/.local/cluster-substitutions-secret.yaml",
     "kubernetes/apps/*/namespace.yaml",

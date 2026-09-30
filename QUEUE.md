@@ -46,10 +46,6 @@ nothing here tracks them.
 ## Later
 
 
-- [ ] **Keystore.** Replace the local `cluster-substitutions` Secret with an
-  External Secrets operator backed by Vault, 1Password or Bitwarden. The
-  `${...}` manifests in git stay as they are; only what creates the
-  `cluster-substitutions` Secret in `flux-system` changes.
 - [ ] **Test environment runbook.** `suspend: true` on `cluster-test` only freezes
   it. To tear it down: suspend `flux-system`, resume `cluster-test`, delete it,
   then resume `flux-system`. Write that down, or script it.
@@ -58,6 +54,15 @@ nothing here tracks them.
 
 ## Done
 
+- 2026-09-30: Keystore. Substitution variables now come from Vaultwarden:
+  External Secrets reads the `cluster-secrets` item through a Bitwarden CLI pod
+  (held at CLI 2026.8.0; 2026.9.0 fails against Vaultwarden) into the
+  `cluster-secrets` Secret, and plain settings are in the `cluster-settings`
+  ConfigMap in git. capture reads both from the cluster; new private values go
+  to `kubernetes/.local/vaultwarden-pending.yaml`. The old `cluster-substitutions`
+  ConfigMap/Secret and local rendered files are retired.
+- 2026-09-30: smtp-oauth-relay: SMTP to Microsoft 365 over Graph, on the main
+  ingress address, port 8025. Vaultwarden sends mail through it.
 - 2026-09-29: Namespaces defined once. generate marks every Namespace
   `prune: disabled` (deleted by hand now), and a namespace with an app folder
   is only in `apps/<ns>/namespace.yaml`; `cluster/namespace/` holds the rest.

@@ -71,10 +71,9 @@ HELMRELEASE_KS_INTERVAL = "30m"
 HELMREPOSITORY_INTERVAL = "1h"
 FLUX_NAMESPACE = "flux-system"
 
-# Substitution sources every Flux Kustomization reads after the original
-# cluster-substitutions ConfigMap/Secret (later sources win in Flux):
-# plain settings committed in git, and the private values External Secrets
-# builds from Vaultwarden. See kubernetes/secrets/.
+# The substitution sources every Flux Kustomization reads: plain settings
+# committed in git, and the private values External Secrets builds from
+# Vaultwarden. See varsub.py and kubernetes/secrets/.
 SETTINGS_CONFIGMAP_NAME = "cluster-settings"
 SECRETS_SECRET_NAME = "cluster-secrets"
 

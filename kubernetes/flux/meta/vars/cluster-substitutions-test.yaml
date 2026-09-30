@@ -1,7 +1,8 @@
 # Applied manually once, then tracked by git.
 # Overrides used by the cluster-test Kustomization only.
-# The base cluster-substitutions ConfigMap must also define SUBDOMAIN_SUFFIX: ""
-# (add it there so production never errors on an undefined variable).
+# The base value, SUBDOMAIN_SUFFIX: "", is in cluster-settings.yaml, so
+# production never errors on an undefined variable. This one is listed after
+# it in the test Kustomizations, so it wins there.
 apiVersion: v1
 kind: ConfigMap
 metadata:

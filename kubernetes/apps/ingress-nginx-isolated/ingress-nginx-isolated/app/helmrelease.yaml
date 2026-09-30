@@ -1,5 +1,5 @@
-# Second ingress-nginx controller with its own MetalLB IP (ISOLATED_INGRESS_IP
-# in the cluster-substitutions ConfigMap), so a firewall rule can let an
+# Second ingress-nginx controller with its own MetalLB IP (ISOLATED_INGRESS_IP,
+# a field of the cluster-secrets Vaultwarden item), so a firewall rule can let an
 # isolated VLAN reach only what uses the `nginx-isolated` IngressClass
 # (ManicTime Server) and nothing behind the main controller's IP. Same chart
 # and version as ../../ingress-nginx; keep them in step.

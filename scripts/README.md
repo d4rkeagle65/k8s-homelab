@@ -165,47 +165,51 @@ in `dependencies.py`:
    `New-Item -ItemType File -Force kubernetes/apps/<ns>/<app>/.promote`
    Use `<ns>-extras` for `<app>` if the namespace already has a Helm release.
 2. `python scripts/backup.py capture --output .`
-   - If the namespace has Secrets you manage, their values are added to the local
-     substitution files and their manifests are **held back** ("not written yet").
-3. If Secrets were held back, apply the local Secret (see
-   [Applying the local files](#applying-the-local-configmap-and-secret)).
+   - If the namespace has Secrets you manage, their values are listed in
+     `kubernetes/.local/vaultwarden-pending.yaml` and their manifests are
+     **held back** ("not written yet").
+3. If Secrets were held back, add each pending value to Vaultwarden (see
+   [Add or change a substitution variable](#add-or-change-a-substitution-variable)).
 4. `python scripts/backup.py all --output .`
 5. Check that every `secret-*.yaml` holds only `${...}` values, run the tests,
    then commit and push.
 
 ### Add or change a substitution variable
 
-Values that differ per environment or shouldn't be in git (the domain, IPs,
-Secret values) appear in manifests as `${NAME}`. Flux fills them in from the
-`cluster-substitutions` ConfigMap and Secret in `flux-system`.
+Values that differ per environment or shouldn't be in git appear in manifests
+as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 
-1. Add an entry to `kubernetes/.local/variable-substitutions.yaml`:
-   ```yaml
-   - literal: <the real value>
-     placeholder: ${NAME}
-     sensitivity: configmap   # or: secret
-     replace: false           # only for plain config values; see below
-     note: what it is
-   ```
-   - Without `replace: false`, capture also finds every occurrence of the literal
-     in captured files and swaps in `${NAME}`. Use that for things you want kept
-     out of git (a domain, an IP).
-   - With `replace: false`, the value is only rendered for Flux. Use that for plain
-     settings that also appear elsewhere, such as a UID like `1000`.
-2. Run `python scripts/backup.py capture --output .` to render the local ConfigMap
-   and Secret.
-3. Get the value into the cluster **before** pushing anything that uses
-   `${NAME}`. An undefined variable becomes an empty string. Either apply the local
-   file (below), or patch just that key:
-   `kubectl patch configmap cluster-substitutions -n flux-system --type merge -p "data: {NAME: 'value'}"`
-4. Then commit and push the manifests that use it.
+| Source | Holds | Where you change it |
+|---|---|---|
+| `cluster-secrets` Secret | Private values: the domain, IPs, hostnames, promoted Secrets' values. capture replaces each one wherever it appears in captured files. | A hidden custom field of the `cluster-secrets` item in Vaultwarden (field name = `NAME`). External Secrets copies it into the Secret (`kubernetes/secrets/cluster-secrets.yaml`, every 15 minutes). |
+| `cluster-settings` ConfigMap | Plain settings that are fine in git, such as a UID like `1027`. Never searched for. | `kubernetes/flux/meta/vars/cluster-settings.yaml` |
+
+**A new private value:**
+1. Add the field to the Vaultwarden item.
+2. Add an entry for it to `kubernetes/secrets/cluster-secrets.yaml`, and push
+   that first. The tests fail if any `${NAME}` in `kubernetes/` is defined in
+   neither source.
+3. Check it synced: `kubectl get externalsecret cluster-secrets -n flux-system`
+   should show `SecretSynced`. To sync now rather than within 15 minutes:
+   `kubectl annotate externalsecret cluster-secrets -n flux-system force-sync=$(Get-Date -UFormat %s) --overwrite`
+4. Then push the manifests that use `${NAME}`. An undefined variable becomes an
+   empty string (or fails the apply).
+
+**Changing a value:** edit the field in Vaultwarden. Flux picks it up after
+the next sync. capture reads the live Secret, so from then on it replaces the
+new value.
+
+capture finds some private values on its own (an ACME email, a non-IP NFS
+hostname, your main Ingress domain) and every promoted Secret's value. Anything
+not in Vaultwarden yet is replaced in that run's output anyway, and listed with
+its value in `kubernetes/.local/vaultwarden-pending.yaml` for you to add.
 
 ### Rotate a promoted Secret's value
 
 1. Change the Secret in the cluster.
-2. Run `capture`. It updates the local entry and holds the manifest, so Flux
-   won't revert your change.
-3. Apply the local Secret.
+2. Run `capture`. It holds the manifest, so Flux won't revert your change, and
+   lists the new value in `kubernetes/.local/vaultwarden-pending.yaml`.
+3. Update the field in Vaultwarden and let it sync.
 4. Run `all` again.
 
 ### Move a CloudNativePG database onto `local-db`
@@ -228,36 +232,26 @@ before the switchover.
   suspended for that app until you run them.
 - **Old NFS volumes** are never deleted (they're `Retain`).
 
-### Applying the local ConfigMap and Secret
-
-```
-kubectl apply -f kubernetes/.local/cluster-substitutions-configmap.yaml
-kubectl apply -f kubernetes/.local/cluster-substitutions-secret.yaml
-```
-
-This is only safe when the last capture printed **no** "would DELETE" warning.
-That warning means the live object has keys your local file doesn't, and
-`kubectl apply` would remove them.
-
 ## `kubernetes/.local/` (gitignored)
 
 | File | What it is |
 |---|---|
-| `variable-substitutions.yaml` | Your variables. Entries with `source: auto` or `source: auto-secret` were added by capture. |
-| `cluster-substitutions-configmap.yaml`, `cluster-substitutions-secret.yaml` | Rendered from the file above on every capture; ready to `kubectl apply`. |
+| `substitutions-cache.yaml` | Every value capture replaced last run, read from the cluster. Written by capture; the pre-commit leak check reads it. Don't edit. |
+| `vaultwarden-pending.yaml` | Private values found that Vaultwarden doesn't hold yet, with their values. Only there while some are pending. |
+| `bitwarden-cli.env` | The Bitwarden CLI pod's Vaultwarden login, for recreating its Secret. |
+| `variable-substitutions.yaml` | Legacy: where the values lived before Vaultwarden. Only read if `cluster-secrets` is missing from the cluster. |
 | `cluster/` | Full backup of built-in and operator-owned cluster objects, not committed. |
 
-This folder is the only copy of promoted Secrets' values outside the cluster.
-Keep it backed up.
+Vaultwarden holds the private values. Keep this folder backed up anyway: it
+holds the CLI login, and `cluster/` is the only copy of those objects.
 
 ## Warnings and what to do
 
 | Warning contains | Meaning | Do this |
 |---|---|---|
-| `not written yet -- the live 'cluster-substitutions' Secret ... doesn't hold its values` | A promoted Secret is held back | Apply the local Secret, then run `all` |
-| `local secret substitution added` / `updated` | New or rotated Secret values were saved locally | Apply the local Secret |
-| `would DELETE them` | The live ConfigMap or Secret has keys the local file lacks | Add those keys as entries (often `replace: false`) before applying anything |
-| `has no ${...} wrapper` | A placeholder in your local file is written as `NAME` | Change it to `'${NAME}'` |
+| `not written yet -- the live 'cluster-secrets' Secret ... doesn't hold its values` | A promoted Secret is held back | Add its values to Vaultwarden, let it sync, then run `all` |
+| `private value(s) aren't in Vaultwarden yet` | capture found values Vaultwarden doesn't hold | Add each from `vaultwarden-pending.yaml` to Vaultwarden and `kubernetes/secrets/cluster-secrets.yaml` |
+| `the cluster-secrets Secret isn't in flux-system` | External Secrets hasn't produced it | Check `kubectl describe externalsecret cluster-secrets -n flux-system` |
 | `StorageClass '...' doesn't exist` | A promoted PVC or database asks for a missing class | Fine while bound; migrate it before any rebuild |
 | `PVC is Lost` | Its volume is gone | Delete the PVC if nothing needs it |
 | `promoted manifests left unchanged this run` | A kind failed to list, or something needed redaction | Rerun; if it persists, check the reason given |
@@ -304,7 +298,7 @@ copy the changed files over there as well.
 | `generate.py` | The generate phase |
 | `ownership.py` | Which files each phase owns; `.handwritten` and `.promote` markers |
 | `promote.py` | Cleans promoted manifests; Secret placeholders |
-| `varsub.py` | Variable substitution and rendering the local ConfigMap/Secret |
+| `varsub.py` | Variable substitution: reading the values from the cluster, the pending and cache files |
 | `fluxowner.py` | Works out which Flux Kustomization applied an object |
 | `skipfilter.py` | What capture skips (Helm-managed, operator-owned, built-in) |
 | `neat.py` | Strips runtime fields from captured objects |

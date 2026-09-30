@@ -97,10 +97,7 @@ def _assert_wires_substitutions(doc) -> None:
     substitutions file: a clone without it must generate the same thing.
     """
     substitute_from = doc["spec"].get("postBuild", {}).get("substituteFrom", [])
-    # cluster-settings/cluster-secrets last: Flux lets later sources win.
     assert [(entry["kind"], entry["name"]) for entry in substitute_from] == [
-        ("ConfigMap", "cluster-substitutions"),
-        ("Secret", "cluster-substitutions"),
         ("ConfigMap", "cluster-settings"),
         ("Secret", "cluster-secrets"),
     ]
@@ -155,28 +152,6 @@ def test_cluster_kustomization_lists_every_captured_resource(repo_root, load_yam
 def test_raw_readme_exists(repo_root):
     _skip_without_local_capture(repo_root, "kubernetes/raw/README.md")
     assert (repo_root / "kubernetes" / "raw" / "README.md").is_file()
-
-
-def test_local_substitution_manifests_are_well_formed(repo_root, load_yaml):
-    from k8s_backup.varsub import LOCAL_CONFIGMAP_PATH, LOCAL_SECRET_PATH, load_substitutions
-
-    substitutions = load_substitutions(repo_root)
-    configmap_path = repo_root.joinpath(*LOCAL_CONFIGMAP_PATH)
-    secret_path = repo_root.joinpath(*LOCAL_SECRET_PATH)
-
-    has_configmap_vars = any(s.get("sensitivity", "configmap") != "secret" for s in substitutions)
-    has_secret_vars = any(s.get("sensitivity") == "secret" for s in substitutions)
-
-    if has_configmap_vars:
-        doc = load_yaml(configmap_path)
-        assert doc["kind"] == "ConfigMap"
-        assert doc["metadata"]["name"] == "cluster-substitutions"
-        assert doc["metadata"]["namespace"] == "flux-system"
-    if has_secret_vars:
-        doc = load_yaml(secret_path)
-        assert doc["kind"] == "Secret"
-        assert doc["metadata"]["name"] == "cluster-substitutions"
-        assert doc["metadata"]["namespace"] == "flux-system"
 
 
 def test_cluster_resources_kustomization_wires_substitutions(repo_root, load_yaml):

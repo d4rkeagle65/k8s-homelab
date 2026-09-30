@@ -24,7 +24,7 @@ spec:
       tag: 1.37.0
     nodePathMap:
     # Nodes not listed (the control planes, with 8G root disks) are refused.
-    # Node names are WORKER_NODE_* in the cluster-substitutions ConfigMap.
+    # Node names are WORKER_NODE_* fields of the cluster-secrets Vaultwarden item.
     - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
       paths: []
     - node: ${WORKER_NODE_1}
