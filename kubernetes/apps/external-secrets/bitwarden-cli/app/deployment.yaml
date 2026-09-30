@@ -78,6 +78,10 @@ spec:
           # there by an earlier attempt makes `bw config server` refuse to
           # run, so start from a clean state every time.
           find "$BITWARDENCLI_APPDATA_DIR" -mindepth 1 -delete
+          # Keep the same device ID across restarts. The CLI sends it at login,
+          # and Vaultwarden emails the account about every device it hasn't
+          # seen; a fresh state would otherwise be a new device each start.
+          printf '{"global_applicationId_appId":"%s"}' "$BW_DEVICE_ID" > "$BITWARDENCLI_APPDATA_DIR/data.json"
           echo "Setting the server"
           bw config server "$BW_HOST" >/dev/null
           if [ -n "$BW_CLIENTID" ]; then
@@ -99,6 +103,9 @@ spec:
         env:
         - name: BITWARDENCLI_APPDATA_DIR
           value: /data
+        # Any fixed UUID; an identifier, not a credential.
+        - name: BW_DEVICE_ID
+          value: 342c811d-6d8b-4264-a412-6279e96e11f7
         - name: HOME
           value: /tmp
         - name: BW_HOST
