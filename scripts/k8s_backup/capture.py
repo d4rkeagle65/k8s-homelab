@@ -30,6 +30,7 @@ from .ownership import (
     promoted_release_dirs,
 )
 from .paths import sanitize_filename
+from .procutil import ToolError
 from .sink import Sink
 
 
@@ -105,17 +106,15 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     # Replaced in this run's output straight away, so they never reach git
     # even before they're in Vaultwarden.
     substitutions = substitutions + pending
-    pending_path = varsub.write_pending(root, pending, dry_run)
     if pending:
+        sink.write_yaml(root.joinpath(*varsub.PENDING_PATH), varsub.pending_rows(pending), header=varsub.PENDING_HEADER)
         names = ", ".join(sorted(varsub._var_name(e["placeholder"]) for e in pending))
         warnings.append(
             f"{len(pending)} private value(s) aren't in Vaultwarden yet ({names}): add each as a hidden field "
             "of the cluster-secrets item and an entry in kubernetes/secrets/cluster-secrets.yaml. "
             "They're listed with their values in kubernetes/.local/vaultwarden-pending.yaml."
         )
-        if verbose and pending_path:
-            print(f"  [substitutions] pending values written to {pending_path}", file=sys.stderr)
-    varsub.write_cache(root, substitutions, dry_run)
+    sink.write_yaml(root.joinpath(*varsub.CACHE_PATH), varsub.cache_rows(substitutions), header=varsub.CACHE_HEADER)
 
     print("Capturing Helm releases and values...")
     helm_repos = helmcli.repo_list(context)
@@ -309,12 +308,21 @@ def _capture_helm_releases(
 
 
 def _load_substitutions(root: Path, context, warnings) -> list[dict]:
-    """What Flux substitutes: the live cluster-secrets Secret and
-    cluster-settings ConfigMap (see varsub.py). On a cluster without
-    cluster-secrets, the legacy local file instead.
+    """What Flux substitutes: the live cluster-secrets Secret, and the
+    cluster-settings ConfigMap as committed in git (see varsub.py). On a
+    cluster without cluster-secrets, the legacy local file instead.
+
+    Any other failure to read cluster-secrets stops the run: without its
+    values nothing would be replaced, and captured files would carry the
+    real domain, IPs and passwords.
     """
-    secret, _ = kube.get_object(context, "secret", constants.FLUX_NAMESPACE, varsub.SECRETS_SECRET_NAME)
-    settings, _ = kube.get_object(context, "configmap", constants.FLUX_NAMESPACE, varsub.SETTINGS_CONFIGMAP_NAME)
+    secret, err = kube.get_object(context, "secret", constants.FLUX_NAMESPACE, varsub.SECRETS_SECRET_NAME)
+    if err and "(NotFound)" not in err:
+        raise ToolError(
+            f"{err}\nStopping: without the {varsub.SECRETS_SECRET_NAME} values, captured files would contain "
+            "the real private values. Nothing was written. Check cluster access and re-run."
+        )
+    settings = varsub.load_settings(root)
     if secret:
         substitutions = varsub.from_live(secret, settings)
         print(f"Loaded {len(substitutions)} variable substitution(s) from {varsub.SECRETS_SECRET_NAME} and {varsub.SETTINGS_CONFIGMAP_NAME}")
