@@ -3,10 +3,10 @@
 # annotations included, so apps don't change:
 # https://doc.traefik.io/traefik/migrate/nginx-to-traefik/
 #
-# Batch 1: runs beside ingress-nginx on its own address (TRAEFIK_IP) and
-# takes no traffic until names are pointed at it. It doesn't publish status
-# on the Ingresses (publishService off), so the two controllers don't
-# overwrite each other's; turned on at cutover.
+# Batch 3 (cutover): holds the main ingress address (INGRESS_IP), taken over
+# from ingress-nginx, which stays installed but internal-only until Batch 4.
+# It doesn't publish status on the Ingresses (publishService off) while
+# ingress-nginx runs, so the two controllers don't overwrite each other's.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -82,7 +82,7 @@ spec:
       metrics:
         http:
           aliasHeadersStrategy: delete
-      # smtp-oauth-relay, as ingress-nginx's `tcp:` does today.
+      # smtp-oauth-relay (clients use INGRESS_IP:8025).
       smtp:
         port: 8025
         expose:
@@ -93,7 +93,7 @@ spec:
           aliasHeadersStrategy: delete
     service:
       annotations:
-        metallb.io/loadBalancerIPs: ${TRAEFIK_IP}
+        metallb.io/loadBalancerIPs: ${INGRESS_IP}
       spec:
         type: LoadBalancer
         # As ingress-nginx: keep the client's source address.

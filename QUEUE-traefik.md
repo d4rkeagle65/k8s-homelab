@@ -53,43 +53,47 @@ Traefik runs on while both run side by side. Both are fields of the
   - The chart's own `traefik` IngressClass off (it would become the default).
 - [x] Check: `flux get kustomizations`, Traefik pods Running, Service has `TRAEFIK_IP`.
 
-## Batch 2: test on TRAEFIK_IP (no merge; Pi-hole only)
+## Batch 2: test on TRAEFIK_IP (done 2026-09-30)
 
-- [ ] Point a few test names at `TRAEFIK_IP` in Pi-hole, one at a time (see
-      "Pi-hole" below), and flush the client's DNS cache (`ipconfig /flushdns`).
-- [ ] babybuddy: log in through Authentik. Known risk: Traefik's `auth-url`
-      "behaves differently than NGINX". If it fails, switch that Ingress to
-      Authentik's Traefik endpoint (`/outpost.goauthentik.io/auth/traefik`, a
-      Traefik ForwardAuth middleware), per Authentik's docs.
-- [ ] immich: upload a large file (`proxy-body-size`). Traefik's 60s limit on
-      reading a request is turned off (`readTimeout: 0`), as nginx has none.
-- [ ] `http://` on an app with TLS still redirects to `https://`. ingress-nginx
-      does that by default for any Ingress with TLS; Traefik's NGINX provider
-      only where `nginx.ingress.kubernetes.io/ssl-redirect` says so, and there's
-      no global switch that wouldn't also break the Cloudflare tunnel's plain-HTTP
-      routes. If it doesn't, add `ssl-redirect: "true"` to those Ingresses.
-- [ ] A media app, homeassistant, obsidian: pages and websockets load.
-- [ ] SMTP: `Send-MailMessage -SmtpServer <TRAEFIK_IP> -Port 8025 -UseSsl ...`.
-- [ ] Put the test names back to `INGRESS_IP` if anything failed; fix; repeat.
+- [x] Test names pointed at `TRAEFIK_IP` in Pi-hole: immich (large upload),
+      sonarr, obsidian, SMTP on 8025 and the http→https redirect all work.
+- [x] babybuddy **fails** through Traefik with Authentik's "configuration
+      error": its `auth-url` is Authentik's `/auth/nginx` endpoint, which needs
+      the `X-Original-URL` header only nginx sends. Traefik's forward auth sends
+      `X-Forwarded-Proto/Host/Uri`, which `/auth/traefik` reads. Checked from
+      inside the cluster: `/auth/traefik` answers 302 to the Authentik login.
+      Switched at cutover (not before: the `bb` tunnel route goes through nginx
+      until then). Traefik ignores `auth-signin`; `/auth/traefik` redirects to
+      the login itself.
+- [x] The tunnel routes, simulated from inside the cluster (Host header to each
+      controller's Service): Traefik answers exactly as nginx for bb-mcp and
+      immich. Plain HTTP to immich redirects to HTTPS on both, so the tunnel
+      must be using the immich route's port 443.
 
-## Batch 3: cutover (one merge + DNS; short outage)
+## Batch 3: cutover (one merge; short outage)
 
-Decide first how clients reach the ingress:
-- **Keep `INGRESS_IP` (recommended):** move the address to Traefik, so anything
-  using the IP directly (router port forwards, other DNS) keeps working. Remove
-  `metallb.io/loadBalancerIPs` use of it from nginx (pin nginx to any other free
-  address) and set Traefik's to `${INGRESS_IP}`, in the same merge.
-- **Or move to `TRAEFIK_IP`:** flip every Pi-hole record from `INGRESS_IP` to
-  `TRAEFIK_IP`. Only clients using Pi-hole follow; check the router's port
-  forwards and anything else that names the IP.
+Keeps the main address: `INGRESS_IP` moves from ingress-nginx to Traefik, so
+clients using the address directly (SMTP on 8025, port forwards) keep working.
+nginx never pinned it; MetalLB handed it out.
 
-Then, in the same merge:
-- [ ] Point the three Cloudflare tunnel Ingresses at Traefik's Service
-      (`traefik.traefik`, port 80) instead of `ingress-nginx-controller`.
-- [ ] Remove `tcp:` from the ingress-nginx values (Traefik has 8025 now).
-- [ ] Turn Traefik's status publishing on.
-- [ ] Check every app, the three tunnel routes from outside, Vaultwarden's SMTP
-      test email. Rollback: revert the merge (and the Pi-hole records).
+- [x] 3a: `INGRESS_IP` in Vaultwarden and `kubernetes/secrets/cluster-secrets.yaml`.
+- [ ] Before merging: point the Batch 2 test names back to `INGRESS_IP` in
+      Pi-hole (nginx serves them until the merge, Traefik after).
+- [ ] 3b, one merge:
+  - Traefik's Service asks for `${INGRESS_IP}`.
+  - ingress-nginx's Service becomes `ClusterIP`, releasing the address; nginx
+    keeps running, so reverting the merge is the rollback. Its `tcp:` entry and
+    `externalTrafficPolicy` (invalid on ClusterIP) go.
+  - The three Cloudflare tunnel Ingresses move to the `traefik` namespace
+    (an Ingress can only use a Service in its own namespace), pointing at the
+    `traefik` Service on the same ports.
+  - babybuddy's `auth-url`: `/auth/nginx` → `/auth/traefik`.
+- [ ] After: the Traefik Service has `INGRESS_IP` (if it stays `<pending>`,
+      MetalLB didn't retry once nginx released it: see below); every app; bb,
+      bb-mcp and immich from outside the LAN; an SMTP send; babybuddy login.
+
+If Traefik's Service stays `<pending>` after nginx's shows no external IP:
+`kubectl -n metallb-system rollout restart deploy/controller`.
 
 ## Batch 4: remove the main ingress-nginx (one merge)
 
@@ -100,6 +104,11 @@ Then, in the same merge:
 - [ ] Remove the `ingress-nginx` release and its HelmRepository if unused; drop
       the nginx-only config in `ingress-nginx-extras` (log format and custom
       header ConfigMaps).
+- [ ] Remove `authentik-extras`' `authentik-ingress-nginx` ExternalName Service
+      (points at the nginx controller; nothing in git uses it).
+- [ ] Turn Traefik's status publishing on (safe once nginx is gone).
+- [ ] Remove the `TRAEFIK_IP` field and its ExternalSecret entry once nothing
+      uses it.
 - [ ] Delete the `ingress-nginx` namespace by hand afterwards (namespaces aren't
       pruned).
 
@@ -127,8 +136,8 @@ grep -n "\"$OLD_RE " /etc/pihole/pihole.toml     # records on OLD
 NAME='<hostname>'
 sudo sed -i "s/\"$OLD_RE \($NAME\b\)/\"$NEW \1/" /etc/pihole/pihole.toml
 
-# Batch 3, if moving everything to TRAEFIK_IP instead of moving the address:
-sudo sed -i "s/\"$OLD_RE /\"$NEW /g" /etc/pihole/pihole.toml
+# Before the Batch 3 merge, put a test name back (swap OLD and NEW first):
+# OLD='<TRAEFIK_IP>'; NEW='<INGRESS_IP>', then the two lines above.
 
 grep -n "\"$NEW " /etc/pihole/pihole.toml && nslookup "$NAME" 127.0.0.1
 # Rollback: copy the .bak file back over pihole.toml.
