@@ -3,10 +3,9 @@
 # annotations included, so apps don't change:
 # https://doc.traefik.io/traefik/migrate/nginx-to-traefik/
 #
-# Batch 3 (cutover): holds the main ingress address (INGRESS_IP), taken over
-# from ingress-nginx, which stays installed but internal-only until Batch 4.
-# It doesn't publish status on the Ingresses (publishService off) while
-# ingress-nginx runs, so the two controllers don't overwrite each other's.
+# The main ingress: holds the main ingress address (INGRESS_IP) since the
+# Batch 3 cutover; ingress-nginx was removed in Batch 4. It publishes its
+# Service's address as each Ingress's status, as ingress-nginx did.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -37,7 +36,7 @@ spec:
         ingressClass: nginx
         controllerClass: k8s.io/ingress-nginx
         publishService:
-          enabled: false
+          enabled: true
       # Off, so an Ingress isn't routed twice (Traefik's docs).
       kubernetesIngress:
         enabled: false

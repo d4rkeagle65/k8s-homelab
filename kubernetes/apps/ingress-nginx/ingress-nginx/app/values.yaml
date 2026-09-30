@@ -1,6 +1,0 @@
-controller:
-  ingressClassResource:
-    annotations:
-      helm.sh/resource-policy: keep
-  service:
-    type: ClusterIP
