@@ -1,0 +1,93 @@
+# Traefik, replacing the retired ingress-nginx (see QUEUE-traefik.md).
+# Its NGINX provider serves the existing `nginx`-class Ingresses, nginx
+# annotations included, so apps don't change:
+# https://doc.traefik.io/traefik/migrate/nginx-to-traefik/
+#
+# Batch 1: runs beside ingress-nginx on its own address (TRAEFIK_IP) and
+# takes no traffic until names are pointed at it. It doesn't publish status
+# on the Ingresses (publishService off), so the two controllers don't
+# overwrite each other's; turned on at cutover.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik
+spec:
+  interval: 30m
+  releaseName: traefik
+  chart:
+    spec:
+      chart: traefik
+      version: 41.6.0
+      sourceRef:
+        kind: HelmRepository
+        name: traefik
+        namespace: flux-system
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    providers:
+      kubernetesIngressNGINX:
+        enabled: true
+        ingressClass: nginx
+        controllerClass: k8s.io/ingress-nginx
+        publishService:
+          enabled: false
+      # Off, so an Ingress isn't routed twice (Traefik's docs).
+      kubernetesIngress:
+        enabled: false
+      # For the SMTP IngressRouteTCP below.
+      kubernetesCRD:
+        enabled: true
+    # Traefik's own `traefik` IngressClass isn't used; the chart would also
+    # make it the cluster default.
+    ingressClass:
+      enabled: false
+    ports:
+      web:
+        # Traefik limits reading a whole request (body included) to 60s by
+        # default; nginx has no such limit, and large uploads (immich) take
+        # longer. 0 = no limit.
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+      websecure:
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+      # smtp-oauth-relay, as ingress-nginx's `tcp:` does today.
+      smtp:
+        port: 8025
+        expose:
+          default: true
+        exposedPort: 8025
+        protocol: TCP
+    service:
+      annotations:
+        metallb.io/loadBalancerIPs: ${TRAEFIK_IP}
+      spec:
+        type: LoadBalancer
+        # As ingress-nginx: keep the client's source address.
+        externalTrafficPolicy: Local
+    extraObjects:
+    # Plain TCP (STARTTLS passes through to the relay, which holds the
+    # certificate). In the relay's namespace: the CRD provider doesn't
+    # follow references across namespaces.
+    - apiVersion: traefik.io/v1alpha1
+      kind: IngressRouteTCP
+      metadata:
+        name: smtp-oauth-relay
+        namespace: smtp-relay
+      spec:
+        entryPoints:
+        - smtp
+        routes:
+        - match: HostSNI(`*`)
+          services:
+          - name: smtp-oauth-relay
+            port: 8025

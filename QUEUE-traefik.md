@@ -46,7 +46,9 @@ Traefik runs on while both run side by side. Both are fields of the
     overwrite each Ingress's `status.loadBalancer` in a loop (Traefik's guide,
     "Ingress Status Race Condition").
   - `IngressRouteTCP` for port 8025 → `smtp-relay/smtp-oauth-relay:8025`
-    (`HostSNI(\`*\`)`: plain TCP, STARTTLS passes through).
+    (`HostSNI(\`*\`)`: plain TCP, STARTTLS passes through), created by the chart
+    (`extraObjects`) in the relay's namespace.
+  - The chart's own `traefik` IngressClass off (it would become the default).
 - [ ] Check: `flux get kustomizations`, Traefik pods Running, Service has `TRAEFIK_IP`.
 
 ## Batch 2: test on TRAEFIK_IP (no merge; Pi-hole only)
@@ -57,7 +59,13 @@ Traefik runs on while both run side by side. Both are fields of the
       "behaves differently than NGINX". If it fails, switch that Ingress to
       Authentik's Traefik endpoint (`/outpost.goauthentik.io/auth/traefik`, a
       Traefik ForwardAuth middleware), per Authentik's docs.
-- [ ] immich: upload a large file (`proxy-body-size`).
+- [ ] immich: upload a large file (`proxy-body-size`). Traefik's 60s limit on
+      reading a request is turned off (`readTimeout: 0`), as nginx has none.
+- [ ] `http://` on an app with TLS still redirects to `https://`. ingress-nginx
+      does that by default for any Ingress with TLS; Traefik's NGINX provider
+      only where `nginx.ingress.kubernetes.io/ssl-redirect` says so, and there's
+      no global switch that wouldn't also break the Cloudflare tunnel's plain-HTTP
+      routes. If it doesn't, add `ssl-redirect: "true"` to those Ingresses.
 - [ ] A media app, homeassistant, obsidian: pages and websockets load.
 - [ ] SMTP: `Send-MailMessage -SmtpServer <TRAEFIK_IP> -Port 8025 -UseSsl ...`.
 - [ ] Put the test names back to `INGRESS_IP` if anything failed; fix; repeat.

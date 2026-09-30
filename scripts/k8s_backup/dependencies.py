@@ -34,6 +34,7 @@ OPERATOR_CHARTS = {
     "metallb.io": "metallb",
     "longhorn.io": "longhorn",
     "external-secrets.io": "external-secrets",
+    "traefik.io": "traefik",
 }
 
 
