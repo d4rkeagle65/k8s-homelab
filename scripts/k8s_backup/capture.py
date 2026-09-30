@@ -13,7 +13,6 @@ after a hand edit to a captured values.yaml.
 
 from __future__ import annotations
 
-import base64
 import datetime as dt
 import sys
 from pathlib import Path
@@ -80,8 +79,6 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     redactions: list[str] = []
     resolved_context = context or kube.current_context()
 
-    varsub.ensure_example_scaffold(root, dry_run)
-
     # Auto-seed from a quick pre-fetch of just the kinds it looks at, so a
     # literal first appearing on THIS run's cluster state still gets
     # substituted in this same run's output rather than only the next one.
@@ -96,26 +93,29 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
         "persistentvolume": kube.get_all(context, "persistentvolume")[0],
     }
     preseed_ingress = kube.get_all(context, "ingress")[0]
-    for desc in varsub.auto_seed(root, preseed_raw, preseed_ingress, dry_run):
-        warnings.append(f"auto-added variable substitution: {desc}")
-        if verbose:
-            print(f"  [auto-seed] {desc}", file=sys.stderr)
 
     # Empty (so nothing counts as foreign) on a cluster without Flux.
     flux_owner = FluxOwnership(kube.get_all(context, "kustomizations.kustomize.toolkit.fluxcd.io")[0])
 
-    # Before substitutions are loaded, so values seeded from promoted
-    # namespaces' Secrets render into this run's local Secret.
-    promoted_secrets = _prepare_promoted_secrets(root, context, dry_run, warnings, verbose, flux_owner)
-
-    substitutions = varsub.load_substitutions(root)
-    for bare in varsub.bare_placeholders(root):
+    substitutions = _load_substitutions(root, context, warnings)
+    live_values = {varsub._var_name(s["placeholder"]): s["literal"] for s in substitutions}
+    pending = varsub.auto_seed_candidates(preseed_raw, preseed_ingress, substitutions)
+    promoted_secrets, pending_secrets = _prepare_promoted_secrets(root, context, warnings, verbose, flux_owner, live_values)
+    pending += pending_secrets
+    # Replaced in this run's output straight away, so they never reach git
+    # even before they're in Vaultwarden.
+    substitutions = substitutions + pending
+    pending_path = varsub.write_pending(root, pending, dry_run)
+    if pending:
+        names = ", ".join(sorted(varsub._var_name(e["placeholder"]) for e in pending))
         warnings.append(
-            f"variable substitution placeholder '{bare}' has no ${{...}} wrapper; treated as "
-            f"'${{{bare}}}' so Flux substitutes it back. Update kubernetes/.local/variable-substitutions.yaml to match."
+            f"{len(pending)} private value(s) aren't in Vaultwarden yet ({names}): add each as a hidden field "
+            "of the cluster-secrets item and an entry in kubernetes/secrets/cluster-secrets.yaml. "
+            "They're listed with their values in kubernetes/.local/vaultwarden-pending.yaml."
         )
-    if substitutions:
-        print(f"Loaded {len(substitutions)} variable substitution(s) from kubernetes/.local/variable-substitutions.yaml")
+        if verbose and pending_path:
+            print(f"  [substitutions] pending values written to {pending_path}", file=sys.stderr)
+    varsub.write_cache(root, substitutions, dry_run)
 
     print("Capturing Helm releases and values...")
     helm_repos = helmcli.repo_list(context)
@@ -131,13 +131,9 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
         sink, context, warnings, redactions, verbose, substitutions, flux_owner
     )
 
-    print("Writing local (gitignored) substitution manifests...")
-    _write_local_substitution_manifests(sink, substitutions)
-    _check_live_substitutions(context, substitutions, warnings)
-
     print("Capturing namespaced non-Helm resources...")
     raw_counts = _capture_namespaced_resources(
-        sink, context, warnings, redactions, verbose, substitutions, flux_owner, promoted_secrets
+        sink, context, warnings, redactions, verbose, substitutions, flux_owner, promoted_secrets, live_values
     )
     _write_raw_readme(sink)
 
@@ -312,43 +308,27 @@ def _capture_helm_releases(
     return infos
 
 
-def _write_local_substitution_manifests(sink: Sink, substitutions: list[dict]) -> None:
-    """Ready-to-`kubectl apply` ConfigMap/Secret with the REAL substitution
-    values, for kubernetes/flux/config/cluster-resources.yaml's
-    postBuild.substituteFrom to pick up -- gitignored, regenerated every
-    run from kubernetes/.local/variable-substitutions.yaml. If a tier has
-    no entries, nothing is written this run and the tracker's orphan sweep
-    removes any stale file from a previous run that did have one.
+def _load_substitutions(root: Path, context, warnings) -> list[dict]:
+    """What Flux substitutes: the live cluster-secrets Secret and
+    cluster-settings ConfigMap (see varsub.py). On a cluster without
+    cluster-secrets, the legacy local file instead.
     """
-    configmap = varsub.render_configmap(substitutions)
-    if configmap:
-        sink.write_yaml(sink.root.joinpath(*varsub.LOCAL_CONFIGMAP_PATH), configmap)
-    secret = varsub.render_secret(substitutions)
+    secret, _ = kube.get_object(context, "secret", constants.FLUX_NAMESPACE, varsub.SECRETS_SECRET_NAME)
+    settings, _ = kube.get_object(context, "configmap", constants.FLUX_NAMESPACE, varsub.SETTINGS_CONFIGMAP_NAME)
     if secret:
-        sink.write_yaml(sink.root.joinpath(*varsub.LOCAL_SECRET_PATH), secret)
-
-
-def _check_live_substitutions(context, substitutions, warnings) -> None:
-    """Warn when the live cluster-substitutions ConfigMap/Secret holds keys
-    the rendered local file doesn't: `kubectl apply` of that file would
-    delete them, and Flux would then substitute empty strings. (Keys whose
-    values merely differ are expected until the file is next applied.)
-    """
-    rendered = {
-        "configmap": (varsub.render_configmap(substitutions) or {}).get("data") or {},
-        "secret": (varsub.render_secret(substitutions) or {}).get("stringData") or {},
-    }
-    local_files = {"configmap": varsub.LOCAL_CONFIGMAP_PATH, "secret": varsub.LOCAL_SECRET_PATH}
-    for kind, name in (("configmap", varsub.SUBSTITUTIONS_CONFIGMAP_NAME), ("secret", varsub.SUBSTITUTIONS_SECRET_NAME)):
-        live, _ = kube.get_object(context, kind, "flux-system", name)
-        missing = sorted(set((live or {}).get("data") or {}) - set(rendered[kind]))
-        if missing:
-            warnings.append(
-                f"live {kind} flux-system/{name} has key(s) {', '.join(missing)} that aren't in "
-                "kubernetes/.local/variable-substitutions.yaml, so `kubectl apply -f "
-                f"{'/'.join(local_files[kind])}` would DELETE them. Add each as an entry "
-                "(`replace: false` if it's a plain config value, not a literal to replace)."
-            )
+        substitutions = varsub.from_live(secret, settings)
+        print(f"Loaded {len(substitutions)} variable substitution(s) from {varsub.SECRETS_SECRET_NAME} and {varsub.SETTINGS_CONFIGMAP_NAME}")
+        return substitutions
+    substitutions = varsub.load_substitutions(root)
+    warnings.append(
+        f"the {varsub.SECRETS_SECRET_NAME} Secret isn't in flux-system, so values were read from the legacy "
+        "kubernetes/.local/variable-substitutions.yaml. Check the ExternalSecret (kubernetes/secrets/)."
+    )
+    for bare in varsub.bare_placeholders(root):
+        warnings.append(
+            f"variable substitution placeholder '{bare}' has no ${{...}} wrapper; treated as '${{{bare}}}'."
+        )
+    return substitutions
 
 
 def _write_helm_repository_files(sink: Sink, helm_repos, timestamp) -> list[str]:
@@ -439,7 +419,8 @@ def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbos
 
 
 def _capture_namespaced_resources(
-    sink: Sink, context, warnings, redactions, verbose, substitutions, flux_owner, promoted_secrets=None
+    sink: Sink, context, warnings, redactions, verbose, substitutions, flux_owner, promoted_secrets=None,
+    live_values=None,
 ):
     """Each namespaced resource that passes the skip filters goes to
     kubernetes/raw/<ns>/<kind>/ -- or, for a namespace with a promoted
@@ -526,7 +507,7 @@ def _capture_namespaced_resources(
 
     known_vars = {varsub._var_name(s["placeholder"]) for s in substitutions or []}
     promoted_secrets = promoted_secrets or {}
-    live_values = _live_substitution_values(context) if any(promoted_secrets.values()) else {}
+    live_values = live_values or {}
     for ns, release_dir in promoted.items():
         _write_promoted_release(
             sink, context, ns, release_dir, promoted_docs[ns], held[ns], known_vars,
@@ -572,11 +553,12 @@ def _promoted_manifest_paths(release_dir: Path) -> list[Path]:
     return [p for p in app_dir.glob("*.yaml") if p.name != "kustomization.yaml"]
 
 
-def _prepare_promoted_secrets(root: Path, context, dry_run, warnings, verbose, flux_owner) -> dict:
+def _prepare_promoted_secrets(root: Path, context, warnings, verbose, flux_owner, live_values) -> tuple[dict, list[dict]]:
     """Namespace -> [(filename, templated manifest, {placeholder: value})]
     for each promoted namespace's own Secrets (see promote.templated_secret),
-    or None where its Secrets couldn't be listed. Seeds their values into
-    the local substitutions file as a side effect.
+    or None where its Secrets couldn't be listed; and, as substitution
+    entries, every value cluster-secrets doesn't hold yet (new, or rotated
+    in the cluster), for Vaultwarden.
     """
     promoted, _ = _promoted_namespaces(root, [])  # ambiguity is reported by the namespaced pass
     result: dict = {}
@@ -605,22 +587,12 @@ def _prepare_promoted_secrets(root: Path, context, dry_run, warnings, verbose, f
                     wanted[placeholder] = (values[placeholder], f"Secret {ns}/{name} key {key}")
             docs.append((promote.manifest_filename("secret", name), manifest, values))
         result[ns] = docs
-    for change in varsub.sync_secret_entries(root, wanted, promote.SECRET_SEED_SOURCE, dry_run):
-        warnings.append(
-            f"local secret substitution {change}. Apply kubernetes/.local/cluster-substitutions-secret.yaml "
-            "to the cluster, then re-run capture."
-        )
-    return result
-
-
-def _live_substitution_values(context) -> dict[str, str]:
-    """What the live cluster-substitutions Secret holds -- i.e. what Flux
-    will substitute right now. Empty if it can't be read, which holds back
-    every promoted Secret (the safe direction).
-    """
-    secret, _ = kube.get_object(context, "secret", "flux-system", varsub.SUBSTITUTIONS_SECRET_NAME)
-    data = (secret or {}).get("data") or {}
-    return {k: base64.b64decode(v).decode("utf-8", errors="replace") for k, v in data.items()}
+    pending = [
+        {"literal": value, "placeholder": placeholder, "sensitivity": "secret", "note": note, "replace": True}
+        for placeholder, (value, note) in sorted(wanted.items())
+        if live_values.get(varsub._var_name(placeholder)) != value
+    ]
+    return result, pending
 
 
 def _write_promoted_release(
@@ -662,9 +634,9 @@ def _write_promoted_release(
             else:
                 sink.tracker.keep_existing([app_dir / filename])
                 warnings.append(
-                    f"{rel}/app/{filename}: not written yet -- the live '{varsub.SUBSTITUTIONS_SECRET_NAME}' "
-                    "Secret in flux-system doesn't hold its values. Apply "
-                    "kubernetes/.local/cluster-substitutions-secret.yaml, then re-run capture."
+                    f"{rel}/app/{filename}: not written yet -- the live '{varsub.SECRETS_SECRET_NAME}' "
+                    "Secret in flux-system doesn't hold its values. Add them to Vaultwarden (see "
+                    "kubernetes/.local/vaultwarden-pending.yaml), then re-run capture once it has synced."
                 )
     if not docs:
         warnings.append(f"{rel}: marked {PROMOTE_MARKER}, but namespace '{ns}' has nothing to promote")

@@ -16,6 +16,7 @@ Read before changing anything:
 | `cluster` | `kubernetes/apps/` | generate |
 | `cluster-resources` | `kubernetes/cluster/` (cluster-scoped objects) | generate |
 | `cluster-meta` | `kubernetes/flux/meta/` (chart sources, vars) | hand |
+| `cluster-secrets` | `kubernetes/secrets/` (the Vaultwarden ExternalSecret) | hand |
 | `cluster-shared` | `kubernetes/shared/` (media base) | hand |
 | `cluster-test` | `kubernetes/test/` (overlay, suspended) | hand |
 
@@ -35,8 +36,10 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
   and is synced by hand; say so when you change `scripts/`.
 - **No real values in git.** No domains, IPs, hostnames or secret values in
   files, commit messages or PR text. Use `${VARIABLE}` placeholders; Flux fills
-  them in from the `cluster-substitutions` ConfigMap and Secret. The real values
-  live only in the gitignored `kubernetes/.local/`.
+  them in from the `cluster-secrets` Secret, which External Secrets builds from
+  a Vaultwarden item (`kubernetes/secrets/`), and the `cluster-settings`
+  ConfigMap for plain public settings (`kubernetes/flux/meta/vars/`). The real
+  values live only in Vaultwarden and the gitignored `kubernetes/.local/`.
   - Write any `${...}` that Flux must leave alone as `$${...}`.
   - An undefined variable becomes an empty string, so a new variable must be in
     the cluster before anything using it is pushed. Only the owner can do that.

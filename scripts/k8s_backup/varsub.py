@@ -1,26 +1,29 @@
-"""Variable substitution for environment-specific literals in git-tracked
-captured files (an internal hostname, an ACME account email, ...).
+"""Variable substitution: keep private literals (the domain, IPs, promoted
+Secrets' values, ...) out of git-tracked captured files by replacing each
+with a ${NAME} placeholder that Flux substitutes back at apply time.
 
-This is deliberately separate from secretscan.py's redaction: redaction is
-about material that must never be written to disk anywhere (a credential),
-so it always applies, everywhere, automatically-detected. Substitution is
-about literals that are fine to have on disk locally but that you'd rather
-not repeat verbatim across every git-tracked file. Two ways an entry gets
-here:
+The values live in two objects in flux-system that every Flux
+Kustomization reads (postBuild.substituteFrom):
 
-1. Auto-seeded (auto_seed(), source: auto) for a narrow, curated set of
-   fields known to carry identity-bearing info: a ClusterIssuer's ACME
-   account email, and a PersistentVolume's NFS server when it's a hostname
-   rather than a bare IP (the plain private IPs used elsewhere are treated
-   as ordinary, expected infra detail -- see docs/inventory.md's IP
-   section). This is deliberately narrow rather than generic detection,
-   which would be unreliable and noisy.
-2. Hand-added by the operator for anything else.
+- `cluster-secrets`: a Secret built by External Secrets from the custom
+  fields of one Vaultwarden item (kubernetes/secrets/cluster-secrets.yaml).
+  Every non-empty value here is a literal capture replaces.
+- `cluster-settings`: a ConfigMap committed in git
+  (kubernetes/flux/meta/vars/cluster-settings.yaml) for plain settings like
+  MEDIA_PUID. Substituted by Flux, never searched for (replacing every
+  "1000" would be nonsense).
 
-Either way, only git-tracked output gets substituted -- kubernetes/.local/
-stays full-fidelity for an actual restore -- and the real values live only
-in this gitignored file plus the ready-to-apply ConfigMap/Secret rendered
-alongside it, never in git.
+capture reads both from the live cluster (from_live). A new private value
+it finds -- an auto-detected domain (auto_seed_candidates) or a promoted
+Secret's value -- is replaced in this run's output at once, and written to
+the gitignored kubernetes/.local/vaultwarden-pending.yaml to be added to
+Vaultwarden by hand. Each run also writes the full list to the gitignored
+kubernetes/.local/substitutions-cache.yaml, which the pre-commit hook's
+leak check reads without cluster access.
+
+Before cluster-secrets existed, the values lived in the gitignored
+kubernetes/.local/variable-substitutions.yaml (load_substitutions); capture
+still falls back to it on a cluster without cluster-secrets.
 """
 
 from __future__ import annotations
@@ -29,33 +32,15 @@ import re
 from pathlib import Path
 from typing import Any
 
-from . import yamlio
+from . import constants, yamlio
 
 LOCAL_SUBSTITUTIONS_PATH = ("kubernetes", ".local", "variable-substitutions.yaml")
-LOCAL_CONFIGMAP_PATH = ("kubernetes", ".local", "cluster-substitutions-configmap.yaml")
-LOCAL_SECRET_PATH = ("kubernetes", ".local", "cluster-substitutions-secret.yaml")
+CACHE_PATH = ("kubernetes", ".local", "substitutions-cache.yaml")
+PENDING_PATH = ("kubernetes", ".local", "vaultwarden-pending.yaml")
 
-SUBSTITUTIONS_CONFIGMAP_NAME = "cluster-substitutions"
-# Same name as the ConfigMap (a Secret and a ConfigMap may share one): this is
-# what the live cluster has, and what every hand-written ks.yaml references.
-SUBSTITUTIONS_SECRET_NAME = "cluster-substitutions"
+SECRETS_SECRET_NAME = constants.SECRETS_SECRET_NAME
+SETTINGS_CONFIGMAP_NAME = constants.SETTINGS_CONFIGMAP_NAME
 
-_EXAMPLE_TEMPLATE = """\
-# Local, gitignored: exact literal values to replace with a placeholder in
-# every git-tracked captured file (values.yaml/values-all.yaml, raw/ and
-# cluster/ manifests, namespace.yaml). Never committed -- that would defeat
-# the point. Entries marked `source: auto` were detected automatically (see
-# varsub.auto_seed); add your own for anything else you'd rather not repeat
-# verbatim across the repo. `sensitivity: secret` entries render into
-# kubernetes/.local/cluster-substitutions-secret.yaml instead of the
-# ConfigMap, for kubernetes/flux/config/cluster-resources.yaml's
-# postBuild.substituteFrom to pick up once you apply it to the cluster.
-#
-# - literal: internal-host.example.lan
-#   placeholder: "${EXAMPLE_HOSTNAME}"
-#   note: what this is and why it's templated
-#   sensitivity: configmap
-"""
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -64,16 +49,8 @@ def local_substitutions_path(root: Path) -> Path:
     return root.joinpath(*LOCAL_SUBSTITUTIONS_PATH)
 
 
-def ensure_example_scaffold(root: Path, dry_run: bool) -> None:
-    path = local_substitutions_path(root)
-    if path.exists() or dry_run:
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_EXAMPLE_TEMPLATE, encoding="utf-8", newline="\n")
-
-
-def _load_raw_entries(root: Path) -> list:
-    path = local_substitutions_path(root)
+def _load_raw_entries(root: Path, path: Path | None = None) -> list:
+    path = path or local_substitutions_path(root)
     if not path.exists():
         return []
     try:
@@ -105,8 +82,8 @@ def bare_placeholders(root: Path) -> list[str]:
     ]
 
 
-def load_substitutions(root: Path) -> list[dict]:
-    """Every entry, each with `replace`: False for a config-only entry
+def load_substitutions(root: Path, path: Path | None = None) -> list[dict]:
+    """The legacy local file (or `path`, e.g. the cache): every entry, each with `replace`: False for a config-only entry
     (`replace: false` in the file) -- a value Flux substitutes, like
     MEDIA_PUID, but not a literal to find and replace in captured output
     (replacing every "1000" in the repo would be nonsense). Config-only
@@ -114,7 +91,7 @@ def load_substitutions(root: Path) -> list[dict]:
     files never drops a key the cluster relies on.
     """
     entries = []
-    for entry in _load_raw_entries(root):
+    for entry in _load_raw_entries(root, path):
         if not isinstance(entry, dict):
             continue
         literal = entry.get("literal")
@@ -265,108 +242,115 @@ def _next_placeholder(base: str, taken: set[str]) -> str:
     return f"${{{base}_{i}}}"
 
 
-def auto_seed(root: Path, cluster_raw: dict, ingress_items: list[dict], dry_run: bool) -> list[str]:
-    """Detect candidates from a curated set of known identity-bearing
-    fields (ACME account emails, non-IP NFS server hostnames, and a
-    dominant Ingress domain -- see _dominant_domains) and append any not
-    already present (by literal value) to the local substitutions file.
-    Never touches an existing entry -- only adds new ones -- so a
-    placeholder name or sensitivity you've hand-edited is never overwritten.
-    Returns a human-readable description of what was added, for the run's
-    warning/summary output; never returns or logs the literal values
-    themselves beyond what's written to the gitignored file.
+def auto_seed_candidates(cluster_raw: dict, ingress_items: list[dict], known: list[dict]) -> list[dict]:
+    """Private literals found in a curated set of identity-bearing fields
+    (ACME account emails, non-IP NFS server hostnames, and a dominant Ingress
+    domain -- see _dominant_domains) that aren't among `known` yet, as new
+    entries with a free placeholder name. The caller replaces them in this
+    run's output and lists them for Vaultwarden; nothing is written here.
     """
-    if dry_run:
-        return []
-
     # Imported here (not at module load) to avoid a capture.py <-> varsub.py
     # <-> secretscan.py import cycle; classify_ip has no dependency back on
     # this module.
     from . import secretscan
 
-    existing = _load_raw_entries(root)
-    existing_literals = {e.get("literal") for e in existing if isinstance(e, dict)}
-    existing_placeholders = {e.get("placeholder") for e in existing if isinstance(e, dict)}
+    known_literals = {s["literal"] for s in known}
+    taken = {s["placeholder"] for s in known}
 
-    candidates: list[tuple[str, str, str, str]] = []  # (literal, base_name, sensitivity, note)
-
+    candidates: list[tuple[str, str, str]] = []  # (literal, base_name, note)
     for issuer in cluster_raw.get("clusterissuer.cert-manager.io", []):
         acme = issuer.get("spec", {}).get("acme", {})
         name = issuer.get("metadata", {}).get("name", "?")
         for email in _find_strings_matching(acme, _EMAIL_RE):
-            candidates.append((email, "ACME_EMAIL", "secret", f"ACME account email (ClusterIssuer {name})"))
+            candidates.append((email, "ACME_EMAIL", f"ACME account email (ClusterIssuer {name})"))
 
     for pv in cluster_raw.get("persistentvolume", []):
         server = pv.get("spec", {}).get("nfs", {}).get("server")
         pv_name = pv.get("metadata", {}).get("name", "?")
         if server and secretscan.classify_ip(server) is None:
-            candidates.append((server, "NFS_HOSTNAME", "configmap", f"NFS server hostname (PV {pv_name})"))
+            candidates.append((server, "NFS_HOSTNAME", f"NFS server hostname (PV {pv_name})"))
 
     for domain in _dominant_domains(ingress_items):
-        # Note text intentionally excludes the domain itself: it ends up in
-        # docs/variable-substitutions.md (git-tracked) and in this run's
-        # warnings (which flow into git-tracked docs/inventory.md), and the
-        # whole point of this entry is to keep that value out of git.
-        candidates.append((domain, "BASE_DOMAIN", "configmap", "domain used across multiple Ingress hosts"))
+        # Note text intentionally excludes the domain itself: notes reach
+        # this run's warnings, which flow into git-tracked docs/inventory.md.
+        candidates.append((domain, "BASE_DOMAIN", "domain used across multiple Ingress hosts"))
 
     new_entries = []
-    added_descriptions = []
-    seen_this_run: set[str] = set()
-    for literal, base_name, sensitivity, note in candidates:
-        if literal in existing_literals or literal in seen_this_run:
+    for literal, base_name, note in candidates:
+        if literal in known_literals:
             continue
-        seen_this_run.add(literal)
-        placeholder = _next_placeholder(base_name, existing_placeholders)
-        existing_placeholders.add(placeholder)
+        known_literals.add(literal)
+        placeholder = _next_placeholder(base_name, taken)
+        taken.add(placeholder)
         new_entries.append(
-            {
-                "literal": literal,
-                "placeholder": placeholder,
-                "note": note,
-                "sensitivity": sensitivity,
-                "source": "auto",
-            }
+            {"literal": literal, "placeholder": placeholder, "sensitivity": "secret", "note": note, "replace": True}
         )
-        added_descriptions.append(f"{placeholder} ({note})")
-
-    if not new_entries:
-        return []
-
-    _write_entries(root, existing + new_entries)
-    return added_descriptions
+    return new_entries
 
 
-def sync_secret_entries(root: Path, wanted: dict[str, tuple[str, str]], source: str, dry_run: bool) -> list[str]:
-    """Make sure every placeholder in `wanted` ({placeholder: (literal,
-    note)}) has a `sensitivity: secret` entry holding that literal: adds
-    missing ones, and updates ones added earlier with the same `source`
-    whose literal has changed (a rotated password). An entry written by
-    hand for the same placeholder is left alone. Never removes one -- an
-    entry disappearing would blank a value Flux still substitutes.
-    Returns what changed, by placeholder and note only, never a value.
+def from_live(secret: dict | None, settings: dict | None) -> list[dict]:
+    """Substitution entries from the live cluster-secrets Secret (private:
+    replaced wherever found, unless empty) and cluster-settings ConfigMap
+    (plain settings: never replaced). Every name is included, empty or not,
+    so capture knows which ${NAME}s Flux will substitute.
     """
-    if dry_run or not wanted:
-        return []
-    entries = _load_raw_entries(root)
-    by_placeholder = {
-        normalize_placeholder(str(e["placeholder"])): e
-        for e in entries
-        if isinstance(e, dict) and e.get("placeholder")
-    }
-    changes = []
-    for placeholder, (literal, note) in wanted.items():
-        entry = by_placeholder.get(placeholder)
-        if entry is None:
-            entries.append(
-                {"literal": literal, "placeholder": placeholder, "note": note, "sensitivity": "secret", "source": source}
-            )
-            changes.append(f"added {placeholder} ({note})")
-        elif entry.get("source") == source and str(entry.get("literal")) != literal:
-            entry["literal"] = literal
-            changes.append(f"updated {placeholder} ({note}): the live value changed")
-    if changes:
-        _write_entries(root, entries)
-    return changes
+    import base64
+
+    entries = []
+    for name, value in sorted(((settings or {}).get("data") or {}).items()):
+        entries.append(
+            {"literal": str(value), "placeholder": f"${{{name}}}", "sensitivity": "configmap", "note": "", "replace": False}
+        )
+    for name, value in sorted(((secret or {}).get("data") or {}).items()):
+        literal = base64.b64decode(value).decode("utf-8", errors="replace")
+        entries.append(
+            {"literal": literal, "placeholder": f"${{{name}}}", "sensitivity": "secret", "note": "", "replace": bool(literal)}
+        )
+    return entries
+
+
+def write_pending(root: Path, entries: list[dict], dry_run: bool) -> Path | None:
+    """The values Vaultwarden doesn't hold yet, for the operator to add as
+    hidden fields of the cluster-secrets item (and entries in
+    kubernetes/secrets/cluster-secrets.yaml). Gitignored; None if empty.
+    """
+    path = root.joinpath(*PENDING_PATH)
+    if dry_run or not entries:
+        return None
+    header = (
+        "# Local, gitignored, written by capture: private values Vaultwarden doesn't hold yet.\n"
+        "# Add each as a hidden custom field of the `cluster-secrets` item (field name = name),\n"
+        "# and an entry in kubernetes/secrets/cluster-secrets.yaml, then re-run capture.\n"
+        "# Delete this file once they're in; the next capture rewrites it if any are left.\n"
+    )
+    rows = [{"name": _var_name(e["placeholder"]), "value": e["literal"], "note": e.get("note", "")} for e in entries]
+    yamlio.write_yaml_file(path, rows, header=header)
+    return path
+
+
+def write_cache(root: Path, entries: list[dict], dry_run: bool) -> None:
+    """Every substitution this run used, for the pre-commit leak check
+    (test_secrets_hygiene), which has no cluster access. Gitignored.
+    """
+    if dry_run:
+        return
+    header = (
+        "# Local, gitignored, rewritten by every capture from the live cluster-secrets and\n"
+        "# cluster-settings (plus any values still pending for Vaultwarden). Don't edit:\n"
+        "# change the Vaultwarden item or kubernetes/flux/meta/vars/cluster-settings.yaml.\n"
+    )
+    rows = [
+        {"literal": e["literal"], "placeholder": e["placeholder"], "replace": e.get("replace", True)} for e in entries
+    ]
+    yamlio.write_yaml_file(root.joinpath(*CACHE_PATH), rows, header=header)
+
+
+def load_cache(root: Path) -> list[dict]:
+    """What the last capture used: the cache, or the legacy local file on a
+    checkout that hasn't run capture since cluster-secrets existed.
+    """
+    cache = root.joinpath(*CACHE_PATH)
+    return load_substitutions(root, cache if cache.exists() else None)
 
 
 def _write_entries(root: Path, entries: list) -> None:
@@ -386,32 +370,3 @@ def _write_entries(root: Path, entries: list) -> None:
 
 def _var_name(placeholder: str) -> str:
     return placeholder.strip("${}")
-
-
-def render_configmap(substitutions: list[dict]) -> dict | None:
-    data = {
-        _var_name(s["placeholder"]): s["literal"]
-        for s in substitutions
-        if s.get("sensitivity", "configmap") != "secret"
-    }
-    if not data:
-        return None
-    return {
-        "apiVersion": "v1",
-        "kind": "ConfigMap",
-        "metadata": {"name": SUBSTITUTIONS_CONFIGMAP_NAME, "namespace": "flux-system"},
-        "data": data,
-    }
-
-
-def render_secret(substitutions: list[dict]) -> dict | None:
-    data = {_var_name(s["placeholder"]): s["literal"] for s in substitutions if s.get("sensitivity") == "secret"}
-    if not data:
-        return None
-    return {
-        "apiVersion": "v1",
-        "kind": "Secret",
-        "type": "Opaque",
-        "metadata": {"name": SUBSTITUTIONS_SECRET_NAME, "namespace": "flux-system"},
-        "stringData": data,
-    }

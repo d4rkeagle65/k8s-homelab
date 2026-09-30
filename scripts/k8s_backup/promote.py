@@ -165,14 +165,13 @@ def clean_for_gitops(obj: dict) -> dict:
 #
 # A promoted Secret goes to git with every value replaced by a ${VAR}
 # placeholder. The value itself -- base64, exactly as the Secret stores it --
-# goes into the gitignored kubernetes/.local/variable-substitutions.yaml as a
-# `sensitivity: secret` entry, which capture renders into
-# kubernetes/.local/cluster-substitutions-secret.yaml; once that's applied to
-# the cluster, Flux's postBuild substitution puts the value back. Base64
+# belongs in the cluster-secrets Vaultwarden item; until it's there, capture
+# lists it in the gitignored kubernetes/.local/vaultwarden-pending.yaml and
+# holds the manifest back. Once External Secrets has synced it, Flux's
+# postBuild substitution puts the value back. Base64
 # because it's always a plain YAML scalar: a raw value holding a newline, a
 # ": " or a leading quote would corrupt the manifest Flux substitutes into.
 
-SECRET_SEED_SOURCE = "auto-secret"
 
 _GENERATED_SECRET_TYPES = {
     "kubernetes.io/service-account-token",

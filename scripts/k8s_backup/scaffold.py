@@ -20,8 +20,8 @@ __pycache__/
 
 # Backed up locally, never committed: built-in/system/operator-owned/
 # dynamically-provisioned cluster resources (see skipfilter.py's
-# classify_cluster_locality) and the operator's real variable-substitution
-# mapping (varsub.py). Both are regenerated/maintained locally; committing
+# classify_cluster_locality) and capture's cache of the private values it
+# replaces (varsub.py). Both are regenerated locally; committing
 # either defeats the point (git would think it owns bootstrap-managed
 # objects that change under a Kubernetes upgrade, or would leak the exact
 # values variable substitution exists to keep out of git).
@@ -198,13 +198,13 @@ with no actual disaster-recovery value (they're recreated automatically).
 See `skipfilter.classify_cluster_locality` in `scripts/k8s_backup/skipfilter.py`
 for the exact rules.
 
-`kubernetes/.local/variable-substitutions.yaml` (also gitignored) is where
-you list exact literal values -- an internal hostname, an account email --
-that should be replaced with a `${{PLACEHOLDER}}` in every git-tracked
-captured file. It's scaffolded with a commented-out example on first run;
-uncomment and edit it, then re-run `capture`. A file carrying a placeholder
-is not directly `kubectl apply`-able until you substitute the real value
-back in (by hand, or with `envsubst`).
+Private values -- an internal hostname, an account email -- are replaced
+with a `${{PLACEHOLDER}}` in every git-tracked captured file. capture reads
+them from the `cluster-secrets` Secret, which External Secrets builds from a
+Vaultwarden item (see `scripts/README.md`), and lists any new ones in the
+gitignored `kubernetes/.local/vaultwarden-pending.yaml`. A file carrying a
+placeholder is not directly `kubectl apply`-able until you substitute the
+real value back in (by hand, or with `envsubst`).
 
 ## How to re-run
 

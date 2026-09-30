@@ -81,26 +81,22 @@ def test_no_secret_manifests_captured(all_yaml_files, load_yaml, repo_root):
     never fetches "secret" as a resource kind anywhere in capture.py, only
     metadata via _capture_secrets() into docs/secrets-inventory.csv.
 
-    The one intentional exception is kubernetes/.local/cluster-substitutions-
-    secret.yaml: a Secret manifest, but one this tool RENDERS from the
-    operator's own kubernetes/.local/variable-substitutions.yaml entries
-    (see varsub.py), not something scraped off a live cluster object. It's
-    gitignored and exists so Flux's postBuild.substituteFrom has something
-    to apply -- allowlisted by exact path, not by weakening this check.
+    One intentional exception is the legacy, gitignored
+    kubernetes/.local/cluster-substitutions-secret.yaml, which older captures
+    rendered from the operator's own local file (and the next capture
+    deletes) -- allowlisted by exact path, not by weakening this check.
 
     A promoted Secret (promote.templated_secret) is the other: every value
     is exactly one ${VAR} placeholder (or empty), the real value living only
-    in that local Secret. One literal value anywhere and it's an offender.
+    in Vaultwarden. One literal value anywhere and it's an offender.
     """
-    from k8s_backup.varsub import LOCAL_SECRET_PATH
-
     placeholder = re.compile(r"^\$\{[_A-Za-z][_A-Za-z0-9]*\}$")
 
     def only_placeholders(doc):
         values = [*(doc.get("data") or {}).values(), *(doc.get("stringData") or {}).values()]
         return all(v in ("", None) or (isinstance(v, str) and placeholder.match(v)) for v in values)
 
-    allowed_path = repo_root.joinpath(*LOCAL_SECRET_PATH)
+    allowed_path = repo_root / "kubernetes" / ".local" / "cluster-substitutions-secret.yaml"
     offenders = []
     for path in all_yaml_files:
         if path == allowed_path:
@@ -231,8 +227,9 @@ def test_no_env_var_credentials_in_captured_manifests(repo_root, all_yaml_files,
 
 
 def test_no_substitution_literal_leaks_outside_local(repo_root, all_files):
-    """Every literal in kubernetes/.local/variable-substitutions.yaml exists
-    specifically to NOT appear outside kubernetes/.local/ -- checks every
+    """Every private value capture replaces (as of its last run: the
+    gitignored kubernetes/.local/substitutions-cache.yaml, written from the
+    live cluster-secrets) exists specifically to NOT appear outside kubernetes/.local/ -- checks every
     git-tracked file directly for each one, rather than only trusting that
     apply_substitutions() was called on the right data structures. This is
     exactly the check that would have caught a real bug found while
@@ -240,11 +237,11 @@ def test_no_substitution_literal_leaks_outside_local(repo_root, all_files):
     value, which leaked into docs/variable-substitutions.md and
     docs/inventory.md (both git-tracked) before the note wording was fixed.
     """
-    from k8s_backup.varsub import load_substitutions
+    from k8s_backup.varsub import load_cache
 
     # Config-only entries (`replace: false`, e.g. MEDIA_PUID) are values for
     # Flux to substitute, not literals kept out of git -- "1000" may appear anywhere.
-    substitutions = [s for s in load_substitutions(repo_root) if s["replace"]]
+    substitutions = [s for s in load_cache(repo_root) if s["replace"]]
     if not substitutions:
         pytest.skip("no variable substitutions configured")
 

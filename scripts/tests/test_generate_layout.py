@@ -47,8 +47,6 @@ def test_generated_ks_wires_substitutions_even_without_local_file(tmp_path):
 
     ks = _yaml.load((tmp_path / "kubernetes/apps/emby/emby/ks.yaml").read_text(encoding="utf-8"))
     assert ks["spec"]["postBuild"]["substituteFrom"] == [
-        {"kind": "ConfigMap", "name": "cluster-substitutions", "optional": True},
-        {"kind": "Secret", "name": "cluster-substitutions", "optional": True},
         {"kind": "ConfigMap", "name": "cluster-settings", "optional": True},
         {"kind": "Secret", "name": "cluster-secrets", "optional": True},
     ]

@@ -13,8 +13,8 @@ __pycache__/
 
 # Backed up locally, never committed: built-in/system/operator-owned/
 # dynamically-provisioned cluster resources (see skipfilter.py's
-# classify_cluster_locality) and the operator's real variable-substitution
-# mapping (varsub.py). Both are regenerated/maintained locally; committing
+# classify_cluster_locality) and capture's cache of the private values it
+# replaces (varsub.py). Both are regenerated locally; committing
 # either defeats the point (git would think it owns bootstrap-managed
 # objects that change under a Kubernetes upgrade, or would leak the exact
 # values variable substitution exists to keep out of git).
@@ -37,5 +37,7 @@ id_rsa*
 id_ed25519*
 
 # Added by hand (kept by generate):
+# classify_cluster_locality) and the operator's real variable-substitution
+# mapping (varsub.py). Both are regenerated/maintained locally; committing
 /docs/
 /secrets/
