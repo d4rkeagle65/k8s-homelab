@@ -71,10 +71,16 @@ spec:
         args:
         - |
           export PATH=/opt/bw:$PATH
+          # /data survives container restarts within the pod. A login left
+          # there by an earlier attempt makes `bw config server` refuse to
+          # run, so start from a clean state every time.
+          find "$BITWARDENCLI_APPDATA_DIR" -mindepth 1 -delete
+          echo "Setting the server"
           bw config server "$BW_HOST" >/dev/null
           if [ -n "$BW_CLIENTID" ]; then
             echo "Logging in with the API key"
             bw login --apikey >/dev/null
+            echo "Unlocking"
             BW_SESSION=$(bw unlock --passwordenv BW_PASSWORD --raw)
           else
             echo "Logging in with username and password"
@@ -82,6 +88,7 @@ spec:
           fi
           export BW_SESSION
           bw unlock --check
+          echo "Serving on port 8087"
           # --hostname all: bw serve 2026.6.0+ otherwise rejects requests
           # addressed to the Service name. The NetworkPolicy limits who can
           # reach it; bw serve itself has no authentication.
