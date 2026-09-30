@@ -1,0 +1,13 @@
+# Plain settings every Flux Kustomization substitutes as variables. Only values
+# that are fine to be public belong here; anything private is a field of the
+# `cluster-secrets` Vaultwarden item instead (kubernetes/secrets/).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-settings
+  namespace: flux-system
+data:
+  MEDIA_PUID: "1027"
+  MEDIA_PGID: "100"
+  # Empty in production; the test overlay sets "-test".
+  SUBDOMAIN_SUFFIX: ""

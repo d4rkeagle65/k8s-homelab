@@ -14,7 +14,7 @@ from __future__ import annotations
 from ruamel.yaml.comments import CommentedMap
 from ruamel.yaml.scalarstring import LiteralScalarString
 
-from .constants import FLUX_NAMESPACE
+from .constants import FLUX_NAMESPACE, SECRETS_SECRET_NAME, SETTINGS_CONFIGMAP_NAME
 
 
 def unresolved_source_reason(chart_name: str, chart_version: str) -> str:
@@ -72,14 +72,19 @@ def helm_release(
 
 
 def substitute_from(configmap_name: str | None, secret_name: str | None) -> list[dict]:
-    """postBuild.substituteFrom entries. Both optional so Flux doesn't fail
-    before the operator has created the ConfigMap/Secret on the cluster.
+    """postBuild.substituteFrom entries. All optional so Flux doesn't fail
+    before the ConfigMap/Secret exists on the cluster. cluster-settings and
+    cluster-secrets come last so their values win: Flux lets later sources
+    overwrite earlier ones.
+    https://fluxcd.io/flux/components/kustomize/kustomizations/#post-build-variable-substitution
     """
     refs = []
     if configmap_name:
         refs.append({"kind": "ConfigMap", "name": configmap_name, "optional": True})
     if secret_name:
         refs.append({"kind": "Secret", "name": secret_name, "optional": True})
+    refs.append({"kind": "ConfigMap", "name": SETTINGS_CONFIGMAP_NAME, "optional": True})
+    refs.append({"kind": "Secret", "name": SECRETS_SECRET_NAME, "optional": True})
     return refs
 
 

@@ -10,6 +10,7 @@ even if kubeconform would happily validate each file in isolation.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -96,10 +97,13 @@ def _assert_wires_substitutions(doc) -> None:
     substitutions file: a clone without it must generate the same thing.
     """
     substitute_from = doc["spec"].get("postBuild", {}).get("substituteFrom", [])
-    assert {(entry["kind"], entry["name"]) for entry in substitute_from} == {
+    # cluster-settings/cluster-secrets last: Flux lets later sources win.
+    assert [(entry["kind"], entry["name"]) for entry in substitute_from] == [
         ("ConfigMap", "cluster-substitutions"),
         ("Secret", "cluster-substitutions"),
-    }
+        ("ConfigMap", "cluster-settings"),
+        ("Secret", "cluster-secrets"),
+    ]
     for entry in substitute_from:
         assert entry.get("optional") is True, "substituteFrom entries must be optional so Flux doesn't hard-fail before the ConfigMap/Secret exists on the cluster"
 
@@ -449,3 +453,34 @@ def test_no_namespace_is_defined_twice(repo_root):
         return  # nothing under kubernetes/cluster/namespace/, so nothing twice
     both = sorted(p.stem for p in cluster_ns.glob("*.yaml") if (apps / p.stem / "namespace.yaml").is_file())
     assert not both, f"namespaces in both apps/<ns>/namespace.yaml and cluster/namespace/: {both}"
+
+
+_VARIABLE_RE = re.compile(r"(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def test_every_substituted_variable_is_defined(repo_root, load_yaml):
+    """Flux substitutes an undefined ${VAR} as an empty string (or fails the
+    apply in strict mode), so every one used under kubernetes/ must be a key
+    of cluster-settings (public, in git) or a field of the cluster-secrets
+    ExternalSecret (private, from Vaultwarden). The test overlay's own
+    variables come from cluster-substitutions-test.
+    """
+    settings = load_yaml(repo_root / "kubernetes/flux/meta/vars/cluster-settings.yaml")["data"]
+    test_vars = load_yaml(repo_root / "kubernetes/flux/meta/vars/cluster-substitutions-test.yaml")["data"]
+    external = load_yaml(repo_root / "kubernetes/secrets/cluster-secrets.yaml")
+    secrets = {d["secretKey"] for d in external["spec"]["data"]}
+    assert not set(settings) & secrets, "a variable is defined both in git and in Vaultwarden"
+    for d in external["spec"]["data"]:
+        assert d["remoteRef"]["property"] == d["secretKey"], f"{d['secretKey']}: field name must match the variable"
+
+    kubernetes = repo_root / "kubernetes"
+    local_root = kubernetes / ".local"
+    used: dict[str, set[str]] = {}
+    for path in kubernetes.rglob("*.yaml"):
+        if path.is_relative_to(local_root) or path.parts[-3:-1] == ("flux", "config") and path.name == "gotk-components.yaml":
+            continue
+        for name in _VARIABLE_RE.findall(path.read_text(encoding="utf-8")):
+            used.setdefault(name, set()).add(path.relative_to(repo_root).as_posix())
+    defined = set(settings) | secrets | set(test_vars)
+    undefined = {name: sorted(paths)[:3] for name, paths in used.items() if name not in defined}
+    assert not undefined, f"variables used but defined nowhere: {undefined}"

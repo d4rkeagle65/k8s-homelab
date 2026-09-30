@@ -49,6 +49,8 @@ def test_generated_ks_wires_substitutions_even_without_local_file(tmp_path):
     assert ks["spec"]["postBuild"]["substituteFrom"] == [
         {"kind": "ConfigMap", "name": "cluster-substitutions", "optional": True},
         {"kind": "Secret", "name": "cluster-substitutions", "optional": True},
+        {"kind": "ConfigMap", "name": "cluster-settings", "optional": True},
+        {"kind": "Secret", "name": "cluster-secrets", "optional": True},
     ]
 
 
