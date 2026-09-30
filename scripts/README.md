@@ -213,6 +213,37 @@ its value in `kubernetes/.local/vaultwarden-pending.yaml` for you to add.
 3. Update the field in Vaultwarden and let it sync.
 4. Run `all` again.
 
+### Bring the test environment up, and take it down
+
+`cluster-test` (`kubernetes/flux/config/test.yaml`) applies `kubernetes/test/`:
+the media apps it lists, as `<app>-test` Kustomizations in the `media-test`
+namespace, with `-test` hostnames (`cluster-substitutions-test`). It's kept
+suspended.
+
+**Up:** set `suspend: false` in `kubernetes/flux/config/test.yaml`, commit and
+push, then `flux reconcile kustomization flux-system --with-source`. Check with
+`flux get kustomizations | Select-String "test"`.
+
+**Down.** `suspend: true` alone only freezes it: everything it deployed keeps
+running. Flux deletes a Kustomization's objects only when the Kustomization is
+deleted while *not* suspended, and `flux-system` recreates `cluster-test` from
+git as soon as it's gone. So, in this order:
+
+1. Set `suspend: true` in `kubernetes/flux/config/test.yaml`, commit and push.
+   Otherwise step 5 brings the whole environment back.
+2. `flux suspend kustomization flux-system`, so it doesn't recreate
+   `cluster-test` mid-way.
+3. `flux resume kustomization cluster-test`
+4. `kubectl delete kustomization cluster-test -n flux-system`. Flux deletes the
+   `-test` Kustomizations, their apps and the `media-test` namespace. Wait until
+   `kubectl get ns media-test` says `NotFound`.
+5. `flux resume kustomization flux-system`. It recreates `cluster-test`
+   suspended, so nothing redeploys.
+
+The test apps' volumes are `Retain`, so their PVs are left `Released`, and the
+data stays on the NAS. Clean them up as in the `QUEUE.md` PV cleanup: save each
+PV's path, delete the PV, then move the folder aside before deleting it.
+
 ### Move a CloudNativePG database onto `local-db`
 
 `migrate-cnpg-to-local-db.ps1` rebuilds a database's instances on local disk
