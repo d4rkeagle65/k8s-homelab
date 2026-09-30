@@ -92,7 +92,7 @@ def _serve(monkeypatch, secrets, live):
     def get_object(c, kind, ns, name):
         if kind == "secret" and name == varsub.SECRETS_SECRET_NAME and live is not None:
             return {"data": {k: _b64(v) for k, v in live.items()}}, None
-        return None, "not found"
+        return None, f'Error from server (NotFound): {kind}s "{name}" not found'
 
     monkeypatch.setattr(kube, "get_object", get_object)
 
@@ -183,7 +183,8 @@ def test_live_values_replace_but_settings_never_do():
 
 def test_without_cluster_secrets_the_legacy_file_is_used(tmp_path, monkeypatch):
     varsub._write_entries(tmp_path, [{"literal": "example.com", "placeholder": "${BASE_DOMAIN}"}])
-    monkeypatch.setattr(kube, "get_object", lambda c, kind, ns, name: (None, "not found"))
+    not_found = 'Error from server (NotFound): secrets "cluster-secrets" not found'
+    monkeypatch.setattr(kube, "get_object", lambda c, kind, ns, name: (None, not_found))
     warnings: list[str] = []
     subs = capture._load_substitutions(tmp_path, None, warnings)
     assert [s["placeholder"] for s in subs] == ["${BASE_DOMAIN}"]
@@ -198,12 +199,74 @@ def test_auto_seed_only_proposes_new_literals():
     assert [(e["literal"], e["placeholder"]) for e in new] == [("ops@example.com", "${ACME_EMAIL}")]
 
 
-def test_pending_and_cache_files(tmp_path):
+def test_pending_and_cache_rows():
     entries = varsub.from_live({"data": {"BASE_DOMAIN": _b64("example.com")}}, {"data": {"MEDIA_PUID": "1000"}})
-    varsub.write_cache(tmp_path, entries, dry_run=False)
-    assert {s["placeholder"]: s["replace"] for s in varsub.load_cache(tmp_path)} == {
-        "${BASE_DOMAIN}": True, "${MEDIA_PUID}": False}
+    assert varsub.cache_rows(entries) == [
+        {"literal": "1000", "placeholder": "${MEDIA_PUID}", "replace": False},
+        {"literal": "example.com", "placeholder": "${BASE_DOMAIN}", "replace": True},
+    ]
+    assert varsub.pending_rows([{"literal": "v", "placeholder": "${NEW}", "note": "n"}]) == [
+        {"name": "NEW", "value": "v", "note": "n"}]
 
-    assert varsub.write_pending(tmp_path, [], dry_run=False) is None
-    path = varsub.write_pending(tmp_path, [{"literal": "v", "placeholder": "${NEW}", "note": "n"}], dry_run=False)
-    assert _yaml.load(path.read_text()) == [{"name": "NEW", "value": "v", "note": "n"}]
+
+# ---- capture.run end to end ----------------------------------------------------
+
+def _fake_cluster(monkeypatch, secret_result):
+    """A cluster with one Ingress domain and one ACME email, and
+    cluster-secrets answering `secret_result` ((object, error))."""
+    ingresses = [{"spec": {"rules": [{"host": f"{a}.example.org"} for a in ("a", "b")]}}]
+    issuer = {"metadata": {"name": "le"}, "spec": {"acme": {"email": "ops@example.org"}}}
+    objects = {"ingress": ingresses, "clusterissuer.cert-manager.io": [issuer]}
+    monkeypatch.setattr(kube, "get_all", lambda c, kind: (objects.get(kind, []), None))
+    monkeypatch.setattr(kube, "get_object", lambda c, kind, ns, name: secret_result if kind == "secret" else (None, "x"))
+    for name, value in {
+        "current_context": lambda: "test", "get_namespaced": lambda c, k, ns: ([], None), "list_nodes": lambda c: [],
+        "list_namespaces": lambda c: [], "get_namespace": lambda c, ns: None, "list_secrets": lambda c: [],
+        "list_crds": lambda c: [], "server_version": lambda c: {"serverVersion": {"gitVersion": "v1"}},
+    }.items():
+        monkeypatch.setattr(kube, name, value)
+    monkeypatch.setattr(capture.helmcli, "repo_list", lambda c: [])
+    monkeypatch.setattr(capture.helmcli, "list_releases", lambda c: [])
+    monkeypatch.setattr(capture.helmcli, "repo_update", lambda c: None)
+
+
+def test_capture_keeps_its_cache_and_lists_pending_values(tmp_path, monkeypatch):
+    live = ({"data": {"BASE_DOMAIN": _b64("example.org")}}, None)
+    _fake_cluster(monkeypatch, live)
+    cache = tmp_path / "kubernetes/.local/substitutions-cache.yaml"
+    pending = tmp_path / "kubernetes/.local/vaultwarden-pending.yaml"
+
+    report, _ = capture.run(tmp_path, None, False, False)
+    assert any("aren't in Vaultwarden yet (ACME_EMAIL)" in w for w in report.warnings)
+    assert [r["name"] for r in _yaml.load(pending.read_text())] == ["ACME_EMAIL"]
+    inventory = (tmp_path / "docs/inventory.md").read_text()
+    assert "example.org" not in inventory  # neither the known nor the pending value
+
+    # A second run must not sweep its own files (they were once written
+    # outside the file tracker, and every later run deleted them).
+    capture.run(tmp_path, None, False, False)
+    assert cache.is_file() and pending.is_file()
+    assert {e["placeholder"] for e in varsub.load_cache(tmp_path)} >= {"${BASE_DOMAIN}", "${ACME_EMAIL}"}
+
+    # Once Vaultwarden has it, the pending file goes.
+    _fake_cluster(monkeypatch, ({"data": {"BASE_DOMAIN": _b64("example.org"), "ACME_EMAIL": _b64("ops@example.org")}}, None))
+    capture.run(tmp_path, None, False, False)
+    assert cache.is_file() and not pending.exists()
+
+
+def test_capture_stops_if_cluster_secrets_cannot_be_read(tmp_path, monkeypatch):
+    _fake_cluster(monkeypatch, (None, "could not get secret flux-system/cluster-secrets: Unable to connect to the server"))
+    try:
+        capture.run(tmp_path, None, False, False)
+    except capture.ToolError as exc:
+        assert "Nothing was written" in str(exc)
+    else:
+        raise AssertionError("capture carried on without the cluster-secrets values")
+    assert not (tmp_path / "kubernetes").exists() or not any((tmp_path / "kubernetes").rglob("*.yaml"))
+
+
+def test_capture_falls_back_only_when_cluster_secrets_does_not_exist(tmp_path, monkeypatch):
+    varsub._write_entries(tmp_path, [{"literal": "example.org", "placeholder": "${BASE_DOMAIN}"}])
+    _fake_cluster(monkeypatch, (None, 'could not get secret flux-system/cluster-secrets: Error from server (NotFound): secrets "cluster-secrets" not found'))
+    report, _ = capture.run(tmp_path, None, False, False)
+    assert any("legacy" in w for w in report.warnings)

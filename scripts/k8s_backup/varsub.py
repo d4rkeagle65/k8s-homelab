@@ -309,40 +309,43 @@ def from_live(secret: dict | None, settings: dict | None) -> list[dict]:
     return entries
 
 
-def write_pending(root: Path, entries: list[dict], dry_run: bool) -> Path | None:
-    """The values Vaultwarden doesn't hold yet, for the operator to add as
-    hidden fields of the cluster-secrets item (and entries in
-    kubernetes/secrets/cluster-secrets.yaml). Gitignored; None if empty.
-    """
-    path = root.joinpath(*PENDING_PATH)
-    if dry_run or not entries:
-        return None
-    header = (
-        "# Local, gitignored, written by capture: private values Vaultwarden doesn't hold yet.\n"
-        "# Add each as a hidden custom field of the `cluster-secrets` item (field name = name),\n"
-        "# and an entry in kubernetes/secrets/cluster-secrets.yaml, then re-run capture.\n"
-        "# Delete this file once they're in; the next capture rewrites it if any are left.\n"
-    )
-    rows = [{"name": _var_name(e["placeholder"]), "value": e["literal"], "note": e.get("note", "")} for e in entries]
-    yamlio.write_yaml_file(path, rows, header=header)
-    return path
+SETTINGS_PATH = ("kubernetes", "flux", "meta", "vars", "cluster-settings.yaml")
+
+PENDING_HEADER = (
+    "# Local, gitignored, written by capture: private values Vaultwarden doesn't hold yet.\n"
+    "# Add each as a hidden custom field of the `cluster-secrets` item (field name = name),\n"
+    "# and an entry in kubernetes/secrets/cluster-secrets.yaml, then re-run capture.\n"
+    "# capture deletes this file once none are left.\n"
+)
+CACHE_HEADER = (
+    "# Local, gitignored, rewritten by every capture from the live cluster-secrets and\n"
+    "# cluster-settings (plus any values still pending for Vaultwarden). Don't edit:\n"
+    "# change the Vaultwarden item or kubernetes/flux/meta/vars/cluster-settings.yaml.\n"
+)
 
 
-def write_cache(root: Path, entries: list[dict], dry_run: bool) -> None:
-    """Every substitution this run used, for the pre-commit leak check
-    (test_secrets_hygiene), which has no cluster access. Gitignored.
+def load_settings(root: Path) -> dict | None:
+    """The cluster-settings ConfigMap as committed in git -- where those
+    values live, so it's read from the repo, not the cluster.
     """
-    if dry_run:
-        return
-    header = (
-        "# Local, gitignored, rewritten by every capture from the live cluster-secrets and\n"
-        "# cluster-settings (plus any values still pending for Vaultwarden). Don't edit:\n"
-        "# change the Vaultwarden item or kubernetes/flux/meta/vars/cluster-settings.yaml.\n"
-    )
-    rows = [
-        {"literal": e["literal"], "placeholder": e["placeholder"], "replace": e.get("replace", True)} for e in entries
-    ]
-    yamlio.write_yaml_file(root.joinpath(*CACHE_PATH), rows, header=header)
+    path = root.joinpath(*SETTINGS_PATH)
+    return yamlio.read_yaml_file(path) if path.is_file() else None
+
+
+def pending_rows(entries: list[dict]) -> list[dict]:
+    """kubernetes/.local/vaultwarden-pending.yaml: the values Vaultwarden
+    doesn't hold yet, for the operator to add (capture writes it with
+    PENDING_HEADER, through its file tracker so it's removed once empty).
+    """
+    return [{"name": _var_name(e["placeholder"]), "value": e["literal"], "note": e.get("note", "")} for e in entries]
+
+
+def cache_rows(entries: list[dict]) -> list[dict]:
+    """kubernetes/.local/substitutions-cache.yaml: every substitution a
+    capture used, for the pre-commit leak check (test_secrets_hygiene),
+    which has no cluster access.
+    """
+    return [{"literal": e["literal"], "placeholder": e["placeholder"], "replace": e.get("replace", True)} for e in entries]
 
 
 def load_cache(root: Path) -> list[dict]:
