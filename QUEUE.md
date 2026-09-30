@@ -62,11 +62,10 @@ nothing here tracks them.
 - [ ] **Test environment runbook.** `suspend: true` on `cluster-test` only freezes
   it. To tear it down: suspend `flux-system`, resume `cluster-test`, delete it,
   then resume `flux-system`. Write that down, or script it.
-- [ ] **kubectl version skew.** The local client is 1.36 and the server is 1.33,
-  outside the supported ±1. Install a 1.33/1.34 kubectl.
-
 ## Done
 
+- 2026-09-30: kubectl version skew fixed: the local client is now v1.34.12
+  (server 1.33), in `%LOCALAPPDATA%\kubectl`, first on the user PATH.
 - 2026-09-30: Keystore. Substitution variables now come from Vaultwarden:
   External Secrets reads the `cluster-secrets` item through a Bitwarden CLI pod
   (held at CLI 2026.8.0; 2026.9.0 fails against Vaultwarden) into the
