@@ -44,6 +44,11 @@ spec:
       # For the SMTP IngressRouteTCP below.
       kubernetesCRD:
         enabled: true
+        # Collision-safe names for the routers/services it generates, as
+        # Traefik recommends for new setups (unset, it logs a warning). Only
+        # matters to config that refers to generated names; nothing here does.
+        # https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-crd/#safenaming
+        safeNaming: true
     # Traefik's own `traefik` IngressClass isn't used; the chart would also
     # make it the cluster default.
     ingressClass:
