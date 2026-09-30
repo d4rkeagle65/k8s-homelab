@@ -29,11 +29,13 @@ Traefik runs on while both run side by side. Both are fields of the
   (`apps/ingress-nginx/ingress-nginx-extras/`).
 - SMTP: TCP 8025 to `smtp-relay/smtp-oauth-relay` (`tcp:` in the ingress-nginx values).
 
-## Batch 1: install Traefik alongside (one merge; nothing moves)
+## Batch 1: install Traefik alongside (done 2026-09-30)
 
-- [ ] Add `TRAEFIK_IP` to Vaultwarden and `kubernetes/secrets/cluster-secrets.yaml`;
-      check it synced. Push that first.
-- [ ] New `.handwritten` app `kubernetes/apps/traefik/traefik/`: Traefik chart
+- [x] Add `TRAEFIK_IP` to Vaultwarden and `kubernetes/secrets/cluster-secrets.yaml`;
+      check it synced. Push that first. It must be a free address inside the
+      MetalLB pool (`METALLB_POOL_RANGE`); outside it, the Service stays
+      `<pending>` with "is not allowed in config".
+- [x] New `.handwritten` app `kubernetes/apps/traefik/traefik/`: Traefik chart
       (v41.6.0 at last check, Traefik v3.7), HelmRepository
       `https://traefik.github.io/charts`, `wait: true`.
   - Providers: `kubernetesIngressNGINX` (IngressClass `nginx`); `kubernetesCRD`
@@ -49,7 +51,7 @@ Traefik runs on while both run side by side. Both are fields of the
     (`HostSNI(\`*\`)`: plain TCP, STARTTLS passes through), created by the chart
     (`extraObjects`) in the relay's namespace.
   - The chart's own `traefik` IngressClass off (it would become the default).
-- [ ] Check: `flux get kustomizations`, Traefik pods Running, Service has `TRAEFIK_IP`.
+- [x] Check: `flux get kustomizations`, Traefik pods Running, Service has `TRAEFIK_IP`.
 
 ## Batch 2: test on TRAEFIK_IP (no merge; Pi-hole only)
 
