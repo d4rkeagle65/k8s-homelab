@@ -97,11 +97,14 @@ If Traefik's Service stays `<pending>` after nginx's shows no external IP:
 
 ## Batch 4: remove the main ingress-nginx (one merge)
 
-- [ ] Keep the `nginx` IngressClass as a standalone object in git
-      (`controller: k8s.io/ingress-nginx`): Traefik finds the Ingresses through
-      it, and uninstalling the chart would delete it (Traefik's guide, "Preserve
-      the IngressClass").
-- [ ] Remove the `ingress-nginx` release and its HelmRepository if unused; drop
+- [x] 4a: the chart's `nginx` IngressClass gets `helm.sh/resource-policy: keep`
+      (`controller.ingressClassResource.annotations`), so uninstalling the chart
+      leaves it: Traefik finds the Ingresses through it (Traefik's guide,
+      "Preserve the IngressClass"). Check:
+      `kubectl get ingressclass nginx -o jsonpath="{.metadata.annotations}"`.
+- [ ] 4b: keep the `nginx` IngressClass as a standalone object in git
+      (`controller: k8s.io/ingress-nginx`), so Flux takes it over from Helm.
+- [ ] Remove the `ingress-nginx` release (keep its HelmRepository: `ingress-nginx-isolated` uses it until Batch 5); drop
       the nginx-only config in `ingress-nginx-extras` (log format and custom
       header ConfigMaps).
 - [ ] Remove `authentik-extras`' `authentik-ingress-nginx` ExternalName Service
@@ -110,7 +113,8 @@ If Traefik's Service stays `<pending>` after nginx's shows no external IP:
 - [ ] Remove the `TRAEFIK_IP` field and its ExternalSecret entry once nothing
       uses it.
 - [ ] Delete the `ingress-nginx` namespace by hand afterwards (namespaces aren't
-      pruned).
+      pruned), and check `kubectl get validatingwebhookconfigurations` has no
+      `ingress-nginx-admission` left (it would block every Ingress change).
 
 ## Batch 5: ingress-nginx-isolated (repeat batches 1-4 for ManicTime)
 
