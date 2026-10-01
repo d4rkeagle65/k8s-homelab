@@ -63,6 +63,14 @@ spec:
             readTimeout: 0
         http:
           aliasHeadersStrategy: delete
+          # Every request on port 80 to HTTPS, as ingress-nginx did for
+          # ManicTime. On the whole entry point here: no tunnel uses plain
+          # HTTP on this controller.
+          redirections:
+            entryPoint:
+              to: websecure
+              scheme: https
+              permanent: true
       websecure:
         transport:
           respondingTimeouts:
