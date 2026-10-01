@@ -12,6 +12,7 @@ resources:
 - emby
 - external-dns
 - external-secrets
+- external-services
 - homeassistant
 - immich
 - local-path-storage

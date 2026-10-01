@@ -1,0 +1,119 @@
+# Vaultwarden, in Docker on its own host, serving HTTPS itself on port 443
+# with the certificate below. Two names reach it:
+#   vaultwarden.<domain>          everyone, through Traefik (the Ingress below)
+#   vaultwarden-direct.<domain>   the bitwarden-cli pod (External Secrets),
+#                                 straight to the host, never through Traefik
+# The CLI must not depend on Traefik, or a rebuilt cluster deadlocks: Traefik
+# needs INGRESS_IP from cluster-secrets, and cluster-secrets needs the CLI to
+# reach Vaultwarden. It also refuses anything but HTTPS, hence Vaultwarden's
+# own TLS. vaultwarden-direct.<domain> is a hand-made Pi-hole record (the
+# host's address), so it works with the cluster down.
+#
+# scripts/vaultwarden-cert-sync.sh, run daily on the host, copies each
+# renewal of the certificate there and restarts Vaultwarden. It reads the
+# Secret with the vaultwarden-cert-sync ServiceAccount's token, which may
+# read that one Secret and nothing else.
+#
+# No Authentik in front: the Bitwarden apps and API clients log in to
+# Vaultwarden themselves, and a forward-auth redirect would break them.
+#
+# external-dns.kubernetes.io/controller: none keeps ExternalDNS from writing
+# vaultwarden.<domain> into Pi-hole until the cutover (QUEUE.md).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vaultwarden
+spec:
+  secretName: vaultwarden-tls
+  dnsNames:
+  - vaultwarden.${BASE_DOMAIN}
+  - vaultwarden-direct.${BASE_DOMAIN}
+  issuerRef:
+    kind: ClusterIssuer
+    name: cloudflare-letsencrypt
+  # ECDSA in PKCS#8: the key format Vaultwarden's TLS (Rocket) reads.
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    encoding: PKCS8
+    rotationPolicy: Always
+---
+# Traefik reaches Vaultwarden by its direct name over HTTPS, so the
+# connection is checked against the same certificate.
+apiVersion: v1
+kind: Service
+metadata:
+  name: vaultwarden
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+spec:
+  type: ExternalName
+  externalName: vaultwarden-direct.${BASE_DOMAIN}
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vaultwarden
+  annotations:
+    external-dns.kubernetes.io/controller: none
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: vaultwarden.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: vaultwarden
+            port:
+              number: 443
+  tls:
+  - hosts:
+    - vaultwarden.${BASE_DOMAIN}
+    secretName: vaultwarden-tls
+---
+# The certificate copier's identity: it may read the vaultwarden-tls Secret
+# and nothing else. Kubernetes fills in the token Secret below; copy its
+# token and ca.crt to the host (QUEUE.md).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vaultwarden-cert-sync
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vaultwarden-cert-sync
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["vaultwarden-tls"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vaultwarden-cert-sync
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vaultwarden-cert-sync
+subjects:
+- kind: ServiceAccount
+  name: vaultwarden-cert-sync
+  namespace: external-services
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vaultwarden-cert-sync-token
+  annotations:
+    kubernetes.io/service-account.name: vaultwarden-cert-sync
+type: kubernetes.io/service-account-token
