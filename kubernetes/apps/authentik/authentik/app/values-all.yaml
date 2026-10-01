@@ -220,13 +220,14 @@ server:
     tag: ""
   imagePullSecrets: []
   ingress:
-    annotations: {}
+    annotations:
+      traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
     enabled: true
     extraPaths: []
     hosts:
     - auth.${BASE_DOMAIN}
     https: false
-    ingressClassName: nginx
+    ingressClassName: traefik
     labels: {}
     pathType: Prefix
     paths:
