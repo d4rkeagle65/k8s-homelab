@@ -165,8 +165,8 @@ chosen by its class, so moving one only changes that app. Translations:
 - [x] 6a: the `traefik` and `traefik-isolated` IngressClasses (not default),
       the Ingress provider on each (that class only, publishing status), and the
       `redirect-https` Middleware. Moves no app.
-- [ ] 6b: pilot, `immichpt` (promoted Ingress in `immich-extras`).
-- [ ] 6c: the rest without auth: emby, authentik, immich, obsidian,
+- [x] 6b: pilot, `immichpt` (promoted Ingress in `immich-extras`).
+- [x] 6c: the rest without auth: emby, authentik, immich, obsidian,
       homeassistant, the media apps (`apps/media/*`, `test/media/jackett`).
 - [ ] 6d: babybuddy (forwardAuth Middleware), babybuddy-api, babybuddy-mcp.
 - [ ] 6e: ManicTime to `traefik-isolated` (the HTTP to HTTPS redirect on its

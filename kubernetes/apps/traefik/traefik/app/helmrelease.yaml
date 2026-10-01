@@ -43,6 +43,10 @@ spec:
       kubernetesIngress:
         enabled: true
         ingressClass: traefik
+        # babybuddy routes /outpost.goauthentik.io to the Authentik outpost
+        # through an ExternalName Service in its own namespace (an Ingress
+        # can only use Services there). The NGINX provider allowed these too.
+        allowExternalNameServices: true
         publishedService:
           enabled: true
       # For the SMTP IngressRouteTCP and the Middlewares below.
@@ -111,6 +115,32 @@ spec:
     # traefik.ingress.kubernetes.io/router.middlewares:
     # traefik_redirect-https@kubernetescrd (the name under safeNaming). Does
     # nothing to a request that is already HTTPS.
+    # Authentik forward auth (babybuddy), per Authentik's Traefik docs; used
+    # as traefik_authentik@kubernetescrd. /auth/traefik reads the
+    # X-Forwarded-* headers Traefik sends, and handles the login callback
+    # itself.
+    - apiVersion: traefik.io/v1alpha1
+      kind: Middleware
+      metadata:
+        name: authentik
+        namespace: traefik
+      spec:
+        forwardAuth:
+          address: http://ak-outpost-default-proxy-outpost.authentik.svc.${CLUSTER_DOMAIN}:9000/outpost.goauthentik.io/auth/traefik
+          trustForwardHeader: true
+          authResponseHeaders:
+          - X-authentik-username
+          - X-authentik-groups
+          - X-authentik-entitlements
+          - X-authentik-email
+          - X-authentik-name
+          - X-authentik-uid
+          - X-authentik-jwt
+          - X-authentik-meta-jwks
+          - X-authentik-meta-outpost
+          - X-authentik-meta-provider
+          - X-authentik-meta-app
+          - X-authentik-meta-version
     - apiVersion: traefik.io/v1alpha1
       kind: Middleware
       metadata:
