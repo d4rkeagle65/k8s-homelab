@@ -4,10 +4,10 @@
 # behind the main ingress. Same chart and version as ../../traefik; keep them
 # in step.
 #
-# Batch 5a: internal only (ClusterIP), tested from inside the cluster while
-# ingress-nginx-isolated still holds ISOLATED_INGRESS_IP. No status
-# publishing until ingress-nginx-isolated is gone, so the two controllers
-# don't overwrite each other's Ingress status.
+# Batch 5b (cutover): holds ISOLATED_INGRESS_IP, taken over from
+# ingress-nginx-isolated, which stays installed but internal-only until 5c.
+# No status publishing while it runs, so the two controllers don't
+# overwrite each other's Ingress status.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -69,5 +69,10 @@ spec:
         http:
           aliasHeadersStrategy: delete
     service:
+      annotations:
+        metallb.io/loadBalancerIPs: ${ISOLATED_INGRESS_IP}
       spec:
-        type: ClusterIP
+        type: LoadBalancer
+        # Keeps the client's source address, so ManicTime sees which VLAN a
+        # request came from.
+        externalTrafficPolicy: Local

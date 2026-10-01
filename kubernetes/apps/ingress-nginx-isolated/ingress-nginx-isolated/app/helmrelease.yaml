@@ -1,8 +1,7 @@
-# Second ingress-nginx controller with its own MetalLB IP (ISOLATED_INGRESS_IP,
-# a field of the cluster-secrets Vaultwarden item), so a firewall rule can let an
-# isolated VLAN reach only what uses the `nginx-isolated` IngressClass
-# (ManicTime Server) and nothing behind the main controller's IP. Same chart
-# and version as ../../ingress-nginx; keep them in step.
+# Second ingress-nginx controller, for the `nginx-isolated` IngressClass
+# (ManicTime Server). Being replaced by traefik-isolated (QUEUE-traefik.md,
+# Batch 5): since the 5b cutover traefik-isolated holds ISOLATED_INGRESS_IP and
+# this one is internal-only, kept until 5c removes it.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -28,14 +27,14 @@ spec:
         failurePolicy: Ignore
       ingressClass: nginx-isolated
       ingressClassResource:
+        # Uninstalling the chart in 5c then leaves the IngressClass, which
+        # traefik-isolated finds ManicTime's Ingress through.
+        annotations:
+          helm.sh/resource-policy: keep
         controllerValue: k8s.io/ingress-nginx-isolated
         default: false
         name: nginx-isolated
       service:
-        annotations:
-          metallb.io/loadBalancerIPs: ${ISOLATED_INGRESS_IP}
-        # Same as the main controller's Service (set there by `kubectl edit`,
-        # not in git): keeps the client's source IP, so ManicTime and the
-        # nginx logs see which VLAN a request came from.
-        externalTrafficPolicy: Local
+        # Releases ISOLATED_INGRESS_IP to traefik-isolated.
+        type: ClusterIP
       watchIngressWithoutClass: false
