@@ -147,7 +147,7 @@ variable or Pi-hole change.
       `helm repo remove ingress-nginx` on the PC that runs capture (capture
       writes a HelmRepository for every `helm repo list` entry), run `all`.
 
-## Batch 6: native Traefik Ingresses (no more nginx classes)
+## Batch 6: native Traefik Ingresses (no more nginx classes) (done 2026-10-01)
 
 Apps move from the `nginx`/`nginx-isolated` classes (Traefik's NGINX provider,
 nginx annotations) to `traefik`/`traefik-isolated` (Traefik's own Ingress
@@ -171,11 +171,27 @@ chosen by its class, so moving one only changes that app. Translations:
 - [x] 6d: babybuddy (forwardAuth Middleware), babybuddy-api, babybuddy-mcp.
 - [x] 6e: ManicTime to `traefik-isolated` (the HTTP to HTTPS redirect on its
       `web` entry point: no tunnel there).
-- [ ] 6f: remove the `nginx` and `nginx-isolated` IngressClasses and both NGINX
+- [x] 6f: remove the `nginx` and `nginx-isolated` IngressClasses and both NGINX
       providers once nothing uses them.
+- [x] Fix after 6f: `asDefault` on `web` and `websecure` (both Traefiks). A
+      Traefik Ingress names no entry points, so its routes had attached to every
+      entry point, `smtp` and `metrics` included; HTTP routes on `smtp` make
+      Traefik wait for the client to speak first, which SMTP clients don't.
 
 Each move: the in-cluster Host/SNI check before and after, then the app in a
 browser (and a hard refresh).
+
+Testing the SMTP relay from PowerShell: `Send-MailMessage -Credential` can't log
+in to it. PowerShell splits a `tenant_id@client_id` username at the `@` (as
+`user@domain`), and the relay then gets only the tenant ID ("Invalid username
+format"). Use .NET directly:
+
+```powershell
+$nc = New-Object System.Net.NetworkCredential('<tenant_id@client_id>', (Read-Host -AsSecureString 'Client secret'))
+$smtp = New-Object System.Net.Mail.SmtpClient('smtp-relay.<domain>', 8025)
+$smtp.EnableSsl = $true; $smtp.Credentials = $nc
+$smtp.Send('<sender mailbox>', '<recipient>', 'Relay test', 'Relay test')
+```
 
 ## Pi-hole: pointing names at a new address
 
@@ -221,4 +237,4 @@ better long-term fix is the DHCP server answering, then removing the line.
 
 ## Later (optional)
 
-- [ ] Native Traefik Ingresses and the class rename: now Batch 6.
+- [x] Native Traefik Ingresses and the class rename: Batch 6.
