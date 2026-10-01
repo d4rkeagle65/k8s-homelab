@@ -18,7 +18,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubectl.kubernetes.io/restartedAt: "2026-06-14T17:41:12-04:00"
+        kubectl.kubernetes.io/restartedAt: "2026-09-30T21:08:36-04:00"
       labels:
         app: immich-power-tools
         env: production
