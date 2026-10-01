@@ -78,9 +78,10 @@ spec:
             port: 8266
     ingress:
       main:
-        className: nginx
+        className: traefik
         annotations:
           cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
         hosts:
           - host: tdarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             paths:

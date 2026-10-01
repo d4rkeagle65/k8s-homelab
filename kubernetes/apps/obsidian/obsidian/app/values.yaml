@@ -30,8 +30,8 @@ image:
 ingress:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
-    nginx.ingress.kubernetes.io/proxy-body-size: 10g
-  className: nginx
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+  className: traefik
   enabled: true
   hosts:
   - obsidian.${BASE_DOMAIN}

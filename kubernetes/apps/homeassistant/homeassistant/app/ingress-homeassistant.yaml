@@ -3,12 +3,11 @@ kind: Ingress
 metadata:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
   name: homeassistant
   namespace: homeassistant
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
   - host: homeassistant.${BASE_DOMAIN}
     http:

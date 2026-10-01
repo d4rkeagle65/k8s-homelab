@@ -3,10 +3,11 @@ kind: Ingress
 metadata:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
   name: emby
   namespace: emby
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
   - host: emby.${BASE_DOMAIN}
     http:
