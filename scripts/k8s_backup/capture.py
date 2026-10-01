@@ -118,11 +118,11 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     print("Capturing Helm releases and values...")
     helm_repos = helmcli.repo_list(context)
     release_infos = _capture_helm_releases(
-        sink, context, helm_repos, timestamp, warnings, redactions, verbose, substitutions, flux_owner
+        sink, context, helm_repos, warnings, redactions, verbose, substitutions, flux_owner
     )
 
     print("Capturing Helm repositories...")
-    repo_names = _write_helm_repository_files(sink, helm_repos, timestamp)
+    repo_names = _write_helm_repository_files(sink, helm_repos)
 
     print("Capturing cluster-scoped resources...")
     cluster_counts, cluster_raw, local_counts = _capture_cluster_resources(
@@ -195,7 +195,7 @@ def _resolve_chart_source(context, chart_name, chart_version, helm_repos, verbos
 
 
 def _capture_helm_releases(
-    sink: Sink, context, helm_repos, timestamp, warnings, redactions, verbose, substitutions, flux_owner
+    sink: Sink, context, helm_repos, warnings, redactions, verbose, substitutions, flux_owner
 ):
     releases_list = helmcli.list_releases(context)
     # A Helm release installed by helm-controller carries no Flux labels
@@ -278,15 +278,14 @@ def _capture_helm_releases(
                 "name": source["repoName"],
             },
         }
-        # Stable header, no capture time in the body: the file only changes
-        # when the release does (chart version, a Helm upgrade, status), so
-        # an unchanged cluster gives a clean `git status`. docs/inventory.md
-        # records when each capture ran.
+        # No capture time in the file: it only changes when the release does
+        # (chart version, a Helm upgrade, status), so an unchanged cluster
+        # gives a clean `git status`. docs/inventory.md records when each
+        # capture ran.
         if not handwritten:
             sink.write_yaml_stable(
                 release_dir / "release.yaml",
                 release_doc,
-                timestamp,
                 extra_lines=["Backup identity record; not a Kubernetes manifest, never applied."],
             )
         infos.append(release_doc)
@@ -355,7 +354,7 @@ def _load_substitutions(root: Path, context, warnings) -> list[dict]:
     return substitutions
 
 
-def _write_helm_repository_files(sink: Sink, helm_repos, timestamp) -> list[str]:
+def _write_helm_repository_files(sink: Sink, helm_repos) -> list[str]:
     names = []
     for repo in helm_repos:
         name = repo["name"]
@@ -365,7 +364,7 @@ def _write_helm_repository_files(sink: Sink, helm_repos, timestamp) -> list[str]
         else:
             doc = flux.helm_repository(name=name, url=url, interval=constants.HELMREPOSITORY_INTERVAL)
         path = sink.root / "kubernetes" / "flux" / "meta" / "repositories" / f"{name}.yaml"
-        sink.write_yaml_stable(path, doc, timestamp)
+        sink.write_yaml_stable(path, doc)
         names.append(name)
     return names
 
