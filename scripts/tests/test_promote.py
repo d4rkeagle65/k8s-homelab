@@ -242,3 +242,60 @@ def test_lost_pvcs_are_not_promoted(tmp_path, monkeypatch):
     assert not (tmp_path / APP / "persistentvolumeclaim-redis-data-old-0.yaml").exists()
     assert (tmp_path / APP / "persistentvolumeclaim-babybuddy-config.yaml").is_file()
     assert any("PVC is Lost" in w for w in warnings)
+
+
+# ---- restartedAt -------------------------------------------------------------
+
+RESTARTED = promote.RESTARTED_AT_ANNOTATION
+
+
+def _deploy(restarted_at=None, name="d"):
+    meta = {"labels": {"app": name}}
+    if restarted_at:
+        meta["annotations"] = {RESTARTED: restarted_at}
+    return {"kind": "Deployment", "metadata": {"name": name}, "spec": {"template": {"metadata": meta}}}
+
+
+def _restarted_at(doc):
+    return ((doc["spec"]["template"]["metadata"].get("annotations")) or {}).get(RESTARTED)
+
+
+def test_restarted_at_is_frozen_at_the_value_git_has():
+    # First capture: nothing in git yet, so the live value is kept.
+    assert _restarted_at(promote.freeze_restarted_at(_deploy("live"), None)) == "live"
+    # A later `kubectl rollout restart` doesn't change what git has...
+    assert _restarted_at(promote.freeze_restarted_at(_deploy("live"), _deploy("git"))) == "git"
+    # ...nor adds the annotation where git has none.
+    frozen = promote.freeze_restarted_at(_deploy("live"), _deploy())
+    assert "annotations" not in frozen["spec"]["template"]["metadata"]
+    # Git's value is kept even if the live one is gone: Flux fails an apply
+    # whose ignored field is missing from a manifest it owns.
+    assert _restarted_at(promote.freeze_restarted_at(_deploy(), _deploy("git"))) == "git"
+    # Another object, or one without a pod template: untouched.
+    assert _restarted_at(promote.freeze_restarted_at(_deploy("live"), _deploy("git", name="other"))) == "live"
+    cm = {"kind": "ConfigMap", "metadata": {"name": "d"}, "data": {"a": "b"}}
+    assert promote.freeze_restarted_at(cm, cm) == cm
+
+
+def test_capture_keeps_restarted_at_and_flux_ignores_it(tmp_path, monkeypatch):
+    def cluster(restarted_at):
+        deploy = _obj("Deployment", "babybuddy-server", spec={"template": {"metadata": {
+            "labels": {"app": "bb"}, "annotations": {RESTARTED: restarted_at}}}})
+        return {**CLUSTER, "deployment": [deploy]}
+
+    _mark(tmp_path)
+    path = tmp_path / APP / "deployment-babybuddy-server.yaml"
+    _serve(monkeypatch, cluster("2026-06-14T17:41:12-04:00"))
+    _capture(tmp_path)
+    before = path.read_text()
+    assert "2026-06-14T17:41:12-04:00" in before
+
+    _serve(monkeypatch, cluster("2026-10-01T09:00:00-04:00"))  # kubectl rollout restart
+    _capture(tmp_path)
+    assert path.read_text() == before
+
+    generate.run(tmp_path, dry_run=False, verbose=False)
+    ks = _yaml.load((tmp_path / "kubernetes/apps/babybuddy/babybuddy/ks.yaml").read_text())
+    assert ks["spec"]["ignore"] == [
+        {"paths": ["/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt"]}
+    ]

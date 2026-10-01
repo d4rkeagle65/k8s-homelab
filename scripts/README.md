@@ -98,6 +98,12 @@ Every `kubernetes/apps/<namespace>/<release>/` folder is one of these:
   - **Secrets** are written with `${PLACEHOLDER}` values; see below.
   - **PVCs, databases and Secrets** get `kustomize.toolkit.fluxcd.io/prune: disabled`,
     so Flux never deletes their data.
+  - **`kubectl rollout restart`** writes a `kubectl.kubernetes.io/restartedAt`
+    annotation into the pod template. capture keeps the value git already has
+    (or its absence) rather than the live one, and the release's `ks.yaml`
+    gets a `spec.ignore` rule for it, so Flux keeps the live value instead of
+    restarting the pods again. Needs kustomize-controller v1.9.0 or later. A
+    first capture records the live value.
   - **One `.promote` per namespace.**
   - **Deleting the marker** stops the tool managing the folder, and Flux prunes the
     other objects.

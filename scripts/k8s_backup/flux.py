@@ -92,6 +92,7 @@ def flux_kustomization(
     interval: str,
     depends_on: list[dict] | None = None,
     wait: bool = False,
+    ignore: list[dict] | None = None,
     depends_on_comment: str = (
         "Set by generate: the operators whose APIs this app's manifests use\n"
         "(scripts/k8s_backup/dependencies.py)."
@@ -110,6 +111,13 @@ def flux_kustomization(
         spec["wait"] = True
     spec["dependsOn"] = depends_on or []
     spec.yaml_set_comment_before_after_key("dependsOn", before=depends_on_comment, indent=2)
+    if ignore:
+        spec["ignore"] = ignore
+        spec.yaml_set_comment_before_after_key(
+            "ignore",
+            before="Fields Flux leaves as they are live (promote.py, FLUX_IGNORE_RULES).",
+            indent=2,
+        )
     # Always wired, not only when a local substitutions file exists: Flux
     # does not inherit postBuild from the parent `cluster` Kustomization, so
     # without this every ${PLACEHOLDER} in this release's HelmRelease values
