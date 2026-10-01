@@ -10,6 +10,7 @@ resources:
 - cloudflare-tunnel
 - cnpg-system
 - emby
+- external-dns
 - external-secrets
 - homeassistant
 - immich

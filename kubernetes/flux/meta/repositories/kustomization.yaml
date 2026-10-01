@@ -9,6 +9,7 @@ resources:
 - couchdb.yaml
 - d4rkeagle65.yaml
 - dandydev.yaml
+- external-dns.yaml
 - external-secrets.yaml
 - immich.yaml
 - jetstack.yaml
