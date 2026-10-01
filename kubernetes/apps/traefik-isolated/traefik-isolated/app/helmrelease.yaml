@@ -48,7 +48,12 @@ spec:
       name: traefik-isolated
     # As the main traefik: see its helmrelease.yaml for each.
     ports:
+      # asDefault on web and websecure: an Ingress names no entry points, and
+      # Traefik would otherwise attach its routes to every entry point,
+      # metrics and smtp included (an HTTP route on smtp makes Traefik wait
+      # for the client to speak first, which SMTP clients never do).
       web:
+        asDefault: true
         transport:
           respondingTimeouts:
             readTimeout: 0
@@ -63,6 +68,7 @@ spec:
               scheme: https
               permanent: true
       websecure:
+        asDefault: true
         transport:
           respondingTimeouts:
             readTimeout: 0
