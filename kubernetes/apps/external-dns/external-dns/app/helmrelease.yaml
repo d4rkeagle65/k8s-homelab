@@ -4,6 +4,12 @@
 # ISOLATED_INGRESS_IP). Cloudflare tunnel Ingresses are left out; the tunnel
 # controller handles public DNS.
 #
+# Also each name in the external-dns.kubernetes.io/hostname annotation of a
+# Service, at that Service's address: only Traefik's has one (smtp-relay,
+# which has no Ingress). A Service without the annotation is ignored.
+# (v0.23 reads only the external-dns.kubernetes.io/ prefix, not the older
+# external-dns.alpha.kubernetes.io/.)
+#
 # upsert-only: it adds and updates records but never deletes any, so records
 # made by hand in Pi-hole stay. The flip side: when a hostname leaves an
 # Ingress, delete its Pi-hole record by hand. A hand-made record with exactly
@@ -41,6 +47,7 @@ spec:
       name: pihole
     sources:
     - ingress
+    - service
     policy: upsert-only
     registry: noop
     domainFilters:

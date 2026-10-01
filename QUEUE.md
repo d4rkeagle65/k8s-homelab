@@ -59,8 +59,9 @@ nothing here tracks them.
 
 - 2026-10-01: ExternalDNS writes a Pi-hole address record for every `traefik`
   and `traefik-isolated` Ingress hostname (ManicTime at `ISOLATED_INGRESS_IP`,
-  the rest at `INGRESS_IP`). It replaced the hand-made app-name CNAMEs to the
-  old `k8snginx` targets. It's upsert-only, so other hand-made records stay,
+  the rest at `INGRESS_IP`), plus `smtp-relay` from an annotation on Traefik's
+  Service. It replaced the hand-made app-name CNAMEs to the old `k8snginx`
+  targets. It's upsert-only, so other hand-made records stay,
   and a removed hostname's record is deleted by hand.
 
 - 2026-10-01: Closed a login bypass in babybuddy. It trusts the
