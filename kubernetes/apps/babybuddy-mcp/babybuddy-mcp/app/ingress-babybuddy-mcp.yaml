@@ -3,11 +3,10 @@ kind: Ingress
 metadata:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
   name: babybuddy-mcp
   namespace: babybuddy-mcp
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
   rules:
   - host: bb-mcp.${BASE_DOMAIN}
     http:
