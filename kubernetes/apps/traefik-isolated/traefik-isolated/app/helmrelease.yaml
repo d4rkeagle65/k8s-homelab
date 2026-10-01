@@ -1,0 +1,73 @@
+# Second Traefik, replacing ingress-nginx-isolated (QUEUE-traefik.md, Batch 5):
+# serves only the `nginx-isolated` IngressClass (ManicTime Server), on its own
+# address, so a firewall rule can let an isolated VLAN reach that and nothing
+# behind the main ingress. Same chart and version as ../../traefik; keep them
+# in step.
+#
+# Batch 5a: internal only (ClusterIP), tested from inside the cluster while
+# ingress-nginx-isolated still holds ISOLATED_INGRESS_IP. No status
+# publishing until ingress-nginx-isolated is gone, so the two controllers
+# don't overwrite each other's Ingress status.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik-isolated
+spec:
+  interval: 30m
+  releaseName: traefik-isolated
+  chart:
+    spec:
+      chart: traefik
+      version: 41.6.0
+      sourceRef:
+        kind: HelmRepository
+        name: traefik
+        namespace: flux-system
+  # The main traefik release installs and upgrades the CRDs; two releases
+  # replacing the same CRDs would fight over them.
+  install:
+    crds: Skip
+    remediation:
+      retries: 3
+  upgrade:
+    crds: Skip
+    remediation:
+      retries: 3
+  values:
+    providers:
+      kubernetesIngressNGINX:
+        enabled: true
+        ingressClass: nginx-isolated
+        controllerClass: k8s.io/ingress-nginx-isolated
+        publishService:
+          enabled: false
+      kubernetesIngress:
+        enabled: false
+      # No IngressRoutes for this controller.
+      kubernetesCRD:
+        enabled: false
+    ingressClass:
+      enabled: false
+    # As the main traefik: see its helmrelease.yaml for each.
+    ports:
+      web:
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+        http:
+          aliasHeadersStrategy: delete
+      websecure:
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+        http:
+          aliasHeadersStrategy: delete
+      traefik:
+        http:
+          aliasHeadersStrategy: delete
+      metrics:
+        http:
+          aliasHeadersStrategy: delete
+    service:
+      spec:
+        type: ClusterIP
