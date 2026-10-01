@@ -1,7 +1,13 @@
-# Traefik, the main ingress (it replaced the retired ingress-nginx; see
-# QUEUE-traefik.md). Serves Ingresses of the `traefik` IngressClass, with
+# Traefik, the main ingress (it replaced the retired ingress-nginx on
+# 2026-10-01). Serves Ingresses of the `traefik` IngressClass, with
 # Traefik annotations and the Middlewares below, on the main ingress address
 # (INGRESS_IP), and publishes that address as each Ingress's status.
+#
+# Local DNS (Pi-hole v6, /etc/pihole/pihole.toml): each app name is a CNAME
+# to one target name per controller, and that target has the one address
+# record. So moving every name means changing that record (or moving the
+# address itself, as the cutover did); testing one name on another address
+# means repointing just its CNAME at a second target.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:

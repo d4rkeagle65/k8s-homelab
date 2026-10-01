@@ -57,8 +57,14 @@ nothing here tracks them.
 
 ## Done
 
-- 2026-10-01: Replaced ingress-nginx with Traefik (`QUEUE-traefik.md`,
-  batches 1-6). The main Traefik holds the main ingress address (apps, the
+- 2026-10-01: Restricted the three Vaultwarden ClusterSecretStores to
+  ExternalSecrets in `flux-system`. Confirmed that an undefined `${VARIABLE}`
+  already fails its Kustomization (kustomize-controller's strict substitution,
+  on by default since v1.9), and corrected the docs that said it becomes empty.
+- 2026-10-01: Replaced ingress-nginx with Traefik, in six batches (the plan,
+  `QUEUE-traefik.md`, was removed once done: `git log -- QUEUE-traefik.md`).
+  The SMTP relay test is in its `deployment.yaml`, and the Pi-hole DNS layout
+  in Traefik's `helmrelease.yaml`. The main Traefik holds the main ingress address (apps, the
   SMTP relay on 8025, the Cloudflare tunnel routes); `traefik-isolated` holds
   the isolated address (ManicTime). Every app uses Traefik's own Ingress
   classes (`traefik`, `traefik-isolated`), with the `redirect-https` and

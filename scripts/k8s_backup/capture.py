@@ -657,8 +657,9 @@ def _write_promoted_release(
         live_values = live_values or {}
         for filename, manifest, values in secrets:
             # Only once Flux would substitute exactly these values: before
-            # that, applying the manifest would overwrite the live Secret
-            # with empty strings (or stale ones).
+            # that, the Kustomization would fail on the missing variables
+            # (strict substitution), or overwrite the live Secret with stale
+            # values.
             if all(live_values.get(varsub._var_name(p)) == v for p, v in values.items()):
                 docs.append((filename, manifest))
             else:

@@ -200,8 +200,9 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 3. Check it synced: `kubectl get externalsecret cluster-secrets -n flux-system`
    should show `SecretSynced`. To sync now rather than within 15 minutes:
    `kubectl annotate externalsecret cluster-secrets -n flux-system force-sync=$(Get-Date -UFormat %s) --overwrite`
-4. Then push the manifests that use `${NAME}`. An undefined variable becomes an
-   empty string (or fails the apply).
+4. Then push the manifests that use `${NAME}`. An undefined variable fails the
+   Flux Kustomization that uses it (strict substitution, on by default since
+   kustomize-controller v1.9), so that app stops updating until it exists.
 
 **Changing a value:** edit the field in Vaultwarden. Flux picks it up after
 the next sync. capture reads the live Secret, so from then on it replaces the

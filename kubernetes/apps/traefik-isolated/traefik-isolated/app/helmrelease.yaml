@@ -1,4 +1,4 @@
-# Second Traefik (it replaced ingress-nginx-isolated; see QUEUE-traefik.md):
+# Second Traefik (it replaced ingress-nginx-isolated on 2026-10-01):
 # serves only the `traefik-isolated` IngressClass (ManicTime Server), on its
 # own address (ISOLATED_INGRESS_IP), so a firewall rule can let an isolated
 # VLAN reach that and nothing behind the main ingress. Publishes that address
