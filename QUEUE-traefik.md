@@ -120,12 +120,31 @@ If Traefik's Service stays `<pending>` after nginx's shows no external IP:
       delete the `TRAEFIK_IP` field in Vaultwarden, and run `all` to check
       capture brings nothing back.
 
-## Batch 5: ingress-nginx-isolated (repeat batches 1-4 for ManicTime)
+## Batch 5: ingress-nginx-isolated (ManicTime)
 
-- [ ] A second Traefik release on `ISOLATED_INGRESS_IP`, NGINX provider on the
-      `nginx-isolated` IngressClass (controller `k8s.io/ingress-nginx-isolated`).
-      Mirrors today's setup, so the isolated VLAN still reaches only ManicTime.
-- [ ] Test, cut over, remove `ingress-nginx-isolated`.
+Batches 1-4 again for the `nginx-isolated` IngressClass (controller
+`k8s.io/ingress-nginx-isolated`), smaller: one app, no Authentik, no tunnel. It
+is tested from inside the cluster instead of on a temporary address, so no new
+variable or Pi-hole change.
+
+- [ ] 5a: second Traefik release, `apps/traefik-isolated/` (`.handwritten`):
+      NGINX provider on `nginx-isolated` only, CRD provider off, CRDs left to
+      the main release (`crds: Skip`), Service `ClusterIP`, no status
+      publishing. Test: the Host/SNI check from inside the cluster against
+      `traefik-isolated` and `ingress-nginx-isolated-controller` gives the same
+      answers for `manictime.<domain>`, with the real certificate.
+- [ ] 5b, cutover (one merge): `traefik-isolated`'s Service becomes
+      `LoadBalancer` on `${ISOLATED_INGRESS_IP}` with `externalTrafficPolicy:
+      Local` (keeps client addresses, which ManicTime logs); the
+      `ingress-nginx-isolated` Service becomes `ClusterIP`; its `nginx-isolated`
+      IngressClass gets `helm.sh/resource-policy: keep`. Test from a client on
+      the isolated VLAN (the firewall only allows that address).
+- [ ] 5c, removal (one merge): the `nginx-isolated` IngressClass as a standalone
+      object in the `traefik-isolated` app; `apps/ingress-nginx-isolated/` removed;
+      status publishing on; the `ingress-nginx` HelmRepository removed (nothing
+      uses it then). By hand afterwards: delete the `ingress-nginx-isolated`
+      namespace, check no `ingress-nginx-isolated-admission` webhook is left,
+      run `all`.
 
 ## Pi-hole: pointing names at a new address
 
