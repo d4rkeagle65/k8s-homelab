@@ -41,8 +41,10 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
   ConfigMap for plain public settings (`kubernetes/flux/meta/vars/`). The real
   values live only in Vaultwarden and the gitignored `kubernetes/.local/`.
   - Write any `${...}` that Flux must leave alone as `$${...}`.
-  - An undefined variable becomes an empty string, so a new variable must be in
-    the cluster before anything using it is pushed. Only the owner can do that.
+  - An undefined variable fails the Flux Kustomization that uses it (strict
+    substitution, kustomize-controller's default since v1.9), which then stops
+    updating. So a new variable must be in the cluster before anything using it
+    is pushed. Only the owner can do that. An empty value is fine.
 - **Keep `kustomize.toolkit.fluxcd.io/prune: disabled`** on promoted PVCs,
   database `Cluster`s and Secrets. It stops Flux deleting their data.
   generate also sets it on every Namespace (a patch in `apps/` and

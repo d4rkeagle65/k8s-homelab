@@ -104,9 +104,10 @@ _VAR_REF = re.compile(r"(?<!\$)\$\{([^}]*)\}")
 def escape_foreign_variables(obj, known: set[str]):
     """Escape every `${NAME}` whose NAME isn't a substitution variable as
     `$${NAME}`, which Flux's postBuild substitution turns back into a
-    literal `${NAME}`. Unescaped, Flux would replace it -- an undefined
-    variable with an empty string -- silently corrupting e.g. a shell script
-    or config file carried in a ConfigMap. Returns the escaped copy.
+    literal `${NAME}`. Unescaped, Flux's strict substitution would fail the
+    whole Kustomization on it (or, with strict mode off, silently replace it
+    with an empty string, corrupting e.g. a shell script or config file
+    carried in a ConfigMap). Returns the escaped copy.
     """
     if isinstance(obj, dict):
         return {k: escape_foreign_variables(v, known) for k, v in obj.items()}

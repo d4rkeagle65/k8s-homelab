@@ -434,8 +434,9 @@ _VARIABLE_RE = re.compile(r"(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def test_every_substituted_variable_is_defined(repo_root, load_yaml):
-    """Flux substitutes an undefined ${VAR} as an empty string (or fails the
-    apply in strict mode), so every one used under kubernetes/ must be a key
+    """Flux fails a Kustomization on an undefined ${VAR} (strict substitution,
+    the default since kustomize-controller v1.9), so every one used under
+    kubernetes/ must be a key
     of cluster-settings (public, in git) or a field of the cluster-secrets
     ExternalSecret (private, from Vaultwarden). The test overlay's own
     variables come from cluster-substitutions-test.

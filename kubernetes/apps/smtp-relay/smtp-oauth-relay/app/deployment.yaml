@@ -7,6 +7,14 @@
 # The relay reads its certificate only at startup, so after cert-manager
 # renews it the liveness probe fails on the changed file and the pod restarts
 # with the new one. Scripts use $VAR, never the braced form Flux substitutes.
+#
+# Testing from PowerShell: Send-MailMessage -Credential can't log in, because
+# it splits a tenant_id@client_id username at the @ and the relay gets only
+# the tenant ID ("Invalid username format"). Use .NET directly:
+#   $nc = New-Object System.Net.NetworkCredential('<tenant_id@client_id>', (Read-Host -AsSecureString 'Client secret'))
+#   $smtp = New-Object System.Net.Mail.SmtpClient('smtp-relay.<domain>', 8025)
+#   $smtp.EnableSsl = $true; $smtp.Credentials = $nc
+#   $smtp.Send('<sender mailbox>', '<recipient>', 'Relay test', 'Relay test')
 apiVersion: apps/v1
 kind: Deployment
 metadata:
