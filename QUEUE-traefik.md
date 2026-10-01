@@ -133,7 +133,7 @@ variable or Pi-hole change.
       publishing. Test: the Host/SNI check from inside the cluster against
       `traefik-isolated` and `ingress-nginx-isolated-controller` gives the same
       answers for `manictime.<domain>`, with the real certificate.
-- [ ] 5b, cutover (one merge): `traefik-isolated`'s Service becomes
+- [x] 5b, cutover (one merge, merged 2026-10-01): `traefik-isolated`'s Service becomes
       `LoadBalancer` on `${ISOLATED_INGRESS_IP}` with `externalTrafficPolicy:
       Local` (keeps client addresses, which ManicTime logs); the
       `ingress-nginx-isolated` Service becomes `ClusterIP`; its `nginx-isolated`
@@ -144,7 +144,8 @@ variable or Pi-hole change.
       status publishing on; the `ingress-nginx` HelmRepository removed (nothing
       uses it then). By hand afterwards: delete the `ingress-nginx-isolated`
       namespace, check no `ingress-nginx-isolated-admission` webhook is left,
-      run `all`.
+      `helm repo remove ingress-nginx` on the PC that runs capture (capture
+      writes a HelmRepository for every `helm repo list` entry), run `all`.
 
 ## Pi-hole: pointing names at a new address
 
