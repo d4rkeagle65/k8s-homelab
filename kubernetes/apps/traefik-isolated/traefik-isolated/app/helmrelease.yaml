@@ -1,12 +1,9 @@
-# Second Traefik, replacing ingress-nginx-isolated (QUEUE-traefik.md, Batch 5):
-# serves only the `nginx-isolated` IngressClass (ManicTime Server), on its own
-# address, so a firewall rule can let an isolated VLAN reach that and nothing
-# behind the main ingress. Same chart and version as ../../traefik; keep them
-# in step.
-#
-# Holds ISOLATED_INGRESS_IP since the Batch 5b cutover; ingress-nginx-isolated
-# was removed in 5c. It publishes its Service's address as the Ingress
-# status, as ingress-nginx-isolated did.
+# Second Traefik (it replaced ingress-nginx-isolated; see QUEUE-traefik.md):
+# serves only the `traefik-isolated` IngressClass (ManicTime Server), on its
+# own address (ISOLATED_INGRESS_IP), so a firewall rule can let an isolated
+# VLAN reach that and nothing behind the main ingress. Publishes that address
+# as the Ingress status. Same chart and version as ../../traefik; keep them in
+# step.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -34,13 +31,7 @@ spec:
       retries: 3
   values:
     providers:
-      kubernetesIngressNGINX:
-        enabled: true
-        ingressClass: nginx-isolated
-        controllerClass: k8s.io/ingress-nginx-isolated
-        publishService:
-          enabled: true
-      # Native Traefik Ingresses, class `traefik-isolated` only (Batch 6).
+      # Class `traefik-isolated` only.
       kubernetesIngress:
         enabled: true
         ingressClass: traefik-isolated
