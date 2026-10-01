@@ -63,6 +63,14 @@ spec:
     # variable, so a client could otherwise spoof the X-authentik-* headers the
     # Authentik forward-auth sets (babybuddy). nginx drops them by default.
     # https://doc.traefik.io/traefik/reference/install-configuration/entrypoints/#aliasheadersstrategy
+    #
+    # strip-authentik-headers on web and websecure removes the X-authentik-*
+    # headers themselves from every incoming request. An app that logs users in
+    # from them (babybuddy's REVERSE_PROXY_AUTH) must only ever see the values
+    # the authentik Middleware sets after its check; without this, a client
+    # could send its own on any route of that host the check doesn't cover.
+    # Entry point middlewares run before a route's own, so the authentik
+    # Middleware still sets them where it's used.
     ports:
       # asDefault on web and websecure: an Ingress names no entry points, and
       # Traefik would otherwise attach its routes to every entry point,
@@ -78,6 +86,8 @@ spec:
             readTimeout: 0
         http:
           aliasHeadersStrategy: delete
+          middlewares:
+          - traefik_strip-authentik-headers@kubernetescrd
       websecure:
         asDefault: true
         transport:
@@ -85,6 +95,8 @@ spec:
             readTimeout: 0
         http:
           aliasHeadersStrategy: delete
+          middlewares:
+          - traefik_strip-authentik-headers@kubernetescrd
       # Internal (dashboard/API and metrics; not exposed): set so Traefik
       # doesn't warn about every entry point.
       traefik:
@@ -151,6 +163,48 @@ spec:
         redirectScheme:
           scheme: https
           permanent: true
+    # On web and websecure (see ports above). An empty value removes the
+    # header. Keep the list in step with the authentik Middleware's
+    # authResponseHeaders.
+    - apiVersion: traefik.io/v1alpha1
+      kind: Middleware
+      metadata:
+        name: strip-authentik-headers
+        namespace: traefik
+      spec:
+        headers:
+          customRequestHeaders:
+            X-authentik-username: ""
+            X-authentik-groups: ""
+            X-authentik-entitlements: ""
+            X-authentik-email: ""
+            X-authentik-name: ""
+            X-authentik-uid: ""
+            X-authentik-jwt: ""
+            X-authentik-meta-jwks: ""
+            X-authentik-meta-outpost: ""
+            X-authentik-meta-provider: ""
+            X-authentik-meta-app: ""
+            X-authentik-meta-version: ""
+    # Private (RFC 1918) source addresses only: the LAN and the cluster's own
+    # pods. Checks the connection's address, not X-Forwarded-For, so it can't
+    # be spoofed; externalTrafficPolicy: Local keeps LAN clients' addresses.
+    # It does NOT keep out the Cloudflare tunnel, whose requests come from the
+    # cloudflared pod. For a private-only route, also limit it to websecure
+    # (traefik.ingress.kubernetes.io/router.entrypoints): the tunnel reaches
+    # that host on web (port 80) only. Used as
+    # traefik_private-networks@kubernetescrd (babybuddy's /api).
+    - apiVersion: traefik.io/v1alpha1
+      kind: Middleware
+      metadata:
+        name: private-networks
+        namespace: traefik
+      spec:
+        ipAllowList:
+          sourceRange:
+          - 10.0.0.0/8
+          - 172.16.0.0/12
+          - 192.168.0.0/16
     # Plain TCP (STARTTLS passes through to the relay, which holds the
     # certificate). In the relay's namespace: the CRD provider doesn't
     # follow references across namespaces.

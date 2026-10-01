@@ -64,6 +64,24 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
   devices or iSCSI. Longhorn was tried and uninstalled for that reason; don't
   propose it or other block-storage CSIs.
 
+## Ingress
+
+- Apps use the `traefik` IngressClass. `traefik-isolated` has its own address
+  for an isolated VLAN (ManicTime only).
+- **Only the Cloudflare tunnel exposes anything to the internet**: the Ingresses
+  in `apps/traefik/traefik/app/ingress-cloudflare-tunnel.yaml`.
+- **Traefik removes incoming `X-authentik-*` headers** on its `web` and
+  `websecure` entry points (`strip-authentik-headers`). Only the `authentik`
+  forward-auth Middleware sets them. babybuddy logs users in from that header,
+  so never remove that Middleware or narrow its list.
+- **A private-only route** (LAN and cluster, never the internet) gets both:
+  - `traefik.ingress.kubernetes.io/router.entrypoints: websecure`, because the
+    tunnel reaches that host on port 80;
+  - `traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd`.
+
+  babybuddy's `/api` is one. Keep `bb`'s tunnel route on port 80, or `/api`
+  becomes reachable through the tunnel.
+
 ## Cluster DNS
 
 - **The cluster domain itself starts with `svc.`**, and `${CLUSTER_DOMAIN}`
