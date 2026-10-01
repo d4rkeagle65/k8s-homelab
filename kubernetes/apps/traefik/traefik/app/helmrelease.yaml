@@ -37,10 +37,15 @@ spec:
         controllerClass: k8s.io/ingress-nginx
         publishService:
           enabled: true
-      # Off, so an Ingress isn't routed twice (Traefik's docs).
+      # Native Traefik Ingresses, class `traefik` only (QUEUE-traefik.md, Batch
+      # 6): apps move here from `nginx` one at a time. Each Ingress is read by
+      # exactly one provider, chosen by its class, so none is routed twice.
       kubernetesIngress:
-        enabled: false
-      # For the SMTP IngressRouteTCP below.
+        enabled: true
+        ingressClass: traefik
+        publishedService:
+          enabled: true
+      # For the SMTP IngressRouteTCP and the Middlewares below.
       kubernetesCRD:
         enabled: true
         # Collision-safe names for the routers/services it generates, as
@@ -48,10 +53,12 @@ spec:
         # matters to config that refers to generated names; nothing here does.
         # https://doc.traefik.io/traefik/reference/install-configuration/providers/kubernetes/kubernetes-crd/#safenaming
         safeNaming: true
-    # Traefik's own `traefik` IngressClass isn't used; the chart would also
-    # make it the cluster default.
+    # The `traefik` IngressClass for native Ingresses; not the cluster
+    # default, so an Ingress without a class isn't picked up.
     ingressClass:
-      enabled: false
+      enabled: true
+      isDefaultClass: false
+      name: traefik
     # aliasHeadersStrategy: delete drops request headers whose names alias
     # another's (X_Auth_User for X-Auth-User). Python/PHP apps read both as one
     # variable, so a client could otherwise spoof the X-authentik-* headers the
@@ -98,6 +105,21 @@ spec:
         # As ingress-nginx: keep the client's source address.
         externalTrafficPolicy: Local
     extraObjects:
+    # HTTP to HTTPS, as ingress-nginx did for every Ingress with TLS. Per
+    # Ingress, not on the whole `web` entry point: the Cloudflare tunnel
+    # reaches bb and bb-mcp over plain HTTP. Used as
+    # traefik.ingress.kubernetes.io/router.middlewares:
+    # traefik_redirect-https@kubernetescrd (the name under safeNaming). Does
+    # nothing to a request that is already HTTPS.
+    - apiVersion: traefik.io/v1alpha1
+      kind: Middleware
+      metadata:
+        name: redirect-https
+        namespace: traefik
+      spec:
+        redirectScheme:
+          scheme: https
+          permanent: true
     # Plain TCP (STARTTLS passes through to the relay, which holds the
     # certificate). In the relay's namespace: the CRD provider doesn't
     # follow references across namespaces.
