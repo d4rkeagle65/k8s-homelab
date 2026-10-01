@@ -43,11 +43,13 @@ server:
     https: 9443
   enabled: true
   ingress:
+    annotations:
+      traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
     enabled: true
     hosts:
     - auth.${BASE_DOMAIN}
     https: false
-    ingressClassName: nginx
+    ingressClassName: traefik
     tls:
     - hosts:
       - auth.${BASE_DOMAIN}
