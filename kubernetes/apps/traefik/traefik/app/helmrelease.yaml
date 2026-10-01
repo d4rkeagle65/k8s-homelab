@@ -117,6 +117,10 @@ spec:
     service:
       annotations:
         metallb.io/loadBalancerIPs: ${INGRESS_IP}
+        # Names served on this address that have no Ingress, for ExternalDNS's
+        # Service source to put in Pi-hole: the SMTP relay (the IngressRouteTCP
+        # below). Comma-separate further names.
+        external-dns.kubernetes.io/hostname: smtp-relay.${BASE_DOMAIN}
       spec:
         type: LoadBalancer
         # As ingress-nginx: keep the client's source address.

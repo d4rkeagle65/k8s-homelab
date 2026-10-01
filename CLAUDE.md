@@ -71,9 +71,11 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
 - **Only the Cloudflare tunnel exposes anything to the internet**: the Ingresses
   in `apps/traefik/traefik/app/ingress-cloudflare-tunnel.yaml`.
 - **Local DNS:** ExternalDNS (`apps/external-dns/`) writes a Pi-hole record for
-  each `traefik`/`traefik-isolated` Ingress hostname. It's `upsert-only`, so it
-  never deletes anything and hand-made Pi-hole records stay. When a hostname
-  is removed, its record has to be deleted in Pi-hole by hand.
+  each `traefik`/`traefik-isolated` Ingress hostname. A name with no Ingress
+  (`smtp-relay`) goes in the `external-dns.kubernetes.io/hostname` annotation
+  on Traefik's Service. It's `upsert-only`, so it never deletes anything and
+  hand-made Pi-hole records stay. When a hostname is removed, its record has
+  to be deleted in Pi-hole by hand.
 - **Traefik removes incoming `X-authentik-*` headers** on its `web` and
   `websecure` entry points (`strip-authentik-headers`). Only the `authentik`
   forward-auth Middleware sets them. babybuddy logs users in from that header,
