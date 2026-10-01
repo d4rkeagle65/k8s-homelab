@@ -15,9 +15,6 @@
 # PIHOLE_URL is the Pi-hole web address, scheme included and no path (for
 # example http://<address>). If it's https with Pi-hole's self-signed
 # certificate, add --pihole-tls-skip-verify.
-#
-# --dry-run: it only logs the records it would create. Remove it once those
-# are checked and the Pi-hole CNAMEs they replace are deleted (QUEUE.md).
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -59,4 +56,3 @@ spec:
     - --pihole-server=${PIHOLE_URL}
     - --ingress-class=traefik
     - --ingress-class=traefik-isolated
-    - --dry-run
