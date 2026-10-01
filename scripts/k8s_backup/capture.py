@@ -672,7 +672,20 @@ def _write_promoted_release(
     if not docs:
         warnings.append(f"{rel}: marked {PROMOTE_MARKER}, but namespace '{ns}' has nothing to promote")
     for filename, doc in docs:
-        sink.write_yaml(release_dir / "app" / filename, promote.escape_foreign_variables(doc, known_vars))
+        path = app_dir / filename
+        doc = promote.freeze_restarted_at(doc, _previous_manifest(path))
+        sink.write_yaml(path, promote.escape_foreign_variables(doc, known_vars))
+
+
+def _previous_manifest(path: Path) -> dict | None:
+    """The manifest as git has it now, or None (new, or unreadable)."""
+    if not path.is_file():
+        return None
+    try:
+        doc = yamlio.read_yaml_file(path)
+    except Exception:  # noqa: BLE001 -- a broken file just isn't frozen from
+        return None
+    return doc if isinstance(doc, dict) else None
 
 
 _RAW_README = """# kubernetes/raw

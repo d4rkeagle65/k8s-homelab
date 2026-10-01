@@ -22,7 +22,7 @@ import re
 import stat
 from pathlib import Path
 
-from . import constants, dependencies, flux, inventory, scaffold, yamlio
+from . import constants, dependencies, flux, inventory, promote, scaffold, yamlio
 from .filetracker import FileTracker, RunReport
 from .ownership import PROMOTE_MARKER, generate_owner, is_handwritten, is_promoted
 from .sink import Sink
@@ -203,6 +203,7 @@ def _generate_promoted_scaffolding(
         interval=constants.HELMRELEASE_KS_INTERVAL,
         depends_on=dependencies.depends_on(release_dir.name, [app_dir / m for m in manifests], operators),
         wait=release_dir.name in operators.values(),
+        ignore=promote.FLUX_IGNORE_RULES,
     )
     sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc, timestamp)
     return True

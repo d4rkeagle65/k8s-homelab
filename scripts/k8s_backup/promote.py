@@ -32,6 +32,18 @@ from .skipfilter import DYNAMIC_PV_NAME_RE
 PRUNE_ANNOTATION = "kustomize.toolkit.fluxcd.io/prune"
 _PRUNE_DISABLED_KINDS = {"PersistentVolumeClaim", "Cluster", "Secret"}
 
+# Written into the pod template by `kubectl rollout restart`. Changing it is
+# what restarts the pods, so its value is frozen in git (see
+# freeze_restarted_at) and Flux is told to leave the live one alone.
+RESTARTED_AT_ANNOTATION = "kubectl.kubernetes.io/restartedAt"
+# spec.ignore for a promoted release's Flux Kustomization (kustomize-controller
+# v1.9.0+): when the live value differs from git's, Flux keeps the live one
+# instead of reverting it, which would restart the pods again.
+# (`.spec.ignore`, added in kustomize-controller 1.9.0.)
+FLUX_IGNORE_RULES = [
+    {"paths": ["/spec/template/metadata/annotations/" + RESTARTED_AT_ANNOTATION.replace("/", "~1")]},
+]
+
 _BOOKKEEPING_ANNOTATIONS = (
     "deployment.kubernetes.io/revision",
     "pv.kubernetes.io/bind-completed",
@@ -131,7 +143,8 @@ def clean_for_gitops(obj: dict) -> dict:
     # kubectl.kubernetes.io/restartedAt left by `kubectl rollout restart`.
     # When Flux adopts an object it drops kubectl's field ownership, so any
     # template field missing from the manifest is deleted, and deleting it
-    # changes the template: a rollout of every pod.
+    # changes the template: a rollout of every pod. Later captures keep the
+    # value git already has instead (freeze_restarted_at).
     template_meta = (spec.get("template") or {}).get("metadata")
     if isinstance(template_meta, dict):
         template_meta.pop("creationTimestamp", None)
@@ -159,6 +172,47 @@ def clean_for_gitops(obj: dict) -> dict:
         metadata.setdefault("annotations", {})[PRUNE_ANNOTATION] = "disabled"
 
     return obj
+
+
+def _template_annotations(obj: dict | None) -> dict | None:
+    spec = (obj or {}).get("spec")
+    template = spec.get("template") if isinstance(spec, dict) else None
+    metadata = template.get("metadata") if isinstance(template, dict) else None
+    return metadata if isinstance(metadata, dict) else None
+
+
+def freeze_restarted_at(doc: dict, previous: dict | None) -> dict:
+    """`doc` with its pod template's restartedAt as in `previous` (the same
+    manifest as git has it): kept, or absent, whatever the live value.
+
+    A restart then never shows up as a change to commit, and Flux's ignore
+    rule (FLUX_IGNORE_RULES) keeps the live value. The annotation can't just
+    be dropped: Flux owns it once it has applied it, and Flux fails an apply
+    whose ignored field is missing from the manifest. With no previous
+    manifest (the first capture), the live value is kept, as before.
+    """
+    template_meta = _template_annotations(doc)
+    if previous is None or template_meta is None:
+        return doc
+    if (previous.get("kind"), (previous.get("metadata") or {}).get("name")) != (
+        doc.get("kind"), (doc.get("metadata") or {}).get("name")
+    ):
+        return doc
+    previous_meta = _template_annotations(previous) or {}
+    frozen = (previous_meta.get("annotations") or {}).get(RESTARTED_AT_ANNOTATION)
+
+    doc = copy.deepcopy(doc)
+    template_meta = _template_annotations(doc)
+    annotations = template_meta.get("annotations")
+    if frozen is None:
+        if isinstance(annotations, dict):
+            annotations.pop(RESTARTED_AT_ANNOTATION, None)
+            _drop_empty(template_meta, "annotations")
+    else:
+        if not isinstance(annotations, dict):
+            annotations = template_meta["annotations"] = {}
+        annotations[RESTARTED_AT_ANNOTATION] = frozen
+    return doc
 
 
 # ---- Secrets -----------------------------------------------------------------
