@@ -88,7 +88,7 @@ Every `kubernetes/apps/<namespace>/<release>/` folder is one of these:
   `app/values.yaml` from the live Helm release. generate turns `values.yaml` into
   `app/helmrelease.yaml`, so `values.yaml` is the file you edit.
 - **`.handwritten`** (e.g. `media/*`, `local-path-storage/local-path-provisioner`,
-  `ingress-nginx-isolated`). The tool never writes to or deletes anything in the
+  `traefik`). The tool never writes to or deletes anything in the
   folder. You write `ks.yaml` and `app/*` yourself. Its `namespace.yaml` and
   the HelmRepository its HelmRelease uses are protected too.
 - **`.promote`** (e.g. `babybuddy/babybuddy`, `immich/immich-extras`). capture

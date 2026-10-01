@@ -4,10 +4,9 @@
 # behind the main ingress. Same chart and version as ../../traefik; keep them
 # in step.
 #
-# Batch 5b (cutover): holds ISOLATED_INGRESS_IP, taken over from
-# ingress-nginx-isolated, which stays installed but internal-only until 5c.
-# No status publishing while it runs, so the two controllers don't
-# overwrite each other's Ingress status.
+# Holds ISOLATED_INGRESS_IP since the Batch 5b cutover; ingress-nginx-isolated
+# was removed in 5c. It publishes its Service's address as the Ingress
+# status, as ingress-nginx-isolated did.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -40,7 +39,7 @@ spec:
         ingressClass: nginx-isolated
         controllerClass: k8s.io/ingress-nginx-isolated
         publishService:
-          enabled: false
+          enabled: true
       kubernetesIngress:
         enabled: false
       # No IngressRoutes for this controller.
