@@ -120,7 +120,7 @@ If Traefik's Service stays `<pending>` after nginx's shows no external IP:
       delete the `TRAEFIK_IP` field in Vaultwarden, and run `all` to check
       capture brings nothing back.
 
-## Batch 5: ingress-nginx-isolated (ManicTime)
+## Batch 5: ingress-nginx-isolated (ManicTime) (done 2026-10-01)
 
 Batches 1-4 again for the `nginx-isolated` IngressClass (controller
 `k8s.io/ingress-nginx-isolated`), smaller: one app, no Authentik, no tunnel. It
@@ -139,7 +139,7 @@ variable or Pi-hole change.
       `ingress-nginx-isolated` Service becomes `ClusterIP`; its `nginx-isolated`
       IngressClass gets `helm.sh/resource-policy: keep`. Test from a client on
       the isolated VLAN (the firewall only allows that address).
-- [ ] 5c, removal (one merge): the `nginx-isolated` IngressClass as a standalone
+- [x] 5c, removal (one merge, merged 2026-10-01): the `nginx-isolated` IngressClass as a standalone
       object in the `traefik-isolated` app; `apps/ingress-nginx-isolated/` removed;
       status publishing on; the `ingress-nginx` HelmRepository removed (nothing
       uses it then). By hand afterwards: delete the `ingress-nginx-isolated`
@@ -194,3 +194,7 @@ better long-term fix is the DHCP server answering, then removing the line.
 - [ ] Replace nginx annotations with native Traefik middlewares or Gateway API
       routes, one app at a time. Nothing forces this while the NGINX provider
       is maintained.
+- [ ] Rename the `nginx` and `nginx-isolated` IngressClasses as part of that:
+      an app moving to native Traefik routes gets a Traefik class at the same
+      time, since its nginx annotations only work through the NGINX provider.
+      Once no Ingress uses them, remove both classes and the NGINX provider.
