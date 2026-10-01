@@ -7,12 +7,15 @@ How the repo is managed:
 
 - **Helm releases**: captured from the cluster by `capture`; `generate`
   writes their Flux files.
-- **`.handwritten` releases** (media, ingress-nginx-isolated,
-  local-path-provisioner): the tool never touches them.
+- **`.handwritten` releases** (media, traefik, traefik-isolated,
+  external-secrets, smtp-relay, local-path-provisioner): the tool never
+  touches them.
 - **`.promote` releases**: capture writes the namespace's non-Helm objects
   into `app/`, and Secrets go to git as `${PLACEHOLDER}`s.
-- **Secret values**: live only in the gitignored
-  `kubernetes/.local/cluster-substitutions-secret.yaml`.
+- **Secret values**: fields of the `cluster-secrets` item in Vaultwarden,
+  synced into the cluster by External Secrets (`kubernetes/secrets/`). List
+  or change them with `scripts/vaultwarden-fields.ps1`. Plain settings are in
+  `kubernetes/flux/meta/vars/cluster-settings.yaml`.
 
 Run everything from the repo root with `python scripts/backup.py all --output .`.
 
@@ -45,11 +48,33 @@ nothing here tracks them.
 
 ## Later
 
+- [ ] **Pi-hole's `local=/<local domain>/` line** (`misc.dnsmasq_lines`, added
+  2026-10-01) stops Pi-hole forwarding that domain to the DHCP server, which
+  wasn't answering; that fixed Vaultwarden SSO and the `bitwarden-cli`
+  restarts. Side effect: hostnames only the DHCP server knows no longer
+  resolve. If those are needed, find why the DHCP server's DNS doesn't
+  answer, then remove the line.
 
-- [ ] **Replace ingress-nginx with Traefik.** ingress-nginx is retired and
-  takes internet traffic through the Cloudflare tunnel. The batches are in
-  `QUEUE-traefik.md`.
 ## Done
+
+- 2026-10-01: Replaced ingress-nginx with Traefik (`QUEUE-traefik.md`,
+  batches 1-6). The main Traefik holds the main ingress address (apps, the
+  SMTP relay on 8025, the Cloudflare tunnel routes); `traefik-isolated` holds
+  the isolated address (ManicTime). Every app uses Traefik's own Ingress
+  classes (`traefik`, `traefik-isolated`), with the `redirect-https` and
+  `authentik` Middlewares in place of nginx annotations. Both ingress-nginx
+  releases, their IngressClasses and the `ingress-nginx` HelmRepository are
+  gone.
+- 2026-10-01: Generated files have no date in their header, so a
+  regenerated file only shows its real change. Promoted manifests keep the
+  `kubectl rollout restart` annotation git already has, and Flux ignores
+  that field (`spec.ignore`, kustomize-controller 1.9+), so a restart never
+  shows up as a change.
+- 2026-10-01: `scripts/vaultwarden-fields.ps1` lists and sets the
+  `cluster-secrets` Vaultwarden fields through the bitwarden-cli pod
+  (base64-encoding values used in Secrets).
+- 2026-10-01: Removed the immich release's unused `power-tools` values (the
+  chart has no such component; Power Tools runs from `immich-extras`).
 
 - 2026-09-30: Test environment runbook: "Bring the test environment up, and take
   it down" in `scripts/README.md`.
