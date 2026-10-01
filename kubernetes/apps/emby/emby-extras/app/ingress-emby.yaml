@@ -19,18 +19,7 @@ spec:
               number: 8096
         path: /
         pathType: Prefix
-  - host: e2.${BASE_DOMAIN}
-    http:
-      paths:
-      - backend:
-          service:
-            name: emby
-            port:
-              number: 8096
-        path: /
-        pathType: Prefix
   tls:
   - hosts:
     - emby.${BASE_DOMAIN}
-    - e2.${BASE_DOMAIN}
     secretName: emby-tls
