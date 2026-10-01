@@ -162,7 +162,7 @@ chosen by its class, so moving one only changes that app. Translations:
 | `auth-url`, `auth-response-headers`, `auth-signin` (babybuddy) | a `forwardAuth` Middleware to Authentik's `/auth/traefik` |
 | `cert-manager.io/cluster-issuer` | unchanged |
 
-- [ ] 6a: the `traefik` and `traefik-isolated` IngressClasses (not default),
+- [x] 6a: the `traefik` and `traefik-isolated` IngressClasses (not default),
       the Ingress provider on each (that class only, publishing status), and the
       `redirect-https` Middleware. Moves no app.
 - [ ] 6b: pilot, `immichpt` (promoted Ingress in `immich-extras`).
