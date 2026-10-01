@@ -24,18 +24,6 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **ExternalDNS cutover** (`apps/external-dns/`, merged in dry-run mode).
-  1. Check what it would write:
-     `kubectl logs -n external-dns deploy/external-dns | Select-String -Pattern "CREATE|UPDATE"`.
-     Expect one record per `traefik`/`traefik-isolated` hostname, at
-     `INGRESS_IP` (ManicTime: `ISOLATED_INGRESS_IP`).
-  2. In Pi-hole, delete the app-name CNAMEs those records replace (the ones
-     pointing at the old `k8snginx` targets). Keep every other local record.
-  3. Remove `--dry-run` from its `helmrelease.yaml`. The records appear
-     within a minute.
-
-  From then on, a new Ingress hostname gets its Pi-hole record by itself. A
-  removed one keeps its record until you delete it.
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
   Released PVs of the 9 moved databases, all of `media-test`,
@@ -68,6 +56,12 @@ nothing here tracks them.
   answer, then remove the line.
 
 ## Done
+
+- 2026-10-01: ExternalDNS writes a Pi-hole address record for every `traefik`
+  and `traefik-isolated` Ingress hostname (ManicTime at `ISOLATED_INGRESS_IP`,
+  the rest at `INGRESS_IP`). It replaced the hand-made app-name CNAMEs to the
+  old `k8snginx` targets. It's upsert-only, so other hand-made records stay,
+  and a removed hostname's record is deleted by hand.
 
 - 2026-10-01: Closed a login bypass in babybuddy. It trusts the
   `X-Authentik-Username` header on every path: its attempt to skip `/api`
