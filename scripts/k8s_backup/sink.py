@@ -22,16 +22,11 @@ class Sink:
         self.tracker.record_written(path, content)
         return path
 
-    def write_yaml_stable(
-        self, path: Path, data: Any, run_timestamp: str, *, extra_lines: list[str] | None = None
-    ) -> Path:
-        """Write a generated YAML file whose header timestamp only advances
-        when its content actually changes (see headers.py).
+    def write_yaml_stable(self, path: Path, data: Any, *, extra_lines: list[str] | None = None) -> Path:
+        """Write a generated YAML file under the generated-file header (see
+        headers.py). The same content always gives the same bytes.
         """
-        body = yamlio.to_yaml_string(data)
-        rest = headers.header_rest(extra_lines) + body
-        timestamp = headers.stable_timestamp(path, rest, run_timestamp)
-        content = headers.full_header(timestamp, rest)
+        content = headers.generated_header(extra_lines=extra_lines) + yamlio.to_yaml_string(data)
         if not self.dry_run:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8", newline="\n")
