@@ -1,11 +1,7 @@
-# Traefik, replacing the retired ingress-nginx (see QUEUE-traefik.md).
-# Its NGINX provider serves the existing `nginx`-class Ingresses, nginx
-# annotations included, so apps don't change:
-# https://doc.traefik.io/traefik/migrate/nginx-to-traefik/
-#
-# The main ingress: holds the main ingress address (INGRESS_IP) since the
-# Batch 3 cutover; ingress-nginx was removed in Batch 4. It publishes its
-# Service's address as each Ingress's status, as ingress-nginx did.
+# Traefik, the main ingress (it replaced the retired ingress-nginx; see
+# QUEUE-traefik.md). Serves Ingresses of the `traefik` IngressClass, with
+# Traefik annotations and the Middlewares below, on the main ingress address
+# (INGRESS_IP), and publishes that address as each Ingress's status.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -31,21 +27,14 @@ spec:
       retries: 3
   values:
     providers:
-      kubernetesIngressNGINX:
-        enabled: true
-        ingressClass: nginx
-        controllerClass: k8s.io/ingress-nginx
-        publishService:
-          enabled: true
-      # Native Traefik Ingresses, class `traefik` only (QUEUE-traefik.md, Batch
-      # 6): apps move here from `nginx` one at a time. Each Ingress is read by
-      # exactly one provider, chosen by its class, so none is routed twice.
+      # Class `traefik` only. Not the cluster default (see ingressClass below),
+      # and the isolated controller has its own class.
       kubernetesIngress:
         enabled: true
         ingressClass: traefik
         # babybuddy routes /outpost.goauthentik.io to the Authentik outpost
         # through an ExternalName Service in its own namespace (an Ingress
-        # can only use Services there). The NGINX provider allowed these too.
+        # can only use Services there). ingress-nginx allowed these too.
         allowExternalNameServices: true
         publishedService:
           enabled: true

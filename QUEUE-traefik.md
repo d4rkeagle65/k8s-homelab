@@ -169,7 +169,7 @@ chosen by its class, so moving one only changes that app. Translations:
 - [x] 6c: the rest without auth: emby, authentik, immich, obsidian,
       homeassistant, the media apps (`apps/media/*`, `test/media/jackett`).
 - [x] 6d: babybuddy (forwardAuth Middleware), babybuddy-api, babybuddy-mcp.
-- [ ] 6e: ManicTime to `traefik-isolated` (the HTTP to HTTPS redirect on its
+- [x] 6e: ManicTime to `traefik-isolated` (the HTTP to HTTPS redirect on its
       `web` entry point: no tunnel there).
 - [ ] 6f: remove the `nginx` and `nginx-isolated` IngressClasses and both NGINX
       providers once nothing uses them.
