@@ -57,6 +57,19 @@ nothing here tracks them.
 
 ## Done
 
+- 2026-10-01: Closed a login bypass in babybuddy. It trusts the
+  `X-Authentik-Username` header on every path: its attempt to skip `/api`
+  checks `request.path.startswith("api/")`, which never matches. And `/api`
+  had no Authentik check, even through the Cloudflare tunnel, so anyone could
+  send the header themselves.
+  - Traefik now removes incoming `X-authentik-*` headers on `web` and
+    `websecure`.
+  - babybuddy's API is private: `/api` is served on `websecure` to private
+    addresses only, so Home Assistant and the LAN keep it. Through the tunnel,
+    `/api` falls to the main route behind Authentik, so the web UI's own calls
+    still work.
+  - A NetworkPolicy lets only Traefik and babybuddy-mcp reach babybuddy's pods.
+
 - 2026-10-01: Restricted the three Vaultwarden ClusterSecretStores to
   ExternalSecrets in `flux-system`. Confirmed that an undefined `${VARIABLE}`
   already fails its Kustomization (kustomize-controller's strict substitution,
