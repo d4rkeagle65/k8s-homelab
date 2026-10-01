@@ -1,0 +1,15 @@
+# Apps that run outside the cluster (Docker hosts and the like), served
+# through Traefik like the cluster's own: a certificate from cert-manager,
+# and a Pi-hole record from ExternalDNS. Each file is one app: a Service
+# pointing at the app's real address, and its Ingress. The addresses are
+# fields of the cluster-secrets Vaultwarden item, not git (the repo is
+# public); ports are fine here.
+#
+# Every Ingress here is LAN and VPN only (traefik_private-networks): none of
+# these apps is meant to be reachable from the internet.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- mealie.yaml
+- pihole.yaml
+- vaultwarden.yaml

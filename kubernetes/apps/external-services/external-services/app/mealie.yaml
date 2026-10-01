@@ -1,0 +1,60 @@
+# Mealie, in Docker at MEALIE_ADDRESS port 9000. A Service without a
+# selector plus a hand-written EndpointSlice is how a Service points at an IP
+# address outside the cluster.
+#
+# external-dns.kubernetes.io/controller: none keeps ExternalDNS from writing
+# this name into Pi-hole until the cutover (QUEUE.md).
+apiVersion: v1
+kind: Service
+metadata:
+  name: mealie
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 9000
+    targetPort: 9000
+    protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: mealie
+  labels:
+    kubernetes.io/service-name: mealie
+addressType: IPv4
+ports:
+- name: http
+  port: 9000
+  protocol: TCP
+endpoints:
+- addresses:
+  - ${MEALIE_ADDRESS}
+  conditions:
+    ready: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mealie
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    external-dns.kubernetes.io/controller: none
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: mealie.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mealie
+            port:
+              number: 9000
+  tls:
+  - hosts:
+    - mealie.${BASE_DOMAIN}
+    secretName: mealie-tls

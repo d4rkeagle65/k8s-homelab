@@ -80,6 +80,16 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
   `websecure` entry points (`strip-authentik-headers`). Only the `authentik`
   forward-auth Middleware sets them. babybuddy logs users in from that header,
   so never remove that Middleware or narrow its list.
+- **Apps outside the cluster** (Docker hosts) are served through Traefik too,
+  from `apps/external-services/`. Each has a Service pointing at the app's
+  real address (an EndpointSlice for an IP, ExternalName for a hostname) and
+  an Ingress. The addresses are Vaultwarden fields.
+- **The `bitwarden-cli` pod must never reach Vaultwarden through Traefik**,
+  or a rebuilt cluster deadlocks: Traefik needs `INGRESS_IP` from
+  `cluster-secrets`, which needs the CLI. The CLI uses
+  `vaultwarden-direct.<domain>` (a hand-made Pi-hole record) and Vaultwarden's
+  own HTTPS. The CLI refuses plain HTTP. The certificate comes from
+  cert-manager; `scripts/vaultwarden-cert-sync.sh` copies it to the host.
 - **A private-only route** (LAN and cluster, never the internet) gets both:
   - `traefik.ingress.kubernetes.io/router.entrypoints: websecure`, because the
     tunnel reaches that host on port 80;

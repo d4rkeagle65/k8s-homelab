@@ -1,0 +1,64 @@
+# Pi-hole's web interface, at PIHOLE_ADDRESS port 80 (its own web server;
+# the admin pages are under /admin/). A Service without a selector plus a
+# hand-written EndpointSlice is how a Service points at an IP address
+# outside the cluster.
+#
+# ExternalDNS doesn't come through here: it talks to Pi-hole's address
+# directly (PIHOLE_URL), so it never depends on this route.
+#
+# external-dns.kubernetes.io/controller: none keeps ExternalDNS from writing
+# this name into Pi-hole until the cutover (QUEUE.md).
+apiVersion: v1
+kind: Service
+metadata:
+  name: pihole
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: pihole
+  labels:
+    kubernetes.io/service-name: pihole
+addressType: IPv4
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+endpoints:
+- addresses:
+  - ${PIHOLE_ADDRESS}
+  conditions:
+    ready: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pihole
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    external-dns.kubernetes.io/controller: none
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: pihole.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pihole
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - pihole.${BASE_DOMAIN}
+    secretName: pihole-tls
