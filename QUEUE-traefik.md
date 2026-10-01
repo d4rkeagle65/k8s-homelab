@@ -127,7 +127,7 @@ Batches 1-4 again for the `nginx-isolated` IngressClass (controller
 is tested from inside the cluster instead of on a temporary address, so no new
 variable or Pi-hole change.
 
-- [ ] 5a: second Traefik release, `apps/traefik-isolated/` (`.handwritten`):
+- [x] 5a: second Traefik release, `apps/traefik-isolated/` (`.handwritten`):
       NGINX provider on `nginx-isolated` only, CRD provider off, CRDs left to
       the main release (`crds: Skip`), Service `ClusterIP`, no status
       publishing. Test: the Host/SNI check from inside the cluster against
