@@ -16,7 +16,6 @@ Release folders with a `.handwritten` marker are skipped (ownership.py).
 
 from __future__ import annotations
 
-import datetime as dt
 import os
 import re
 import stat
@@ -28,26 +27,21 @@ from .ownership import PROMOTE_MARKER, generate_owner, is_handwritten, is_promot
 from .sink import Sink
 
 
-def _now_iso() -> str:
-    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     tracker = FileTracker(root, generate_owner(root), dry_run=dry_run)
     sink = Sink(root, dry_run, tracker)
-    timestamp = _now_iso()
     warnings: list[str] = []
 
     print("Generating per-release Flux scaffolding...")
-    release_count = _generate_release_scaffolding(sink, timestamp, warnings, verbose)
+    release_count = _generate_release_scaffolding(sink, warnings, verbose)
 
     print("Generating per-namespace kustomizations...")
-    _generate_namespace_kustomizations(sink, timestamp)
-    _generate_apps_kustomization(sink, timestamp)
+    _generate_namespace_kustomizations(sink)
+    _generate_apps_kustomization(sink)
 
     print("Generating repository and cluster kustomizations...")
-    repo_count = _generate_repository_kustomization(sink, timestamp)
-    cluster_count = _generate_cluster_kustomization(sink, timestamp)
+    repo_count = _generate_repository_kustomization(sink)
+    cluster_count = _generate_cluster_kustomization(sink)
 
     # Both the apps and cluster-resources Kustomizations wire
     # postBuild.substituteFrom for cluster-settings and cluster-secrets.
@@ -57,14 +51,13 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     # postBuild.)
     print("Generating root Flux Kustomization...")
     sink.write_yaml_stable(
-        root / "kubernetes" / "flux" / "config" / "cluster.yaml", flux.root_cluster_kustomization(), timestamp
+        root / "kubernetes" / "flux" / "config" / "cluster.yaml", flux.root_cluster_kustomization()
     )
 
     if (root / "kubernetes" / "cluster").exists():
         sink.write_yaml_stable(
             root / "kubernetes" / "flux" / "config" / "cluster-resources.yaml",
             flux.cluster_resources_kustomization(),
-            timestamp,
         )
 
     print("Writing top-level scaffold files...")
@@ -98,7 +91,7 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     }
 
 
-def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> int:
+def _generate_release_scaffolding(sink: Sink, warnings, verbose) -> int:
     apps_root = sink.root / "kubernetes" / "apps"
     if not apps_root.exists():
         warnings.append("kubernetes/apps does not exist yet; run `capture` first")
@@ -112,7 +105,7 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
             if is_handwritten(release_dir):
                 continue
             if is_promoted(release_dir):
-                if _generate_promoted_scaffolding(sink, namespace, release_dir, timestamp, warnings, operators):
+                if _generate_promoted_scaffolding(sink, namespace, release_dir, warnings, operators):
                     count += 1
                 continue
             release_yaml = release_dir / "release.yaml"
@@ -150,7 +143,7 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
                 interval=constants.HELMRELEASE_INTERVAL,
             )
             sink.write_yaml_stable(
-                release_dir / "app" / "helmrelease.yaml", hr_doc, timestamp, extra_lines=extra_header_lines
+                release_dir / "app" / "helmrelease.yaml", hr_doc, extra_lines=extra_header_lines
             )
 
             manifest_files = sorted(
@@ -162,7 +155,6 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
             sink.write_yaml_stable(
                 release_dir / "app" / "kustomization.yaml",
                 flux.kustomization_file(manifest_files),
-                timestamp,
             )
 
             ks_doc = flux.flux_kustomization(
@@ -175,7 +167,7 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
                 ),
                 wait=release_name in operators.values(),
             )
-            sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc, timestamp)
+            sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc)
             count += 1
 
             if verbose:
@@ -185,7 +177,7 @@ def _generate_release_scaffolding(sink: Sink, timestamp, warnings, verbose) -> i
 
 
 def _generate_promoted_scaffolding(
-    sink: Sink, namespace: str, release_dir: Path, timestamp, warnings, operators: dict[str, str]
+    sink: Sink, namespace: str, release_dir: Path, warnings, operators: dict[str, str]
 ) -> bool:
     """app/kustomization.yaml and ks.yaml for a promoted release, whose
     app/ manifests capture wrote (see promote.py).
@@ -195,7 +187,7 @@ def _generate_promoted_scaffolding(
     if not manifests:
         warnings.append(f"{namespace}/{release_dir.name}: marked {PROMOTE_MARKER} but has no manifests yet; run `capture` first")
         return False
-    sink.write_yaml_stable(app_dir / "kustomization.yaml", flux.kustomization_file(manifests), timestamp)
+    sink.write_yaml_stable(app_dir / "kustomization.yaml", flux.kustomization_file(manifests))
     ks_doc = flux.flux_kustomization(
         name=release_dir.name,
         target_namespace=namespace,
@@ -205,11 +197,11 @@ def _generate_promoted_scaffolding(
         wait=release_dir.name in operators.values(),
         ignore=promote.FLUX_IGNORE_RULES,
     )
-    sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc, timestamp)
+    sink.write_yaml_stable(release_dir / "ks.yaml", ks_doc)
     return True
 
 
-def _generate_namespace_kustomizations(sink: Sink, timestamp: str) -> None:
+def _generate_namespace_kustomizations(sink: Sink) -> None:
     apps_root = sink.root / "kubernetes" / "apps"
     if not apps_root.exists():
         return
@@ -220,10 +212,10 @@ def _generate_namespace_kustomizations(sink: Sink, timestamp: str) -> None:
         for release_dir in sorted(p for p in ns_dir.iterdir() if p.is_dir()):
             if (release_dir / "ks.yaml").exists():
                 resources.append(f"{release_dir.name}/ks.yaml")
-        sink.write_yaml_stable(ns_dir / "kustomization.yaml", flux.kustomization_file(resources), timestamp)
+        sink.write_yaml_stable(ns_dir / "kustomization.yaml", flux.kustomization_file(resources))
 
 
-def _generate_apps_kustomization(sink: Sink, timestamp: str) -> None:
+def _generate_apps_kustomization(sink: Sink) -> None:
     """kubernetes/apps/kustomization.yaml -- what the root `cluster` Flux
     Kustomization applies. Lists every namespace folder that got a
     kustomization.yaml above, so a newly captured namespace is actually
@@ -234,20 +226,20 @@ def _generate_apps_kustomization(sink: Sink, timestamp: str) -> None:
         return
     namespaces = [p.name for p in apps_root.iterdir() if (p / "namespace.yaml").exists()]
     sink.write_yaml_stable(
-        apps_root / "kustomization.yaml", flux.kustomization_file(namespaces, protect_namespaces=True), timestamp
+        apps_root / "kustomization.yaml", flux.kustomization_file(namespaces, protect_namespaces=True)
     )
 
 
-def _generate_repository_kustomization(sink: Sink, timestamp: str) -> int:
+def _generate_repository_kustomization(sink: Sink) -> int:
     repo_dir = sink.root / "kubernetes" / "flux" / "meta" / "repositories"
     if not repo_dir.exists():
         return 0
     files = sorted(p.name for p in repo_dir.glob("*.yaml") if p.name != "kustomization.yaml")
-    sink.write_yaml_stable(repo_dir / "kustomization.yaml", flux.kustomization_file(files), timestamp)
+    sink.write_yaml_stable(repo_dir / "kustomization.yaml", flux.kustomization_file(files))
     return len(files)
 
 
-def _generate_cluster_kustomization(sink: Sink, timestamp: str) -> int:
+def _generate_cluster_kustomization(sink: Sink) -> int:
     cluster_dir = sink.root / "kubernetes" / "cluster"
     if not cluster_dir.exists():
         return 0
@@ -258,7 +250,7 @@ def _generate_cluster_kustomization(sink: Sink, timestamp: str) -> int:
         for f in kind_dir.glob("*.yaml")
     )
     sink.write_yaml_stable(
-        cluster_dir / "kustomization.yaml", flux.kustomization_file(resources, protect_namespaces=True), timestamp
+        cluster_dir / "kustomization.yaml", flux.kustomization_file(resources, protect_namespaces=True)
     )
     return len(resources)
 
