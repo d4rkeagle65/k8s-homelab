@@ -40,13 +40,21 @@ spec:
         controllerClass: k8s.io/ingress-nginx-isolated
         publishService:
           enabled: true
+      # Native Traefik Ingresses, class `traefik-isolated` only (Batch 6).
       kubernetesIngress:
-        enabled: false
+        enabled: true
+        ingressClass: traefik-isolated
+        publishedService:
+          enabled: true
       # No IngressRoutes for this controller.
       kubernetesCRD:
         enabled: false
+    # The `traefik-isolated` IngressClass for native Ingresses; not the
+    # cluster default.
     ingressClass:
-      enabled: false
+      enabled: true
+      isDefaultClass: false
+      name: traefik-isolated
     # As the main traefik: see its helmrelease.yaml for each.
     ports:
       web:

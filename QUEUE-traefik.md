@@ -147,6 +147,36 @@ variable or Pi-hole change.
       `helm repo remove ingress-nginx` on the PC that runs capture (capture
       writes a HelmRepository for every `helm repo list` entry), run `all`.
 
+## Batch 6: native Traefik Ingresses (no more nginx classes)
+
+Apps move from the `nginx`/`nginx-isolated` classes (Traefik's NGINX provider,
+nginx annotations) to `traefik`/`traefik-isolated` (Traefik's own Ingress
+provider), a few at a time. Each Ingress is read by exactly one provider,
+chosen by its class, so moving one only changes that app. Translations:
+
+| nginx annotation | Traefik |
+|---|---|
+| TLS section, default HTTP to HTTPS redirect | `traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd` (a router serves both ports; the certificate is picked by host on 443) |
+| `ssl-redirect: "false"` (bb, bb-mcp: the tunnel uses HTTP) | no redirect middleware |
+| `proxy-body-size`, `proxy-read-timeout`, `proxy-send-timeout` | dropped: Traefik has no body limit, and `readTimeout: 0` is set |
+| `auth-url`, `auth-response-headers`, `auth-signin` (babybuddy) | a `forwardAuth` Middleware to Authentik's `/auth/traefik` |
+| `cert-manager.io/cluster-issuer` | unchanged |
+
+- [ ] 6a: the `traefik` and `traefik-isolated` IngressClasses (not default),
+      the Ingress provider on each (that class only, publishing status), and the
+      `redirect-https` Middleware. Moves no app.
+- [ ] 6b: pilot, `immichpt` (promoted Ingress in `immich-extras`).
+- [ ] 6c: the rest without auth: emby, authentik, immich, obsidian,
+      homeassistant, the media apps (`apps/media/*`, `test/media/jackett`).
+- [ ] 6d: babybuddy (forwardAuth Middleware), babybuddy-api, babybuddy-mcp.
+- [ ] 6e: ManicTime to `traefik-isolated` (the HTTP to HTTPS redirect on its
+      `web` entry point: no tunnel there).
+- [ ] 6f: remove the `nginx` and `nginx-isolated` IngressClasses and both NGINX
+      providers once nothing uses them.
+
+Each move: the in-cluster Host/SNI check before and after, then the app in a
+browser (and a hard refresh).
+
 ## Pi-hole: pointing names at a new address
 
 Pi-hole v6 keeps local DNS in `/etc/pihole/pihole.toml` (`[dns]`) and reloads
@@ -191,10 +221,4 @@ better long-term fix is the DHCP server answering, then removing the line.
 
 ## Later (optional)
 
-- [ ] Replace nginx annotations with native Traefik middlewares or Gateway API
-      routes, one app at a time. Nothing forces this while the NGINX provider
-      is maintained.
-- [ ] Rename the `nginx` and `nginx-isolated` IngressClasses as part of that:
-      an app moving to native Traefik routes gets a Traefik class at the same
-      time, since its nginx annotations only work through the NGINX provider.
-      Once no Ingress uses them, remove both classes and the NGINX provider.
+- [ ] Native Traefik Ingresses and the class rename: now Batch 6.
