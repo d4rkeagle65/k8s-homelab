@@ -16,9 +16,6 @@
 #
 # No Authentik in front: the Bitwarden apps and API clients log in to
 # Vaultwarden themselves, and a forward-auth redirect would break them.
-#
-# external-dns.kubernetes.io/controller: none keeps ExternalDNS from writing
-# vaultwarden.<domain> into Pi-hole until the cutover (QUEUE.md).
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -59,7 +56,6 @@ kind: Ingress
 metadata:
   name: vaultwarden
   annotations:
-    external-dns.kubernetes.io/controller: none
     traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik

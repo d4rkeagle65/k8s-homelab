@@ -24,35 +24,13 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Move the NPM sites to Traefik** (`apps/external-services/`), then
-  retire NPM. NPM isn't reachable from the internet; these sites are used on
-  the LAN or over the VPN. The order matters:
-  1. **Before merging:** add the `MEALIE_ADDRESS` and `PIHOLE_ADDRESS`
-     Vaultwarden fields.
-  2. **After the merge:** cert-manager issues the three certificates.
-     ExternalDNS ignores these Ingresses for now
-     (`external-dns.kubernetes.io/controller: none`), so DNS still points at
-     NPM.
-  3. **Vaultwarden's own HTTPS.** On the Vaultwarden host:
-     - copy the `vaultwarden-cert-sync-token` Secret's `token` and `ca.crt`,
-       plus the API URL, to `/etc/vaultwarden-cert-sync/`;
-     - install `scripts/vaultwarden-cert-sync.sh`, run it once, and add it to
-       cron (daily);
-     - give the container `ROCKET_TLS={certs="/ssl/tls.crt",key="/ssl/tls.key"}`,
-       the `/ssl` mount and port 443;
-     - point NPM's vaultwarden host at `https://...:443`.
-  4. **Pi-hole:** add an A record `vaultwarden-direct.<domain>` → the
-     Vaultwarden host. Do it by hand, never through ExternalDNS, so it works
-     with the cluster down.
-  5. **The CLI:** set the `bitwarden-cli` Secret's `BW_HOST` to
-     `https://vaultwarden-direct.<domain>` and restart it. Check that
-     `cluster-secrets` still syncs.
-  6. **Check each site through Traefik** before DNS moves.
-  7. **Cutover:** delete the mealie, pihole and vaultwarden CNAMEs in Pi-hole,
-     then merge the removal of the `controller: none` annotations.
-     ExternalDNS writes the new records.
-  8. **dockhand:** needs a firewall rule letting the k8s workers reach it on
-     port 3000. Then add it like mealie, and retire NPM.
+- [ ] **dockhand to Traefik, then retire NPM.** The cluster can't reach
+  dockhand yet: it needs a firewall rule letting the k8s workers reach it on
+  port 3000. Then:
+  1. add it to `apps/external-services/` like `mealie.yaml`, with a
+     `DOCKHAND_ADDRESS` Vaultwarden field;
+  2. delete its CNAME in Pi-hole when it goes live;
+  3. retire NPM. Vaultwarden no longer needs it: its HTTPS is its own.
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
   Released PVs of the 9 moved databases, all of `media-test`,
@@ -85,6 +63,16 @@ nothing here tracks them.
   answer, then remove the line.
 
 ## Done
+
+- 2026-10-01: mealie, pihole and vaultwarden moved from Nginx Proxy Manager
+  to Traefik (`apps/external-services/`). They're LAN and VPN only, with
+  cert-manager certificates and Pi-hole records from ExternalDNS.
+  - **Vaultwarden** serves HTTPS itself on 443 with a cert-manager
+    certificate, which `scripts/vaultwarden-cert-sync.sh` copies to its host
+    daily (cron). Traefik reaches it at `vaultwarden-direct.<domain>`.
+  - **The `bitwarden-cli` pod** also uses `vaultwarden-direct.<domain>` (a
+    hand-made Pi-hole record), so a rebuilt cluster can always fetch its
+    secrets without Traefik.
 
 - 2026-10-01: ExternalDNS writes a Pi-hole address record for every `traefik`
   and `traefik-isolated` Ingress hostname (ManicTime at `ISOLATED_INGRESS_IP`,

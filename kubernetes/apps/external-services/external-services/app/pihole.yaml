@@ -5,9 +5,6 @@
 #
 # ExternalDNS doesn't come through here: it talks to Pi-hole's address
 # directly (PIHOLE_URL), so it never depends on this route.
-#
-# external-dns.kubernetes.io/controller: none keeps ExternalDNS from writing
-# this name into Pi-hole until the cutover (QUEUE.md).
 apiVersion: v1
 kind: Service
 metadata:
@@ -43,7 +40,6 @@ metadata:
   name: pihole
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
-    external-dns.kubernetes.io/controller: none
     traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
 spec:
   ingressClassName: traefik
