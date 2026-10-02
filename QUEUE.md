@@ -24,13 +24,28 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **dockhand to Traefik, then retire NPM.** The cluster can't reach
-  dockhand yet: it needs a firewall rule letting the k8s workers reach it on
-  port 3000. Then:
-  1. add it to `apps/external-services/` like `mealie.yaml`, with a
-     `DOCKHAND_ADDRESS` Vaultwarden field;
-  2. delete its CNAME in Pi-hole when it goes live;
-  3. retire NPM. Vaultwarden no longer needs it: its HTTPS is its own.
+- [ ] **New Docker host: move Vaultwarden and dockhand to it, then retire NPM
+  and the old Vaultwarden host.** The new host is a Debian 13 VM on the
+  Proxmox cluster; the old one runs Debian 11, which has had no security
+  updates since 2026-08-31.
+  1. On the VM: install Docker CE and the Compose plugin from Docker's apt
+     repository, plus `qemu-guest-agent`, `unattended-upgrades`, `curl` and
+     `jq`. Check that the k8s workers can reach it on 443 and on dockhand's
+     port (a firewall blocked the old dockhand host).
+  2. **Vaultwarden:**
+     - move its data, with the same `ROCKET_TLS`/443 setup;
+     - set up `scripts/vaultwarden-cert-sync.sh` there (config dir and daily
+       cron), and remove it from the old host;
+     - repoint the hand-made `vaultwarden-direct.<domain>` Pi-hole record at
+       the VM.
+
+     The Traefik route and the `bitwarden-cli` pod both use that name, so
+     nothing in git changes. Afterwards, check that `cluster-secrets` still
+     syncs.
+  3. **dockhand:** run it on the VM, add it to `apps/external-services/` like
+     `mealie.yaml` (with a `DOCKHAND_ADDRESS` Vaultwarden field), then delete
+     its NPM CNAME in Pi-hole.
+  4. Retire NPM and the old Vaultwarden host.
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
   Released PVs of the 9 moved databases, all of `media-test`,
@@ -55,6 +70,27 @@ nothing here tracks them.
 
 ## Later
 
+- [ ] **DNS: drop the second DNS server DHCP hands out** (or make it a second
+  Pi-hole). It doesn't know local names, so a PC that asks it caches "no such
+  host" for names like the cluster API endpoint. That causes intermittent
+  `kubectl` lookup failures until the cache clears.
+- [ ] **immich's Redis eviction policy.** immich's job queue (BullMQ) logs that
+  Redis uses `volatile-lru` and should use `noeviction`; under memory
+  pressure, queued jobs could be dropped. Check which Redis immich uses
+  before changing it, since a shared Redis affects its other users too.
+- [ ] **Keep immich and manictime up through a node loss** (optional). Today
+  their single database copy sits on one worker's disk.
+  - Set `instances: 2` on `immich-postgres` and `manictime-pg`, for automatic
+    failover in under a minute.
+  - Shorten the app pods' `node.kubernetes.io/unreachable`/`not-ready`
+    tolerations from the default 5 minutes to about 30 seconds.
+  - Cost: double the database disk on another worker.
+- [ ] **Proxmox host cleanup.**
+  - Run `apt autoremove` on each host to clear the Proxmox 8 leftovers.
+  - Once kernel 7.0 has run cleanly for a couple of weeks, remove
+    `6.14.11-4` (keep `6.14.11-9` as the fallback): `/boot` is only 456 MB.
+  - Don't run `zpool upgrade` unless a new ZFS feature is needed.
+
 - [ ] **Pi-hole's `local=/<local domain>/` line** (`misc.dnsmasq_lines`, added
   2026-10-01) stops Pi-hole forwarding that domain to the DHCP server, which
   wasn't answering; that fixed Vaultwarden SSO and the `bitwarden-cli`
@@ -63,6 +99,23 @@ nothing here tracks them.
   answer, then remove the line.
 
 ## Done
+
+- 2026-10-02: Upgraded the four Proxmox hosts from VE 9.0.15 to 9.2.21 (kernel
+  6.14 to 7.0.14-20, ZFS 2.4.4), rolling one host at a time.
+  - **For each k8s host:** etcd leadership and every database primary on its
+    worker were moved off first, by switchover with 0 lag; then the control
+    plane and worker were drained (database copies stay), the host upgraded
+    and rebooted, and the nodes uncordoned.
+  - **Pi-hole** was migrated between hosts so DNS never went down.
+  - **Downtime:** only immich and manictime (single database copy), during
+    the last host's reboot.
+  - **Fixes on the way:**
+    - `/boot` (456 MB) ran out of space on the first host, so remove the
+      Proxmox 8 kernels before upgrading;
+    - the paid `pve-enterprise` repository was disabled on the two hosts
+      that had it;
+    - one host's earlier half-done upgrade (`apt upgrade` instead of
+      `apt full-upgrade`) was completed.
 
 - 2026-10-01: mealie, pihole and vaultwarden moved from Nginx Proxy Manager
   to Traefik (`apps/external-services/`). They're LAN and VPN only, with
