@@ -24,6 +24,26 @@ nothing here tracks them.
 
 ## Next
 
+- [ ] **Tailscale onto the Docker host**, retiring its VM. Staged in
+  `docker/tailscale/` (see its README): host networking, kernel mode, the
+  same subnet routes and exit node, no source NAT (as now). Needs: the old
+  node's advertised routes and an auth key; the host's two
+  management-routing rules moved after Tailscale's (priorities above 5270);
+  firewall rules letting the host reach every advertised subnet; at
+  cutover, the firewall's 100.64.0.0/10 route, its route to the travel
+  router's subnet (accepted from the tailnet) and the UDP 41641 forward
+  moved to the host. The old VM's separate WireGuard tunnel (to an AWS
+  reverse proxy, unused since about 2026-07-30) is retired with it; to
+  bring it back, rebuild it on the Docker host with the mark restore its
+  rules lacked (`meta mark set ct mark`) and an Elastic IP on the AWS side.
+- [ ] **DHCP: Kea replaces the dnsmasq VM.** Staged in `docker/kea/` (see its
+  README): Kea 3.2 on the Docker host, every VLAN relayed to it by the
+  firewall, the site's subnets and reservations in a file on the host only.
+  `tools/dnsmasq_to_kea.py` converts dnsmasq's config and leases (tested on
+  a synthetic setup, and Kea 3.2.1 accepts its output). Needs: the dnsmasq
+  config files and leases file, and the firewall's firmware version. Then
+  phase 2 (Stork and a reservations database) and phase 3 (an HA partner,
+  lease names into DNS).
 - [ ] **Delete the three old Docker hosts** (all powered off on 2026-10-03,
   nothing in the cluster refers to them), from about 2026-10-17:
   - the one that ran NPM and mealie;
@@ -93,6 +113,10 @@ nothing here tracks them.
   the nodes got `eth1` MetalLB may also answer for service addresses on the
   management network. Add `interfaces: [eth0]`; check first how `generate`
   treats the file (change the live object and recapture, or hand-edit).
+- [ ] **One Proxmox host carries both Pi-hole and the Docker VM**, so its
+  reboot takes DNS, DHCP (once Kea is live), the VPN and Vaultwarden down
+  together. A second Pi-hole and a Kea HA partner on other hosts would fix
+  that.
 - [ ] **The Vaultwarden secret stores didn't recover by themselves** after
   Vaultwarden's move on 2026-10-03, despite `refreshInterval: 1m`: they
   stayed `InvalidProviderConfig` until the recheck annotation
