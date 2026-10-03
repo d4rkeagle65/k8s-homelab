@@ -1,0 +1,23 @@
+# mealie's database: two copies on the workers' local disks (local-db), so it
+# survives losing a worker. CloudNativePG puts the app user's credentials in
+# the mealie-postgres-app Secret.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: mealie-postgres
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  affinity:
+    podAntiAffinityType: preferred
+  enablePDB: true
+  enableSuperuserAccess: false
+  bootstrap:
+    initdb:
+      database: mealie
+      owner: app
+  storage:
+    size: 2Gi
+    storageClass: local-db
