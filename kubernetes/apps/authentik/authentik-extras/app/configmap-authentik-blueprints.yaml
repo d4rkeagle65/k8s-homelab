@@ -21,6 +21,11 @@ data:
         client_type: confidential
         client_id: dockhand
         client_secret: !Env DOCKHAND_OIDC_CLIENT_SECRET
+        # A provider made by a blueprint or the API starts with none, and
+        # Authentik then rejects every login ("Invalid grant_type").
+        grant_types:
+        - authorization_code
+        - refresh_token
         redirect_uris:
         - matching_mode: strict
           url: https://dockhand.${BASE_DOMAIN}/api/auth/oidc/callback
