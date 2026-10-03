@@ -1,0 +1,117 @@
+# One replica, replaced rather than rolled (Recreate): only one pod at a time
+# should use the files volume. Logins go through Authentik (OIDC); the mealie
+# provider and the "Mealie Users"/"Mealie Admins" groups are set up in
+# Authentik's UI. /login?direct=1 shows mealie's own login form.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mealie
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mealie
+  template:
+    metadata:
+      labels:
+        app: mealie
+    spec:
+      initContainers:
+      # mealie exits if its database isn't up when it starts.
+      - name: wait-for-db
+        image: ghcr.io/cloudnative-pg/postgresql:17.5
+        command:
+        - sh
+        - -c
+        - until pg_isready -h mealie-postgres-rw -p 5432; do echo waiting for database; sleep 2; done
+      containers:
+      - name: mealie
+        image: ghcr.io/mealie-recipes/mealie:v3.20.1
+        ports:
+        - name: http
+          containerPort: 9000
+        env:
+        - name: ALLOW_SIGNUP
+          value: "false"
+        # Its entrypoint starts as root, gives /app/data to this user, then
+        # drops to it.
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: ${TIMEZONE}
+        - name: BASE_URL
+          value: https://mealie.${BASE_DOMAIN}
+        - name: DB_ENGINE
+          value: postgres
+        - name: POSTGRES_SERVER
+          value: mealie-postgres-rw
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: mealie
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: mealie-postgres-app
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mealie-postgres-app
+              key: password
+        - name: OIDC_AUTH_ENABLED
+          value: "true"
+        - name: OIDC_SIGNUP_ENABLED
+          value: "true"
+        - name: OIDC_CONFIGURATION_URL
+          value: https://auth.${BASE_DOMAIN}/application/o/mealie/.well-known/openid-configuration
+        - name: OIDC_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: mealie-oidc
+              key: client-id
+        - name: OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mealie-oidc
+              key: client-secret
+        - name: OIDC_USER_GROUP
+          value: Mealie Users
+        - name: OIDC_ADMIN_GROUP
+          value: Mealie Admins
+        - name: OIDC_AUTO_REDIRECT
+          value: "true"
+        - name: OIDC_REMEMBER_ME
+          value: "true"
+        - name: OIDC_PROVIDER_NAME
+          value: HSN EntraID
+        readinessProbe:
+          httpGet:
+            path: /api/app/about
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /api/app/about
+            port: http
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources:
+          requests:
+            cpu: 50m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: mealie-data

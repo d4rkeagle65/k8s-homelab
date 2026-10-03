@@ -1,0 +1,11 @@
+# mealie, moved into the cluster from a Docker host. Its data came across with
+# mealie's own backup and restore (Admin > Backups), which also carries it
+# from SQLite to Postgres.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- postgres.yaml
+- pvc.yaml
+- secret.yaml
+- deployment.yaml
+- service.yaml

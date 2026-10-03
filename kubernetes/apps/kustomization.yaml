@@ -17,6 +17,7 @@ resources:
 - immich
 - local-path-storage
 - manictime
+- mealie
 - media
 - metallb-system
 - mqtt
