@@ -5,7 +5,9 @@ kind: Kustomization
 resources:
 - certificate-ldap-authentik.yaml
 - cluster-authentik-postgres.yaml
+- configmap-authentik-blueprints.yaml
 - ingress-authentik-cloudflared.yaml
+- secret-authentik-dockhand-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml
 - secret-authentik-secret-key.yaml
 - secret-redis-password.yaml

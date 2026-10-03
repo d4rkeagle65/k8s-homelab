@@ -109,6 +109,19 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
   babybuddy's `/api` is one. Keep `bb`'s tunnel route on port 80, or `/api`
   becomes reachable through the tunnel.
 
+## Authentik
+
+- **New Authentik apps are blueprints** in the `authentik-blueprints`
+  ConfigMap (`apps/authentik/authentik-extras/app/`), which Authentik's
+  worker mounts (`blueprints.configMaps` in `authentik/app/values.yaml`).
+  Authentik reapplies them, reverting UI edits to what they set. Apps made
+  before Dockhand's were made in the UI and live only in Authentik's database.
+- **A client secret never goes in a blueprint.** It's a Secret in
+  `authentik-extras` (its value a base64 Vaultwarden field, as for every
+  promoted Secret), passed to the worker as an env var (`worker.env`, without
+  the `AUTHENTIK_` prefix, which Authentik reads as its own settings) and read
+  with `!Env`.
+
 ## Cluster DNS
 
 - **The cluster domain itself starts with `svc.`**, and `${CLUSTER_DOMAIN}`
