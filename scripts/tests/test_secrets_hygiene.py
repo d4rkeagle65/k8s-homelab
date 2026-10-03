@@ -291,6 +291,15 @@ def test_no_public_ip_addresses(repo_root, all_yaml_files, load_yaml, allowlist)
     )
 
 
+def test_shared_address_space_is_private():
+    """RFC 6598 space (carrier-grade NAT, Tailscale's tailnet) isn't routed
+    on the internet, so allowing it (Traefik's private-networks) is fine."""
+    assert ss.classify_ip("100.64.0.0") == "private"
+    assert ss.classify_ip("100.127.255.254") == "private"
+    assert ss.classify_ip("100.128.0.1") == "public"
+    assert ss.classify_ip("100.63.255.255") == "public"
+
+
 _PLACEHOLDER_RE = re.compile(r"^\$\{[A-Za-z_][A-Za-z0-9_]*\}$")
 _HOSTNAME_LABEL = "kubernetes.io/hostname"
 # local-path-provisioner's catch-all entry; a keyword, not a node.

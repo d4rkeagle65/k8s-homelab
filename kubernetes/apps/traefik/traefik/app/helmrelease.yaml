@@ -190,9 +190,12 @@ spec:
             X-authentik-meta-provider: ""
             X-authentik-meta-app: ""
             X-authentik-meta-version: ""
-    # Private (RFC 1918) source addresses only: the LAN and the cluster's own
-    # pods. Checks the connection's address, not X-Forwarded-For, so it can't
-    # be spoofed; externalTrafficPolicy: Local keeps LAN clients' addresses.
+    # Private source addresses only: the LAN and the cluster's own pods
+    # (RFC 1918), and the tailnet (100.64.0.0/10). Tailscale's subnet router
+    # forwards without source NAT, so tailnet clients arrive with their own
+    # 100.x addresses; only devices logged in to the tailnet have those.
+    # Checks the connection's address, not X-Forwarded-For, so it can't be
+    # spoofed; externalTrafficPolicy: Local keeps clients' addresses.
     # It does NOT keep out the Cloudflare tunnel, whose requests come from the
     # cloudflared pod. For a private-only route, also limit it to websecure
     # (traefik.ingress.kubernetes.io/router.entrypoints): the tunnel reaches
@@ -209,6 +212,7 @@ spec:
           - 10.0.0.0/8
           - 172.16.0.0/12
           - 192.168.0.0/16
+          - 100.64.0.0/10
     # Plain TCP (STARTTLS passes through to the relay, which holds the
     # certificate). In the relay's namespace: the CRD provider doesn't
     # follow references across namespaces.

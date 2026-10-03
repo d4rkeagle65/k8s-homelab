@@ -108,7 +108,7 @@ here: it lives on the host, so Dockhand never manages itself.
   `vaultwarden-direct.<domain>` (a hand-made Pi-hole record) and Vaultwarden's
   own HTTPS. The CLI refuses plain HTTP. The certificate comes from
   cert-manager; `scripts/vaultwarden-cert-sync.sh` copies it to the host.
-- **A private-only route** (LAN and cluster, never the internet) gets both:
+- **A private-only route** (LAN, cluster and tailnet, never the internet) gets both:
   - `traefik.ingress.kubernetes.io/router.entrypoints: websecure`, because the
     tunnel reaches that host on port 80;
   - `traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd`.
