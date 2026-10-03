@@ -18,6 +18,11 @@ spec:
     initdb:
       database: mealie
       owner: app
+      # mealie's backup restore starts with SET session_replication_role,
+      # which only a superuser may set unless granted. This runs once, when
+      # the database is first created; the live one got it by hand.
+      postInitApplicationSQL:
+      - GRANT SET ON PARAMETER session_replication_role TO app
   storage:
     size: 2Gi
     storageClass: local-db

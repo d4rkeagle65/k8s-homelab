@@ -24,24 +24,16 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Move mealie into the cluster**, off its Docker host: a hand-written
-  app with a CloudNativePG database and an NFS volume for its files, moved
-  with mealie's own backup and restore. Then remove `external-services/mealie.yaml`
-  and the `MEALIE_ADDRESS` field. Authentik's mealie provider stays as it is,
-  since the address users see doesn't change.
-- [ ] **Retire NPM, the old dockhand and the old Vaultwarden host**, now that
-  everything they served runs on the new Docker host or through Traefik.
-  Nothing in the cluster refers to any of them.
-  1. **NPM** (on the Docker host that also runs mealie): it serves nothing
-     now, so stop it, then delete its Pi-hole address record and the
-     `npm.<domain>` CNAME. No other record points at it. Once mealie is in
-     the cluster, that whole Docker host can go.
-  2. **The old dockhand** (a container on the management network): stop it,
-     and the container too if nothing else runs there.
-  3. **The old Vaultwarden host** (Debian 11, no security updates since
-     2026-08-31): shut it down and turn off start at boot, but keep it as
-     the fallback copy of the vault. Delete it from about 2026-10-17, with
-     its Pi-hole records (its own name, and a stale Firefly III one).
+- [ ] **Delete the three old Docker hosts** (all powered off on 2026-10-03,
+  nothing in the cluster refers to them), from about 2026-10-17:
+  - the one that ran NPM and mealie;
+  - the old dockhand's container on the management network;
+  - the old Vaultwarden host (Debian 11). Keep it until then: it holds the
+    fallback copy of the vault.
+
+  Then delete their Pi-hole records: NPM's address record and the
+  `npm.<domain>` CNAME, the old Vaultwarden host's own record and a stale
+  Firefly III one, and any for the other two hosts.
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
   Released PVs of the 9 moved databases, all of `media-test`,
@@ -119,6 +111,18 @@ nothing here tracks them.
   are still forwarded and untested.
 
 ## Done
+
+- 2026-10-03: mealie moved into the cluster (`apps/mealie/`, hand-written),
+  from SQLite on a Docker host to a CloudNativePG database with two copies,
+  with its files on NFS. Moved with mealie's own backup and restore; logins
+  still go through Authentik, at the same address. Two snags:
+  - **Restore needs `SET session_replication_role`**, which only a superuser
+    may set; the database's `app` user was granted just that parameter
+    (also in `postgres.yaml`, for a rebuilt database).
+  - **Restart mealie after a restore**: the restore replaces its signing
+    key file, and until a restart every login loops back to Authentik.
+
+  NPM, the old dockhand and the three old Docker hosts are powered off.
 
 - 2026-10-03: Vaultwarden moved to the new Docker host (a Debian 13 VM on the
   Proxmox cluster). Dockhand deploys it from `docker/vaultwarden/` as a Git
