@@ -33,6 +33,42 @@ from a container with host networking (`compose.yaml`).
      devices reach them through it;
    - forward UDP 41641 to the host, for direct connections.
 
+## Keys that don't expire
+
+An auth key (90 days at most) is only used to register the node: with
+`TS_AUTH_ONCE` and the state in `/opt/tailscale`, later starts log in with
+the node's own key. That key expires too (180 days by default), unless the
+node is tagged or has key expiry disabled in the admin console.
+
+Hands-off, which also survives losing `/opt/tailscale`:
+
+1. Create an OAuth client (Settings > OAuth clients) with the `auth_keys`
+   write scope and the tag, e.g. `tag:subnet-router`. Its secret doesn't
+   expire.
+2. In the policy file: `tagOwners` for the tag, and `autoApprovers` for the
+   advertised subnets and `exitNode`, so the node's routes need no clicks.
+3. Set `TS_TAGS` to the tag and `TS_AUTHKEY` to the client secret with
+   `?ephemeral=false&preauthorized=true` appended.
+
+A tagged node is owned by the tag, not a user; that only matters to access
+rules that name users as the source of its traffic.
+
+## Changing its flags later
+
+`TS_EXTRA_ARGS` (and so `TS_TAGS`) only applies when the node registers;
+later starts reapply just `TS_ROUTES` and `TS_HOSTNAME`. To change another
+flag on a running node:
+
+```sh
+docker exec tailscale tailscale set --accept-routes=false
+```
+
+Tags can't be changed that way. Either remove the node from the tailnet,
+empty `/opt/tailscale` and redeploy with the new `TS_TAGS`, or re-register
+in place (`docker exec tailscale tailscale up --force-reauth
+--auth-key=<key> --advertise-tags=<tags>` with the same flags as
+`TS_EXTRA_ARGS`).
+
 ## Cutover
 
 The firewall's 100.64.0.0/10 route has one target, so the old and new
