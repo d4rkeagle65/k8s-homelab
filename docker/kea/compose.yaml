@@ -1,0 +1,27 @@
+# Kea DHCPv4 on the Docker host, deployed by Dockhand from this folder (a Git
+# stack). It replaces the dnsmasq DHCP VM. Every client is on a VLAN the host
+# isn't on, so the firewall relays all requests here (DHCP relay): plain
+# unicast UDP, which works through a published port without host networking.
+#
+# kea-dhcp4.conf (here) holds what's the same everywhere. Subnets, pools,
+# options and reservations are in /opt/kea/site/site.json on the host, with
+# the API credentials: they're full of addresses, MACs and hostnames, so they
+# never go in this public repo. See README.md.
+#
+# Variables (set in the stack's environment in Dockhand):
+#   KEA_DHCP_ADDRESS   the host address the firewall relays to
+#   KEA_API_ADDRESS    the host address for Kea's API (the management one)
+services:
+  kea-dhcp4:
+    image: docker.cloudsmith.io/isc/docker/kea-dhcp4:3.2.1
+    container_name: kea-dhcp4
+    restart: unless-stopped
+    ports:
+    - ${KEA_DHCP_ADDRESS}:67:67/udp
+    - ${KEA_API_ADDRESS}:8000:8000
+    volumes:
+    # Relative to this folder in Dockhand's clone, which sits at the same
+    # path on the host.
+    - ./kea-dhcp4.conf:/etc/kea/kea-dhcp4.conf:ro
+    - /opt/kea/site:/etc/kea/site:ro
+    - /opt/kea/lib:/var/lib/kea

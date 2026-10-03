@@ -28,8 +28,10 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
 cluster: Dockhand deploys each folder as a Git stack, and Flux never reads it.
 The no-real-values rule applies here too, with `${VARIABLE}`s that are set in
 the stack's environment in Dockhand (credentials marked secret). Data stays
-in bind mounts on the host, never in git. Dockhand's own compose file isn't
-here: it lives on the host, so Dockhand never manages itself.
+in bind mounts on the host, never in git, and so does config that's mostly
+addresses (Kea's subnets and reservations; see `docker/kea/README.md`).
+Dockhand's own compose file isn't here: it lives on the host, so Dockhand
+never manages itself.
 
 ## Rules
 
