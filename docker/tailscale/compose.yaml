@@ -4,16 +4,19 @@
 # lives in /opt/tailscale, so the auth key is only used on the first start.
 #
 # Variables (set in the stack's environment in Dockhand):
-#   TS_AUTHKEY      auth key from the admin console (Settings > Keys), secret
+#   TS_AUTHKEY      secret: an auth key (Settings > Keys), or an OAuth
+#                   client's secret with ?ephemeral=false&preauthorized=true
+#                   appended, which never expires (needs TS_TAGS)
+#   TS_TAGS         optional: tags to register with, e.g. tag:subnet-router.
+#                   A tagged node's key never expires, and the policy file's
+#                   autoApprovers can approve its routes and exit node.
 #   TS_HOSTNAME     the machine name it shows in the tailnet
 #   TS_ROUTES       subnets to advertise, comma-separated
-#   TS_EXTRA_ARGS   optional; defaults to advertising the exit node,
-#                   forwarding without source NAT and without stateful
-#                   filtering (replies to tailnet clients come back through
-#                   the firewall, not the connection Tailscale saw), and
-#                   accepting other subnet routers' routes (LAN devices
-#                   reach those subnets through this node). Add
-#                   --advertise-tags=tag:<name> here if the tailnet uses tags.
+#
+# Its fixed flags: advertise the exit node; forward without source NAT and
+# without stateful filtering (replies to tailnet clients come back through
+# the firewall, not the connection Tailscale saw); accept other subnet
+# routers' routes (LAN devices reach those subnets through this node).
 #
 # No source NAT: LAN hosts see tailnet clients' own 100.x addresses, and the
 # firewall routes 100.64.0.0/10 back to this host (avoiding triangular
@@ -41,7 +44,9 @@ services:
       TS_USERSPACE: "false"
       TS_HOSTNAME: ${TS_HOSTNAME}
       TS_ROUTES: ${TS_ROUTES}
-      TS_EXTRA_ARGS: ${TS_EXTRA_ARGS:---advertise-exit-node --snat-subnet-routes=false --stateful-filtering=false --accept-routes}
+      # Applied when the node registers. Later starts only reapply
+      # TS_ROUTES and TS_HOSTNAME; see README.md to change the rest.
+      TS_EXTRA_ARGS: --advertise-exit-node --snat-subnet-routes=false --stateful-filtering=false --accept-routes --advertise-tags=${TS_TAGS:-}
       # The port the firewall forwards here.
       TS_TAILSCALED_EXTRA_ARGS: --port=41641
       # The host keeps using Pi-hole; don't let MagicDNS take over its DNS.
