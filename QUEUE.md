@@ -24,24 +24,24 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **New Docker host: move Vaultwarden to it, then retire NPM and the old
-  Vaultwarden host.** The new host is a Debian 13 VM on the Proxmox cluster;
-  the old one runs Debian 11, which has had no security updates since
-  2026-08-31. The VM is built (Docker CE, guest agent, automatic security
-  updates) and dockhand already runs there (see Done).
-  1. **Vaultwarden:**
-     - deploy it from `docker/vaultwarden/` as a Dockhand Git stack, with
-       its data copied from the old host's `vaultwarden-data` volume to
-       `/opt/vaultwarden/data` (stopped first, so SQLite copies cleanly);
-     - set up `scripts/vaultwarden-cert-sync.sh` there (config dir and daily
-       cron), and remove it from the old host;
-     - repoint the hand-made `vaultwarden-direct.<domain>` Pi-hole record at
-       the VM.
-
-     The Traefik route and the `bitwarden-cli` pod both use that name, so
-     nothing in git changes. Afterwards, check that `cluster-secrets` still
-     syncs.
-  2. Retire NPM and the old Vaultwarden host.
+- [ ] **Move mealie into the cluster**, off its Docker host: a hand-written
+  app with a CloudNativePG database and an NFS volume for its files, moved
+  with mealie's own backup and restore. Then remove `external-services/mealie.yaml`
+  and the `MEALIE_ADDRESS` field. Authentik's mealie provider stays as it is,
+  since the address users see doesn't change.
+- [ ] **Retire NPM, the old dockhand and the old Vaultwarden host**, now that
+  everything they served runs on the new Docker host or through Traefik.
+  Nothing in the cluster refers to any of them.
+  1. **NPM** (on the Docker host that also runs mealie): it serves nothing
+     now, so stop it, then delete its Pi-hole address record and the
+     `npm.<domain>` CNAME. No other record points at it. Once mealie is in
+     the cluster, that whole Docker host can go.
+  2. **The old dockhand** (a container on the management network): stop it,
+     and the container too if nothing else runs there.
+  3. **The old Vaultwarden host** (Debian 11, no security updates since
+     2026-08-31): shut it down and turn off start at boot, but keep it as
+     the fallback copy of the vault. Delete it from about 2026-10-17, with
+     its Pi-hole records (its own name, and a stale Firefly III one).
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
   Released PVs of the 9 moved databases, all of `media-test`,
@@ -60,7 +60,12 @@ nothing here tracks them.
 
 ## Cleanup
 
-
+- [ ] **New Docker host's `/opt` disk:** tick Discard and SSD emulation on it
+  in Proxmox (added without them, so space freed in the VM never goes back
+  to the pool). It takes effect after a stop and start from Proxmox; the
+  apps come back by themselves.
+- [ ] **Delete `/opt.old` on the new Docker host** (the copy left when `/opt`
+  moved to its own disk), from about 2026-10-06.
 - [ ] **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
@@ -96,6 +101,12 @@ nothing here tracks them.
   the nodes got `eth1` MetalLB may also answer for service addresses on the
   management network. Add `interfaces: [eth0]`; check first how `generate`
   treats the file (change the live object and recapture, or hand-edit).
+- [ ] **The Vaultwarden secret stores didn't recover by themselves** after
+  Vaultwarden's move on 2026-10-03, despite `refreshInterval: 1m`: they
+  stayed `InvalidProviderConfig` until the recheck annotation
+  (`kubectl annotate clustersecretstore <name> homelab.local/revalidate=<time> --overwrite`).
+  Find out whether External Secrets rechecks a store that's already invalid,
+  or only valid ones, and make recovery automatic.
 - [ ] **Pi-hole's `local=` lines** (`misc.dnsmasq_lines`) for the main and
   management local domains (added 2026-10-01 and 2026-10-03) stop Pi-hole
   forwarding them to their DHCP servers, which don't answer DNS at all. Any
@@ -108,6 +119,22 @@ nothing here tracks them.
   are still forwarded and untested.
 
 ## Done
+
+- 2026-10-03: Vaultwarden moved to the new Docker host (a Debian 13 VM on the
+  Proxmox cluster). Dockhand deploys it from `docker/vaultwarden/` as a Git
+  stack, with credentials as Dockhand secret variables.
+  - **Storage:** `/opt` on the VM is its own virtual disk, holding the apps'
+    data (Vaultwarden's vault, dockhand's database), and Docker won't start
+    without it mounted.
+  - **Certificate:** `scripts/vaultwarden-cert-sync.sh` runs there daily from
+    cron.
+  - **Cutover:** about 20 minutes of downtime. The old instance was stopped,
+    its data volume copied, then `vaultwarden-direct.<domain>` repointed in
+    Pi-hole. The data was checked (same instance key and database) before
+    the switch.
+  - **Also fixed:** `SSO_SCOPES` carried literal quotes in the old compose
+    file, so Vaultwarden never got refresh tokens from Authentik, and token
+    debug logging is off.
 
 - 2026-10-03: Pi-hole drops HTTPS-type DNS records (`filter-rr=HTTPS` in
   `misc.dnsmasq_lines`). It used to pass Cloudflare's record through for the
