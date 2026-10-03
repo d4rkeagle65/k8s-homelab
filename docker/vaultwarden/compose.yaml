@@ -1,0 +1,50 @@
+# Vaultwarden on the Docker host, deployed by Dockhand from this folder (a
+# Git stack), not by Flux. Each variable below is set in the stack's
+# environment in Dockhand. Mark the credentials as secrets there: Dockhand passes
+# them to compose directly, never through a .env file, so a value containing
+# `$` (an argon2 ADMIN_TOKEN) arrives intact.
+#
+# Vaultwarden serves HTTPS itself on 443. scripts/vaultwarden-cert-sync.sh
+# (cron, daily) copies cert-manager's certificate into /opt/vaultwarden/ssl
+# and restarts the container when it changes. The cluster's bitwarden-cli pod
+# connects straight here (vaultwarden-direct.<domain>), never through
+# Traefik, and refuses plain HTTP; see
+# kubernetes/apps/external-services/external-services/app/vaultwarden.yaml.
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.37.2
+    container_name: vaultwarden
+    restart: unless-stopped
+    ports:
+    # The host's main-network address only, not its management one.
+    - ${VAULTWARDEN_BIND_ADDRESS}:443:443
+    volumes:
+    - /opt/vaultwarden/data:/data
+    - /opt/vaultwarden/ssl:/ssl:ro
+    environment:
+      ROCKET_TLS: '{certs="/ssl/tls.crt",key="/ssl/tls.key"}'
+      ROCKET_PORT: "443"
+      DOMAIN: ${DOMAIN}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      SIGNUPS_ALLOWED: "false"
+      SIGNUPS_DOMAINS_WHITELIST: ${SIGNUPS_DOMAINS_WHITELIST}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: "8025"
+      SMTP_SECURITY: starttls
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SSO_ENABLED: "true"
+      SSO_ONLY: "false"
+      SSO_AUTHORITY: ${SSO_AUTHORITY}
+      SSO_CLIENT_ID: ${SSO_CLIENT_ID}
+      SSO_CLIENT_SECRET: ${SSO_CLIENT_SECRET}
+      SSO_SCOPES: openid email profile offline_access
+      SSO_SIGNUPS_MATCH_EMAIL: "true"
+      SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: "false"
+      SSO_CLIENT_CACHE_EXPIRATION: "0"
+      # Authentik, smtp-relay and LAN sites' icons have private addresses,
+      # which Vaultwarden refuses to contact by default.
+      HTTP_REQUEST_BLOCK_NON_GLOBAL_IPS: "false"
+      ICON_BLACKLIST_NON_GLOBAL_IPS: "false"
+      LOG_LEVEL: info
