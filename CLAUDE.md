@@ -64,6 +64,17 @@ default), `.handwritten`, or `.promote`; `scripts/README.md` explains each.
   devices or iSCSI. Longhorn was tried and uninstalled for that reason; don't
   propose it or other block-storage CSIs.
 
+## Node networking
+
+- Each node has `eth0` on the main network (default route) and `eth1` on the
+  management network (no gateway), so pods can reach management-only hosts
+  such as dockhand's.
+- **Calico must stay pinned to `eth0`.** Its operator's Installation
+  `default` has `nodeAddressAutodetectionV4: {interface: eth0}`, set by hand
+  (Calico isn't in git). With the default `firstFound`, Calico picked `eth1`
+  and moved all pod-to-pod traffic onto the management network. kube-vip is
+  pinned to `eth0` too.
+
 ## Ingress
 
 - Apps use the `traefik` IngressClass. `traefik-isolated` has its own address

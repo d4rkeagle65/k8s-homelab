@@ -24,15 +24,12 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **New Docker host: move Vaultwarden and dockhand to it, then retire NPM
-  and the old Vaultwarden host.** The new host is a Debian 13 VM on the
-  Proxmox cluster; the old one runs Debian 11, which has had no security
-  updates since 2026-08-31.
-  1. On the VM: install Docker CE and the Compose plugin from Docker's apt
-     repository, plus `qemu-guest-agent`, `unattended-upgrades`, `curl` and
-     `jq`. Check that the k8s workers can reach it on 443 and on dockhand's
-     port (a firewall blocked the old dockhand host).
-  2. **Vaultwarden:**
+- [ ] **New Docker host: move Vaultwarden to it, then retire NPM and the old
+  Vaultwarden host.** The new host is a Debian 13 VM on the Proxmox cluster;
+  the old one runs Debian 11, which has had no security updates since
+  2026-08-31. The VM is built (Docker CE, guest agent, automatic security
+  updates) and dockhand already runs there (see Done).
+  1. **Vaultwarden:**
      - move its data, with the same `ROCKET_TLS`/443 setup;
      - set up `scripts/vaultwarden-cert-sync.sh` there (config dir and daily
        cron), and remove it from the old host;
@@ -42,10 +39,7 @@ nothing here tracks them.
      The Traefik route and the `bitwarden-cli` pod both use that name, so
      nothing in git changes. Afterwards, check that `cluster-secrets` still
      syncs.
-  3. **dockhand:** run it on the VM, add it to `apps/external-services/` like
-     `mealie.yaml` (with a `DOCKHAND_ADDRESS` Vaultwarden field), then delete
-     its NPM CNAME in Pi-hole.
-  4. Retire NPM and the old Vaultwarden host.
+  2. Retire NPM and the old Vaultwarden host.
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
   Released PVs of the 9 moved databases, all of `media-test`,
@@ -91,6 +85,15 @@ nothing here tracks them.
     `6.14.11-4` (keep `6.14.11-9` as the fallback): `/boot` is only 456 MB.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
+- [ ] **SSH to the k8s nodes only from the management network.** Each node
+  now has a management-network interface (`eth1`), so sshd can listen there
+  only, or a firewall can limit port 22 to it. Keep Calico on `eth0` (see
+  CLAUDE.md).
+- [ ] **MetalLB: announce only on `eth0`.** The L2Advertisement
+  (`cluster/l2advertisement.metallb.io/`) has no `interfaces` list, so since
+  the nodes got `eth1` MetalLB may also answer for service addresses on the
+  management network. Add `interfaces: [eth0]`; check first how `generate`
+  treats the file (change the live object and recapture, or hand-edit).
 - [ ] **Pi-hole's `local=/<local domain>/` line** (`misc.dnsmasq_lines`, added
   2026-10-01) stops Pi-hole forwarding that domain to the DHCP server, which
   wasn't answering; that fixed Vaultwarden SSO and the `bitwarden-cli`
@@ -99,6 +102,23 @@ nothing here tracks them.
   answer, then remove the line.
 
 ## Done
+
+- 2026-10-03: dockhand moved to the new Docker host, served through Traefik
+  at `dockhand.<domain>` (`apps/external-services/dockhand.yaml`). It
+  listens only on the host's management-network address, and
+  `DOCKHAND_ADDRESS` is that address's hand-made Pi-hole name. Its NPM CNAME
+  was deleted.
+  - The host is on both networks, with source-based routing for its
+    management address. Replies from Docker containers come from the
+    container's own address, so the host also marks connections that arrive
+    on the management interface and routes their replies back out of it.
+
+- 2026-10-03: The k8s nodes got a second interface (`eth1`) on the management
+  network, with no gateway, so pods can reach management-only hosts. Calico
+  re-detects node addresses every minute with `firstFound`, picked `eth1`, and
+  moved all pod-to-pod traffic onto the management network. It's now pinned
+  to `eth0` (see CLAUDE.md); the change restarted Calico one node at a time
+  with no failures.
 
 - 2026-10-02: Upgraded the four Proxmox hosts from VE 9.0.15 to 9.2.21 (kernel
   6.14 to 7.0.14-20, ZFS 2.4.4), rolling one host at a time.
