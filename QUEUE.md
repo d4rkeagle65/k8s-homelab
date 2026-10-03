@@ -24,18 +24,6 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Tailscale onto the Docker host**, retiring its VM. Staged in
-  `docker/tailscale/` (see its README): host networking, kernel mode, the
-  same subnet routes and exit node, no source NAT (as now). Needs: the old
-  node's advertised routes and an auth key; the host's two
-  management-routing rules moved after Tailscale's (priorities above 5270);
-  firewall rules letting the host reach every advertised subnet; at
-  cutover, the firewall's 100.64.0.0/10 route, its route to the travel
-  router's subnet (accepted from the tailnet) and the UDP 41641 forward
-  moved to the host. The old VM's separate WireGuard tunnel (to an AWS
-  reverse proxy, unused since about 2026-07-30) is retired with it; to
-  bring it back, rebuild it on the Docker host with the mark restore its
-  rules lacked (`meta mark set ct mark`) and an Elastic IP on the AWS side.
 - [ ] **DHCP: Kea replaces the dnsmasq VM.** Staged in `docker/kea/` (see its
   README): Kea 3.2 on the Docker host, every VLAN relayed to it by the
   firewall, the site's subnets and reservations in a file on the host only.
@@ -44,16 +32,21 @@ nothing here tracks them.
   config files and leases file, and the firewall's firmware version. Then
   phase 2 (Stork and a reservations database) and phase 3 (an HA partner,
   lease names into DNS).
-- [ ] **Delete the three old Docker hosts** (all powered off on 2026-10-03,
-  nothing in the cluster refers to them), from about 2026-10-17:
+- [ ] **Delete the old hosts** (all retired on 2026-10-03, nothing in the
+  cluster refers to them), from about 2026-10-17:
   - the one that ran NPM and mealie;
   - the old dockhand's container on the management network;
   - the old Vaultwarden host (Debian 11). Keep it until then: it holds the
-    fallback copy of the vault.
+    fallback copy of the vault;
+  - the old Tailscale container in the DMZ (also the end of its unused AWS
+    WireGuard tunnel). Its node is already removed from the tailnet; keep
+    `tailscaled` disabled if it's ever started, since two routers for the
+    same subnets break the Docker host's own routing.
 
   Then delete their Pi-hole records: NPM's address record and the
   `npm.<domain>` CNAME, the old Vaultwarden host's own record and a stale
-  Firefly III one, and any for the other two hosts.
+  Firefly III one, and any for the other hosts. If the AWS instance still
+  exists, stop or terminate it, and drop the DNS name that pointed at it.
 - [ ] **Permanently delete the old PV folders on the Synology** (from about
   2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
   Released PVs of the 9 moved databases, all of `media-test`,
@@ -135,6 +128,22 @@ nothing here tracks them.
   are still forwarded and untested.
 
 ## Done
+
+- 2026-10-03: Tailscale moved onto the Docker host (`docker/tailscale/`),
+  replacing the old container in the DMZ: the same subnet routes and exit
+  node, no source NAT, accepting the travel router's route. Tagged and
+  registered with an OAuth client, so no key expires. See its README; the
+  lessons:
+  - **The host's DMZ leg carries everything the node forwards**, so the
+    firewall still sees both directions; a host sitting on the main and
+    management networks would otherwise route around it.
+  - **The two nodes can't run at once**: with `--accept-routes`, the old
+    node's routes for the host's own subnets would take over its routing.
+    The deploy was the cutover.
+  - **Docker's FORWARD DROP** blocked everything forwarded until two
+    `DOCKER-USER` rules (`tailscale0` to and from the DMZ leg) went in.
+  - **A firewall connection object with an explicit next hop** overrode the
+    route to the travel router; it now points at the host too.
 
 - 2026-10-03: mealie moved into the cluster (`apps/mealie/`, hand-written),
   from SQLite on a Docker host to a CloudNativePG database with two copies,
