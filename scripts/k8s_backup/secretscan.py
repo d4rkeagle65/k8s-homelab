@@ -199,6 +199,8 @@ IPV4_CANDIDATE_RE = re.compile(
 # scanning under keys that are conventionally a version/tag, not a host.
 IP_SAFE_KEY_NAMES = {"tag", "version", "chartversion", "appversion", "revision", "imagetag"}
 
+_SHARED_ADDRESS_SPACE = ipaddress.ip_network("100.64.0.0/10")
+
 
 def classify_ip(candidate: str) -> str | None:
     """Return 'private', 'public', 'reserved', or None if not a valid IP."""
@@ -207,6 +209,11 @@ def classify_ip(candidate: str) -> str | None:
     except ValueError:
         return None
     if addr.is_loopback or addr.is_link_local or addr.is_private:
+        return "private"
+    # Shared address space (RFC 6598): carrier-grade NAT, and Tailscale's
+    # tailnet addresses. Not routed on the internet, though Python's
+    # is_private leaves it out.
+    if addr.version == 4 and addr in _SHARED_ADDRESS_SPACE:
         return "private"
     if addr.is_reserved or addr.is_multicast or addr.is_unspecified:
         return "reserved"
