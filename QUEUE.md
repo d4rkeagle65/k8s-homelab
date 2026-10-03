@@ -30,7 +30,9 @@ nothing here tracks them.
   2026-08-31. The VM is built (Docker CE, guest agent, automatic security
   updates) and dockhand already runs there (see Done).
   1. **Vaultwarden:**
-     - move its data, with the same `ROCKET_TLS`/443 setup;
+     - deploy it from `docker/vaultwarden/` as a Dockhand Git stack, with
+       its data copied from the old host's `vaultwarden-data` volume to
+       `/opt/vaultwarden/data` (stopped first, so SQLite copies cleanly);
      - set up `scripts/vaultwarden-cert-sync.sh` there (config dir and daily
        cron), and remove it from the old host;
      - repoint the hand-made `vaultwarden-direct.<domain>` Pi-hole record at
@@ -94,14 +96,32 @@ nothing here tracks them.
   the nodes got `eth1` MetalLB may also answer for service addresses on the
   management network. Add `interfaces: [eth0]`; check first how `generate`
   treats the file (change the live object and recapture, or hand-edit).
-- [ ] **Pi-hole's `local=/<local domain>/` line** (`misc.dnsmasq_lines`, added
-  2026-10-01) stops Pi-hole forwarding that domain to the DHCP server, which
-  wasn't answering; that fixed Vaultwarden SSO and the `bitwarden-cli`
-  restarts. Side effect: hostnames only the DHCP server knows no longer
-  resolve. If those are needed, find why the DHCP server's DNS doesn't
-  answer, then remove the line.
+- [ ] **Pi-hole's `local=` lines** (`misc.dnsmasq_lines`) for the main and
+  management local domains (added 2026-10-01 and 2026-10-03) stop Pi-hole
+  forwarding them to their DHCP servers, which don't answer DNS at all. Any
+  lookup Pi-hole couldn't answer itself, typically the IPv6 lookup for a name
+  with only an IPv4 record, hung for seconds: that broke Vaultwarden SSO and
+  the `bitwarden-cli` pod, and made Traefik take 10 s per new connection to
+  dockhand. Side effect: hostnames only the DHCP servers know no longer
+  resolve. If those are needed, find why the DHCP servers' DNS doesn't
+  answer, then remove the lines. The other local domains (IoT, DMZ, work)
+  are still forwarded and untested.
 
 ## Done
+
+- 2026-10-03: Pi-hole drops HTTPS-type DNS records (`filter-rr=HTTPS` in
+  `misc.dnsmasq_lines`). It used to pass Cloudflare's record through for the
+  names that are both public (Cloudflare tunnel) and local (`auth`, `bb`,
+  `bb-mcp`), so browsers on the LAN tried HTTP/3 and Cloudflare's Encrypted
+  Client Hello against local Traefik and failed (`ERR_QUIC_PROTOCOL_ERROR`).
+  The cost: no Encrypted Client Hello for any site on the LAN.
+
+- 2026-10-03: dockhand logs in through Authentik (OIDC), defined as an
+  Authentik blueprint in git: the `authentik-blueprints` ConfigMap in
+  `authentik-extras` (see CLAUDE.md). Only `authentik Admins` may use it,
+  since dockhand's free edition makes every SSO user an admin. A provider
+  made by a blueprint starts with no grant types, so the blueprint sets
+  them. dockhand's local admin login stays as the fallback.
 
 - 2026-10-03: dockhand moved to the new Docker host, served through Traefik
   at `dockhand.<domain>` (`apps/external-services/dockhand.yaml`). It
