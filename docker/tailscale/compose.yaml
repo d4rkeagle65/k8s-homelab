@@ -18,12 +18,13 @@
 # the firewall, not the connection Tailscale saw); accept other subnet
 # routers' routes (LAN devices reach those subnets through this node).
 #
-# No source NAT: LAN hosts see tailnet clients' own 100.x addresses, and the
-# firewall routes 100.64.0.0/10 back to this host (avoiding triangular
-# routing), so Traefik's private-networks allows that range. It also
-# forwards UDP 41641 here for direct connections. The host needs IP
-# forwarding on and its management-address routing rules after Tailscale's
-# own; see README.md.
+# No source NAT: LAN hosts see tailnet clients' own 100.x addresses, so
+# Traefik's private-networks allows that range. To keep the firewall seeing
+# both directions of every connection (no triangular routing), the host
+# sends everything this node forwards out through its DMZ interface, and the
+# firewall routes 100.64.0.0/10 (and other tailnet routers' subnets) back to
+# that interface. The host needs that routing, IP forwarding, and its
+# management-address rules after Tailscale's own; see README.md.
 services:
   tailscale:
     image: tailscale/tailscale:v1.102.5
@@ -47,7 +48,8 @@ services:
       # Applied when the node registers. Later starts only reapply
       # TS_ROUTES and TS_HOSTNAME; see README.md to change the rest.
       TS_EXTRA_ARGS: --advertise-exit-node --snat-subnet-routes=false --stateful-filtering=false --accept-routes --advertise-tags=${TS_TAGS:-}
-      # The port the firewall forwards here.
+      # A fixed port for the encrypted tunnel; direct connections work
+      # through the firewall's NAT without a port forward.
       TS_TAILSCALED_EXTRA_ARGS: --port=41641
       # The host keeps using Pi-hole; don't let MagicDNS take over its DNS.
       TS_ACCEPT_DNS: "false"
