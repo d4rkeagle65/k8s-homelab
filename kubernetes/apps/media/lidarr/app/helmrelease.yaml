@@ -42,6 +42,11 @@ spec:
                 value: lidarr-main
               - name: LIDARR__POSTGRES__LOGDB
                 value: lidarr-log
+              - name: LIDARR__AUTH__APIKEY
+                valueFrom:
+                  secretKeyRef:
+                    name: lidarr
+                    key: api-key
             resources:
               requests:
                 cpu: 50m

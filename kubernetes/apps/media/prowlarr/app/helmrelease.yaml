@@ -42,6 +42,11 @@ spec:
                 value: prowlarr-main
               - name: PROWLARR__POSTGRES__LOGDB
                 value: prowlarr-log
+              - name: PROWLARR__AUTH__APIKEY
+                valueFrom:
+                  secretKeyRef:
+                    name: prowlarr
+                    key: api-key
             resources:
               requests:
                 cpu: 25m
