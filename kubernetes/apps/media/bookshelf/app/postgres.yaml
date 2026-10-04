@@ -1,0 +1,20 @@
+# Bookshelf (a Readarr fork) keeps three databases: main, log, and a cache of
+# book metadata.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: bookshelf-postgres
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  instances: 2
+  storage:
+    size: 5Gi
+    storageClass: local-db
+  bootstrap:
+    initdb:
+      database: bookshelf-main
+      owner: bookshelf
+      postInitApplicationSQL:
+        - CREATE DATABASE "bookshelf-log" OWNER bookshelf;
+        - CREATE DATABASE "bookshelf-cache" OWNER bookshelf;

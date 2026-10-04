@@ -1,0 +1,95 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bookshelf
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            # Bookshelf: a maintained fork of Readarr (retired in 2025), for
+            # ebooks and audiobooks. The hardcover tag uses Hardcover's
+            # metadata; it's a moving tag, so pull it on every start.
+            image:
+              repository: ghcr.io/pennydreadful/bookshelf
+              tag: hardcover
+              pullPolicy: Always
+            # Inside, it's still Readarr, so its settings use the READARR__
+            # prefix (BOOKSHELF__ is ignored).
+            env:
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: READARR__POSTGRES__HOST
+                value: bookshelf-postgres-rw
+              - name: READARR__POSTGRES__PORT
+                value: "5432"
+              - name: READARR__POSTGRES__USER
+                value: bookshelf
+              - name: READARR__POSTGRES__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: bookshelf-postgres-app
+                    key: password
+              - name: READARR__POSTGRES__MAINDB
+                value: bookshelf-main
+              - name: READARR__POSTGRES__LOGDB
+                value: bookshelf-log
+              - name: READARR__POSTGRES__CACHEDB
+                value: bookshelf-cache
+              - name: READARR__AUTH__APIKEY
+                valueFrom:
+                  secretKeyRef:
+                    name: bookshelf
+                    key: api-key
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 8787
+    ingress:
+      main:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+        hosts:
+          - host: bookshelf${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: bookshelf-tls
+            hosts:
+              - bookshelf${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      config:
+        existingClaim: bookshelf-config
+        globalMounts:
+          - path: /config
+      synmedia:
+        existingClaim: synmedia-nfs
+        globalMounts:
+          - path: /synmedia
