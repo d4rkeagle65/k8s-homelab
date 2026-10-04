@@ -83,6 +83,11 @@ curl -s -u "$(cat <credentials file>)" -H 'Content-Type: application/json' \
     -d '{"command": "status-get"}' http://<api address>:8000/
 ```
 
+On the host itself, and in its host-network containers, use
+`http://127.0.0.1:8000/` instead. The management address hangs from there:
+connections to it leave from it, and the management routing rules send
+them out to the network instead of to Kea's container.
+
 ### 4. Import the leases
 
 Before the relay points at Kea, so every client keeps its address; repeat
