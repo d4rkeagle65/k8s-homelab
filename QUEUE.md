@@ -13,7 +13,14 @@ nothing here tracks them.
 
 ## Next
 
-Nothing right now; pick from Later.
+- [ ] **Group `kubernetes/apps/` into three folders:** system apps (cluster plumbing such as
+  cert-manager, metallb, traefik, external-dns, external-secrets, flux's own operators), shared
+  services other apps use (cnpg, redis-ha, smtp-relay), and the user-facing apps. Settle the
+  folder names and which app goes where first. The generator assumes
+  `apps/<namespace>/<release>/` throughout (capture, generate, `ownership.py`'s patterns, the
+  `ks.yaml` paths and `apps/kustomization.yaml`, and the structure tests), so it learns the
+  extra level first; then every app moves in one commit. Check each moved app's Flux
+  Kustomization keeps its name, so Flux adopts it rather than deleting and recreating it.
 
 ## Cleanup
 
