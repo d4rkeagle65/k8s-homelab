@@ -30,8 +30,8 @@ nothing here tracks them.
   - the old dockhand's container on the management network;
   - the old Vaultwarden host (Debian 11). Keep it until then: it holds the
     fallback copy of the vault;
-  - the dnsmasq DHCP VM (shut down about a lease time, 12 hours, after the
-    last VLAN moved to Kea);
+  - the dnsmasq DHCP VM (shut down on 2026-10-03, once Kea served every
+    VLAN);
   - the old Tailscale container in the DMZ (also the end of its unused AWS
     WireGuard tunnel). Its node is already removed from the tailnet; keep
     `tailscaled` disabled if it's ever started, since two routers for the
