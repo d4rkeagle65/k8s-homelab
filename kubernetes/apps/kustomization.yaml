@@ -7,6 +7,7 @@ resources:
 - babybuddy
 - babybuddy-mcp
 - cert-manager
+- claude-code
 - cloudflare-tunnel
 - cnpg-system
 - emby

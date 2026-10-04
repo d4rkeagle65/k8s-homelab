@@ -1,0 +1,9 @@
+# Cluster access for Claude Code on the Docker host (docker/claude-code/):
+# a ServiceAccount with cluster-admin, and a long-lived token for it.
+# Removing this app revokes the access: Flux deletes all three.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- serviceaccount.yaml
+- clusterrolebinding.yaml
+- secret-token.yaml

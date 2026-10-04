@@ -1,0 +1,38 @@
+#!/bin/bash
+# The container's start-up: clone the repo on the first start, then run
+# Claude Code with Remote Control on, in a tmux session named "claude", and
+# keep the container up while it runs. When Claude Code exits, so does the
+# container, and Docker starts it again (restart: unless-stopped).
+#
+# Attach with: docker exec -it claude-code tmux attach -t claude
+# Detach with Ctrl-b then d. Leaving Claude Code (/exit) restarts the
+# container.
+set -euo pipefail
+
+repo="${REPO_DIR:-$HOME/k8s-homelab}"
+name="${REMOTE_CONTROL_NAME:-homelab}"
+
+if [ ! -d "$repo/.git" ]; then
+    git clone --quiet "${REPO_URL:?REPO_URL is not set}" "$repo"
+fi
+# The repo's pre-commit hook (runs scripts/tests before each commit).
+git -C "$repo" config core.hooksPath .githooks
+
+# Claude Code keeps each folder's conversations in ~/.claude/projects/, in a
+# folder named after the path with every character other than a letter or
+# digit turned into "-". If there are any (a restart, or one copied in from
+# another machine), continue the newest; otherwise start a new one.
+project="$HOME/.claude/projects/$(printf '%s' "$repo" | sed 's/[^A-Za-z0-9]/-/g')"
+args=(--remote-control "$name")
+if compgen -G "$project/*.jsonl" >/dev/null; then
+    args=(--continue "${args[@]}")
+fi
+
+tmux new-session -d -s claude -c "$repo" claude "${args[@]}"
+
+# On docker stop, end the session cleanly instead of waiting to be killed.
+trap 'tmux kill-server 2>/dev/null || true; exit 0' TERM INT
+while tmux has-session -t claude 2>/dev/null; do
+    sleep 15 &
+    wait $!
+done
