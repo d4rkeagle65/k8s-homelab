@@ -22,14 +22,11 @@ Nothing right now; pick from Later.
 
 ## Later
 
-- [ ] **DNS: drop the second DNS server DHCP hands out** (or make it a second
-  Pi-hole). It doesn't know local names, so a PC that asks it caches "no such
-  host" for names like the cluster API endpoint. That causes intermittent
-  `kubectl` lookup failures until the cache clears.
-- [ ] **immich's Redis eviction policy.** immich's job queue (BullMQ) logs that
-  Redis uses `volatile-lru` and should use `noeviction`; under memory
-  pressure, queued jobs could be dropped. Check which Redis immich uses
-  before changing it, since a shared Redis affects its other users too.
+- [ ] **A PC with a second, public DNS server caches "no such host" for local names**, such
+  as the cluster API endpoint, so `kubectl` lookups fail now and then until the cache clears.
+  DHCP isn't the source: Kea gives every VLAN only Pi-hole. Check where the PC's second
+  server comes from (`Get-DnsClientServerAddress -AddressFamily IPv4`; most likely set by
+  hand on the adapter) and remove it, or make it a second Pi-hole.
 - [ ] **Keep immich and manictime up through a node loss** (optional). Today
   their single database copy sits on one worker's disk.
   - Set `instances: 2` on `immich-postgres` and `manictime-pg`, for automatic
@@ -47,23 +44,12 @@ Nothing right now; pick from Later.
   now has a management-network interface (`eth1`), so sshd can listen there
   only, or a firewall can limit port 22 to it. Keep Calico on `eth0` (see
   CLAUDE.md).
-- [ ] **MetalLB: announce only on `eth0`.** The L2Advertisement
-  (`cluster/l2advertisement.metallb.io/`) has no `interfaces` list, so since
-  the nodes got `eth1` MetalLB may also answer for service addresses on the
-  management network. Add `interfaces: [eth0]`; check first how `generate`
-  treats the file (change the live object and recapture, or hand-edit).
 - [ ] **Kea phase 3:** a second Kea on another host as a hot-standby partner
   (the firewall's relay can point at both), and lease names into DNS.
 - [ ] **One Proxmox host carries both Pi-hole and the Docker VM**, so its
   reboot takes DNS, DHCP, the VPN and Vaultwarden down
   together. A second Pi-hole and a Kea HA partner on other hosts would fix
   that.
-- [ ] **The Vaultwarden secret stores didn't recover by themselves** after
-  Vaultwarden's move on 2026-10-03, despite `refreshInterval: 1m`: they
-  stayed `InvalidProviderConfig` until the recheck annotation
-  (`kubectl annotate clustersecretstore <name> homelab.local/revalidate=<time> --overwrite`).
-  Find out whether External Secrets rechecks a store that's already invalid,
-  or only valid ones, and make recovery automatic.
 - [ ] **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule
