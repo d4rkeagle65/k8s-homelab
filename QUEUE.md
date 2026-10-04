@@ -97,10 +97,16 @@ Nothing right now; pick from Later.
     Prowlarr's app links, through the devopsarr providers. This is the
     alternative to a small in-cluster Job calling the apps' APIs, which
     needs no state file.
+  - **Dockhand:** its Git credentials, the Git stacks it deploys from
+    `docker/<stack>/` and their variables, plus its own settings and login,
+    through the community `kalebharrison/dockhand` provider (unofficial,
+    with known gaps, so a Dockhand update can break it). Dockhand can't set
+    itself up: Ansible installs it on the VM, then Terraform configures it.
 
-  Before starting: decide where the state file lives (it holds secrets, so
-  not this repo) and what runs it (by hand, CI, or tofu-controller under
-  Flux). Import the existing resources first, so nothing gets recreated.
+  Before starting: decide where the state file lives (it holds secrets,
+  including the stacks' secret variables, so not this repo) and what runs it
+  (by hand, CI, or tofu-controller under Flux). Import the existing resources
+  first, so nothing gets recreated.
 
 ## Done
 
