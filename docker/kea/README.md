@@ -17,10 +17,12 @@ with the firewall relaying each VLAN's DHCP to it. In phases:
 
 | | |
 |---|---|
-| `compose.yaml`, `kea-dhcp4.conf` | here, in git: nothing site-specific |
-| `/opt/kea/site/site.json` | on the host: subnets, pools, options, reservations |
-| `/opt/kea/site/api-credentials` | on the host: one `user:password` line for Kea's API |
+| `compose.yaml`, `kea-dhcp4.conf`, `Dockerfile`, `initdb/` | here, in git: nothing site-specific |
+| `/opt/kea/site/site.json` | on the host: subnets, pools, options, the reservations database's connection |
+| `/opt/kea/site/api-credentials` | on the host: one `user:password` line for Kea's API (Stork's agent reads it too) |
 | `/opt/kea/lib/` | on the host: the lease file |
+| `/opt/kea/postgres/` | on the host: PostgreSQL (reservations, and Stork's own data) |
+| `/opt/kea/stork-agent/` | on the host: the Stork agent's certificates |
 
 The site file and credentials never go in git: they're full of addresses,
 MACs and hostnames. `kea-dhcp4.conf` includes the site file at the end.
@@ -64,6 +66,12 @@ docker run --rm -v ./kea-dhcp4.conf:/etc/kea/kea-dhcp4.conf:ro -v /opt/kea/site:
 
 Then copy `site.json` to `/opt/kea/site/`.
 
+**Check every pool for devices with fixed addresses.** dnsmasq pings an
+address before handing it out; Kea doesn't, so a fixed address inside a
+pool would eventually be handed to a second device. Ping each pool address
+and compare with the leases and reservations; move the pool (or reserve the
+address) where something answers that has neither.
+
 ### 3. Deploy
 
 Add this folder as a Git stack in Dockhand, with `KEA_DHCP_ADDRESS` (the
@@ -77,7 +85,9 @@ curl -s -u "$(cat <credentials file>)" -H 'Content-Type: application/json' \
 
 ### 4. Import the leases
 
-Before the relay points at Kea, so every client keeps its address:
+Before the relay points at Kea, so every client keeps its address; repeat
+it with a fresh copy right before each VLAN moves, for the VLANs still on
+the old server (never over leases Kea issued itself):
 
 ```sh
 python docker/kea/tools/import_leases.py --url http://<api address>:8000/ \
@@ -92,8 +102,8 @@ it isn't there).
 
 1. Lock, then tick **Enable Relay for IPv4**, UDP port 67.
 2. **DHCP Server IPs**: the Docker host's address (`KEA_DHCP_ADDRESS`).
-3. **Relay Interfaces**: the interface toward the Docker host, plus each
-   VLAN as it moves (step 6). Each must have an address in its network;
+3. **Relay Interfaces**: the interface toward the Docker host (the server
+   side, always), plus each VLAN as it moves (step 6). Each must have an address in its network;
    that address is the relay address Kea selects the subnet by, so it must
    lie inside the subnet's range in `site.json`.
 4. Leave Option 82 off. Send changes and activate.
@@ -108,14 +118,84 @@ for each VLAN, in this order:
 1. Stop dnsmasq answering there (`no-dhcp-interface=<interface>`, restart
    dnsmasq).
 2. Add the VLAN's interface to the relay and activate.
-3. Renew a client there (`ipconfig /renew`, or `dhclient -r` then
-   `dhclient`) and check Kea's log for the lease, and `lease4-get-all`.
+3. Release and renew a client there (`ipconfig /release` then `/renew`, or
+   `dhclient -r` then `dhclient`), so it broadcasts instead of asking the
+   old server directly, and check Kea's statistics and `lease4-get-all`.
 
 Clients that only renew later find the old server gone, broadcast, and get
-their imported lease back from Kea through the relay. When every VLAN has
-moved, shut the dnsmasq VM down.
+their imported lease back from Kea through the relay. An early renewal of
+a freshly imported lease shows the imported times: Kea reuses a lease
+that's early in its life instead of rewriting it. When every VLAN has
+moved, give it one lease time, then shut the dnsmasq VM down.
 
-### Changing the site file later
+## Phase 2: Stork and the reservations database
+
+Stork (ISC's web UI for Kea) and a PostgreSQL database for reservations, in
+the same stack. ISC publishes no Stork container images, so `Dockerfile`
+builds one (`homelab/kea-tools`) on ISC's Kea image from ISC's own
+packages: the Stork agent and server, and `kea-admin`. Kea's version in it
+must match the `kea-dhcp4` service's.
+
+- **Stork's agent** shares the `kea-dhcp4` container's network and process
+  namespaces: it finds Kea in the process list, reads the same config files
+  at the same paths, runs Kea's binary to learn its version, and uses the
+  API on localhost with the credentials from the site directory.
+- **Reservations live in the database**, where `host_cmds` (and so Stork)
+  adds, changes and removes them live. A reservation still in the site file
+  overrides the database's for the same client, so they're moved, not
+  copied.
+- **Subnets and pools stay in the site file.** Stork's subnet editing and
+  its "Migrate reservations" both end with Kea writing its whole config
+  back to its file (`config-write`), which can't work here: the main file
+  is read-only from git and includes the site file. Change subnets in the
+  site file and reload; move reservations with the API.
+
+### 1. Host preparation (as root)
+
+```sh
+install -d /opt/kea/postgres /opt/kea/stork-agent
+openssl rand -hex 24
+```
+
+Generate three passwords that way, and set them in the stack's environment
+in Dockhand as secrets: `POSTGRES_PASSWORD`, `KEA_DB_PASSWORD`,
+`STORK_DB_PASSWORD`. Then add the database's connection to the site file,
+with the same `KEA_DB_PASSWORD`, as its first member:
+
+```json
+"hosts-databases": [ { "type": "postgresql", "name": "kea", "user": "kea",
+  "password": "<KEA_DB_PASSWORD>", "host": "kea-postgres", "port": 5432,
+  "retry-on-startup": true, "on-fail": "serve-retry-continue",
+  "max-reconnect-tries": 100, "reconnect-wait-time": 3000 } ],
+```
+
+`serve-retry-continue` keeps DHCP serving if the database is down.
+
+### 2. Redeploy
+
+Redeploy the stack in Dockhand. It builds `homelab/kea-tools` on the host
+the first time (a minute or two); `kea-postgres` creates the two databases
+on its first start (`initdb/`), and `kea-db-init` creates Kea's tables (or
+upgrades them after a Kea update), then exits. Kea restarts once, a few
+seconds without DHCP, which clients ride out.
+
+If Dockhand doesn't build images from a Git stack, build it once on the
+host from Dockhand's clone: `docker compose build` in this folder.
+
+### 3. Stork
+
+Open `http://<api address>:8080`, log in as `admin`/`admin` and set a new
+password. The agent registers itself on start: approve it under **Services
+> Machines** (check its token fingerprint), and Kea appears.
+
+### 4. Move the reservations into the database
+
+For each reservation in the site file: `reservation-add` with
+`"operation-target": "database"`, then remove the `reservations` lists from
+the site file and `config-reload`. Check with `reservation-get-all`, and in
+Stork under **DHCP > Host Reservations**.
+
+## Changing the site file later
 
 Edit `/opt/kea/site/site.json`, check it (step 2), then reload without a
 restart:

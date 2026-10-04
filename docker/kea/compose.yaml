@@ -1,21 +1,74 @@
-# Kea DHCPv4 on the Docker host, deployed by Dockhand from this folder (a Git
-# stack). It replaces the dnsmasq DHCP VM. Every client is on a VLAN the host
-# isn't on, so the firewall relays all requests here (DHCP relay): plain
-# unicast UDP, which works through a published port without host networking.
+# Kea DHCPv4 on the Docker host, with Stork (ISC's web UI for Kea) and a
+# PostgreSQL database for host reservations and for Stork, deployed by
+# Dockhand from this folder (a Git stack). It replaced the dnsmasq DHCP VM.
+# Every client is on a VLAN the host isn't on, so the firewall relays all
+# requests here (DHCP relay): plain unicast UDP, which works through a
+# published port without host networking.
 #
 # kea-dhcp4.conf (here) holds what's the same everywhere. Subnets, pools,
-# options and reservations are in /opt/kea/site/site.json on the host, with
-# the API credentials: they're full of addresses, MACs and hostnames, so they
-# never go in this public repo. See README.md.
+# options, the reservations database's connection and the API credentials
+# are in /opt/kea/site on the host: they're full of addresses and secrets,
+# so they never go in this public repo. Reservations live in the database,
+# where Stork and the API change them live. See README.md.
 #
 # Variables (set in the stack's environment in Dockhand):
-#   KEA_DHCP_ADDRESS   the host address the firewall relays to
-#   KEA_API_ADDRESS    the host address for Kea's API (the management one)
+#   KEA_DHCP_ADDRESS    the host address the firewall relays to
+#   KEA_API_ADDRESS     the host's management address: Kea's API (8000)
+#                       and Stork's web UI (8080)
+#   POSTGRES_PASSWORD   secret: the database superuser's
+#   KEA_DB_PASSWORD     secret: the kea role's (also in site.json)
+#   STORK_DB_PASSWORD   secret: the stork role's
 services:
+  kea-postgres:
+    image: postgres:17-alpine
+    container_name: kea-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Read by initdb/00-databases.sh on the first start only.
+      KEA_DB_PASSWORD: ${KEA_DB_PASSWORD}
+      STORK_DB_PASSWORD: ${STORK_DB_PASSWORD}
+    volumes:
+    - /opt/kea/postgres:/var/lib/postgresql/data
+    - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # Creates Kea's tables on an empty database, and upgrades them to match
+  # this Kea version otherwise; runs on every deploy, then exits.
+  kea-db-init:
+    build: .
+    image: homelab/kea-tools:3.2.1-stork-2.4.1
+    restart: "no"
+    depends_on:
+      kea-postgres:
+        condition: service_healthy
+    environment:
+      KEA_DB_PASSWORD: ${KEA_DB_PASSWORD}
+    command:
+    - /bin/bash
+    - -c
+    - |
+      set -e
+      args="pgsql -h kea-postgres -u kea -p $$KEA_DB_PASSWORD -n kea"
+      if kea-admin db-version $$args >/dev/null 2>&1; then
+        kea-admin db-upgrade $$args
+      else
+        kea-admin db-init $$args
+      fi
+
   kea-dhcp4:
     image: docker.cloudsmith.io/isc/docker/kea-dhcp4:3.2.1
     container_name: kea-dhcp4
     restart: unless-stopped
+    depends_on:
+      kea-postgres:
+        condition: service_healthy
+      kea-db-init:
+        condition: service_completed_successfully
     ports:
     - ${KEA_DHCP_ADDRESS}:67:67/udp
     - ${KEA_API_ADDRESS}:8000:8000
@@ -25,3 +78,47 @@ services:
     - ./kea-dhcp4.conf:/etc/kea/kea-dhcp4.conf:ro
     - /opt/kea/site:/etc/kea/site:ro
     - /opt/kea/lib:/var/lib/kea
+
+  # Shares Kea's network and process namespaces: it finds Kea through the
+  # process list, reads the same config files at the same paths, runs Kea's
+  # binary for its version, and reaches the API on localhost. Stork's server
+  # reaches it as kea-dhcp4:8080. It registers itself on start; approve it
+  # once in Stork (Services > Machines).
+  stork-agent:
+    build: .
+    image: homelab/kea-tools:3.2.1-stork-2.4.1
+    restart: unless-stopped
+    depends_on:
+    - kea-dhcp4
+    - stork-server
+    network_mode: service:kea-dhcp4
+    pid: service:kea-dhcp4
+    command: ["stork-agent"]
+    environment:
+      STORK_AGENT_SERVER_URL: http://stork-server:8080
+      STORK_AGENT_HOST: kea-dhcp4
+      STORK_AGENT_PORT: "8080"
+    volumes:
+    - ./kea-dhcp4.conf:/etc/kea/kea-dhcp4.conf:ro
+    - /opt/kea/site:/etc/kea/site:ro
+    - /opt/kea/lib:/var/lib/kea:ro
+    - /opt/kea/stork-agent:/var/lib/stork-agent
+
+  stork-server:
+    build: .
+    image: homelab/kea-tools:3.2.1-stork-2.4.1
+    container_name: stork-server
+    restart: unless-stopped
+    depends_on:
+      kea-postgres:
+        condition: service_healthy
+    command: ["stork-server"]
+    environment:
+      STORK_DATABASE_HOST: kea-postgres
+      STORK_DATABASE_NAME: stork
+      STORK_DATABASE_USER_NAME: stork
+      STORK_DATABASE_PASSWORD: ${STORK_DB_PASSWORD}
+      STORK_REST_HOST: 0.0.0.0
+      STORK_REST_PORT: "8080"
+    ports:
+    - ${KEA_API_ADDRESS}:8080:8080
