@@ -24,20 +24,19 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **DHCP: Kea replaces the dnsmasq VM.** Staged in `docker/kea/` (see its
-  README): Kea 3.2 on the Docker host, every VLAN relayed to it by the
-  firewall, the site's subnets and reservations in a file on the host only.
-  `tools/dnsmasq_to_kea.py` converts dnsmasq's config and leases (tested on
-  a synthetic setup, and Kea 3.2.1 accepts its output). Needs: the dnsmasq
-  config files and leases file, and the firewall's firmware version. Then
-  phase 2 (Stork and a reservations database) and phase 3 (an HA partner,
-  lease names into DNS).
+- [ ] **Kea phase 2: Stork and a reservations database** (staged in
+  `docker/kea/`, see its README): Stork's web UI and a PostgreSQL database
+  in the same stack, with the reservations moved from the site file into
+  the database so Stork and the API change them live. Then a Traefik route
+  and Authentik login for Stork, like dockhand's.
 - [ ] **Delete the old hosts** (all retired on 2026-10-03, nothing in the
   cluster refers to them), from about 2026-10-17:
   - the one that ran NPM and mealie;
   - the old dockhand's container on the management network;
   - the old Vaultwarden host (Debian 11). Keep it until then: it holds the
     fallback copy of the vault;
+  - the dnsmasq DHCP VM (shut down about a lease time, 12 hours, after the
+    last VLAN moved to Kea);
   - the old Tailscale container in the DMZ (also the end of its unused AWS
     WireGuard tunnel). Its node is already removed from the tailnet; keep
     `tailscaled` disabled if it's ever started, since two routers for the
@@ -106,6 +105,12 @@ nothing here tracks them.
   the nodes got `eth1` MetalLB may also answer for service addresses on the
   management network. Add `interfaces: [eth0]`; check first how `generate`
   treats the file (change the live object and recapture, or hand-edit).
+- [ ] **Pi-hole's conditional forwarding points at the retired DHCP VM**
+  (its address on each VLAN, which never answered DNS anyway). Replace it
+  with `local=` lines for the remaining local domains, or with Kea's lease
+  names fed into DNS (phase 3).
+- [ ] **Kea phase 3:** a second Kea on another host as a hot-standby partner
+  (the firewall's relay can point at both), and lease names into DNS.
 - [ ] **One Proxmox host carries both Pi-hole and the Docker VM**, so its
   reboot takes DNS, DHCP (once Kea is live), the VPN and Vaultwarden down
   together. A second Pi-hole and a Kea HA partner on other hosts would fix
@@ -128,6 +133,14 @@ nothing here tracks them.
   are still forwarded and untested.
 
 ## Done
+
+- 2026-10-03: DHCP moved from the dnsmasq VM to Kea 3.2 on the Docker host
+  (`docker/kea/`), every VLAN relayed to it by the firewall's DHCP relay.
+  dnsmasq's config and current leases were converted and imported first,
+  so every device kept its address; each VLAN then moved separately (stop
+  dnsmasq on it, add it to the relay, test a renewal). The management pool
+  moved off addresses with fixed devices on them: dnsmasq pings before
+  offering an address, Kea doesn't.
 
 - 2026-10-03: Tailscale moved onto the Docker host (`docker/tailscale/`),
   replacing the old container in the DMZ: the same subnet routes and exit
