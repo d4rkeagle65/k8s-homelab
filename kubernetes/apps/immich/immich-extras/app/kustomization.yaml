@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
 - cluster-immich-postgres.yaml
 - deployment-immich-power-tools.yaml
+- ingress-immich-cloudflared.yaml
 - ingress-immich-power-tools-ingress.yaml
 - persistentvolumeclaim-immich-data.yaml
 - secret-immich-postgres-superuser.yaml
