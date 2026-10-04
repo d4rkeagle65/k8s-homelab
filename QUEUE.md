@@ -16,7 +16,11 @@ nothing here tracks them.
 - [ ] **Group `kubernetes/apps/` into three folders:** system apps (cluster plumbing such as
   cert-manager, metallb, traefik, external-dns, external-secrets, flux's own operators), shared
   services other apps use (cnpg, redis-ha, smtp-relay), and the user-facing apps. Settle the
-  folder names and which app goes where first. The generator assumes
+  folder names and which app goes where first. The category comes from the cluster: a label
+  or annotation on each app's Namespace (or its HelmRelease), which capture reads to pick the
+  folder, so the layout follows the live objects. Do it together with a wider cleanup of
+  labels and annotations, so `kubectl get -l` can select by category and the classification
+  is consistent. The generator assumes
   `apps/<namespace>/<release>/` throughout (capture, generate, `ownership.py`'s patterns, the
   `ks.yaml` paths and `apps/kustomization.yaml`, and the structure tests), so it learns the
   extra level first; then every app moves in one commit. Check each moved app's Flux
