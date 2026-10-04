@@ -1,7 +1,10 @@
 # The Cloudflare tunnel's routes into the main ingress, which now is Traefik
 # (moved from the ingress-nginx namespace at the Batch 3 cutover; an Ingress
 # can only use a Service in its own namespace). The tunnel sends each request
-# on to Traefik, which routes it by host like any other.
+# on to Traefik, which routes it by host like any other. Apps that redirect
+# plain HTTP to HTTPS on Traefik can't come through here (the tunnel uses
+# port 80, so they'd loop); their tunnel routes go straight to the app's
+# Service from its own namespace instead (Authentik, immich).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -35,35 +38,5 @@ spec:
             name: traefik
             port:
               number: 80
-        path: /
-        pathType: Prefix
----
-# Two rules for the one host, as the nginx version had. Plain HTTP to immich
-# is redirected to HTTPS, so the working tunnel must be using the 443 one.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: immich-cloudflare-tunnel
-spec:
-  ingressClassName: cloudflare-tunnel
-  rules:
-  - host: immich.${BASE_DOMAIN}
-    http:
-      paths:
-      - backend:
-          service:
-            name: traefik
-            port:
-              number: 80
-        path: /
-        pathType: Prefix
-  - host: immich.${BASE_DOMAIN}
-    http:
-      paths:
-      - backend:
-          service:
-            name: traefik
-            port:
-              number: 443
         path: /
         pathType: Prefix

@@ -1,0 +1,22 @@
+# immich's route through the Cloudflare tunnel, straight to immich's own
+# Service like Authentik's: through Traefik, the tunnel's plain HTTP met
+# immich's redirect to HTTPS and looped (ERR_TOO_MANY_REDIRECTS). LAN
+# traffic still goes through Traefik (the Helm release's Ingress).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: immich-cloudflared
+  namespace: immich
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: immich.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: immich-server
+            port:
+              number: 2283
+        path: /
+        pathType: Prefix
