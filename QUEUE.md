@@ -24,47 +24,15 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Delete the old hosts** (all retired on 2026-10-03, nothing in the
-  cluster refers to them), from about 2026-10-17:
-  - the one that ran NPM and mealie;
-  - the old dockhand's container on the management network;
-  - the old Vaultwarden host (Debian 11). Keep it until then: it holds the
-    fallback copy of the vault;
-  - the dnsmasq DHCP VM (shut down on 2026-10-03, once Kea served every
-    VLAN);
-  - the old Tailscale container in the DMZ (also the end of its unused AWS
-    WireGuard tunnel). Its node is already removed from the tailnet; keep
-    `tailscaled` disabled if it's ever started, since two routers for the
-    same subnets break the Docker host's own routing.
-
-  Then delete their Pi-hole records: NPM's address record and the
-  `npm.<domain>` CNAME, the old Vaultwarden host's own record and a stale
-  Firefly III one, and any for the other hosts. If the AWS instance still
-  exists, stop or terminate it, and drop the DNS name that pointed at it.
-- [ ] **Permanently delete the old PV folders on the Synology** (from about
-  2026-10-03, once nothing has turned out to need them). On 2026-09-29 the
-  Released PVs of the 9 moved databases, all of `media-test`,
-  `babybuddy-config`, and the old `paperless`, `fasten`, `gitlab`, `redis`,
-  `emby-config`, `immich-data` and `manictime-server-data` volumes were
-  deleted, and their folders were moved into a
-  `_deleted-pvs-2026-09-29` folder beside each one. Those holding folders are
-  listed in `/root/deleted-pvs-2026-09-29.txt` on the Synology; each PV's
-  original path is in the gitignored
-  `kubernetes/.local/released-pvs-2026-09-29.csv` (and
-  `pv-folders-to-delete-2.txt` for the second batch). As root on the Synology:
-  - check: `sort -u /root/deleted-pvs-2026-09-29.txt | while read -r d; do du -sh "$d"; done`
-  - delete: `sort -u /root/deleted-pvs-2026-09-29.txt | while read -r d; do rm -rf -- "$d"; done`
-
-  Shell deletes skip Synology's Recycle Bin, so this can't be undone.
+- [ ] **Delete the retired hosts' Pi-hole records** (the hosts themselves
+  are gone): the NPM host's address record, the old Vaultwarden host's own
+  record and its stale Firefly III one, the old dockhand's, and the dnsmasq
+  VM's on the main, management and IoT networks (each with its reverse
+  record). Also, if the AWS instance at the end of the old WireGuard tunnel
+  still exists, stop or terminate it and drop the DNS name that pointed at it.
 
 ## Cleanup
 
-- [ ] **New Docker host's `/opt` disk:** tick Discard and SSD emulation on it
-  in Proxmox (added without them, so space freed in the VM never goes back
-  to the pool). It takes effect after a stop and start from Proxmox; the
-  apps come back by themselves.
-- [ ] **Delete `/opt.old` on the new Docker host** (the copy left when `/opt`
-  moved to its own disk), from about 2026-10-06.
 - [ ] **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
@@ -114,6 +82,19 @@ nothing here tracks them.
   or only valid ones, and make recovery automatic.
 
 ## Done
+
+- 2026-10-03: The cleanup after the moves:
+  - **The retired hosts are deleted:** the NPM and mealie host, the old
+    dockhand, the old Vaultwarden host, the dnsmasq DHCP VM and the old
+    Tailscale container.
+  - **The old PV folders on the Synology are deleted** (the Released PVs of
+    2026-09-29). One of them, the old `immich-data`, turned out to hold
+    immich's only copy of the photos: immich's volumes were recreated on
+    2026-05-17, and the photos were never copied into the new one. They're
+    being synced back from another copy. Before deleting any old volume,
+    compare its contents with its replacement's.
+  - **The Docker host's `/opt` disk** has Discard and SSD emulation, and
+    `/opt.old` is deleted.
 
 - 2026-10-03: Kea phase 2. The `kea` stack gained Stork (Kea's web UI, with
   its agent sharing Kea's container) and a PostgreSQL database, and all the
