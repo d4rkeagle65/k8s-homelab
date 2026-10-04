@@ -89,8 +89,14 @@ never manages itself.
 
 - Apps use the `traefik` IngressClass. `traefik-isolated` has its own address
   for an isolated VLAN (ManicTime only).
-- **Only the Cloudflare tunnel exposes anything to the internet**: the Ingresses
-  in `apps/traefik/traefik/app/ingress-cloudflare-tunnel.yaml`.
+- **Only the Cloudflare tunnel exposes anything to the internet**, through the
+  `cloudflare-tunnel` Ingresses: most in
+  `apps/traefik/traefik/app/ingress-cloudflare-tunnel.yaml`, which send
+  traffic on to Traefik. The tunnel reaches Traefik on port 80, so an app
+  whose Traefik route redirects HTTP to HTTPS would loop there
+  (`ERR_TOO_MANY_REDIRECTS`). Its tunnel Ingress goes straight to the app's
+  own Service from the app's namespace instead: Authentik's in
+  `authentik-extras`, immich's in `immich-extras`.
 - **Local DNS:** ExternalDNS (`apps/external-dns/`) writes a Pi-hole record for
   each `traefik`/`traefik-isolated` Ingress hostname. A name with no Ingress
   (`smtp-relay`) goes in the `external-dns.kubernetes.io/hostname` annotation

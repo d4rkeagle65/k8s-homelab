@@ -22,7 +22,7 @@ from typing import Any
 
 from ruamel.yaml import YAML
 from ruamel.yaml.nodes import ScalarNode
-from ruamel.yaml.scalarstring import DoubleQuotedScalarString
+from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString
 
 _yaml = YAML()
 _yaml.default_flow_style = False
@@ -59,25 +59,45 @@ def _needs_quoting(value: str) -> bool:
     return tag != "tag:yaml.org,2002:str"
 
 
+# Characters a literal block can't carry unchanged: a YAML reader turns
+# \r\n, \r and the Unicode line breaks inside a block into \n, and other
+# control characters aren't allowed in a block at all.
+_BLOCK_UNSAFE = re.compile("[\r\x85  \x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _styled(value: str) -> str:
+    """The string to emit in place of `value`: a literal block (`|`) for a
+    multi-line string, so a ConfigMap's embedded file stays readable in
+    git instead of becoming one long double-quoted line with `\\n`s;
+    double-quoted where a YAML 1.1 parser would misread it; otherwise
+    unchanged. A block is only a request: ruamel falls back to quoting a
+    string a block can't represent exactly (trailing spaces on a line, for
+    example), and _BLOCK_UNSAFE covers what it doesn't catch, so the value
+    always reads back the same.
+    """
+    if "\n" in value and not _BLOCK_UNSAFE.search(value):
+        return LiteralScalarString(value)
+    if _needs_quoting(value):
+        return DoubleQuotedScalarString(value)
+    return value
+
+
 def _harden_scalars(obj: Any) -> Any:
-    """Force-quote any string that a YAML 1.1 parser would misread as a
-    bool/null/number, in place. Mutates dict/list (and ruamel's
-    CommentedMap/CommentedSeq, which behave like them) so any attached
-    comments survive untouched.
+    """Restyle every string value in place (see _styled). Mutates dict/list
+    (and ruamel's CommentedMap/CommentedSeq, which behave like them) so any
+    attached comments survive untouched.
     """
     if isinstance(obj, dict):
         for key in list(obj.keys()):
             val = obj[key]
             if isinstance(val, str):
-                if _needs_quoting(val):
-                    obj[key] = DoubleQuotedScalarString(val)
+                obj[key] = _styled(val)
             else:
                 _harden_scalars(val)
     elif isinstance(obj, list):
         for i, val in enumerate(obj):
             if isinstance(val, str):
-                if _needs_quoting(val):
-                    obj[i] = DoubleQuotedScalarString(val)
+                obj[i] = _styled(val)
             else:
                 _harden_scalars(val)
     return obj
