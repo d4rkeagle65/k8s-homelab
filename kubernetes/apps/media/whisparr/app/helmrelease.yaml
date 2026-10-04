@@ -17,9 +17,15 @@ spec:
       main:
         containers:
           main:
+            # v2-develop: the stable v2 build (latest, 2.2.0.231) can't log in
+            # to qBittorrent 5.2+, which answers a successful login with an
+            # empty 204. The fix is only in v2-develop so far. Whisparr
+            # upgrades its database on start and can't go back, so return to
+            # latest only once a stable v2 release is newer than this build.
             image:
               repository: ghcr.io/hotio/whisparr
-              tag: latest
+              tag: v2-develop
+              pullPolicy: Always
             env:
               - name: PUID
                 value: "${MEDIA_PUID}"
