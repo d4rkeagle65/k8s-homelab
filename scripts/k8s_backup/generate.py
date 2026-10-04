@@ -9,16 +9,14 @@ kubernetes/apps/kustomization.yaml,
 kubernetes/flux/meta/repositories/kustomization.yaml,
 kubernetes/flux/config/cluster.yaml, kubernetes/flux/config/cluster-resources.yaml,
 kubernetes/cluster/kustomization.yaml,
-.sops.yaml, .gitignore (lines added by hand are kept), and README.md only
+.sops.yaml, .gitattributes, .gitignore (lines added by hand are kept), and README.md only
 when none exists yet -- an existing one is the operator's.
 Release folders with a `.handwritten` marker are skipped (ownership.py).
 """
 
 from __future__ import annotations
 
-import os
 import re
-import stat
 from pathlib import Path
 
 from . import constants, dependencies, flux, inventory, promote, scaffold, yamlio
@@ -67,12 +65,6 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     existing_gitignore = gitignore_path.read_text(encoding="utf-8") if gitignore_path.is_file() else ""
     sink.write_text(gitignore_path, scaffold.gitignore(existing_gitignore))
     sink.write_text(root / ".gitattributes", scaffold.gitattributes())
-    hook_path = sink.write_text(root / ".githooks" / "pre-commit", scaffold.pre_commit_hook())
-    if not dry_run:
-        # Git on Linux/macOS requires the executable bit to run a hook file
-        # directly; harmless on Windows, which doesn't track this bit.
-        current_mode = os.stat(hook_path).st_mode
-        os.chmod(hook_path, current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     sink.write_text(root / ".sops.yaml", scaffold.sops_yaml_scaffold())
     if not (root / "README.md").exists():
         sink.write_text(

@@ -1,48 +1,137 @@
 #!/bin/sh
-# GitOps pre-commit gate: blocks the commit if scripts/tests/ (structure +
-# secret-hygiene checks) doesn't pass. This is what stops a credential the
-# generator's own redaction pass missed from reaching git history in the
-# first place -- activate it once per clone with:
-#   git config core.hooksPath .githooks
-# Bypass only with `git commit --no-verify`, and only if you're certain.
+# Pre-commit gate. Two jobs, in order of how bad it is to get them wrong:
+#
+#   1. SECRETS. .gitignore only protects paths. This reads the CONTENT of what is staged, for
+#      the shapes a credential or an identifier takes - a key pasted into a doc or a test
+#      fixture is the expensive mistake, and no path rule sees it.
+#   2. THE SUITE. Static and mock-based, so there is no reason to commit past a red one.
+#
+# Install with: git config core.hooksPath .githooks
+# Bypass with --no-verify only when you know why.
 
 set -e
+repo="$(git rev-parse --show-toplevel)"
+work=$(mktemp -d)
+copy=""
+said=""
+# Whatever stops the hook, it cleans up, and a stop it did not explain still says so: set -e
+# ends it at the first failing command, which would otherwise refuse the commit in silence.
+trap 'st=$?; rm -rf "$work"; [ -z "$copy" ] || rm -rf "$copy"
+      if [ "$st" -ne 0 ] && [ -z "$said" ]; then echo ""; echo "Commit refused: the pre-commit hook stopped (exit $st) before it finished - see the error above."; fi' EXIT
+# NUL-separated and unquoted, so a name with a space or a non-ASCII letter arrives whole; renames
+# (R) carry content like any addition.
+git -c core.quotePath=false diff --cached --name-only -z --diff-filter=ACMRT | tr '\0' '\n' > "$work/staged"
+bad=0
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
-cd "$REPO_ROOT"
-
-PYTHON=""
-for candidate in python3 python py; do
-    # On Windows, `python`/`python3` on PATH can be a Microsoft Store
-    # "app execution alias" stub that exists on disk (so `command -v`
-    # finds it) but exits non-zero and prints a redirect message instead
-    # of running -- confirm the candidate actually works, not just exists.
-    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" --version >/dev/null 2>&1; then
-        PYTHON="$candidate"
-        break
+# Words that must never be committed - customer names, internal hostnames, a domain - one per
+# line in .secret-words. That file is gitignored, so the list itself is never committed; a
+# clone without it does not get the rule, and says so rather than passing silently.
+# One entry a line, matched whole: an entry may hold a space ("acme widgets") or a glob character.
+: > "$work/words"
+if [ -f "$repo/.secret-words" ]; then
+    if git ls-files --error-unmatch .secret-words >/dev/null 2>&1; then
+        echo "  BLOCKED  .secret-words is tracked - it must be listed in .gitignore"
+        bad=1
     fi
-done
-
-if [ -z "$PYTHON" ]; then
-    echo "pre-commit: no Python interpreter found on PATH (tried python3, python, py)." >&2
-    echo "pre-commit: install Python, then: pip install -r scripts/requirements-test.txt" >&2
-    echo "pre-commit: or bypass with git commit --no-verify (not recommended)." >&2
-    exit 1
+    tr -d '\r' < "$repo/.secret-words" | grep -v '^\s*#' | grep -v '^\s*$' | tr 'A-Z' 'a-z' | sort -u > "$work/words" || true
+else
+    echo "  note: no .secret-words file here, so the named-word rule is not armed"
 fi
 
-if ! "$PYTHON" -m pytest --version >/dev/null 2>&1; then
-    echo "pre-commit: pytest is not installed. Run: pip install -r scripts/requirements-test.txt" >&2
-    echo "pre-commit: or bypass this check with git commit --no-verify (not recommended)." >&2
-    exit 1
+# Every check reads the STAGED content, which is what the commit holds - not the working copy,
+# which can differ from it.
+blob="$work/blob"
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+        *.xlsx|*.docx|*.pdf|*.png|*.jpg|*.zip) continue ;;
+        .githooks/pre-commit|.githooks/pre-commit.template) continue ;;
+    esac
+    git show ":$f" > "$blob" 2>/dev/null || continue
+    # UTF-16 (a regedit export, some .ini and .config files) puts a NUL after every ASCII letter,
+    # and no pattern would match it as stored: read it as UTF-8 first.
+    case "$(head -c 2 "$blob" | od -An -tx1 | tr -d ' ')" in
+        fffe|feff) iconv -f UTF-16 -t UTF-8 "$blob" > "$blob.u8" 2>/dev/null && mv "$blob.u8" "$blob" ;;
+    esac
+
+    if grep -qE -- '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----' "$blob"; then
+        echo "  BLOCKED  $f: a private key"; bad=1
+    fi
+    # A GUID beside a name that says it identifies a tenant, subscription or application. A GUID
+    # of one repeated hex digit (00000000-..., aaaaaaaa-...) is a placeholder by construction.
+    ids=$(grep -oiE '(tenant_?id|subscription_?id|client_?id|app_?id|object_?id)[^A-Za-z0-9]{0,12}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$blob" \
+          | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+          | grep -viE '^(.)\1{7}-\1{4}-\1{4}-\1{4}-\1{12}$' || true)
+    if [ -n "$ids" ]; then
+        echo "  BLOCKED  $f: a GUID labelled as an identifier ($(echo "$ids" | head -1))"; bad=1
+    fi
+    if grep -qiE '(thumbprint)[^A-Za-z0-9]{0,12}[0-9a-f]{40}' "$blob"; then
+        echo "  BLOCKED  $f: a certificate thumbprint"; bad=1
+    fi
+    # A secret assigned a literal. A value opening with < $ { or % is a placeholder or a lookup.
+    if grep -qiE '(password|passwd|secret|api_?key|access_?key|token)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'<${%[:space:]][^"'"'"']{7,}["'"'"']' "$blob"; then
+        echo "  BLOCKED  $f: a secret assigned a literal value"; bad=1
+    fi
+    if grep -qE 'AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|xox[baprs]-[A-Za-z0-9-]{10,}|AccountKey=[A-Za-z0-9+/=]{20,}' "$blob"; then
+        echo "  BLOCKED  $f: a cloud or service access key"; bad=1
+    fi
+    while IFS= read -r w; do
+        if grep -qiF -- "$w" "$blob"; then
+            echo "  BLOCKED  $f: contains a word listed in .secret-words"; bad=1
+        fi
+    done < "$work/words"
+done < "$work/staged"
+if [ "$bad" -ne 0 ]; then
+    echo ""
+    echo "Commit refused: something secret-shaped is staged. Move the value to a gitignored config."
+    said=1; exit 1
 fi
 
-echo "pre-commit: running scripts/tests (structure + secret-hygiene checks)..."
-if ! "$PYTHON" -m pytest scripts/tests -q; then
-    echo "" >&2
-    echo "pre-commit: BLOCKED -- scripts/tests failed. Fix the finding, or if it's a" >&2
-    echo "confirmed false positive, add its exact value to docs/secrets-scan-allowlist.txt." >&2
-    echo "Bypass with git commit --no-verify only if you are certain." >&2
-    exit 1
+# The suites run on a copy of what is STAGED, the same as the scan: a violation staged and then
+# fixed only on disk must not pass, and the working copy is never touched. The copy lives where
+# nothing tracks it, removed when the hook ends.
+if git cat-file -e ":tests/run-all-tests.py" 2>/dev/null; then
+    # The Python that runs the suites: the first of py -3, python3 and python that is 3.11 or
+    # later. Each is asked, never assumed: on Windows, python3 on PATH can be the Store's alias,
+    # which runs no Python at all.
+    py=""
+    for c in "py -3" python3 python; do
+        if command -v "${c%% *}" >/dev/null 2>&1 &&
+           $c -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then py="$c"; break; fi
+    done
+    if [ -z "$py" ]; then
+        echo "Commit refused: no Python 3.11 or later answers as py -3, python3 or python, so the suites cannot run."
+        said=1; exit 1
+    fi
+    echo "  running tests/run-all-tests.py on the staged files ..."
+    # Every path in the copy is longer than in the working copy by the copy's own folder, and
+    # Windows cannot open one of 260 characters or more unless long paths are enabled: so the
+    # copy goes wherever that folder is shorter, inside .git or under TEMP - one folder per
+    # repository either way, so the runner's timings carry over from run to run.
+    gitcopy="$(git rev-parse --absolute-git-dir)/staged-tree"
+    tmpcopy="${TEMP:-${TMPDIR:-/tmp}}/stf-$(printf '%s' "$repo" | cksum | cut -d' ' -f1)"
+    winlen() { w=$(cygpath -w "$1" 2>/dev/null || printf '%s' "$1"); printf '%s' "${#w}"; }
+    if [ "$(winlen "$tmpcopy")" -lt "$(winlen "$gitcopy")" ]; then copy="$tmpcopy"; else copy="$gitcopy"; fi
+    rm -rf "$copy"
+    mkdir -p "$copy"
+    git -c core.longpaths=true checkout-index --all --prefix="$copy/"
+    # The suites select files through git, so the copy is a repository of its own, holding every
+    # staged file - one .gitignore matches but was added by force included. Everything
+    # after this runs without the variables git sets for the hook: GIT_INDEX_FILE left in place
+    # would point the copy's commands at THIS repository's index.
+    ( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_OBJECT_DIRECTORY
+      git -C "$copy" init -q && git -C "$copy" config core.hooksPath .githooks &&
+      git -C "$copy" config core.longpaths true &&
+      git -C "$copy" -c core.autocrlf=false add -A --force ) >/dev/null   # errors still show: the trap points at them
+    log="$work/suite.log"
+    # $py unquoted: "py -3" is a command and its argument.
+    if ! ( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_OBJECT_DIRECTORY
+           $py "$copy/tests/run-all-tests.py" ) > "$log" 2>&1; then
+        tail -25 "$log"
+        echo ""
+        echo "Commit refused: the test suite is red on the staged files."
+        said=1; exit 1
+    fi
+    tail -3 "$log"
 fi
-
-echo "pre-commit: OK"
+exit 0

@@ -1,28 +1,15 @@
 # Homelab work queue
 
-Remaining work on the cluster and on this repo, most important first.
-Delete an item when it's done; the commit that deletes it is the record.
-Work finished up to 2026-10-04 is in the Done section of
-`git show ed9e8a8:QUEUE.md`.
-
-How the repo is managed:
-
-- **Helm releases**: captured from the cluster by `capture`; `generate`
-  writes their Flux files.
-- **`.handwritten` releases** (media, traefik, traefik-isolated,
-  external-secrets, smtp-relay, local-path-provisioner): the tool never
-  touches them.
-- **`.promote` releases**: capture writes the namespace's non-Helm objects
-  into `app/`, and Secrets go to git as `${PLACEHOLDER}`s.
-- **Secret values**: fields of the `cluster-secrets` item in Vaultwarden,
-  synced into the cluster by External Secrets (`kubernetes/secrets/`). List
-  or change them with `scripts/vaultwarden-fields.ps1`. Plain settings are in
-  `kubernetes/flux/meta/vars/cluster-settings.yaml`.
-
-Run everything from the repo root with `python scripts/backup.py all`.
-
-Database backups are handled outside this repo and the cluster config, so
+Outstanding work on the cluster and on this repo, roughly in the order worth doing it.
+`CLAUDE.md` holds the rules for keeping it. Database backups are handled outside this repo, so
 nothing here tracks them.
+
+## Contents
+
+- [Next](#next)
+- [Cleanup](#cleanup)
+- [Later](#later)
+- [Working queue files](#working-queue-files) - none open.
 
 ## Next
 
@@ -109,3 +96,18 @@ Nothing right now; pick from Later.
   including the stacks' secret variables, so not this repo) and what runs it
   (by hand, CI, or tofu-controller under Flux). Import the existing resources
   first, so nothing gets recreated.
+- [ ] **Two places in `scripts/k8s_backup/` read "could not find out" as an answer**
+  (the `CatchReturnsFalse` and `EmptyCatch` ratchets in `tests/test_config.toml`):
+  - `capture.py`, the IP inventory loop (`yamlio.read_yaml_file(path)` in `except
+    Exception: continue`): a manifest that fails to parse is left out of the inventory
+    silently. Name it in the output instead.
+  - `helmcli.py`, the `helm search repo` check: a failed search or unreadable JSON returns
+    `False`, read as "this chart version isn't available". Make it a third outcome.
+
+  Lower each ceiling in the commit that fixes one.
+
+## Working queue files
+
+None open. A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
+finished one moves to `old-queues/`, whose README indexes what each settled and which checks
+came back negative.

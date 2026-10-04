@@ -72,7 +72,7 @@ folder (applied by `cluster`), otherwise to `cluster/namespace/<ns>.yaml`
 | capture | `kubernetes/.local/` and `kubernetes/raw/` (gitignored), and `docs/` |
 | generate | `app/helmrelease.yaml`, `app/kustomization.yaml`, `ks.yaml`, `apps/<ns>/kustomization.yaml`, `apps/kustomization.yaml` |
 | generate | `cluster/kustomization.yaml`, `flux/meta/repositories/kustomization.yaml`, `flux/config/cluster.yaml`, `flux/config/cluster-resources.yaml` |
-| generate | `.gitignore` (lines you add are kept), `.sops.yaml`, `.githooks/pre-commit`, and `README.md` only if missing |
+| generate | `.gitignore` (lines you add are kept), `.gitattributes`, `.sops.yaml`, and `README.md` only if missing |
 
 Both phases delete files they own that no longer correspond to anything, e.g.
 a release that was uninstalled. Flux then removes the release, but never its
@@ -310,7 +310,8 @@ holds the CLI login, and `cluster/` is the only copy of those objects.
 ## Tests
 
 ```
-python -m pytest scripts/tests -q                              # everything the pre-commit hook runs
+python3 tests/run-all-tests.py                                 # everything the pre-commit hook runs
+python -m pytest scripts/tests -q                              # just this suite
 python -m pytest scripts/tests/test_secrets_hygiene.py -q      # just the secret scans
 python -m pytest scripts/tests/test_structure.py -q -k promote # filter by test name
 ```

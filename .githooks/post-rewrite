@@ -1,0 +1,31 @@
+#!/bin/sh
+# A rebase replays commits with no commit hook, and nothing a hook does afterwards can refuse it.
+# This runs the suites on the result and says so when it is red, which is the most git allows.
+# An amend already went through pre-commit, so only a rebase is checked.
+[ "$1" = "rebase" ] || exit 0
+repo="$(git rev-parse --show-toplevel)"
+[ -f "$repo/tests/run-all-tests.py" ] || exit 0
+# The same Python pre-commit finds: the first of py -3, python3 and python that is 3.11 or later.
+py=""
+for c in "py -3" python3 python; do
+    if command -v "${c%% *}" >/dev/null 2>&1 &&
+       $c -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then py="$c"; break; fi
+done
+if [ -z "$py" ]; then
+    echo "WARNING: no Python 3.11 or later answers as py -3, python3 or python, so the rebased branch was not tested."
+    exit 0
+fi
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+echo "  running tests/run-all-tests.py on the rebased branch ..."
+if ( unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_OBJECT_DIRECTORY
+     $py "$repo/tests/run-all-tests.py" ) > "$log" 2>&1; then
+    tail -3 "$log"
+else
+    tail -25 "$log"
+    echo ""
+    echo "WARNING: the rebased branch is red, and a hook cannot undo a rebase. Fix it in a new commit,"
+    # --keep, not --hard: git applies an autostash after this hook, and --hard would discard it.
+    echo "         or go back with: git reset --keep ORIG_HEAD (it refuses rather than lose local changes)"
+fi
+exit 0

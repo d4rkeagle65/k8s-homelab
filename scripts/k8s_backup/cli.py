@@ -93,13 +93,13 @@ def _activate_pre_commit_hook(output: Path, dry_run: bool) -> None:
         return
     current = subprocess.run(
         ["git", "-C", str(output), "config", "--get", "core.hooksPath"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8",
     )
     if current.returncode == 0 and current.stdout.strip() not in ("", ".githooks"):
         print(f"\ncore.hooksPath is already set to '{current.stdout.strip()}'; leaving it alone.")
         return
     subprocess.run(["git", "-C", str(output), "config", "core.hooksPath", ".githooks"], check=False)
-    print("\ngit config core.hooksPath set to .githooks (runs scripts/tests before each commit).")
+    print("\ngit config core.hooksPath set to .githooks (runs tests/run-all-tests.py before each commit).")
 
 
 def _print_report(title: str, report: RunReport, stats: dict) -> None:

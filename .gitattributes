@@ -6,3 +6,10 @@
 # is built around: every file would show as changed the moment git touches
 # line endings.
 * text=auto eol=lf
+
+*.xlsx binary
+*.docx binary
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.zip  binary

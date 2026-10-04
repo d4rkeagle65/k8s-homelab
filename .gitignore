@@ -40,4 +40,6 @@ id_ed25519*
 # classify_cluster_locality) and the operator's real variable-substitution
 # mapping (varsub.py). Both are regenerated/maintained locally; committing
 /docs/
+# Words the pre-commit hook blocks (domains, hostnames), one per line: never committed.
+.secret-words
 /secrets/
