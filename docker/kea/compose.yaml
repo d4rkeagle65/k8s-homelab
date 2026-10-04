@@ -77,6 +77,11 @@ services:
     ports:
     - ${KEA_DHCP_ADDRESS}:67:67/udp
     - ${KEA_API_ADDRESS}:8000:8000
+    # The API on loopback too, for the host itself and its host-network
+    # containers (claude-code). From there, connections to the management
+    # address leave from it, and its routing rules (table 250) send them
+    # out to the management network instead of to this container.
+    - 127.0.0.1:8000:8000
     volumes:
     # Relative to this folder in Dockhand's clone, which sits at the same
     # path on the host.

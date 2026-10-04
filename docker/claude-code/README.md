@@ -117,14 +117,15 @@ credentials file Kea reads (`docker/kea/README.md`).
    ```
 
 2. On the host, save it, then test it (a reply with `"result": 0` means it
-   works):
+   works). Kea's API is on the host's loopback address for this container:
+   the host's management address hangs from here (`docker/kea/README.md`).
 
    ```sh
    docker exec -it claude-code save-secret .kea-api
    ```
 
    ```sh
-   docker exec claude-code sh -c 'curl -s -u "$(cat ~/.kea-api)" -H "Content-Type: application/json" -d "{\"command\": \"version-get\"}" http://<the host management address>:8000/'
+   docker exec claude-code sh -c 'curl -s -u "$(cat ~/.kea-api)" -H "Content-Type: application/json" -d "{\"command\": \"version-get\"}" http://127.0.0.1:8000/'
    ```
 
 ### GitHub token
