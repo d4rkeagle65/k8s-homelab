@@ -4,7 +4,8 @@ Moves a CloudNativePG database onto the local-db StorageClass, one instance at
 a time, with a single brief switchover.
 
 .DESCRIPTION
-The procedure used for whisparr on 2026-09-29 (see QUEUE.md):
+The procedure used for whisparr on 2026-09-29 (notes in the Done section of
+`git show ed9e8a8:QUEUE.md`):
   1. Suspend the database's Flux Kustomization.
   2. Point the Cluster's spec.storage.storageClass at local-db. Only new
      instances use it; running ones are untouched.
