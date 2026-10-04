@@ -41,8 +41,8 @@ never manages itself.
 - **Always pass `--output .`**; the default output path is wrong for this repo.
 - **Helm values are nested YAML**, never dotted keys like `controller.service.x`,
   which Helm ignores.
-- **`scripts/` here is the copy to edit.** A second copy lives outside this repo
-  and is synced by hand; say so when you change `scripts/`.
+- **`scripts/` is the tool's only copy.** The separate `k8s-backup-repo-gen`
+  project it came from is gone, so there's nothing to sync.
 - **No real values in git.** No domains, IPs, hostnames or secret values in
   files, commit messages or PR text. Use `${VARIABLE}` placeholders; Flux fills
   them in from the `cluster-secrets` Secret, which External Secrets builds from

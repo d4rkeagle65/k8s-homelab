@@ -330,13 +330,6 @@ If a secret scan flags something you've confirmed is harmless, add the exact
 value to `docs/secrets-scan-allowlist.txt` rather than changing the test.
 Bypass the hook (`git commit --no-verify`) only if you're certain.
 
-## The second copy of these scripts
-
-The same tool also lives in `../scripts` (the `k8s-backup-repo-gen` project).
-**This folder is the one to edit.** Running `backup.py all` *from that other
-copy* replaces this folder with its contents, so after changing anything here,
-copy the changed files over there as well.
-
 ## Code map
 
 | Module | Role |
