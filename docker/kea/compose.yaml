@@ -18,6 +18,11 @@
 #   POSTGRES_PASSWORD   secret: the database superuser's
 #   KEA_DB_PASSWORD     secret: the kea role's (also in site.json)
 #   STORK_DB_PASSWORD   secret: the stork role's
+#   STORK_OIDC_ISSUER_URL     Authentik's issuer for Stork:
+#                             https://auth.<domain>/application/o/stork/
+#   STORK_OIDC_REDIRECT_URI   https://stork.<domain>/oidc/callback
+#   STORK_OIDC_CLIENT_SECRET  secret: the same one Authentik's blueprint
+#                             reads (AUTHENTIK_STORK_OIDC_CLIENT_SECRET)
 services:
   kea-postgres:
     image: postgres:17-alpine
@@ -41,7 +46,7 @@ services:
   # this Kea version otherwise; runs on every deploy, then exits.
   kea-db-init:
     build: .
-    image: homelab/kea-tools:3.2.1-stork-2.4.1
+    image: homelab/kea-tools:3.2.1-stork-2.5.1
     restart: "no"
     depends_on:
       kea-postgres:
@@ -86,7 +91,7 @@ services:
   # once in Stork (Services > Machines).
   stork-agent:
     build: .
-    image: homelab/kea-tools:3.2.1-stork-2.4.1
+    image: homelab/kea-tools:3.2.1-stork-2.5.1
     restart: unless-stopped
     depends_on:
     - kea-dhcp4
@@ -106,7 +111,7 @@ services:
 
   stork-server:
     build: .
-    image: homelab/kea-tools:3.2.1-stork-2.4.1
+    image: homelab/kea-tools:3.2.1-stork-2.5.1
     container_name: stork-server
     restart: unless-stopped
     depends_on:
@@ -120,5 +125,16 @@ services:
       STORK_DATABASE_PASSWORD: ${STORK_DB_PASSWORD}
       STORK_REST_HOST: 0.0.0.0
       STORK_REST_PORT: "8080"
+      # Login through Authentik (OIDC). Only members of authentik Admins may
+      # log in, as Stork super-admins; Stork's own admin login stays as the
+      # fallback for when Authentik (in the cluster) is down.
+      STORK_OIDC_ISSUER_URL: ${STORK_OIDC_ISSUER_URL}
+      STORK_OIDC_REDIRECT_URI: ${STORK_OIDC_REDIRECT_URI}
+      STORK_OIDC_CLIENT_ID: stork
+      STORK_OIDC_CLIENT_SECRET: ${STORK_OIDC_CLIENT_SECRET}
+      STORK_OIDC_PROVIDER_NAME: Authentik
+      STORK_OIDC_GROUP_ALLOW: authentik Admins
+      STORK_OIDC_MAP_GROUPS: "1"
+      STORK_OIDC_GROUP_SUPER_ADMIN: authentik Admins
     ports:
     - ${KEA_API_ADDRESS}:8080:8080
