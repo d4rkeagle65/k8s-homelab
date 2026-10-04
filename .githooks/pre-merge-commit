@@ -1,0 +1,4 @@
+#!/bin/sh
+# A merge that commits on its own runs this hook, not pre-commit: two branches green apart can
+# merge into a red one. The same gate runs on what the merge staged.
+exec "$(git rev-parse --show-toplevel)/.githooks/pre-commit" "$@"

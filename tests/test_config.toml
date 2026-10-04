@@ -1,0 +1,100 @@
+# Settings every suite reads. test-harness.py fails on a key not listed in _testcommon.py's
+# KNOWN_CONFIG_KEYS, because a mistyped key silently takes its default. Every key at the top
+# level comes before the first [table]: TOML puts a key written after one inside it.
+
+# Scripts the health checks hold to account, by file name. Empty means every tracked .py
+# outside tests/ - derived, so a new script is covered the day it is added.
+Scripts = []
+# Relative paths to leave out, as glob patterns ("vendor/*").
+# scripts/tests is pytest's suite, held by test-scripts-pytest rather than as scripts.
+# docker/kea/tools converted dnsmasq's config and leases once, and is kept only for reference.
+ExcludeScripts = ["scripts/tests/*", "docker/kea/tools/*"]
+
+# Pythons the scripts must run under, as "3.N" strings - unquoted, 3.10 is the number 3.1. Each
+# one listed is compiled against and has its standard-library imports checked, in a child of
+# that Python; one not installed here is a SKIP. Empty means the Python that runs the suites.
+# 3.12 on the PC, 3.13 in the claude-code container (docker/claude-code).
+TargetPythons = ["3.12", "3.13"]
+# Seconds a suite may run before the runner stops it, with every process it started, and calls
+# it red. A suite waiting on input would otherwise hang the run and the commit hook.
+SuiteTimeoutSeconds = 600
+
+# When core.hooksPath names a folder of generated stubs that call hooks kept elsewhere - some
+# hook managers work that way - the folder of those hand-written hooks, from the repo's top.
+# test-harness then looks there for the calls to .githooks. Empty: the hooks path itself.
+HookSource = ""
+
+# Suites that assert against what is INSTALLED here rather than against the repo. They go red
+# when a package updates, not when the code changes, so the commit gate leaves them out; run
+# them with run-all-tests.py --include-environment.
+EnvironmentSuites = ["test-import-preflight", "test-prerequisites"]
+# Suites that live outside tests/, relative to the repo root.
+ExtraSuites = []
+
+# Every script carries help: a module docstring, and help= on each argparse argument.
+RequireHelp = true
+# "LF" fails any CRLF in a text file; "Any" skips the check.
+LineEndings = "LF"
+TextExtensions = [".py", ".pyi", ".toml", ".cfg", ".ini", ".md", ".json", ".txt", ".yml", ".yaml",
+                  ".xml", ".csv", ".sh", ".gitattributes", ".gitignore"]
+
+# Docs kept as received (vendor text, generated files), as glob patterns on the relative path:
+# the doc rules skip them, as generated files belong to their generator. CHANGELOG.md is history
+# by definition and need not be listed.
+DocExclude = []
+# README.md names every top-level tracked entry.
+ReadmeCatalogue = false
+
+# A count below its ceiling fails too, so a ceiling comes down in the commit that earned it.
+StrictRatchets = true
+
+# What the scripts need installed, each at a version they work with; test-prerequisites checks
+# it. Packages named in a script's PEP 723 block (# /// script) are added without listing here.
+[Prerequisites]
+# { Name = "requests", Minimum = "2.31" }, plus Pythons = ["3.12"] when only one Python needs it.
+Packages = [
+    { Name = "ruamel.yaml", Minimum = "0.18" },
+    { Name = "pytest", Minimum = "8.0" },
+]
+# Native tools, checked from each target Python: Arguments make the tool print its version and
+# exit. A tool gets no input and TimeoutSeconds (default 30) to answer, then is stopped and
+# fails. Pythons limits it as for a package.
+# { Name = "git", Arguments = ["--version"], Minimum = "2.40" }
+Tools = [
+    { Name = "git", Arguments = ["--version"], Minimum = "2.40" },
+    { Name = "kubectl", Arguments = ["version", "--client"], Minimum = "1.32" },
+    { Name = "flux", Arguments = ["--version"], Minimum = "2.9" },
+    { Name = "helm", Arguments = ["version", "--short"], Minimum = "4.0" },
+]
+
+# Ceilings: may fall, never rise. install-test-framework.py --calibrate sets them from a run.
+[Ratchets]
+EmptyCatch          = 2   # except ...: pass - the reason something failed, discarded
+CatchReturnsFalse   = 4   # except ...: return False - "could not find out" read as "no"
+BareExcept          = 0   # except: - also catches KeyboardInterrupt and SystemExit
+SuppressedError     = 0   # contextlib.suppress(Exception) - a failed read becomes no answer
+OpenWithoutEncoding = 0   # open() with no encoding= - the locale's code page on Windows
+NarrationInDocs     = 0   # docs narrating history instead of saying what is true
+NarrationInComments = 0   # the same, in code comments and docstrings
+EssayComments       = 2   # runs of whole-line comments at or over Budgets.EssayCommentLines
+
+# Fixed limits, not ratchets: calibration leaves them alone.
+[Budgets]
+ClaudeRulesRoot    = 30   # rules the root CLAUDE.md may hold; it loads every session
+ClaudeRulesTotal   = 57   # rules across every CLAUDE.md; a folder's file loads only when work
+                          # touches it, and kubernetes/ alone holds 16 cluster rules
+ClaudeRuleMaxLines = 8    # lines one rule may run to
+EssayCommentLines  = 12   # a comment run this long is an essay
+
+# Minimum files each scan must see, so a filter that stops matching fails instead of reporting
+# zero problems forever. Calibration sets each to half the current count, or 0 when there is
+# nothing to count yet; recalibrate once there is.
+[Floors]
+PyFiles        = 12   # scripts under test (Scripts, less ExcludeScripts)
+TrackedScripts = 1   # every tracked script outside tests/ (test-single-source)
+TextFiles      = 210
+MarkdownFiles  = 3
+CommentFiles   = 201
+ClaudeFiles    = 2
+Suites         = 3
+PytestTests    = 59  # tests scripts/tests ran (test-scripts-pytest)

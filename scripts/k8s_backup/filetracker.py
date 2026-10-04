@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable
 
 _SCAN_ROOTS = ("kubernetes", "docs")
-_SCAN_TOP_FILES = ("README.md", ".sops.yaml", ".gitignore", ".gitattributes", ".githooks/pre-commit")
+_SCAN_TOP_FILES = ("README.md", ".sops.yaml", ".gitignore", ".gitattributes")
 
 
 @dataclass

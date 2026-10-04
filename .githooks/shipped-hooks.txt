@@ -1,0 +1,7 @@
+# The SHA-256 of every hook the framework has shipped, over its text with LF line endings. An
+# installed hook that matches one exactly was never edited, so --force replaces it with the
+# newer one. Add a line here whenever a hook changes; the self-test fails until you do.
+ba87d496ce3e5b1050f9971d96cc4ef352115caadc497708e9a17af82d888e4b  pre-commit  python 1
+0fb30f2588e96060d09430290fc4c2e0da736691afd89bcdb2f24f1ad1608f11  pre-merge-commit  python 1
+c11a50274d730754996d62978c572b49551415b1ebc4a0639eddf8e712ed7062  post-rewrite  python 1
+d42064c78c50c13075ac89a6fd0511f1a06693fcb278af5465afc69787f5df93  pre-applypatch  python 1

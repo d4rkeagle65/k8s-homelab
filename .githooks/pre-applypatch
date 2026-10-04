@@ -1,0 +1,4 @@
+#!/bin/sh
+# git am applies each patch and commits it with no commit hook; this runs, with the patch
+# applied and staged, before that commit. The same gate runs on what the patch staged.
+exec "$(git rev-parse --show-toplevel)/.githooks/pre-commit" "$@"

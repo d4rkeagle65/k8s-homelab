@@ -65,7 +65,6 @@ GENERATE_PATTERNS = [
     ".sops.yaml",
     ".gitignore",
     ".gitattributes",
-    ".githooks/pre-commit",
     # Not README.md: generate only writes one when none exists, so owning it
     # would make the orphan sweep delete an operator-written README.
 ]

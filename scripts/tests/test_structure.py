@@ -218,7 +218,12 @@ def test_pre_commit_hook_exists_and_looks_runnable(repo_root):
     assert path.is_file(), ".githooks/pre-commit is missing"
     text = path.read_text(encoding="utf-8")
     assert text.startswith("#!/bin/sh"), ".githooks/pre-commit must start with a shebang"
-    assert "pytest scripts/tests" in text
+    # The hook runs the test framework's runner, which runs this suite through
+    # tests/test-scripts-pytest.py: both links must hold for a commit to gate on it.
+    assert "tests/run-all-tests.py" in text
+    wrapper = repo_root / "tests" / "test-scripts-pytest.py"
+    assert wrapper.is_file(), "tests/test-scripts-pytest.py is missing"
+    assert '"scripts/tests"' in wrapper.read_text(encoding="utf-8")
 
 
 def test_namespace_dirs_have_required_files(repo_root):
