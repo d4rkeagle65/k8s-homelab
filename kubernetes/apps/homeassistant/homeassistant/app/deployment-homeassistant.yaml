@@ -68,7 +68,20 @@ spec:
       hostNetwork: true
       initContainers:
       - args:
-        - "if [ ! -f /config/configuration.yaml ]; then\n  echo \"No existing configuration.yaml found, seeding starter config...\"\n  cat <<'EOF' > /config/configuration.yaml\ndefault_config:\n\nhttp:\n  use_x_forwarded_for: true\n  trusted_proxies:\n    - 10.229.0.0/16\nEOF\nelse\n  echo \"Existing configuration.yaml found, leaving it untouched.\"\nfi\n"
+        - |
+          if [ ! -f /config/configuration.yaml ]; then
+            echo "No existing configuration.yaml found, seeding starter config..."
+            cat <<'EOF' > /config/configuration.yaml
+          default_config:
+
+          http:
+            use_x_forwarded_for: true
+            trusted_proxies:
+              - 10.229.0.0/16
+          EOF
+          else
+            echo "Existing configuration.yaml found, leaving it untouched."
+          fi
         command:
         - sh
         - -c
