@@ -12,4 +12,5 @@ kind: Kustomization
 resources:
 - dockhand.yaml
 - pihole.yaml
+- stork.yaml
 - vaultwarden.yaml

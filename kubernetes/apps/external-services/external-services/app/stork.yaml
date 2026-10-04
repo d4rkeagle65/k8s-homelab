@@ -1,0 +1,41 @@
+# Stork, the web UI for the Kea DHCP server, in Docker on the Docker host,
+# port 8080 on its management address only. DOCKHAND_ADDRESS is that
+# address's hand-made Pi-hole name (dockhand runs on the same host); the
+# nodes reach the management network through their second interface.
+# Stork logs users in through Authentik itself (OIDC), so no forward-auth.
+apiVersion: v1
+kind: Service
+metadata:
+  name: stork
+spec:
+  type: ExternalName
+  externalName: ${DOCKHAND_ADDRESS}
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stork
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: stork.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: stork
+            port:
+              number: 8080
+  tls:
+  - hosts:
+    - stork.${BASE_DOMAIN}
+    secretName: stork-tls
