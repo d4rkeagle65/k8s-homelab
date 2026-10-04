@@ -75,6 +75,32 @@ Nothing right now; pick from Later.
   (`kubectl annotate clustersecretstore <name> homelab.local/revalidate=<time> --overwrite`).
   Find out whether External Secrets rechecks a store that's already invalid,
   or only valid ones, and make recovery automatic.
+- [ ] **Ansible for the hosts outside the cluster**, so their hand-made setup
+  can be rebuilt from git instead of from notes:
+  - **Docker VM:** netplan (its three network legs, routing tables and rule
+    priorities), the nft scripts and their systemd units (management return
+    path, DMZ marks, the `DOCKER-USER` rules for Tailscale), sysctls, Docker,
+    Dockhand's own compose file and the certificate-sync cron.
+  - **Proxmox hosts:** repositories, packages, kernel cleanup, and the host
+    settings the k8s LXCs depend on.
+  - **Pi-hole:** its `pihole-FTL --config` settings (the `local=` lines,
+    HTTPS filtering, no conditional forwarding, `bogusPriv`) and the
+    hand-made local records such as `vaultwarden-direct`.
+
+  The inventory and every address stay out of this public repo (a
+  gitignored inventory, or values from Vaultwarden).
+- [ ] **Terraform (or OpenTofu) for what's created through APIs:**
+  - **Proxmox:** the VMs and LXCs (k8s nodes, the Docker VM, Pi-hole), with
+    their disks and network interfaces.
+  - **Cloudflare:** DNS records and the tunnel's public hostnames.
+  - **The *arr settings:** download clients, root folders, auth and
+    Prowlarr's app links, through the devopsarr providers. This is the
+    alternative to a small in-cluster Job calling the apps' APIs, which
+    needs no state file.
+
+  Before starting: decide where the state file lives (it holds secrets, so
+  not this repo) and what runs it (by hand, CI, or tofu-controller under
+  Flux). Import the existing resources first, so nothing gets recreated.
 
 ## Done
 
