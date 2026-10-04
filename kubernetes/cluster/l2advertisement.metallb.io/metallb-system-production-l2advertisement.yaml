@@ -4,5 +4,7 @@ metadata:
   name: production-l2advertisement
   namespace: metallb-system
 spec:
+  interfaces:
+  - eth0
   ipAddressPools:
   - production

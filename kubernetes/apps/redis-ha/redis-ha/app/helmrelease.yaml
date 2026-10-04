@@ -28,6 +28,8 @@ spec:
       size: 10Gi
       storageClass: nfs-retain-rwo
     redis:
+      config:
+        maxmemory-policy: noeviction
       masterGroupName: mymaster
     replicas: 3
     sentinel:
