@@ -81,8 +81,7 @@ EssayComments       = 2   # runs of whole-line comments at or over Budgets.Essay
 # Fixed limits, not ratchets: calibration leaves them alone.
 [Budgets]
 ClaudeRulesRoot    = 30   # rules the root CLAUDE.md may hold; it loads every session
-ClaudeRulesTotal   = 57   # rules across every CLAUDE.md; a folder's file loads only when work
-                          # touches it, and kubernetes/ alone holds 16 cluster rules
+ClaudeRulesTotal   = 45   # rules across every CLAUDE.md
 ClaudeRuleMaxLines = 8    # lines one rule may run to
 EssayCommentLines  = 12   # a comment run this long is an essay
 

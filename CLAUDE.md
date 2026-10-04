@@ -95,30 +95,26 @@ Read before changing anything:
 
 ## Project-specific rules
 
-- **No real values in git.** No domains, IPs, hostnames or secret values in files, commit
-  messages or PR text. Use `${VARIABLE}` placeholders; Flux fills them in from the
-  `cluster-secrets` Secret, which External Secrets builds from a Vaultwarden item
-  (`kubernetes/secrets/`), and the `cluster-settings` ConfigMap for plain public settings
-  (`kubernetes/flux/meta/vars/`). The real values live only in Vaultwarden and the gitignored
-  `kubernetes/.local/`. Local words the hook must block go in the gitignored `.secret-words`.
-- **A new variable must be in the cluster before anything using it is pushed.** An undefined
-  variable fails the Flux Kustomization that uses it (strict substitution), which then stops
-  updating. Only the owner can add one; an empty value is fine.
+- **No real values in git, and a new variable reaches the cluster before what uses it.** No
+  domains, IPs, hostnames or secrets in files, commit messages or PR text: use `${VARIABLE}`s,
+  which Flux fills from `cluster-secrets` (built by External Secrets from a Vaultwarden item;
+  `kubernetes/secrets/`) and `cluster-settings` (`kubernetes/flux/meta/vars/`). Real values
+  live only in Vaultwarden, the gitignored `kubernetes/.local/`, and `.secret-words` for the
+  hook. An undefined variable fails its Flux Kustomization, so only the owner adds one, before
+  anything using it is pushed; an empty value is fine.
 - **Work on a branch, never directly on `main`; a merge is a deploy.** Flux applies whatever
   reaches `main`. The owner reviews the full diff first, and `main` is pushed only when the
   owner asks for that push.
 
 ## In a cloud session
 
-The cloud has a fresh clone and no cluster access.
+The cloud has a fresh clone and no cluster access: no `kubectl`, `helm` or `flux` against the
+cluster, and no `kubernetes/.local/`, `docs/` or `kubernetes/raw/`. `generate` and the tests
+work offline.
 
-- **No `kubectl`, `helm` or `flux` against the cluster there, and no `kubernetes/.local/`,
-  `docs/` or `kubernetes/raw/`.** Don't run `capture` or `all`; `generate` and the tests work
-  offline.
-- **When you're done, commit to your own branch and push that branch.** Don't merge, push to
-  `main` or open a PR unless asked. The owner merges locally after checking the change against
-  the live cluster.
-- **Leave `QUEUE.md` alone there, and end with a summary instead**, so the branch doesn't
-  conflict with local work: what changed; what must be checked against the live cluster (for
-  example, which Flux Kustomizations would change); whether `scripts/` changed; and the queue
-  changes the work calls for.
+- **Don't run `capture` or `all` there.** They read the live cluster.
+- **When you're done, commit to your own branch, push that branch, and end with a summary.**
+  Don't merge, push to `main` or open a PR unless asked; the owner merges locally after
+  checking the change against the live cluster. The summary says what changed, what to check
+  against the live cluster (for example, which Flux Kustomizations would change), and whether
+  `scripts/` changed.
