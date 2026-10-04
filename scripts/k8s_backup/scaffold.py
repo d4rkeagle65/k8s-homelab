@@ -209,7 +209,7 @@ real value back in (by hand, or with `envsubst`).
 ## How to re-run
 
 ```
-python scripts/backup.py all --output . --context <kube-context>
+python scripts/backup.py all --context <kube-context>
 ```
 
 Re-running is idempotent: it updates files in place, adds new ones for

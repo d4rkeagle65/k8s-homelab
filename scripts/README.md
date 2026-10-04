@@ -29,22 +29,23 @@ which makes every `git commit` run the test suite first.
 
 ## Running it
 
-Always run from the **repo root** and always pass `--output .`. The default
-output is `./homelab`, which is wrong from here.
+Always run from the **repo root**: `--output` defaults to the current
+directory. Run from inside `scripts/` or above the repo, the tool refuses to
+start.
 
 | Command | What it does |
 |---|---|
-| `python scripts/backup.py all --output .` | capture, then generate: the normal run |
-| `python scripts/backup.py capture --output .` | read the cluster only |
-| `python scripts/backup.py generate --output .` | rebuild the Flux files from disk only (offline) |
+| `python scripts/backup.py all` | capture, then generate: the normal run |
+| `python scripts/backup.py capture` | read the cluster only |
+| `python scripts/backup.py generate` | rebuild the Flux files from disk only (offline) |
 | add `--dry-run` | report what would be added, changed or removed without writing |
 | add `--verbose` | log every resource, including why it was skipped |
 | add `--context <name>` | use a kubectl context other than the current one |
 
 ## The normal workflow, in order
 
-1. Optionally preview: `python scripts/backup.py all --output . --dry-run`
-2. Run it: `python scripts/backup.py all --output .`
+1. Optionally preview: `python scripts/backup.py all --dry-run`
+2. Run it: `python scripts/backup.py all`
 3. Read the **warnings** at the end of the output (see
    [Warnings](#warnings-and-what-to-do)). Some of them need action before you commit.
 4. Review: `git status` and `git diff`. On an unchanged cluster there's nothing
@@ -146,7 +147,7 @@ in `dependencies.py`:
 1. Edit `apps/<ns>/<release>/app/values.yaml`. Use nested YAML (`controller:` then
    `service:` then `externalTrafficPolicy: Local`), never a dotted key like
    `controller.service.externalTrafficPolicy`, which Helm silently ignores.
-2. Run `python scripts/backup.py generate --output .`. Use **generate, not
+2. Run `python scripts/backup.py generate`. Use **generate, not
    capture or all**: capture re-reads the live values and would overwrite your
    edit until Flux has applied it.
 3. Review, test, commit and push, then run
@@ -163,7 +164,7 @@ in `dependencies.py`:
    - Set `dependsOn` to the operators it needs (e.g. `- name: cnpg` for a
      database `Cluster`), or `[]`. generate doesn't touch it here; the tests
      only check each name is another Kustomization under `apps/`.
-2. Run `python scripts/backup.py generate --output .` to add it to
+2. Run `python scripts/backup.py generate` to add it to
    `apps/<ns>/kustomization.yaml` and `apps/kustomization.yaml`.
 3. Test, commit, push.
 
@@ -172,13 +173,13 @@ in `dependencies.py`:
 1. Create the marker, e.g. in PowerShell:
    `New-Item -ItemType File -Force kubernetes/apps/<ns>/<app>/.promote`
    Use `<ns>-extras` for `<app>` if the namespace already has a Helm release.
-2. `python scripts/backup.py capture --output .`
+2. `python scripts/backup.py capture`
    - If the namespace has Secrets you manage, their values are listed in
      `kubernetes/.local/vaultwarden-pending.yaml` and their manifests are
      **held back** ("not written yet").
 3. If Secrets were held back, add each pending value to Vaultwarden (see
    [Add or change a substitution variable](#add-or-change-a-substitution-variable)).
-4. `python scripts/backup.py all --output .`
+4. `python scripts/backup.py all`
 5. Check that every `secret-*.yaml` holds only `${...}` values, run the tests,
    then commit and push.
 

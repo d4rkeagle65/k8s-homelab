@@ -61,7 +61,7 @@ def test_promoted_releases_have_been_captured(repo_root):
     )
     assert not pending, (
         f"marked .promote but not captured yet: {pending} -- run "
-        "`python scripts/backup.py all --output .` before committing"
+        "`python scripts/backup.py all` before committing"
     )
 
 

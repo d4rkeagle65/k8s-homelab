@@ -19,7 +19,7 @@ How the repo is managed:
   or change them with `scripts/vaultwarden-fields.ps1`. Plain settings are in
   `kubernetes/flux/meta/vars/cluster-settings.yaml`.
 
-Run everything from the repo root with `python scripts/backup.py all --output .`.
+Run everything from the repo root with `python scripts/backup.py all`.
 
 Database backups are handled outside this repo and the cluster config, so
 nothing here tracks them.

@@ -1,14 +1,13 @@
-"""CLI entry point.
+"""CLI entry point. Run from the repo root (--output defaults to the current directory):
 
-    python backup.py all --output ./homelab --context my-cluster
-    python backup.py capture --output ./homelab
-    python backup.py generate --output ./homelab --dry-run
+    python scripts/backup.py all --context my-cluster
+    python scripts/backup.py capture
+    python scripts/backup.py generate --dry-run
 """
 
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -35,8 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--output",
-        default="./homelab",
-        help="Output repo directory (default: ./homelab).",
+        default=".",
+        help="Output repo directory (default: the current directory, which should be the repo root).",
     )
     parser.add_argument("--context", default=None, help="kubectl context to use (default: current).")
     parser.add_argument(
@@ -61,26 +60,16 @@ def _check_tools(subcommand: str) -> None:
 
 def _check_output_is_safe(output: Path) -> None:
     """Refuse to run at all if --output overlaps with this tool's own
-    scripts/ source directory, in either direction.
-
-    This is not hypothetical: running with cwd inside scripts/ (or a
-    relative --output that happened to resolve there) previously made
-    _copy_scripts_into_repo() shutil.copytree() scripts/ into a
-    subdirectory of itself. Each run nested one layer deeper into the
-    PREVIOUS run's leftover copy (nothing failed the first few times --
-    copytree only errors once the accumulated path length exceeds
-    Windows' ~260-char MAX_PATH), so the failure showed up several runs
-    after the actual mistake, as repeated .../scripts/homelab/scripts/
-    homelab/... segments and `[WinError 3] The system cannot find the
-    path specified`. Even short of that crash, --output landing inside
-    scripts/ (or scripts/ landing inside --output) lets generate.py's
-    FileTracker treat this tool's own source files as orphans to sweep.
+    scripts/ source directory, in either direction: inside scripts/ (or
+    scripts/ itself), capture and generate would write a repo layout
+    (kubernetes/, docs/, .gitignore, .githooks/) among the tool's own
+    source; at an ancestor of the repo, into a folder above it. With
+    --output defaulting to the current directory, either happens when
+    that directory is wrong.
 
     One exception: --output exactly equal to scripts/'s parent. That is the
     repo this tool lives in, run as documented (`python scripts/backup.py
-    all --output .`). Neither hazard applies there: _copy_scripts_into_repo()
-    skips a destination equal to its own source, and FileTracker only scans
-    kubernetes/, docs/ and a few top-level files -- never scripts/.
+    all` from the repo root).
     """
     src = _SCRIPT_SOURCE_DIR.resolve()
     out = output.resolve()
@@ -89,27 +78,9 @@ def _check_output_is_safe(output: Path) -> None:
     if out == src or out.is_relative_to(src) or src.is_relative_to(out):
         raise ToolError(
             f"--output ({out}) overlaps with this tool's own source directory ({src}). "
-            "Point --output at a separate directory -- the actual repo you're backing up "
-            "into -- not a path inside scripts/ or an ancestor of it. (If you got here via "
-            "a relative --output, double-check your current working directory.)"
+            "Run from the repo root (--output defaults to the current directory), or point "
+            "--output at the repo root: not a path inside scripts/ or above the repo."
         )
-
-
-def _copy_scripts_into_repo(output: Path, dry_run: bool) -> None:
-    """Mirror the tool's own source into <output>/scripts/, replacing
-    whatever was there before -- not a purely additive copy. Without a
-    full replace, a file removed or renamed in the source (e.g. a module
-    split apart or renamed) would linger forever in every repo this tool
-    was ever run against, since nothing else ever revisits scripts/.
-    """
-    dest = output / "scripts"
-    if dry_run:
-        return
-    if dest.resolve() == _SCRIPT_SOURCE_DIR.resolve():
-        return
-    if dest.exists():
-        shutil.rmtree(dest)
-    shutil.copytree(_SCRIPT_SOURCE_DIR, dest, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
 
 
 def _activate_pre_commit_hook(output: Path, dry_run: bool) -> None:
@@ -178,10 +149,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.subcommand in ("generate", "all"):
             report, stats = generate.run(output, args.dry_run, args.verbose)
             _print_report("generate summary", report, stats)
-
-        if args.subcommand == "all":
-            _copy_scripts_into_repo(output, args.dry_run)
-            print(f"\nscripts/ copied into {output / 'scripts'}" if not args.dry_run else "\n[dry-run] would copy scripts/ into output repo")
 
         if args.subcommand in ("generate", "all"):
             _activate_pre_commit_hook(output, args.dry_run)
