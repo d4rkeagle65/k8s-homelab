@@ -24,11 +24,6 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Kea phase 2: Stork and a reservations database** (staged in
-  `docker/kea/`, see its README): Stork's web UI and a PostgreSQL database
-  in the same stack, with the reservations moved from the site file into
-  the database so Stork and the API change them live. Then a Traefik route
-  and Authentik login for Stork, like dockhand's.
 - [ ] **Delete the old hosts** (all retired on 2026-10-03, nothing in the
   cluster refers to them), from about 2026-10-17:
   - the one that ran NPM and mealie;
@@ -105,14 +100,10 @@ nothing here tracks them.
   the nodes got `eth1` MetalLB may also answer for service addresses on the
   management network. Add `interfaces: [eth0]`; check first how `generate`
   treats the file (change the live object and recapture, or hand-edit).
-- [ ] **Pi-hole's conditional forwarding points at the retired DHCP VM**
-  (its address on each VLAN, which never answered DNS anyway). Replace it
-  with `local=` lines for the remaining local domains, or with Kea's lease
-  names fed into DNS (phase 3).
 - [ ] **Kea phase 3:** a second Kea on another host as a hot-standby partner
   (the firewall's relay can point at both), and lease names into DNS.
 - [ ] **One Proxmox host carries both Pi-hole and the Docker VM**, so its
-  reboot takes DNS, DHCP (once Kea is live), the VPN and Vaultwarden down
+  reboot takes DNS, DHCP, the VPN and Vaultwarden down
   together. A second Pi-hole and a Kea HA partner on other hosts would fix
   that.
 - [ ] **The Vaultwarden secret stores didn't recover by themselves** after
@@ -121,18 +112,30 @@ nothing here tracks them.
   (`kubectl annotate clustersecretstore <name> homelab.local/revalidate=<time> --overwrite`).
   Find out whether External Secrets rechecks a store that's already invalid,
   or only valid ones, and make recovery automatic.
-- [ ] **Pi-hole's `local=` lines** (`misc.dnsmasq_lines`) for the main and
-  management local domains (added 2026-10-01 and 2026-10-03) stop Pi-hole
-  forwarding them to their DHCP servers, which don't answer DNS at all. Any
-  lookup Pi-hole couldn't answer itself, typically the IPv6 lookup for a name
-  with only an IPv4 record, hung for seconds: that broke Vaultwarden SSO and
-  the `bitwarden-cli` pod, and made Traefik take 10 s per new connection to
-  dockhand. Side effect: hostnames only the DHCP servers know no longer
-  resolve. If those are needed, find why the DHCP servers' DNS doesn't
-  answer, then remove the lines. The other local domains (IoT, DMZ, work)
-  are still forwarded and untested.
 
 ## Done
+
+- 2026-10-03: Kea phase 2. The `kea` stack gained Stork (Kea's web UI, with
+  its agent sharing Kea's container) and a PostgreSQL database, and all the
+  reservations moved from the site file into that database, so Stork and the
+  API change them live. Stork is at `stork.<domain>` through Traefik
+  (`external-services`, private networks only) and logs in through
+  Authentik, from a blueprint like dockhand's; only `authentik Admins` may
+  log in, as super-admins. Stork's own admin login stays as the fallback.
+  - **Stork comes from ISC's development series** (2.5.1): OIDC login isn't
+    in a stable release before 2.6. Stork migrates its database one way, so
+    go back to the stable repository only at 2.6 or later.
+  - **A reservation left in the site file overrides** the database's for
+    the same client, so the file keeps none.
+
+- 2026-10-03: Pi-hole answers every local domain itself (`local=` lines in
+  `misc.dnsmasq_lines` for all five), with conditional forwarding removed
+  and private-range reverse lookups kept off the internet (`bogusPriv`).
+  Everything had been forwarded to the DHCP servers, which never answered
+  DNS: any name or reverse lookup Pi-hole couldn't answer itself hung for
+  10 to 20 s. That broke Vaultwarden SSO and the `bitwarden-cli` pod, and
+  made Traefik take 10 s per new connection to dockhand. DHCP clients'
+  own names don't resolve (they never did); Kea phase 3 would add them.
 
 - 2026-10-03: DHCP moved from the dnsmasq VM to Kea 3.2 on the Docker host
   (`docker/kea/`), every VLAN relayed to it by the firewall's DHCP relay.
