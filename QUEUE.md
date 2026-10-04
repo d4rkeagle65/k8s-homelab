@@ -24,12 +24,7 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Delete the retired hosts' Pi-hole records** (the hosts themselves
-  are gone): the NPM host's address record, the old Vaultwarden host's own
-  record and its stale Firefly III one, the old dockhand's, and the dnsmasq
-  VM's on the main, management and IoT networks (each with its reverse
-  record). Also, if the AWS instance at the end of the old WireGuard tunnel
-  still exists, stop or terminate it and drop the DNS name that pointed at it.
+Nothing right now; pick from Later.
 
 ## Cleanup
 
@@ -86,7 +81,8 @@ nothing here tracks them.
 - 2026-10-03: The cleanup after the moves:
   - **The retired hosts are deleted:** the NPM and mealie host, the old
     dockhand, the old Vaultwarden host, the dnsmasq DHCP VM and the old
-    Tailscale container.
+    Tailscale container, with their Pi-hole records. The AWS instance at the
+    far end of the old WireGuard tunnel is gone too.
   - **The old PV folders on the Synology are deleted** (the Released PVs of
     2026-09-29). One of them, the old `immich-data`, turned out to hold
     immich's only copy of the photos: immich's volumes were recreated on
