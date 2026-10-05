@@ -69,8 +69,8 @@ Tools = [
 
 # Ceilings: may fall, never rise. install-test-framework.py --calibrate sets them from a run.
 [Ratchets]
-EmptyCatch          = 2   # except ...: pass - the reason something failed, discarded
-CatchReturnsFalse   = 4   # except ...: return False - "could not find out" read as "no"
+EmptyCatch          = 1   # except ...: pass - the reason something failed, discarded
+CatchReturnsFalse   = 3   # except ...: return False - "could not find out" read as "no"
 BareExcept          = 0   # except: - also catches KeyboardInterrupt and SystemExit
 SuppressedError     = 0   # contextlib.suppress(Exception) - a failed read becomes no answer
 OpenWithoutEncoding = 0   # open() with no encoding= - the locale's code page on Windows

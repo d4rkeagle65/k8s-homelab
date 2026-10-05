@@ -124,6 +124,7 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
 
     print("Capturing Helm repositories...")
     repo_names = _write_helm_repository_files(sink, helm_repos)
+    _keep_referenced_repositories(sink, context, repo_names, warnings)
 
     print("Capturing cluster-scoped resources...")
     cluster_counts, cluster_raw, local_counts = _capture_cluster_resources(
@@ -142,7 +143,7 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     print("Writing docs/ip-inventory.csv and docs/inventory.md...")
     nodes_for_ip_context = kube.list_nodes(context)
     ip_context = secretscan.build_ip_context(nodes_for_ip_context, cluster_raw)
-    ip_rows = _collect_ip_inventory(root, ip_context)
+    ip_rows = _collect_ip_inventory(root, ip_context, warnings)
     sink.write_text(root / "docs" / "ip-inventory.csv", inventory.build_ip_inventory_csv(ip_rows))
 
     ip_summary = _summarize_ip_inventory(ip_rows)
@@ -189,12 +190,18 @@ def _chart_source_from_helmrelease(helmrelease: dict | None) -> dict | None:
 
 
 def _resolve_chart_source(context, chart_name, chart_version, helm_repos, verbose):
+    failed = []
     for repo in helm_repos:
         repo_name = repo["name"]
-        if helmcli.search_repo_exact(context, repo_name, chart_name, chart_version):
+        found = helmcli.search_repo_exact(context, repo_name, chart_name, chart_version)
+        if found:
             kind = "OCIRepository" if repo["url"].startswith("oci://") else "HelmRepository"
             return {"resolved": True, "kind": kind, "repoName": repo_name, "reason": None}
+        if found is None:
+            failed.append(repo_name)
     reason = flux.unresolved_source_reason(chart_name, chart_version)
+    if failed:
+        reason += f" (couldn't search {', '.join(failed)}, so it may be there)"
     return {"resolved": False, "kind": None, "repoName": None, "reason": reason}
 
 
@@ -382,6 +389,34 @@ def _write_helm_repository_files(sink: Sink, helm_repos) -> list[str]:
         sink.write_yaml_stable(path, doc)
         names.append(name)
     return names
+
+
+def _keep_referenced_repositories(sink: Sink, context, written: list[str], warnings) -> None:
+    """Keep the file of every repository a live HelmRelease's sourceRef names
+    but this machine's `helm repo list` lacks: the orphan sweep would
+    otherwise delete a source Flux is using. When the HelmReleases can't be
+    listed, every existing repository file is kept."""
+    repo_dir = sink.root / "kubernetes" / "flux" / "meta" / "repositories"
+    existing = {p.stem: p for p in repo_dir.glob("*.yaml") if p.name != "kustomization.yaml"}
+    hrs, err = kube.get_all(context, "helmreleases.helm.toolkit.fluxcd.io")
+    if err:
+        sink.tracker.keep_existing(existing.values())
+        warnings.append(f"{err}; kept every Helm repository file as it was")
+        return
+    referenced = set()
+    for hr in hrs:
+        ref = ((hr.get("spec") or {}).get("chart") or {}).get("spec", {}).get("sourceRef") or {}
+        if ref.get("kind") in ("HelmRepository", "OCIRepository") and ref.get("name"):
+            referenced.add(ref["name"])
+    for name in sorted(referenced - set(written)):
+        if name in existing:
+            sink.tracker.keep_existing([existing[name]])
+            warnings.append(
+                f"Helm repository {name} is used by a live HelmRelease but isn't in this machine's "
+                f"`helm repo list`; kept {existing[name].relative_to(sink.root).as_posix()} as it was"
+            )
+        else:
+            warnings.append(f"Helm repository {name} is used by a live HelmRelease but has no file and isn't in `helm repo list`")
 
 
 def _namespace_dirs(root: Path, context, namespaces: set[str]) -> dict[str, Path]:
@@ -840,7 +875,7 @@ def _capture_secrets(sink: Sink, context, timestamp, warnings):
     return rows
 
 
-def _collect_ip_inventory(root: Path, ip_context: dict) -> list[dict]:
+def _collect_ip_inventory(root: Path, ip_context: dict, warnings: list[str] | None = None) -> list[dict]:
     """Every IP address found anywhere in the final (post-redaction) output
     tree, one row per (ip, file), with a best-effort "what is this for"
     guess (docs/ip-inventory.csv) plus the aggregate used by the
@@ -853,10 +888,12 @@ def _collect_ip_inventory(root: Path, ip_context: dict) -> list[dict]:
     """
     per_file: dict[tuple[str, str], list[str]] = {}
     classifications: dict[str, str] = {}
+    unreadable: list[str] = []
     for path in sorted(root.glob("kubernetes/**/*.yaml")):
         try:
             data = yamlio.read_yaml_file(path)
-        except Exception:
+        except Exception as e:  # any parse failure: the file is named below, not dropped silently
+            unreadable.append(f"{path.relative_to(root).as_posix()} ({type(e).__name__})")
             continue
         if not data:
             continue
@@ -864,6 +901,11 @@ def _collect_ip_inventory(root: Path, ip_context: dict) -> list[dict]:
         for field_path, ip, classification in secretscan.find_ip_addresses(data):
             classifications[ip] = classification
             per_file.setdefault((ip, rel), []).append(field_path)
+
+    if unreadable and warnings is not None:
+        warnings.append(
+            "left out of docs/ip-inventory.csv because they couldn't be parsed: " + ", ".join(unreadable)
+        )
 
     rows = []
     for (ip, rel), field_paths in per_file.items():
