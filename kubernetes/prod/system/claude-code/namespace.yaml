@@ -3,4 +3,6 @@ kind: Namespace
 metadata:
   labels:
     homelab.local/category: system
+    homelab.local/data: stateless
+    homelab.local/exposure: cluster
   name: claude-code

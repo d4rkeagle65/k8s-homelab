@@ -18,7 +18,7 @@ import datetime as dt
 import sys
 from pathlib import Path
 
-from . import constants, flux, helmcli, inventory, kube, layout, secretscan, skipfilter, varsub, yamlio
+from . import constants, derived, flux, helmcli, inventory, kube, layout, secretscan, skipfilter, varsub, yamlio
 from .filetracker import FileTracker, RunReport
 from .fluxowner import FluxOwnership
 from .neat import neat
@@ -153,6 +153,9 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     sink.write_text(root / "docs" / "inventory.md", inventory_md)
 
     sink.write_text(root / "docs" / "redactions.md", inventory.build_redactions_md(redactions, timestamp))
+
+    print("Adding the derived Namespace labels...")
+    _apply_derived_labels(sink, context, warnings)
 
     tracker.sweep_orphans()
     tracker.report.warnings = warnings
@@ -405,6 +408,55 @@ def _namespace_dirs(root: Path, context, namespaces: set[str]) -> dict[str, Path
             + "\nNothing under kubernetes/ was written."
         )
     return dirs
+
+
+def _listed(context, kind: str, absent_is_empty: bool = False) -> list[dict] | None:
+    """Every object of a kind, or None when the list failed: a failed read is
+    not an empty result. A kind the cluster doesn't have at all is empty when
+    absent_is_empty (no CloudNativePG means no database Clusters)."""
+    items, err = kube.get_all(context, kind)
+    if err is None:
+        return items
+    if absent_is_empty and "the server doesn't have a resource type" in err:
+        return []
+    return None
+
+
+def _apply_derived_labels(sink: Sink, context, warnings) -> None:
+    """Add homelab.local/data and homelab.local/exposure (derived.py) to every
+    namespace.yaml written this run. A hand-written namespace.yaml is never
+    rewritten; one whose labels disagree with the cluster gets a warning
+    naming the value to set. A label that couldn't be worked out keeps the
+    value the file already has, with a warning saying why."""
+    pvcs = _listed(context, "persistentvolumeclaim")
+    clusters = _listed(context, "clusters.postgresql.cnpg.io", absent_is_empty=True)
+    ingresses = _listed(context, "ingress")
+    for name, items in (("PersistentVolumeClaims", pvcs), ("CloudNativePG Clusters", clusters), ("Ingresses", ingresses)):
+        if items is None:
+            warnings.append(f"could not list {name}, so labels that depend on them were left as they were")
+    protected = handwritten_protected_paths(sink.root)
+    for ns_dir in layout.namespace_dirs(sink.root):
+        path = ns_dir / "namespace.yaml"
+        if not path.is_file():
+            continue
+        want = derived.namespace_labels(ns_dir.name, pvcs=pvcs, clusters=clusters, ingresses=ingresses)
+        rel = path.relative_to(sink.root).as_posix()
+        doc = yamlio.read_yaml_file(path) or {}
+        meta = dict(doc.get("metadata") or {})
+        labels = dict(meta.get("labels") or {})
+        if rel in protected or not sink.tracker.was_written(path):
+            wrong = {k: v for k, v in want.items() if labels.get(k) != v}
+            if wrong:
+                warnings.append(
+                    f"{rel} is hand-written: set " + ", ".join(f"{k}: {v}" for k, v in sorted(wrong.items()))
+                )
+            continue
+        if all(labels.get(k) == v for k, v in want.items()):
+            continue
+        labels.update(want)
+        meta["labels"] = dict(sorted(labels.items()))
+        doc["metadata"] = dict(sorted(meta.items()))
+        sink.write_yaml(path, doc)
 
 
 def _namespace_owned_by_apps(root: Path, kind: str, item: dict) -> str | None:

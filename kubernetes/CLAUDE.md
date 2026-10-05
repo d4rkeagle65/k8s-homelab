@@ -4,7 +4,8 @@ Each app is `prod/<category>/<namespace>/<release>/`, holding `ks.yaml` (its own
 Kustomization) and `app/`. The category (`system`, `services` or `apps`) is the
 `homelab.local/category` label on the Namespace, and capture refuses a namespace without it.
 Every object carries the labels in `scripts/k8s_backup/layout.py`, set through `commonMetadata`
-in each `ks.yaml` and HelmRelease. A release folder is either captured Helm (the default),
+in each `ks.yaml` and HelmRelease; Namespaces also carry `data` and `exposure`
+(`derived.py`), which capture keeps in step with the cluster. A release folder is either captured Helm (the default),
 `.handwritten`, or `.promote`; `scripts/README.md` explains each. Flux substitutes every `${...}` from
 `cluster-secrets` and `cluster-settings`; write one it must leave alone as `$${...}`.
 

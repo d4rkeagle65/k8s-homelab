@@ -110,8 +110,16 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
   `env: test`). Flux's dry runs: the 41 app Kustomizations and 26 Namespaces only drift (new
   path, new labels), and at their new paths nothing is created or deleted; 27 HelmReleases gain
   `commonMetadata`, one Helm upgrade each, with no pod-template change.
-- **Not yet:** `exposure`, `login` and `data` labels (they need the generator to work them
-  out), babybuddy-mcp's move, and the annotation cleanup.
+- **Pushed** (`68237f7`) and applied: 47 Kustomizations and 27 HelmReleases Ready, no pod
+  restarted. Three Deployments that operators create rather than Flux have no labels: Authentik's
+  two outposts and the tunnel controller's `controlled-cloudflared-connector`; each operator
+  has its own way to label them (Authentik's outpost settings, the controller's chart values).
+- **`data` and `exposure`** are Namespace labels capture works out from the cluster
+  (`derived.py`), written into every `namespace.yaml`.
+- **`login` is on hold:** proxy login shows on a route (the `authentik` middleware), but which
+  apps use OIDC is known only inside Authentik, which capture can't read. Needs the owner's
+  per-app values, or Authentik's API.
+- **Not yet:** babybuddy-mcp's move, and the annotation cleanup.
 
 ## Resuming
 

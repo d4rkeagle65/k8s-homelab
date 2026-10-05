@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 import pytest
-from k8s_backup import layout
+from k8s_backup import derived, layout
 from k8s_backup.ownership import handwritten_protected_paths, is_handwritten, is_promoted
 
 REQUIRED_TOP_FILES = ["README.md", ".gitignore", ".gitattributes", ".sops.yaml"]
@@ -315,6 +315,18 @@ def test_namespace_label_matches_its_category_folder(repo_root, load_yaml):
         assert labels.get(layout.CATEGORY_LABEL) == layout.category_of(ns_dir), (
             f"{path.relative_to(repo_root).as_posix()}: {layout.CATEGORY_LABEL} should be {layout.category_of(ns_dir)}"
         )
+
+
+def test_namespace_carries_valid_derived_labels(repo_root, load_yaml):
+    # capture keeps these in step with the cluster (derived.py); a hand-written
+    # namespace.yaml is kept by hand, with capture warning when it drifts.
+    for ns_name, ns_dir in _namespace_dirs(repo_root):
+        path = ns_dir / "namespace.yaml"
+        if not path.is_file():
+            continue
+        labels = (load_yaml(path).get("metadata") or {}).get("labels") or {}
+        assert labels.get(derived.DATA_LABEL) in derived.DATA_VALUES, f"{ns_name}: {derived.DATA_LABEL}"
+        assert labels.get(derived.EXPOSURE_LABEL) in derived.EXPOSURE_VALUES, f"{ns_name}: {derived.EXPOSURE_LABEL}"
 
 
 def test_every_release_carries_its_common_labels(repo_root, load_yaml):

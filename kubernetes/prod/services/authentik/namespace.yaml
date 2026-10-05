@@ -5,6 +5,8 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
   labels:
     homelab.local/category: services
+    homelab.local/data: database
+    homelab.local/exposure: internet
   name: authentik
 spec:
   finalizers:

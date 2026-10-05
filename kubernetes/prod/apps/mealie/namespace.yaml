@@ -3,4 +3,6 @@ kind: Namespace
 metadata:
   labels:
     homelab.local/category: apps
+    homelab.local/data: database
+    homelab.local/exposure: lan
   name: mealie

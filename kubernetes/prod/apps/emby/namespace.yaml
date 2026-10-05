@@ -5,6 +5,8 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
   labels:
     homelab.local/category: apps
+    homelab.local/data: files
+    homelab.local/exposure: lan
   name: emby
 spec:
   finalizers:
