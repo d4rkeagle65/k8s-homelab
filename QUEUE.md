@@ -77,6 +77,7 @@ Nothing right now; pick from Later.
   including the stacks' secret variables, so not this repo) and what runs it
   (by hand, CI, or tofu-controller under Flux). Import the existing resources
   first, so nothing gets recreated.
+
 ## Working queue files
 
 None open. A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
