@@ -67,7 +67,13 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
    `cluster-access/semaphore` ServiceAccount (`kubernetes/prod/system/cluster-access/`).
    **Variable Groups** > New, "Kubernetes", all three as **extra variables** (Ansible
    variables, not environment variables):
-   - `k8s_api_url`: the API server URL, the same as in your kubeconfig.
+   - `k8s_api_url`: the API server URL, the same as in your kubeconfig: `https://`, the
+     control plane's name and `:6443`, a name its certificate covers. On the PC:
+
+     ```powershell
+     kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
+     ```
+
    - `k8s_ca_b64` (a secret): the cluster's CA certificate in base64, one line, as the Secret
      stores it (Semaphore's secret fields are one line, and drop a certificate's line breaks).
      On the PC:
