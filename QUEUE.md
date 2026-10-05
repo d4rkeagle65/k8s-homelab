@@ -9,22 +9,13 @@ nothing here tracks them.
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - none open.
+- [Working queue files](#working-queue-files) - `QUEUE-apps-layout.md`.
 
 ## Next
 
-- **Group `kubernetes/apps/` into three folders:** system apps (cluster plumbing such as
-  cert-manager, metallb, traefik, external-dns, external-secrets, flux's own operators), shared
-  services other apps use (cnpg, redis-ha, smtp-relay), and the user-facing apps. Settle the
-  folder names and which app goes where first. The category comes from the cluster: a label
-  or annotation on each app's Namespace (or its HelmRelease), which capture reads to pick the
-  folder, so the layout follows the live objects. Do it together with a wider cleanup of
-  labels and annotations, so `kubectl get -l` can select by category and the classification
-  is consistent. The generator assumes
-  `apps/<namespace>/<release>/` throughout (capture, generate, `ownership.py`'s patterns, the
-  `ks.yaml` paths and `apps/kustomization.yaml`, and the structure tests), so it learns the
-  extra level first; then every app moves in one commit. Check each moved app's Flux
-  Kustomization keeps its name, so Flux adopts it rather than deleting and recreating it.
+- **Group the apps by kind, and clean up labels and annotations**: `kubernetes/apps/` becomes
+  `kubernetes/prod/` with `system`, `services` and `apps` inside, chosen by a label on each
+  Namespace. In progress; see [QUEUE-apps-layout.md](QUEUE-apps-layout.md).
 
 ## Cleanup
 
@@ -100,6 +91,8 @@ nothing here tracks them.
 
 ## Working queue files
 
-None open. A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
+- [QUEUE-apps-layout.md](QUEUE-apps-layout.md): the apps layout and labels.
+
+A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
 came back negative.
