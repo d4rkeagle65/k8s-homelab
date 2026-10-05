@@ -44,6 +44,10 @@ the setup: the web UI is on the host's management address only, served through T
 
 ## Variables (the stack's environment in Dockhand)
 
+`.env` here lists every variable, blank, so Dockhand's **Populate** can fill in the names. Mark
+every one **secret** in Dockhand, even the plain settings: Dockhand passes secret variables to
+compose directly, and those override the blank file. Never put a value in `.env`.
+
 | Variable | Value |
 |---|---|
 | `SEMAPHORE_BIND_ADDRESS` | the host's management address |
