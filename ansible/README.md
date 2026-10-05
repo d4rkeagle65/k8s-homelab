@@ -65,12 +65,15 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
 
 4. **The Kubernetes access.** Semaphore reads the cluster through the read-only
    `cluster-access/semaphore` ServiceAccount (`kubernetes/prod/system/cluster-access/`).
-   **Variable Groups** > New, "Kubernetes", with:
+   **Variable Groups** > New, "Kubernetes", all three as **extra variables** (Ansible
+   variables, not environment variables):
    - `k8s_api_url`: the API server URL, the same as in your kubeconfig.
-   - `k8s_ca_pem` (a secret): the cluster's CA certificate. On the PC:
+   - `k8s_ca_b64` (a secret): the cluster's CA certificate in base64, one line, as the Secret
+     stores it (Semaphore's secret fields are one line, and drop a certificate's line breaks).
+     On the PC:
 
      ```powershell
-     [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String((kubectl -n cluster-access get secret semaphore-token -o jsonpath='{.data.ca\.crt}'))) | Set-Clipboard
+     kubectl -n cluster-access get secret semaphore-token -o jsonpath='{.data.ca\.crt}' | Set-Clipboard
      ```
 
    - `k8s_token` (a secret): the ServiceAccount's token. On the PC:
