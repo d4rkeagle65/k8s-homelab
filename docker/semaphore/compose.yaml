@@ -12,7 +12,7 @@
 #   SEMAPHORE_WEB_ROOT       https://semaphore.<domain>
 #   SEMAPHORE_DB_PASSWORD    secret: the semaphore database role's
 #   SEMAPHORE_ADMIN_PASSWORD secret: the built-in admin's, created on the first start
-#   SEMAPHORE_ADMIN_EMAIL    the built-in admin's email
+#   SEMAPHORE_ADMIN_EMAIL    the built-in admin's email; not the owner's Authentik one
 #   SEMAPHORE_ACCESS_KEY_ENCRYPTION  secret: encrypts the stored keys and secrets
 #                            (head -c32 /dev/urandom | base64); losing it loses them
 #   SEMAPHORE_COOKIE_HASH, SEMAPHORE_COOKIE_ENCRYPTION  secret: the same kind of
@@ -69,8 +69,9 @@ services:
       # Login through Authentik. Only authentik Admins may log in (the
       # blueprint's binding); Semaphore can't make OIDC users admins itself,
       # so the built-in admin promotes the owner's account once.
-      # Users are named by their email: an Authentik username that matches a
-      # local one (the built-in "admin") is refused as a conflict.
+      # Semaphore finds an Authentik user's account by email, and refuses one
+      # that's a local account: SEMAPHORE_ADMIN_EMAIL must differ from the
+      # owner's Authentik email. Users are named by their email too.
       SEMAPHORE_OIDC_PROVIDERS: >-
         {"authentik": {"display_name": "Authentik",
         "provider_url": "${SEMAPHORE_OIDC_ISSUER_URL}",

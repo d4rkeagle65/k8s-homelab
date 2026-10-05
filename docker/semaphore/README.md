@@ -54,7 +54,7 @@ compose directly, and those override the blank file. Never put a value in `.env`
 | `SEMAPHORE_WEB_ROOT` | `https://semaphore.<domain>` |
 | `SEMAPHORE_DB_PASSWORD` | secret: a new random password |
 | `SEMAPHORE_ADMIN_PASSWORD` | secret: the built-in admin's |
-| `SEMAPHORE_ADMIN_EMAIL` | the built-in admin's email |
+| `SEMAPHORE_ADMIN_EMAIL` | the built-in admin's email: **not** your Authentik email. Semaphore matches an Authentik login to users by email and refuses a local one, so with the same address you can't log in through Authentik (e.g. `you+semaphore-admin@<domain>`) |
 | `SEMAPHORE_ACCESS_KEY_ENCRYPTION` | secret: a random key from step 3. Losing it loses every stored key and secret; keep a copy in Vaultwarden |
 | `SEMAPHORE_COOKIE_HASH`, `SEMAPHORE_COOKIE_ENCRYPTION` | secret: the other two random keys |
 | `SEMAPHORE_OIDC_ISSUER_URL` | `https://auth.<domain>/application/o/semaphore/` |
@@ -65,7 +65,9 @@ compose directly, and those override the blank file. Never put a value in `.env`
 
 1. Deploy the stack in Dockhand, then open `https://semaphore.<domain>`.
 2. Log in once with **Authentik**: Semaphore creates your user, named by your email, as an
-   ordinary user. Its OIDC can't make anyone an admin.
+   ordinary user. Its OIDC can't make anyone an admin. (If it sends you back to the login page
+   and its log says the user "conflicts with local user", the built-in admin has your email:
+   change the admin's email in Semaphore, and `SEMAPHORE_ADMIN_EMAIL` to match.)
 3. Log out, log in as the built-in `admin` with `SEMAPHORE_ADMIN_PASSWORD`, and under Users
    tick **Admin** on your account.
 4. From then on, log in with Authentik. The built-in admin is the fallback when Authentik is
