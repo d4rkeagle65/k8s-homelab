@@ -79,6 +79,14 @@ nothing here tracks them.
   (by hand, CI, or tofu-controller under Flux). Import the existing resources
   first, so nothing gets recreated.
 
+- **Consolidate the two test folders** (low priority). `tests/` is the repo-wide gate
+  (doc-style, harness, hygiene, script-health suites, run by `tests/run-all-tests.py` and the
+  pre-commit hook); `scripts/tests/` is the generator's pytest suite, reached only through
+  `tests/test-scripts-pytest.py`. Either move the generator's tests under `tests/` (say
+  `tests/scripts/`) with one runner, or leave the layout and make the split obvious in
+  `tests/CLAUDE.md` and `scripts/CLAUDE.md`. Left as is, a new test can land in the wrong
+  folder and skip the checks it was meant for.
+
 ## Working queue files
 
 - [QUEUE-semaphore.md](QUEUE-semaphore.md): Semaphore for Ansible.
