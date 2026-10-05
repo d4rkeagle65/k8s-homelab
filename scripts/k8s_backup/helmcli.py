@@ -40,23 +40,29 @@ def get_metadata(context: str | None, release: str, namespace: str) -> dict:
 
 
 def repo_list(context: str | None) -> list[dict]:
-    # helm exits non-zero with "Error: no repositories to show" when none
-    # are configured -- that's a valid empty result, not a failure.
+    """The locally configured Helm repositories. helm exits non-zero with
+    "no repositories to show" when none are configured, a valid empty
+    result; any other failure raises, since an unreadable list is not an
+    empty one."""
     proc = procutil.run(_base_args(context) + ["repo", "list", "-o", "json"], check=False)
     if proc.returncode != 0:
-        return []
+        if "no repositories" in (proc.stderr or "").lower():
+            return []
+        raise procutil.ToolError(f"helm repo list failed: {(proc.stderr or '').strip()}")
     try:
         return json.loads(proc.stdout) if proc.stdout.strip() else []
-    except json.JSONDecodeError:
-        return []
+    except json.JSONDecodeError as e:
+        raise procutil.ToolError(f"helm repo list printed something that isn't JSON: {e}") from e
 
 
 def repo_update(context: str | None) -> None:
     procutil.run(_base_args(context) + ["repo", "update"], check=False)
 
 
-def search_repo_exact(context: str | None, repo_name: str, chart_name: str, version: str) -> bool:
-    """True if `helm search repo` finds `repo_name/chart_name` at exactly `version`.
+def search_repo_exact(context: str | None, repo_name: str, chart_name: str, version: str) -> bool | None:
+    """True if `helm search repo` finds `repo_name/chart_name` at exactly `version`,
+    False if it searched and didn't, None if the search itself failed (so the
+    caller can say "couldn't search", not "not there").
 
     Searches the local repo index cache built by `helm repo list` +
     `helm repo update`. This is the only way to recover which configured
@@ -69,11 +75,13 @@ def search_repo_exact(context: str | None, repo_name: str, chart_name: str, vers
         _base_args(context) + ["search", "repo", f"{repo_name}/{chart_name}", "-l", "-o", "json"],
         check=False,
     )
-    if proc.returncode != 0 or not proc.stdout.strip():
+    if proc.returncode != 0:
+        return None
+    if not proc.stdout.strip():
         return False
     try:
         results = json.loads(proc.stdout)
     except json.JSONDecodeError:
-        return False
+        return None
     target = f"{repo_name}/{chart_name}"
     return any(r.get("name") == target and r.get("version") == version for r in results)

@@ -77,22 +77,6 @@ Nothing right now; pick from Later.
   including the stacks' secret variables, so not this repo) and what runs it
   (by hand, CI, or tofu-controller under Flux). Import the existing resources
   first, so nothing gets recreated.
-- **capture deletes the Helm repository files on a machine without those repositories**
-  (`_write_helm_repository_files` in `scripts/k8s_backup/capture.py` writes one per
-  `helm repo list` entry, and the orphan sweep removes the rest). Seen in the claude-code
-  container, which has no repositories: all ten under `kubernetes/flux/meta/repositories/`
-  went, though live HelmReleases use them. Keep every repository a live HelmRelease's
-  `sourceRef` names, or stop when `helm repo list` lacks one.
-- **Two places in `scripts/k8s_backup/` read "could not find out" as an answer**
-  (the `CatchReturnsFalse` and `EmptyCatch` ratchets in `tests/test_config.toml`):
-  - `capture.py`, the IP inventory loop (`yamlio.read_yaml_file(path)` in `except
-    Exception: continue`): a manifest that fails to parse is left out of the inventory
-    silently. Name it in the output instead.
-  - `helmcli.py`, the `helm search repo` check: a failed search or unreadable JSON returns
-    `False`, read as "this chart version isn't available". Make it a third outcome.
-
-  Lower each ceiling in the commit that fixes one.
-
 ## Working queue files
 
 None open. A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
