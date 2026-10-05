@@ -79,6 +79,12 @@ nothing here tracks them.
   including the stacks' secret variables, so not this repo) and what runs it
   (by hand, CI, or tofu-controller under Flux). Import the existing resources
   first, so nothing gets recreated.
+- **capture deletes the Helm repository files on a machine without those repositories**
+  (`_write_helm_repository_files` in `scripts/k8s_backup/capture.py` writes one per
+  `helm repo list` entry, and the orphan sweep removes the rest). Seen in the claude-code
+  container, which has no repositories: all ten under `kubernetes/flux/meta/repositories/`
+  went, though live HelmReleases use them. Keep every repository a live HelmRelease's
+  `sourceRef` names, or stop when `helm repo list` lacks one.
 - **Two places in `scripts/k8s_backup/` read "could not find out" as an answer**
   (the `CatchReturnsFalse` and `EmptyCatch` ratchets in `tests/test_config.toml`):
   - `capture.py`, the IP inventory loop (`yamlio.read_yaml_file(path)` in `except

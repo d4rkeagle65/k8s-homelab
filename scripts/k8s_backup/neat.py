@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import copy
 
+from . import layout
+
 _RUNTIME_METADATA_FIELDS = (
     "resourceVersion",
     "uid",
@@ -44,6 +46,18 @@ _RUNTIME_LABELS = (
     "kustomize.toolkit.fluxcd.io/namespace",
 )
 
+# Stamped through commonMetadata on everything a release's Flux Kustomization
+# and HelmRelease apply (layout.common_labels), overriding any copy in a
+# manifest, so a copy in git is noise. A Namespace gets only the env label that
+# way (from the root `cluster` Kustomization); its category, data and exposure
+# labels are the real values, and stay.
+_COMMON_METADATA_LABELS = (
+    layout.ENV_LABEL,
+    layout.CATEGORY_LABEL,
+    layout.PART_OF_LABEL,
+    layout.MANAGED_BY_LABEL,
+)
+
 
 def neat(obj: dict) -> dict:
     """Return a cleaned deep copy of a single Kubernetes manifest."""
@@ -64,6 +78,8 @@ def neat(obj: dict) -> dict:
         labels = metadata.get("labels")
         if isinstance(labels, dict):
             for key in _RUNTIME_LABELS:
+                labels.pop(key, None)
+            for key in (layout.ENV_LABEL,) if obj.get("kind") == "Namespace" else _COMMON_METADATA_LABELS:
                 labels.pop(key, None)
             # Every Namespace gets this label auto-added by the API server
             # (the NamespaceDefaultLabelName feature, stable since 1.21) --

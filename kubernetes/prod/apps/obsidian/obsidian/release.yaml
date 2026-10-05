@@ -6,7 +6,7 @@ namespace: obsidian
 chart: couchdb
 chartVersion: 4.6.2
 appVersion: 3.5.0
-revision: 7
+revision: 8
 status: deployed
 chartSource:
   resolved: true

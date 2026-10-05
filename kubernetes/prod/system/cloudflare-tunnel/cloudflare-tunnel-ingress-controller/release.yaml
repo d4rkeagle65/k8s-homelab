@@ -6,7 +6,7 @@ namespace: cloudflare-tunnel
 chart: cloudflare-tunnel-ingress-controller
 chartVersion: 0.1.0
 appVersion: 0.1.0
-revision: 5
+revision: 6
 status: deployed
 chartSource:
   resolved: true
