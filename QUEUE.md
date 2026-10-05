@@ -13,7 +13,7 @@ nothing here tracks them.
 
 ## Next
 
-- [ ] **Group `kubernetes/apps/` into three folders:** system apps (cluster plumbing such as
+- **Group `kubernetes/apps/` into three folders:** system apps (cluster plumbing such as
   cert-manager, metallb, traefik, external-dns, external-secrets, flux's own operators), shared
   services other apps use (cnpg, redis-ha, smtp-relay), and the user-facing apps. Settle the
   folder names and which app goes where first. The category comes from the cluster: a label
@@ -28,35 +28,35 @@ nothing here tracks them.
 
 ## Cleanup
 
-- [ ] **`test/media/jackett`** stays as a test-only app for now; not listed in
+- **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
 ## Later
 
-- [ ] **Keep immich and manictime up through a node loss** (optional). Today
+- **Keep immich and manictime up through a node loss** (optional). Today
   their single database copy sits on one worker's disk.
   - Set `instances: 2` on `immich-postgres` and `manictime-pg`, for automatic
     failover in under a minute.
   - Shorten the app pods' `node.kubernetes.io/unreachable`/`not-ready`
     tolerations from the default 5 minutes to about 30 seconds.
   - Cost: double the database disk on another worker.
-- [ ] **Proxmox host cleanup.**
+- **Proxmox host cleanup.**
   - Run `apt autoremove` on each host to clear the Proxmox 8 leftovers.
   - Once kernel 7.0 has run cleanly for a couple of weeks, remove
     `6.14.11-4` (keep `6.14.11-9` as the fallback): `/boot` is only 456 MB.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
-- [ ] **SSH to the k8s nodes only from the management network.** Each node
+- **SSH to the k8s nodes only from the management network.** Each node
   now has a management-network interface (`eth1`), so sshd can listen there
   only, or a firewall can limit port 22 to it. Keep Calico on `eth0` (see
   CLAUDE.md).
-- [ ] **Kea phase 3:** a second Kea on another host as a hot-standby partner
+- **Kea phase 3:** a second Kea on another host as a hot-standby partner
   (the firewall's relay can point at both), and lease names into DNS.
-- [ ] **One Proxmox host carries both Pi-hole and the Docker VM**, so its
+- **One Proxmox host carries both Pi-hole and the Docker VM**, so its
   reboot takes DNS, DHCP, the VPN and Vaultwarden down
   together. A second Pi-hole and a Kea HA partner on other hosts would fix
   that.
-- [ ] **Ansible for the hosts outside the cluster**, so their hand-made setup
+- **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule
     priorities), the nft scripts and their systemd units (management return
@@ -70,7 +70,7 @@ nothing here tracks them.
 
   The inventory and every address stay out of this public repo (a
   gitignored inventory, or values from Vaultwarden).
-- [ ] **Terraform (or OpenTofu) for what's created through APIs:**
+- **Terraform (or OpenTofu) for what's created through APIs:**
   - **Proxmox:** the VMs and LXCs (k8s nodes, the Docker VM, Pi-hole), with
     their disks and network interfaces.
   - **Cloudflare:** DNS records and the tunnel's public hostnames.
@@ -88,7 +88,7 @@ nothing here tracks them.
   including the stacks' secret variables, so not this repo) and what runs it
   (by hand, CI, or tofu-controller under Flux). Import the existing resources
   first, so nothing gets recreated.
-- [ ] **Two places in `scripts/k8s_backup/` read "could not find out" as an answer**
+- **Two places in `scripts/k8s_backup/` read "could not find out" as an answer**
   (the `CatchReturnsFalse` and `EmptyCatch` ratchets in `tests/test_config.toml`):
   - `capture.py`, the IP inventory loop (`yamlio.read_yaml_file(path)` in `except
     Exception: continue`): a manifest that fails to parse is left out of the inventory
