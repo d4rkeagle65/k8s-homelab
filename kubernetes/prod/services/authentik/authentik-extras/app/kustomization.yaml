@@ -10,5 +10,6 @@ resources:
 - secret-authentik-dockhand-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml
 - secret-authentik-secret-key.yaml
+- secret-authentik-semaphore-oidc.yaml
 - secret-authentik-stork-oidc.yaml
 - secret-redis-password.yaml

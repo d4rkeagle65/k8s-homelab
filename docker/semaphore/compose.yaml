@@ -1,0 +1,84 @@
+# Semaphore, a web UI for running Ansible (and OpenTofu), on the Docker host,
+# deployed by Dockhand from this folder (a Git stack). Its playbooks are in this
+# repo's ansible/ folder; the inventory, SSH keys and secrets live only in
+# Semaphore's database, encrypted with SEMAPHORE_ACCESS_KEY_ENCRYPTION.
+# The web UI is published on the host's management address only, and served at
+# semaphore.<domain> through Traefik (kubernetes external-services), private
+# networks only. Logins go through Authentik (OIDC); the built-in admin is the
+# fallback when Authentik is down. See README.md.
+#
+# Variables (set in the stack's environment in Dockhand):
+#   SEMAPHORE_BIND_ADDRESS   the host's management address (the web UI, 3001)
+#   SEMAPHORE_WEB_ROOT       https://semaphore.<domain>
+#   SEMAPHORE_DB_PASSWORD    secret: the semaphore database role's
+#   SEMAPHORE_ADMIN_PASSWORD secret: the built-in admin's, created on the first start
+#   SEMAPHORE_ADMIN_EMAIL    the built-in admin's email
+#   SEMAPHORE_ACCESS_KEY_ENCRYPTION  secret: encrypts the stored keys and secrets
+#                            (head -c32 /dev/urandom | base64); losing it loses them
+#   SEMAPHORE_COOKIE_HASH, SEMAPHORE_COOKIE_ENCRYPTION  secret: the same kind of
+#                            32-byte base64 values, for sessions
+#   SEMAPHORE_OIDC_ISSUER_URL  https://auth.<domain>/application/o/semaphore/
+#   SEMAPHORE_OIDC_CLIENT_SECRET  secret: the same one Authentik's blueprint reads
+#                            (AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET)
+#   TZ                       the timezone schedules run in, e.g. America/New_York
+services:
+  semaphore-postgres:
+    image: postgres:17-alpine
+    container_name: semaphore-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: semaphore
+      POSTGRES_PASSWORD: ${SEMAPHORE_DB_PASSWORD}
+      POSTGRES_DB: semaphore
+    volumes:
+    - /opt/semaphore/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semaphore"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  semaphore:
+    image: semaphoreui/semaphore:v2.19.12
+    container_name: semaphore
+    restart: unless-stopped
+    depends_on:
+      semaphore-postgres:
+        condition: service_healthy
+    ports:
+    - ${SEMAPHORE_BIND_ADDRESS}:3001:3000
+    environment:
+      SEMAPHORE_DB_DIALECT: postgres
+      SEMAPHORE_DB_HOST: semaphore-postgres
+      SEMAPHORE_DB_PORT: "5432"
+      SEMAPHORE_DB: semaphore
+      SEMAPHORE_DB_USER: semaphore
+      SEMAPHORE_DB_PASS: ${SEMAPHORE_DB_PASSWORD}
+      SEMAPHORE_WEB_ROOT: ${SEMAPHORE_WEB_ROOT}
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ADMIN_NAME: Semaphore admin
+      SEMAPHORE_ADMIN_EMAIL: ${SEMAPHORE_ADMIN_EMAIL}
+      SEMAPHORE_ADMIN_PASSWORD: ${SEMAPHORE_ADMIN_PASSWORD}
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: ${SEMAPHORE_ACCESS_KEY_ENCRYPTION}
+      SEMAPHORE_COOKIE_HASH: ${SEMAPHORE_COOKIE_HASH}
+      SEMAPHORE_COOKIE_ENCRYPTION: ${SEMAPHORE_COOKIE_ENCRYPTION}
+      SEMAPHORE_SCHEDULE_TIMEZONE: ${TZ:-UTC}
+      # The image turns SSH host-key checking off for every host; this file pins
+      # the hosts' keys instead (README.md says how to fill it).
+      SEMAPHORE_SSH_KNOWN_HOSTS_FILE: /etc/semaphore/known_hosts
+      # Login through Authentik. Only authentik Admins may log in (the
+      # blueprint's binding); Semaphore can't make OIDC users admins itself,
+      # so the built-in admin promotes the owner's account once.
+      SEMAPHORE_OIDC_PROVIDERS: >-
+        {"authentik": {"display_name": "Authentik",
+        "provider_url": "${SEMAPHORE_OIDC_ISSUER_URL}",
+        "client_id": "semaphore",
+        "client_secret": "${SEMAPHORE_OIDC_CLIENT_SECRET}",
+        "redirect_url": "${SEMAPHORE_WEB_ROOT}/api/auth/oidc/authentik/redirect",
+        "scopes": ["openid", "profile", "email"],
+        "username_claim": "preferred_username",
+        "name_claim": "name"}}
+    volumes:
+    - /opt/semaphore/config:/etc/semaphore
+    - /opt/semaphore/data:/var/lib/semaphore
+    - /opt/semaphore/tmp:/tmp/semaphore
