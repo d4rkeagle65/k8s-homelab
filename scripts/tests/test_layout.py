@@ -65,8 +65,8 @@ def test_capture_stops_before_writing_when_a_namespace_cant_be_placed(tmp_path, 
         capture._namespace_dirs(tmp_path, None, {"emby", "media", "gone"})
     text = str(err.value)
     assert "media" in text and "no homelab.local/category label" in text
-    # A Namespace that can't be read is reported as unknown, not as unlabelled.
-    assert "gone: could not be read" in text
+    # A namespace that no longer exists is named as such, not as unlabelled.
+    assert "namespace gone doesn't exist in the cluster" in text
     assert "emby" not in text.split("\n", 1)[1]  # the placeable one isn't a problem
     assert not (tmp_path / "kubernetes").exists()
 
@@ -81,3 +81,11 @@ def test_capture_places_every_labelled_namespace(tmp_path, monkeypatch):
         "emby": tmp_path / "kubernetes/prod/apps/emby",
         "cnpg-system": tmp_path / "kubernetes/prod/services/cnpg-system",
     }
+
+
+def test_capture_names_the_folder_of_a_namespace_that_is_gone(tmp_path, monkeypatch):
+    (tmp_path / "kubernetes/prod/apps/babybuddy-mcp/babybuddy-mcp").mkdir(parents=True)
+    _fake_namespaces(monkeypatch, {})
+    with pytest.raises(ToolError) as err:
+        capture._namespace_dirs(tmp_path, None, {"babybuddy-mcp"})
+    assert "remove its folder (kubernetes/prod/apps/babybuddy-mcp)" in str(err.value)
