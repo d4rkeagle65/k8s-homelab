@@ -10,7 +10,9 @@ and addresses), the SSH key, and the Kubernetes token.
 
 ## Setting up Semaphore (once)
 
-Everything below is in Semaphore's web UI, in one project (e.g. "Homelab").
+Everything below is in Semaphore's web UI, in one project: create it first from the project
+menu at the top left, **New Project** (e.g. "Homelab", **Demo** off). Key Store, Inventory,
+Repositories and the rest are in that project's sidebar, not on the admin pages.
 
 1. **An SSH key of its own for the Proxmox hosts.** On the PC, make a key pair:
 
