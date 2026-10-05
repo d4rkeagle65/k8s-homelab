@@ -97,7 +97,7 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
 - [x] Audit done and recorded
 - [x] Generator knows `prod/<category>/`; tests pass on the moved tree
 - [ ] Namespaces labelled; apps moved; Flux reconciled with no deletions
-- [ ] babybuddy-mcp in `babybuddy`; old namespace deleted
+- [ ] babybuddy-mcp in `babybuddy` (in git; to apply); old namespace deleted
 - [ ] Annotations cleaned up
 - [x] `CLAUDE.md` files and `scripts/README.md` say `prod/`
 
@@ -119,7 +119,13 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
 - **`login` is on hold:** proxy login shows on a route (the `authentik` middleware), but which
   apps use OIDC is known only inside Authentik, which capture can't read. Needs the owner's
   per-app values, or Authentik's API.
-- **Not yet:** babybuddy-mcp's move, and the annotation cleanup.
+- **babybuddy-mcp's move** (in git): its five objects join babybuddy's `.promote` folder (one
+  per namespace), its Secret keeps its Vaultwarden names (the Secret's name starts with the
+  namespace either way), and babybuddy's NetworkPolicy admits `app: babybuddy-mcp` pods from
+  its own namespace now. Flux removes the old Deployment, Service, ConfigMap and Ingress; the
+  old Namespace and its Secrets carry `prune: disabled`, so delete the namespace by hand
+  (`kubectl delete namespace babybuddy-mcp`) once the MCP answers from `babybuddy`.
+- **Not yet:** the annotation cleanup.
 
 ## Resuming
 

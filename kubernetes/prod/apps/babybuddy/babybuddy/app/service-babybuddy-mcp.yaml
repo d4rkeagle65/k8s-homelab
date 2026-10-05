@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: babybuddy-mcp
-  namespace: babybuddy-mcp
+  namespace: babybuddy
 spec:
   internalTrafficPolicy: Cluster
   ipFamilies:

@@ -1,7 +1,0 @@
-Promoted release: `capture` writes every non-Helm resource it keeps from this
-namespace into app/, and `generate` adds app/kustomization.yaml and ks.yaml,
-which Flux applies. See scripts/k8s_backup/promote.py (PROMOTE_MARKER).
-
-Deleting this file hands the namespace back to kubernetes/raw/, and Flux then
-prunes its objects -- except PVCs and databases, which carry
-kustomize.toolkit.fluxcd.io/prune: disabled.

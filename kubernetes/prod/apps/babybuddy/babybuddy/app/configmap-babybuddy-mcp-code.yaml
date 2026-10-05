@@ -249,4 +249,4 @@ data:
 kind: ConfigMap
 metadata:
   name: babybuddy-mcp-code
-  namespace: babybuddy-mcp
+  namespace: babybuddy
