@@ -9,7 +9,7 @@
 # and restarts the container when it changes. The cluster's bitwarden-cli pod
 # connects straight here (vaultwarden-direct.<domain>), never through
 # Traefik, and refuses plain HTTP; see
-# kubernetes/apps/external-services/external-services/app/vaultwarden.yaml.
+# kubernetes/prod/system/external-services/external-services/app/vaultwarden.yaml.
 services:
   vaultwarden:
     image: vaultwarden/server:1.37.2

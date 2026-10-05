@@ -95,11 +95,23 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
 
 - [x] Label set confirmed
 - [x] Audit done and recorded
-- [ ] Generator knows `prod/<category>/`; tests pass on the moved tree
+- [x] Generator knows `prod/<category>/`; tests pass on the moved tree
 - [ ] Namespaces labelled; apps moved; Flux reconciled with no deletions
 - [ ] babybuddy-mcp in `babybuddy`; old namespace deleted
 - [ ] Annotations cleaned up
-- [ ] `CLAUDE.md` files and `scripts/README.md` say `prod/`
+- [x] `CLAUDE.md` files and `scripts/README.md` say `prod/`
+
+## Progress
+
+- **Step 2 and the move are one commit**, since the pre-commit gate tests the real tree: the
+  generator learned `prod/<category>/`, every namespace folder was `git mv`ed into its category,
+  each `namespace.yaml` got its category label, the hand-written `ks.yaml` and HelmRelease
+  files got their paths and labels, and the test overlay follows (`kubernetes/test/`, labelled
+  `env: test`). Flux's dry runs: the 41 app Kustomizations and 26 Namespaces only drift (new
+  path, new labels), and at their new paths nothing is created or deleted; 27 HelmReleases gain
+  `commonMetadata`, one Helm upgrade each, with no pod-template change.
+- **Not yet:** `exposure`, `login` and `data` labels (they need the generator to work them
+  out), babybuddy-mcp's move, and the annotation cleanup.
 
 ## Resuming
 

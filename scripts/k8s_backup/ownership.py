@@ -6,8 +6,9 @@ this way means running `capture` alone never deletes `generate`'s output
 invocation didn't touch it, and vice versa for `generate` alone.
 
 fnmatch's `*` matches across `/`, but every segment it stands in for here
-is a Kubernetes namespace or release name, and those can't contain `/`
-(DNS-1123 label), so it can't accidentally span directory boundaries.
+is a category (layout.py), a Kubernetes namespace or a release name, and
+none can contain `/` (DNS-1123 label), so it can't accidentally span
+directory boundaries.
 
 Hand-written releases are the exception. A release folder containing a
 `.handwritten` marker file is authored by hand rather than captured, so
@@ -21,7 +22,7 @@ import fnmatch
 from pathlib import Path
 from typing import Callable
 
-from . import yamlio
+from . import layout, yamlio
 
 HANDWRITTEN_MARKER = ".handwritten"
 # See promote.py: capture writes the namespace's non-Helm resources into
@@ -40,10 +41,10 @@ CAPTURE_PATTERNS = [
     # the next capture deletes these copies of every value.
     "kubernetes/.local/cluster-substitutions-configmap.yaml",
     "kubernetes/.local/cluster-substitutions-secret.yaml",
-    "kubernetes/apps/*/namespace.yaml",
-    "kubernetes/apps/*/*/release.yaml",
-    "kubernetes/apps/*/*/app/values.yaml",
-    "kubernetes/apps/*/*/app/values-all.yaml",
+    "kubernetes/prod/*/*/namespace.yaml",
+    "kubernetes/prod/*/*/*/release.yaml",
+    "kubernetes/prod/*/*/*/app/values.yaml",
+    "kubernetes/prod/*/*/*/app/values-all.yaml",
     "kubernetes/flux/meta/repositories/*.yaml",
 ]
 CAPTURE_EXCLUDE = [
@@ -52,11 +53,12 @@ CAPTURE_EXCLUDE = [
 ]
 
 GENERATE_PATTERNS = [
-    "kubernetes/apps/*/*/app/helmrelease.yaml",
-    "kubernetes/apps/*/*/app/kustomization.yaml",
-    "kubernetes/apps/*/*/ks.yaml",
-    "kubernetes/apps/*/kustomization.yaml",
-    "kubernetes/apps/kustomization.yaml",
+    "kubernetes/prod/*/*/*/app/helmrelease.yaml",
+    "kubernetes/prod/*/*/*/app/kustomization.yaml",
+    "kubernetes/prod/*/*/*/ks.yaml",
+    "kubernetes/prod/*/*/kustomization.yaml",
+    "kubernetes/prod/*/kustomization.yaml",
+    "kubernetes/prod/kustomization.yaml",
     "kubernetes/flux/meta/repositories/kustomization.yaml",
     "kubernetes/flux/config/cluster.yaml",
     "kubernetes/flux/config/cluster-resources.yaml",
@@ -91,10 +93,7 @@ def is_promoted(release_dir: Path) -> bool:
 
 
 def promoted_release_dirs(root: Path) -> list[Path]:
-    apps = root / "kubernetes" / "apps"
-    if not apps.is_dir():
-        return []
-    return sorted(p.parent for p in apps.glob(f"*/*/{PROMOTE_MARKER}") if is_promoted(p.parent))
+    return [d for d in layout.release_dirs(root) if is_promoted(d)]
 
 
 def _promoted_manifest_owner(root: Path) -> Callable[[str], bool]:
@@ -113,10 +112,7 @@ def _promoted_manifest_owner(root: Path) -> Callable[[str], bool]:
 
 
 def handwritten_release_dirs(root: Path) -> list[Path]:
-    apps = root / "kubernetes" / "apps"
-    if not apps.is_dir():
-        return []
-    return sorted(p.parent for p in apps.glob(f"*/*/{HANDWRITTEN_MARKER}") if p.is_file())
+    return [d for d in layout.release_dirs(root) if is_handwritten(d)]
 
 
 def handwritten_protected_paths(root: Path) -> set[str]:

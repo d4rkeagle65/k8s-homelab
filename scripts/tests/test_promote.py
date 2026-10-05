@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from ruamel.yaml import YAML
 
-from k8s_backup import capture, generate, kube, promote
+from k8s_backup import capture, generate, kube, layout, promote
 from k8s_backup.filetracker import FileTracker
 from k8s_backup.fluxowner import FluxOwnership
 from k8s_backup.ownership import capture_owner, generate_owner
@@ -20,7 +20,7 @@ from k8s_backup.sink import Sink
 
 _yaml = YAML(typ="safe")
 DYNAMIC_PV = "pvc-ba335a83-b39c-46cc-b267-236b9976070f"
-APP = "kubernetes/apps/babybuddy/babybuddy/app"
+APP = "kubernetes/prod/apps/babybuddy/babybuddy/app"
 
 
 # ---- clean_for_gitops -------------------------------------------------------
@@ -110,11 +110,12 @@ def _serve(monkeypatch, cluster, failing=()):
         return cluster.get(kind, []), None
 
     monkeypatch.setattr(kube, "get_all", get_all)
-    monkeypatch.setattr(kube, "get_namespace", lambda context, ns: _obj("Namespace", ns, ns=None))
+    monkeypatch.setattr(kube, "get_namespace", lambda context, ns: {
+        "apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns, "labels": {layout.CATEGORY_LABEL: "apps"}}})
 
 
 def _mark(tmp_path):
-    marker = tmp_path / "kubernetes/apps/babybuddy/babybuddy/.promote"
+    marker = tmp_path / "kubernetes/prod/apps/babybuddy/babybuddy/.promote"
     marker.parent.mkdir(parents=True)
     marker.write_text("", encoding="utf-8")
 
@@ -139,17 +140,18 @@ def test_promoted_namespace_is_captured_into_app_and_generated(tmp_path, monkeyp
         "persistentvolumeclaim-babybuddy-config.yaml", "service-babybuddy-svc.yaml",
     ]
     assert "clusterIP" not in _yaml.load((app / "service-babybuddy-svc.yaml").read_text())["spec"]
-    assert (tmp_path / "kubernetes/apps/babybuddy/namespace.yaml").is_file()
+    assert (tmp_path / "kubernetes/prod/apps/babybuddy/namespace.yaml").is_file()
     # Not promoted: still the raw safety net.
     assert (tmp_path / "kubernetes/raw/other/service/other-svc.yaml").is_file()
     assert not (tmp_path / "kubernetes/raw/babybuddy").exists()
 
     generate.run(tmp_path, dry_run=False, verbose=False)
-    ks = _yaml.load((tmp_path / "kubernetes/apps/babybuddy/babybuddy/ks.yaml").read_text())
+    ks = _yaml.load((tmp_path / "kubernetes/prod/apps/babybuddy/babybuddy/ks.yaml").read_text())
     assert ks["spec"]["path"] == f"./{APP}"
     assert ks["spec"]["targetNamespace"] == "babybuddy"
     assert len(_yaml.load((app / "kustomization.yaml").read_text())["resources"]) == 4
-    assert "babybuddy" in _yaml.load((tmp_path / "kubernetes/apps/kustomization.yaml").read_text())["resources"]
+    assert "babybuddy" in _yaml.load((tmp_path / "kubernetes/prod/apps/kustomization.yaml").read_text())["resources"]
+    assert ks["spec"]["commonMetadata"]["labels"][layout.MANAGED_BY_LABEL] == layout.MANAGED_PROMOTE
 
 
 def test_deleted_resource_is_swept_but_failed_listing_holds(tmp_path, monkeypatch):
@@ -204,7 +206,7 @@ def test_ownership_of_promoted_files(tmp_path):
     assert capture_owns(f"{APP}/deployment-babybuddy-server.yaml")
     assert not capture_owns(f"{APP}/kustomization.yaml")
     assert generate_owns(f"{APP}/kustomization.yaml")
-    assert not capture_owns("kubernetes/apps/emby/emby/app/deployment-x.yaml")  # not promoted
+    assert not capture_owns("kubernetes/prod/apps/emby/emby/app/deployment-x.yaml")  # not promoted
 
 
 def test_storage_classes_used():
@@ -295,7 +297,7 @@ def test_capture_keeps_restarted_at_and_flux_ignores_it(tmp_path, monkeypatch):
     assert path.read_text() == before
 
     generate.run(tmp_path, dry_run=False, verbose=False)
-    ks = _yaml.load((tmp_path / "kubernetes/apps/babybuddy/babybuddy/ks.yaml").read_text())
+    ks = _yaml.load((tmp_path / "kubernetes/prod/apps/babybuddy/babybuddy/ks.yaml").read_text())
     assert ks["spec"]["ignore"] == [
         {"paths": ["/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt"]}
     ]

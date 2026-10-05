@@ -14,7 +14,7 @@ Read before changing anything:
 
 | Flux Kustomization (`kubernetes/flux/config/`) | Applies | Written by |
 |---|---|---|
-| `cluster` | `kubernetes/apps/` | generate |
+| `cluster` | `kubernetes/prod/` | generate |
 | `cluster-resources` | `kubernetes/cluster/` (cluster-scoped objects) | generate |
 | `cluster-meta` | `kubernetes/flux/meta/` (chart sources, vars) | hand |
 | `cluster-secrets` | `kubernetes/secrets/` (the Vaultwarden ExternalSecret) | hand |

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import yamlio
+from . import layout, yamlio
 from .ownership import is_handwritten
 
 # API group -> the Helm chart that installs its CRDs. A group also matches
@@ -58,16 +58,14 @@ def _release_charts(release_dir: Path) -> set[str]:
     return charts
 
 
-def operator_kustomizations(apps_root: Path) -> dict[str, str]:
+def operator_kustomizations(root: Path) -> dict[str, str]:
     """Chart name -> the Flux Kustomization (release folder name) that
     installs it. Only charts listed in OPERATOR_CHARTS are looked up; if two
     folders install the same chart, the first in sorted order wins.
     """
     wanted = set(OPERATOR_CHARTS.values())
     found: dict[str, str] = {}
-    if not apps_root.is_dir():
-        return found
-    for release_dir in sorted(p for p in apps_root.glob("*/*") if p.is_dir()):
+    for release_dir in layout.release_dirs(root):
         for chart in sorted(_release_charts(release_dir) & wanted):
             found.setdefault(chart, release_dir.name)
     return found

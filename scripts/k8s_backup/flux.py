@@ -37,8 +37,9 @@ def helm_release(
     source_name: str,
     values: dict,
     interval: str,
+    common_labels: dict | None = None,
 ) -> dict:
-    return {
+    doc = {
         "apiVersion": "helm.toolkit.fluxcd.io/v2",
         "kind": "HelmRelease",
         "metadata": {
@@ -69,6 +70,11 @@ def helm_release(
             "values": values if values else {},
         },
     }
+    if common_labels:
+        # helm-controller adds these to every object the chart renders (each
+        # object's own metadata only, never pod templates or selectors).
+        doc["spec"]["commonMetadata"] = {"labels": dict(common_labels)}
+    return doc
 
 
 def substitute_from() -> list[dict]:
@@ -93,6 +99,7 @@ def flux_kustomization(
     depends_on: list[dict] | None = None,
     wait: bool = False,
     ignore: list[dict] | None = None,
+    common_labels: dict | None = None,
     depends_on_comment: str = (
         "Set by generate: the operators whose APIs this app's manifests use\n"
         "(scripts/k8s_backup/dependencies.py)."
@@ -100,6 +107,9 @@ def flux_kustomization(
 ) -> dict:
     spec = CommentedMap()
     spec["interval"] = interval
+    if common_labels:
+        # Added to every object this Kustomization applies (layout.py).
+        spec["commonMetadata"] = {"labels": dict(common_labels)}
     spec["path"] = path
     spec["prune"] = True
     spec["sourceRef"] = {"kind": "GitRepository", "name": FLUX_NAMESPACE}
@@ -188,10 +198,11 @@ NAMESPACE_PRUNE_PATCH = {
 
 def root_cluster_kustomization(
     name: str = "cluster",
-    path: str = "./kubernetes/apps",
+    path: str = "./kubernetes/prod",
     interval: str = "10m",
+    common_labels: dict | None = None,
 ) -> dict:
-    """Flux Kustomization for kubernetes/apps/ (the per-app Flux
+    """Flux Kustomization for kubernetes/prod/ (the Namespaces and per-app Flux
     Kustomization CRs). postBuild.substituteFrom is applied here so
     ${PLACEHOLDER} tokens in the child ks.yaml files themselves resolve at
     reconciliation time. It does NOT reach the HelmReleases those children
@@ -207,6 +218,8 @@ def root_cluster_kustomization(
         "sourceRef": {"kind": "GitRepository", "name": FLUX_NAMESPACE},
         "wait": True,
     }
+    if common_labels:
+        spec["commonMetadata"] = {"labels": dict(common_labels)}
     refs = substitute_from()
     if refs:
         spec["postBuild"] = {"substituteFrom": refs}
@@ -224,7 +237,7 @@ def root_cluster_kustomization(
 def cluster_resources_kustomization(*, interval: str = "30m") -> dict:
     """Flux Kustomization for kubernetes/cluster/ (cluster-scoped, non-Helm
     resources). Named distinctly from root_cluster_kustomization()'s
-    "cluster" (which points at kubernetes/apps) to avoid a name collision
+    "cluster" (which points at kubernetes/prod) to avoid a name collision
     in the flux-system namespace.
 
     postBuild.substituteFrom resolves any ${PLACEHOLDER} left by

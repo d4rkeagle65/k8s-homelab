@@ -155,7 +155,7 @@ def test_secrets_inventory_csv_columns_have_no_leaked_values(repo_root):
 
 def test_values_files_have_no_plaintext_credentials(repo_root, load_yaml, allowlist):
     offenders = []
-    for path in sorted(repo_root.glob("kubernetes/apps/*/*/app/values*.yaml")):
+    for path in sorted(repo_root.glob("kubernetes/prod/*/*/*/app/values*.yaml")):
         try:
             data = load_yaml(path)
         except Exception:

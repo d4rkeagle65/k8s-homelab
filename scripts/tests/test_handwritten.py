@@ -16,18 +16,18 @@ from k8s_backup import generate
 from k8s_backup.ownership import capture_owner, generate_owner
 
 HANDWRITTEN_FILES = {
-    "kubernetes/apps/media/sonarr/.handwritten": "",
-    "kubernetes/apps/media/sonarr/ks.yaml": "kind: Kustomization\nmetadata:\n  name: sonarr\n",
-    "kubernetes/apps/media/sonarr/app/kustomization.yaml": "resources:\n- helmrelease.yaml\n",
-    "kubernetes/apps/media/sonarr/app/helmrelease.yaml": (
+    "kubernetes/prod/apps/media/sonarr/.handwritten": "",
+    "kubernetes/prod/apps/media/sonarr/ks.yaml": "kind: Kustomization\nmetadata:\n  name: sonarr\n",
+    "kubernetes/prod/apps/media/sonarr/app/kustomization.yaml": "resources:\n- helmrelease.yaml\n",
+    "kubernetes/prod/apps/media/sonarr/app/helmrelease.yaml": (
         "apiVersion: helm.toolkit.fluxcd.io/v2\n"
         "kind: HelmRelease\n"
         "metadata:\n  name: sonarr\n"
         "spec:\n  chart:\n    spec:\n      chart: app-template\n      version: 3.7.3\n"
         "      sourceRef:\n        kind: HelmRepository\n        name: bjw-s\n"
     ),
-    "kubernetes/apps/media/sonarr/app/postgres.yaml": "kind: Cluster\n",
-    "kubernetes/apps/media/namespace.yaml": "kind: Namespace\nmetadata:\n  name: media\n",
+    "kubernetes/prod/apps/media/sonarr/app/postgres.yaml": "kind: Cluster\n",
+    "kubernetes/prod/apps/media/namespace.yaml": "kind: Namespace\nmetadata:\n  name: media\n",
     "kubernetes/flux/meta/repositories/bjw-s.yaml": "kind: HelmRepository\nmetadata:\n  name: bjw-s\n",
 }
 UNRELATED_REPO = "kubernetes/flux/meta/repositories/unused.yaml"
@@ -52,8 +52,8 @@ def test_owners_exclude_handwritten_dependencies(tmp_path):
     # Only repositories a hand-written release references are protected.
     assert capture_owns(UNRELATED_REPO)
     # A normal captured release is still owned as before.
-    assert generate_owns("kubernetes/apps/obsidian/obsidian/ks.yaml")
-    assert capture_owns("kubernetes/apps/obsidian/obsidian/release.yaml")
+    assert generate_owns("kubernetes/prod/apps/obsidian/obsidian/ks.yaml")
+    assert capture_owns("kubernetes/prod/apps/obsidian/obsidian/release.yaml")
 
 
 def test_generate_leaves_handwritten_release_untouched(tmp_path):
@@ -65,6 +65,6 @@ def test_generate_leaves_handwritten_release_untouched(tmp_path):
         assert path.is_file(), f"generate removed {rel}"
         assert path.read_text(encoding="utf-8") == text, f"generate rewrote {rel}"
     # The namespace kustomization is still generator output, and lists the release.
-    ns_kustomization = (tmp_path / "kubernetes/apps/media/kustomization.yaml").read_text(encoding="utf-8")
+    ns_kustomization = (tmp_path / "kubernetes/prod/apps/media/kustomization.yaml").read_text(encoding="utf-8")
     assert "sonarr/ks.yaml" in ns_kustomization
-    assert not (tmp_path / "kubernetes/apps/media/sonarr/release.yaml").exists()
+    assert not (tmp_path / "kubernetes/prod/apps/media/sonarr/release.yaml").exists()

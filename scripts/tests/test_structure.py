@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 import pytest
+from k8s_backup import layout
 from k8s_backup.ownership import handwritten_protected_paths, is_handwritten, is_promoted
 
 REQUIRED_TOP_FILES = ["README.md", ".gitignore", ".gitattributes", ".sops.yaml"]
@@ -43,21 +44,14 @@ def _awaiting_capture(release_dir: Path) -> bool:
 
 
 def _release_dirs(repo_root: Path):
-    apps = repo_root / "kubernetes" / "apps"
-    if not apps.exists():
-        return
-    for ns_dir in sorted(p for p in apps.iterdir() if p.is_dir()):
-        for release_dir in sorted(p for p in ns_dir.iterdir() if p.is_dir()):
-            if not _awaiting_capture(release_dir):
-                yield ns_dir.name, release_dir.name, release_dir
+    for release_dir in layout.release_dirs(repo_root):
+        if not _awaiting_capture(release_dir):
+            yield release_dir.parent.name, release_dir.name, release_dir
 
 
 def test_promoted_releases_have_been_captured(repo_root):
-    apps = repo_root / "kubernetes" / "apps"
     pending = sorted(
-        d.relative_to(repo_root).as_posix()
-        for d in (apps.glob("*/*") if apps.exists() else [])
-        if d.is_dir() and _awaiting_capture(d)
+        d.relative_to(repo_root).as_posix() for d in layout.release_dirs(repo_root) if _awaiting_capture(d)
     )
     assert not pending, (
         f"marked .promote but not captured yet: {pending} -- run "
@@ -66,10 +60,7 @@ def test_promoted_releases_have_been_captured(repo_root):
 
 
 def _namespace_dirs(repo_root: Path):
-    apps = repo_root / "kubernetes" / "apps"
-    if not apps.exists():
-        return
-    for ns_dir in sorted(p for p in apps.iterdir() if p.is_dir()):
+    for ns_dir in layout.namespace_dirs(repo_root):
         yield ns_dir.name, ns_dir
 
 
@@ -111,7 +102,7 @@ def test_flux_root_kustomization_exists(repo_root, load_yaml):
     doc = load_yaml(path)
     assert doc["apiVersion"] == "kustomize.toolkit.fluxcd.io/v1"
     assert doc["kind"] == "Kustomization"
-    assert doc["spec"]["path"] == "./kubernetes/apps"
+    assert doc["spec"]["path"] == "./" + layout.ENV_DIR.as_posix()
     _assert_wires_substitutions(doc)
 
 
@@ -291,14 +282,71 @@ def test_ks_yaml_matches_its_release(repo_root, load_yaml):
         assert doc["metadata"]["name"] == release_name
         assert doc["metadata"]["namespace"] == "flux-system"
         assert doc["spec"]["targetNamespace"] == ns_name
-        assert doc["spec"]["path"] == f"./kubernetes/apps/{ns_name}/{release_name}/app"
+        assert doc["spec"]["path"] == layout.app_path(release_dir, repo_root)
         # A dependency on a Kustomization that doesn't exist never becomes Ready.
         for dep in doc["spec"]["dependsOn"]:
             assert dep["name"] in kustomizations and dep["name"] != release_name, (
                 f"{ns_name}/{release_name}/ks.yaml: dependsOn {dep['name']!r} isn't another "
-                "Kustomization under kubernetes/apps/"
+                "Kustomization under kubernetes/prod/"
             )
         assert doc["spec"]["prune"] is True
+
+
+def _managed_by(release_dir: Path) -> str:
+    if is_handwritten(release_dir):
+        return layout.MANAGED_HAND
+    if is_promoted(release_dir):
+        return layout.MANAGED_PROMOTE
+    return layout.MANAGED_HELM
+
+
+def test_layout_has_only_category_folders(repo_root):
+    assert layout.check_layout(repo_root) == []
+
+
+def test_namespace_label_matches_its_category_folder(repo_root, load_yaml):
+    # capture places a namespace by this label; a namespace.yaml that disagrees
+    # with its folder would move the folder on the next capture.
+    for ns_name, ns_dir in _namespace_dirs(repo_root):
+        path = ns_dir / "namespace.yaml"
+        if not path.is_file():
+            continue
+        labels = (load_yaml(path).get("metadata") or {}).get("labels") or {}
+        assert labels.get(layout.CATEGORY_LABEL) == layout.category_of(ns_dir), (
+            f"{path.relative_to(repo_root).as_posix()}: {layout.CATEGORY_LABEL} should be {layout.category_of(ns_dir)}"
+        )
+
+
+def test_every_release_carries_its_common_labels(repo_root, load_yaml):
+    # Hand-written ks.yaml files included: generate never writes those, so this
+    # is what keeps their labels in step with the folder they sit in.
+    for ns_name, release_name, release_dir in _release_dirs(repo_root):
+        want = layout.common_labels(release_dir.parent, _managed_by(release_dir))
+        ks = load_yaml(release_dir / "ks.yaml")
+        got = ((ks["spec"].get("commonMetadata") or {}).get("labels")) or {}
+        assert got == want, f"{ns_name}/{release_name}/ks.yaml commonMetadata.labels: {got} != {want}"
+        hr_path = release_dir / "app" / "helmrelease.yaml"
+        if hr_path.is_file():
+            hr = load_yaml(hr_path)
+            got = ((hr["spec"].get("commonMetadata") or {}).get("labels")) or {}
+            assert got == want, f"{ns_name}/{release_name}/app/helmrelease.yaml commonMetadata.labels: {got} != {want}"
+
+
+def test_category_kustomizations_list_their_namespaces(repo_root, load_yaml):
+    base = layout.env_root(repo_root)
+    if not base.is_dir():
+        return
+    listed_categories = set(load_yaml(base / "kustomization.yaml")["resources"])
+    for category in layout.CATEGORIES:
+        namespaces = {
+            d.name for d in layout.namespace_dirs(repo_root) if d.parent.name == category and (d / "namespace.yaml").is_file()
+        }
+        if not namespaces:
+            assert category not in listed_categories, f"{category} is listed but holds no namespace"
+            continue
+        assert category in listed_categories, f"prod/kustomization.yaml doesn't list {category}"
+        listed = set(load_yaml(base / category / "kustomization.yaml")["resources"])
+        assert listed == namespaces, f"prod/{category}/kustomization.yaml: {sorted(listed)} != {sorted(namespaces)}"
 
 
 def test_helmrelease_matches_its_release(repo_root, load_yaml):
@@ -388,10 +436,12 @@ def test_promoted_release_is_consistent(repo_root, load_yaml):
 
 
 GENERATED_YAML_GLOBS = [
-    "kubernetes/apps/*/*/ks.yaml",
-    "kubernetes/apps/*/*/app/helmrelease.yaml",
-    "kubernetes/apps/*/*/app/kustomization.yaml",
-    "kubernetes/apps/*/kustomization.yaml",
+    "kubernetes/prod/*/*/*/ks.yaml",
+    "kubernetes/prod/*/*/*/app/helmrelease.yaml",
+    "kubernetes/prod/*/*/*/app/kustomization.yaml",
+    "kubernetes/prod/*/*/kustomization.yaml",
+    "kubernetes/prod/*/kustomization.yaml",
+    "kubernetes/prod/kustomization.yaml",
     "kubernetes/flux/config/cluster.yaml",
     "kubernetes/flux/meta/repositories/*.yaml",
     "kubernetes/cluster/kustomization.yaml",
@@ -425,14 +475,14 @@ def test_no_windows_unsafe_filenames(all_files, repo_root):
 
 
 def test_no_namespace_is_defined_twice(repo_root):
-    # Applied by both `cluster` (apps/) and `cluster-resources` (cluster/),
+    # Applied by both `cluster` (prod/) and `cluster-resources` (cluster/),
     # the two Flux Kustomizations would keep relabelling it.
-    apps = repo_root / "kubernetes" / "apps"
     cluster_ns = repo_root / "kubernetes" / "cluster" / "namespace"
-    if not apps.is_dir() or not cluster_ns.is_dir():
+    if not cluster_ns.is_dir():
         return  # nothing under kubernetes/cluster/namespace/, so nothing twice
-    both = sorted(p.stem for p in cluster_ns.glob("*.yaml") if (apps / p.stem / "namespace.yaml").is_file())
-    assert not both, f"namespaces in both apps/<ns>/namespace.yaml and cluster/namespace/: {both}"
+    in_prod = {d.name for d in layout.namespace_dirs(repo_root) if (d / "namespace.yaml").is_file()}
+    both = sorted(p.stem for p in cluster_ns.glob("*.yaml") if p.stem in in_prod)
+    assert not both, f"namespaces in both prod/<category>/<ns>/namespace.yaml and cluster/namespace/: {both}"
 
 
 _VARIABLE_RE = re.compile(r"(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
