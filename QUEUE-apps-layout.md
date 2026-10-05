@@ -60,10 +60,41 @@ of truth that keeps it right without hand upkeep.
    tunnel route and its Pi-hole record; then delete the empty namespace by hand.
 5. **Annotation cleanup** from the audit's findings.
 
+## Audit findings
+
+727 objects in the app namespaces, read live. Most keys belong to tools and stay as they
+are: Flux (`kustomize.toolkit.fluxcd.io/*`, `helm.toolkit.fluxcd.io/*`,
+`reconcile.fluxcd.io/requestedAt`), Helm (`meta.helm.sh/*`, `helm.sh/chart`, its release
+Secrets' `name`/`owner`/`status`/`version`/`modifiedAt`), CloudNativePG (`cnpg.io/*`),
+cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or stale:
+
+- **Hand-written apps label their pods `app: <name>`**, and the Helm charts use
+  `app.kubernetes.io/name`/`instance`. The `app` labels are Deployment and Service
+  selectors, so they stay (selectors are immutable); the standard labels are added beside
+  them through `commonMetadata`.
+- **`env: production` and `db: postgres`** on the pod templates of `babybuddy-server` and
+  `immich-power-tools` (`deployment-*.yaml`): free-form, and `env` overlaps
+  `homelab.local/env`. Remove them (pod labels only; a rollout, no selector change).
+- **Old Helm-convention labels** (`release`, `chart`, `heritage`) on nfs-client's and
+  obsidian's charts: the charts' own, left alone.
+- **`name` labels on the cert-manager, cnpg-system and metallb-system Namespaces**: the
+  `kubernetes.io/metadata.name` label already says it. Check where each comes from
+  (`namespace.yaml`, or an operator's install) before removing.
+- **`nginx.ingress.kubernetes.io/proxy-body-size`** on immich's Ingress
+  (`immich/app/values.yaml`): ingress-nginx is gone. Remove it.
+- **`kubectl.kubernetes.io/last-applied-configuration`** on the Secrets
+  `cert-manager/cloudflare-api-token` and `cloudflare-tunnel/cloudflare-tunnel-secret`: an
+  old `kubectl apply`, carrying a copy of each Secret. Remove it with
+  `kubectl annotate ... kubectl.kubernetes.io/last-applied-configuration-`.
+- **babybuddy's NetworkPolicy already admits pods labelled `app: babybuddy-mcp`**
+  (`networkpolicy-babybuddy-server.yaml`, a podSelector with no namespaceSelector), which
+  can't match while the MCP is in its own namespace. After step 4 it does: check the MCP
+  then reaches babybuddy through the policy and nothing more is opened.
+
 ## Checklist
 
 - [ ] Label set confirmed
-- [ ] Audit done and recorded
+- [x] Audit done and recorded
 - [ ] Generator knows `prod/<category>/`; tests pass on the moved tree
 - [ ] Namespaces labelled; apps moved; Flux reconciled with no deletions
 - [ ] babybuddy-mcp in `babybuddy`; old namespace deleted
