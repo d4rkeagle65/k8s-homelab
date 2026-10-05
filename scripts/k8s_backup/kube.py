@@ -33,7 +33,15 @@ def list_namespaces(context: str | None) -> list[dict]:
 
 
 def get_namespace(context: str | None, name: str) -> dict | None:
-    return procutil.run_json(_base_args(context) + ["get", "namespace", name, "-o", "json"])
+    """The Namespace, or None when the cluster has no namespace of that name.
+    Any other failure raises: a namespace that couldn't be read isn't one
+    that doesn't exist."""
+    data, err = procutil.run_json_tolerant(_base_args(context) + ["get", "namespace", name, "-o", "json"])
+    if err is None:
+        return data
+    if "NotFound" in err or "not found" in err:
+        return None
+    raise procutil.ToolError(f"could not read namespace {name}: {err}")
 
 
 def get_all(context: str | None, kind: str) -> tuple[list[dict], str | None]:

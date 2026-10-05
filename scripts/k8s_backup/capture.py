@@ -388,14 +388,17 @@ def _namespace_dirs(root: Path, context, namespaces: set[str]) -> dict[str, Path
     """Each namespace's folder, from its live homelab.local/category label.
     Stops the run, naming every problem, when one can't be placed: no or an
     invalid label, a label that disagrees with the folder it already has, or
-    a Namespace that can't be read (an unreadable label is not a missing one).
+    a namespace that no longer exists (a .promote folder left behind). A
+    Namespace that can't be read stops it too, with kubectl's error.
     """
     dirs: dict[str, Path] = {}
     problems: list[str] = []
     for ns in sorted(namespaces):
         ns_obj = kube.get_namespace(context, ns)
         if not ns_obj:
-            problems.append(f"namespace {ns}: could not be read, so its category is unknown")
+            folder = layout.existing_namespace_dir(root, ns)
+            where = f"; remove its folder ({folder.relative_to(root).as_posix()}) if the app is gone" if folder else ""
+            problems.append(f"namespace {ns} doesn't exist in the cluster{where}")
             continue
         try:
             dirs[ns] = layout.namespace_dir(root, ns, ns_obj.get("metadata", {}).get("labels"))
