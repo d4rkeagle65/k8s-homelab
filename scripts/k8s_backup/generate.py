@@ -3,9 +3,9 @@ already wrote to disk. Reads only the local filesystem -- no kubectl/helm
 calls -- so it can be re-run offline, including after a hand edit to a
 captured values.yaml (the "source of truth" values file per the task spec).
 
-Owns: kubernetes/apps/*/*/app/{helmrelease.yaml,kustomization.yaml},
-kubernetes/apps/*/*/ks.yaml, kubernetes/apps/*/kustomization.yaml,
-kubernetes/apps/kustomization.yaml,
+Owns: kubernetes/prod/<category>/<namespace>/<release>/app/{helmrelease.yaml,kustomization.yaml},
+the releases' ks.yaml, and the kustomization.yaml of every namespace, category
+and of kubernetes/prod itself (layout.py),
 kubernetes/flux/meta/repositories/kustomization.yaml,
 kubernetes/flux/config/cluster.yaml, kubernetes/flux/config/cluster-resources.yaml,
 kubernetes/cluster/kustomization.yaml,
@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from . import constants, dependencies, flux, inventory, promote, scaffold, yamlio
+from . import constants, dependencies, flux, inventory, layout, promote, scaffold, yamlio
 from .filetracker import FileTracker, RunReport
 from .ownership import PROMOTE_MARKER, generate_owner, is_handwritten, is_promoted
 from .sink import Sink
@@ -33,23 +33,24 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
     print("Generating per-release Flux scaffolding...")
     release_count = _generate_release_scaffolding(sink, warnings, verbose)
 
-    print("Generating per-namespace kustomizations...")
+    print("Generating per-namespace and per-category kustomizations...")
     _generate_namespace_kustomizations(sink)
-    _generate_apps_kustomization(sink)
+    _generate_env_kustomizations(sink)
 
     print("Generating repository and cluster kustomizations...")
     repo_count = _generate_repository_kustomization(sink)
     cluster_count = _generate_cluster_kustomization(sink)
 
-    # Both the apps and cluster-resources Kustomizations wire
+    # Both the root `cluster` and cluster-resources Kustomizations wire
     # postBuild.substituteFrom for cluster-settings and cluster-secrets.
-    # Without it on the apps root, ${PLACEHOLDER} tokens in the child ks.yaml
+    # Without it on the root, ${PLACEHOLDER} tokens in the child ks.yaml
     # files are treated as literal strings at reconcile time. (Each child
     # ks.yaml wires its own for its HelmRelease -- Flux doesn't inherit
     # postBuild.)
     print("Generating root Flux Kustomization...")
     sink.write_yaml_stable(
-        root / "kubernetes" / "flux" / "config" / "cluster.yaml", flux.root_cluster_kustomization()
+        root / "kubernetes" / "flux" / "config" / "cluster.yaml",
+        flux.root_cluster_kustomization(common_labels={layout.ENV_LABEL: layout.ENV}),
     )
 
     if (root / "kubernetes" / "cluster").exists():
@@ -84,14 +85,15 @@ def run(root: Path, dry_run: bool, verbose: bool) -> tuple[RunReport, dict]:
 
 
 def _generate_release_scaffolding(sink: Sink, warnings, verbose) -> int:
-    apps_root = sink.root / "kubernetes" / "apps"
-    if not apps_root.exists():
-        warnings.append("kubernetes/apps does not exist yet; run `capture` first")
+    root = sink.root
+    if not layout.env_root(root).exists():
+        warnings.append(f"{layout.ENV_DIR.as_posix()} does not exist yet; run `capture` first")
         return 0
+    warnings.extend(layout.check_layout(root))
 
-    operators = dependencies.operator_kustomizations(apps_root)
+    operators = dependencies.operator_kustomizations(root)
     count = 0
-    for ns_dir in sorted(p for p in apps_root.iterdir() if p.is_dir()):
+    for ns_dir in layout.namespace_dirs(root):
         namespace = ns_dir.name
         for release_dir in sorted(p for p in ns_dir.iterdir() if p.is_dir()):
             if is_handwritten(release_dir):
@@ -133,6 +135,7 @@ def _generate_release_scaffolding(sink: Sink, warnings, verbose) -> int:
                 source_name=source_name,
                 values=values,
                 interval=constants.HELMRELEASE_INTERVAL,
+                common_labels=layout.common_labels(ns_dir, layout.MANAGED_HELM),
             )
             sink.write_yaml_stable(
                 release_dir / "app" / "helmrelease.yaml", hr_doc, extra_lines=extra_header_lines
@@ -152,8 +155,9 @@ def _generate_release_scaffolding(sink: Sink, warnings, verbose) -> int:
             ks_doc = flux.flux_kustomization(
                 name=release_name,
                 target_namespace=namespace,
-                path=f"./kubernetes/apps/{namespace}/{release_name}/app",
+                path=layout.app_path(release_dir, root),
                 interval=constants.HELMRELEASE_KS_INTERVAL,
+                common_labels=layout.common_labels(ns_dir, layout.MANAGED_HELM),
                 depends_on=dependencies.depends_on(
                     release_name, [release_dir / "app" / f for f in manifest_files], operators
                 ),
@@ -183,8 +187,9 @@ def _generate_promoted_scaffolding(
     ks_doc = flux.flux_kustomization(
         name=release_dir.name,
         target_namespace=namespace,
-        path=f"./kubernetes/apps/{namespace}/{release_dir.name}/app",
+        path=layout.app_path(release_dir, sink.root),
         interval=constants.HELMRELEASE_KS_INTERVAL,
+        common_labels=layout.common_labels(release_dir.parent, layout.MANAGED_PROMOTE),
         depends_on=dependencies.depends_on(release_dir.name, [app_dir / m for m in manifests], operators),
         wait=release_dir.name in operators.values(),
         ignore=promote.FLUX_IGNORE_RULES,
@@ -194,10 +199,7 @@ def _generate_promoted_scaffolding(
 
 
 def _generate_namespace_kustomizations(sink: Sink) -> None:
-    apps_root = sink.root / "kubernetes" / "apps"
-    if not apps_root.exists():
-        return
-    for ns_dir in sorted(p for p in apps_root.iterdir() if p.is_dir()):
+    for ns_dir in layout.namespace_dirs(sink.root):
         if not (ns_dir / "namespace.yaml").exists():
             continue
         resources = ["namespace.yaml"]
@@ -207,19 +209,28 @@ def _generate_namespace_kustomizations(sink: Sink) -> None:
         sink.write_yaml_stable(ns_dir / "kustomization.yaml", flux.kustomization_file(resources))
 
 
-def _generate_apps_kustomization(sink: Sink) -> None:
-    """kubernetes/apps/kustomization.yaml -- what the root `cluster` Flux
-    Kustomization applies. Lists every namespace folder that got a
-    kustomization.yaml above, so a newly captured namespace is actually
-    deployed rather than sitting on disk unreferenced.
+def _generate_env_kustomizations(sink: Sink) -> None:
+    """kubernetes/prod/<category>/kustomization.yaml for each category, listing
+    its namespace folders, and kubernetes/prod/kustomization.yaml, listing the
+    categories: what the root `cluster` Flux Kustomization applies. A newly
+    captured namespace is listed the next run, so it's deployed rather than
+    sitting on disk unreferenced. The Namespace prune patch sits at the top,
+    where every Namespace in the build passes through it.
     """
-    apps_root = sink.root / "kubernetes" / "apps"
-    if not apps_root.exists():
+    base = layout.env_root(sink.root)
+    if not base.exists():
         return
-    namespaces = [p.name for p in apps_root.iterdir() if (p / "namespace.yaml").exists()]
-    sink.write_yaml_stable(
-        apps_root / "kustomization.yaml", flux.kustomization_file(namespaces, protect_namespaces=True)
-    )
+    categories = []
+    for category in layout.CATEGORIES:
+        cat_dir = base / category
+        namespaces = sorted(
+            d.name for d in layout.namespace_dirs(sink.root) if d.parent == cat_dir and (d / "namespace.yaml").exists()
+        )
+        if not namespaces:
+            continue
+        sink.write_yaml_stable(cat_dir / "kustomization.yaml", flux.kustomization_file(namespaces))
+        categories.append(category)
+    sink.write_yaml_stable(base / "kustomization.yaml", flux.kustomization_file(categories, protect_namespaces=True))
 
 
 def _generate_repository_kustomization(sink: Sink) -> int:
@@ -265,8 +276,7 @@ def _read_prior_capture_meta(root: Path) -> tuple[str, str]:
 
 
 def _gather_stats_from_disk(root: Path) -> dict:
-    apps_root = root / "kubernetes" / "apps"
-    release_count = len(list(apps_root.glob("*/*/release.yaml"))) if apps_root.exists() else 0
+    release_count = sum(1 for d in layout.release_dirs(root) if (d / "release.yaml").exists())
 
     repo_dir = root / "kubernetes" / "flux" / "meta" / "repositories"
     repo_count = (

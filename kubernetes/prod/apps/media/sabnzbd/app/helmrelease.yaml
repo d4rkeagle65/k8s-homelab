@@ -1,0 +1,76 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sabnzbd
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: media
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: linuxserver/sabnzbd
+              tag: latest
+            # This image takes no settings from env vars. The hostname the
+            # ingress uses must be in host_whitelist (Config > Special) in
+            # /config/sabnzbd.ini, or SABnzbd refuses it while it has no login.
+            env:
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 8080
+    ingress:
+      main:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+        hosts:
+          - host: sabnzbd${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - hosts:
+              - sabnzbd${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            secretName: sabnzbd-tls
+    persistence:
+      config:
+        existingClaim: sabnzbd-config
+        globalMounts:
+          - path: /config
+      synmedia:
+        existingClaim: synmedia-nfs
+        globalMounts:
+          - path: /synmedia

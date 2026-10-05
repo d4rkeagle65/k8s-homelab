@@ -7,12 +7,15 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./kubernetes/apps
+  path: ./kubernetes/prod
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
   wait: true
+  commonMetadata:
+    labels:
+      homelab.local/env: prod
   postBuild:
     substituteFrom:
     - kind: ConfigMap

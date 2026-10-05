@@ -1,8 +1,9 @@
 """Capture phase: every kubectl/helm read, writing backup data to the output tree.
 
 Owns: docs/*, kubernetes/raw/**, kubernetes/cluster/<kind>/*.yaml,
-kubernetes/apps/<ns>/namespace.yaml, kubernetes/apps/<ns>/<release>/release.yaml,
-kubernetes/apps/<ns>/<release>/app/values*.yaml, kubernetes/flux/meta/repositories/<repo>.yaml.
+kubernetes/prod/<category>/<ns>/namespace.yaml, .../<ns>/<release>/release.yaml,
+.../<ns>/<release>/app/values*.yaml, kubernetes/flux/meta/repositories/<repo>.yaml.
+The category is the Namespace's homelab.local/category label (layout.py).
 Release folders with a `.handwritten` marker are never written to (ownership.py).
 
 Does not write any Flux HelmRelease/Kustomization CR or kustomization.yaml --
@@ -17,7 +18,7 @@ import datetime as dt
 import sys
 from pathlib import Path
 
-from . import constants, flux, helmcli, inventory, kube, secretscan, skipfilter, varsub, yamlio
+from . import constants, flux, helmcli, inventory, kube, layout, secretscan, skipfilter, varsub, yamlio
 from .filetracker import FileTracker, RunReport
 from .fluxowner import FluxOwnership
 from .neat import neat
@@ -212,15 +213,25 @@ def _capture_helm_releases(
             "local repo cache already existed and may be stale"
         )
 
-    infos = []
+    selected = []
     for rel in releases_list:
-        name = rel["name"]
-        namespace = rel["namespace"]
-        foreign = flux_owner.foreign_reason(flux_helmreleases.get((namespace, name), {}))
+        foreign = flux_owner.foreign_reason(flux_helmreleases.get((rel["namespace"], rel["name"]), {}))
         if foreign:
             if verbose:
-                print(f"  skip {namespace}/{name}: {foreign}", file=sys.stderr)
+                print(f"  skip {rel['namespace']}/{rel['name']}: {foreign}", file=sys.stderr)
             continue
+        selected.append(rel)
+    # Every namespace this run writes into, checked before anything under
+    # kubernetes/ is written: a namespace without a valid category would
+    # otherwise land nowhere, and its files would be swept as orphans.
+    ns_dirs = _namespace_dirs(
+        sink.root, context, {r["namespace"] for r in selected} | {d.parent.name for d in promoted_release_dirs(sink.root)}
+    )
+
+    infos = []
+    for rel in selected:
+        name = rel["name"]
+        namespace = rel["namespace"]
         meta = helmcli.get_metadata(context, name, namespace)
         chart_name = meta.get("chart", "")
         chart_version = meta.get("version", "")
@@ -231,7 +242,7 @@ def _capture_helm_releases(
         if verbose:
             print(f"  {namespace}/{name}: {chart_name}-{chart_version}", file=sys.stderr)
 
-        release_dir = sink.root / "kubernetes" / "apps" / namespace / name
+        release_dir = ns_dirs[namespace] / name
         handwritten = is_handwritten(release_dir)
         app_dir = release_dir / "app"
         # A hand-written release is still inventoried below, but its folder
@@ -294,12 +305,13 @@ def _capture_helm_releases(
     # not a capture: never overwrite it.
     protected = handwritten_protected_paths(sink.root)
     for ns in sorted({info["namespace"] for info in infos}):
-        path = sink.root / "kubernetes" / "apps" / ns / "namespace.yaml"
-        if path.relative_to(sink.root).as_posix() in protected:
+        path = ns_dirs[ns] / "namespace.yaml"
+        rel_path = path.relative_to(sink.root).as_posix()
+        if rel_path in protected:
             continue
         ns_obj = kube.get_namespace(context, ns)
         if ns_obj:
-            cleaned_ns = _neat_and_redact(ns_obj, f"apps/{ns}/namespace.yaml", redactions, verbose, substitutions)
+            cleaned_ns = _neat_and_redact(ns_obj, rel_path, redactions, verbose, substitutions)
             sink.write_yaml(path, cleaned_ns)
 
     return infos
@@ -369,8 +381,34 @@ def _write_helm_repository_files(sink: Sink, helm_repos) -> list[str]:
     return names
 
 
+def _namespace_dirs(root: Path, context, namespaces: set[str]) -> dict[str, Path]:
+    """Each namespace's folder, from its live homelab.local/category label.
+    Stops the run, naming every problem, when one can't be placed: no or an
+    invalid label, a label that disagrees with the folder it already has, or
+    a Namespace that can't be read (an unreadable label is not a missing one).
+    """
+    dirs: dict[str, Path] = {}
+    problems: list[str] = []
+    for ns in sorted(namespaces):
+        ns_obj = kube.get_namespace(context, ns)
+        if not ns_obj:
+            problems.append(f"namespace {ns}: could not be read, so its category is unknown")
+            continue
+        try:
+            dirs[ns] = layout.namespace_dir(root, ns, ns_obj.get("metadata", {}).get("labels"))
+        except layout.LayoutError as e:
+            problems.append(str(e))
+    if problems:
+        raise ToolError(
+            "Stopping: these namespaces can't be placed under "
+            f"{layout.ENV_DIR.as_posix()}/<category>/:\n  " + "\n  ".join(problems)
+            + "\nNothing under kubernetes/ was written."
+        )
+    return dirs
+
+
 def _namespace_owned_by_apps(root: Path, kind: str, item: dict) -> str | None:
-    """A namespace with a kubernetes/apps/<ns>/ folder is written there (as
+    """A namespace with a folder under kubernetes/prod/ is written there (as
     namespace.yaml) and applied by `cluster`. Writing it under
     kubernetes/cluster/ as well would have `cluster-resources` apply it too,
     and the two Kustomizations would keep relabelling it.
@@ -378,8 +416,9 @@ def _namespace_owned_by_apps(root: Path, kind: str, item: dict) -> str | None:
     if kind.split(".", 1)[0].lower() != "namespace":
         return None
     name = item.get("metadata", {}).get("name", "")
-    if name and (root / "kubernetes" / "apps" / name).is_dir():
-        return f"written to kubernetes/apps/{name}/namespace.yaml instead"
+    ns_dir = layout.existing_namespace_dir(root, name) if name else None
+    if ns_dir is not None:
+        return f"written to {(ns_dir / 'namespace.yaml').relative_to(root).as_posix()} instead"
     return None
 
 
@@ -634,7 +673,7 @@ def _write_promoted_release(
     if not sink.tracker.was_written(namespace_yaml) and namespace_yaml.relative_to(sink.root).as_posix() not in protected:
         ns_obj = kube.get_namespace(context, ns)
         if ns_obj:
-            label = f"apps/{ns}/namespace.yaml"
+            label = namespace_yaml.relative_to(sink.root).as_posix()
             sink.write_yaml(namespace_yaml, _neat_and_redact(ns_obj, label, redactions, verbose, substitutions))
         else:
             sink.tracker.keep_existing([namespace_yaml])
@@ -694,13 +733,13 @@ Safety-net dump of namespaced resources that aren't managed by a Helm
 release and aren't owned by another object (see the skip filter in the
 generator's `skipfilter.py`). Nothing under this tree is wired into Flux.
 
-Move items into `kubernetes/apps/<namespace>/<app>/app/` by hand as you
+Move items into `kubernetes/prod/<category>/<namespace>/<app>/app/` by hand as you
 curate them; this script will stop re-writing a file here once the live
 resource it came from is deleted or starts matching the skip filter (for
 example, once it's adopted into a Helm release).
 
 Or promote a whole namespace: create an empty
-`kubernetes/apps/<namespace>/<app>/.promote` and the next capture writes
+`kubernetes/prod/<category>/<namespace>/<app>/.promote` and the next capture writes
 its resources there instead, cleaned up to be applied by Flux (see the
 generator's `promote.py`).
 """

@@ -1,8 +1,11 @@
 # Working in kubernetes/
 
-Each app is `apps/<namespace>/<release>/`, holding `ks.yaml` (its own Flux Kustomization)
-and `app/`. A release folder is either captured Helm (the default), `.handwritten`, or
-`.promote`; `scripts/README.md` explains each. Flux substitutes every `${...}` from
+Each app is `prod/<category>/<namespace>/<release>/`, holding `ks.yaml` (its own Flux
+Kustomization) and `app/`. The category (`system`, `services` or `apps`) is the
+`homelab.local/category` label on the Namespace, and capture refuses a namespace without it.
+Every object carries the labels in `scripts/k8s_backup/layout.py`, set through `commonMetadata`
+in each `ks.yaml` and HelmRelease. A release folder is either captured Helm (the default),
+`.handwritten`, or `.promote`; `scripts/README.md` explains each. Flux substitutes every `${...}` from
 `cluster-secrets` and `cluster-settings`; write one it must leave alone as `$${...}`.
 
 ## Manifests
@@ -13,7 +16,7 @@ and `app/`. A release folder is either captured Helm (the default), `.handwritte
   never dotted keys like `controller.service.x`, which Helm ignores.
 - **Keep `kustomize.toolkit.fluxcd.io/prune: disabled`** on promoted PVCs,
   database `Cluster`s and Secrets. It stops Flux deleting their data.
-  generate also sets it on every Namespace (a patch in `apps/` and
+  generate also sets it on every Namespace (a patch in `prod/` and
   `cluster/kustomization.yaml`), since deleting a Namespace deletes everything
   in it. A Namespace that's no longer wanted is deleted by hand.
 
@@ -35,16 +38,16 @@ can reach management-only hosts such as dockhand's.
 
 Apps use the `traefik` IngressClass; `traefik-isolated` has its own address for an isolated
 VLAN (ManicTime only). Apps on the Docker hosts are served through Traefik too, from
-`apps/external-services/`: a Service pointing at the app's real address (an EndpointSlice for
+`prod/system/external-services/`: a Service pointing at the app's real address (an EndpointSlice for
 an IP, ExternalName for a hostname, both Vaultwarden fields) and an Ingress. ExternalDNS
-(`apps/external-dns/`) writes a Pi-hole record for each `traefik`/`traefik-isolated` Ingress
+(`prod/system/external-dns/`) writes a Pi-hole record for each `traefik`/`traefik-isolated` Ingress
 hostname, and for a name in the `external-dns.kubernetes.io/hostname` annotation on Traefik's
 Service (`smtp-relay`). It's `upsert-only`, so a removed hostname's record is deleted in
 Pi-hole by hand, and hand-made records stay.
 
 - **Only the Cloudflare tunnel exposes anything to the internet**, through the
   `cloudflare-tunnel` Ingresses: most in
-  `apps/traefik/traefik/app/ingress-cloudflare-tunnel.yaml`, which send
+  `prod/system/traefik/traefik/app/ingress-cloudflare-tunnel.yaml`, which send
   traffic on to Traefik. The tunnel reaches Traefik on port 80, so an app
   whose Traefik route redirects HTTP to HTTPS would loop there
   (`ERR_TOO_MANY_REDIRECTS`). Its tunnel Ingress goes straight to the app's
@@ -72,7 +75,7 @@ Pi-hole by hand, and hand-made records stay.
 Apps made before Dockhand's were made in Authentik's UI and live only in its database.
 
 - **New Authentik apps are blueprints, and their client secrets are not.** A blueprint goes
-  in the `authentik-blueprints` ConfigMap (`apps/authentik/authentik-extras/app/`), which the
+  in the `authentik-blueprints` ConfigMap (`prod/services/authentik/authentik-extras/app/`), which the
   worker mounts and reapplies, reverting UI edits. Its client secret is a Secret in
   `authentik-extras` (a base64 Vaultwarden field, as for every promoted Secret), passed to the
   worker as an env var (`worker.env`, without the `AUTHENTIK_` prefix, which Authentik reads as

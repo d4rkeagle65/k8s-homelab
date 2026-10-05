@@ -22,7 +22,7 @@ __pycache__/
 
 # Raw non-Helm resource capture: local backup / staging area only, not the
 # GitOps source of truth. Items get hand-curated into
-# kubernetes/apps/<namespace>/<app>/ over time (see README's next-steps).
+# kubernetes/prod/<category>/<namespace>/<app>/ over time (see README's next-steps).
 # Committing raw/ as-is means shipping cluster-generated cruft (uid,
 # resourceVersion, internal service DNS, cluster IPs) that isn't
 # re-appliable and isn't authoritative.
@@ -37,6 +37,7 @@ id_rsa*
 id_ed25519*
 
 # Added by hand (kept by generate):
+# kubernetes/apps/<namespace>/<app>/ over time (see README's next-steps).
 # classify_cluster_locality) and the operator's real variable-substitution
 # mapping (varsub.py). Both are regenerated/maintained locally; committing
 /docs/

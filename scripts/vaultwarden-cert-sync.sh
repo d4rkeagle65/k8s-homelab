@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs on the Docker host that runs Vaultwarden, not in the cluster. Copies
 # the vaultwarden-tls certificate (issued by cert-manager, see
-# kubernetes/apps/external-services/external-services/app/vaultwarden.yaml)
+# kubernetes/prod/system/external-services/external-services/app/vaultwarden.yaml)
 # to this host, and restarts Vaultwarden when it changed: Vaultwarden only
 # reads its certificate at startup. Run it daily from cron; it does nothing
 # while the certificate is unchanged.

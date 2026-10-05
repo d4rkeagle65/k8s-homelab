@@ -29,7 +29,7 @@ __pycache__/
 
 # Raw non-Helm resource capture: local backup / staging area only, not the
 # GitOps source of truth. Items get hand-curated into
-# kubernetes/apps/<namespace>/<app>/ over time (see README's next-steps).
+# kubernetes/prod/<category>/<namespace>/<app>/ over time (see README's next-steps).
 # Committing raw/ as-is means shipping cluster-generated cruft (uid,
 # resourceVersion, internal service DNS, cluster IPs) that isn't
 # re-appliable and isn't authoritative.
@@ -115,7 +115,7 @@ up to Flux: nothing in this repo has been applied to any cluster.
 
 Two things at once, by design:
 
-1. **Disaster-recovery backup.** `kubernetes/apps/*/*/app/values.yaml`,
+1. **Disaster-recovery backup.** `kubernetes/prod/*/*/*/app/values.yaml`,
    `kubernetes/raw/`, and `kubernetes/cluster/` hold enough of the current
    cluster's declared state to rebuild the workloads on a fresh cluster.
 2. **Flux migration scaffold.** Every `HelmRelease`, `HelmRepository`/
@@ -236,7 +236,7 @@ kubeconform -summary -verbose \\
   -skip HelmRelease,Kustomization,IPAddressPool,L2Advertisement,ClusterIssuer,Certificate,Issuer,Cluster,Pooler,Backup,ScheduledBackup \\
   -ignore-filename-pattern '.*values(-all)?\\.yaml$' \\
   -ignore-filename-pattern '.*release\\.yaml$' \\
-  kubernetes/apps kubernetes/cluster kubernetes/raw
+  kubernetes/prod kubernetes/cluster kubernetes/raw
 ```
 
 The two `-ignore-filename-pattern` flags skip `values.yaml`/`values-all.yaml`
@@ -249,12 +249,12 @@ bug.
 
 ## Next steps toward Flux
 
-1. Review every `kubernetes/apps/*/*/release.yaml` with
+1. Review every `kubernetes/prod/*/*/*/release.yaml` with
    `chartSource.resolved: false` -- Helm doesn't record which configured
    repo a chart came from, so a few releases may need their
    `helmrelease.yaml` `sourceRef` filled in by hand (see the warning
    comment in each affected file).
-2. Curate `kubernetes/raw/` into proper `kubernetes/apps/<namespace>/<app>/`
+2. Curate `kubernetes/raw/` into proper `kubernetes/prod/<category>/<namespace>/<app>/`
    directories where it makes sense.
 3. Add any startup order `dependsOn` doesn't infer (e.g. an app that needs
    Authentik running), by making that release `.handwritten`.

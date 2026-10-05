@@ -23,7 +23,7 @@ It never touches git history: commit, push and `flux resume` are left to you,
 and it prints those commands at the end. Old NFS volumes are never deleted.
 
 .EXAMPLE
-./scripts/migrate-cnpg-to-local-db.ps1 -Namespace media -Cluster prowlarr-postgres -Kustomization prowlarr -GitFile kubernetes/apps/media/prowlarr/app/postgres.yaml -PlanOnly
+./scripts/migrate-cnpg-to-local-db.ps1 -Namespace media -Cluster prowlarr-postgres -Kustomization prowlarr -GitFile kubernetes/prod/apps/media/prowlarr/app/postgres.yaml -PlanOnly
 Shows the current state and what would happen, changing nothing.
 #>
 [CmdletBinding()]

@@ -1,20 +1,20 @@
 # Test overlay. Only lists releases currently under test; everything else
-# comes from ../apps. Never add cluster-wide infra (cert-manager, metallb,
+# comes from ../prod. Never add cluster-wide infra (cert-manager, metallb,
 # ingress-nginx, cnpg, nfs-client, cloudflare-tunnel) here.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - media/namespace.yaml   # media-test
 - media/shared           # PV synmedia-nfs-test + PVC synmedia-nfs in media-test
-- ../apps/media/sonarr/ks.yaml
-- ../apps/media/radarr/ks.yaml
-- ../apps/media/prowlarr/ks.yaml
-- ../apps/media/sabnzbd/ks.yaml
-- ../apps/media/qbittorrent/ks.yaml
-- ../apps/media/lidarr/ks.yaml
-- ../apps/media/jellyseerr/ks.yaml
-- ../apps/media/whisparr/ks.yaml
-- ../apps/media/tdarr/ks.yaml
+- ../prod/apps/media/sonarr/ks.yaml
+- ../prod/apps/media/radarr/ks.yaml
+- ../prod/apps/media/prowlarr/ks.yaml
+- ../prod/apps/media/sabnzbd/ks.yaml
+- ../prod/apps/media/qbittorrent/ks.yaml
+- ../prod/apps/media/lidarr/ks.yaml
+- ../prod/apps/media/jellyseerr/ks.yaml
+- ../prod/apps/media/whisparr/ks.yaml
+- ../prod/apps/media/tdarr/ks.yaml
 patches:
 # Every media Kustomization: deploy into media-test and layer test values on top.
 - target:
@@ -30,6 +30,20 @@ patches:
         kind: ConfigMap
         name: cluster-substitutions-test
         optional: true
+    # Labelled test, not prod: the Kustomization's own objects, and (through a
+    # patch on the HelmRelease it builds) everything the chart renders.
+    - op: replace
+      path: /spec/commonMetadata/labels/homelab.local~1env
+      value: test
+    - op: add
+      path: /spec/patches
+      value:
+      - target:
+          kind: HelmRelease
+        patch: |-
+          - op: replace
+            path: /spec/commonMetadata/labels/homelab.local~1env
+            value: test
 # Unique names in flux-system so test never collides with production.
 - target:
     group: kustomize.toolkit.fluxcd.io

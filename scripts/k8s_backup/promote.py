@@ -1,7 +1,7 @@
 """Promotion: turning a namespace's captured non-Helm resources into a
 Flux-managed release instead of a gitignored kubernetes/raw/ dump.
 
-Opt-in per app with a `.promote` marker in kubernetes/apps/<ns>/<app>/.
+Opt-in per app with a `.promote` marker in kubernetes/prod/<category>/<ns>/<app>/.
 capture then writes every resource it keeps from namespace <ns> into that
 folder's app/, and generate adds app/kustomization.yaml and ks.yaml, the
 same as for a captured Helm release. From then on each capture refreshes

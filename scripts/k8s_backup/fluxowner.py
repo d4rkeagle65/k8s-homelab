@@ -12,7 +12,7 @@ Only the generator's own entrypoints feed back into capture. Anything else
 `cluster-test` (the kubernetes/test/ overlay), and `flux-system` itself
 (Flux's own namespace and RBAC, from gotk-components.yaml) -- is already
 in git in a hand-written form. Capturing it would duplicate it under kubernetes/cluster/
-(so two Kustomizations fight over one object) or invent apps/media-test/
+(so two Kustomizations fight over one object) or invent prod/<category>/media-test/
 releases.
 """
 

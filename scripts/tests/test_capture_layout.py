@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from k8s_backup import capture, kube
+from k8s_backup import capture, kube, layout
+
+CATEGORY = layout.CATEGORY_LABEL
 from k8s_backup.filetracker import FileTracker
 from k8s_backup.fluxowner import FluxOwnership
 from k8s_backup.neat import neat
@@ -44,15 +46,16 @@ def test_chart_source_prefers_live_helmrelease():
 def test_capture_leaves_handwritten_namespace_yaml_alone(tmp_path, monkeypatch):
     handwritten_ns = "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: media\n"
     files = {
-        "kubernetes/apps/media/namespace.yaml": handwritten_ns,
-        "kubernetes/apps/media/sonarr/.handwritten": "",
+        "kubernetes/prod/apps/media/namespace.yaml": handwritten_ns,
+        "kubernetes/prod/apps/media/sonarr/.handwritten": "",
     }
     for rel, text in files.items():
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text(text, encoding="utf-8")
 
     def fake_namespace(context, name):
-        return {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": name}, "spec": {"finalizers": ["kubernetes"]}}
+        return {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": name, "labels": {CATEGORY: "apps"}},
+                "spec": {"finalizers": ["kubernetes"]}}
 
     monkeypatch.setattr(kube, "get_namespace", fake_namespace)
     monkeypatch.setattr(capture.helmcli, "list_releases", lambda context: [
@@ -71,10 +74,10 @@ def test_capture_leaves_handwritten_namespace_yaml_alone(tmp_path, monkeypatch):
     sink = Sink(tmp_path, False, tracker)
     capture._capture_helm_releases(sink, None, [], [], [], False, [], capture.FluxOwnership([]))
 
-    assert (tmp_path / "kubernetes/apps/media/namespace.yaml").read_text(encoding="utf-8") == handwritten_ns
+    assert (tmp_path / "kubernetes/prod/apps/media/namespace.yaml").read_text(encoding="utf-8") == handwritten_ns
     # A captured release's namespace is still written as before.
-    assert (tmp_path / "kubernetes/apps/emby/namespace.yaml").is_file()
-    assert not (tmp_path / "kubernetes/apps/media/sonarr/release.yaml").exists()
+    assert (tmp_path / "kubernetes/prod/apps/emby/namespace.yaml").is_file()
+    assert not (tmp_path / "kubernetes/prod/apps/media/sonarr/release.yaml").exists()
 
 
 def test_longhorn_manager_storageclasses_are_skipped():
@@ -101,7 +104,7 @@ def test_controller_managed_objects_are_skipped():
 
 
 def test_namespace_with_an_apps_folder_is_not_captured_under_cluster(tmp_path):
-    (tmp_path / "kubernetes/apps/emby").mkdir(parents=True)
+    (tmp_path / "kubernetes/prod/apps/emby").mkdir(parents=True)
     emby = {"kind": "Namespace", "metadata": {"name": "emby"}}
     tandoor = {"kind": "Namespace", "metadata": {"name": "tandoor"}}
     assert capture._namespace_owned_by_apps(tmp_path, "namespace", emby)
@@ -141,7 +144,8 @@ def test_failed_cluster_listing_keeps_existing_files(tmp_path, monkeypatch):
 
 
 def test_release_record_is_unchanged_when_the_release_is(tmp_path, monkeypatch):
-    monkeypatch.setattr(kube, "get_namespace", lambda c, ns: {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns}})
+    monkeypatch.setattr(kube, "get_namespace", lambda c, ns: {
+        "apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns, "labels": {CATEGORY: "apps"}}})
     monkeypatch.setattr(capture.helmcli, "list_releases", lambda c: [{"name": "emby", "namespace": "emby"}])
     meta = {"chart": "emby", "version": "1.0.0", "appVersion": "4.9", "revision": 3, "status": "deployed"}
     monkeypatch.setattr(capture.helmcli, "get_metadata", lambda c, name, ns: dict(meta))
@@ -151,7 +155,7 @@ def test_release_record_is_unchanged_when_the_release_is(tmp_path, monkeypatch):
     monkeypatch.setattr(capture, "_resolve_chart_source", lambda *a: {
         "resolved": True, "kind": "HelmRepository", "repoName": "r", "reason": None,
     })
-    path = tmp_path / "kubernetes/apps/emby/emby/release.yaml"
+    path = tmp_path / "kubernetes/prod/apps/emby/emby/release.yaml"
 
     def run():
         tracker = FileTracker(tmp_path, capture_owner(tmp_path))

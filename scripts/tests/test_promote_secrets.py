@@ -18,14 +18,14 @@ import base64
 
 from ruamel.yaml import YAML
 
-from k8s_backup import capture, kube, promote, varsub
+from k8s_backup import capture, kube, layout, promote, varsub
 from k8s_backup.filetracker import FileTracker
 from k8s_backup.fluxowner import FluxOwnership
 from k8s_backup.ownership import capture_owner
 from k8s_backup.sink import Sink
 
 _yaml = YAML(typ="safe")
-APP = "kubernetes/apps/noip-duc/noip-duc/app"
+APP = "kubernetes/prod/system/noip-duc/noip-duc/app"
 SECRET_FILE = f"{APP}/secret-noip-duc-credentials.yaml"
 USER_VAR = "${NOIP_DUC_CREDENTIALS_NOIP_USERNAME}"
 PASS_VAR = "${NOIP_DUC_CREDENTIALS_NOIP_PASSWORD}"
@@ -76,7 +76,7 @@ def test_templated_secret_holds_no_values():
 # ---- capture end to end -----------------------------------------------------------
 
 def _mark(tmp_path):
-    marker = tmp_path / "kubernetes/apps/noip-duc/noip-duc/.promote"
+    marker = tmp_path / "kubernetes/prod/system/noip-duc/noip-duc/.promote"
     marker.parent.mkdir(parents=True)
     marker.write_text("", encoding="utf-8")
 
@@ -87,7 +87,8 @@ def _serve(monkeypatch, secrets, live):
     deployment = {"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "noip-duc", "namespace": "noip-duc"}}
     monkeypatch.setattr(kube, "get_all", lambda c, kind: ([deployment] if kind == "deployment" else [], None))
     monkeypatch.setattr(kube, "get_namespaced", lambda c, kind, ns: (secrets if kind == "secret" else [], None))
-    monkeypatch.setattr(kube, "get_namespace", lambda c, ns: {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns}})
+    monkeypatch.setattr(kube, "get_namespace", lambda c, ns: {
+        "apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns, "labels": {layout.CATEGORY_LABEL: "system"}}})
 
     def get_object(c, kind, ns, name):
         if kind == "secret" and name == varsub.SECRETS_SECRET_NAME and live is not None:

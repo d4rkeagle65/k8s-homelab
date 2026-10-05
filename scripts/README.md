@@ -62,15 +62,15 @@ is rewritten on every run; change its source instead.
 
 | Written by | Files |
 |---|---|
-| capture | `apps/<ns>/<release>/release.yaml` and `app/values.yaml`, `app/values-all.yaml` (Helm releases) |
-| capture | `apps/<ns>/namespace.yaml`, `cluster/<kind>/*.yaml`, `flux/meta/repositories/*.yaml` |
+| capture | `prod/<category>/<ns>/<release>/release.yaml` and `app/values.yaml`, `app/values-all.yaml` (Helm releases) |
+| capture | `prod/<category>/<ns>/namespace.yaml`, `cluster/<kind>/*.yaml`, `flux/meta/repositories/*.yaml` |
 
-A namespace is written once: to `apps/<ns>/namespace.yaml` when it has an app
+A namespace is written once: to `prod/<category>/<ns>/namespace.yaml` when it has an app
 folder (applied by `cluster`), otherwise to `cluster/namespace/<ns>.yaml`
 (applied by `cluster-resources`). A test fails if one is in both.
-| capture | `apps/<ns>/<app>/app/<kind>-<name>.yaml` in `.promote` folders |
+| capture | `prod/<category>/<ns>/<app>/app/<kind>-<name>.yaml` in `.promote` folders |
 | capture | `kubernetes/.local/` and `kubernetes/raw/` (gitignored), and `docs/` |
-| generate | `app/helmrelease.yaml`, `app/kustomization.yaml`, `ks.yaml`, `apps/<ns>/kustomization.yaml`, `apps/kustomization.yaml` |
+| generate | `app/helmrelease.yaml`, `app/kustomization.yaml`, `ks.yaml`, and the `kustomization.yaml` of each namespace, each category and `prod/` itself |
 | generate | `cluster/kustomization.yaml`, `flux/meta/repositories/kustomization.yaml`, `flux/config/cluster.yaml`, `flux/config/cluster-resources.yaml` |
 | generate | `.gitignore` (lines you add are kept), `.gitattributes`, `.sops.yaml`, and `README.md` only if missing |
 
@@ -81,9 +81,28 @@ one deletes everything in it. Delete an unused Namespace with
 `kubectl delete namespace <ns>`. Anything they don't own, such as
 `flux/config/shared.yaml`, `test/`, `shared/` and `QUEUE.md`, is never touched.
 
+## Where an app goes
+
+Every app is `kubernetes/prod/<category>/<namespace>/<release>/`, and the category is the
+`homelab.local/category` label on its Namespace: `system` (cluster plumbing), `services`
+(shared services other apps use) or `apps` (what people use). `layout.py` holds the layout and
+the label names.
+
+- **A new namespace needs the label before its first capture.** capture stops, writing nothing
+  under `kubernetes/`, for a namespace it would write into that has no valid label, or whose
+  label names a different category from the folder it already has. Label it with
+  `kubectl label namespace <ns> homelab.local/category=<category>`.
+- **Moving a namespace to another category** is a `git mv` of its folder plus the new label,
+  in one commit; the tool never moves a folder itself. Hand-written `ks.yaml` and HelmRelease
+  files carry their paths and labels themselves, so change those too.
+- **Labels on every object:** `homelab.local/env`, `homelab.local/category`,
+  `app.kubernetes.io/part-of` and `homelab.local/managed-by`, set through `commonMetadata` on
+  each release's `ks.yaml` and HelmRelease. generate writes them into generated files; the
+  hand-written ones carry them by hand, and `test_structure.py` checks both.
+
 ## Three kinds of release folder
 
-Every `kubernetes/apps/<namespace>/<release>/` folder is one of these:
+Every `kubernetes/prod/<category>/<namespace>/<release>/` folder is one of these:
 
 - **Captured Helm release (the default).** capture writes `release.yaml` and
   `app/values.yaml` from the live Helm release. generate turns `values.yaml` into
@@ -130,7 +149,7 @@ in `dependencies.py`:
   can't be seen offline, so a chart that creates a database adds nothing.
 - A `cert-manager.io/cluster-issuer` annotation doesn't count: the Ingress
   applies without cert-manager, and the certificate is issued once it's up.
-- The dependency is added only when that operator's release is in `apps/`.
+- The dependency is added only when that operator's release is under `prod/`.
 - The operator's own `ks.yaml` gets `wait: true`. Without it Flux marks it
   Ready as soon as the HelmRelease object is applied, before Helm has
   installed the CRDs, and `dependsOn` wouldn't wait for anything. A
@@ -144,7 +163,7 @@ in `dependencies.py`:
 
 ### Change a Helm release's settings
 
-1. Edit `apps/<ns>/<release>/app/values.yaml`. Use nested YAML (`controller:` then
+1. Edit `prod/<category>/<ns>/<release>/app/values.yaml`. Use nested YAML (`controller:` then
    `service:` then `externalTrafficPolicy: Local`), never a dotted key like
    `controller.service.externalTrafficPolicy`, which Helm silently ignores.
 2. Run `python scripts/backup.py generate`. Use **generate, not
@@ -156,22 +175,23 @@ in `dependencies.py`:
 
 ### Add a new app written in git first (`.handwritten`)
 
-1. Create `apps/<ns>/namespace.yaml` and `apps/<ns>/<app>/` containing
+1. Label the Namespace with its category, then create `prod/<category>/<ns>/namespace.yaml`
+   (with that label) and `prod/<category>/<ns>/<app>/` containing
    `.handwritten`, `ks.yaml` and `app/kustomization.yaml` plus your manifests.
    Copy an existing hand-written release as a template.
    - The `ks.yaml` `metadata.name` must equal the folder name.
    - `targetNamespace` must equal `<ns>`.
    - Set `dependsOn` to the operators it needs (e.g. `- name: cnpg` for a
      database `Cluster`), or `[]`. generate doesn't touch it here; the tests
-     only check each name is another Kustomization under `apps/`.
+     only check each name is another Kustomization under `prod/`.
 2. Run `python scripts/backup.py generate` to add it to
-   `apps/<ns>/kustomization.yaml` and `apps/kustomization.yaml`.
+   the namespace, category and `prod/` kustomizations.
 3. Test, commit, push.
 
 ### Bring a namespace's non-Helm objects under Flux (`.promote`)
 
 1. Create the marker, e.g. in PowerShell:
-   `New-Item -ItemType File -Force kubernetes/apps/<ns>/<app>/.promote`
+   `New-Item -ItemType File -Force kubernetes/prod/<category>/<ns>/<app>/.promote`
    Use `<ns>-extras` for `<app>` if the namespace already has a Helm release.
 2. `python scripts/backup.py capture`
    - If the namespace has Secrets you manage, their values are listed in
@@ -269,7 +289,7 @@ with `-PlanOnly` first to see the state and plan; it asks before starting and
 before the switchover.
 
 ```
-./scripts/migrate-cnpg-to-local-db.ps1 -Namespace media -Cluster prowlarr-postgres -Kustomization prowlarr -GitFile kubernetes/apps/media/prowlarr/app/postgres.yaml
+./scripts/migrate-cnpg-to-local-db.ps1 -Namespace media -Cluster prowlarr-postgres -Kustomization prowlarr -GitFile kubernetes/prod/apps/media/prowlarr/app/postgres.yaml
 ```
 
 - **Safety checks:** it only proceeds while the database is healthy, and only

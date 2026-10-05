@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    homelab.local/category: services
+    name: cnpg-system
+  name: cnpg-system
+spec:
+  finalizers:
+  - kubernetes
