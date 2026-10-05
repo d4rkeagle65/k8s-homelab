@@ -65,8 +65,9 @@ becomes a playbook with checks.
 - [x] Stack deployed; OIDC login works; owner promoted to admin (the built-in admin needs an email of its own: Semaphore matches OIDC logins by email)
 - [x] Playbook and its checks written (syntax-checked; the cluster checks run clean against the live API)
 - [x] VM evacuation and the DNS rule (tested against the live Proxmox API and Pi-hole with stand-ins for `pvesh`, `qm` and `hostname`)
-- [ ] Semaphore set up (repo, inventory, key, known hosts, template)
-- [ ] Check-mode run clean; one real host upgraded through Semaphore
+- [x] Semaphore set up (repo, inventory, key, known hosts, templates)
+- [x] Check-mode run clean on all four hosts (2026-10-05; one host's extra `ceph-tentacle` source disabled to match the others)
+- [ ] A real run that reboots hosts, the Docker VM moved off and back: waits for a kernel update, which the check template lists
 - [ ] claude-code's account moved into `cluster-access`
 
 ## Resuming
