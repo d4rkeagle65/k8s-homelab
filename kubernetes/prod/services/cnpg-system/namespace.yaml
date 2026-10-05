@@ -7,7 +7,6 @@ metadata:
     homelab.local/category: services
     homelab.local/data: stateless
     homelab.local/exposure: cluster
-    name: cnpg-system
   name: cnpg-system
 spec:
   finalizers:
