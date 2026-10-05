@@ -33,11 +33,6 @@ nothing here tracks them.
 
 ## Later
 
-- [ ] **A PC with a second, public DNS server caches "no such host" for local names**, such
-  as the cluster API endpoint, so `kubectl` lookups fail now and then until the cache clears.
-  DHCP isn't the source: Kea gives every VLAN only Pi-hole. Check where the PC's second
-  server comes from (`Get-DnsClientServerAddress -AddressFamily IPv4`; most likely set by
-  hand on the adapter) and remove it, or make it a second Pi-hole.
 - [ ] **Keep immich and manictime up through a node loss** (optional). Today
   their single database copy sits on one worker's disk.
   - Set `instances: 2` on `immich-postgres` and `manictime-pg`, for automatic
