@@ -4,7 +4,7 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
   name: babybuddy-mcp
-  namespace: babybuddy-mcp
+  namespace: babybuddy
 spec:
   ingressClassName: traefik
   rules:

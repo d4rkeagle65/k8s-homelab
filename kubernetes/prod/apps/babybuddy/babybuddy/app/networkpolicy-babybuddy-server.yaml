@@ -12,10 +12,7 @@ spec:
       podSelector:
         matchLabels:
           app.kubernetes.io/name: traefik
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: babybuddy-mcp
-      podSelector:
+    - podSelector:
         matchLabels:
           app: babybuddy-mcp
     ports:

@@ -4,7 +4,7 @@ metadata:
   labels:
     app: babybuddy-mcp
   name: babybuddy-mcp
-  namespace: babybuddy-mcp
+  namespace: babybuddy
 spec:
   progressDeadlineSeconds: 600
   replicas: 1

@@ -5,10 +5,15 @@ kind: Kustomization
 resources:
 - cluster-babybuddy-postgres.yaml
 - configmap-babybuddy-env.yaml
+- configmap-babybuddy-mcp-code.yaml
+- deployment-babybuddy-mcp.yaml
 - deployment-babybuddy-server.yaml
 - ingress-babybuddy-api-ingress.yaml
 - ingress-babybuddy-ingress.yaml
+- ingress-babybuddy-mcp.yaml
 - networkpolicy-babybuddy-server.yaml
 - persistentvolumeclaim-babybuddy-config-v2.yaml
+- secret-babybuddy-mcp-secrets.yaml
 - service-authentik-outpost.yaml
+- service-babybuddy-mcp.yaml
 - service-babybuddy-svc.yaml
