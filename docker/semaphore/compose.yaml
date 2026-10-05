@@ -69,6 +69,8 @@ services:
       # Login through Authentik. Only authentik Admins may log in (the
       # blueprint's binding); Semaphore can't make OIDC users admins itself,
       # so the built-in admin promotes the owner's account once.
+      # Users are named by their email: an Authentik username that matches a
+      # local one (the built-in "admin") is refused as a conflict.
       SEMAPHORE_OIDC_PROVIDERS: >-
         {"authentik": {"display_name": "Authentik",
         "provider_url": "${SEMAPHORE_OIDC_ISSUER_URL}",
@@ -76,7 +78,7 @@ services:
         "client_secret": "${SEMAPHORE_OIDC_CLIENT_SECRET}",
         "redirect_url": "${SEMAPHORE_WEB_ROOT}/api/auth/oidc/authentik/redirect",
         "scopes": ["openid", "profile", "email"],
-        "username_claim": "preferred_username",
+        "username_claim": "email",
         "name_claim": "name"}}
     volumes:
     - /opt/semaphore/config:/etc/semaphore
