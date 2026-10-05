@@ -35,11 +35,15 @@ becomes a playbook with checks.
      is needed there.
 - **Upgrades run by hand.** A scheduled run, if any, only reports what's pending (check mode).
 
-## Open
-
-- **The k8s checks need the cluster.** Either a read-only ServiceAccount for Semaphore
-  (get nodes, `/readyz`), in git like `claude-code`'s, or `pct exec` into a control-plane
-  LXC from the Proxmox host. The ServiceAccount is cleaner; decide in batch 2.
+- **The k8s checks use a read-only ServiceAccount** (list nodes, `/readyz`, `/livez`) in a
+  shared `cluster-access` namespace (`kubernetes/prod/system/cluster-access/semaphore/`), one
+  folder per outside account. Semaphore calls the API with `ansible.builtin.uri` (no kubectl in
+  its image), the CA pinned. claude-code's account moves there too, later, in two steps (a new
+  ServiceAccount means a new token): add `cluster-access/claude-code`, switch the container's
+  kubeconfig, then remove the old `claude-code` folder and namespace.
+- **capture leaves a cluster-wide object an app's own Kustomization applies alone**
+  (`FluxOwnership.app_owned_reason`): the ClusterRole is in its folder already, and a copy
+  under `kubernetes/cluster/` would have cluster-resources apply it too.
 
 ## Plan
 
@@ -54,11 +58,12 @@ becomes a playbook with checks.
 ## Checklist
 
 - [x] Stack, blueprint, route written (the blueprint dry-runs valid in Authentik)
-- [ ] `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` in Vaultwarden and `cluster-secrets`
-- [ ] Stack deployed; OIDC login works; owner promoted to admin
-- [ ] Playbook and its checks written
+- [x] `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` in Vaultwarden and `cluster-secrets`
+- [x] Stack deployed; OIDC login works; owner promoted to admin (the built-in admin needs an email of its own: Semaphore matches OIDC logins by email)
+- [x] Playbook and its checks written (syntax-checked; the cluster checks run clean against the live API)
 - [ ] Semaphore set up (repo, inventory, key, known hosts, template)
 - [ ] Check-mode run clean; one real host upgraded through Semaphore
+- [ ] claude-code's account moved into `cluster-access`
 
 ## Resuming
 

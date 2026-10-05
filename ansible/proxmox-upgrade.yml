@@ -1,0 +1,134 @@
+# Rolling upgrade of the Proxmox hosts, one at a time, with the Proxmox
+# cluster and the Kubernetes cluster checked healthy before each host and after
+# any reboot. A failed check stops the run before the next host is touched.
+#
+# Inventory (kept in Semaphore, never in git; see README.md):
+#   proxmox    every host, in the order to upgrade them; root over SSH
+#   no_reboot  hosts never rebooted by this run: the one carrying the Docker
+#              VM, where Semaphore itself runs. List it last in proxmox.
+# Variables (a Semaphore variable group): k8s_api_url, k8s_ca_pem, k8s_token.
+#
+# In check mode (--check) it runs the checks and lists the pending upgrades,
+# and changes nothing.
+
+- name: Check the clusters before touching anything
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Write the Kubernetes CA certificate for the API checks
+      ansible.builtin.copy:
+        content: "{{ k8s_ca_pem }}"
+        dest: "{{ playbook_dir }}/.k8s-ca.pem"
+        mode: "0600"
+      check_mode: false
+
+    - name: The Kubernetes cluster is healthy
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+
+- name: Upgrade the Proxmox hosts one at a time
+  hosts: proxmox
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars:
+    may_reboot: "{{ inventory_hostname not in groups.get('no_reboot', []) }}"
+  tasks:
+    - name: The Proxmox cluster has quorum
+      ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
+
+    - name: The Kubernetes cluster is healthy before this host
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+
+    - name: Refresh the package lists
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+
+    - name: List the pending upgrades
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable
+      changed_when: false
+      check_mode: false
+
+    - name: Show the pending upgrades
+      ansible.builtin.debug:
+        msg: "{{ upgradable.stdout_lines | reject('match', '^Listing') | list or ['nothing to upgrade'] }}"
+
+    - name: Upgrade (dist-upgrade, as Proxmox requires)
+      ansible.builtin.apt:
+        upgrade: dist
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Remove packages nothing needs any more
+      ansible.builtin.apt:
+        autoremove: true
+
+    # A reboot is due when Debian says so, or when the newest installed kernel
+    # isn't the one running.
+    - name: Read the running kernel
+      ansible.builtin.command: uname -r
+      register: running_kernel
+      changed_when: false
+      check_mode: false
+
+    - name: Find the newest installed kernel
+      ansible.builtin.shell: set -o pipefail; ls /boot/vmlinuz-* | sed 's#/boot/vmlinuz-##' | sort -V | tail -1
+      args:
+        executable: /bin/bash
+      register: newest_kernel
+      changed_when: false
+      check_mode: false
+
+    - name: Look for Debian's reboot-required flag
+      ansible.builtin.stat:
+        path: /run/reboot-required
+      register: reboot_flag
+
+    - name: Work out whether a reboot is due
+      ansible.builtin.set_fact:
+        reboot_due: "{{ reboot_flag.stat.exists or (newest_kernel.stdout | trim) != (running_kernel.stdout | trim) }}"
+
+    - name: Reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 900
+        msg: Rebooting for the Proxmox upgrade (Semaphore)
+      when: reboot_due and may_reboot | bool
+
+    - name: Wait for the Kubernetes nodes to be Ready again
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+      vars:
+        k8s_wait: true
+      when: reboot_due and may_reboot | bool
+
+    - name: The Proxmox cluster has quorum after this host
+      ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
+
+    - name: Note a reboot left for the owner
+      ansible.builtin.set_fact:
+        reboot_left: true
+      when: reboot_due and not (may_reboot | bool)
+
+- name: Report
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Hosts that still need a reboot by hand
+      ansible.builtin.debug:
+        msg: >-
+          {{ groups['proxmox'] | select('in', groups.get('no_reboot', [])) |
+             map('extract', hostvars) | selectattr('reboot_left', 'defined') |
+             map(attribute='inventory_hostname') | list or ['none'] }}
+
+    - name: Remove the written CA certificate
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/.k8s-ca.pem"
+        state: absent
+      check_mode: false
