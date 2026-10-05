@@ -82,6 +82,7 @@ spec:
         main:
           annotations:
             cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+            nginx.ingress.kubernetes.io/proxy-body-size:
             traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
           className: traefik
           enabled: true

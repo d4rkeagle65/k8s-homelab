@@ -21,7 +21,6 @@ spec:
         kubectl.kubernetes.io/restartedAt: "2026-09-30T21:08:36-04:00"
       labels:
         app: immich-power-tools
-        env: production
     spec:
       containers:
       - env:

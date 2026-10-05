@@ -98,7 +98,7 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
 - [x] Generator knows `prod/<category>/`; tests pass on the moved tree
 - [ ] Namespaces labelled; apps moved; Flux reconciled with no deletions
 - [ ] babybuddy-mcp in `babybuddy` (in git; to apply); old namespace deleted
-- [ ] Annotations cleaned up
+- [ ] Annotations cleaned up (in git; the live-only steps above remain)
 - [x] `CLAUDE.md` files and `scripts/README.md` say `prod/`
 
 ## Progress
@@ -125,7 +125,15 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
   its own namespace now. Flux removes the old Deployment, Service, ConfigMap and Ingress; the
   old Namespace and its Secrets carry `prune: disabled`, so delete the namespace by hand
   (`kubectl delete namespace babybuddy-mcp`) once the MCP answers from `babybuddy`.
-- **Not yet:** the annotation cleanup.
+- **Annotation cleanup** (in git): the free-form `env`/`db` pod labels are gone (one restart
+  each for babybuddy-server and immich-power-tools); immich's chart default
+  `nginx.ingress.kubernetes.io/proxy-body-size` is nulled in its values; the `name` labels are
+  gone from three `namespace.yaml` files. Helm owns those labels too, so after this applies,
+  remove them live: `kubectl label namespace cert-manager cnpg-system metallb-system name-`.
+  The two Secrets' `kubectl.kubernetes.io/last-applied-configuration` annotations are removed
+  by hand (the owner runs it; it's a write to a Secret):
+  `kubectl -n cert-manager annotate secret cloudflare-api-token kubectl.kubernetes.io/last-applied-configuration-`
+  and the same for `cloudflare-tunnel/cloudflare-tunnel-secret`.
 
 ## Resuming
 

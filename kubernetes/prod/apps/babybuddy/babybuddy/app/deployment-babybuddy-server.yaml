@@ -19,8 +19,6 @@ spec:
     metadata:
       labels:
         app: babybuddy
-        db: postgres
-        env: production
     spec:
       containers:
       - env:
