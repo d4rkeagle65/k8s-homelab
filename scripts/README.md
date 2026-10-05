@@ -104,6 +104,8 @@ the label names.
   `cluster`). `derived.py` holds the rules. capture writes them into the `namespace.yaml` files
   it owns, keeps a label it couldn't work out, and warns with the value to set when a
   hand-written `namespace.yaml` disagrees.
+- **`homelab.local/login`** on each Namespace (`authentik-oidc`, `authentik-proxy`, `app`,
+  `none`) is set by hand: which apps use Authentik's OIDC is known only inside Authentik.
 
 ## Three kinds of release folder
 

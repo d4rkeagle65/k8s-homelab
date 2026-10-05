@@ -7,6 +7,7 @@ metadata:
     homelab.local/category: services
     homelab.local/data: files
     homelab.local/exposure: cluster
+    homelab.local/login: none
   name: mqtt
 spec:
   finalizers:

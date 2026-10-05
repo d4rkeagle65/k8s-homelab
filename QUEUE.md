@@ -9,13 +9,11 @@ nothing here tracks them.
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-apps-layout.md`.
+- [Working queue files](#working-queue-files) - none open.
 
 ## Next
 
-- **Group the apps by kind, and clean up labels and annotations**: `kubernetes/apps/` becomes
-  `kubernetes/prod/` with `system`, `services` and `apps` inside, chosen by a label on each
-  Namespace. In progress; see [QUEUE-apps-layout.md](QUEUE-apps-layout.md).
+Nothing right now; pick from Later.
 
 ## Cleanup
 
@@ -97,8 +95,6 @@ nothing here tracks them.
 
 ## Working queue files
 
-- [QUEUE-apps-layout.md](QUEUE-apps-layout.md): the apps layout and labels.
-
-A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
+None open. A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
 came back negative.
