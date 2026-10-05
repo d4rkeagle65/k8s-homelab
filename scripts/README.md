@@ -99,6 +99,11 @@ the label names.
   `app.kubernetes.io/part-of` and `homelab.local/managed-by`, set through `commonMetadata` on
   each release's `ks.yaml` and HelmRelease. generate writes them into generated files; the
   hand-written ones carry them by hand, and `test_structure.py` checks both.
+- **Labels worked out from the cluster**, on each Namespace: `homelab.local/data`
+  (`database`, `files`, `stateless`) and `homelab.local/exposure` (`internet`, `lan`,
+  `cluster`). `derived.py` holds the rules. capture writes them into the `namespace.yaml` files
+  it owns, keeps a label it couldn't work out, and warns with the value to set when a
+  hand-written `namespace.yaml` disagrees.
 
 ## Three kinds of release folder
 

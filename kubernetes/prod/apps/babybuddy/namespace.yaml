@@ -5,6 +5,8 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
   labels:
     homelab.local/category: apps
+    homelab.local/data: database
+    homelab.local/exposure: internet
   name: babybuddy
 spec:
   finalizers:

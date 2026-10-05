@@ -5,6 +5,8 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
   labels:
     homelab.local/category: system
+    homelab.local/data: stateless
+    homelab.local/exposure: cluster
     name: cert-manager
   name: cert-manager
 spec:

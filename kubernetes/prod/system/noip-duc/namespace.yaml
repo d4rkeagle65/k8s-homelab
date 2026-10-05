@@ -6,6 +6,8 @@ metadata:
   labels:
     app: noip-duc
     homelab.local/category: system
+    homelab.local/data: stateless
+    homelab.local/exposure: cluster
   name: noip-duc
 spec:
   finalizers:
