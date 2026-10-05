@@ -5,4 +5,5 @@ metadata:
     homelab.local/category: system
     homelab.local/data: stateless
     homelab.local/exposure: lan
+    homelab.local/login: none
   name: external-services

@@ -24,6 +24,10 @@ CATEGORY_LABEL = LABEL_PREFIX + "category"
 ENV_LABEL = LABEL_PREFIX + "env"
 MANAGED_BY_LABEL = LABEL_PREFIX + "managed-by"
 PART_OF_LABEL = "app.kubernetes.io/part-of"
+# How people log in to a namespace's app, set by hand on its Namespace: which
+# apps use Authentik's OIDC is known only inside Authentik.
+LOGIN_LABEL = LABEL_PREFIX + "login"
+LOGIN_VALUES = ("authentik-oidc", "authentik-proxy", "app", "none")
 
 # managed-by values, one per kind of release folder (see ownership.py).
 MANAGED_HELM = "helm"

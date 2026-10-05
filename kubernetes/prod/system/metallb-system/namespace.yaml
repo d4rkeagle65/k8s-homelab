@@ -7,6 +7,7 @@ metadata:
     homelab.local/category: system
     homelab.local/data: stateless
     homelab.local/exposure: cluster
+    homelab.local/login: none
   name: metallb-system
 spec:
   finalizers:

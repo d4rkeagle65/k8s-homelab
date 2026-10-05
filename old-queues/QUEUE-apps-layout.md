@@ -95,7 +95,7 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
 
 - [x] Label set confirmed
 - [x] Audit done and recorded
-- [ ] `login` values per app (on hold, see Progress)
+- [x] `login` values per app, set by hand on each Namespace (the owner confirmed them)
 - [x] A capture on the PC, then generate, changes nothing (after `ffa505f`: capture strips the labels commonMetadata stamps)
 - [x] Generator knows `prod/<category>/`; tests pass on the moved tree
 - [x] Namespaces labelled; apps moved; Flux reconciled with no deletions
@@ -118,9 +118,8 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
   has its own way to label them (Authentik's outpost settings, the controller's chart values).
 - **`data` and `exposure`** are Namespace labels capture works out from the cluster
   (`derived.py`), written into every `namespace.yaml`.
-- **`login` is on hold:** proxy login shows on a route (the `authentik` middleware), but which
-  apps use OIDC is known only inside Authentik, which capture can't read. Needs the owner's
-  per-app values, or Authentik's API.
+- **`login` is set by hand** on each Namespace: proxy login shows on a route (the `authentik`
+  middleware), but which apps use OIDC is known only inside Authentik, which capture can't read.
 - **babybuddy-mcp's move** (in git): its five objects join babybuddy's `.promote` folder (one
   per namespace), its Secret keeps its Vaultwarden names (the Secret's name starts with the
   namespace either way), and babybuddy's NetworkPolicy admits `app: babybuddy-mcp` pods from

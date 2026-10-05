@@ -7,6 +7,7 @@ metadata:
     homelab.local/category: apps
     homelab.local/data: files
     homelab.local/exposure: lan
+    homelab.local/login: app
   name: homeassistant
 spec:
   finalizers:

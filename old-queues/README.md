@@ -9,3 +9,4 @@ Read the negative results before re-proposing anything.
 
 | File | Job | Started | Retired |
 |---|---|---|---|
+| [QUEUE-apps-layout.md](QUEUE-apps-layout.md) | `kubernetes/apps/` to `kubernetes/prod/<category>/`, labels on every object, babybuddy-mcp into `babybuddy`, the label and annotation audit | 2026-10-05 | 2026-10-05 |

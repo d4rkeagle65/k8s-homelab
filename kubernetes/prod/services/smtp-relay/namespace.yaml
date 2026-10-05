@@ -5,4 +5,5 @@ metadata:
     homelab.local/category: services
     homelab.local/data: stateless
     homelab.local/exposure: cluster
+    homelab.local/login: none
   name: smtp-relay

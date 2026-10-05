@@ -7,6 +7,7 @@ metadata:
     homelab.local/category: apps
     homelab.local/data: database
     homelab.local/exposure: internet
+    homelab.local/login: authentik-oidc
   name: immich
 spec:
   finalizers:

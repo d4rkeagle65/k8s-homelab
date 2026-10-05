@@ -327,6 +327,7 @@ def test_namespace_carries_valid_derived_labels(repo_root, load_yaml):
         labels = (load_yaml(path).get("metadata") or {}).get("labels") or {}
         assert labels.get(derived.DATA_LABEL) in derived.DATA_VALUES, f"{ns_name}: {derived.DATA_LABEL}"
         assert labels.get(derived.EXPOSURE_LABEL) in derived.EXPOSURE_VALUES, f"{ns_name}: {derived.EXPOSURE_LABEL}"
+        assert labels.get(layout.LOGIN_LABEL) in layout.LOGIN_VALUES, f"{ns_name}: {layout.LOGIN_LABEL}"
 
 
 def test_every_release_carries_its_common_labels(repo_root, load_yaml):

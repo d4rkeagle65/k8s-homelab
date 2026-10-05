@@ -8,6 +8,7 @@ metadata:
     homelab.local/category: system
     homelab.local/data: stateless
     homelab.local/exposure: cluster
+    homelab.local/login: none
   name: noip-duc
 spec:
   finalizers:
