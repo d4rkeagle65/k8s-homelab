@@ -1,0 +1,19 @@
+# This host's Proxmox node name (pve_node) and every guest in the Proxmox
+# cluster with the node it runs on now (pve_guests, from /cluster/resources).
+# Read again whenever it matters: guests move.
+- name: Read this host's Proxmox node name
+  ansible.builtin.command: hostname -s
+  register: pve_hostname
+  changed_when: false
+  check_mode: false
+
+- name: Read the cluster's guests
+  ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
+  register: pve_resources
+  changed_when: false
+  check_mode: false
+
+- name: Keep them
+  ansible.builtin.set_fact:
+    pve_node: "{{ pve_hostname.stdout | trim }}"
+    pve_guests: "{{ pve_resources.stdout | from_json }}"

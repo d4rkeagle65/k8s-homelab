@@ -30,9 +30,12 @@ becomes a playbook with checks.
   2. `apt dist-upgrade` (Proxmox's way, not `apt upgrade`), then `apt autoremove`;
   3. reboot only when a reboot is required, wait for the host, its k8s LXCs and their nodes
      to come back Ready;
-  4. the host carrying the Docker VM and Pi-hole goes last and is never rebooted by the
-     playbook: Semaphore runs on it. The run ends by saying a reboot
-     is needed there.
+  4. the host carrying the Docker VM goes last, and the VM (Semaphore runs on it) is
+     live-migrated to a host with room before the reboot and back afterwards: the inventory's
+     `evacuate`, checked for memory and bridges first, the move read back after.
+  5. the Pi-holes are found by their Proxmox tag (`dns_guest_tag`): a host carrying one
+     reboots only while every other one answers a lookup, and the run waits for its own to
+     answer again; a host carrying all of them (two or more) is left for a reboot by hand.
 - **Upgrades run by hand.** A scheduled run, if any, only reports what's pending (check mode).
 
 - **The k8s checks use a read-only ServiceAccount** (list nodes, `/readyz`, `/livez`) in a
@@ -61,6 +64,7 @@ becomes a playbook with checks.
 - [x] `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` in Vaultwarden and `cluster-secrets`
 - [x] Stack deployed; OIDC login works; owner promoted to admin (the built-in admin needs an email of its own: Semaphore matches OIDC logins by email)
 - [x] Playbook and its checks written (syntax-checked; the cluster checks run clean against the live API)
+- [x] VM evacuation and the DNS rule (tested against the live Proxmox API and Pi-hole with stand-ins for `pvesh`, `qm` and `hostname`)
 - [ ] Semaphore set up (repo, inventory, key, known hosts, template)
 - [ ] Check-mode run clean; one real host upgraded through Semaphore
 - [ ] claude-code's account moved into `cluster-access`

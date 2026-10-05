@@ -6,7 +6,7 @@ and addresses), the SSH key, and the Kubernetes token.
 
 | Playbook | What it does |
 |---|---|
-| `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. Hosts in `no_reboot` are upgraded but left for you to reboot. |
+| `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
 
 ## Setting up Semaphore (once)
 
@@ -30,23 +30,38 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
    `https://github.com/d4rkeagle65/k8s-homelab.git`, branch `main`, access key **None** (the
    repo is public).
 
-3. **The inventory.** **Inventory** > New, type Static, user credentials the key from step 1,
-   with the hosts in the order to upgrade them and the one carrying the Docker VM last and in
-   `no_reboot`:
+3. **The inventory.** **Inventory** > New, type **Static YAML**, user credentials the key from
+   step 1, with the hosts in the order to upgrade them:
 
-   ```ini
-   [proxmox]
-   <host 1> ansible_host=<management address>
-   <host 2> ansible_host=<management address>
-   <host 3> ansible_host=<management address>
-   <docker VM's host> ansible_host=<management address>
-
-   [no_reboot]
-   <docker VM's host>
-
-   [proxmox:vars]
-   ansible_user=root
+   ```yaml
+   proxmox:
+     hosts:
+       <host 1>: {ansible_host: <management address>}
+       <host 2>: {ansible_host: <management address>}
+       <host 3>: {ansible_host: <management address>}
+       <host 4>:
+         ansible_host: <management address>
+         evacuate:
+           - {vmid: <Docker VM's id>, to: <host with room for it>}
+     vars:
+       ansible_user: root
+       dns_guest_tag: <the Proxmox tag on the Pi-hole containers>
    ```
+
+   - **`evacuate`**: VMs to live-migrate off the host before its reboot, each to another host
+     in the inventory, and back afterwards (`evacuate_return: false` leaves them there). The
+     Docker VM needs this, since Semaphore runs on it; put its host last. Each run checks the
+     target has the VM's memory plus 1 GB to spare (`evacuate_memory_margin`, in MB) and its
+     bridges, and stops before touching the host if not. Disks on local storage are copied
+     across, which takes a few minutes. Only VMs: a container can't move while running.
+   - **`dns_guest_tag`**: the playbook finds the Pi-holes by this tag, so a second one is
+     covered once it has the tag. A host carrying one reboots only while every other answers
+     (a lookup of `pi.hole`, or `dns_check_name`), and the run waits for its own to answer
+     again before the next host. A host carrying all of them (two or more) is left for you to
+     reboot. With one Pi-hole, DNS is down while its host reboots, and the run's report says
+     so. Unset, DNS isn't checked.
+   - **`no_reboot`** (a group, optional): hosts to upgrade but never reboot, for example the
+     Docker VM's host if there's nowhere to move the VM.
 
 4. **The Kubernetes access.** Semaphore reads the cluster through the read-only
    `cluster-access/semaphore` ServiceAccount (`kubernetes/prod/system/cluster-access/`).
@@ -77,8 +92,8 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
 1. Run **"Proxmox upgrade: check"** and read the pending upgrades per host.
 2. Run **"Proxmox upgrade"**. It stops at the first failed check, before touching the next
    host; fix the cause and run it again (upgraded hosts have nothing left to do).
-3. When it reports a host that still needs a reboot by hand (the Docker VM's), reboot that host
-   from Proxmox when convenient. Pi-hole is on it too, so DNS is down while it restarts.
+3. When it reports a host that still needs a reboot by hand, reboot that host from Proxmox when
+   convenient, after moving anything that has to stay up.
 
 ## Checks for a playbook here
 

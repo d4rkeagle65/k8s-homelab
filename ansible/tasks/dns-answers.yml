@@ -1,0 +1,16 @@
+# Each guest in dns_check answers dns_check_name (default pi.hole) on one of its addresses,
+# asked from this host (files/dns-answers.py). With dns_wait set it keeps
+# asking for up to 10 minutes, for a guest coming back after a reboot.
+- name: The DNS servers answer
+  ansible.builtin.script: "{{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }} {{ item.addresses | join(' ') }}"
+  args:
+    executable: python3
+  loop: "{{ dns_check }}"
+  loop_control:
+    label: "{{ item.name }} on {{ item.node }}"
+  register: dns_answer
+  until: dns_answer.rc == 0
+  retries: "{{ 40 if dns_wait | default(false) else 2 }}"
+  delay: "{{ 15 if dns_wait | default(false) else 5 }}"
+  changed_when: false
+  check_mode: false
