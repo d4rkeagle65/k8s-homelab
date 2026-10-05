@@ -1,0 +1,12 @@
+# The Proxmox cluster reports quorum (pvecm status: "Quorate: Yes").
+- name: Read the Proxmox cluster status
+  ansible.builtin.command: pvecm status
+  register: pvecm
+  changed_when: false
+  check_mode: false
+
+- name: The Proxmox cluster is quorate
+  ansible.builtin.assert:
+    that: pvecm.stdout is search('Quorate:\s+Yes')
+    fail_msg: "The Proxmox cluster has no quorum ({{ inventory_hostname }}); stopping before the next host."
+    quiet: true

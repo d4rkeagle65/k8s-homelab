@@ -547,6 +547,7 @@ def _capture_cluster_resources(sink: Sink, context, warnings, redactions, verbos
             reason = (
                 skipfilter.should_skip(kind, item)
                 or flux_owner.foreign_reason(item)
+                or flux_owner.app_owned_reason(item)
                 or _namespace_owned_by_apps(sink.root, kind, item)
             )
             meta = item.get("metadata", {})

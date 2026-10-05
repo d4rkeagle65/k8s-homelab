@@ -1,0 +1,11 @@
+# Read-only cluster access for Semaphore on the Docker host (docker/semaphore/):
+# its Ansible runs check the nodes are Ready and the API server is healthy
+# before and after touching a Proxmox host, and can change nothing.
+# Removing this folder revokes the access: Flux deletes all four.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- serviceaccount.yaml
+- clusterrole.yaml
+- clusterrolebinding.yaml
+- secret-token.yaml

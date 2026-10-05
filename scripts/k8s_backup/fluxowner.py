@@ -56,6 +56,17 @@ class FluxOwnership:
         # Flux's own components, from kubernetes/flux/config/flux-system/.
         return chain[-2][1] if len(chain) >= 2 else key[1]
 
+    def app_owned_reason(self, obj: dict) -> str | None:
+        """For a cluster-scoped object: why it isn't captured under
+        kubernetes/cluster/ when an app's own Flux Kustomization applied it
+        (a ClusterRole in a hand-written app folder, say). It's already in
+        git there, and a copy under cluster/ would have cluster-resources
+        apply it too. Only cluster-resources' own objects belong in cluster/."""
+        key = _applied_by(obj)
+        if key is None or key[1] in GENERATOR_ENTRYPOINTS:
+            return None
+        return f"applied by the app Flux Kustomization '{key[1]}' (already in its folder in git)"
+
     def foreign_reason(self, obj: dict) -> str | None:
         entry = self.entrypoint(obj)
         if entry is None or entry in GENERATOR_ENTRYPOINTS:

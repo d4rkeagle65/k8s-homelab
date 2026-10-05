@@ -1,0 +1,11 @@
+# Read the nodes and the API server's health endpoints; nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: semaphore-cluster-health
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+- nonResourceURLs: ["/readyz", "/readyz/*", "/livez", "/livez/*"]
+  verbs: ["get"]

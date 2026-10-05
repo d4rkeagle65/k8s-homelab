@@ -179,3 +179,19 @@ def test_neat_strips_the_labels_commonmetadata_stamps():
     ns = {"kind": "Namespace", "metadata": {"name": "mqtt", "labels": {
         CATEGORY: "services", layout.ENV_LABEL: "prod", "homelab.local/data": "files"}}}
     assert neat(ns)["metadata"]["labels"] == {CATEGORY: "services", "homelab.local/data": "files"}
+
+
+def test_a_cluster_wide_object_an_app_applies_is_not_captured_under_cluster():
+    def applied_by(name):
+        return {"kustomize.toolkit.fluxcd.io/name": name, "kustomize.toolkit.fluxcd.io/namespace": "flux-system"}
+    owner = FluxOwnership([
+        {"metadata": {"name": "flux-system", "namespace": "flux-system", "labels": applied_by("flux-system")}},
+        {"metadata": {"name": "cluster", "namespace": "flux-system", "labels": applied_by("flux-system")}},
+        {"metadata": {"name": "semaphore", "namespace": "flux-system", "labels": applied_by("cluster")}},
+    ])
+    role = {"kind": "ClusterRole", "metadata": {"name": "semaphore-cluster-health", "labels": applied_by("semaphore")}}
+    issuer = {"kind": "ClusterIssuer", "metadata": {"name": "le", "labels": applied_by("cluster-resources")}}
+    assert owner.foreign_reason(role) is None  # its entry point is the generator's own `cluster`
+    assert "semaphore" in owner.app_owned_reason(role)
+    assert owner.app_owned_reason(issuer) is None  # cluster-resources' own objects are captured
+    assert owner.app_owned_reason({"kind": "ClusterRole", "metadata": {"name": "by-hand"}}) is None
