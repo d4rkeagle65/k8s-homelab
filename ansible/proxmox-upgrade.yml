@@ -14,7 +14,8 @@
 #              [{vmid: 107, to: <inventory host>}]; moved back afterwards
 #              unless evacuate_return is false. The Docker VM, where Semaphore
 #              runs, needs this or no_reboot on its host.
-# Variables (a Semaphore variable group): k8s_api_url, k8s_ca_pem, k8s_token.
+# Variables (a Semaphore variable group): k8s_api_url, k8s_ca_b64 (the CA
+# certificate in base64, one line, as the token Secret's ca.crt holds it), k8s_token.
 #
 # In check mode (--check) it runs the checks and lists the pending upgrades,
 # and changes nothing.
@@ -23,6 +24,18 @@
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Decode the Kubernetes CA certificate
+      ansible.builtin.set_fact:
+        k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+    - name: The CA certificate is one
+      ansible.builtin.assert:
+        that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+        fail_msg: >-
+          k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
+          token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+        quiet: true
+
     - name: Write the Kubernetes CA certificate for the API checks
       ansible.builtin.copy:
         content: "{{ k8s_ca_pem }}"
