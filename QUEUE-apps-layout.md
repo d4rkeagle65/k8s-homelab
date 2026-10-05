@@ -95,10 +95,12 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
 
 - [x] Label set confirmed
 - [x] Audit done and recorded
+- [ ] `login` values per app (on hold, see Progress)
+- [ ] A capture on the PC, then generate, changes nothing
 - [x] Generator knows `prod/<category>/`; tests pass on the moved tree
-- [ ] Namespaces labelled; apps moved; Flux reconciled with no deletions
-- [ ] babybuddy-mcp in `babybuddy` (in git; to apply); old namespace deleted
-- [ ] Annotations cleaned up (in git; the live-only steps above remain)
+- [x] Namespaces labelled; apps moved; Flux reconciled with no deletions
+- [ ] babybuddy-mcp in `babybuddy` (applied `a744076`; it reaches babybuddy's API); old namespace deleted
+- [ ] Annotations cleaned up (applied, and the `name` labels removed live; the two Secrets' annotations remain)
 - [x] `CLAUDE.md` files and `scripts/README.md` say `prod/`
 
 ## Progress
