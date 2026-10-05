@@ -82,6 +82,11 @@ worker:
       secretKeyRef:
         key: client-secret
         name: authentik-dockhand-oidc
+  - name: SEMAPHORE_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-semaphore-oidc
   - name: STORK_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:

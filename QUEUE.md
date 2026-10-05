@@ -9,11 +9,12 @@ nothing here tracks them.
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - none open.
+- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`.
 
 ## Next
 
-Nothing right now; pick from Later.
+- **Semaphore for Ansible, starting with keeping the Proxmox hosts up to date.** In progress;
+  see [QUEUE-semaphore.md](QUEUE-semaphore.md).
 
 ## Cleanup
 
@@ -80,6 +81,8 @@ Nothing right now; pick from Later.
 
 ## Working queue files
 
-None open. A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
+- [QUEUE-semaphore.md](QUEUE-semaphore.md): Semaphore for Ansible.
+
+A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
 came back negative.
