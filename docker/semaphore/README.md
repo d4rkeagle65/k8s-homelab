@@ -64,8 +64,8 @@ compose directly, and those override the blank file. Never put a value in `.env`
 ## First login
 
 1. Deploy the stack in Dockhand, then open `https://semaphore.<domain>`.
-2. Log in once with **Authentik**: Semaphore creates your user, as an ordinary user. Its OIDC
-   can't make anyone an admin.
+2. Log in once with **Authentik**: Semaphore creates your user, named by your email, as an
+   ordinary user. Its OIDC can't make anyone an admin.
 3. Log out, log in as the built-in `admin` with `SEMAPHORE_ADMIN_PASSWORD`, and under Users
    tick **Admin** on your account.
 4. From then on, log in with Authentik. The built-in admin is the fallback when Authentik is
