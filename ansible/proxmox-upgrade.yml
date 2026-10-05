@@ -4,8 +4,16 @@
 #
 # Inventory (kept in Semaphore, never in git; see README.md):
 #   proxmox    every host, in the order to upgrade them; root over SSH
-#   no_reboot  hosts never rebooted by this run: the one carrying the Docker
-#              VM, where Semaphore itself runs. List it last in proxmox.
+#   no_reboot  hosts upgraded but never rebooted by this run
+#   dns_guest_tag   the Proxmox tag on the DNS server containers (Pi-hole).
+#              Unset, DNS isn't checked. Set, a host carrying one reboots only
+#              while every other DNS server answers, and the run waits for its
+#              own to answer again; a host carrying them all (two or more) is
+#              left for a reboot by hand.
+#   evacuate   per host, VMs to live-migrate off before its reboot:
+#              [{vmid: 107, to: <inventory host>}]; moved back afterwards
+#              unless evacuate_return is false. The Docker VM, where Semaphore
+#              runs, needs this or no_reboot on its host.
 # Variables (a Semaphore variable group): k8s_api_url, k8s_ca_pem, k8s_token.
 #
 # In check mode (--check) it runs the checks and lists the pending upgrades,
@@ -32,7 +40,8 @@
   any_errors_fatal: true
   gather_facts: false
   vars:
-    may_reboot: "{{ inventory_hostname not in groups.get('no_reboot', []) }}"
+    in_no_reboot: "{{ inventory_hostname in groups.get('no_reboot', []) }}"
+    dns_on: "{{ dns_guest_tag | default('') | length > 0 }}"
   tasks:
     - name: The Proxmox cluster has quorum
       ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
@@ -42,6 +51,40 @@
       args:
         apply:
           delegate_to: localhost
+
+    - name: Read the Proxmox guests
+      ansible.builtin.include_tasks: tasks/proxmox-guests.yml
+
+    - name: Find the DNS servers
+      ansible.builtin.include_tasks: tasks/dns-guests.yml
+      when: dns_on | bool
+
+    - name: Work out whether DNS allows rebooting this host
+      ansible.builtin.set_fact:
+        dns_here: "{{ dns_here | default([]) if dns_on | bool else [] }}"
+        dns_elsewhere: "{{ dns_elsewhere | default([]) if dns_on | bool else [] }}"
+        dns_blocks_reboot: >-
+          {{ dns_on | bool and dns_here | length > 0 and dns_elsewhere | length == 0
+             and dns_guests | length > 1 }}
+
+    - name: The other DNS servers answer
+      ansible.builtin.include_tasks: tasks/dns-answers.yml
+      vars:
+        dns_check: "{{ dns_elsewhere }}"
+      when: dns_here | length > 0 and dns_elsewhere | length > 0
+
+    - name: Start the evacuation plan
+      ansible.builtin.set_fact:
+        evacuate_plan: []
+
+    - name: Check the VMs to move off this host can go
+      ansible.builtin.include_tasks: tasks/evacuate-check.yml
+      loop: "{{ evacuate | default([]) }}"
+      loop_control:
+        loop_var: evac
+      vars:
+        evacuate_memory_margin_mb: "{{ evacuate_memory_margin | default(1024) }}"
+      when: not in_no_reboot | bool
 
     - name: Refresh the package lists
       ansible.builtin.apt:
@@ -93,28 +136,73 @@
       ansible.builtin.set_fact:
         reboot_due: "{{ reboot_flag.stat.exists or (newest_kernel.stdout | trim) != (running_kernel.stdout | trim) }}"
 
-    - name: Reboot
-      ansible.builtin.reboot:
-        reboot_timeout: 900
-        msg: Rebooting for the Proxmox upgrade (Semaphore)
-      when: reboot_due and may_reboot | bool
+    - name: Decide whether to reboot
+      ansible.builtin.set_fact:
+        will_reboot: "{{ reboot_due and not in_no_reboot | bool and not dns_blocks_reboot | bool }}"
 
-    - name: Wait for the Kubernetes nodes to be Ready again
-      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
-      args:
-        apply:
-          delegate_to: localhost
-      vars:
-        k8s_wait: true
-      when: reboot_due and may_reboot | bool
+    - name: Reboot, keeping DNS and the evacuated VMs up
+      when: will_reboot | bool
+      block:
+        - name: The other DNS servers answer, just before the reboot
+          ansible.builtin.include_tasks: tasks/dns-answers.yml
+          vars:
+            dns_check: "{{ dns_elsewhere }}"
+            dns_wait: true
+          when: dns_here | length > 0 and dns_elsewhere | length > 0
+
+        - name: Move the VMs off
+          ansible.builtin.include_tasks: tasks/migrate.yml
+          loop: "{{ evacuate_plan }}"
+          loop_control:
+            loop_var: planned
+            label: "{{ planned.name }}"
+          vars:
+            mig: "{{ planned | combine({'from': inventory_hostname, 'node': planned.to_node}) }}"
+
+        - name: Reboot
+          ansible.builtin.reboot:
+            reboot_timeout: 900
+            msg: Rebooting for the Proxmox upgrade (Semaphore)
+
+        - name: Wait for the Kubernetes nodes to be Ready again
+          ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+          args:
+            apply:
+              delegate_to: localhost
+          vars:
+            k8s_wait: true
+
+        - name: Wait for this host's DNS servers to answer again
+          ansible.builtin.include_tasks: tasks/dns-answers.yml
+          vars:
+            dns_check: "{{ dns_here }}"
+            dns_wait: true
+          when: dns_here | length > 0
+
+        - name: Move the VMs back
+          ansible.builtin.include_tasks: tasks/migrate.yml
+          loop: "{{ evacuate_plan }}"
+          loop_control:
+            loop_var: planned
+            label: "{{ planned.name }}"
+          vars:
+            mig: "{{ planned | combine({'from': planned.to, 'node': pve_node}) }}"
+          when: evacuate_return | default(true) | bool
 
     - name: The Proxmox cluster has quorum after this host
       ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
 
     - name: Note a reboot left for the owner
       ansible.builtin.set_fact:
-        reboot_left: true
-      when: reboot_due and not (may_reboot | bool)
+        reboot_left: >-
+          {{ inventory_hostname }} ({{ 'in no_reboot' if in_no_reboot | bool
+          else 'it carries every DNS server' }})
+      when: reboot_due and not will_reboot | bool
+
+    - name: Note the VMs left on another host
+      ansible.builtin.set_fact:
+        moved_away: "{{ evacuate_plan | map(attribute='name') | list }}"
+      when: will_reboot | bool and evacuate_plan | length > 0 and not evacuate_return | default(true) | bool
 
 - name: Report
   hosts: localhost
@@ -123,9 +211,24 @@
     - name: Hosts that still need a reboot by hand
       ansible.builtin.debug:
         msg: >-
-          {{ groups['proxmox'] | select('in', groups.get('no_reboot', [])) |
-             map('extract', hostvars) | selectattr('reboot_left', 'defined') |
-             map(attribute='inventory_hostname') | list or ['none'] }}
+          {{ groups['proxmox'] | map('extract', hostvars) | selectattr('reboot_left', 'defined') |
+             map(attribute='reboot_left') | list or ['none'] }}
+
+    - name: VMs left on the host they were moved to (evacuate_return is false)
+      ansible.builtin.debug:
+        msg: >-
+          {{ groups['proxmox'] | map('extract', hostvars) | selectattr('moved_away', 'defined') |
+             map(attribute='moved_away') | flatten or ['none'] }}
+
+    - name: DNS outages
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'DNS was not checked (dns_guest_tag is unset).'
+             if hostvars[groups['proxmox'][0]].dns_guest_tag | default('') | length == 0
+             else ('One DNS server only: DNS is down whenever its host reboots.'
+                   if (groups['proxmox'] | map('extract', hostvars) | selectattr('dns_guests', 'defined') |
+                       map(attribute='dns_guests') | first | default([]) | length) == 1
+                   else 'none') }}
 
     - name: Remove the written CA certificate
       ansible.builtin.file:

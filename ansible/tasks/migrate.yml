@@ -1,0 +1,33 @@
+# Moves guest mig.vmid to Proxmox node mig.node, running qm on inventory host
+# mig.from (where the guest is now), live when mig.running; then reads the
+# cluster back and stops the run unless the guest is there, in the same state.
+- name: Move {{ mig.name }} to {{ mig.node }}
+  ansible.builtin.command: >-
+    qm migrate {{ mig.vmid }} {{ mig.node }}{{ ' --online --with-local-disks' if mig.running else '' }}
+  delegate_to: "{{ mig.from }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Read where {{ mig.name }} is now
+  ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
+  register: mig_resources
+  changed_when: false
+  check_mode: false
+
+- name: "{{ mig.name }} is on {{ mig.node }}"
+  ansible.builtin.assert:
+    that:
+      - mig_guest.node == mig.node
+      - (mig_guest.status == 'running') == mig.running
+    fail_msg: >-
+      {{ mig.name }} is {{ mig_guest.status }} on {{ mig_guest.node }} after the move to
+      {{ mig.node }}; stopping.
+    quiet: true
+  vars:
+    mig_guest: "{{ mig_resources.stdout | from_json | selectattr('vmid', 'equalto', mig.vmid) | first }}"
+  when: not ansible_check_mode
+
+- name: Note the move a real run would make
+  ansible.builtin.debug:
+    msg: "A real run moves {{ mig.name }} ({{ mig.vmid }}) to {{ mig.node }}{{ ' live' if mig.running else '' }}."
+  when: ansible_check_mode

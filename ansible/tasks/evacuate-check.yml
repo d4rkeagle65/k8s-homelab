@@ -1,0 +1,80 @@
+# Whether VM evac.vmid can be live-migrated from this host to inventory host
+# evac.to: it is a VM, the target is up with the memory and the bridges it
+# needs. Run in check mode too. Adds what is to move to evacuate_plan; a VM
+# already on another host is reported and left. Needs proxmox-guests.yml first.
+- name: Find guest {{ evac.vmid }}
+  ansible.builtin.set_fact:
+    evac_guest: "{{ pve_guests | selectattr('vmid', 'equalto', evac.vmid | int) | first | default({}) }}"
+
+- name: Guest {{ evac.vmid }} exists and is a VM
+  ansible.builtin.assert:
+    that: evac_guest.type | default('') == 'qemu'
+    fail_msg: >-
+      evacuate lists {{ evac.vmid }}, which is {{ 'not in the Proxmox cluster' if not evac_guest
+      else 'a container: only VMs can move while running' }}.
+    quiet: true
+
+- name: Note a guest that is elsewhere already
+  ansible.builtin.debug:
+    msg: "{{ evac_guest.name }} ({{ evac.vmid }}) runs on {{ evac_guest.node }}, not here; not moving it."
+  when: evac_guest.node != pve_node
+
+- name: Check the target
+  when: evac_guest.node == pve_node
+  block:
+    - name: Read the target's Proxmox node name
+      ansible.builtin.command: hostname -s
+      delegate_to: "{{ evac.to }}"
+      register: evac_target
+      changed_when: false
+      check_mode: false
+
+    - name: Read the target's memory
+      ansible.builtin.command: pvesh get /nodes/{{ evac_target.stdout | trim }}/status --output-format json
+      register: evac_target_status
+      changed_when: false
+      check_mode: false
+
+    - name: Read the target's bridges
+      ansible.builtin.command: pvesh get /nodes/{{ evac_target.stdout | trim }}/network --output-format json
+      register: evac_target_network
+      changed_when: false
+      check_mode: false
+
+    - name: Read the VM's config
+      ansible.builtin.command: pvesh get /nodes/{{ pve_node }}/qemu/{{ evac.vmid }}/config --output-format json
+      register: evac_config
+      changed_when: false
+      check_mode: false
+
+    - name: Work out what the VM needs
+      ansible.builtin.set_fact:
+        evac_needs_bridges: >-
+          {{ evac_config.stdout | from_json | dict2items |
+             selectattr('key', 'match', '^net[0-9]+$') | map(attribute='value') |
+             map('regex_findall', '(?:^|,)bridge=([^,]+)') | flatten | unique }}
+        evac_has_bridges: >-
+          {{ evac_target_network.stdout | from_json | selectattr('type', 'in', ['bridge', 'OVSBridge']) |
+             map(attribute='iface') | list }}
+        evac_needs_mb: "{{ (evac_guest.maxmem | int // 1048576) + evacuate_memory_margin_mb | int }}"
+        evac_free_mb: "{{ (evac_target_status.stdout | from_json).memory.available | int // 1048576 }}"
+
+    - name: The target can take {{ evac_guest.name }}
+      ansible.builtin.assert:
+        that:
+          - evac_target.stdout | trim != pve_node
+          - evac_free_mb | int >= evac_needs_mb | int
+          - evac_needs_bridges | difference(evac_has_bridges) | length == 0
+        fail_msg: >-
+          {{ evac_guest.name }} can't move to {{ evac.to }}: it needs {{ evac_needs_mb }} MB
+          (its memory plus evacuate_memory_margin_mb) and the bridges
+          {{ evac_needs_bridges | join(', ') }}; the target has {{ evac_free_mb }} MB available
+          and is missing {{ evac_needs_bridges | difference(evac_has_bridges) | join(', ') or 'no bridge' }}.
+        quiet: true
+
+    - name: Plan the move
+      ansible.builtin.set_fact:
+        evacuate_plan: >-
+          {{ evacuate_plan + [{'vmid': evac.vmid | int, 'name': evac_guest.name,
+             'to': evac.to, 'to_node': evac_target.stdout | trim,
+             'running': evac_guest.status == 'running'}] }}

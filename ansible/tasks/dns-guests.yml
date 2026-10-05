@@ -1,0 +1,65 @@
+# The DNS servers: every guest tagged dns_guest_tag in Proxmox, each with the
+# addresses in its container config. Sets dns_guests (vmid, name, node,
+# addresses), dns_here (those on this host) and dns_elsewhere. Needs
+# proxmox-guests.yml first. Finding none is an error, not "no DNS servers":
+# a misspelt tag must not switch the check off.
+- name: Find the guests tagged '{{ dns_guest_tag }}'
+  ansible.builtin.set_fact:
+    dns_tagged: >-
+      {{ pve_guests | selectattr('tags', 'defined') | selectattr('tags', 'string') |
+         selectattr('tags', 'search', '(^|;)' ~ dns_guest_tag ~ '(;|$)') | list }}
+
+- name: Some guest carries the tag
+  ansible.builtin.assert:
+    that: dns_tagged | length > 0
+    fail_msg: >-
+      No Proxmox guest is tagged '{{ dns_guest_tag }}'. Tag the Pi-hole
+      containers, or leave dns_guest_tag unset to skip the DNS checks.
+    quiet: true
+
+- name: Every tagged guest is a container
+  ansible.builtin.assert:
+    that: dns_tagged | rejectattr('type', 'equalto', 'lxc') | list | length == 0
+    fail_msg: >-
+      Only containers can be DNS guests (their addresses are read from the
+      container config): {{ dns_tagged | rejectattr('type', 'equalto', 'lxc') |
+      map(attribute='name') | join(', ') }}
+    quiet: true
+
+- name: Read each DNS guest's config
+  ansible.builtin.command: pvesh get /nodes/{{ item.node }}/lxc/{{ item.vmid }}/config --output-format json
+  loop: "{{ dns_tagged }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: dns_configs
+  changed_when: false
+  check_mode: false
+
+- name: Start the list
+  ansible.builtin.set_fact:
+    dns_guests: []
+
+- name: Note each DNS guest and its addresses
+  ansible.builtin.set_fact:
+    dns_guests: >-
+      {{ dns_guests + [{
+           'vmid': item.item.vmid, 'name': item.item.name, 'node': item.item.node,
+           'addresses': item.stdout | from_json | dict2items |
+                        selectattr('key', 'match', '^net[0-9]+$') | map(attribute='value') |
+                        map('regex_findall', '(?:^|,)ip=([0-9.]+)/') | flatten }] }}
+  loop: "{{ dns_configs.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Every DNS guest has a static address
+  ansible.builtin.assert:
+    that: dns_guests | selectattr('addresses', 'equalto', []) | list | length == 0
+    fail_msg: >-
+      No static address in the config of {{ dns_guests |
+      selectattr('addresses', 'equalto', []) | map(attribute='name') | join(', ') }}
+    quiet: true
+
+- name: Split them by host
+  ansible.builtin.set_fact:
+    dns_here: "{{ dns_guests | selectattr('node', 'equalto', pve_node) | list }}"
+    dns_elsewhere: "{{ dns_guests | rejectattr('node', 'equalto', pve_node) | list }}"
