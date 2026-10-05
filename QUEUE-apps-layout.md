@@ -30,10 +30,10 @@ clean up labels and annotations so `kubectl` can select by them.
   namespace goes.
 - **A full audit of labels and annotations is part of this job.**
 
-## To confirm before the generator changes
+## Labels
 
-The label set beyond `env` and `category` (suggested; see the table). Each needs a source
-of truth that keeps it right without hand upkeep.
+Confirmed. Each comes from a source the generator can already read, so none needs upkeep by
+hand.
 
 | Label | Values | On | Source |
 |---|---|---|---|
@@ -93,7 +93,7 @@ cert-manager, Calico, MetalLB, Authentik's outposts, Kubernetes itself. Ours, or
 
 ## Checklist
 
-- [ ] Label set confirmed
+- [x] Label set confirmed
 - [x] Audit done and recorded
 - [ ] Generator knows `prod/<category>/`; tests pass on the moved tree
 - [ ] Namespaces labelled; apps moved; Flux reconciled with no deletions
