@@ -212,7 +212,7 @@ redis:
   authClients: ""
   config:
     maxmemory: "0"
-    maxmemory-policy: volatile-lru
+    maxmemory-policy: noeviction
     min-replicas-max-lag: 5
     min-replicas-to-write: 1
     rdbchecksum: "yes"

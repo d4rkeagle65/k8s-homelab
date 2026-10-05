@@ -6,7 +6,7 @@ namespace: cert-manager
 chart: cert-manager
 chartVersion: v1.18.2
 appVersion: v1.18.2
-revision: 2
+revision: 3
 status: deployed
 chartSource:
   resolved: true

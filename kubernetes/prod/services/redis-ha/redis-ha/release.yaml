@@ -6,7 +6,7 @@ namespace: redis-ha
 chart: redis-ha
 chartVersion: 4.39.0
 appVersion: 8.8.0
-revision: 2
+revision: 4
 status: deployed
 chartSource:
   resolved: true

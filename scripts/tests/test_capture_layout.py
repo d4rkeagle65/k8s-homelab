@@ -168,3 +168,14 @@ def test_release_record_is_unchanged_when_the_release_is(tmp_path, monkeypatch):
     meta["revision"] = 4
     upgraded = run()
     assert "revision: 4" in upgraded and upgraded.splitlines()[0] == first.splitlines()[0]
+
+
+def test_neat_strips_the_labels_commonmetadata_stamps():
+    stamped = {CATEGORY: "services", layout.ENV_LABEL: "prod", layout.PART_OF_LABEL: "mqtt",
+               layout.MANAGED_BY_LABEL: "promote"}
+    cm = {"kind": "ConfigMap", "metadata": {"name": "c", "labels": {**stamped, "app": "mosquitto"}}}
+    assert neat(cm)["metadata"]["labels"] == {"app": "mosquitto"}
+    # A Namespace keeps its own category, data and exposure; only env is stamped on it.
+    ns = {"kind": "Namespace", "metadata": {"name": "mqtt", "labels": {
+        CATEGORY: "services", layout.ENV_LABEL: "prod", "homelab.local/data": "files"}}}
+    assert neat(ns)["metadata"]["labels"] == {CATEGORY: "services", "homelab.local/data": "files"}

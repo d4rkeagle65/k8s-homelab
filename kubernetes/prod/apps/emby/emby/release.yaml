@@ -6,7 +6,7 @@ namespace: emby
 chart: emby
 chartVersion: 0.2.3
 appVersion: ""
-revision: 11
+revision: 12
 status: deployed
 chartSource:
   resolved: true

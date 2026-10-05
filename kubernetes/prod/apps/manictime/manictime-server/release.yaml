@@ -6,7 +6,7 @@ namespace: manictime
 chart: manictime-server
 chartVersion: 0.1.0
 appVersion: ""
-revision: 7
+revision: 8
 status: deployed
 chartSource:
   resolved: true
