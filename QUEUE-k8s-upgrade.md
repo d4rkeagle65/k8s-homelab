@@ -146,12 +146,12 @@ and the ownership metadata, which leaves the running objects as they were.
 ## Checklist
 
 - [x] Routine node update playbook written (its database steps tested in check mode against the live cluster: the switchover targets, an unhealthy cluster, a missing replica)
-- [ ] Its check run clean in Semaphore
+- [x] Its check run clean in Semaphore, and a real run on all six nodes (2026-10-06): every database switched over and back, immich and manictime waited for their node
 - [ ] Semaphore's key and the nodes' host keys in place; inventory group for the nodes
 - [ ] Calico in Flux, adopted without a restart of calico-node
 - [x] Bundles 1.33-1.36 researched (above)
 - [x] `ansible/k8s-bundles.yml` written
-- [x] Upgrade playbook written; bundle checks run against the live cluster (1.34 refused for etcd, 1.35 for skipping a minor)
+- [x] Upgrade playbook written; bundle checks run against the live cluster (1.33 passes; 1.34 refused for etcd, 1.35 for skipping a minor)
 - [ ] Cluster on 1.33.13 with CRI-O from the stable repository
 - [ ] 1.34, 1.35, 1.36
 
