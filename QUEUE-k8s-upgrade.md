@@ -160,7 +160,15 @@ and the ownership metadata, which leaves the running objects as they were.
   as each instance manager replaces itself mid-reply)
 - [x] metrics-server into Flux, 2026-10-06 (`prod/system/metrics-server/`, chart 3.13.1, app 0.8.1);
   the old kube-system objects deleted. The 1.34 check then passed against the live cluster.
-- [ ] 1.34, 1.35, 1.36
+- [x] 1.34 (2026-10-06): every node 1.34.12 with CRI-O 1.34.15, etcd 3.6.5, CoreDNS 1.12.1;
+  all databases healthy and archiving after the drains. The first run stopped when openSUSE's
+  server reset a signing-key download (now retried); the rerun skipped the finished control
+  planes, as designed
+- [ ] 1.35: its check passes against the live cluster (Calico 3.30 covers it). The kubelet
+  drops `--pod-infra-container-image` (the bundle removes it) and refuses cgroup v1 (every
+  node is v2)
+- [ ] 1.36: needs Calico 3.32 first (so Calico into Flux, decision 3) and metrics-server 0.9
+  (chart 3.14.0, which needs Kubernetes 1.34+)
 
 ## Resuming
 
