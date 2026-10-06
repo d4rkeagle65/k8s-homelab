@@ -7,6 +7,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | Playbook | What it does |
 |---|---|
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
+| `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are a separate job (`QUEUE-k8s-upgrade.md`). It also owns the nodes' Kubernetes and CRI-O package sources. |
 
 ## Setting up Semaphore (once)
 
@@ -96,7 +97,50 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
      pending upgrades, changing nothing. Safe to schedule (e.g. weekly).
    - **"Proxmox upgrade"**: the real run. Start it by hand.
 
-## Running an upgrade
+## The Kubernetes nodes (`k8s-node-update.yml`)
+
+Set up once, after the Proxmox hosts:
+
+1. **Semaphore's key on each node.** Add the same `.pub` line as for the hosts to
+   `/root/.ssh/authorized_keys` in each node container. From a Proxmox host, for a container
+   on it: `pct exec <id> -- sh -c 'mkdir -p -m 700 /root/.ssh && echo "<the .pub line>" >> /root/.ssh/authorized_keys'`.
+2. **Pin the nodes' host keys**, on the Docker host, with their management addresses (as for
+   the hosts in `docker/semaphore/README.md`, appending):
+
+   ```sh
+   ssh-keyscan -t ed25519 <node 1> <node 2> ... >> /opt/semaphore/config/known_hosts
+   ```
+
+3. **The inventory:** add the nodes to the same inventory, each named exactly as its
+   Kubernetes node, by management address:
+
+   ```yaml
+   k8s_nodes:
+     children:
+       k8s_control_planes:
+         hosts:
+           <control plane 1>: {ansible_host: <management address>}
+           ...
+       k8s_workers:
+         hosts:
+           <worker 1>: {ansible_host: <management address>}
+           ...
+     vars:
+       ansible_user: root
+       ansible_python_interpreter: /usr/bin/python3
+   ```
+
+4. **Two task templates**, playbook `ansible/k8s-node-update.yml`, the same inventory,
+   repository and "Kubernetes" variable group: **"Kubernetes nodes: check"** with CLI args
+   `["--check"]`, and **"Kubernetes nodes: update"**.
+
+What a run does to the workloads: each database cluster with two instances keeps running
+(its primary is switched over before the drain, and its replica waits for the node); a
+single-instance one (immich, manictime) is down while its node updates. If a run stops
+partway, the node it was on stays cordoned: fix the cause, then run it again, or
+`kubectl uncordon` it.
+
+## Running a Proxmox upgrade
 
 1. Run **"Proxmox upgrade: check"** and read the pending upgrades per host.
 2. Run **"Proxmox upgrade"**. It stops at the first failed check, before touching the next

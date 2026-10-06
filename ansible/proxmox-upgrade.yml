@@ -99,10 +99,12 @@
         evacuate_memory_margin_mb: "{{ evacuate_memory_margin | default(1024) }}"
       when: not in_no_reboot | bool
 
+    # Refreshing the lists only looks, so it runs in check mode too.
     - name: Refresh the package lists
       ansible.builtin.apt:
         update_cache: true
       changed_when: false
+      check_mode: false
 
     - name: List the pending upgrades
       ansible.builtin.command: apt list --upgradable

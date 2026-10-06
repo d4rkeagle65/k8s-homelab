@@ -9,12 +9,15 @@ nothing here tracks them.
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`.
+- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`, `QUEUE-k8s-upgrade.md`.
 
 ## Next
 
 - **Semaphore for Ansible, starting with keeping the Proxmox hosts up to date.** In progress;
   see [QUEUE-semaphore.md](QUEUE-semaphore.md).
+- **Kubernetes 1.33 is past end of life: node updates and version upgrades to 1.36 through
+  Ansible**, with version bundles checked for compatibility; CRI-O on the nodes is a dev build
+  from a frozen repository. In progress; see [QUEUE-k8s-upgrade.md](QUEUE-k8s-upgrade.md).
 
 ## Cleanup
 
@@ -90,6 +93,7 @@ nothing here tracks them.
 ## Working queue files
 
 - [QUEUE-semaphore.md](QUEUE-semaphore.md): Semaphore for Ansible.
+- [QUEUE-k8s-upgrade.md](QUEUE-k8s-upgrade.md): Kubernetes node updates and version upgrades.
 
 A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
