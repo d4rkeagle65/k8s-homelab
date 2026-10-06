@@ -1,0 +1,110 @@
+# Updates the Pi-holes one at a time: apt dist-upgrade of the container, then
+# `pihole -up` (Pi-hole's own updater: core, web interface, FTL), then checks
+# that it answers DNS again before the next. A Pi-hole is updated only while
+# every other one answers; with a single Pi-hole the run stops unless
+# allow_dns_outage is true, since its FTL restart drops DNS for a few seconds.
+#
+# Inventory (kept in Semaphore, never in git): group pihole, root over SSH, by
+# management address. Optional: dns_check_name (default pi.hole), the name
+# each Pi-hole must answer; allow_dns_outage (default false).
+#
+# In check mode (--check) it runs the checks and lists the pending upgrades,
+# and changes nothing; `pihole -up --check-only` reports Pi-hole's own.
+
+- name: Update the Pi-holes one at a time
+  hosts: pihole
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars:
+    others: "{{ groups['pihole'] | reject('equalto', inventory_hostname) | list }}"
+  tasks:
+    - name: The other Pi-holes answer
+      ansible.builtin.command: >-
+        python3 {{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }}
+        {{ hostvars[item].ansible_host | default(item) }}
+      delegate_to: localhost
+      loop: "{{ others }}"
+      register: others_answer
+      until: others_answer.rc == 0
+      retries: 2
+      delay: 5
+      changed_when: false
+      check_mode: false
+
+    - name: A DNS outage is allowed when there is no other Pi-hole
+      ansible.builtin.assert:
+        that: others | length > 0 or allow_dns_outage | default(false) | bool
+        fail_msg: >-
+          {{ inventory_hostname }} is the only Pi-hole, and updating it drops DNS for a few
+          seconds. Set allow_dns_outage: true to go ahead anyway.
+        quiet: true
+
+    - name: This Pi-hole answers before the update
+      ansible.builtin.command: >-
+        python3 {{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }}
+        {{ ansible_host | default(inventory_hostname) }}
+      delegate_to: localhost
+      changed_when: false
+      check_mode: false
+
+    # Refreshing the lists only looks, so it runs in check mode too.
+    - name: Refresh the package lists
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+      check_mode: false
+
+    - name: List the pending upgrades
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable
+      changed_when: false
+      check_mode: false
+
+    - name: Ask Pi-hole what it would update
+      ansible.builtin.command: pihole -up --check-only
+      register: pihole_check
+      changed_when: false
+      check_mode: false
+      failed_when: pihole_check.rc not in [0, 1]
+
+    - name: Show what is pending
+      ansible.builtin.debug:
+        msg:
+          - "apt: {{ upgradable.stdout_lines | reject('match', '^Listing') | map('regex_replace', '/.*', '') | join(', ') or 'nothing' }}"
+          - "Pi-hole: {{ pihole_check.stdout_lines | select('search', '(?i)update available|up to date') | list or pihole_check.stdout_lines[-3:] }}"
+
+    - name: Upgrade the container's packages
+      ansible.builtin.apt:
+        upgrade: dist
+        dpkg_options: force-confold,force-confdef
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Update Pi-hole
+      ansible.builtin.command: pihole -up
+      register: pihole_up
+      changed_when: pihole_up.stdout is not search('(?i)everything is up to date')
+
+    - name: Wait for it to answer DNS again
+      ansible.builtin.command: >-
+        python3 {{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }}
+        {{ ansible_host | default(inventory_hostname) }}
+      delegate_to: localhost
+      register: self_answer
+      until: self_answer.rc == 0
+      retries: 20
+      delay: 6
+      changed_when: false
+      check_mode: false
+
+    - name: Look for Debian's reboot-required flag
+      ansible.builtin.stat:
+        path: /run/reboot-required
+      register: reboot_flag
+
+    - name: Note a restart left for the owner
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: Debian asks for a reboot; restart the container when DNS can be down for a minute."
+      when: reboot_flag.stat.exists

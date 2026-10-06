@@ -1,0 +1,79 @@
+# Updates the Docker VM's packages with Docker itself held: Semaphore runs in a
+# container on this VM, so a Docker upgrade (which restarts the daemon, and
+# with it every container unless live-restore is on) would end the run that
+# started it. The VM is never rebooted here either; the run reports when a
+# reboot or a Docker upgrade is due, for the owner to do from the host.
+#
+# Inventory (kept in Semaphore, never in git): group docker_vm, root over SSH.
+# From inside a container on this VM, its management address hangs for some
+# connections (the policy routing there), so address it the way the README
+# says. Optional: docker_packages, the packages kept held (default below).
+#
+# In check mode (--check) it lists the pending upgrades and changes nothing.
+
+- name: Update the Docker VM
+  hosts: docker_vm
+  gather_facts: false
+  vars:
+    held: "{{ docker_packages | default(['docker-ce', 'docker-ce-cli', 'docker-ce-rootless-extras', 'containerd.io', 'docker-buildx-plugin', 'docker-compose-plugin']) }}"
+  tasks:
+    # dpkg-query exits 1 when any name is unknown, so read every package dpkg
+    # knows and keep the installed ones in the list.
+    - name: Read the installed packages
+      ansible.builtin.command: dpkg-query -W -f=${Package}|${db:Status-Status}\n
+      register: dpkg_all
+      changed_when: false
+      check_mode: false
+
+    - name: Hold Docker's installed packages
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop: >-
+        {{ dpkg_all.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')[|]installed$') |
+           map('regex_replace', '[|].*', '') | list }}
+
+    # Refreshing the lists only looks, so it runs in check mode too.
+    - name: Refresh the package lists
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+      check_mode: false
+
+    - name: List the pending upgrades
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable
+      changed_when: false
+      check_mode: false
+
+    - name: Show them
+      ansible.builtin.debug:
+        msg:
+          - "To upgrade: {{ upgradable.stdout_lines | reject('match', '^Listing') |
+               reject('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')/') |
+               map('regex_replace', '/.*', '') | join(', ') or 'nothing' }}"
+          - "Held (Docker, for a run by hand): {{ upgradable.stdout_lines |
+               select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')/') |
+               map('regex_replace', '/.*', '') | join(', ') or 'nothing' }}"
+
+    - name: Upgrade
+      ansible.builtin.apt:
+        upgrade: dist
+        dpkg_options: force-confold,force-confdef
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Remove packages nothing needs any more
+      ansible.builtin.apt:
+        autoremove: true
+
+    - name: Look for Debian's reboot-required flag
+      ansible.builtin.stat:
+        path: /run/reboot-required
+      register: reboot_flag
+
+    - name: Report what is left for the owner
+      ansible.builtin.debug:
+        msg:
+          - "Reboot due: {{ 'yes, from Proxmox, when Vaultwarden, Kea, Dockhand and Semaphore can be down' if reboot_flag.stat.exists else 'no' }}"
+          - "Docker upgrade due: {{ 'yes, by hand: apt-mark unhold, upgrade, hold again' if upgradable.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')/') | list else 'no' }}"
