@@ -14,14 +14,9 @@ nothing here tracks them.
 
 ## Waiting on the owner
 
-Decisions that unblock the work below; each gives a recommendation.
+Decisions that unblock the work below; each gives a recommendation. Numbers stay as
+assigned (items below refer to them); 1 and 2 are done.
 
-1. **CloudNativePG in-place updates** (branch `addon/cnpg-inplace-updates`): turn on
-   `ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES` before the four operator upgrades, so each upgrade
-   swaps the instance manager inside running pods instead of restarting all 11 databases (and
-   taking immich and manictime down) four times. Recommended: yes, merged first.
-2. **metrics-server into Flux:** agreed 2026-10-06, in its own namespace so nothing collides
-   with the old Deployment; the cleanup after the merge is in `QUEUE-k8s-upgrade.md`.
 3. **Calico into Flux** (plan in `QUEUE-k8s-upgrade.md`): go-ahead, and first a new
    `cluster-secrets` field for the pod network range (the chart values carry it; capture then
    writes `${CALICO_POD_CIDR}` in its place). Not needed before the 1.35 step.
