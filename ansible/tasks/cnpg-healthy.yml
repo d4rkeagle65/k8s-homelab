@@ -1,0 +1,30 @@
+# Every CloudNativePG cluster is healthy: all its instances ready and its
+# phase "Cluster in healthy state". Read with kubectl on kubectl_host. With
+# cnpg_wait set it keeps asking for up to 20 minutes, for after a node returns.
+- name: Read the database clusters
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get clusters.postgresql.cnpg.io -A -o json
+  delegate_to: "{{ kubectl_host }}"
+  register: cnpg_clusters
+  changed_when: false
+  check_mode: false
+  until: cnpg_clusters.rc == 0 and (cnpg_unhealthy | length == 0 or not cnpg_wait | default(false))
+  retries: "{{ 80 if cnpg_wait | default(false) else 0 }}"
+  delay: 15
+  vars:
+    cnpg_unhealthy: &unhealthy >-
+      {% set bad = [] %}{% for c in (cnpg_clusters.stdout | default('{"items": []}') | from_json)['items'] %}{%
+        if c.status.phase | default('') != 'Cluster in healthy state'
+           or c.status.readyInstances | default(0) != c.spec.instances %}{%
+          set _ = bad.append(c.metadata.namespace ~ '/' ~ c.metadata.name ~ ' (' ~
+            c.status.readyInstances | default(0) ~ '/' ~ c.spec.instances ~ ' ready, ' ~
+            c.status.phase | default('no phase') ~ ')') %}{%
+        endif %}{% endfor %}{{ bad }}
+
+- name: Every database cluster is healthy
+  ansible.builtin.assert:
+    that: cnpg_unhealthy | length == 0
+    fail_msg: "Database clusters not healthy: {{ cnpg_unhealthy | join('; ') }}. Stopping before the next node."
+    quiet: true
+  vars:
+    cnpg_unhealthy: *unhealthy

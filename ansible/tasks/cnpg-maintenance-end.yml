@@ -1,0 +1,21 @@
+# Closes the maintenance windows cnpg-free-node.yml opened (cnpg_maintenance,
+# namespace/name), once the node is back, and reads each back.
+- name: Close the maintenance windows
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf patch clusters.postgresql.cnpg.io
+    -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} --type=merge
+    -p '{"spec": {"nodeMaintenanceWindow": {"inProgress": false}}}'
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_maintenance }}"
+  changed_when: true
+
+- name: Read them back
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get clusters.postgresql.cnpg.io
+    -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} -o jsonpath={.spec.nodeMaintenanceWindow.inProgress}
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_maintenance }}"
+  register: cnpg_window_closed
+  failed_when: cnpg_window_closed.stdout != 'false'
+  changed_when: false
+  when: not ansible_check_mode

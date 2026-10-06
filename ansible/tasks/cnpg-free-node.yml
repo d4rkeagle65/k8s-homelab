@@ -1,0 +1,107 @@
+# Lets node k8s_node be drained without breaking a database: each
+# CloudNativePG primary on it is switched over to a ready replica on another
+# node (the status patch `kubectl cnpg promote` makes), and each
+# single-instance cluster on it gets nodeMaintenanceWindow {inProgress: true,
+# reusePVC: true}, so its PodDisruptionBudget goes and its pod waits for the
+# node's local disk. Sets cnpg_maintenance (namespace/name list) for
+# cnpg-maintenance-end.yml. kubectl runs on kubectl_host.
+- name: Read the database clusters and their pods
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get {{ item }} -A -o json
+  delegate_to: "{{ kubectl_host }}"
+  loop:
+    - clusters.postgresql.cnpg.io
+    - pods -l cnpg.io/cluster,cnpg.io/podRole=instance
+  register: cnpg_reads
+  changed_when: false
+  check_mode: false
+
+- name: Work out what has to move
+  ansible.builtin.set_fact:
+    cnpg_switchovers: >-
+      {% set out = [] %}{% set pods = (cnpg_reads.results[1].stdout | from_json)['items'] %}{%
+      for c in (cnpg_reads.results[0].stdout | from_json)['items'] if c.spec.instances > 1 %}{%
+        set members = [] %}{% for p in pods if p.metadata.namespace == c.metadata.namespace
+            and p.metadata.labels['cnpg.io/cluster'] | default('') == c.metadata.name %}{%
+          set _ = members.append(p) %}{% endfor %}{%
+        set primary = members | selectattr('metadata.name', 'equalto', c.status.currentPrimary | default('')) | list %}{%
+        if primary and primary[0].spec.nodeName == k8s_node %}{%
+          set ready = [] %}{% for p in members if p.metadata.name != c.status.currentPrimary
+               and p.spec.nodeName | default('') != k8s_node
+               and (p.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') |
+                    selectattr('status', 'equalto', 'True') | list) %}{%
+            set _ = ready.append(p.metadata.name) %}{% endfor %}{%
+          set _ = out.append({'namespace': c.metadata.namespace, 'name': c.metadata.name,
+                              'from': c.status.currentPrimary, 'to': ready[0] if ready else ''}) %}{%
+        endif %}{% endfor %}{{ out }}
+    cnpg_maintenance: >-
+      {% set out = [] %}{% set pods = (cnpg_reads.results[1].stdout | from_json)['items'] %}{%
+      for c in (cnpg_reads.results[0].stdout | from_json)['items'] if c.spec.instances == 1 %}{%
+        for p in pods if p.metadata.namespace == c.metadata.namespace
+            and p.metadata.labels['cnpg.io/cluster'] | default('') == c.metadata.name
+            and p.spec.nodeName | default('') == k8s_node %}{%
+          set _ = out.append(c.metadata.namespace ~ '/' ~ c.metadata.name) %}{%
+        endfor %}{% endfor %}{{ out | unique }}
+
+- name: Every primary here has a ready replica elsewhere
+  ansible.builtin.assert:
+    that: cnpg_switchovers | selectattr('to', 'equalto', '') | list | length == 0
+    fail_msg: >-
+      No ready replica on another node for {{ cnpg_switchovers | selectattr('to', 'equalto', '') |
+      map(attribute='name') | join(', ') }}; not draining {{ k8s_node }}.
+    quiet: true
+
+- name: Show what moves
+  ansible.builtin.debug:
+    msg:
+      - "Switch over: {{ cnpg_switchovers | map(attribute='name') | list or ['none'] }}"
+      - "Wait for this node (single instance, down meanwhile): {{ cnpg_maintenance or ['none'] }}"
+
+- name: Switch each primary over
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf patch clusters.postgresql.cnpg.io
+    -n {{ item.namespace }} {{ item.name }} --subresource=status --type=merge
+    -p '{{ {"status": {"targetPrimary": item.to,
+                       "targetPrimaryTimestamp": now(utc=true).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                       "phase": "Switchover in progress",
+                       "phaseReason": "Switching over to " ~ item.to}} | to_json }}'
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_switchovers }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}: {{ item.from }} -> {{ item.to }}"
+  changed_when: true
+
+- name: Wait for each switchover
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get clusters.postgresql.cnpg.io
+    -n {{ item.namespace }} {{ item.name }} -o jsonpath={.status.currentPrimary}|{.status.phase}
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_switchovers }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}"
+  register: cnpg_switched
+  until: cnpg_switched.stdout == item.to ~ '|Cluster in healthy state'
+  retries: 40
+  delay: 15
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Open a maintenance window on each single-instance cluster here
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf patch clusters.postgresql.cnpg.io
+    -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} --type=merge
+    -p '{"spec": {"nodeMaintenanceWindow": {"inProgress": true, "reusePVC": true}}}'
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_maintenance }}"
+  changed_when: true
+
+- name: Read the maintenance windows back
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get clusters.postgresql.cnpg.io
+    -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} -o jsonpath={.spec.nodeMaintenanceWindow.inProgress}
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_maintenance }}"
+  register: cnpg_window
+  failed_when: cnpg_window.stdout != 'true'
+  changed_when: false
+  when: not ansible_check_mode

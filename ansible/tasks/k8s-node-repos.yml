@@ -1,0 +1,40 @@
+# The node's package sources outside Debian, and their one owner: Kubernetes
+# and CRI-O for minor k8s_minor (e.g. "1.33"), each with its signing key.
+# k8s-node-update.yml passes the node's current minor; only k8s-upgrade.yml
+# passes the next one. CRI-O's releases are on openSUSE's build service.
+- name: Remove the Helm apt source, which no longer answers
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/helm-stable-debian.list
+    state: absent
+
+- name: Remove the keys the earlier sources used
+  ansible.builtin.file:
+    path: "/etc/apt/keyrings/{{ item }}"
+    state: absent
+  loop: [kubernetes-apt-keyring.gpg, cri-o-apt-keyring.gpg]
+
+- name: Fetch the Kubernetes signing key
+  ansible.builtin.get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v{{ k8s_minor }}/deb/Release.key
+    dest: /etc/apt/keyrings/kubernetes.asc
+    mode: "0644"
+    force: true
+
+- name: Fetch the CRI-O signing key
+  ansible.builtin.get_url:
+    url: https://download.opensuse.org/repositories/isv:/cri-o:/stable:/v{{ k8s_minor }}/deb/Release.key
+    dest: /etc/apt/keyrings/cri-o.asc
+    mode: "0644"
+    force: true
+
+- name: Point the Kubernetes source at {{ k8s_minor }}
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    content: "deb [signed-by=/etc/apt/keyrings/kubernetes.asc] https://pkgs.k8s.io/core:/stable:/v{{ k8s_minor }}/deb/ /\n"
+    mode: "0644"
+
+- name: Point the CRI-O source at {{ k8s_minor }}
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/cri-o.list
+    content: "deb [signed-by=/etc/apt/keyrings/cri-o.asc] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/v{{ k8s_minor }}/deb/ /\n"
+    mode: "0644"

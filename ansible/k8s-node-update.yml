@@ -1,0 +1,194 @@
+# Routine OS updates of the Kubernetes node containers, one at a time: drain,
+# apt dist-upgrade, reboot the container when anything was upgraded, uncordon,
+# and wait until the node and every database cluster are healthy before the
+# next. kubeadm, kubelet, kubectl and cri-o stay held: only k8s-upgrade.yml
+# moves them, since a kubelet newer than the API server breaks the skew rule.
+#
+# Inventory (kept in Semaphore, never in git; see README.md):
+#   k8s_control_planes, k8s_workers   children of k8s_nodes, by management
+#              address, root over SSH. Each host's inventory name is its
+#              Kubernetes node name. kubectl runs on a control plane other
+#              than the node being worked on, with its admin.conf.
+# Variables (a Semaphore variable group): k8s_api_url, k8s_ca_b64, k8s_token.
+#
+# In check mode (--check) it runs the checks, lists the pending upgrades and
+# what each drain would move, and changes nothing.
+
+- name: Check the cluster before touching anything
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Decode the Kubernetes CA certificate
+      ansible.builtin.set_fact:
+        k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+    - name: The CA certificate is one
+      ansible.builtin.assert:
+        that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+        fail_msg: >-
+          k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
+          token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+        quiet: true
+
+    - name: Write the Kubernetes CA certificate for the API checks
+      ansible.builtin.copy:
+        content: "{{ k8s_ca_pem }}"
+        dest: "{{ playbook_dir }}/.k8s-ca.pem"
+        mode: "0600"
+      check_mode: false
+
+    - name: The Kubernetes cluster is healthy
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+
+    - name: There are two control planes or more, so kubectl has somewhere to run
+      ansible.builtin.assert:
+        that: groups.get('k8s_control_planes', []) | length >= 2
+        fail_msg: The inventory needs k8s_control_planes with at least two nodes.
+        quiet: true
+
+- name: Update the nodes one at a time
+  hosts: k8s_nodes
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars:
+    kubectl_host: "{{ groups['k8s_control_planes'] | reject('equalto', inventory_hostname) | first }}"
+    kubectl: kubectl --kubeconfig /etc/kubernetes/admin.conf
+    k8s_node: "{{ inventory_hostname }}"
+    held_packages: [kubeadm, kubelet, kubectl, cri-o]
+  tasks:
+    - name: The Kubernetes cluster is healthy before this node
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+
+    - name: Every database cluster is healthy before this node
+      ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+
+    - name: This host is the Kubernetes node of the same name
+      ansible.builtin.command: "{{ kubectl }} get node {{ k8s_node }} -o name"
+      delegate_to: "{{ kubectl_host }}"
+      changed_when: false
+      check_mode: false
+
+    - name: Read the installed Kubernetes version
+      ansible.builtin.command: dpkg-query -W -f=${Version} kubeadm
+      register: kubeadm_installed
+      changed_when: false
+      check_mode: false
+
+    - name: Keep the package sources on this node's minor
+      ansible.builtin.include_tasks: tasks/k8s-node-repos.yml
+      vars:
+        k8s_minor: "{{ kubeadm_installed.stdout | regex_search('^[0-9]+\\.[0-9]+') }}"
+
+    - name: Hold the Kubernetes packages
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop: "{{ held_packages }}"
+
+    - name: Read the holds back
+      ansible.builtin.command: apt-mark showhold
+      register: holds
+      changed_when: false
+      check_mode: false
+      failed_when: >-
+        not ansible_check_mode and
+        (held_packages | difference(holds.stdout_lines) | length) > 0
+
+    # Refreshing the lists only looks, so it runs in check mode too.
+    - name: Refresh the package lists
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+      check_mode: false
+
+    - name: List the pending upgrades
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable
+      changed_when: false
+      check_mode: false
+
+    - name: Work out what would be upgraded
+      ansible.builtin.set_fact:
+        pending: >-
+          {{ upgradable.stdout_lines | reject('match', '^Listing') |
+             reject('match', '^(' ~ held_packages | join('|') ~ ')/') | list }}
+        held_pending: >-
+          {{ upgradable.stdout_lines | select('match', '^(' ~ held_packages | join('|') ~ ')/') | list }}
+
+    - name: Show the pending upgrades
+      ansible.builtin.debug:
+        msg:
+          - "{{ pending | length }} to upgrade: {{ pending | map('regex_replace', '/.*', '') | join(', ') or 'nothing' }}"
+          - "Held, for k8s-upgrade.yml: {{ held_pending | join('; ') or 'nothing' }}"
+
+    - name: Drain, upgrade, reboot and bring back
+      when: pending | length > 0
+      block:
+        - name: Cordon the node
+          ansible.builtin.command: "{{ kubectl }} cordon {{ k8s_node }}"
+          delegate_to: "{{ kubectl_host }}"
+          changed_when: true
+
+        - name: Move the databases off the node
+          ansible.builtin.include_tasks: tasks/cnpg-free-node.yml
+
+        - name: Drain the node
+          ansible.builtin.command: >-
+            {{ kubectl }} drain {{ k8s_node }} --ignore-daemonsets --delete-emptydir-data
+            --timeout=15m
+          delegate_to: "{{ kubectl_host }}"
+          changed_when: true
+
+        - name: Upgrade
+          ansible.builtin.apt:
+            upgrade: dist
+            dpkg_options: force-confold,force-confdef
+          environment:
+            DEBIAN_FRONTEND: noninteractive
+          register: node_upgraded
+
+        - name: Remove packages nothing needs any more
+          ansible.builtin.apt:
+            autoremove: true
+
+        - name: Reboot the container
+          ansible.builtin.reboot:
+            reboot_timeout: 600
+            msg: Rebooting after the node update (Semaphore)
+          when: node_upgraded is changed
+
+        - name: Uncordon the node
+          ansible.builtin.command: "{{ kubectl }} uncordon {{ k8s_node }}"
+          delegate_to: "{{ kubectl_host }}"
+          changed_when: true
+
+        - name: Wait for the Kubernetes nodes to be Ready again
+          ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+          args:
+            apply:
+              delegate_to: localhost
+          vars:
+            k8s_wait: true
+
+        - name: Close the database maintenance windows
+          ansible.builtin.include_tasks: tasks/cnpg-maintenance-end.yml
+
+        - name: Wait for every database cluster to be whole again
+          ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+          vars:
+            cnpg_wait: true
+
+- name: Clean up
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove the written CA certificate
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/.k8s-ca.pem"
+        state: absent
+      check_mode: false
