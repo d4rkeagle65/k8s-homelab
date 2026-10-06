@@ -1,1 +1,3 @@
-null
+config:
+  data:
+    ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES: "true"
