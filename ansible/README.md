@@ -62,6 +62,9 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
      again before the next host. A host carrying all of them (two or more) is left for you to
      reboot. With one Pi-hole, DNS is down while its host reboots, and the run's report says
      so. Unset, DNS isn't checked.
+   - **`remove_old_kernels`** (optional, default off): purge old kernels, keeping the running
+     one, the newest `keep_kernels` (default 2) and any pinned in `proxmox-boot-tool`. Every
+     run lists what it would remove either way; `/boot` is only 456 MB on these hosts.
    - **`no_reboot`** (a group, optional): hosts to upgrade but never reboot, for example the
      Docker VM's host if there's nowhere to move the VM.
 

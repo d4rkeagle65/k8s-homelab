@@ -1,0 +1,76 @@
+# Finds this host's old kernels and, only with remove_old_kernels true,
+# purges them: /boot is small on these hosts. Kept: the running kernel, the
+# newest keep_kernels (default 2) installed, and any kernel pinned or added by
+# hand in proxmox-boot-tool. Always reports what it would remove.
+- name: Read the running kernel
+  ansible.builtin.command: uname -r
+  register: kernel_running
+  changed_when: false
+  check_mode: false
+
+- name: Read the installed packages
+  ansible.builtin.command: dpkg-query -W -f=${Package}|${db:Status-Status}\n
+  register: kernel_dpkg
+  changed_when: false
+  check_mode: false
+
+- name: Read proxmox-boot-tool's kernel list
+  ansible.builtin.command: proxmox-boot-tool kernel list
+  register: kernel_boot_tool
+  changed_when: false
+  check_mode: false
+
+# A kernel is kept when fewer than keep_kernels installed ones are newer, or
+# it is running, pinned or hand-added. Versions compare as versions, not text.
+- name: Work out which kernels go
+  ansible.builtin.set_fact:
+    kernel_packages: "{{ k_packages }}"
+    kernel_keep: "{{ k_keep }}"
+    kernel_remove: "{{ k_remove }}"
+  vars:
+    k_packages: >-
+      {{ kernel_dpkg.stdout_lines |
+         select('match', '^proxmox-kernel-[0-9]+[.][0-9]+[.][0-9]+-[0-9]+-pve(-signed)?[|]installed$') |
+         map('regex_replace', '[|].*$', '') | list }}
+    k_versions: >-
+      {{ k_packages | map('regex_search', '[0-9]+[.][0-9]+[.][0-9]+-[0-9]+') | unique | list }}
+    k_running: "{{ kernel_running.stdout | trim | regex_replace('-pve$', '') }}"
+    k_selected: >-
+      {{ (kernel_boot_tool.stdout.split('Automatically selected kernels:')[0] ~ ' ' ~
+          (kernel_boot_tool.stdout.split('Pinned kernel:')[1] | default('')))
+         | regex_findall('[0-9]+[.][0-9]+[.][0-9]+-[0-9]+') | unique | list }}
+    k_keep: >-
+      {% set keep = [] %}{% for v in k_versions %}{%
+        if (k_versions | select('version', v, '>') | list | length) < (keep_kernels | default(2) | int)
+           or v == k_running or v in k_selected %}{% set _ = keep.append(v) %}{% endif %}{%
+      endfor %}{{ keep }}
+    k_remove: >-
+      {% set out = [] %}{% for p in k_packages %}{%
+        if (p | regex_search('[0-9]+[.][0-9]+[.][0-9]+-[0-9]+')) not in k_keep %}{%
+          set _ = out.append(p) %}{% endif %}{% endfor %}{{ out }}
+
+- name: Show the kernels
+  ansible.builtin.debug:
+    msg:
+      - "Running {{ kernel_running.stdout | trim }}; kept {{ kernel_keep | join(', ') }}."
+      - "{{ 'Removing' if remove_old_kernels | default(false) | bool else 'Would remove (remove_old_kernels is off)' }}: {{ kernel_remove | join(', ') or 'nothing' }}"
+
+- name: Purge the old kernels
+  ansible.builtin.apt:
+    name: "{{ kernel_remove }}"
+    state: absent
+    purge: true
+  when: remove_old_kernels | default(false) | bool and kernel_remove | length > 0
+
+- name: Read the packages back
+  ansible.builtin.command: dpkg-query -W -f=${Package}|${db:Status-Status}\n
+  register: kernel_dpkg_after
+  changed_when: false
+  check_mode: false
+  failed_when: >-
+    not ansible_check_mode and
+    (kernel_dpkg_after.stdout_lines | map('regex_replace', '[|].*$', '') | list |
+     intersect(kernel_dpkg_after.stdout_lines | select('search', '[|]installed$') |
+               map('regex_replace', '[|].*$', '') | list) |
+     intersect(kernel_remove) | length) > 0
+  when: remove_old_kernels | default(false) | bool and kernel_remove | length > 0
