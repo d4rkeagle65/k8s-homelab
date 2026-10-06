@@ -180,6 +180,17 @@ in `dependencies.py`:
    `flux reconcile kustomization cluster --with-source`.
 4. From then on, `all` reads the same values back and nothing changes.
 
+### Upgrade a captured release's chart
+
+1. In `prod/<category>/<ns>/<release>/release.yaml`, change `chartVersion` to the new version
+   (the one hand edit that file expects). Check the chart's upgrade notes first, and change
+   `app/values.yaml` in the same commit if the new version renames or drops a value.
+2. Run `python scripts/backup.py generate` (not capture or all, which would read the old
+   version back from the cluster until Flux has upgraded it).
+3. Review, test, commit and push, then `flux reconcile kustomization cluster --with-source`.
+4. Once the HelmRelease reports the new version, `all` captures it and `appVersion` and
+   `revision` follow.
+
 ### Add a new app written in git first (`.handwritten`)
 
 1. Label the Namespace with its category, then create `prod/<category>/<ns>/namespace.yaml`
