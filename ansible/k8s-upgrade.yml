@@ -12,7 +12,10 @@
 # and waited for after it. A node already on the bundle is not drained again,
 # so a run that stopped partway can be run again.
 #
-# Inventory: the "Kubernetes nodes" one (k8s-node-update.yml).
+# Inventory: the "Kubernetes nodes" one (k8s-node-update.yml), plus
+#   kubeadm_ignore_preflight_errors   kubeadm preflight checks to skip, e.g.
+#              [SystemVerification] on LXC nodes, which can't read the host's
+#              kernel config. Unset, none are skipped.
 # Variables: k8s_api_url, k8s_ca_b64, k8s_token; k8s_bundle, set on the task.
 # Flux-managed add-ons are upgraded by commits beforehand: the checks say which.
 #
@@ -73,6 +76,8 @@
     - name: The bundle fits the cluster
       ansible.builtin.include_tasks: tasks/k8s-bundle-checks.yml
 
+# Every bundle: kubelet 1.35+ refuses cgroup v1, and kubeadm's own check of it
+# (SystemVerification) is skipped where kubeadm_ignore_preflight_errors says so.
 - name: Check every node runs cgroup v2
   hosts: k8s_nodes
   gather_facts: false
@@ -84,7 +89,6 @@
       changed_when: false
       check_mode: false
       failed_when: k8s_cgroup_fs.stdout | trim != 'cgroup2fs'
-      when: k8s_bundles[k8s_bundle | string].requires_cgroup_v2 | default(false)
 
 - name: Upgrade the control planes one at a time
   hosts: k8s_control_planes
@@ -98,6 +102,9 @@
     k8s_target_minor: "{{ k8s_bundle | string }}"
     kubectl_host: "{{ groups['k8s_control_planes'] | reject('equalto', inventory_hostname) | first }}"
     k8s_node: "{{ inventory_hostname }}"
+    kubeadm_preflight_flag: >-
+      {{ (' --ignore-preflight-errors=' ~ kubeadm_ignore_preflight_errors | join(','))
+         if kubeadm_ignore_preflight_errors | default([]) | length > 0 else '' }}
   tasks:
     - name: Check the cluster and prepare this node
       ansible.builtin.include_tasks: tasks/k8s-node-prepare.yml
@@ -112,7 +119,7 @@
           ansible.builtin.include_tasks: tasks/k8s-etcd-tag.yml
 
         - name: Ask kubeadm for its plan
-          ansible.builtin.command: kubeadm upgrade plan v{{ k8s_target.kubernetes }}
+          ansible.builtin.command: kubeadm upgrade plan v{{ k8s_target.kubernetes }}{{ kubeadm_preflight_flag }}
           register: k8s_plan
           changed_when: false
           when: not ansible_check_mode
@@ -128,13 +135,13 @@
           check_mode: false
 
         - name: kubeadm upgrade apply
-          ansible.builtin.command: kubeadm upgrade apply v{{ k8s_target.kubernetes }} --yes
+          ansible.builtin.command: kubeadm upgrade apply v{{ k8s_target.kubernetes }} --yes{{ kubeadm_preflight_flag }}
           changed_when: true
           when: >-
             (k8s_server_version.stdout | from_json).serverVersion.gitVersion != 'v' ~ k8s_target.kubernetes
 
     - name: kubeadm upgrade node (other control planes)
-      ansible.builtin.command: kubeadm upgrade node
+      ansible.builtin.command: kubeadm upgrade node{{ kubeadm_preflight_flag }}
       changed_when: true
       when: inventory_hostname != groups['k8s_control_planes'][0]
 
@@ -171,7 +178,7 @@
       ansible.builtin.include_tasks: tasks/k8s-kubeadm.yml
 
     - name: kubeadm upgrade node
-      ansible.builtin.command: kubeadm upgrade node
+      ansible.builtin.command: kubeadm upgrade node{{ kubeadm_preflight_flag }}
       changed_when: true
 
     - name: Move kubelet, kubectl and CRI-O to the bundle
