@@ -1,0 +1,37 @@
+# Sets etcd.local.imageTag in kubeadm's ClusterConfiguration (the kubeadm-config
+# ConfigMap) to the bundle's etcd_image_tag, or removes it when the bundle sets
+# none so kubeadm installs its own default; then reads it back. kubectl runs
+# on this control plane.
+- name: Read kubeadm's ClusterConfiguration
+  ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf -n kube-system get configmap kubeadm-config -o json
+  register: k8s_kubeadm_config
+  changed_when: false
+  check_mode: false
+
+- name: Work out the change
+  ansible.builtin.set_fact:
+    k8s_cluster_config: "{{ k8s_cc }}"
+    k8s_cluster_config_new: >-
+      {{ k8s_cc | combine({'etcd': {'local': (k8s_cc.etcd.local | dict2items |
+         rejectattr('key', 'equalto', 'imageTag') | items2dict) |
+         combine({'imageTag': k8s_target.etcd_image_tag} if k8s_target.etcd_image_tag is defined else {})}},
+         recursive=false) }}
+  vars:
+    k8s_cc: "{{ ((k8s_kubeadm_config.stdout | from_json).data.ClusterConfiguration | from_yaml) }}"
+
+- name: Write it
+  ansible.builtin.command:
+    cmd: kubectl --kubeconfig /etc/kubernetes/admin.conf -n kube-system patch configmap kubeadm-config --type merge --patch-file /dev/stdin
+    stdin: "{{ {'data': {'ClusterConfiguration': k8s_cluster_config_new | to_nice_yaml(indent=2)}} | to_json }}"
+  changed_when: true
+  when: k8s_cluster_config_new != k8s_cluster_config
+
+- name: Read it back
+  ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf -n kube-system get configmap kubeadm-config -o json
+  register: k8s_kubeadm_config_after
+  changed_when: false
+  check_mode: false
+  failed_when: >-
+    not ansible_check_mode and
+    ((k8s_kubeadm_config_after.stdout | from_json).data.ClusterConfiguration | from_yaml).etcd.local.imageTag | default('')
+    != k8s_target.etcd_image_tag | default('')

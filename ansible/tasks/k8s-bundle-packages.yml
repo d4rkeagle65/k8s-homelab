@@ -1,0 +1,52 @@
+# The bundle's packages and images exist where the nodes will fetch them,
+# asked from the controller before anything is installed: kubeadm, kubelet and
+# kubectl in pkgs.k8s.io, cri-o in CRI-O's openSUSE repository, the etcd tag
+# (if the bundle sets one) and kube-vip's image. Needs k8s_target and
+# k8s_target_minor (k8s-bundle-checks.yml).
+- name: Read the package indexes
+  ansible.builtin.uri:
+    url: "{{ item }}"
+    return_content: true
+  loop:
+    - https://pkgs.k8s.io/core:/stable:/v{{ k8s_target_minor }}/deb/Packages
+    - https://download.opensuse.org/repositories/isv:/cri-o:/stable:/v{{ k8s_target_minor }}/deb/Packages
+  register: k8s_indexes
+  check_mode: false
+
+- name: Every package is there at the bundle's version
+  ansible.builtin.assert:
+    that: k8s_missing_packages | length == 0
+    fail_msg: "Not in the repositories: {{ k8s_missing_packages | join(', ') }}"
+    quiet: true
+  vars:
+    k8s_published: >-
+      {{ (k8s_indexes.results[0].content ~ '\n\n' ~ k8s_indexes.results[1].content) |
+         regex_findall('(?ms)^Package: (\S+)$.*?^Version: (\S+)$') | map('join', '=') | list }}
+    k8s_missing_packages: >-
+      {{ ['kubeadm', 'kubelet', 'kubectl'] | map('regex_replace', '$', '=' ~ k8s_target.kubernetes_package) | list |
+         union(['cri-o=' ~ k8s_target.cri_o_package]) | difference(k8s_published) }}
+
+- name: The etcd image tag exists
+  ansible.builtin.uri:
+    url: https://registry.k8s.io/v2/etcd/tags/list
+    return_content: true
+  register: k8s_etcd_tags_published
+  failed_when: k8s_target.etcd_image_tag not in k8s_etcd_tags_published.json.tags | default([])
+  check_mode: false
+  when: k8s_target.etcd_image_tag is defined
+
+- name: Get a pull token for kube-vip's image
+  ansible.builtin.uri:
+    url: https://ghcr.io/token?scope=repository:kube-vip/kube-vip:pull
+    return_content: true
+  register: k8s_ghcr_token
+  check_mode: false
+
+- name: The kube-vip image exists
+  ansible.builtin.uri:
+    url: https://ghcr.io/v2/kube-vip/kube-vip/manifests/{{ k8s_target.kube_vip }}
+    method: HEAD
+    headers:
+      Authorization: "Bearer {{ k8s_ghcr_token.json.token }}"
+      Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json
+  check_mode: false
