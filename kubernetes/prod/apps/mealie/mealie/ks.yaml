@@ -20,6 +20,7 @@ spec:
   # mealie-postgres is a CloudNativePG Cluster.
   dependsOn:
   - name: cnpg
+  - name: plugin-barman-cloud
   postBuild:
     substituteFrom:
     - kind: ConfigMap

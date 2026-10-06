@@ -1,0 +1,35 @@
+# Where mealie's database backups go: the cnpg-backups bucket in Garage on the
+# NAS (docker/garage/), under a folder named after the Cluster. Kept 30 days:
+# the oldest base backup still needed to reach any point in that window, and
+# the WAL after it.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: garage
+spec:
+  retentionPolicy: 30d
+  configuration:
+    destinationPath: s3://cnpg-backups/
+    endpointURL: ${CNPG_BACKUP_S3_ENDPOINT}
+    s3Credentials:
+      accessKeyId:
+        name: cnpg-backup-s3
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: cnpg-backup-s3
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: zstd
+    data:
+      compression: gzip
+  instanceSidecarConfiguration:
+    env:
+    # Garage signs requests for its own region name (s3_region in its config).
+    - name: AWS_DEFAULT_REGION
+      value: garage
+    # Newer boto3 sends checksums some S3-compatible servers reject; only send
+    # them when an operation requires one.
+    - name: AWS_REQUEST_CHECKSUM_CALCULATION
+      value: when_required
+    - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+      value: when_required
