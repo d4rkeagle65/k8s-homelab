@@ -1,5 +1,6 @@
-# Updates the Pi-holes one at a time: apt dist-upgrade of the container, then
-# `pihole -up` (Pi-hole's own updater: core, web interface, FTL), then checks
+# Updates the Pi-holes one at a time: apt dist-upgrade of the container (and
+# an FTL restart, so FTL loads any upgraded library), then `pihole -up`
+# (Pi-hole's own updater: core, web interface, FTL), then checks
 # that it answers DNS again before the next. A Pi-hole is updated only while
 # every other one answers; with a single Pi-hole the run stops unless
 # allow_dns_outage is true, since its FTL restart drops DNS for a few seconds.
@@ -73,7 +74,7 @@
       ansible.builtin.debug:
         msg:
           - "apt: {{ upgradable.stdout_lines | reject('match', '^Listing') | map('regex_replace', '/.*', '') | join(', ') or 'nothing' }}"
-          - "Pi-hole: {{ pihole_check.stdout_lines | select('search', '(?i)update available|up to date') | list or pihole_check.stdout_lines[-3:] }}"
+          - "Pi-hole: {{ (pihole_check.stdout_lines | select('search', '(?i)update available|up to date') | list or pihole_check.stdout_lines[-3:]) | map('regex_replace', '^[ ]*[[][^]]*[]][ ]*', '') | map('regex_replace', '[ \t]+', ' ') | join('; ') }}"
 
     - name: Upgrade the container's packages
       ansible.builtin.apt:
@@ -81,6 +82,15 @@
         dpkg_options: force-confold,force-confdef
       environment:
         DEBIAN_FRONTEND: noninteractive
+      register: apt_upgraded
+
+    # FTL keeps the libraries it started with (OpenSSL, libc) until it
+    # restarts, so an upgrade only takes effect for it after a restart.
+    - name: Restart FTL after a package upgrade
+      ansible.builtin.systemd_service:
+        name: pihole-FTL
+        state: restarted
+      when: apt_upgraded is changed
 
     - name: Update Pi-hole
       ansible.builtin.command: pihole -up
