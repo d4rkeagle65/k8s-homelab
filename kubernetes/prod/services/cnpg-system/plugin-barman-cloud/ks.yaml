@@ -1,26 +1,26 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: mealie
+  name: plugin-barman-cloud
   namespace: flux-system
 spec:
   commonMetadata:
     labels:
-      app.kubernetes.io/part-of: mealie
-      homelab.local/category: apps
+      app.kubernetes.io/part-of: cnpg-system
+      homelab.local/category: services
       homelab.local/env: prod
       homelab.local/managed-by: hand
   interval: 30m
-  path: ./kubernetes/prod/apps/mealie/mealie/app
+  path: ./kubernetes/prod/services/cnpg-system/plugin-barman-cloud/app
   prune: true
+  wait: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  targetNamespace: mealie
-  # mealie-postgres is a CloudNativePG Cluster.
+  targetNamespace: cnpg-system
   dependsOn:
   - name: cnpg
-  - name: plugin-barman-cloud
+  - name: cert-manager
   postBuild:
     substituteFrom:
     - kind: ConfigMap

@@ -5,3 +5,4 @@ kind: Kustomization
 resources:
 - cnpg/ks.yaml
 - namespace.yaml
+- plugin-barman-cloud/ks.yaml
