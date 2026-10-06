@@ -72,27 +72,22 @@ Decisions that unblock the work below; each gives a recommendation.
   Ansible**, with version bundles checked for compatibility; CRI-O on the nodes is a dev build
   from a frozen repository. In progress; see [QUEUE-k8s-upgrade.md](QUEUE-k8s-upgrade.md).
 
-- **Database backups: none exist today.** The Proxmox job skips each worker's database dataset
-  (`mp1` has no `backup=1`), so the nine two-instance clusters have only their replica and
-  immich and manictime nothing. The plan:
-  1. Garage (S3) on the NAS: `docker/garage/`, deployed by the owner, with the backup key's
-     `CNPG_BACKUP_S3_*` values both in its stack variables and as `cluster-secrets` fields
-     (Garage creates its layout, the key and the bucket itself).
-  2. The CloudNativePG Barman Cloud plugin as a HelmRelease beside the operator (it needs
-     cert-manager, which is there); an `ObjectStore` per database namespace, WAL archiving on
-     each Cluster, a nightly `ScheduledBackup` each; retention 30 days unless decided otherwise.
-     Done for mealie (2026-10-06): archiving works, and a restore into a scratch cluster
-     matched the live database table for table. The other ten: their Secret and
-     `ObjectStore` in a hand-written `<ns>-backup` folder per namespace (capture would rename
-     a Secret's variables in a `.promote` folder, and skips what another app Kustomization
-     applies), `plugins:` on each Cluster; then, once every database is healthy and archiving,
-     the nightly `ScheduledBackup`s with `immediate`, in a second merge. A backup only works
-     once the database's pods have restarted with the plugin's sidecar, which the first merge
-     does: a switchover each for the two-instance ones, a minute down for immich and
-     manictime.
-  3. A restore test into a scratch cluster, latest and point in time, before calling it done.
-  Optional before 1: a nightly `pg_dump` of immich and manictime to an `nfs-retain-rwo` volume.
-  Separately, `mp0` (container images) carries `backup=1` on each worker and could drop it.
+- **Database backups: restore-test the other ten.** Since 2026-10-06 all eleven CloudNativePG
+  clusters archive WAL continuously to Garage on the NAS (`docker/garage/`, the Barman Cloud
+  plugin) and take a nightly base backup (02:00 to 02:45, mealie at 02:30), kept 30 days.
+  Only mealie's has been restored (into a scratch cluster, matching the live database table for
+  table). Until each of the others has been, its backup is unproven: restore each the same way
+  (a one-instance Cluster on `nfs-eph-rwo` bootstrapped from its `ObjectStore`, compare row
+  counts, delete it).
+  - **A Cluster that names an `ObjectStore` before it exists stays stuck:** the plugin's
+    pre-reconcile hook stops the reconcile ("Pre-reconcile hook stopped the reconciliation
+    loop") and the operator doesn't retry once the store appears. Four of the ten did that; an
+    annotation on the Cluster made the operator reconcile again. Create the store first.
+  - **`ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing:**
+    nothing has tried to archive yet. Check `pg_stat_archiver` on the primary instead.
+  - Separately, each worker's `mp0` (container images) carries `backup=1` in the Proxmox job,
+    and its database dataset `mp1` doesn't; with these backups `mp1` needn't, and `mp0` could
+    drop it.
 
 ## Cleanup
 
