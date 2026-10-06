@@ -46,10 +46,17 @@ Decisions that unblock the work below; each gives a recommendation.
    address via the management network's gateway (as the Docker VM has), then `sshd` listens on
    that address only, both from `k8s-node-update.yml`, off until set. Needed: the management
    network's gateway address, and a yes.
-7. **Docker's live-restore on the Docker VM** (`"live-restore": true` in
-   `/etc/docker/daemon.json`): containers keep running while the Docker daemon restarts, so
-   `docker-vm-update.yml` could upgrade Docker too instead of leaving it for a run by hand.
-   Recommended: yes.
+7. **Docker's live-restore on the Docker VM, then Docker upgrades from Semaphore.** Agreed
+   2026-10-06; to build in `docker-vm-update.yml`, both parts off until set:
+   - `docker_live_restore: true` merges `"live-restore": true` into `/etc/docker/daemon.json`
+     (keeping whatever else is there), runs `systemctl reload docker` (live-restore is a
+     reloadable setting, so nothing restarts), and reads `docker info` back
+     (`LiveRestoreEnabled`).
+   - `upgrade_docker: true` unholds, upgrades and re-holds Docker's packages, only when
+     `docker info` says live-restore is on and the new `docker-ce` is the same major version
+     (Docker supports live-restore across minor and patch upgrades, not major ones; a major
+     upgrade is reported for a run by hand). Before and after, it reads the running containers
+     and stops if any that ran before is gone.
 8. **Keep immich and manictime up through a node loss** (item below): `instances: 2` doubles
    their database disk on another worker. With in-place updates (1.) the remaining downtime is
    a node's drain. Recommended: yes for immich (photos), optional for manictime.
