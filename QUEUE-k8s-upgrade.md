@@ -30,6 +30,38 @@ First target: 1.36. Later versions follow the same way.
   plain drain hangs on a worker holding one. Nine clusters have 2 instances; immich and
   manictime have 1. All use `local-db`, so an evicted instance waits for its node.
 
+## Researched (2026-10-06; sources go into `ansible/k8s-bundles.yml` with each version)
+
+- **etcd gap:** etcd 3.6 needs every 3.5 member on 3.5.32 or later first, but kubeadm 1.33.13
+  installs 3.5.24 and kubeadm 1.34 moves to 3.6.5. Bundle 1.33 overrides the etcd image to
+  3.5.32-0 or later (`etcd.local.imageTag`).
+- **Core per bundle** (kubeadm/kubelet/kubectl; CRI-O from openSUSE): 1.33.13 / 1.33.13,
+  1.34.12 / 1.34.15, 1.35.9 / 1.35.10, 1.36.5 / 1.36.7. kubeadm brings etcd, CoreDNS and pause.
+- **Calico tested ranges:** 3.30: 1.31-1.35, 3.31: 1.32-1.35, 3.32: 1.34-1.36, 3.33: 1.35-1.37.
+  One minor at a time (3.30 -> 3.31 -> 3.32). The `tigera-operator` chart exists for each;
+  from 3.32 the CRDs are separate charts, applied before the operator.
+- **Add-ons that must move:** cert-manager 1.18 (end of life; one minor at a time to 1.21, which
+  covers 1.33-1.36); CloudNativePG operator 1.26 (one minor at a time to 1.30, which covers
+  1.34-1.36 and is tested on 1.33; every operator upgrade restarts the database instances);
+  metrics-server 0.7.2 -> 0.8.1 (1.31+) -> 0.9.0 (1.34+); kube-vip 0.9.2 -> 1.2.4 (no stated
+  range; built against client-go 0.36; EndpointSlices default since 1.0); Flux 2.9.5 -> 2.9.6
+  (2.9 supports 1.34-1.36; its own check accepts 1.33).
+- **Version-independent** (no `kubeVersion` limit that bites, stable APIs only): MetalLB,
+  external-secrets, Traefik, external-dns, local-path-provisioner, nfs-subdir-external-provisioner
+  (unmaintained since 2023), cloudflare-tunnel-ingress-controller, redis-ha, authentik, couchdb,
+  immich, app-template, emby, manictime-server.
+- **kubeadm per step:** 1.34 moves the CRI socket into `/var/lib/kubelet/instance-config.yaml`
+  and drops `--container-runtime-endpoint` from `kubeadm-flags.env`. 1.35 removes the kubelet's
+  `--pod-infra-container-image` (kubeadm 1.35 strips it from `kubeadm-flags.env`; 1.36 no longer
+  does, so check every node during the 1.35 step) and fails on cgroup v1 (the hosts are Proxmox
+  9, cgroup v2 only; check anyway). 1.36: no etcd older than 3.6; pause 3.10.2 while CRI-O 1.36
+  defaults to 3.10.1, so set CRI-O's `pause_image` to match kubeadm's.
+- **API removals 1.34-1.36:** alpha APIs only. In use (2026-10-06): core `v1` Endpoints only, not
+  scheduled for removal.
+- **Live:** kube-vip mounts `admin.conf` (not `super-admin.conf`) on all three control planes;
+  `kubeadm upgrade` doesn't touch its manifest, so the playbook updates it. Kubelets use the
+  systemd cgroup driver.
+
 ## Decided
 
 - **Bundles, not per-package versions.** `ansible/k8s-bundles.yml` holds one bundle per
@@ -87,7 +119,8 @@ First target: 1.36. Later versions follow the same way.
 - [ ] Its check run clean in Semaphore
 - [ ] Semaphore's key and the nodes' host keys in place; inventory group for the nodes
 - [ ] Calico in Flux, adopted without a restart of calico-node
-- [ ] Bundles 1.33-1.36 researched and written
+- [x] Bundles 1.33-1.36 researched (above)
+- [ ] `ansible/k8s-bundles.yml` written
 - [ ] Upgrade playbook written, its checks tested against the live cluster
 - [ ] Cluster on 1.33.13 with CRI-O from the stable repository
 - [ ] 1.34, 1.35, 1.36
@@ -103,5 +136,7 @@ Semaphore.
 
 ## Checked and negative
 
+- **No official Kubernetes range for kube-vip**, and no statement on whether Calico may skip a
+  minor (so it doesn't).
 - **`pkgs.k8s.io` has no stable CRI-O repositories any more** (`addons:/cri-o:/stable:/v1.33` to
   `v1.36` answer 403 on 2026-10-06).
