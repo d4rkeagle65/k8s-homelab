@@ -15,7 +15,10 @@ spec:
         kind: HelmRepository
         name: cnpg
         namespace: flux-system
-  values: {}
+  values:
+    config:
+      data:
+        ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES: "true"
   commonMetadata:
     labels:
       homelab.local/env: prod
