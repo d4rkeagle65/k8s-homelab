@@ -1,0 +1,16 @@
+# A base backup of prowlarr-postgres every night at 02:30 (CloudNativePG's schedule
+# has a seconds field first; the databases are spread five minutes apart), and one
+# as soon as this is applied. The WAL archive covers every change in between.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: prowlarr-postgres-nightly
+spec:
+  schedule: "0 30 2 * * *"
+  immediate: true
+  backupOwnerReference: self
+  cluster:
+    name: prowlarr-postgres
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

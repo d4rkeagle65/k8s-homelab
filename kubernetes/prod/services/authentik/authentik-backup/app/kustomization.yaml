@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
 - secret-cnpg-backup-s3.yaml
 - objectstore.yaml
+- scheduledbackup-authentik-postgres.yaml

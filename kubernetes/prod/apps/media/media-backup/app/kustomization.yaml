@@ -3,3 +3,9 @@ kind: Kustomization
 resources:
 - secret-cnpg-backup-s3.yaml
 - objectstore.yaml
+- scheduledbackup-bookshelf-postgres.yaml
+- scheduledbackup-lidarr-postgres.yaml
+- scheduledbackup-prowlarr-postgres.yaml
+- scheduledbackup-radarr-postgres.yaml
+- scheduledbackup-sonarr-postgres.yaml
+- scheduledbackup-whisparr-postgres.yaml
