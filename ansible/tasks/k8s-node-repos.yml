@@ -19,6 +19,11 @@
     dest: /etc/apt/keyrings/kubernetes.asc
     mode: "0644"
     force: true
+  # The download servers occasionally drop a connection; try again before failing.
+  register: k8s_key_fetch
+  until: k8s_key_fetch is succeeded
+  retries: 5
+  delay: 10
 
 - name: Fetch the CRI-O signing key
   ansible.builtin.get_url:
@@ -26,6 +31,11 @@
     dest: /etc/apt/keyrings/cri-o.asc
     mode: "0644"
     force: true
+  # The download servers occasionally drop a connection; try again before failing.
+  register: k8s_key_fetch
+  until: k8s_key_fetch is succeeded
+  retries: 5
+  delay: 10
 
 - name: Point the Kubernetes source at {{ k8s_minor }}
   ansible.builtin.copy:
