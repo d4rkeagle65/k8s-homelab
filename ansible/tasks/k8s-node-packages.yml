@@ -2,7 +2,13 @@
 # packages stay held), sets CRI-O's pause image to the one kubeadm uses,
 # removes kubelet flags the bundle's kubelet no longer accepts, restarts CRI-O
 # and the kubelet, and waits for the node to report the bundle's version.
+- name: Note the skipped install
+  ansible.builtin.debug:
+    msg: "Check mode: kubelet and kubectl {{ k8s_target.kubernetes_package }} and cri-o {{ k8s_target.cri_o_package }} are in the bundle's repositories (checked first); a real run installs them here."
+  when: ansible_check_mode
+
 - name: Install kubelet, kubectl and CRI-O
+  when: not ansible_check_mode
   ansible.builtin.apt:
     name:
       - kubelet={{ k8s_target.kubernetes_package }}
