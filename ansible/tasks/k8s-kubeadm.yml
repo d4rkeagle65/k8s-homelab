@@ -1,5 +1,14 @@
 # Installs kubeadm at the bundle's version on this node (the package stays
 # held) and reads it back. Needs the node's sources on the bundle's minor.
+# In check mode the node's sources still point at its current minor (the
+# repos task only reports its change), so a new minor's packages can't be
+# resolved here; k8s-bundle-packages.yml has already found them in the bundle's
+# repositories.
+- name: Note the skipped install
+  ansible.builtin.debug:
+    msg: "Check mode: kubeadm {{ k8s_target.kubernetes_package }} is in the bundle's repository (checked first); a real run installs it here."
+  when: ansible_check_mode
+
 - name: Install kubeadm {{ k8s_target.kubernetes }}
   ansible.builtin.apt:
     name: kubeadm={{ k8s_target.kubernetes_package }}
@@ -7,6 +16,7 @@
     allow_downgrade: false
   environment:
     DEBIAN_FRONTEND: noninteractive
+  when: not ansible_check_mode
 
 - name: Keep kubeadm held
   ansible.builtin.dpkg_selections:
