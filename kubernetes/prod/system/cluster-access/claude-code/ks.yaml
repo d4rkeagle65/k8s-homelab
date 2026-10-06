@@ -6,17 +6,17 @@ metadata:
 spec:
   commonMetadata:
     labels:
-      app.kubernetes.io/part-of: claude-code
+      app.kubernetes.io/part-of: cluster-access
       homelab.local/category: system
       homelab.local/env: prod
       homelab.local/managed-by: hand
   interval: 30m
-  path: ./kubernetes/prod/system/claude-code/claude-code/app
+  path: ./kubernetes/prod/system/cluster-access/claude-code/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
-  targetNamespace: claude-code
+  targetNamespace: cluster-access
   dependsOn: []
   postBuild:
     substituteFrom:

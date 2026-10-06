@@ -41,9 +41,11 @@ becomes a playbook with checks.
 - **The k8s checks use a read-only ServiceAccount** (list nodes, `/readyz`, `/livez`) in a
   shared `cluster-access` namespace (`kubernetes/prod/system/cluster-access/semaphore/`), one
   folder per outside account. Semaphore calls the API with `ansible.builtin.uri` (no kubectl in
-  its image), the CA pinned. claude-code's account moves there too, later, in two steps (a new
-  ServiceAccount means a new token): add `cluster-access/claude-code`, switch the container's
-  kubeconfig, then remove the old `claude-code` folder and namespace.
+  its image), the CA pinned. claude-code's account moves there too, in one step: a Flux
+  Kustomization's name must equal its folder and be unique, so `cluster-access/claude-code`
+  can't sit beside `system/claude-code/claude-code`. The move recreates the ServiceAccount, so
+  its token changes: rerun `setup-kubeconfig` with the new one (`docker/claude-code/README.md`),
+  then delete the empty `claude-code` Namespace (Flux never prunes Namespaces).
 - **capture leaves a cluster-wide object an app's own Kustomization applies alone**
   (`FluxOwnership.app_owned_reason`): the ClusterRole is in its folder already, and a copy
   under `kubernetes/cluster/` would have cluster-resources apply it too.
@@ -68,7 +70,7 @@ becomes a playbook with checks.
 - [x] Semaphore set up (repo, inventory, key, known hosts, templates)
 - [x] Check-mode run clean on all four hosts (2026-10-05; one host's extra `ceph-tentacle` source disabled to match the others)
 - [ ] A real run that reboots hosts, the Docker VM moved off and back: waits for a kernel update, which the check template lists
-- [ ] claude-code's account moved into `cluster-access`
+- [ ] claude-code's account moved into `cluster-access` (prepared on branch `claude-code-to-cluster-access`; merge, rerun `setup-kubeconfig`, delete the `claude-code` Namespace)
 
 ## Resuming
 
