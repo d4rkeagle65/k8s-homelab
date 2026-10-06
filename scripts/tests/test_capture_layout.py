@@ -195,3 +195,21 @@ def test_a_cluster_wide_object_an_app_applies_is_not_captured_under_cluster():
     assert "semaphore" in owner.app_owned_reason(role)
     assert owner.app_owned_reason(issuer) is None  # cluster-resources' own objects are captured
     assert owner.app_owned_reason({"kind": "ClusterRole", "metadata": {"name": "by-hand"}}) is None
+
+
+def test_an_object_another_app_applies_is_not_promoted_into_this_folder():
+    def applied_by(name):
+        return {"kustomize.toolkit.fluxcd.io/name": name, "kustomize.toolkit.fluxcd.io/namespace": "flux-system"}
+    owner = FluxOwnership([
+        {"metadata": {"name": "flux-system", "namespace": "flux-system", "labels": applied_by("flux-system")}},
+        {"metadata": {"name": "cluster", "namespace": "flux-system", "labels": applied_by("flux-system")}},
+        {"metadata": {"name": "immich-extras", "namespace": "flux-system", "labels": applied_by("cluster")}},
+        {"metadata": {"name": "immich-backup", "namespace": "flux-system", "labels": applied_by("cluster")}},
+    ])
+    mine = {"kind": "Secret", "metadata": {"name": "a", "labels": applied_by("immich-extras")}}
+    beside = {"kind": "Secret", "metadata": {"name": "b", "labels": applied_by("immich-backup")}}
+    by_hand = {"kind": "Secret", "metadata": {"name": "c"}}
+    assert owner.foreign_reason(beside) is None  # same entry point, so the older rule keeps it
+    assert "immich-backup" in owner.other_app_reason(beside, "immich-extras")
+    assert owner.other_app_reason(mine, "immich-extras") is None
+    assert owner.other_app_reason(by_hand, "immich-extras") is None  # made by hand: promoted as before

@@ -81,9 +81,15 @@ Decisions that unblock the work below; each gives a recommendation.
   2. The CloudNativePG Barman Cloud plugin as a HelmRelease beside the operator (it needs
      cert-manager, which is there); an `ObjectStore` per database namespace, WAL archiving on
      each Cluster, a nightly `ScheduledBackup` each; retention 30 days unless decided otherwise.
-     Garage is up (2026-10-06). The plugin and mealie as the pilot are on branch
-     `backups-pilot`, after `backup-s3-vars` (the cluster-secrets mappings; needs the
-     `CNPG_BACKUP_S3_ENDPOINT` field first). The other ten copy mealie's four pieces.
+     Done for mealie (2026-10-06): archiving works, and a restore into a scratch cluster
+     matched the live database table for table. The other ten: their Secret and
+     `ObjectStore` in a hand-written `<ns>-backup` folder per namespace (capture would rename
+     a Secret's variables in a `.promote` folder, and skips what another app Kustomization
+     applies), `plugins:` on each Cluster; then, once every database is healthy and archiving,
+     the nightly `ScheduledBackup`s with `immediate`, in a second merge. A backup only works
+     once the database's pods have restarted with the plugin's sidecar, which the first merge
+     does: a switchover each for the two-instance ones, a minute down for immich and
+     manictime.
   3. A restore test into a scratch cluster, latest and point in time, before calling it done.
   Optional before 1: a nightly `pg_dump` of immich and manictime to an `nfs-retain-rwo` volume.
   Separately, `mp0` (container images) carries `backup=1` on each worker and could drop it.

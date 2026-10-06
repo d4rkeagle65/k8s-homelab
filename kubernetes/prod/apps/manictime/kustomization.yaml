@@ -3,6 +3,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- manictime-backup/ks.yaml
 - manictime-extras/ks.yaml
 - manictime-server/ks.yaml
 - namespace.yaml
