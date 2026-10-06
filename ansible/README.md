@@ -101,9 +101,12 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
 
 Set up once, after the Proxmox hosts:
 
-1. **Semaphore's key on each node.** Add the same `.pub` line as for the hosts to
-   `/root/.ssh/authorized_keys` in each node container. From a Proxmox host, for a container
-   on it: `pct exec <id> -- sh -c 'mkdir -p -m 700 /root/.ssh && echo "<the .pub line>" >> /root/.ssh/authorized_keys'`.
+1. **An SSH key of its own for the nodes**, made like the hosts' (step 1 above), in the Key
+   Store as its own key. Add its `.pub` line to `/root/.ssh/authorized_keys` in each node
+   container; from the Proxmox host a container is on:
+   `pct exec <id> -- sh -c 'mkdir -p -m 700 /root/.ssh && echo "<the .pub line>" >> /root/.ssh/authorized_keys'`.
+   Only `ssh.service` should serve SSH there: with `ssh.socket` enabled too, systemd holds
+   port 22 and `sshd` fails on its next reload (`systemctl disable --now ssh.socket`).
 2. **Pin the nodes' host keys**, on the Docker host, with their management addresses (as for
    the hosts in `docker/semaphore/README.md`, appending):
 
@@ -111,8 +114,9 @@ Set up once, after the Proxmox hosts:
    ssh-keyscan -t ed25519 <node 1> <node 2> ... >> /opt/semaphore/config/known_hosts
    ```
 
-3. **The inventory:** add the nodes to the same inventory, each named exactly as its
-   Kubernetes node, by management address:
+3. **The inventory:** a second one, "Kubernetes nodes", type Static YAML, with the key from
+   step 1 (an inventory has one key). Each node is named exactly as its Kubernetes node, by
+   management address:
 
    ```yaml
    k8s_nodes:
@@ -130,8 +134,8 @@ Set up once, after the Proxmox hosts:
        ansible_python_interpreter: /usr/bin/python3
    ```
 
-4. **Two task templates**, playbook `ansible/k8s-node-update.yml`, the same inventory,
-   repository and "Kubernetes" variable group: **"Kubernetes nodes: check"** with CLI args
+4. **Two task templates**, playbook `ansible/k8s-node-update.yml`, the "Kubernetes nodes"
+   inventory, the repository and the "Kubernetes" variable group: **"Kubernetes nodes: check"** with CLI args
    `["--check"]`, and **"Kubernetes nodes: update"**.
 
 What a run does to the workloads: each database cluster with two instances keeps running
