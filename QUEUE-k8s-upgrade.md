@@ -158,8 +158,12 @@ and the ownership metadata, which leaves the running objects as they were.
   1.28.1 -> 1.29.1 -> 1.30.1 with in-place instance manager updates (no database pod
   restarted, no switchover; one expected "binaryFileStream ... EOF" error per pod per upgrade,
   as each instance manager replaces itself mid-reply)
-- [ ] metrics-server 0.7.2 -> 0.8+ (decision 2 in QUEUE.md); the last thing the 1.34 check
-  refuses
+- [ ] metrics-server into Flux (`prod/system/metrics-server/`, chart 3.13.1, app 0.8.1, in its
+  own namespace): once the HelmRelease is Ready and `kubectl top nodes` answers, delete what the
+  old manifest left in `kube-system` (Deployment, Service and ServiceAccount `metrics-server`) and
+  the ClusterRole `system:aggregated-metrics-reader` (replaced by the chart's
+  `system:metrics-server-aggregated-reader`). Left, the old Deployment keeps running without
+  permissions, logging errors.
 - [ ] 1.34, 1.35, 1.36
 
 ## Resuming

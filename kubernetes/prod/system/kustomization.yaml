@@ -12,6 +12,7 @@ resources:
 - external-services
 - local-path-storage
 - metallb-system
+- metrics-server
 - nfs-client
 - noip-duc
 - traefik

@@ -20,12 +20,8 @@ Decisions that unblock the work below; each gives a recommendation.
    `ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES` before the four operator upgrades, so each upgrade
    swaps the instance manager inside running pods instead of restarting all 11 databases (and
    taking immich and manictime down) four times. Recommended: yes, merged first.
-2. **metrics-server into Flux:** the Helm chart reproduces the live Deployment with
-   `args: [--kubelet-insecure-tls]`, `hostNetwork.enabled: true`, `containerPort: 4443`, but its
-   selector differs, so the Deployment is deleted and recreated (about a minute without
-   `kubectl top`), and the old `system:aggregated-metrics-reader` ClusterRole goes by hand.
-   The alternative is the upgrade playbook applying the official manifest per bundle, outside
-   git. Recommended: Flux (one owner, upgraded by commits like the rest).
+2. **metrics-server into Flux:** agreed 2026-10-06, in its own namespace so nothing collides
+   with the old Deployment; the cleanup after the merge is in `QUEUE-k8s-upgrade.md`.
 3. **Calico into Flux** (plan in `QUEUE-k8s-upgrade.md`): go-ahead, and first a new
    `cluster-secrets` field for the pod network range (the chart values carry it; capture then
    writes `${CALICO_POD_CIDR}` in its place). Not needed before the 1.35 step.

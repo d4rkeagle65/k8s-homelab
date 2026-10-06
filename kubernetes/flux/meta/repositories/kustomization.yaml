@@ -15,6 +15,7 @@ resources:
 - jetstack.yaml
 - local-path-provisioner.yaml
 - metallb.yaml
+- metrics-server.yaml
 - nfs-subdir.yaml
 - strrl.yaml
 - traefik.yaml
