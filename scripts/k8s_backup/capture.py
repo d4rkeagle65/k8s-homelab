@@ -307,7 +307,10 @@ def _capture_helm_releases(
             sink.write_yaml_stable(
                 release_dir / "release.yaml",
                 release_doc,
-                extra_lines=["Backup identity record; not a Kubernetes manifest, never applied."],
+                extra_lines=[
+                    "Backup identity record; not a Kubernetes manifest, never applied.",
+                    "One hand edit is expected: chartVersion, to upgrade the chart (scripts/README.md).",
+                ],
             )
         infos.append(release_doc)
 

@@ -152,7 +152,10 @@ and the ownership metadata, which leaves the running objects as they were.
 - [x] Bundles 1.33-1.36 researched (above)
 - [x] `ansible/k8s-bundles.yml` written
 - [x] Upgrade playbook written; bundle checks run against the live cluster (1.33 passes; 1.34 refused for etcd, 1.35 for skipping a minor)
-- [ ] Cluster on 1.33.13 with CRI-O from the stable repository
+- [x] Cluster on bundle 1.33 (2026-10-06): Kubernetes and CRI-O 1.33.13 on every node, etcd 3.5.34, kube-vip v1.2.4; every database and Calico component healthy afterwards
+- [ ] Add-ons for 1.34 (the 1.34 check on 2026-10-06 lists exactly these): cert-manager 1.18.2 -> 1.19+
+  (one minor at a time), CloudNativePG 1.26.0 -> 1.28+ (one minor at a time), metrics-server
+  0.7.2 -> 0.8+ (not in git today)
 - [ ] 1.34, 1.35, 1.36
 
 ## Resuming
