@@ -1,12 +1,13 @@
 # Garage, S3-compatible object storage for CloudNativePG's backups, on the NAS
 # (not the Docker host): deployed by Dockhand through the NAS's Hawser agent.
-# Docker runs on the NAS, so every host path below is a path on the NAS; its
-# config is a copy of garage.toml placed there (README.md). Only the S3 API is
-# published; manage Garage with `docker exec garage /garage ...` on the NAS.
+# Docker runs on the NAS, so the host path below is a path on the NAS. The
+# config is inline (configs: content), which Compose copies into the container
+# through Docker's API, so nothing has to be placed on the NAS by hand. Only the
+# S3 API is published; manage Garage with `docker exec garage /garage ...`.
 #
 # Variables (set in the stack's environment in Dockhand):
 #   GARAGE_BIND_ADDRESS   the NAS's address the S3 API listens on (3900)
-#   GARAGE_DIR            the folder on the NAS holding garage.toml, meta/, data/
+#   GARAGE_DIR            the folder on the NAS holding meta/ and data/
 #   GARAGE_RPC_SECRET     secret: 32 random bytes as hex (openssl rand -hex 32)
 #   GARAGE_ADMIN_TOKEN    secret: openssl rand -base64 32
 #   GARAGE_METRICS_TOKEN  secret: openssl rand -base64 32
@@ -21,7 +22,38 @@ services:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
       GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN}
+    configs:
+    - source: garage_toml
+      target: /etc/garage.toml
     volumes:
-    - ${GARAGE_DIR}/garage.toml:/etc/garage.toml:ro
     - ${GARAGE_DIR}/meta:/var/lib/garage/meta
     - ${GARAGE_DIR}/data:/var/lib/garage/data
+
+configs:
+  # One Garage node; the secrets come from the environment above.
+  garage_toml:
+    content: |
+      # One node, one copy: Garage calls that a test setup, and here the NAS's own
+      # disk redundancy covers the drives, and what's stored is itself the second
+      # copy of the databases.
+      replication_factor = 1
+
+      metadata_dir = "/var/lib/garage/meta"
+      data_dir = "/var/lib/garage/data"
+      db_engine = "lmdb"
+      # Snapshots of the metadata database, to recover from if it's ever corrupted.
+      metadata_auto_snapshot_interval = "6h"
+
+      # The NAS has 1 GB of memory: keep Garage's block buffer small.
+      block_ram_buffer_max = "64MiB"
+      compression_level = 1
+
+      rpc_bind_addr = "[::]:3901"
+      rpc_public_addr = "127.0.0.1:3901"
+
+      [s3_api]
+      s3_region = "garage"
+      api_bind_addr = "[::]:3900"
+
+      [admin]
+      api_bind_addr = "[::]:3903"

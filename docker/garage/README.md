@@ -7,12 +7,14 @@ Docker host.
 
 | | |
 |---|---|
-| `compose.yaml`, `garage.toml`, `.env` | here, in git: nothing site-specific |
-| `<GARAGE_DIR>/garage.toml` | on the NAS: a copy of `garage.toml` (the container reads it) |
+| `compose.yaml`, `.env` | here, in git: nothing site-specific; Garage's config is inline in `compose.yaml` |
 | `<GARAGE_DIR>/meta/`, `<GARAGE_DIR>/data/` | on the NAS: Garage's metadata and the stored objects |
 
-Docker runs on the NAS, so the stack mounts its config from a path there, not from this
-folder: after changing `garage.toml` here, copy it to the NAS again and redeploy.
+Docker runs on the NAS, so the stack can't mount a file from this folder: its host paths are
+paths on the NAS. Garage's config is inline instead (`configs:` with `content:`), which Compose
+2.23 and later copies into the container through Docker's API. If the container exits with
+"no config file", Dockhand's Compose is older: put the config in `<GARAGE_DIR>/garage.toml` and
+mount it at `/etc/garage.toml` instead.
 
 ## Before the first deploy (once, on the NAS over SSH)
 
@@ -23,8 +25,7 @@ folder: after changing `garage.toml` here, copy it to the NAS again and redeploy
    mkdir -p /Volume1/garage/meta /Volume1/garage/data
    ```
 
-2. **The config:** copy this folder's `garage.toml` to `/Volume1/garage/garage.toml`.
-3. **Three random values** for the stack's secrets: one `openssl rand -hex 32` (the RPC
+2. **Three random values** for the stack's secrets: one `openssl rand -hex 32` (the RPC
    secret, which must be hex) and two `openssl rand -base64 32` (the admin and metrics
    tokens). Keep them in Vaultwarden.
 
@@ -35,7 +36,7 @@ Mark every one **secret**, as for the other stacks; `.env` lists them blank for 
 | Variable | Value |
 |---|---|
 | `GARAGE_BIND_ADDRESS` | the NAS's address the cluster reaches it on (the S3 API, port 3900) |
-| `GARAGE_DIR` | the folder from step 1, e.g. `/Volume1/garage` |
+| `GARAGE_DIR` | the folder from step 1, e.g. `/Volume1/garage` (holds `meta/` and `data/`) |
 | `GARAGE_RPC_SECRET` | secret: the hex value |
 | `GARAGE_ADMIN_TOKEN`, `GARAGE_METRICS_TOKEN` | secret: the two base64 values |
 
