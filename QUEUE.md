@@ -74,12 +74,6 @@ Decisions that unblock the work below; each gives a recommendation.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
-- **generate copies `values.yaml` comments into `app/helmrelease.yaml` at the wrong
-  indentation** (`generate.py`, where it reads `values.yaml` with `yamlio.read_yaml_file`): a
-  comment over a nested key lands at the parent's indentation. YAML ignores it, but the file
-  reads as if the comment belonged elsewhere. Strip comments when embedding, or keep their
-  indentation. Until then, put explanations in the commit message, not in `values.yaml`.
-
 ## Later
 
 - **Keep immich and manictime up through a node loss** (decision 8). Today

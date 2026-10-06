@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 from ruamel.yaml import YAML
 
+from k8s_backup import yamlio
 from k8s_backup.yamlio import to_yaml_string
 
 # A plain YAML 1.2 reader, independent of the writer's own instance.
@@ -56,3 +57,15 @@ def test_windows_line_endings_stay_quoted():
 
 def test_yaml11_bool_is_still_quoted():
     assert to_yaml_string({"bound": "yes"}) == 'bound: "yes"\n'
+
+
+def test_plain_drops_comments_so_nested_data_carries_none():
+    parsed = yamlio.parse_yaml_string(
+        "config:\n  data:\n    # why the flag is on\n    FLAG: \"true\"\nlist:\n  - a  # trailing\n"
+    )
+    nested = {"spec": {"values": yamlio.plain(parsed)}}
+    text = yamlio.to_yaml_string(nested)
+    assert "#" not in text
+    assert yamlio.parse_yaml_string(text) == {
+        "spec": {"values": {"config": {"data": {"FLAG": "true"}}, "list": ["a"]}}
+    }
