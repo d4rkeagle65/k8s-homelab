@@ -1,0 +1,34 @@
+# metrics-server (`kubectl top`, the metrics API). Moved here from a plain
+# manifest in kube-system; the cluster-wide objects of the same names (its
+# ClusterRoles, bindings and the v1beta1.metrics.k8s.io APIService) are taken
+# over by Helm on install.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: metrics-server
+  namespace: metrics-server
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: metrics-server
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: metrics-server
+      version: 3.13.1
+      sourceRef:
+        kind: HelmRepository
+        name: metrics-server
+        namespace: flux-system
+  values:
+    # The kubelets' serving certificates are self-signed.
+    args:
+      - --kubelet-insecure-tls
+    # On the host network, as before, so it reaches each kubelet directly; on
+    # 4443, since the chart's default 10250 is the kubelet's own port there.
+    hostNetwork:
+      enabled: true
+    containerPort: 4443

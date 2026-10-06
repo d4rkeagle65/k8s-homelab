@@ -29,7 +29,8 @@ k8s_addons:
     read: {kind: namespaces, namespace: "", name: flux-system, field: "{.metadata.labels.app\\.kubernetes\\.io/version}"}
     source: https://fluxcd.io/flux/releases/
   metrics-server:
-    read: {kind: deployments, namespace: kube-system, name: metrics-server, field: "{.spec.template.spec.containers[0].image}"}
+    read: {kind: deployments, namespace: metrics-server, name: metrics-server, field: "{.spec.template.spec.containers[0].image}"}
+    helmrelease: metrics-server/metrics-server
     source: https://github.com/kubernetes-sigs/metrics-server#compatibility-matrix
 
 # HelmReleases whose charts don't depend on the Kubernetes version (no
