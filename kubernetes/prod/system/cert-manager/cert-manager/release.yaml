@@ -5,7 +5,7 @@
 release: cert-manager
 namespace: cert-manager
 chart: cert-manager
-chartVersion: v1.19.6
+chartVersion: v1.20.4
 appVersion: v1.18.2
 revision: 3
 status: deployed
