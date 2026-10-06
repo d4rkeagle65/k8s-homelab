@@ -133,6 +133,26 @@ Decisions that unblock the work below; each gives a recommendation.
   (by hand, CI, or tofu-controller under Flux). Import the existing resources
   first, so nothing gets recreated.
 
+- **Review moving the cluster to Talos Linux** (low priority; a review first, not a decision).
+  Talos is a minimal, API-managed OS made only to run Kubernetes: no SSH, no package manager,
+  configured from one machine config per node and upgraded with `talosctl upgrade` (OS) and
+  `talosctl upgrade-k8s` (Kubernetes) as atomic image swaps that roll back on failure. What it
+  would change here:
+  - **It replaces most of `QUEUE-k8s-upgrade.md`'s machinery:** kubeadm, the apt sources,
+    CRI-O (Talos uses containerd), the node update playbook and most of the version bundles.
+    The add-on ranges and the database drain steps stay useful.
+  - **It can't run in LXC.** Talos is its own OS, so every node becomes a VM: more memory per
+    node than a container, and one host has only 15 GB. Count what the six nodes need as VMs
+    before anything else.
+  - **VMs get block devices**, which these LXC nodes can't: Longhorn or another replicated
+    storage becomes possible, so databases on `local-db` could stop being pinned to one worker.
+  - **Migration is a rebuild:** a new cluster beside the old, Flux bootstrapped onto it from this
+    repo, workloads and data moved (CloudNativePG databases by replica or backup/restore, PVC
+    data copied), then the old nodes removed. It fits the Terraform item (VMs and machine
+    configs from code).
+  - **Things to check:** kube-vip versus Talos's built-in shared VIP; Calico's support on Talos;
+    the NFS mounts; how `scripts/` captures a cluster with no node access; Semaphore's role once
+    the nodes have no SSH (talosctl from Semaphore, or Omni).
 - **Consolidate the two test folders** (low priority; decision 10). `tests/` is the repo-wide gate
   (doc-style, harness, hygiene, script-health suites, run by `tests/run-all-tests.py` and the
   pre-commit hook); `scripts/tests/` is the generator's pytest suite, reached only through
