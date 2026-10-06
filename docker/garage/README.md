@@ -25,9 +25,13 @@ mount it at `/etc/garage.toml` instead.
    mkdir -p /Volume1/garage/meta /Volume1/garage/data
    ```
 
-2. **Three random values** for the stack's secrets: one `openssl rand -hex 32` (the RPC
-   secret, which must be hex) and two `openssl rand -base64 32` (the admin and metrics
-   tokens). Keep them in Vaultwarden.
+2. **Five random values** for the stack's secrets, kept in Vaultwarden:
+   - `openssl rand -hex 32`: the RPC secret (must be hex);
+   - `openssl rand -base64 32`, twice: the admin and metrics tokens;
+   - `echo GK$(openssl rand -hex 16)` and `openssl rand -hex 32`: the backup key's ID and
+     secret. Put these two in the `cluster-secrets` item as `CNPG_BACKUP_S3_ACCESS_KEY_ID` and
+     `CNPG_BACKUP_S3_SECRET_ACCESS_KEY`: the cluster reads them from there, Garage from the
+     stack's variables of the same names.
 
 ## Variables (the stack's environment in Dockhand)
 
@@ -39,52 +43,22 @@ Mark every one **secret**, as for the other stacks; `.env` lists them blank for 
 | `GARAGE_DIR` | the folder from step 1, e.g. `/Volume1/garage` (holds `meta/` and `data/`) |
 | `GARAGE_RPC_SECRET` | secret: the hex value |
 | `GARAGE_ADMIN_TOKEN`, `GARAGE_METRICS_TOKEN` | secret: the two base64 values |
+| `CNPG_BACKUP_S3_ACCESS_KEY_ID`, `CNPG_BACKUP_S3_SECRET_ACCESS_KEY` | secret: the backup key's ID and secret |
 
-## After the first deploy (once, on the NAS)
+## What it sets up by itself
 
-Garage starts with no storage assigned. These commands run Garage's CLI inside the container.
+Started with `--single-node --default-bucket`, Garage does at every start whatever is still
+missing: the single-node layout (its capacity is the data folder's disk size), the access key
+`CNPG_BACKUP_S3_ACCESS_KEY_ID` with its secret, and the bucket `cnpg-backups`, with that key
+allowed to read, write and own it. Nothing to run after the deploy.
 
-1. **Find the node's ID** (the first column):
-
-   ```sh
-   docker exec garage /garage status
-   ```
-
-2. **Give the node its storage and apply it.** `-c` is how much of the NAS Garage may use
-   (a target for placing data, not a hard quota):
-
-   ```sh
-   docker exec garage /garage layout assign -z nas -c 500G <node ID>
-   ```
-
-   ```sh
-   docker exec garage /garage layout apply --version 1
-   ```
-
-3. **The bucket and its key:**
-
-   ```sh
-   docker exec garage /garage bucket create cnpg-backups
-   ```
-
-   ```sh
-   docker exec garage /garage key create cnpg-backups
-   ```
-
-   The second prints the key's ID and its secret. Put both straight into Vaultwarden as
-   `CNPG_BACKUP_S3_ACCESS_KEY_ID` and `CNPG_BACKUP_S3_SECRET_ACCESS_KEY` in the
-   `cluster-secrets` item; the cluster reads them from there once its backup configuration
-   is in git.
-
-4. **Let the key use the bucket:**
-
-   ```sh
-   docker exec garage /garage bucket allow --read --write --owner cnpg-backups --key cnpg-backups
-   ```
-
-5. **Check it:** `docker exec garage /garage bucket info cnpg-backups` lists the key as
-   allowed, and from a machine that reaches the NAS, `curl -s http://<NAS address>:3900`
-   answers with an S3 error document (`AccessDenied`): the API is up.
+- **It refuses to start** if the key already exists with a different secret, or the layout has
+  been changed by hand past its first version (then drop `--single-node` and manage the layout
+  with `garage layout`). To change the key's secret, create a new key ID too.
+- **Check it** on the NAS: `docker exec garage /garage status` shows one node with a role in
+  zone `dc1`, and `docker exec garage /garage bucket info cnpg-backups` lists the key with
+  read, write and owner. From a machine that reaches the NAS, `curl -s http://<NAS address>:3900`
+  answers with an S3 error document (`AccessDenied`): the API is up.
 
 ## Updating
 

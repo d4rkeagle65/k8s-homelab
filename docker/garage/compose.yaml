@@ -5,23 +5,36 @@
 # through Docker's API, so nothing has to be placed on the NAS by hand. Only the
 # S3 API is published; manage Garage with `docker exec garage /garage ...`.
 #
+# At every start Garage sets itself up, doing only what is missing: the
+# single-node layout (sized to the data folder's disk), the access key from
+# CNPG_BACKUP_S3_ACCESS_KEY_ID/_SECRET_ACCESS_KEY (it refuses to start if the
+# key exists with a different secret), and the cnpg-backups bucket with that
+# key allowed to read, write and own it.
+#
 # Variables (set in the stack's environment in Dockhand):
 #   GARAGE_BIND_ADDRESS   the NAS's address the S3 API listens on (3900)
 #   GARAGE_DIR            the folder on the NAS holding meta/ and data/
 #   GARAGE_RPC_SECRET     secret: 32 random bytes as hex (openssl rand -hex 32)
 #   GARAGE_ADMIN_TOKEN    secret: openssl rand -base64 32
 #   GARAGE_METRICS_TOKEN  secret: openssl rand -base64 32
+#   CNPG_BACKUP_S3_ACCESS_KEY_ID      secret: GK and 32 hex (echo GK$(openssl rand -hex 16))
+#   CNPG_BACKUP_S3_SECRET_ACCESS_KEY  secret: openssl rand -hex 32
+#                         (the same two as the cluster-secrets fields of those names)
 services:
   garage:
     image: dxflrs/garage:v2.4.1
     container_name: garage
     restart: unless-stopped
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
     ports:
     - ${GARAGE_BIND_ADDRESS}:3900:3900
     environment:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
       GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN}
+      GARAGE_DEFAULT_ACCESS_KEY: ${CNPG_BACKUP_S3_ACCESS_KEY_ID}
+      GARAGE_DEFAULT_SECRET_KEY: ${CNPG_BACKUP_S3_SECRET_ACCESS_KEY}
+      GARAGE_DEFAULT_BUCKET: cnpg-backups
     configs:
     - source: garage_toml
       target: /etc/garage.toml
