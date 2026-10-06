@@ -122,7 +122,7 @@
   ansible.builtin.command: >-
     kubectl --kubeconfig /etc/kubernetes/admin.conf get {{ item.value.read.kind }}
     {{ ('-n ' ~ item.value.read.namespace) if item.value.read.namespace else '' }}
-    {{ item.value.read.name }} -o jsonpath={{ item.value.read.field }}
+    {{ item.value.read.name }} -o 'jsonpath={{ item.value.read.field }}'
   loop: "{{ k8s_addons | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
@@ -143,7 +143,7 @@
   ansible.builtin.assert:
     that: k8s_addons_out | length == 0
     fail_msg: "Add-ons outside bundle {{ k8s_target_minor }}'s ranges: {{ k8s_addons_out | join('; ') }}. Upgrade them through git first."
-    success_msg: "{{ k8s_addon_versions }}"
+    success_msg: "Add-ons: {{ k8s_addon_versions | dict2items | map(attribute='key') | zip(k8s_addon_versions.values()) | map('join', ' ') | join(', ') }}"
   vars:
     k8s_addons_out: >-
       {% set out = [] %}{% for name, r in k8s_target.addons.items() %}{%
