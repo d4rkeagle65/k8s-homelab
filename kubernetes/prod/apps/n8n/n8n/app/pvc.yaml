@@ -1,0 +1,15 @@
+# n8n's own folder (/home/node/.n8n): its settings, and binary data from
+# workflow runs (N8N_DEFAULT_BINARY_DATA_MODE=filesystem), on the NAS.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: n8n-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 5Gi

@@ -84,6 +84,14 @@ assigned (items below refer to them); 1 and 2 are done.
     and its database dataset `mp1` doesn't; with these backups `mp1` needn't, and `mp0` could
     drop it.
 
+- **n8n** (workflow automation; branch `n8n`, after `n8n-vars`): app-template with the
+  `n8nio/runners` sidecar (external task runners, which n8n's docs require wherever real
+  credentials are stored), CloudNativePG with backups from day one, LAN only behind
+  `private-networks`, n8n's own login (its OIDC is Enterprise). Before merging: the
+  `N8N_ENCRYPTION_KEY` and `N8N_RUNNERS_AUTH_TOKEN` fields in Vaultwarden, then `n8n-vars`.
+  After: create the owner account at first visit, and restore-test its database once the
+  first nightly backup has run.
+
 ## Cleanup
 
 - **`test/media/jackett`** stays as a test-only app for now; not listed in

@@ -1,0 +1,180 @@
+# n8n, workflow automation, with its task runners as a sidecar ("external
+# mode"): the runners execute Code-node JavaScript and Python apart from n8n
+# itself, which n8n's docs require for any instance holding real credentials.
+# The two images' versions must match. Reachable from private networks only;
+# logins are n8n's own (its OIDC is an Enterprise feature).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: n8n
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: n8n
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    defaultPodOptions:
+      securityContext:
+        # n8n and the runners run as the image's node user.
+        fsGroup: 1000
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: n8nio/n8n
+              tag: 2.42.3
+            env:
+              - name: DB_TYPE
+                value: postgresdb
+              - name: DB_POSTGRESDB_HOST
+                value: n8n-postgres-rw
+              - name: DB_POSTGRESDB_PORT
+                value: "5432"
+              - name: DB_POSTGRESDB_DATABASE
+                value: app
+              - name: DB_POSTGRESDB_USER
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-postgres-app
+                    key: username
+              - name: DB_POSTGRESDB_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n-postgres-app
+                    key: password
+              - name: N8N_ENCRYPTION_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n
+                    key: encryption-key
+              # Behind Traefik: the address users and webhooks see.
+              - name: N8N_HOST
+                value: n8n${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+              - name: N8N_PROTOCOL
+                value: https
+              - name: N8N_WEBHOOK_URL
+                value: https://n8n${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/
+              - name: N8N_PROXY_HOPS
+                value: "1"
+              # Task runners in the sidecar, reached inside the pod.
+              - name: N8N_RUNNERS_ENABLED
+                value: "true"
+              - name: N8N_RUNNERS_MODE
+                value: external
+              - name: N8N_RUNNERS_BROKER_LISTEN_ADDRESS
+                value: 127.0.0.1
+              - name: N8N_RUNNERS_AUTH_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n
+                    key: runners-auth-token
+              - name: N8N_NATIVE_PYTHON_RUNNER
+                value: "true"
+              - name: GENERIC_TIMEZONE
+                value: ${TIMEZONE}
+              - name: TZ
+                value: ${TIMEZONE}
+              # Binary data from workflow runs to the data volume, not memory.
+              - name: N8N_DEFAULT_BINARY_DATA_MODE
+                value: filesystem
+              # Execution logs are kept 14 days.
+              - name: EXECUTIONS_DATA_PRUNE
+                value: "true"
+              - name: EXECUTIONS_DATA_MAX_AGE
+                value: "336"
+              - name: N8N_DIAGNOSTICS_ENABLED
+                value: "false"
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 5678
+                  periodSeconds: 20
+                  failureThreshold: 6
+              readiness: *probe
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 5678
+                  periodSeconds: 5
+                  failureThreshold: 60
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+          runners:
+            image:
+              repository: n8nio/runners
+              tag: 2.42.3
+            env:
+              - name: N8N_RUNNERS_TASK_BROKER_URI
+                value: http://127.0.0.1:5679
+              - name: N8N_RUNNERS_AUTH_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: n8n
+                    key: runners-auth-token
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
+              startup:
+                enabled: false
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 5678
+    ingress:
+      main:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+          - host: n8n${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: n8n-tls
+            hosts:
+              - n8n${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      data:
+        existingClaim: n8n-data
+        advancedMounts:
+          main:
+            main:
+              - path: /home/node/.n8n

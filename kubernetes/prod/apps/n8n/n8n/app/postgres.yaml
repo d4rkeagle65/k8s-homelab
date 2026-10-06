@@ -1,0 +1,25 @@
+# n8n's database: workflows, credentials (encrypted with N8N_ENCRYPTION_KEY),
+# executions. Two copies on the workers' local disks (local-db), archived and
+# backed up to Garage (n8n-backup/). CloudNativePG puts the app user's
+# credentials in the n8n-postgres-app Secret.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: n8n-postgres
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  affinity:
+    podAntiAffinityType: preferred
+  enablePDB: true
+  enableSuperuserAccess: false
+  storage:
+    size: 5Gi
+    storageClass: local-db
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage
