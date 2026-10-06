@@ -161,11 +161,15 @@ Before it touches anything, a run stops unless:
 - no API the target removes is in use (each API server's own count of deprecated requests);
 - every add-on runs a version inside the bundle's range, and every HelmRelease is either an
   add-on or listed as version-independent: an unknown counts as incompatible;
-- every node runs cgroup v2, where the bundle needs it.
+- every node runs cgroup v2.
 
 Add-ons that Flux installs are upgraded by commits first; the checks say which. Then a run
 upgrades the control planes one at a time, then the workers, each drained like a node update.
 A node already on the bundle isn't drained again, so a run that stopped can be run again.
+
+**On LXC nodes,** kubeadm's SystemVerification preflight check can't read the host's kernel
+config and fails; add `kubeadm_ignore_preflight_errors: [SystemVerification]` to the
+"Kubernetes nodes" inventory's `vars:`. Its cgroup part is covered by the check above.
 
 **Templates:** playbook `ansible/k8s-upgrade.yml`, the "Kubernetes nodes" inventory, the
 repository and the "Kubernetes" variable group, with `k8s_bundle` in the template's extra

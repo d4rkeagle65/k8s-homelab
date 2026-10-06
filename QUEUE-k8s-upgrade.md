@@ -166,6 +166,11 @@ Semaphore.
 
 ## Checked and negative
 
+- **kubeadm's SystemVerification preflight fails on these LXC nodes** (2026-10-06, the first
+  1.33 run): it loads the `configs` kernel module to read the kernel config, which a container
+  can't. The inventory skips it (`kubeadm_ignore_preflight_errors`); the playbook checks cgroup
+  v2 itself. That first run stopped there, after installing kubeadm 1.33.13 and writing the etcd
+  override on the first control plane, before `upgrade apply`.
 - **No official Kubernetes range for kube-vip**, and no statement on whether Calico may skip a
   minor (so it doesn't).
 - **`pkgs.k8s.io` has no stable CRI-O repositories any more** (`addons:/cri-o:/stable:/v1.33` to
