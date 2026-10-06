@@ -109,6 +109,19 @@ def to_yaml_string(data: Any) -> str:
     return stream.getvalue()
 
 
+def plain(obj: Any) -> Any:
+    """The same data as plain dicts and lists, without the comments ruamel
+    attaches. For data that is nested into another document: a comment keeps
+    the column it had in its own file, so re-nested it reads as belonging to
+    the wrong key.
+    """
+    if isinstance(obj, dict):
+        return {key: plain(val) for key, val in obj.items()}
+    if isinstance(obj, list):
+        return [plain(val) for val in obj]
+    return obj
+
+
 def parse_yaml_string(text: str) -> Any:
     return _yaml.load(text)
 

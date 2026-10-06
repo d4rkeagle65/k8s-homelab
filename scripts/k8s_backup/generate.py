@@ -107,7 +107,7 @@ def _generate_release_scaffolding(sink: Sink, warnings, verbose) -> int:
             if not release_yaml.exists() or not values_yaml.exists():
                 continue
             release_meta = yamlio.read_yaml_file(release_yaml)
-            values = yamlio.read_yaml_file(values_yaml) or {}
+            values = yamlio.plain(yamlio.read_yaml_file(values_yaml)) or {}
 
             release_name = release_meta["release"]
             chart_name = release_meta["chart"]
