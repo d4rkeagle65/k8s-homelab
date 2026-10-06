@@ -38,6 +38,7 @@ k8s_addons:
 # this list nor k8s_addons stops a run: unknown is not compatible.
 k8s_version_independent:
   - authentik/authentik
+  - cnpg-system/plugin-barman-cloud   # chart kubeVersion >=1.29; needs CloudNativePG 1.26+, not a Kubernetes version
   - cloudflare-tunnel/cloudflare-tunnel-ingress-controller
   - emby/emby
   - external-dns/external-dns          # app 0.18+ needed from Kubernetes 1.33; runs 0.23
