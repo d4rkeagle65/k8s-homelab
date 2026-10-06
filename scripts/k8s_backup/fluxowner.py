@@ -67,6 +67,16 @@ class FluxOwnership:
             return None
         return f"applied by the app Flux Kustomization '{key[1]}' (already in its folder in git)"
 
+    def other_app_reason(self, obj: dict, own_kustomization: str) -> str | None:
+        """For an object in a promoted namespace: why it isn't promoted into
+        that namespace's folder when another app Flux Kustomization applied it
+        (a hand-written folder beside the promoted one, say). It's in git in that
+        folder already; a promoted copy would have two Kustomizations apply it."""
+        key = _applied_by(obj)
+        if key is None or key[1] in GENERATOR_ENTRYPOINTS or key[1] == own_kustomization:
+            return None
+        return f"applied by the app Flux Kustomization '{key[1]}' (already in its folder in git)"
+
     def foreign_reason(self, obj: dict) -> str | None:
         entry = self.entrypoint(obj)
         if entry is None or entry in GENERATOR_ENTRYPOINTS:

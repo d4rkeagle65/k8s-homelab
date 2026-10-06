@@ -623,6 +623,8 @@ def _capture_namespaced_resources(
             if not ns or ns in constants.BUILTIN_NAMESPACES_TO_SKIP or ns in ambiguous:
                 continue
             reason = skipfilter.should_skip(kind, item) or flux_owner.foreign_reason(item)
+            if not reason and ns in promoted:
+                reason = flux_owner.other_app_reason(item, promoted[ns].name)
             if not reason and ns in promoted and kind == "persistentvolumeclaim":
                 if any(p.match(meta.get("name", "")) for p in sts_claims.get(ns, [])):
                     reason = "created from a StatefulSet volumeClaimTemplate"
@@ -738,6 +740,7 @@ def _prepare_promoted_secrets(root: Path, context, warnings, verbose, flux_owner
             reason = (
                 skipfilter.should_skip("secret", secret)
                 or flux_owner.foreign_reason(secret)
+                or flux_owner.other_app_reason(secret, promoted[ns].name)
                 or promote.generated_secret_reason(secret)
             )
             if reason:

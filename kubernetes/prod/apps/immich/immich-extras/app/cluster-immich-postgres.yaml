@@ -82,3 +82,8 @@ spec:
     size: 16Gi
     storageClass: local-db
   switchoverDelay: 3600
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage

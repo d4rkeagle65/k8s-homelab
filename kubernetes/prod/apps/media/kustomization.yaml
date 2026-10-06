@@ -6,6 +6,7 @@ resources:
 - bookshelf/ks.yaml
 - jellyseerr/ks.yaml
 - lidarr/ks.yaml
+- media-backup/ks.yaml
 - namespace.yaml
 - prowlarr/ks.yaml
 - qbittorrent/ks.yaml
