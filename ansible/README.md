@@ -9,6 +9,8 @@ and addresses), the SSH key, and the Kubernetes token.
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
 | `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are a separate job (`QUEUE-k8s-upgrade.md`). It also owns the nodes' Kubernetes and CRI-O package sources. |
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
+| `pihole-update.yml` | Updates the Pi-holes one at a time (`apt dist-upgrade`, then `pihole -up`), each only while every other one answers DNS, and waits for it to answer again before the next. With a single Pi-hole it stops unless `allow_dns_outage: true`. Not yet run. |
+| `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
 
 ## Setting up Semaphore (once)
 
@@ -182,6 +184,23 @@ variables (`{"k8s_bundle": "1.33"}`, a string): **"Kubernetes upgrade: check"** 
 **A new bundle:** copy the newest, set the versions, and give every add-on's range from its
 project's support page, with the link. A new add-on goes into `k8s_addons` with how to read
 its version, and a range in every bundle.
+
+## The Pi-holes and the Docker VM (`pihole-update.yml`, `docker-vm-update.yml`)
+
+Neither has run yet; start each with a check-mode template.
+
+- **Keys and inventories.** Each needs Semaphore's key in the guest's
+  `/root/.ssh/authorized_keys` (from its Proxmox host with `pct exec`, as for the nodes, or
+  through the VM's console) and an inventory with a `pihole` or a `docker_vm` group, user
+  `root`. A separate key per kind of machine keeps each revocable alone; an inventory holds one
+  key.
+- **Reaching the Docker VM from Semaphore,** which runs in a container on that VM: its
+  management address doesn't answer containers on the VM itself (the policy routing that sends
+  its replies out the management interface), so give `ansible_host` as the address of the
+  Docker network's gateway as Semaphore's container sees it (`ip route` inside the container:
+  the `default via` address).
+- **Templates:** a check (`["--check"]`) and a real one for each, with the inventory and the
+  repository; neither needs the "Kubernetes" variable group.
 
 ## Running a Proxmox upgrade
 
