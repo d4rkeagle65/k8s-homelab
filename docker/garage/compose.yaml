@@ -54,6 +54,10 @@ configs:
       metadata_dir = "/var/lib/garage/meta"
       data_dir = "/var/lib/garage/data"
       db_engine = "lmdb"
+      # LMDB reserves its maximum size as address space up front; Garage's 64-bit
+      # default (1T) is more than the NAS's ARM kernel gives a process (39-bit
+      # addressing), so it fails to open. The metadata here is megabytes.
+      lmdb_map_size = "32G"
       # Snapshots of the metadata database, to recover from if it's ever corrupted.
       metadata_auto_snapshot_interval = "6h"
 
