@@ -1,0 +1,27 @@
+# Garage, S3-compatible object storage for CloudNativePG's backups, on the NAS
+# (not the Docker host): deployed by Dockhand through the NAS's Hawser agent.
+# Docker runs on the NAS, so every host path below is a path on the NAS; its
+# config is a copy of garage.toml placed there (README.md). Only the S3 API is
+# published; manage Garage with `docker exec garage /garage ...` on the NAS.
+#
+# Variables (set in the stack's environment in Dockhand):
+#   GARAGE_BIND_ADDRESS   the NAS's address the S3 API listens on (3900)
+#   GARAGE_DIR            the folder on the NAS holding garage.toml, meta/, data/
+#   GARAGE_RPC_SECRET     secret: 32 random bytes as hex (openssl rand -hex 32)
+#   GARAGE_ADMIN_TOKEN    secret: openssl rand -base64 32
+#   GARAGE_METRICS_TOKEN  secret: openssl rand -base64 32
+services:
+  garage:
+    image: dxflrs/garage:v2.4.1
+    container_name: garage
+    restart: unless-stopped
+    ports:
+    - ${GARAGE_BIND_ADDRESS}:3900:3900
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN}
+    volumes:
+    - ${GARAGE_DIR}/garage.toml:/etc/garage.toml:ro
+    - ${GARAGE_DIR}/meta:/var/lib/garage/meta
+    - ${GARAGE_DIR}/data:/var/lib/garage/data

@@ -1,7 +1,9 @@
 # Working in docker/
 
-Each `docker/<stack>/` is deployed to the Docker host by Dockhand as a Git stack, from its
-`compose.yaml`. Flux never reads this folder. Dockhand's own compose file isn't here: it lives
+Each `docker/<stack>/` is deployed by Dockhand as a Git stack, from its `compose.yaml`: to the
+Docker host, or, for `garage`, to the NAS through its Hawser agent. Flux never reads this
+folder. A stack deployed through Hawser runs on that machine's Docker, so its host paths are
+paths there: it can't bind-mount a file from this folder (see `garage/README.md`). Dockhand's own compose file isn't here: it lives
 on the host, so Dockhand never manages itself.
 
 - **A stack's real values are `${VARIABLE}`s set in Dockhand, and its data lives on the
