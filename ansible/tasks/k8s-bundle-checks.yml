@@ -1,0 +1,174 @@
+# Whether bundle k8s_bundle can be installed on the live cluster; any check
+# that fails, or can't answer, stops the run. Runs on a control plane, with
+# kubectl there (admin.conf); needs k8s-bundles.yml loaded. Sets k8s_current
+# (the API server's version) and k8s_target (the bundle).
+- name: The bundle exists
+  ansible.builtin.assert:
+    that: k8s_bundle | string in k8s_bundles
+    fail_msg: "No bundle '{{ k8s_bundle }}' in k8s-bundles.yml; there are {{ k8s_bundles.keys() | join(', ') }}."
+    quiet: true
+
+- name: Pick the bundle
+  ansible.builtin.set_fact:
+    k8s_target: "{{ k8s_bundles[k8s_bundle | string] }}"
+    k8s_target_minor: "{{ k8s_bundle | string }}"
+
+- name: Every add-on is described, and every bundle names them all
+  ansible.builtin.assert:
+    that: k8s_target.addons.keys() | sort == k8s_addons.keys() | sort
+    fail_msg: >-
+      Bundle {{ k8s_target_minor }} gives ranges for {{ k8s_target.addons.keys() | sort | join(', ') }}
+      but k8s_addons lists {{ k8s_addons.keys() | sort | join(', ') }}.
+    quiet: true
+
+- name: Read the versions running now
+  ansible.builtin.command: "kubectl --kubeconfig /etc/kubernetes/admin.conf {{ item }}"
+  loop:
+    - version -o json
+    - get nodes -o json
+    - get pods -n kube-system -l component=etcd -o json
+    - get pods -n kube-system -l component=kube-apiserver -o json
+  register: k8s_reads
+  changed_when: false
+  check_mode: false
+
+- name: Note them
+  ansible.builtin.set_fact:
+    k8s_current: "{{ (k8s_reads.results[0].stdout | from_json).serverVersion.gitVersion | regex_replace('^v', '') }}"
+    k8s_node_versions: >-
+      {{ (k8s_reads.results[1].stdout | from_json)['items'] | map(attribute='status.nodeInfo') |
+         map(attribute='kubeletVersion') | map('regex_replace', '^v', '') | list }}
+    k8s_node_runtimes: >-
+      {{ (k8s_reads.results[1].stdout | from_json)['items'] | map(attribute='status.nodeInfo') |
+         map(attribute='containerRuntimeVersion') | list }}
+    k8s_node_names: "{{ (k8s_reads.results[1].stdout | from_json)['items'] | map(attribute='metadata.name') | list }}"
+    k8s_etcd_tags: >-
+      {{ (k8s_reads.results[2].stdout | from_json)['items'] | map(attribute='spec.containers') |
+         map('first') | map(attribute='image') | map('regex_replace', '^.*:', '') | list }}
+    k8s_apiserver_endpoints: >-
+      {% set out = [] %}{% for p in (k8s_reads.results[3].stdout | from_json)['items'] %}{%
+        set _ = out.append(p.metadata.annotations['kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint']) %}{%
+      endfor %}{{ out }}
+
+- name: Show where the cluster is and where the bundle goes
+  ansible.builtin.debug:
+    msg:
+      - "API server {{ k8s_current }}; bundle {{ k8s_target_minor }} installs {{ k8s_target.kubernetes }}."
+      - "{% for n in k8s_node_names %}{{ n }}: kubelet {{ k8s_node_versions[loop.index0] }}, {{ k8s_node_runtimes[loop.index0] }}{{ '; ' if not loop.last }}{% endfor %}"
+      - "etcd: {{ k8s_etcd_tags | join(', ') }}"
+
+# kubeadm moves one minor at a time and never down. Equal minors are a patch
+# step, or a run resumed after stopping partway.
+- name: The bundle is this minor or the next, and not older
+  ansible.builtin.assert:
+    that:
+      - (k8s_target_minor.split('.')[1] | int) - (k8s_current.split('.')[1] | int) in [0, 1]
+      - k8s_target_minor.split('.')[0] == k8s_current.split('.')[0]
+      - k8s_target.kubernetes is version(k8s_current, '>=')
+    fail_msg: >-
+      The API server runs {{ k8s_current }}; bundle {{ k8s_target_minor }} ({{ k8s_target.kubernetes }})
+      is not it or the next minor. Run the bundles in order.
+    quiet: true
+
+# The kubelet may lag the API server but never lead it; CRI-O's minor goes with
+# the kubelet's on each node.
+- name: Every node is within the skew the target allows
+  ansible.builtin.assert:
+    that:
+      - k8s_node_versions | reject('version', k8s_current, '<=') | list | length == 0
+      - k8s_node_versions | map('regex_replace', '^(\d+\.\d+).*', '\1') |
+        reject('in', [k8s_current | regex_replace('^(\d+\.\d+).*', '\1'), k8s_target_minor]) | list | length == 0
+      - k8s_node_runtimes | map('regex_replace', '^cri-o://(\d+\.\d+).*', '\1') | list ==
+        k8s_node_versions | map('regex_replace', '^(\d+\.\d+).*', '\1') | list
+    fail_msg: >-
+      Nodes out of step: {% for n in k8s_node_names %}{{ n }} kubelet {{ k8s_node_versions[loop.index0] }}
+      / {{ k8s_node_runtimes[loop.index0] }}{{ ', ' if not loop.last }}{% endfor %}; API server {{ k8s_current }}.
+    quiet: true
+
+- name: etcd is new enough for this bundle
+  ansible.builtin.assert:
+    that: k8s_etcd_tags | map('regex_replace', '-.*', '') | reject('version', k8s_target.requires_etcd_min, '>=') | list | length == 0
+    fail_msg: >-
+      Bundle {{ k8s_target_minor }} needs etcd {{ k8s_target.requires_etcd_min }} or later on every member;
+      they run {{ k8s_etcd_tags | join(', ') }}. Run the previous bundle first (it sets etcd_image_tag).
+    quiet: true
+  when: k8s_target.requires_etcd_min is defined
+
+# The API server counts requests to deprecated APIs since it started, per
+# instance, with the release that removes each; ask every one of them.
+- name: Read each API server's count of deprecated APIs in use
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get --raw /metrics --server https://{{ item }}
+  loop: "{{ k8s_apiserver_endpoints }}"
+  register: k8s_metrics
+  changed_when: false
+  check_mode: false
+
+- name: No API in use is removed by the target
+  ansible.builtin.assert:
+    that: k8s_removed_in_use | length == 0
+    fail_msg: "In use and removed by {{ k8s_target_minor }}: {{ k8s_removed_in_use | join('; ') }}"
+    quiet: true
+  vars:
+    k8s_removed_in_use: >-
+      {% set out = [] %}{% for r in k8s_metrics.results %}{% for line in r.stdout_lines
+           if line.startswith('apiserver_requested_deprecated_apis{') %}{%
+        set rel = line | regex_search('removed_release="([^"]*)"', '\\1') | first %}{%
+        if rel and rel is version(k8s_target_minor, '<=') %}{%
+          set _ = out.append(line | regex_replace(' [0-9.e+]+$', '')) %}{% endif %}{%
+      endfor %}{% endfor %}{{ out | unique }}
+
+- name: Read each add-on's running version
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get {{ item.value.read.kind }}
+    {{ ('-n ' ~ item.value.read.namespace) if item.value.read.namespace else '' }}
+    {{ item.value.read.name }} -o jsonpath={{ item.value.read.field }}
+  loop: "{{ k8s_addons | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: k8s_addon_reads
+  changed_when: false
+  check_mode: false
+
+- name: Note the add-on versions
+  ansible.builtin.set_fact:
+    k8s_addon_versions: >-
+      {{ k8s_addon_versions | default({}) | combine({item.item.key:
+         item.stdout | regex_search('[0-9]+\.[0-9]+\.[0-9]+') | default('', true)}) }}
+  loop: "{{ k8s_addon_reads.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+
+- name: Every add-on runs a version the bundle supports
+  ansible.builtin.assert:
+    that: k8s_addons_out | length == 0
+    fail_msg: "Add-ons outside bundle {{ k8s_target_minor }}'s ranges: {{ k8s_addons_out | join('; ') }}. Upgrade them through git first."
+    success_msg: "{{ k8s_addon_versions }}"
+  vars:
+    k8s_addons_out: >-
+      {% set out = [] %}{% for name, r in k8s_target.addons.items() %}{%
+        set v = k8s_addon_versions[name] | default('') %}{%
+        if not v %}{% set _ = out.append(name ~ ': version not readable') %}{%
+        elif not (v is version(r.min, '>=') and v is version(r.below, '<')) %}{%
+          set _ = out.append(name ~ ' ' ~ v ~ ' (needs ' ~ r.min ~ ' up to below ' ~ r.below ~ ')') %}{%
+        endif %}{% endfor %}{{ out }}
+
+- name: Read the HelmReleases
+  ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf get helmreleases.helm.toolkit.fluxcd.io -A -o json
+  register: k8s_helmreleases
+  changed_when: false
+  check_mode: false
+
+- name: Every HelmRelease is an add-on or known not to depend on the version
+  ansible.builtin.assert:
+    that: k8s_unknown_releases | length == 0
+    fail_msg: >-
+      Not in k8s-bundles.yml: {{ k8s_unknown_releases | join(', ') }}. Add each to k8s_addons with
+      ranges, or to k8s_version_independent once its chart is checked.
+    quiet: true
+  vars:
+    k8s_unknown_releases: >-
+      {{ (k8s_helmreleases.stdout | from_json)['items'] | map(attribute='metadata.namespace') |
+         zip((k8s_helmreleases.stdout | from_json)['items'] | map(attribute='metadata.name')) |
+         map('join', '/') | list | difference(k8s_version_independent) |
+         difference(k8s_addons.values() | selectattr('helmrelease', 'defined') | map(attribute='helmrelease') | list) }}

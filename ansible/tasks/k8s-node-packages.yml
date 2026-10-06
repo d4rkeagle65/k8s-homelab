@@ -1,0 +1,58 @@
+# Moves a drained node's kubelet, kubectl and CRI-O to the bundle (the
+# packages stay held), sets CRI-O's pause image to the one kubeadm uses,
+# removes kubelet flags the bundle's kubelet no longer accepts, restarts CRI-O
+# and the kubelet, and waits for the node to report the bundle's version.
+- name: Install kubelet, kubectl and CRI-O
+  ansible.builtin.apt:
+    name:
+      - kubelet={{ k8s_target.kubernetes_package }}
+      - kubectl={{ k8s_target.kubernetes_package }}
+      - cri-o={{ k8s_target.cri_o_package }}
+    allow_change_held_packages: true
+    allow_downgrade: false
+    dpkg_options: force-confold,force-confdef
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Keep them held
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: [kubelet, kubectl, cri-o]
+
+- name: Set CRI-O's pause image to kubeadm's
+  ansible.builtin.copy:
+    dest: /etc/crio/crio.conf.d/20-pause-image.conf
+    content: |
+      # Written by ansible/k8s-upgrade.yml: the pause image kubeadm expects.
+      [crio.image]
+      pause_image = "{{ k8s_target.pause_image }}"
+    mode: "0644"
+
+- name: Remove kubelet flags this kubelet no longer accepts
+  ansible.builtin.replace:
+    path: /var/lib/kubelet/kubeadm-flags.env
+    regexp: '\s*{{ item }}=\S+'
+    replace: ''
+  loop: "{{ k8s_target.kubelet_flags_removed | default([]) }}"
+
+- name: Restart CRI-O, then the kubelet
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: restarted
+    daemon_reload: true
+  loop: [crio, kubelet]
+
+- name: Wait for the node to report the bundle's kubelet and CRI-O
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get node {{ k8s_node }}
+    -o jsonpath={.status.nodeInfo.kubeletVersion}|{.status.nodeInfo.containerRuntimeVersion}
+  delegate_to: "{{ kubectl_host }}"
+  register: k8s_node_reported
+  until: >-
+    k8s_node_reported.stdout.split('|')[0] == 'v' ~ k8s_target.kubernetes and
+    k8s_node_reported.stdout.split('|')[1] is search('^cri-o://' ~ (k8s_target.cri_o_package | regex_replace('-.*', '') | regex_escape) ~ '$')
+  retries: 40
+  delay: 15
+  changed_when: false
+  when: not ansible_check_mode

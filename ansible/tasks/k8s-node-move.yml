@@ -1,0 +1,19 @@
+# Unless node k8s_node runs the bundle already (k8s_node_done): drain it, move
+# its kubelet, kubectl and CRI-O to the bundle, and bring it back.
+- name: Show what happens to this node
+  ansible.builtin.debug:
+    msg: >-
+      {{ k8s_node }} runs {{ k8s_node_runs.stdout }};
+      {{ 'already on the bundle, not drained' if k8s_node_done else 'drained and moved to v' ~ k8s_target.kubernetes }}.
+
+- name: Drain, move and bring back
+  when: not k8s_node_done
+  block:
+    - name: Take the node out of service
+      ansible.builtin.include_tasks: k8s-node-drain.yml
+
+    - name: Move its packages
+      ansible.builtin.include_tasks: k8s-node-packages.yml
+
+    - name: Put the node back
+      ansible.builtin.include_tasks: k8s-node-return.yml

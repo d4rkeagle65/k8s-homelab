@@ -1,0 +1,212 @@
+# Upgrades Kubernetes to one bundle from k8s-bundles.yml (k8s_bundle: "1.34"):
+# the current minor's latest patch, or the next minor. First it checks the
+# bundle against the live cluster (k8s-bundle-checks.yml, k8s-bundle-packages.yml)
+# and stops on anything that fails or can't be answered. Then, the way
+# kubeadm's upgrade guide does it:
+#   control planes, one at a time: kubeadm to the bundle, `kubeadm upgrade
+#     apply` on the first (`upgrade node` on the others), kube-vip's image;
+#     then drain, kubelet, kubectl and CRI-O, uncordon;
+#   workers, one at a time: kubeadm, `kubeadm upgrade node`, drain, kubelet,
+#     kubectl and CRI-O, uncordon.
+# The cluster and every database cluster are checked healthy before each node
+# and waited for after it. A node already on the bundle is not drained again,
+# so a run that stopped partway can be run again.
+#
+# Inventory: the "Kubernetes nodes" one (k8s-node-update.yml).
+# Variables: k8s_api_url, k8s_ca_b64, k8s_token; k8s_bundle, set on the task.
+# Flux-managed add-ons are upgraded by commits beforehand: the checks say which.
+#
+# In check mode (--check) it runs every check and changes nothing.
+
+- name: Check the bundle can be fetched and the cluster is healthy
+  hosts: localhost
+  gather_facts: false
+  vars_files: [k8s-bundles.yml]
+  tasks:
+    - name: A bundle is chosen
+      ansible.builtin.assert:
+        that: k8s_bundle is defined and k8s_bundle | string in k8s_bundles
+        fail_msg: "Set k8s_bundle to one of {{ k8s_bundles.keys() | join(', ') }} (a string, e.g. \"1.34\")."
+        quiet: true
+
+    - name: Pick it
+      ansible.builtin.set_fact:
+        k8s_target: "{{ k8s_bundles[k8s_bundle | string] }}"
+        k8s_target_minor: "{{ k8s_bundle | string }}"
+
+    - name: Its packages and images exist
+      ansible.builtin.include_tasks: tasks/k8s-bundle-packages.yml
+
+    - name: Decode the Kubernetes CA certificate
+      ansible.builtin.set_fact:
+        k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+    - name: The CA certificate is one
+      ansible.builtin.assert:
+        that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+        fail_msg: >-
+          k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
+          token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+        quiet: true
+
+    - name: Write the Kubernetes CA certificate for the API checks
+      ansible.builtin.copy:
+        content: "{{ k8s_ca_pem }}"
+        dest: "{{ playbook_dir }}/.k8s-ca.pem"
+        mode: "0600"
+      check_mode: false
+
+    - name: The Kubernetes cluster is healthy
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+
+    - name: There are two control planes or more, so kubectl has somewhere to run
+      ansible.builtin.assert:
+        that: groups.get('k8s_control_planes', []) | length >= 2
+        fail_msg: The inventory needs k8s_control_planes with at least two nodes.
+        quiet: true
+
+- name: Check the bundle against the cluster
+  hosts: k8s_control_planes[0]
+  gather_facts: false
+  vars_files: [k8s-bundles.yml]
+  tasks:
+    - name: The bundle fits the cluster
+      ansible.builtin.include_tasks: tasks/k8s-bundle-checks.yml
+
+- name: Check every node runs cgroup v2
+  hosts: k8s_nodes
+  gather_facts: false
+  vars_files: [k8s-bundles.yml]
+  tasks:
+    - name: Read the cgroup filesystem
+      ansible.builtin.command: stat -fc %T /sys/fs/cgroup
+      register: k8s_cgroup_fs
+      changed_when: false
+      check_mode: false
+      failed_when: k8s_cgroup_fs.stdout | trim != 'cgroup2fs'
+      when: k8s_bundles[k8s_bundle | string].requires_cgroup_v2 | default(false)
+
+- name: Upgrade the control planes one at a time
+  hosts: k8s_control_planes
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [k8s-bundles.yml]
+  vars: &node_vars
+    k8s_target: "{{ k8s_bundles[k8s_bundle | string] }}"
+    k8s_target_minor: "{{ k8s_bundle | string }}"
+    kubectl_host: "{{ groups['k8s_control_planes'] | reject('equalto', inventory_hostname) | first }}"
+    k8s_node: "{{ inventory_hostname }}"
+  tasks:
+    - name: Check the cluster and prepare this node
+      ansible.builtin.include_tasks: tasks/k8s-node-prepare.yml
+
+    - name: Install the bundle's kubeadm
+      ansible.builtin.include_tasks: tasks/k8s-kubeadm.yml
+
+    - name: Upgrade the control plane (first control plane)
+      when: inventory_hostname == groups['k8s_control_planes'][0]
+      block:
+        - name: Set etcd's image for this bundle
+          ansible.builtin.include_tasks: tasks/k8s-etcd-tag.yml
+
+        - name: Ask kubeadm for its plan
+          ansible.builtin.command: kubeadm upgrade plan v{{ k8s_target.kubernetes }}
+          register: k8s_plan
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Show the plan
+          ansible.builtin.debug:
+            msg: "{{ k8s_plan.stdout_lines | default(['(check mode: kubeadm is not upgraded, so it has no plan to show)']) }}"
+
+        - name: Read the API server's version
+          ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf version -o json
+          register: k8s_server_version
+          changed_when: false
+          check_mode: false
+
+        - name: kubeadm upgrade apply
+          ansible.builtin.command: kubeadm upgrade apply v{{ k8s_target.kubernetes }} --yes
+          changed_when: true
+          when: >-
+            (k8s_server_version.stdout | from_json).serverVersion.gitVersion != 'v' ~ k8s_target.kubernetes
+
+    - name: kubeadm upgrade node (other control planes)
+      ansible.builtin.command: kubeadm upgrade node
+      changed_when: true
+      when: inventory_hostname != groups['k8s_control_planes'][0]
+
+    - name: Set kube-vip's image
+      ansible.builtin.replace:
+        path: /etc/kubernetes/manifests/kube-vip.yaml
+        regexp: '(image:\s*ghcr\.io/kube-vip/kube-vip:)\S+'
+        replace: '\g<1>{{ k8s_target.kube_vip }}'
+
+    - name: Wait for the API server behind the VIP
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+      vars:
+        k8s_wait: true
+
+    - name: Move kubelet, kubectl and CRI-O to the bundle
+      ansible.builtin.include_tasks: tasks/k8s-node-move.yml
+
+- name: Upgrade the workers one at a time
+  hosts: k8s_workers
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars_files: [k8s-bundles.yml]
+  vars: *node_vars
+  tasks:
+    - name: Check the cluster and prepare this node
+      ansible.builtin.include_tasks: tasks/k8s-node-prepare.yml
+
+    - name: Install the bundle's kubeadm
+      ansible.builtin.include_tasks: tasks/k8s-kubeadm.yml
+
+    - name: kubeadm upgrade node
+      ansible.builtin.command: kubeadm upgrade node
+      changed_when: true
+
+    - name: Move kubelet, kubectl and CRI-O to the bundle
+      ansible.builtin.include_tasks: tasks/k8s-node-move.yml
+
+- name: Check the result
+  hosts: k8s_control_planes[0]
+  gather_facts: false
+  vars_files: [k8s-bundles.yml]
+  vars:
+    k8s_target: "{{ k8s_bundles[k8s_bundle | string] }}"
+  tasks:
+    - name: Read the API server and the nodes
+      ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes -o json
+      register: k8s_final_nodes
+      changed_when: false
+      check_mode: false
+
+    - name: Every node runs the bundle
+      ansible.builtin.assert:
+        that: >-
+          (k8s_final_nodes.stdout | from_json)['items'] | map(attribute='status.nodeInfo.kubeletVersion') |
+          reject('equalto', 'v' ~ k8s_target.kubernetes) | list | length == 0
+        fail_msg: >-
+          Not on {{ k8s_target.kubernetes }}: {{ (k8s_final_nodes.stdout | from_json)['items'] |
+          map(attribute='metadata.name') | list }}
+        success_msg: Every node runs Kubernetes {{ k8s_target.kubernetes }}.
+      when: not ansible_check_mode
+
+- name: Clean up
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove the written CA certificate
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/.k8s-ca.pem"
+        state: absent
+      check_mode: false

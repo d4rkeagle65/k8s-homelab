@@ -129,20 +129,8 @@
     - name: Drain, upgrade, reboot and bring back
       when: pending | length > 0
       block:
-        - name: Cordon the node
-          ansible.builtin.command: "{{ kubectl }} cordon {{ k8s_node }}"
-          delegate_to: "{{ kubectl_host }}"
-          changed_when: true
-
-        - name: Move the databases off the node
-          ansible.builtin.include_tasks: tasks/cnpg-free-node.yml
-
-        - name: Drain the node
-          ansible.builtin.command: >-
-            {{ kubectl }} drain {{ k8s_node }} --ignore-daemonsets --delete-emptydir-data
-            --timeout=15m
-          delegate_to: "{{ kubectl_host }}"
-          changed_when: true
+        - name: Take the node out of service
+          ansible.builtin.include_tasks: tasks/k8s-node-drain.yml
 
         - name: Upgrade
           ansible.builtin.apt:
@@ -162,26 +150,8 @@
             msg: Rebooting after the node update (Semaphore)
           when: node_upgraded is changed
 
-        - name: Uncordon the node
-          ansible.builtin.command: "{{ kubectl }} uncordon {{ k8s_node }}"
-          delegate_to: "{{ kubectl_host }}"
-          changed_when: true
-
-        - name: Wait for the Kubernetes nodes to be Ready again
-          ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
-          args:
-            apply:
-              delegate_to: localhost
-          vars:
-            k8s_wait: true
-
-        - name: Close the database maintenance windows
-          ansible.builtin.include_tasks: tasks/cnpg-maintenance-end.yml
-
-        - name: Wait for every database cluster to be whole again
-          ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
-          vars:
-            cnpg_wait: true
+        - name: Put the node back
+          ansible.builtin.include_tasks: tasks/k8s-node-return.yml
 
 - name: Clean up
   hosts: localhost

@@ -8,6 +8,7 @@ and addresses), the SSH key, and the Kubernetes token.
 |---|---|
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
 | `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are a separate job (`QUEUE-k8s-upgrade.md`). It also owns the nodes' Kubernetes and CRI-O package sources. |
+| `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
 
 ## Setting up Semaphore (once)
 
@@ -143,6 +144,37 @@ What a run does to the workloads: each database cluster with two instances keeps
 single-instance one (immich, manictime) is down while its node updates. If a run stops
 partway, the node it was on stays cordoned: fix the cause, then run it again, or
 `kubectl uncordon` it.
+
+## Kubernetes version upgrades (`k8s-upgrade.yml`)
+
+A **bundle** in `k8s-bundles.yml` is one Kubernetes minor with everything that has to match
+it: the exact kubeadm, kubelet, kubectl and CRI-O packages, the pause image, kube-vip, an etcd
+override where one is needed, and the version range each add-on must be in. A run installs one
+bundle, chosen with `k8s_bundle`.
+
+Before it touches anything, a run stops unless:
+
+- the bundle is the cluster's current minor or the next one, and not older;
+- every node's kubelet is within the skew the target allows, with CRI-O on the kubelet's minor;
+- etcd is new enough (etcd 3.6 needs every member on 3.5.32 or later first);
+- the bundle's packages exist in their repositories, and its etcd and kube-vip images exist;
+- no API the target removes is in use (each API server's own count of deprecated requests);
+- every add-on runs a version inside the bundle's range, and every HelmRelease is either an
+  add-on or listed as version-independent: an unknown counts as incompatible;
+- every node runs cgroup v2, where the bundle needs it.
+
+Add-ons that Flux installs are upgraded by commits first; the checks say which. Then a run
+upgrades the control planes one at a time, then the workers, each drained like a node update.
+A node already on the bundle isn't drained again, so a run that stopped can be run again.
+
+**Templates:** playbook `ansible/k8s-upgrade.yml`, the "Kubernetes nodes" inventory, the
+repository and the "Kubernetes" variable group, with `k8s_bundle` in the template's extra
+variables (`{"k8s_bundle": "1.33"}`, a string): **"Kubernetes upgrade: check"** with CLI args
+`["--check"]` and **"Kubernetes upgrade"**. Change the bundle on both for each step.
+
+**A new bundle:** copy the newest, set the versions, and give every add-on's range from its
+project's support page, with the link. A new add-on goes into `k8s_addons` with how to read
+its version, and a range in every bundle.
 
 ## Running a Proxmox upgrade
 

@@ -100,6 +100,36 @@ First target: 1.36. Later versions follow the same way.
 - **Nodes are reached over SSH on their management addresses** with Semaphore's key, pinned in
   Semaphore's `known_hosts`.
 
+## Calico into Flux (the plan, for the owner's go-ahead)
+
+Checked 2026-10-06: the `tigera-operator` chart v3.30.2 (the running version), rendered with
+values copied from the live Installation, differs from the cluster (`kubectl diff`, a dry run)
+only by two empty defaults on the Installation (`imagePullSecrets: []`,
+`kubernetesProvider: ""`); the operator Deployment, its RBAC and ServiceAccount, and the
+APIServer, Goldmane and Whisker resources match. So Calico becomes a captured Helm release,
+the way every other release here was made:
+
+1. After the node update run, with the cluster healthy: label the Namespace
+   (`homelab.local/category=system`) and give each running chart object Helm's ownership
+   metadata (`meta.helm.sh/release-name` and `-namespace: tigera-operator`, label
+   `app.kubernetes.io/managed-by: Helm`): the Deployment, ServiceAccount, both ClusterRoles,
+   the ClusterRoleBinding, the RoleBinding, and the Installation, APIServer, Goldmane and
+   Whisker named `default`.
+2. `helm repo add projectcalico https://docs.tigera.io/calico/charts`, then `helm install
+   tigera-operator projectcalico/tigera-operator --version v3.30.2 -n tigera-operator
+   --skip-crds -f <values from the live Installation>`; the operator keeps managing its CRDs
+   (`manageCRDs: true`, as now).
+3. Read back: the release deployed, `calico-node`'s DaemonSet generation and pods unchanged,
+   every `tigerastatus` Available, every node Ready.
+4. `backup.py all` writes `prod/system/tigera-operator/tigera-operator/` and the
+   HelmRepository; review, commit, push; Flux takes the release over.
+5. Later upgrades (3.31, 3.32) are version bumps in its `values.yaml`/`release.yaml`; from 3.32
+   the CRDs come from separate charts, applied first.
+
+Back out: before step 4, `helm uninstall --keep-history` is NOT safe (its pre-delete hook
+removes Calico); instead delete Helm's release Secret (`sh.helm.release.v1.tigera-operator.v1`)
+and the ownership metadata, which leaves the running objects as they were.
+
 ## Plan
 
 1. **Routine node updates** (`ansible/k8s-node-update.yml`): repos (drop the dead Helm repo,
@@ -120,8 +150,8 @@ First target: 1.36. Later versions follow the same way.
 - [ ] Semaphore's key and the nodes' host keys in place; inventory group for the nodes
 - [ ] Calico in Flux, adopted without a restart of calico-node
 - [x] Bundles 1.33-1.36 researched (above)
-- [ ] `ansible/k8s-bundles.yml` written
-- [ ] Upgrade playbook written, its checks tested against the live cluster
+- [x] `ansible/k8s-bundles.yml` written
+- [x] Upgrade playbook written; bundle checks run against the live cluster (1.34 refused for etcd, 1.35 for skipping a minor)
 - [ ] Cluster on 1.33.13 with CRI-O from the stable repository
 - [ ] 1.34, 1.35, 1.36
 

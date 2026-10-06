@@ -1,0 +1,126 @@
+# Kubernetes version bundles for k8s-upgrade.yml: one per Kubernetes minor,
+# each a set of versions known to work together. A run takes one bundle
+# (k8s_bundle: "1.34") and installs only what it names; before touching
+# anything it checks the live cluster against it (README.md, "Kubernetes
+# version upgrades").
+#
+# A version range is [min, below): min included, below excluded. Each range
+# carries the page it comes from; checked 2026-10-06. When an add-on's
+# version or range changes, update it here in the same commit.
+
+# How to read each add-on's running version: kubectl get <kind> -n <namespace>
+# <name> -o jsonpath=<field>, then the first x.y.z in it. `helmrelease` is the
+# Flux HelmRelease that installs it, if any, so the unknown-release check
+# knows it is covered.
+k8s_addons:
+  calico:
+    read: {kind: installations.operator.tigera.io, namespace: "", name: default, field: "{.status.calicoVersion}"}
+    helmrelease: tigera-operator/tigera-operator   # once adopted (QUEUE-k8s-upgrade.md)
+    source: https://docs.tigera.io/calico/latest/getting-started/kubernetes/requirements
+  cert-manager:
+    read: {kind: helmreleases.helm.toolkit.fluxcd.io, namespace: cert-manager, name: cert-manager, field: "{.status.lastAttemptedRevision}"}
+    helmrelease: cert-manager/cert-manager
+    source: https://cert-manager.io/docs/releases/
+  cloudnative-pg:
+    read: {kind: deployments, namespace: cnpg-system, name: cnpg-cloudnative-pg, field: "{.spec.template.spec.containers[0].image}"}
+    helmrelease: cnpg-system/cnpg
+    source: https://github.com/cloudnative-pg/cloudnative-pg/blob/main/docs/src/supported_releases.md
+  flux:
+    read: {kind: namespaces, namespace: "", name: flux-system, field: "{.metadata.labels.app\\.kubernetes\\.io/version}"}
+    source: https://fluxcd.io/flux/releases/
+  metrics-server:
+    read: {kind: deployments, namespace: kube-system, name: metrics-server, field: "{.spec.template.spec.containers[0].image}"}
+    source: https://github.com/kubernetes-sigs/metrics-server#compatibility-matrix
+
+# HelmReleases whose charts don't depend on the Kubernetes version (no
+# kubeVersion limit that applies, stable APIs only). A HelmRelease in neither
+# this list nor k8s_addons stops a run: unknown is not compatible.
+k8s_version_independent:
+  - authentik/authentik
+  - cloudflare-tunnel/cloudflare-tunnel-ingress-controller
+  - emby/emby
+  - external-dns/external-dns          # app 0.18+ needed from Kubernetes 1.33; runs 0.23
+  - external-secrets/external-secrets
+  - immich/immich
+  - local-path-storage/local-path-provisioner
+  - manictime/manictime-server
+  - media/bookshelf
+  - media/jellyseerr
+  - media/lidarr
+  - media/prowlarr
+  - media/qbittorrent
+  - media/radarr
+  - media/sabnzbd
+  - media/sonarr
+  - media/tdarr
+  - media/whisparr
+  - metallb-system/metallb
+  - nfs-client/nfs-eph-rwo
+  - nfs-client/nfs-retain-rwo
+  - obsidian/obsidian
+  - redis-ha/redis-ha
+  - traefik/traefik
+  - traefik-isolated/traefik-isolated
+
+k8s_bundles:
+  "1.33":
+    kubernetes: 1.33.13              # pkgs.k8s.io/core:/stable:/v1.33
+    kubernetes_package: 1.33.13-1.1
+    cri_o_package: 1.33.13-1.1       # download.opensuse.org isv:/cri-o:/stable:/v1.33
+    pause_image: registry.k8s.io/pause:3.10
+    # kubeadm 1.33.13 installs etcd 3.5.24, but etcd 3.6 (kubeadm 1.34) needs
+    # every member on 3.5.32+ first: https://etcd.io/docs/v3.6/upgrades/upgrade_3_6/
+    etcd_image_tag: 3.5.34-0
+    kube_vip: v1.2.4                 # no stated range; built against client-go 0.36
+    addons:
+      calico: {min: 3.30.0, below: 3.32.0}          # 3.30: 1.31-1.35; 3.31: 1.32-1.35
+      cert-manager: {min: 1.18.0, below: 1.22.0}    # 1.18: 1.29-1.33 ... 1.21: 1.33-1.36
+      cloudnative-pg: {min: 1.26.0, below: 1.31.0}  # 1.30: 1.34-1.36, tested on 1.33
+      flux: {min: 2.8.0, below: 2.10.0}             # 2.8: 1.33-1.35; 2.9's check accepts 1.33
+      metrics-server: {min: 0.7.0, below: 0.9.0}    # 0.9 needs 1.34+
+
+  "1.34":
+    kubernetes: 1.34.12
+    kubernetes_package: 1.34.12-1.1
+    cri_o_package: 1.34.15-2.1
+    pause_image: registry.k8s.io/pause:3.10.1
+    requires_etcd_min: 3.5.32        # see 1.33
+    kube_vip: v1.2.4
+    addons:
+      calico: {min: 3.30.0, below: 3.33.0}          # 3.32: 1.34-1.36
+      cert-manager: {min: 1.19.0, below: 1.22.0}    # 1.18 stops at 1.33
+      cloudnative-pg: {min: 1.28.0, below: 1.31.0}  # 1.28: 1.32-1.35
+      flux: {min: 2.8.0, below: 2.10.0}
+      metrics-server: {min: 0.8.0, below: 0.10.0}   # 0.8: 1.31+; 0.9: 1.34+
+
+  "1.35":
+    kubernetes: 1.35.9
+    kubernetes_package: 1.35.9-1.1
+    cri_o_package: 1.35.10-1.1
+    pause_image: registry.k8s.io/pause:3.10.1
+    # The kubelet drops --pod-infra-container-image and refuses cgroup v1.
+    kubelet_flags_removed: [--pod-infra-container-image]
+    requires_cgroup_v2: true
+    kube_vip: v1.2.4
+    addons:
+      calico: {min: 3.30.0, below: 3.34.0}          # 3.30-3.33 all cover 1.35
+      cert-manager: {min: 1.19.0, below: 1.22.0}
+      cloudnative-pg: {min: 1.28.0, below: 1.31.0}
+      flux: {min: 2.8.0, below: 2.10.0}
+      metrics-server: {min: 0.8.0, below: 0.10.0}
+
+  "1.36":
+    kubernetes: 1.36.5
+    kubernetes_package: 1.36.5-1.1
+    cri_o_package: 1.36.7-1.1
+    pause_image: registry.k8s.io/pause:3.10.2   # CRI-O 1.36 defaults to 3.10.1
+    requires_etcd_min: 3.6.0
+    kubelet_flags_removed: [--pod-infra-container-image]
+    requires_cgroup_v2: true
+    kube_vip: v1.2.4
+    addons:
+      calico: {min: 3.32.0, below: 3.34.0}          # 3.32: 1.34-1.36; 3.33: 1.35-1.37
+      cert-manager: {min: 1.21.0, below: 1.22.0}    # 1.21: 1.33-1.36
+      cloudnative-pg: {min: 1.30.0, below: 1.31.0}  # 1.30: 1.34-1.36
+      flux: {min: 2.9.0, below: 2.10.0}             # 2.9: 1.34-1.36
+      metrics-server: {min: 0.9.0, below: 0.10.0}

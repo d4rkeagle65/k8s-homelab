@@ -1,0 +1,22 @@
+# Installs kubeadm at the bundle's version on this node (the package stays
+# held) and reads it back. Needs the node's sources on the bundle's minor.
+- name: Install kubeadm {{ k8s_target.kubernetes }}
+  ansible.builtin.apt:
+    name: kubeadm={{ k8s_target.kubernetes_package }}
+    allow_change_held_packages: true
+    allow_downgrade: false
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Keep kubeadm held
+  ansible.builtin.dpkg_selections:
+    name: kubeadm
+    selection: hold
+
+- name: Read kubeadm's version back
+  ansible.builtin.command: kubeadm version -o short
+  register: k8s_kubeadm_version
+  changed_when: false
+  check_mode: false
+  failed_when: >-
+    not ansible_check_mode and k8s_kubeadm_version.stdout | trim != 'v' ~ k8s_target.kubernetes

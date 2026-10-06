@@ -1,0 +1,23 @@
+# Puts node k8s_node back after k8s-node-drain.yml: uncordon, wait for every
+# node to be Ready, close the database maintenance windows, and wait until
+# every database cluster has all its instances ready again.
+- name: Uncordon the node
+  ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf uncordon {{ k8s_node }}
+  delegate_to: "{{ kubectl_host }}"
+  changed_when: true
+
+- name: Wait for the Kubernetes nodes to be Ready again
+  ansible.builtin.include_tasks: kubernetes-healthy.yml
+  args:
+    apply:
+      delegate_to: localhost
+  vars:
+    k8s_wait: true
+
+- name: Close the database maintenance windows
+  ansible.builtin.include_tasks: cnpg-maintenance-end.yml
+
+- name: Wait for every database cluster to be whole again
+  ansible.builtin.include_tasks: cnpg-healthy.yml
+  vars:
+    cnpg_wait: true

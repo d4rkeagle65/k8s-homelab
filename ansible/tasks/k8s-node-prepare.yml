@@ -1,0 +1,38 @@
+# Before k8s-upgrade.yml touches node k8s_node: the cluster and every database
+# cluster are healthy, the node's package sources point at the bundle's minor
+# and its lists are fresh. Sets k8s_node_done when the node already runs the
+# bundle's kubelet and CRI-O, so a resumed run doesn't drain it again.
+- name: The Kubernetes cluster is healthy before this node
+  ansible.builtin.include_tasks: kubernetes-healthy.yml
+  args:
+    apply:
+      delegate_to: localhost
+
+- name: Every database cluster is healthy before this node
+  ansible.builtin.include_tasks: cnpg-healthy.yml
+
+- name: Read what this node runs
+  ansible.builtin.command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf get node {{ k8s_node }}
+    -o jsonpath={.status.nodeInfo.kubeletVersion}|{.status.nodeInfo.containerRuntimeVersion}
+  delegate_to: "{{ kubectl_host }}"
+  register: k8s_node_runs
+  changed_when: false
+  check_mode: false
+
+- name: Note whether it is done already
+  ansible.builtin.set_fact:
+    k8s_node_done: >-
+      {{ k8s_node_runs.stdout == 'v' ~ k8s_target.kubernetes ~ '|cri-o://' ~ (k8s_target.cri_o_package | regex_replace('-.*', '')) }}
+
+- name: Point the package sources at {{ k8s_target_minor }}
+  ansible.builtin.include_tasks: k8s-node-repos.yml
+  vars:
+    k8s_minor: "{{ k8s_target_minor }}"
+
+# Refreshing the lists only looks, so it runs in check mode too.
+- name: Refresh the package lists
+  ansible.builtin.apt:
+    update_cache: true
+  changed_when: false
+  check_mode: false
