@@ -10,6 +10,9 @@
 #              while every other DNS server answers, and the run waits for its
 #              own to answer again; a host carrying them all (two or more) is
 #              left for a reboot by hand.
+#   remove_old_kernels  true to purge kernels beyond the running one, the
+#              newest keep_kernels (default 2) and any pinned in
+#              proxmox-boot-tool; off, the run only lists them.
 #   evacuate   per host, VMs to live-migrate off before its reboot:
 #              [{vmid: 107, to: <inventory host>}]; moved back afterwards
 #              unless evacuate_return is false. The Docker VM, where Semaphore
@@ -125,6 +128,9 @@
     - name: Remove packages nothing needs any more
       ansible.builtin.apt:
         autoremove: true
+
+    - name: Old kernels
+      ansible.builtin.include_tasks: tasks/proxmox-old-kernels.yml
 
     # A reboot is due when Debian says so, or when the newest installed kernel
     # isn't the one running.

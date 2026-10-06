@@ -84,9 +84,10 @@ Decisions that unblock the work below; each gives a recommendation.
     tolerations from the default 5 minutes to about 30 seconds.
   - Cost: double the database disk on another worker.
 - **Proxmox host cleanup.**
-  - Run `apt autoremove` on each host to clear the Proxmox 8 leftovers.
-  - Once kernel 7.0 has run cleanly for a couple of weeks, remove
-    `6.14.11-4` (keep `6.14.11-9` as the fallback): `/boot` is only 456 MB.
+  - Once kernel 7.0 has run cleanly for a couple of weeks (from about 2026-10-16), set
+    `remove_old_kernels: true` on the Proxmox inventory and run the upgrade template: with the
+    default `keep_kernels: 2` it removes `6.14.11-4` and keeps `6.14.11-9` as the fallback.
+    Every run already lists what it would remove.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
 - **SSH to the k8s nodes only from the management network** (decision 6). Each node
