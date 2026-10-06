@@ -72,6 +72,18 @@ Decisions that unblock the work below; each gives a recommendation.
   Ansible**, with version bundles checked for compatibility; CRI-O on the nodes is a dev build
   from a frozen repository. In progress; see [QUEUE-k8s-upgrade.md](QUEUE-k8s-upgrade.md).
 
+- **Database backups: none exist today.** The Proxmox job skips each worker's database dataset
+  (`mp1` has no `backup=1`), so the nine two-instance clusters have only their replica and
+  immich and manictime nothing. The plan:
+  1. Garage (S3) on the NAS: `docker/garage/`, deployed by the owner; then the
+     `CNPG_BACKUP_S3_*` fields in Vaultwarden and `cluster-secrets`.
+  2. The CloudNativePG Barman Cloud plugin as a HelmRelease beside the operator (it needs
+     cert-manager, which is there); an `ObjectStore` per database namespace, WAL archiving on
+     each Cluster, a nightly `ScheduledBackup` each; retention 30 days unless decided otherwise.
+  3. A restore test into a scratch cluster, latest and point in time, before calling it done.
+  Optional before 1: a nightly `pg_dump` of immich and manictime to an `nfs-retain-rwo` volume.
+  Separately, `mp0` (container images) carries `backup=1` on each worker and could drop it.
+
 ## Cleanup
 
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
