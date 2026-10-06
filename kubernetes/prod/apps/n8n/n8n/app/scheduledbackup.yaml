@@ -1,0 +1,15 @@
+# A base backup of n8n's database every night at 02:50 (CloudNativePG's schedule
+# has a seconds field first). Not immediate: the first base backup waits for
+# the first night, once the new cluster is up with the plugin's sidecar.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: n8n-postgres-nightly
+spec:
+  schedule: "0 50 2 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: n8n-postgres
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

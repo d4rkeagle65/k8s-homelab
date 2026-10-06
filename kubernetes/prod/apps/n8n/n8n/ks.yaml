@@ -1,0 +1,30 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: n8n
+  namespace: flux-system
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: n8n
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  path: ./kubernetes/prod/apps/n8n/n8n/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: n8n
+  dependsOn:
+  - name: cnpg
+  - name: n8n-backup
+  postBuild:
+    substituteFrom:
+    - kind: ConfigMap
+      name: cluster-settings
+      optional: true
+    - kind: Secret
+      name: cluster-secrets
+      optional: true
