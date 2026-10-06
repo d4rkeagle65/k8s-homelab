@@ -16,7 +16,7 @@ trusted devices** in your claude.ai settings.
 
 ## Before the first deploy
 
-1. **The cluster access objects** (`kubernetes/prod/system/claude-code/`: a
+1. **The cluster access objects** (`kubernetes/prod/system/cluster-access/claude-code/`: a
    ServiceAccount with cluster-admin and a token Secret) are applied by Flux
    once they're on `main`.
 2. **The home folder**, as root on the host. The container runs as uid 1000:
@@ -64,7 +64,7 @@ certificate, so it can be revoked on its own.
 1. On the PC (PowerShell), copy the token Secret's data:
 
    ```powershell
-   kubectl -n claude-code get secret claude-code-token -o jsonpath='{.data}' | Set-Clipboard
+   kubectl -n cluster-access get secret claude-code-token -o jsonpath='{.data}' | Set-Clipboard
    ```
 
 2. On the host, write the kubeconfig. The API server URL is the same as in
@@ -75,12 +75,12 @@ certificate, so it can be revoked on its own.
    ```
 
    Paste and press Enter. It ends by showing who it is:
-   `system:serviceaccount:claude-code:claude-code`.
+   `system:serviceaccount:cluster-access:claude-code`.
 
-To replace the token, delete the Secret (`kubectl -n claude-code delete
+To replace the token, delete the Secret (`kubectl -n cluster-access delete
 secret claude-code-token`); Flux recreates it with a new token at its next
 reconcile. Then repeat both steps. To revoke access for good, remove
-`kubernetes/prod/system/claude-code/` from git.
+`kubernetes/prod/system/cluster-access/claude-code/` from git.
 
 ### Proxmox API token
 
@@ -231,7 +231,7 @@ Windows paths and PowerShell, and tools that only exist in the desktop app
 ## Removing it
 
 1. Delete the stack in Dockhand.
-2. Remove `kubernetes/prod/system/claude-code/` from git: Flux deletes the
+2. Remove `kubernetes/prod/system/cluster-access/claude-code/` from git: Flux deletes the
    ServiceAccount, its binding and its token.
 3. Revoke the GitHub token, and the Proxmox token if it had its own.
 4. Change Kea's API password if you want the old one dead too.
