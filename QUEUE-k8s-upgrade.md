@@ -153,9 +153,13 @@ and the ownership metadata, which leaves the running objects as they were.
 - [x] `ansible/k8s-bundles.yml` written
 - [x] Upgrade playbook written; bundle checks run against the live cluster (1.33 passes; 1.34 refused for etcd, 1.35 for skipping a minor)
 - [x] Cluster on bundle 1.33 (2026-10-06): Kubernetes and CRI-O 1.33.13 on every node, etcd 3.5.34, kube-vip v1.2.4; every database and Calico component healthy afterwards
-- [ ] Add-ons for 1.34 (the 1.34 check on 2026-10-06 lists exactly these): cert-manager 1.18.2 -> 1.19+
-  (one minor at a time), CloudNativePG 1.26.0 -> 1.28+ (one minor at a time), metrics-server
-  0.7.2 -> 0.8+ (not in git today)
+- [x] Add-ons for 1.34, 2026-10-06: Flux 2.9.6; cert-manager 1.18.2 -> 1.19.6 -> 1.20.4 -> 1.21.2
+  (all 27 certificates unchanged throughout); CloudNativePG operator 1.26.0 -> 1.27.1 ->
+  1.28.1 -> 1.29.1 -> 1.30.1 with in-place instance manager updates (no database pod
+  restarted, no switchover; one expected "binaryFileStream ... EOF" error per pod per upgrade,
+  as each instance manager replaces itself mid-reply)
+- [ ] metrics-server 0.7.2 -> 0.8+ (decision 2 in QUEUE.md); the last thing the 1.34 check
+  refuses
 - [ ] 1.34, 1.35, 1.36
 
 ## Resuming
