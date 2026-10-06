@@ -1,0 +1,95 @@
+# Reboots the Kubernetes node containers one at a time, with nothing else
+# changed: for each node, check the cluster and every database cluster are
+# healthy, cordon it, move its databases off (switchover; a maintenance window
+# for single-instance clusters), drain it, reboot the container, uncordon it,
+# and wait until every node is Ready and every database cluster whole again
+# before the next. The steps are k8s-node-update.yml's, without the upgrade.
+#
+# Inventory: the "Kubernetes nodes" one (k8s-node-update.yml). To reboot only
+# some nodes, limit the run to them plus localhost (e.g. "<node>,
+# localhost"): the plays that write and remove the CA certificate run on
+# localhost, and without them the first API check fails before anything is
+# touched. kubectl still runs on a control plane other than the node being
+# worked on.
+# Variables (a Semaphore variable group): k8s_api_url, k8s_ca_b64, k8s_token.
+#
+# In check mode (--check) it runs the checks and lists what each drain would
+# move, and changes nothing.
+
+- name: Check the cluster before touching anything
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Decode the Kubernetes CA certificate
+      ansible.builtin.set_fact:
+        k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+    - name: The CA certificate is one
+      ansible.builtin.assert:
+        that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+        fail_msg: >-
+          k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
+          token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+        quiet: true
+
+    - name: Write the Kubernetes CA certificate for the API checks
+      ansible.builtin.copy:
+        content: "{{ k8s_ca_pem }}"
+        dest: "{{ playbook_dir }}/.k8s-ca.pem"
+        mode: "0600"
+      check_mode: false
+
+    - name: The Kubernetes cluster is healthy
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+
+    - name: There are two control planes or more, so kubectl has somewhere to run
+      ansible.builtin.assert:
+        that: groups.get('k8s_control_planes', []) | length >= 2
+        fail_msg: The inventory needs k8s_control_planes with at least two nodes.
+        quiet: true
+
+- name: Reboot the nodes one at a time
+  hosts: k8s_nodes
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars:
+    kubectl_host: "{{ groups['k8s_control_planes'] | reject('equalto', inventory_hostname) | first }}"
+    k8s_node: "{{ inventory_hostname }}"
+  tasks:
+    - name: The Kubernetes cluster is healthy before this node
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+
+    - name: Every database cluster is healthy before this node
+      ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+
+    - name: This host is the Kubernetes node of the same name
+      ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf get node {{ k8s_node }} -o name
+      delegate_to: "{{ kubectl_host }}"
+      changed_when: false
+      check_mode: false
+
+    - name: Take the node out of service
+      ansible.builtin.include_tasks: tasks/k8s-node-drain.yml
+
+    - name: Reboot the container
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+        msg: Rebooting the node (Semaphore)
+
+    - name: Put the node back
+      ansible.builtin.include_tasks: tasks/k8s-node-return.yml
+
+- name: Clean up
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove the written CA certificate
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/.k8s-ca.pem"
+        state: absent
+      check_mode: false

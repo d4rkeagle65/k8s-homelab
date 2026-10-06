@@ -8,6 +8,7 @@ and addresses), the SSH key, and the Kubernetes token.
 |---|---|
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
 | `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are a separate job (`QUEUE-k8s-upgrade.md`). It also owns the nodes' Kubernetes and CRI-O package sources. |
+| `k8s-node-reboot.yml` | Reboots the Kubernetes node containers one at a time, changing nothing else: the same checks, database switchovers, drain and wait as `k8s-node-update.yml`, with a reboot in place of the upgrade. |
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
 | `pihole-update.yml` | Updates the Pi-holes one at a time (`apt dist-upgrade`, then `pihole -up`), each only while every other one answers DNS, and waits for it to answer again before the next. With a single Pi-hole it stops unless `allow_dns_outage: true`. Not yet run. |
 | `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
@@ -143,6 +144,12 @@ Set up once, after the Proxmox hosts:
 4. **Two task templates**, playbook `ansible/k8s-node-update.yml`, the "Kubernetes nodes"
    inventory, the repository and the "Kubernetes" variable group: **"Kubernetes nodes: check"** with CLI args
    `["--check"]`, and **"Kubernetes nodes: update"**.
+
+**Rebooting the nodes** (`k8s-node-reboot.yml`): two more templates on the same inventory,
+repository and variable group, **"Kubernetes nodes: reboot check"** (`["--check"]`) and
+**"Kubernetes nodes: reboot"**. To reboot only some nodes, set the template's (or the run's)
+limit to those nodes plus `localhost`, e.g. `<node>,localhost`; without `localhost`
+the run stops at its first check, having changed nothing.
 
 What a run does to the workloads: each database cluster with two instances keeps running
 (its primary is switched over before the drain, and its replica waits for the node); a
