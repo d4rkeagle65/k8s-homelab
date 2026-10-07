@@ -1,8 +1,7 @@
 # Homelab work queue
 
 Outstanding work on the cluster and on this repo, roughly in the order worth doing it.
-`CLAUDE.md` holds the rules for keeping it. Database backups are handled outside this repo, so
-nothing here tracks them.
+`CLAUDE.md` holds the rules for keeping it.
 
 ## Contents
 
@@ -10,12 +9,12 @@ nothing here tracks them.
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`.
+- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`, `QUEUE-terraform.md`.
 
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 3 are done.
+assigned (items below refer to them); 1 to 3 and 9 are done.
 
 4. **The second Pi-hole:** which Proxmox host (not the one with the first Pi-hole and the
    Docker VM; the host with the most free memory is also the Docker VM's evacuation target,
@@ -48,10 +47,6 @@ assigned (items below refer to them); 1 to 3 are done.
 8. **Keep immich and manictime up through a node loss** (item below): `instances: 2` doubles
    their database disk on another worker. With in-place updates (1.) the remaining downtime is
    a node's drain. Recommended: yes for immich (photos), optional for manictime.
-9. **Terraform/OpenTofu state** (item below): where the state lives. It holds secrets, and
-   what it describes includes the cluster nodes, so not inside the cluster. Recommended: a
-   `tfstate` database in Semaphore's PostgreSQL on the Docker VM (OpenTofu's `pg` backend), run
-   from Semaphore's OpenTofu support.
 10. **The two test folders** (item below): move `scripts/tests` under `tests/` with one runner,
     or keep both and say why in each folder's CLAUDE.md. Recommended: keep both; the generator's
     suite needs its own fixtures and runs offline, the gate is repo-wide.
@@ -121,6 +116,26 @@ assigned (items below refer to them); 1 to 3 are done.
   reboot takes DNS, DHCP, the VPN and Vaultwarden down
   together. A second Pi-hole and a Kea HA partner on other hosts would fix
   that.
+- **Back up the Docker VM's databases to Garage**, the way the cluster's
+  CloudNativePG databases already are. Today their only copy outside the VM is
+  the Proxmox backup of its disks, which can catch a database mid-write:
+  - `semaphore-postgres` (`docker/semaphore/`): Semaphore's own database,
+    holding the inventories, SSH keys and secrets (encrypted with
+    `SEMAPHORE_ACCESS_KEY_ENCRYPTION`, which isn't in the dump: keep it in
+    Vaultwarden), and `tfstate`, OpenTofu's state for everything under `tofu/`.
+  - `kea-postgres` (`docker/kea/`): Kea's reservations (all 50 live only
+    there) and Stork's database.
+  - Worth including, though not PostgreSQL: Vaultwarden's SQLite under
+    `/opt/vaultwarden/data` (its `/admin` backup or `sqlite3 .backup`, never a
+    plain copy of the live file) and Dockhand's data under `/opt/dockhand`.
+
+  To design: a small container per stack (or one for the host) running
+  `pg_dump -Fc` per database on a schedule, uploading to a `docker-backups`
+  bucket in Garage (its own key, write-only if Garage allows it) with a
+  retention, and alerting when a run fails; or WAL-G/pgBackRest for
+  point-in-time recovery, which is likely more than these need. Done when each
+  database has a fresh dump in Garage and one has been restored into a
+  throwaway container and compared.
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule
@@ -128,10 +143,20 @@ assigned (items below refer to them); 1 to 3 are done.
     path, DMZ marks, the `DOCKER-USER` rules for Tailscale), sysctls, Docker,
     Dockhand's own compose file and the certificate-sync cron.
   - **Proxmox hosts:** repositories, packages, kernel cleanup, and the host
-    settings the k8s LXCs depend on.
+    settings the k8s LXCs depend on: kernel modules, sysctls, and the parts of
+    each LXC's `/etc/pve/lxc/<id>.conf` an API token can't set (the raw
+    `lxc.*` lines and the `mount=nfs` feature; OpenTofu ignores them,
+    `QUEUE-terraform.md`).
+  - **A k8s node join:** prepare a fresh LXC (repositories, CRI-O, kubelet
+    and kubeadm at the current bundle's versions, the ssh.socket fix) and
+    `kubeadm join` it as a worker or control plane, from the `k8s-node-*`
+    tasks. Without it a node OpenTofu creates is an empty container.
   - **Pi-hole:** its `pihole-FTL --config` settings (the `local=` lines,
     HTTPS filtering, no conditional forwarding, `bogusPriv`) and the
-    hand-made local records such as `vaultwarden-direct`.
+    hand-made local records such as `vaultwarden-direct`. The second Pi-hole
+    (decision 4) would be built from the same playbook.
+  - **Scheduled check-mode runs in Semaphore** (weekly, failure alerts on),
+    reporting pending updates and drift without changing anything.
 
   The inventory and every address stay out of this public repo (a
   gitignored inventory, or values from Vaultwarden).
@@ -149,10 +174,9 @@ assigned (items below refer to them); 1 to 3 are done.
     with known gaps, so a Dockhand update can break it). Dockhand can't set
     itself up: Ansible installs it on the VM, then Terraform configures it.
 
-  Before starting: decide where the state file lives (it holds secrets,
-  including the stacks' secret variables, so not this repo) and what runs it
-  (by hand, CI, or tofu-controller under Flux). Import the existing resources
-  first, so nothing gets recreated.
+  In progress, Proxmox first: [QUEUE-terraform.md](QUEUE-terraform.md) has the
+  decisions (state in Semaphore's PostgreSQL, plans and applies run from
+  Semaphore, existing resources imported first) and the checklist.
 
 - **Review moving the cluster to Talos Linux** (low priority; a review first, not a decision).
   Talos is a minimal, API-managed OS made only to run Kubernetes: no SSH, no package manager,
@@ -185,6 +209,7 @@ assigned (items below refer to them); 1 to 3 are done.
 ## Working queue files
 
 - [QUEUE-semaphore.md](QUEUE-semaphore.md): Semaphore for Ansible.
+- [QUEUE-terraform.md](QUEUE-terraform.md): OpenTofu, Proxmox guests first.
 
 A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks

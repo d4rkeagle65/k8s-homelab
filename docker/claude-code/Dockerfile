@@ -1,15 +1,18 @@
 # Claude Code plus the tools this repo's work needs: git, kubectl, flux,
-# helm, the GitHub CLI, and Python for scripts/ and its tests.
+# helm, OpenTofu, the GitHub CLI, and Python for scripts/ and its tests.
 #
 # Claude Code comes from Anthropic's signed apt repository, so it's a system
 # package that never updates itself: rebuild the image (without the build
 # cache) to update it. kubectl stays within one minor version of the
 # cluster; flux and helm match the versions the cluster and the PC use.
+# OpenTofu matches the one in Semaphore's image, which runs the plans: here it
+# only formats and validates (tofu init -backend=false).
 FROM debian:trixie-slim
 
 ARG KUBECTL_VERSION=1.36.5
 ARG FLUX_VERSION=2.9.6
 ARG HELM_VERSION=4.2.2
+ARG TOFU_VERSION=1.11.0
 # Claude Code's release channel: stable (about a week old) or latest.
 ARG CLAUDE_CODE_CHANNEL=stable
 # The owner of /opt/claude-code/home on the host.
@@ -39,7 +42,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends claude-code gh && \
     rm -rf /var/lib/apt/lists/*
 
-# kubectl, flux and helm, each checked against its published checksum.
+# kubectl, flux, helm and tofu, each checked against its published checksum.
 RUN arch="$(dpkg --print-architecture)" && cd /tmp && \
     curl -fsSLO "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" && \
     echo "$(curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl.sha256")  kubectl" \
@@ -54,6 +57,11 @@ RUN arch="$(dpkg --print-architecture)" && cd /tmp && \
     curl -fsSLO "https://get.helm.sh/${helm}" && \
     curl -fsSL "https://get.helm.sh/${helm}.sha256sum" | sha256sum -c - && \
     tar -xzf "${helm}" --strip-components=1 -C /usr/local/bin "linux-${arch}/helm" && \
+    tofu="tofu_${TOFU_VERSION}_linux_${arch}.tar.gz" && \
+    curl -fsSLO "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/${tofu}" && \
+    curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" \
+        | grep " ${tofu}\$" | sha256sum -c - && \
+    tar -xzf "${tofu}" -C /usr/local/bin tofu && \
     rm -f /tmp/kubectl /tmp/*.tar.gz
 
 # Python packages for scripts/: the same as scripts/requirements.txt and
