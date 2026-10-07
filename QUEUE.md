@@ -159,7 +159,7 @@ assigned (items below refer to them); 1 to 3 are done.
   configured from one machine config per node and upgraded with `talosctl upgrade` (OS) and
   `talosctl upgrade-k8s` (Kubernetes) as atomic image swaps that roll back on failure. What it
   would change here:
-  - **It replaces most of `QUEUE-k8s-upgrade.md`'s machinery:** kubeadm, the apt sources,
+  - **It replaces most of the upgrade machinery (`ansible/k8s-upgrade.yml`, `old-queues/QUEUE-k8s-upgrade.md`):** kubeadm, the apt sources,
     CRI-O (Talos uses containerd), the node update playbook and most of the version bundles.
     The add-on ranges and the database drain steps stay useful.
   - **It can't run in LXC.** Talos is its own OS, so every node becomes a VM: more memory per
