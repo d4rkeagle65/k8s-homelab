@@ -57,6 +57,7 @@ k8s_version_independent:
   - media/tdarr
   - media/whisparr
   - metallb-system/metallb
+  - n8n/n8n                          # app-template, as the media apps
   - nfs-client/nfs-eph-rwo
   - nfs-client/nfs-retain-rwo
   - obsidian/obsidian
