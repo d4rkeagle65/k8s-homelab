@@ -164,11 +164,12 @@ and the ownership metadata, which leaves the running objects as they were.
   all databases healthy and archiving after the drains. The first run stopped when openSUSE's
   server reset a signing-key download (now retried); the rerun skipped the finished control
   planes, as designed
-- [ ] 1.35: its check passes against the live cluster (Calico 3.30 covers it). The kubelet
-  drops `--pod-infra-container-image` (the bundle removes it) and refuses cgroup v1 (every
-  node is v2)
-- [ ] 1.36: needs Calico 3.32 first (so Calico into Flux, decision 3) and metrics-server 0.9
-  (chart 3.14.0, which needs Kubernetes 1.34+)
+- [x] 1.35 (2026-10-07): every node 1.35.9 with CRI-O 1.35.10, etcd 3.6.6, CoreDNS 1.13.1
+- [x] Calico 3.31.7 then 3.32.2 and metrics-server 0.9.0 (2026-10-07), each a version bump in
+  git: the operator (manageCRDs) created 3.32's new CRDs itself, calico-apiserver moved to
+  calico-system, no node went NotReady during either calico-node rollout
+- [ ] 1.36: its check passes against the live cluster once n8n is listed as
+  version-independent (2026-10-07)
 
 ## Resuming
 
