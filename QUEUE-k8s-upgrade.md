@@ -148,7 +148,7 @@ and the ownership metadata, which leaves the running objects as they were.
 - [x] Routine node update playbook written (its database steps tested in check mode against the live cluster: the switchover targets, an unhealthy cluster, a missing replica)
 - [x] Its check run clean in Semaphore, and a real run on all six nodes (2026-10-06): every database switched over and back, immich and manictime waited for their node
 - [ ] Semaphore's key and the nodes' host keys in place; inventory group for the nodes
-- [ ] Calico in Flux, adopted without a restart of calico-node
+- [x] Calico in Flux, 2026-10-07: helm 4 `install --take-ownership` of chart v3.30.2 with the live Installation's values; its server-side apply refused the operator Deployment's `POD_NAME` fieldRef (owned by `kubectl-create`, the same value with `apiVersion: v1` defaulted), so the failed release record was deleted (never `helm uninstall`: its hook removes Calico) and the install rerun with `--force-conflicts`. No Calico pod restarted; the operator Deployment's generation bumped with the same ReplicaSet
 - [x] Bundles 1.33-1.36 researched (above)
 - [x] `ansible/k8s-bundles.yml` written
 - [x] Upgrade playbook written; bundle checks run against the live cluster (1.33 passes; 1.34 refused for etcd, 1.35 for skipping a minor)

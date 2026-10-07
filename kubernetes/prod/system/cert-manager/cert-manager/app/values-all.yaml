@@ -1,7 +1,9 @@
 acmesolver:
   image:
+    name: cert-manager-acmesolver
     pullPolicy: IfNotPresent
-    repository: quay.io/jetstack/cert-manager-acmesolver
+    repository: ""
+  runtimeClassName: ""
 affinity: {}
 approveSignerNames:
 - issuers.cert-manager.io/*
@@ -21,8 +23,27 @@ cainjector:
   extraEnv: []
   featureGates: ""
   image:
+    name: cert-manager-cainjector
     pullPolicy: IfNotPresent
-    repository: quay.io/jetstack/cert-manager-cainjector
+    repository: ""
+  networkPolicy:
+    egress:
+    - ports:
+      - port: 80
+        protocol: TCP
+      - port: 443
+        protocol: TCP
+      - port: 53
+        protocol: TCP
+      - port: 53
+        protocol: UDP
+      - port: 6443
+        protocol: TCP
+    enabled: false
+    ingress:
+    - ports:
+      - port: http-metrics
+        protocol: TCP
   nodeSelector:
     kubernetes.io/os: linux
   podDisruptionBudget:
@@ -30,6 +51,7 @@ cainjector:
   podLabels: {}
   replicaCount: 1
   resources: {}
+  runtimeClassName: ""
   securityContext:
     runAsNonRoot: true
     seccompProfile:
@@ -62,6 +84,7 @@ enableCertificateOwnerRef: false
 enableServiceLinks: false
 enabled: true
 extraArgs: []
+extraContainers: []
 extraEnv: []
 extraObjects: []
 featureGates: ""
@@ -71,6 +94,7 @@ global:
   leaderElection:
     namespace: kube-system
   logLevel: 2
+  nodeSelector: {}
   podSecurityPolicy:
     enabled: false
     useAppArmor: true
@@ -78,10 +102,14 @@ global:
   rbac:
     aggregateClusterRoles: true
     create: true
+  runtimeClassName: ""
 hostAliases: []
 image:
+  name: cert-manager-controller
   pullPolicy: IfNotPresent
-  repository: quay.io/jetstack/cert-manager-controller
+  repository: ""
+imageNamespace: jetstack
+imageRegistry: quay.io
 ingressShim: {}
 installCRDs: false
 livenessProbe:
@@ -93,6 +121,26 @@ livenessProbe:
   timeoutSeconds: 15
 maxConcurrentChallenges: 60
 namespace: ""
+networkPolicy:
+  egress:
+  - ports:
+    - port: 80
+      protocol: TCP
+    - port: 443
+      protocol: TCP
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+    - port: 6443
+      protocol: TCP
+  enabled: false
+  ingress:
+  - ports:
+    - port: http-metrics
+      protocol: TCP
+    - port: http-healthz
+      protocol: TCP
 nodeSelector:
   kubernetes.io/os: linux
 podDisruptionBudget:
@@ -107,7 +155,6 @@ prometheus:
     honorLabels: false
     interval: 60s
     labels: {}
-    path: /metrics
     prometheusInstance: default
     scrapeTimeout: 30s
   servicemonitor:
@@ -117,12 +164,11 @@ prometheus:
     honorLabels: false
     interval: 60s
     labels: {}
-    path: /metrics
     prometheusInstance: default
     scrapeTimeout: 30s
-    targetPort: http-metrics
 replicaCount: 1
 resources: {}
+runtimeClassName: ""
 securityContext:
   runAsNonRoot: true
   seccompProfile:
@@ -145,8 +191,9 @@ startupapicheck:
   - -v
   extraEnv: []
   image:
+    name: cert-manager-startupapicheck
     pullPolicy: IfNotPresent
-    repository: quay.io/jetstack/cert-manager-startupapicheck
+    repository: ""
   jobAnnotations:
     helm.sh/hook: post-install
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
@@ -160,6 +207,7 @@ startupapicheck:
       helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
       helm.sh/hook-weight: "-5"
   resources: {}
+  runtimeClassName: ""
   securityContext:
     runAsNonRoot: true
     seccompProfile:
@@ -182,6 +230,8 @@ volumeMounts: []
 volumes: []
 webhook:
   affinity: {}
+  apiserverClientCertSubjects: ""
+  clientCAFile: ""
   config: {}
   containerSecurityContext:
     allowPrivilegeEscalation: false
@@ -189,14 +239,16 @@ webhook:
       drop:
       - ALL
     readOnlyRootFilesystem: true
+  enableClientVerification: false
   enableServiceLinks: false
   extraArgs: []
   extraEnv: []
   featureGates: ""
   hostNetwork: false
   image:
+    name: cert-manager-webhook
     pullPolicy: IfNotPresent
-    repository: quay.io/jetstack/cert-manager-webhook
+    repository: ""
   livenessProbe:
     failureThreshold: 3
     initialDelaySeconds: 60
@@ -218,14 +270,15 @@ webhook:
         protocol: UDP
       - port: 6443
         protocol: TCP
-      to:
-      - ipBlock:
-          cidr: 0.0.0.0/0
     enabled: false
     ingress:
-    - from:
-      - ipBlock:
-          cidr: 0.0.0.0/0
+    - ports:
+      - port: https
+        protocol: TCP
+      - port: healthcheck
+        protocol: TCP
+      - port: http-metrics
+        protocol: TCP
   nodeSelector:
     kubernetes.io/os: linux
   podDisruptionBudget:
@@ -239,6 +292,7 @@ webhook:
     timeoutSeconds: 1
   replicaCount: 1
   resources: {}
+  runtimeClassName: ""
   securePort: 10250
   securityContext:
     runAsNonRoot: true

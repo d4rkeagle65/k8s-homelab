@@ -1,0 +1,50 @@
+apiServer:
+  enabled: true
+goldmane:
+  enabled: true
+installation:
+  calicoNetwork:
+    bgp: Enabled
+    hostPorts: Enabled
+    ipPools:
+    - allowedUses:
+      - Workload
+      - Tunnel
+      assignmentMode: Automatic
+      blockSize: 26
+      cidr: ${CALICO_POD_CIDR}
+      disableBGPExport: false
+      disableNewAllocations: false
+      encapsulation: VXLANCrossSubnet
+      name: default-ipv4-ippool
+      natOutgoing: Enabled
+      nodeSelector: all()
+    linuxDataplane: Iptables
+    linuxPolicySetupTimeoutSeconds: 0
+    multiInterfaceMode: None
+    nodeAddressAutodetectionV4:
+      interface: eth0
+    windowsDataplane: Disabled
+  cni:
+    ipam:
+      type: Calico
+    type: Calico
+  controlPlaneReplicas: 2
+  enabled: true
+  flexVolumePath: /usr/libexec/kubernetes/kubelet-plugins/volume/exec/
+  kubeletVolumePluginPath: /var/lib/kubelet
+  kubernetesProvider: ""
+  logging:
+    cni:
+      logFileMaxAgeDays: 30
+      logFileMaxCount: 10
+      logFileMaxSize: 100Mi
+      logSeverity: Info
+  nodeUpdateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  nonPrivileged: Disabled
+  variant: Calico
+whisker:
+  enabled: true

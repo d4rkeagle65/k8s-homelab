@@ -17,5 +17,6 @@ resources:
 - metallb.yaml
 - metrics-server.yaml
 - nfs-subdir.yaml
+- projectcalico.yaml
 - strrl.yaml
 - traefik.yaml

@@ -29,6 +29,12 @@ spec:
       name: cnpg-default-monitoring
     disableDefaultQueries: false
     enablePodMonitor: false
+  plugins:
+  - enabled: true
+    isWALArchiver: true
+    name: barman-cloud.cloudnative-pg.io
+    parameters:
+      barmanObjectName: garage
   postgresGID: 26
   postgresUID: 26
   postgresql:
@@ -60,6 +66,12 @@ spec:
       enabled: false
   primaryUpdateMethod: restart
   primaryUpdateStrategy: unsupervised
+  probes:
+    liveness:
+      isolationCheck:
+        connectionTimeout: 1000
+        enabled: true
+        requestTimeout: 1000
   replicationSlots:
     highAvailability:
       enabled: true
@@ -76,8 +88,3 @@ spec:
     size: 1Gi
     storageClass: local-db
   switchoverDelay: 3600
-  plugins:
-  - name: barman-cloud.cloudnative-pg.io
-    isWALArchiver: true
-    parameters:
-      barmanObjectName: garage
