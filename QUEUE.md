@@ -10,7 +10,7 @@ nothing here tracks them.
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`, `QUEUE-k8s-upgrade.md`.
+- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`.
 
 ## Waiting on the owner
 
@@ -60,9 +60,10 @@ assigned (items below refer to them); 1 to 3 are done.
 
 - **Semaphore for Ansible, starting with keeping the Proxmox hosts up to date.** In progress;
   see [QUEUE-semaphore.md](QUEUE-semaphore.md).
-- **Kubernetes 1.33 is past end of life: node updates and version upgrades to 1.36 through
-  Ansible**, with version bundles checked for compatibility; CRI-O on the nodes is a dev build
-  from a frozen repository. In progress; see [QUEUE-k8s-upgrade.md](QUEUE-k8s-upgrade.md).
+- **Kubernetes 1.37, when its patches settle:** add bundle 1.37 to `ansible/k8s-bundles.yml`
+  (copy 1.36; versions and each add-on's range from its support page). Calico 3.33 is the one
+  that covers 1.37 (3.33.0 tested on 1.35-1.37); check the others' ranges then. Bump the
+  claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
 - **Database backups: restore-test the other ten.** Since 2026-10-06 all eleven CloudNativePG
   clusters archive WAL continuously to Garage on the NAS (`docker/garage/`, the Barman Cloud
@@ -184,7 +185,6 @@ assigned (items below refer to them); 1 to 3 are done.
 ## Working queue files
 
 - [QUEUE-semaphore.md](QUEUE-semaphore.md): Semaphore for Ansible.
-- [QUEUE-k8s-upgrade.md](QUEUE-k8s-upgrade.md): Kubernetes node updates and version upgrades.
 
 A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
