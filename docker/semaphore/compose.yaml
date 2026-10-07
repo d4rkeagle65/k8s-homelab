@@ -20,6 +20,7 @@
 #   SEMAPHORE_OIDC_ISSUER_URL  https://auth.<domain>/application/o/semaphore/
 #   SEMAPHORE_OIDC_CLIENT_SECRET  secret: the same one Authentik's blueprint reads
 #                            (AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET)
+#   TFSTATE_DB_PASSWORD      secret: the tfstate role's (OpenTofu's state database)
 #   TZ                       the timezone schedules run in, e.g. America/New_York
 services:
   semaphore-postgres:
@@ -37,6 +38,34 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+
+  # OpenTofu's state database (the pg backend), beside Semaphore's own: creates
+  # the tfstate role and database when missing and sets the role's password from
+  # TFSTATE_DB_PASSWORD, on every deploy, then exits.
+  tfstate-db-init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      semaphore-postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: semaphore-postgres
+      PGUSER: semaphore
+      PGDATABASE: semaphore
+      PGPASSWORD: ${SEMAPHORE_DB_PASSWORD}
+      TFSTATE_DB_PASSWORD: ${TFSTATE_DB_PASSWORD}
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      [ -n "$$TFSTATE_DB_PASSWORD" ] || { echo "TFSTATE_DB_PASSWORD is empty"; exit 1; }
+      psql -v ON_ERROR_STOP=1 -v pw="$$TFSTATE_DB_PASSWORD" <<'SQL'
+      SELECT 'CREATE ROLE tfstate LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tfstate')\gexec
+      ALTER ROLE tfstate PASSWORD :'pw';
+      SELECT 'CREATE DATABASE tfstate OWNER tfstate' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tfstate')\gexec
+      SQL
+      psql -tA -d tfstate -c "SELECT 'tfstate database owned by ' || pg_get_userbyid(datdba) FROM pg_database WHERE datname = 'tfstate'"
 
   semaphore:
     image: semaphoreui/semaphore:v2.19.12

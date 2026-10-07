@@ -59,6 +59,7 @@ compose directly, and those override the blank file. Never put a value in `.env`
 | `SEMAPHORE_COOKIE_HASH`, `SEMAPHORE_COOKIE_ENCRYPTION` | secret: the other two random keys |
 | `SEMAPHORE_OIDC_ISSUER_URL` | `https://auth.<domain>/application/o/semaphore/` |
 | `SEMAPHORE_OIDC_CLIENT_SECRET` | secret: the same value as the `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` field in Vaultwarden (plain, not base64) |
+| `TFSTATE_DB_PASSWORD` | secret: a new random password for the `tfstate` role (OpenTofu's state) |
 | `TZ` | the timezone schedules run in, e.g. `America/New_York` |
 
 ## First login
@@ -74,6 +75,16 @@ compose directly, and those override the blank file. Never put a value in `.env`
    down; keep its password in Vaultwarden.
 
 Setting up the project (repository, inventory, key, task templates) is in `ansible/README.md`.
+
+## OpenTofu state
+
+`tfstate-db-init` keeps a `tfstate` database and role in Semaphore's PostgreSQL, for OpenTofu's
+`pg` backend: it creates them when missing and sets the role's password from
+`TFSTATE_DB_PASSWORD` on every deploy, then exits (its log ends `tfstate database owned by
+tfstate`). OpenTofu runs inside the Semaphore container, which reaches the database as
+`semaphore-postgres`; nothing publishes it. The state holds secrets, so it lives here, outside
+git and outside the cluster it describes. Semaphore's side (the environment carrying
+`PG_CONN_STR`) is in `QUEUE-terraform.md`.
 
 ## Updating
 
