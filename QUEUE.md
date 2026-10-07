@@ -156,7 +156,9 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   - **Pi-hole:** its `pihole-FTL --config` settings (the `local=` lines,
     HTTPS filtering, no conditional forwarding, `bogusPriv`) and the
     hand-made local records such as `vaultwarden-direct`. The second Pi-hole
-    (decision 4) would be built from the same playbook.
+    would be built from the same playbook. `misc.dnsmasq_lines` is the one
+    setting nebula-sync can't copy (Pi-hole refuses it through the API), so
+    today it's set on each Pi-hole by hand and the two can drift.
   - **Scheduled check-mode runs in Semaphore** (weekly, failure alerts on),
     reporting pending updates and drift without changing anything.
 
