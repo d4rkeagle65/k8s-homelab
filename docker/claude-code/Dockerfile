@@ -7,8 +7,8 @@
 # cluster; flux and helm match the versions the cluster and the PC use.
 FROM debian:trixie-slim
 
-ARG KUBECTL_VERSION=1.33.3
-ARG FLUX_VERSION=2.9.5
+ARG KUBECTL_VERSION=1.36.5
+ARG FLUX_VERSION=2.9.6
 ARG HELM_VERSION=4.2.2
 # Claude Code's release channel: stable (about a week old) or latest.
 ARG CLAUDE_CODE_CHANNEL=stable

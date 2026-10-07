@@ -168,8 +168,10 @@ and the ownership metadata, which leaves the running objects as they were.
 - [x] Calico 3.31.7 then 3.32.2 and metrics-server 0.9.0 (2026-10-07), each a version bump in
   git: the operator (manageCRDs) created 3.32's new CRDs itself, calico-apiserver moved to
   calico-system, no node went NotReady during either calico-node rollout
-- [ ] 1.36: its check passes against the live cluster once n8n is listed as
-  version-independent (2026-10-07)
+- [x] 1.36 (2026-10-07): every node 1.36.5 with CRI-O 1.36.7, etcd 3.6.8, CoreDNS 1.14.2; all
+  databases healthy and archiving, and the eleven nightly backups that fell inside the run all
+  completed. While a drain moved the backup plugin's pod, the operator reported every cluster
+  unhealthy for about two minutes (it couldn't reach the plugin); the databases kept serving
 
 ## Resuming
 
