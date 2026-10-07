@@ -15,5 +15,6 @@ resources:
 - metrics-server
 - nfs-client
 - noip-duc
+- tigera-operator
 - traefik
 - traefik-isolated

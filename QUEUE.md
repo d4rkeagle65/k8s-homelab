@@ -15,11 +15,8 @@ nothing here tracks them.
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 and 2 are done.
+assigned (items below refer to them); 1 to 3 are done.
 
-3. **Calico into Flux** (plan in `QUEUE-k8s-upgrade.md`): go-ahead, and first a new
-   `cluster-secrets` field for the pod network range (the chart values carry it; capture then
-   writes `${CALICO_POD_CIDR}` in its place). Not needed before the 1.35 step.
 4. **The second Pi-hole:** which Proxmox host (not the one with the first Pi-hole and the
    Docker VM; the host with the most free memory is also the Docker VM's evacuation target,
    and one other has little free), its addresses on each VLAN the first one serves, and how to

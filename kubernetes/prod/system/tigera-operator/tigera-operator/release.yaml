@@ -2,14 +2,14 @@
 # Do not hand-edit; this file is overwritten on the next run.
 # Backup identity record; not a Kubernetes manifest, never applied.
 # One hand edit is expected: chartVersion, to upgrade the chart (scripts/README.md).
-release: cert-manager
-namespace: cert-manager
-chart: cert-manager
-chartVersion: v1.21.2
-appVersion: v1.21.2
-revision: 6
+release: tigera-operator
+namespace: tigera-operator
+chart: tigera-operator
+chartVersion: v3.30.2
+appVersion: v3.30.2
+revision: 1
 status: deployed
 chartSource:
   resolved: true
   kind: HelmRepository
-  name: jetstack
+  name: projectcalico
