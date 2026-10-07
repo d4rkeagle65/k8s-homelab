@@ -62,8 +62,8 @@ spec:
         - name: SYNC_CONFIG_MISC
           value: "true"
         # Pi-hole refuses dnsmasq_lines through its API (pihole-FTL --config
-        # only), so the whole misc section would fail; it's set on each
-        # Pi-hole by hand (QUEUE.md, the Pi-hole config playbook).
+        # only), so the whole misc section would fail; ansible/pihole-sync.yml
+        # copies it instead.
         - name: SYNC_CONFIG_MISC_EXCLUDE
           value: dnsmasq_lines
         - name: SYNC_GRAVITY_GROUP

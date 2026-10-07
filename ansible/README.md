@@ -11,6 +11,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | `k8s-node-reboot.yml` | Reboots the Kubernetes node containers one at a time, changing nothing else: the same checks, database switchovers, drain and wait as `k8s-node-update.yml`, with a reboot in place of the upgrade. |
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
 | `pihole-update.yml` | Updates the Pi-holes one at a time (`apt dist-upgrade`, then `pihole -up`), each only while every other one answers DNS, and waits for it to answer again before the next. With a single Pi-hole it stops unless `allow_dns_outage: true`. Not yet run. |
+| `pihole-sync.yml` | Copies the Pi-hole settings nebula-sync can't (Pi-hole refuses them through its API; `misc.dnsmasq_lines` by default) from the primary Pi-hole to the others, one at a time: sets each that differs, reads it back, restarts FTL and waits for it to answer DNS, only while the primary answers. Check mode reports the differences. Not yet run. |
 | `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
 
 ## Setting up Semaphore (once)
@@ -194,7 +195,7 @@ its version, and a range in every bundle. Once the cluster runs a new minor, bum
 in `docker/claude-code/Dockerfile` to match: kubectl supports one minor version either side of
 the server.
 
-## The Pi-holes and the Docker VM (`pihole-update.yml`, `docker-vm-update.yml`)
+## The Pi-holes and the Docker VM (`pihole-update.yml`, `pihole-sync.yml`, `docker-vm-update.yml`)
 
 Neither has run yet; start each with a check-mode template.
 
@@ -209,7 +210,11 @@ Neither has run yet; start each with a check-mode template.
   Docker network's gateway as Semaphore's container sees it (`ip route` inside the container:
   the `default via` address).
 - **Templates:** a check (`["--check"]`) and a real one for each, with the inventory and the
-  repository; neither needs the "Kubernetes" variable group.
+  repository; none needs the "Kubernetes" variable group.
+- **The primary Pi-hole** is the one edited by hand; `pihole-sync.yml` copies from it, as
+  nebula-sync does. Set `pihole_primary` in the Pi-hole inventory's `all: vars:` rather than
+  relying on the default (the group's first host). Run `pihole-sync.yml` after changing the
+  primary's `dnsmasq_lines`, or on a schedule in check mode to report drift.
 
 ## Running a Proxmox upgrade
 
