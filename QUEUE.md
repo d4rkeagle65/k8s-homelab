@@ -14,13 +14,8 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 3 and 9 are done.
+assigned (items below refer to them); 1 to 4 and 9 are done.
 
-4. **The second Pi-hole:** which Proxmox host (not the one with the first Pi-hole and the
-   Docker VM; the host with the most free memory is also the Docker VM's evacuation target,
-   and one other has little free), its addresses on each VLAN the first one serves, and how to
-   keep the two the same (recommended: `nebula-sync`, which copies Pi-hole v6's settings,
-   lists and local records through its API, as a container on the Docker VM).
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
    (a) the partner keeps a copy of the reservations in its own config (two places to change);
@@ -112,10 +107,17 @@ assigned (items below refer to them); 1 to 3 and 9 are done.
   CLAUDE.md).
 - **Kea phase 3** (decision 5): a second Kea on another host as a hot-standby partner
   (the firewall's relay can point at both), and lease names into DNS.
-- **One Proxmox host carries both Pi-hole and the Docker VM** (decision 4), so its
-  reboot takes DNS, DHCP, the VPN and Vaultwarden down
-  together. A second Pi-hole and a Kea HA partner on other hosts would fix
-  that.
+- **Finish the second Pi-hole** (LXC 109 on a host other than the first's, `.4` on each
+  network the first serves at `.3`, tagged `adblock`; kept the same by
+  `prod/system/nebula-sync/`). Until clients are told about it, every one still asks only
+  Pi-hole 1, and a reboot of its host takes DNS down. Left, in order: confirm nebula-sync's
+  first sync (both answer the local records the same); add `.4` to Kea's
+  `domain-name-servers` option per subnet (`/opt/kea/site/site.json` on the Docker VM, then
+  `config-reload`); add `.4` to the k8s node LXCs' `nameserver` and the Docker VM's netplan
+  nameservers; add the new host to Semaphore's Pi-hole inventory (`pihole-update.yml`). The
+  DMZ network isn't served by Kea, so its static clients are changed by hand.
+- **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
+  HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Back up the Docker VM's databases to Garage**, the way the cluster's
   CloudNativePG databases already are. Today their only copy outside the VM is
   the Proxmox backup of its disks, which can catch a database mid-write:

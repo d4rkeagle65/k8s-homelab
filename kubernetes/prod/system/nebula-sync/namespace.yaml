@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    homelab.local/category: system
+    homelab.local/data: stateless
+    homelab.local/exposure: cluster
+    homelab.local/login: none
+  name: nebula-sync

@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nebula-sync
+spec:
+  replicas: 1
+  # One sync at a time: never two copies writing to Pi-hole 2.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nebula-sync
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nebula-sync
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: nebula-sync
+        image: ghcr.io/lovelaze/nebula-sync:v0.11.2
+        env:
+        - name: PRIMARY_URL
+          value: ${PIHOLE_URL}
+        - name: REPLICA_URL
+          value: ${PIHOLE2_URL}
+        - name: PRIMARY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nebula-sync
+              key: primary-password
+        - name: REPLICA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nebula-sync
+              key: replica-password
+        # nebula-sync wants "<url>|<password>"; Kubernetes expands $(VAR) from
+        # the variables above.
+        - name: PRIMARY
+          value: $(PRIMARY_URL)|$(PRIMARY_PASSWORD)
+        - name: REPLICAS
+          value: $(REPLICA_URL)|$(REPLICA_PASSWORD)
+        - name: CRON
+          value: "0 * * * *"
+        - name: TZ
+          value: ${TIMEZONE}
+        # Selected parts, not a full Teleporter copy: the DHCP, NTP, database
+        # and debug settings, and each Pi-hole's own web and API settings
+        # (its app password among them), stay its own.
+        - name: FULL_SYNC
+          value: "false"
+        - name: SYNC_CONFIG_DNS
+          value: "true"
+        - name: SYNC_CONFIG_RESOLVER
+          value: "true"
+        - name: SYNC_CONFIG_MISC
+          value: "true"
+        - name: SYNC_GRAVITY_GROUP
+          value: "true"
+        - name: SYNC_GRAVITY_AD_LIST
+          value: "true"
+        - name: SYNC_GRAVITY_AD_LIST_BY_GROUP
+          value: "true"
+        - name: SYNC_GRAVITY_DOMAIN_LIST
+          value: "true"
+        - name: SYNC_GRAVITY_DOMAIN_LIST_BY_GROUP
+          value: "true"
+        - name: SYNC_GRAVITY_CLIENT
+          value: "true"
+        - name: SYNC_GRAVITY_CLIENT_BY_GROUP
+          value: "true"
+        # A new or changed blocklist takes effect on Pi-hole 2 at its own
+        # weekly gravity update; RUN_GRAVITY would re-download every list hourly.
+        - name: RUN_GRAVITY
+          value: "false"
+        livenessProbe:
+          exec:
+            command: ["nebula-sync", "healthcheck"]
+          periodSeconds: 60
+          timeoutSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
