@@ -114,8 +114,9 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   first sync (both answer the local records the same); add `.4` to Kea's
   `domain-name-servers` option per subnet (`/opt/kea/site/site.json` on the Docker VM, then
   `config-reload`); add `.4` to the k8s node LXCs' `nameserver` and the Docker VM's netplan
-  nameservers; add the new host to Semaphore's Pi-hole inventory with `pihole_primary` set
-  (`pihole-update.yml`, `pihole-sync.yml`), and run `pihole-sync.yml`. The
+  nameservers; add the new host to Semaphore's Pi-hole inventory, create the "Pi-hole settings"
+  variable group from Pi-hole 1's `misc.dnsmasq_lines`, and run `pihole-config.yml`
+  (`ansible/README.md`). The
   DMZ network isn't served by Kea, so its static clients are changed by hand.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
@@ -154,11 +155,11 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
     and kubeadm at the current bundle's versions, the ssh.socket fix) and
     `kubeadm join` it as a worker or control plane, from the `k8s-node-*`
     tasks. Without it a node OpenTofu creates is an empty container.
-  - **Pi-hole:** its `pihole-FTL --config` settings (the `local=` lines,
-    HTTPS filtering, no conditional forwarding, `bogusPriv`) and the
-    hand-made local records such as `vaultwarden-direct`. The second Pi-hole
-    would be built from the same playbook. `misc.dnsmasq_lines`, which
-    nebula-sync can't copy, is copied from the primary by `ansible/pihole-sync.yml`.
+  - **Pi-hole:** `ansible/pihole-config.yml` sets what nebula-sync can't copy
+    (`misc.dnsmasq_lines`) on both, from Semaphore. Everything else (local
+    records such as `vaultwarden-direct`, CNAMEs, lists, `bogusPriv`) lives on
+    Pi-hole 1 and is copied to Pi-hole 2 by nebula-sync, so losing both would
+    lose it: a scheduled Teleporter export to Garage would cover that.
   - **Scheduled check-mode runs in Semaphore** (weekly, failure alerts on),
     reporting pending updates and drift without changing anything.
 
