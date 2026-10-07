@@ -73,14 +73,24 @@
         fail_msg: "{{ inventory_hostname }} returned nothing for: {{ current.results | selectattr('stdout', 'equalto', '') | map(attribute='item') | join(', ') }}"
         quiet: true
 
-    # A string compares as printed; anything else (a list, true/false, a
-    # number) as the JSON pihole-FTL prints it in.
+    # Each wanted value as `pihole-FTL --config` prints it, to compare with
+    # what it prints: a list as `[ a, b ]` (unquoted, `[]` when empty),
+    # true/false in lower case, anything else as is. This is not JSON.
+    - name: Render the wanted values as pihole-FTL prints them
+      ansible.builtin.set_fact:
+        printed: "{{ (printed | default({})) | combine({item.key: rendered}) }}"
+      vars:
+        rendered: >-
+          {{ ('[' ~ ((' ' ~ item.value | join(', ') ~ ' ') if item.value | length > 0 else '') ~ ']')
+          if (item.value is sequence and item.value is not string)
+          else ((item.value | string | lower) if item.value is boolean else item.value | string) }}
+      loop: "{{ pihole_settings | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
     - name: Find the settings that differ
       ansible.builtin.set_fact:
-        to_set: "{{ (to_set | default([])) + ([item.item] if differs else []) }}"
-      vars:
-        want: "{{ pihole_settings[item.item] }}"
-        differs: "{{ (item.stdout != want) if want is string else (item.stdout | from_json != want) }}"
+        to_set: "{{ (to_set | default([])) + ([item.item] if item.stdout != printed[item.item] else []) }}"
       loop: "{{ current.results }}"
       loop_control:
         label: "{{ item.item }}"
@@ -93,7 +103,7 @@
       ansible.builtin.debug:
         msg:
           - "{{ item }} now: {{ (current.results | selectattr('item', 'equalto', item) | first).stdout }}"
-          - "{{ item }} wanted: {{ pihole_settings[item] if pihole_settings[item] is string else pihole_settings[item] | to_json }}"
+          - "{{ item }} wanted: {{ printed[item] }}"
       loop: "{{ to_set }}"
 
     - name: The other Pi-holes answer
@@ -138,11 +148,9 @@
 
     - name: Each now has the wanted value
       ansible.builtin.assert:
-        that: (item.stdout == want) if want is string else (item.stdout | from_json == want)
+        that: item.stdout == printed[item.item]
         fail_msg: "{{ item.item }} on {{ inventory_hostname }} still differs after setting it."
         quiet: true
-      vars:
-        want: "{{ pihole_settings[item.item] }}"
       loop: "{{ read_back.results | default([]) }}"
       loop_control:
         label: "{{ item.item }}"
