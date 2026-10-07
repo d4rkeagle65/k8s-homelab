@@ -1,0 +1,167 @@
+# Sets every Pi-hole's pihole-FTL settings to the values in pihole_settings,
+# one Pi-hole at a time: for each setting that differs it sets the value with
+# `pihole-FTL --config`, reads it back, then restarts FTL (some settings, such
+# as misc.dnsmasq_lines, only take effect on a restart) and waits for that
+# Pi-hole to answer DNS again. A Pi-hole is changed only while every other one
+# answers; with a single Pi-hole the run stops unless allow_dns_outage is true.
+#
+# One owner per setting: nebula-sync (kubernetes/prod/system/nebula-sync/)
+# copies Pi-hole 1's dns, resolver and misc sections to the others, so this
+# playbook refuses settings there, except the ones nebula-sync leaves out
+# (nebula_sync_excluded). Everything else (webserver.api.app_sudo, ntp.*, ...)
+# is fair game.
+#
+# Inventory: the pihole group, as for pihole-update.yml. The values come from a
+# Semaphore variable group (they name the site's domains, so never git), e.g.
+#   {"pihole_settings": {"misc.dnsmasq_lines": ["local=/example.lan/", "filter-rr=HTTPS"],
+#                        "webserver.api.app_sudo": true}}
+# A list or true/false is given as JSON; anything else as a string. Optional:
+# dns_check_name (default pi.hole), allow_dns_outage (default false).
+#
+# In check mode (--check) it reports which settings differ on which Pi-hole,
+# and changes nothing.
+
+- name: Set the Pi-holes' settings one at a time
+  hosts: pihole
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars:
+    others: "{{ groups['pihole'] | reject('equalto', inventory_hostname) | list }}"
+    # nebula-sync's synced sections, and what it leaves out of them
+    # (SYNC_CONFIG_*_EXCLUDE in its deployment.yaml).
+    nebula_sync_sections: [dns, resolver, misc]
+    nebula_sync_excluded: [misc.dnsmasq_lines]
+  tasks:
+    - name: pihole_settings is a non-empty mapping
+      ansible.builtin.assert:
+        that:
+          - pihole_settings is defined
+          - pihole_settings is mapping
+          - pihole_settings | length > 0
+        fail_msg: pihole_settings isn't set; it comes from the Pi-hole settings variable group in Semaphore.
+        quiet: true
+      run_once: true
+
+    - name: No setting is one nebula-sync owns
+      ansible.builtin.assert:
+        that: owned_by_nebula | length == 0
+        fail_msg: >-
+          nebula-sync copies these from Pi-hole 1, so setting them here would give them two
+          owners: {{ owned_by_nebula | join(', ') }}. Change them on Pi-hole 1 instead.
+        quiet: true
+      vars:
+        owned_by_nebula: >-
+          {{ pihole_settings.keys() | select('match', '^(' ~ nebula_sync_sections | join('|') ~ ')[.]')
+          | reject('in', nebula_sync_excluded) | list }}
+      run_once: true
+
+    - name: Read each setting
+      ansible.builtin.command:
+        argv: [pihole-FTL, --config, "{{ item }}"]
+      loop: "{{ pihole_settings.keys() | list }}"
+      register: current
+      changed_when: false
+      check_mode: false
+
+    # An empty answer is a failed read, not an empty setting: an empty list
+    # prints as [].
+    - name: Every setting was read
+      ansible.builtin.assert:
+        that: current.results | selectattr('stdout', 'equalto', '') | list | length == 0
+        fail_msg: "{{ inventory_hostname }} returned nothing for: {{ current.results | selectattr('stdout', 'equalto', '') | map(attribute='item') | join(', ') }}"
+        quiet: true
+
+    # A string compares as printed; anything else (a list, true/false, a
+    # number) as the JSON pihole-FTL prints it in.
+    - name: Find the settings that differ
+      ansible.builtin.set_fact:
+        to_set: "{{ (to_set | default([])) + ([item.item] if differs else []) }}"
+      vars:
+        want: "{{ pihole_settings[item.item] }}"
+        differs: "{{ (item.stdout != want) if want is string else (item.stdout | from_json != want) }}"
+      loop: "{{ current.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Report what differs
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ 'every setting matches' if not to_set else 'differs: ' ~ to_set | join(', ') }}"
+
+    - name: Show each difference
+      ansible.builtin.debug:
+        msg:
+          - "{{ item }} now: {{ (current.results | selectattr('item', 'equalto', item) | first).stdout }}"
+          - "{{ item }} wanted: {{ pihole_settings[item] if pihole_settings[item] is string else pihole_settings[item] | to_json }}"
+      loop: "{{ to_set }}"
+
+    - name: The other Pi-holes answer
+      ansible.builtin.command: >-
+        python3 {{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }}
+        {{ hostvars[item].ansible_host | default(item) }}
+      delegate_to: localhost
+      loop: "{{ others }}"
+      register: others_answer
+      until: others_answer.rc == 0
+      retries: 2
+      delay: 5
+      changed_when: false
+      check_mode: false
+      when: to_set | length > 0
+
+    - name: A DNS outage is allowed when there is no other Pi-hole
+      ansible.builtin.assert:
+        that: others | length > 0 or allow_dns_outage | default(false) | bool
+        fail_msg: >-
+          {{ inventory_hostname }} is the only Pi-hole, and restarting FTL drops DNS for a few
+          seconds. Set allow_dns_outage: true to go ahead anyway.
+        quiet: true
+      when: to_set | length > 0
+
+    - name: Set each differing setting
+      ansible.builtin.command:
+        argv:
+          - pihole-FTL
+          - --config
+          - "{{ item }}"
+          - "{{ pihole_settings[item] if pihole_settings[item] is string else pihole_settings[item] | to_json }}"
+      loop: "{{ to_set }}"
+
+    - name: Read them back
+      ansible.builtin.command:
+        argv: [pihole-FTL, --config, "{{ item }}"]
+      loop: "{{ to_set }}"
+      register: read_back
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Each now has the wanted value
+      ansible.builtin.assert:
+        that: (item.stdout == want) if want is string else (item.stdout | from_json == want)
+        fail_msg: "{{ item.item }} on {{ inventory_hostname }} still differs after setting it."
+        quiet: true
+      vars:
+        want: "{{ pihole_settings[item.item] }}"
+      loop: "{{ read_back.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: not ansible_check_mode
+
+    - name: Restart FTL so the settings take effect
+      ansible.builtin.systemd_service:
+        name: pihole-FTL
+        state: restarted
+      when: to_set | length > 0
+
+    - name: Wait for it to answer DNS again
+      ansible.builtin.command: >-
+        python3 {{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }}
+        {{ ansible_host | default(inventory_hostname) }}
+      delegate_to: localhost
+      register: self_answer
+      until: self_answer.rc == 0
+      retries: 20
+      delay: 6
+      changed_when: false
+      when: to_set | length > 0 and not ansible_check_mode
