@@ -1,0 +1,9 @@
+# nebula-sync keeps the second Pi-hole the same as the first: every hour it
+# copies Pi-hole 1's lists, groups, clients and DNS settings (local records and
+# CNAMEs included) to Pi-hole 2 through their v6 APIs. Pi-hole 1 is the one to
+# edit; changes made on Pi-hole 2 are overwritten.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- secret.yaml
+- deployment.yaml
