@@ -190,7 +190,9 @@ variables (`{"k8s_bundle": "1.33"}`, a string): **"Kubernetes upgrade: check"** 
 
 **A new bundle:** copy the newest, set the versions, and give every add-on's range from its
 project's support page, with the link. A new add-on goes into `k8s_addons` with how to read
-its version, and a range in every bundle.
+its version, and a range in every bundle. Once the cluster runs a new minor, bump `KUBECTL_VERSION`
+in `docker/claude-code/Dockerfile` to match: kubectl supports one minor version either side of
+the server.
 
 ## The Pi-holes and the Docker VM (`pihole-update.yml`, `docker-vm-update.yml`)
 
