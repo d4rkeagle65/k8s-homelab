@@ -114,7 +114,8 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   first sync (both answer the local records the same); add `.4` to Kea's
   `domain-name-servers` option per subnet (`/opt/kea/site/site.json` on the Docker VM, then
   `config-reload`); add `.4` to the k8s node LXCs' `nameserver` and the Docker VM's netplan
-  nameservers; add the new host to Semaphore's Pi-hole inventory (`pihole-update.yml`). The
+  nameservers; add the new host to Semaphore's Pi-hole inventory with `pihole_primary` set
+  (`pihole-update.yml`, `pihole-sync.yml`), and run `pihole-sync.yml`. The
   DMZ network isn't served by Kea, so its static clients are changed by hand.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
@@ -156,9 +157,8 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   - **Pi-hole:** its `pihole-FTL --config` settings (the `local=` lines,
     HTTPS filtering, no conditional forwarding, `bogusPriv`) and the
     hand-made local records such as `vaultwarden-direct`. The second Pi-hole
-    would be built from the same playbook. `misc.dnsmasq_lines` is the one
-    setting nebula-sync can't copy (Pi-hole refuses it through the API), so
-    today it's set on each Pi-hole by hand and the two can drift.
+    would be built from the same playbook. `misc.dnsmasq_lines`, which
+    nebula-sync can't copy, is copied from the primary by `ansible/pihole-sync.yml`.
   - **Scheduled check-mode runs in Semaphore** (weekly, failure alerts on),
     reporting pending updates and drift without changing anything.
 
