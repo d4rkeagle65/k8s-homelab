@@ -116,26 +116,19 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   to have room.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
-- **Back up the Docker VM's databases to Garage**, the way the cluster's
-  CloudNativePG databases already are. Today their only copy outside the VM is
-  the Proxmox backup of its disks, which can catch a database mid-write:
-  - `semaphore-postgres` (`docker/semaphore/`): Semaphore's own database,
-    holding the inventories, SSH keys and secrets (encrypted with
-    `SEMAPHORE_ACCESS_KEY_ENCRYPTION`, which isn't in the dump: keep it in
-    Vaultwarden), and `tfstate`, OpenTofu's state for everything under `tofu/`.
-  - `kea-postgres` (`docker/kea/`): Kea's reservations (all 50 live only
-    there) and Stork's database.
-  - Worth including, though not PostgreSQL: Vaultwarden's SQLite under
-    `/opt/vaultwarden/data` (its `/admin` backup or `sqlite3 .backup`, never a
-    plain copy of the live file) and Dockhand's data under `/opt/dockhand`.
-
-  To design: a small container per stack (or one for the host) running
-  `pg_dump -Fc` per database on a schedule, uploading to a `docker-backups`
-  bucket in Garage (its own key, write-only if Garage allows it) with a
-  retention, and alerting when a run fails; or WAL-G/pgBackRest for
-  point-in-time recovery, which is likely more than these need. Done when each
-  database has a fresh dump in Garage and one has been restored into a
-  throwaway container and compared.
+- **Back up the Docker VM's databases to Garage: deploy it.** Written: `docker/databasus/`
+  (Databasus for `semaphore`, `tfstate`, `kea`, `stork`, through a read-only `databasus` role
+  each database stack's `databasus-role-init` keeps) and `vaultwarden-backup` in
+  `docker/vaultwarden/` (SQLite `.backup` plus keys, attachments and Sends, 7z-encrypted).
+  Left: the Garage bucket and key, the Dockhand variables and the UI setup
+  (`docker/databasus/README.md`), then a restore of one backup of each into a scratch
+  database or container, compared with the live one. Until then their only copy off the VM is
+  the Proxmox backup of its disks.
+  - **Restore verification in Databasus** needs its agent, which starts throwaway databases
+    through Docker: on the Docker VM that's the Docker socket, root on the host. Decide whether
+    it runs there, elsewhere, or not at all (then a restore by hand now and then).
+  - **Dockhand's own data** (`/opt/dockhand`, SQLite) has no backup of its own beyond the
+    Proxmox one.
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule

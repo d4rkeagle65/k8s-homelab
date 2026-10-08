@@ -18,6 +18,7 @@
 #   POSTGRES_PASSWORD   secret: the database superuser's
 #   KEA_DB_PASSWORD     secret: the kea role's (also in site.json)
 #   STORK_DB_PASSWORD   secret: the stork role's
+#   DATABASUS_DB_PASSWORD  secret: the databasus role's (read-only, for backups)
 #   STORK_OIDC_ISSUER_URL     Authentik's issuer for Stork:
 #                             https://auth.<domain>/application/o/stork/
 #   STORK_OIDC_REDIRECT_URI   https://stork.<domain>/oidc/callback
@@ -41,6 +42,35 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+
+  # The read-only role Databasus backs these databases up as
+  # (docker/databasus/): created when missing, password set from
+  # DATABASUS_DB_PASSWORD, and pg_read_all_data (read every table, change
+  # nothing), on every deploy, then exits.
+  databasus-role-init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      kea-postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: kea-postgres
+      PGUSER: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      DATABASUS_DB_PASSWORD: ${DATABASUS_DB_PASSWORD}
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      [ -n "$$DATABASUS_DB_PASSWORD" ] || { echo "DATABASUS_DB_PASSWORD is empty"; exit 1; }
+      psql -v ON_ERROR_STOP=1 -v pw="$$DATABASUS_DB_PASSWORD" <<'SQL'
+      SELECT 'CREATE ROLE databasus LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'databasus')\gexec
+      ALTER ROLE databasus PASSWORD :'pw';
+      GRANT pg_read_all_data TO databasus;
+      SQL
+      psql -tA -c "SELECT 'databasus role: login ' || rolcanlogin || ', reads all data ' || pg_has_role('databasus', 'pg_read_all_data', 'MEMBER') FROM pg_roles WHERE rolname = 'databasus'"
 
   # Creates Kea's tables on an empty database, and upgrades them to match
   # this Kea version otherwise; runs on every deploy, then exits.

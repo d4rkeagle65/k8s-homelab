@@ -1,0 +1,42 @@
+# Databasus, the backup app for the Docker host's own databases, in Docker on
+# the Docker host, port 4005 on its management address only
+# (docker/databasus/). DOCKHAND_ADDRESS is that address's hand-made Pi-hole
+# name (dockhand runs on the same host). Its logins are its own (no OIDC), so
+# the route is private-only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: databasus
+spec:
+  type: ExternalName
+  externalName: ${DOCKHAND_ADDRESS}
+  ports:
+  - name: http
+    port: 4005
+    protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: databasus
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: databasus.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: databasus
+            port:
+              number: 4005
+  tls:
+  - hosts:
+    - databasus.${BASE_DOMAIN}
+    secretName: databasus-tls
