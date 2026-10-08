@@ -31,6 +31,22 @@ locals {
   }
   pihole_bridges = ["vmbr7", "vmbr0", "vmbr2", "vmbr6", "vmbr8"]
 
+  k8s_bridges       = ["vmbr7", "vmbr0"]
+  docker_vm_bridges = ["vmbr0", "vmbr7", "vmbr8"] # management, main, DMZ
+
+  bridges_with_addresses = toset(concat(local.k8s_bridges, local.pihole_bridges))
+
+  # A container's address on a bridge: that network's prefix and the
+  # container's last octet; the gateway where the network has one.
+  addresses = {
+    for id, kind in local.guests : id => [
+      for bridge in(kind == "k8s" ? local.k8s_bridges : local.pihole_bridges) : {
+        address = "${var.site.networks[bridge].prefix}.${var.site.guests[id].host}/${var.site.networks[bridge].prefix_length}"
+        gateway = var.site.networks[bridge].gateway
+      }
+    ] if kind != "docker-vm"
+  }
+
   guests = merge(
     { for id, role in local.k8s_nodes : id => "k8s" },
     { for id, _ in local.piholes : id => "pihole" },
@@ -86,17 +102,16 @@ resource "proxmox_virtual_environment_container" "k8s_node" {
     }
   }
 
+  # MACs stay as Proxmox assigned them (computed); the addresses are static.
   network_interface {
-    name        = "eth0"
-    bridge      = "vmbr7"
-    firewall    = false
-    mac_address = var.site.guests[each.key].interfaces[0].mac
+    name     = "eth0"
+    bridge   = "vmbr7"
+    firewall = false
   }
 
   network_interface {
-    name        = "eth1"
-    bridge      = "vmbr0"
-    mac_address = var.site.guests[each.key].interfaces[1].mac
+    name   = "eth1"
+    bridge = "vmbr0"
   }
 
   initialization {
@@ -108,7 +123,7 @@ resource "proxmox_virtual_environment_container" "k8s_node" {
     }
 
     dynamic "ip_config" {
-      for_each = var.site.guests[each.key].interfaces
+      for_each = local.addresses[each.key]
       content {
         ipv4 {
           address = ip_config.value.address
@@ -162,9 +177,8 @@ resource "proxmox_virtual_environment_container" "pihole" {
   dynamic "network_interface" {
     for_each = local.pihole_bridges
     content {
-      name        = "eth${network_interface.key}"
-      bridge      = network_interface.value
-      mac_address = var.site.guests[each.key].interfaces[network_interface.key].mac
+      name   = "eth${network_interface.key}"
+      bridge = network_interface.value
     }
   }
 
@@ -172,7 +186,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
     hostname = var.site.guests[each.key].hostname
 
     dynamic "ip_config" {
-      for_each = var.site.guests[each.key].interfaces
+      for_each = local.addresses[each.key]
       content {
         ipv4 {
           address = ip_config.value.address
@@ -243,12 +257,13 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
     ssd          = true
   }
 
-  # Management, main and DMZ networks, in that order.
+  # The VM's network devices are one list attribute, so each MAC is stated:
+  # left out, it would read as a change.
   dynamic "network_device" {
-    for_each = ["vmbr0", "vmbr7", "vmbr8"]
+    for_each = local.docker_vm_bridges
     content {
       bridge      = network_device.value
-      mac_address = var.site.guests["107"].interfaces[network_device.key].mac
+      mac_address = var.site.guests["107"].macs[network_device.key]
     }
   }
 
