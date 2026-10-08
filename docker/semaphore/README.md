@@ -84,7 +84,7 @@ Setting up the project (repository, inventory, key, task templates) is in `ansib
 tfstate`). OpenTofu runs inside the Semaphore container, which reaches the database as
 `semaphore-postgres`; nothing publishes it. The state holds secrets, so it lives here, outside
 git and outside the cluster it describes. Semaphore's side (the environment carrying
-`PG_CONN_STR`) is in `QUEUE-terraform.md`.
+`PG_CONN_STR`) is in `tofu/README.md`.
 
 ## Updating
 

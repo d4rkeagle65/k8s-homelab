@@ -37,7 +37,7 @@ outside the cluster").
 - **Provider `bpg/proxmox`** (v0.116.0 when written), the maintained one. Resources
   `proxmox_virtual_environment_container` and `proxmox_virtual_environment_vm`; endpoint and
   token from `PROXMOX_VE_ENDPOINT` and `PROXMOX_VE_API_TOKEN` in Semaphore's environment.
-- **In scope:** the six k8s node LXCs (101-106), Pi-hole's LXC (100) and the Docker VM (107).
+- **In scope:** the six k8s node LXCs (101-106), both Pi-holes' LXCs (100, 109) and the Docker VM (107).
   **Out of scope:** the Windows DC (108), left alone.
 - **What an API token can't set stays with Ansible:** the raw `lxc.*` lines on the k8s nodes
   (apparmor unconfined, cap.drop, cgroup devices, proc/sys rw) and Pi-hole (`/dev/net/tun`),
@@ -72,11 +72,16 @@ outside the cluster").
 
 - [ ] `TFSTATE_DB_PASSWORD` set in Dockhand (marked secret, copy in Vaultwarden); Semaphore
       stack redeployed; `tfstate-db-init`'s log ends `tfstate database owned by tfstate`
-- [ ] claude-code image rebuilt; `tofu version` says 1.11.0
-- [ ] `tofu/proxmox/` written; `tofu fmt -check` and `tofu validate` pass; lock file committed
-- [ ] `TF_VAR_site` built from the live config (read-only API), in Semaphore and Vaultwarden
-- [ ] Read-only Proxmox token for OpenTofu; Semaphore environment and plan template
-- [ ] Plan shows 8 imports, 0 to add, 0 to change, 0 to destroy
+- [x] claude-code image rebuilt; `tofu version` says 1.11.0
+- [x] `tofu/proxmox/` written; `tofu fmt -check` and `tofu validate` pass; lock file committed
+- [x] The containers plan as imports only (claude-code, read-only token, local state): 8 to
+      import, and 8 "to change" that are only `vm_id` and `timeout_start` entering state on
+      the first apply (the provider sends nothing to Proxmox for those)
+- [ ] `TF_VAR_site` in Semaphore and Vaultwarden (built from the live config)
+- [ ] Proxmox token for OpenTofu, Semaphore environment and template (`tofu/README.md`)
+- [ ] The Docker VM plans clean too: reading its disks needs `VM.Config.Disk`, which the
+      claude-code token lacks, so its first plan is Semaphore's
+- [ ] Plan shows 9 imports and no real changes
 - [ ] Import applied with the read-write token; the next plan shows no changes
 - [ ] Cloudflare root module
 
