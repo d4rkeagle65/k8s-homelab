@@ -70,11 +70,13 @@
       check_mode: false
       failed_when: pihole_check.rc not in [0, 1]
 
+    # The second regex strips Pi-hole's status marks ("[i] ", "[✓] "). It
+    # avoids a "[[" set, which Python warns is a possible nested set.
     - name: Show what is pending
       ansible.builtin.debug:
         msg:
           - "apt: {{ upgradable.stdout_lines | reject('match', '^Listing') | map('regex_replace', '/.*', '') | join(', ') or 'nothing' }}"
-          - "Pi-hole: {{ (pihole_check.stdout_lines | select('search', '(?i)update available|up to date') | list or pihole_check.stdout_lines[-3:]) | map('regex_replace', '^[ ]*[[][^]]*[]][ ]*', '') | map('regex_replace', '[ \t]+', ' ') | join('; ') }}"
+          - "Pi-hole: {{ (pihole_check.stdout_lines | select('search', '(?i)update available|up to date') | list or pihole_check.stdout_lines[-3:]) | map('regex_replace', '^ *[^]a-zA-Z0-9 ][^]]{0,3}] *', '') | map('regex_replace', '[ \t]+', ' ') | join('; ') }}"
 
     - name: Upgrade the container's packages
       ansible.builtin.apt:
