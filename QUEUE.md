@@ -107,17 +107,9 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   CLAUDE.md).
 - **Kea phase 3** (decision 5): a second Kea on another host as a hot-standby partner
   (the firewall's relay can point at both), and lease names into DNS.
-- **Finish the second Pi-hole** (LXC 109 on a host other than the first's, `.4` on each
-  network the first serves at `.3`, tagged `adblock`; kept the same by
-  `prod/system/nebula-sync/`). Until clients are told about it, every one still asks only
-  Pi-hole 1, and a reboot of its host takes DNS down. Left, in order: confirm nebula-sync's
-  first sync (both answer the local records the same); add `.4` to Kea's
-  `domain-name-servers` option per subnet (`/opt/kea/site/site.json` on the Docker VM, then
-  `config-reload`); add `.4` to the k8s node LXCs' `nameserver` and the Docker VM's netplan
-  nameservers; add the new host to Semaphore's Pi-hole inventory, create the "Pi-hole settings"
-  variable group from Pi-hole 1's `misc.dnsmasq_lines`, and run `pihole-config.yml`
-  (`ansible/README.md`). The
-  DMZ network isn't served by Kea, so its static clients are changed by hand.
+- **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
+  static clients still list only `172.16.228.3` and lose DNS while Pi-hole 1's host
+  reboots. Add `172.16.228.4` on each by hand.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Back up the Docker VM's databases to Garage**, the way the cluster's
