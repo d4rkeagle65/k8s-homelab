@@ -9,7 +9,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-semaphore.md`, `QUEUE-terraform.md`.
+- [Working queue files](#working-queue-files) - `QUEUE-terraform.md`.
 
 ## Waiting on the owner
 
@@ -48,8 +48,6 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
 
 ## Next
 
-- **Semaphore for Ansible, starting with keeping the Proxmox hosts up to date.** In progress;
-  see [QUEUE-semaphore.md](QUEUE-semaphore.md).
 - **Kubernetes 1.37, when its patches settle:** add bundle 1.37 to `ansible/k8s-bundles.yml`
   (copy 1.36; versions and each add-on's range from its support page). Calico 3.33 is the one
   that covers 1.37 (3.33.0 tested on 1.35-1.37); check the others' ranges then. Bump the
@@ -219,7 +217,6 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
 
 ## Working queue files
 
-- [QUEUE-semaphore.md](QUEUE-semaphore.md): Semaphore for Ansible.
 - [QUEUE-terraform.md](QUEUE-terraform.md): OpenTofu, Proxmox guests first.
 
 A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
