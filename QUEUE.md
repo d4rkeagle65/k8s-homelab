@@ -110,6 +110,12 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
 - **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
   static clients still list only `172.16.228.3` and lose DNS while Pi-hole 1's host
   reboots. Add `172.16.228.4` on each by hand.
+- **Switch on VT-x in the third Proxmox host's BIOS** ("Intel Virtualization Technology"): its CPU
+  supports it but the host reports no `vmx` flag, so it can't run any VM, and it's the Docker
+  VM's evacuation target (the most free memory). The 2026-10-08 upgrade's migration there
+  failed; `ansible/tasks/evacuate-check.yml` now stops a run before trying. Until then the
+  Proxmox inventory's `evacuate` points at another host, which needs a temporary ZFS ARC cap
+  to have room.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Back up the Docker VM's databases to Garage**, the way the cluster's
@@ -138,8 +144,10 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
     priorities), the nft scripts and their systemd units (management return
     path, DMZ marks, the `DOCKER-USER` rules for Tailscale), sysctls, Docker,
     Dockhand's own compose file and the certificate-sync cron.
-  - **Proxmox hosts:** repositories, packages, kernel cleanup, and the host
-    settings the k8s LXCs depend on: kernel modules, sysctls, and the parts of
+  - **Proxmox hosts:** repositories, packages, kernel cleanup, a ZFS ARC cap
+    (`zfs_arc_max` in `/etc/modprobe.d/zfs.conf`; uncapped, the ARC's ceiling is nearly all of
+    a host's RAM, and a VM moving in during an upgrade then doesn't fit: the 2026-10-08 run
+    needed a temporary 2 GiB cap on the target), and the host settings the k8s LXCs depend on: kernel modules, sysctls, and the parts of
     each LXC's `/etc/pve/lxc/<id>.conf` an API token can't set (the raw
     `lxc.*` lines and the `mount=nfs` feature; OpenTofu ignores them,
     `QUEUE-terraform.md`).
