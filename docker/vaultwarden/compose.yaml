@@ -10,6 +10,19 @@
 # connects straight here (vaultwarden-direct.<domain>), never through
 # Traefik, and refuses plain HTTP; see
 # kubernetes/prod/system/external-services/external-services/app/vaultwarden.yaml.
+#
+# vaultwarden-backup (ttionya/vaultwarden-backup) backs the data folder up to
+# the Garage bucket docker-backups on the NAS, nightly: the database through
+# SQLite's own .backup (safe while Vaultwarden runs), with the RSA key that
+# signs logins, config.json, attachments and Sends, in one 7z archive
+# encrypted with BACKUP_ZIP_PASSWORD. Keep that password OUTSIDE Vaultwarden:
+# it's what opens the backup when Vaultwarden is the thing that's gone.
+# Restore: see the image's README (`restore` command, the container stopped).
+#
+# Backup variables (set in Dockhand too, all secret but the endpoint):
+#   BACKUP_S3_ENDPOINT, BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY
+#                       Garage's S3 API and the docker-backups key
+#   BACKUP_ZIP_PASSWORD the archive's password
 services:
   vaultwarden:
     image: vaultwarden/server:1.37.2
@@ -48,3 +61,41 @@ services:
       HTTP_REQUEST_BLOCK_NON_GLOBAL_IPS: "false"
       ICON_BLACKLIST_NON_GLOBAL_IPS: "false"
       LOG_LEVEL: info
+
+  vaultwarden-backup:
+    image: ttionya/vaultwarden-backup:1.27.1
+    container_name: vaultwarden-backup
+    restart: unless-stopped
+    volumes:
+    - /opt/vaultwarden/data:/bitwarden/data
+    configs:
+    - source: rclone
+      target: /config/rclone/rclone.conf
+    environment:
+      DATA_DIR: /bitwarden/data
+      RCLONE_REMOTE_NAME: garage
+      RCLONE_REMOTE_DIR: /docker-backups/vaultwarden/
+      # 03:30 UTC: after the cluster's database backups and the 01:00
+      # Proxmox backup.
+      CRON: "30 3 * * *"
+      TIMEZONE: UTC
+      BACKUP_KEEP_DAYS: "30"
+      ZIP_ENABLE: "TRUE"
+      ZIP_TYPE: 7z
+      ZIP_PASSWORD: ${BACKUP_ZIP_PASSWORD}
+      DISPLAY_NAME: vaultwarden
+
+configs:
+  # Garage over S3: path-style addressing and its region name; the bucket
+  # already exists, so rclone doesn't try to create it.
+  rclone:
+    content: |
+      [garage]
+      type = s3
+      provider = Other
+      endpoint = ${BACKUP_S3_ENDPOINT}
+      access_key_id = ${BACKUP_S3_ACCESS_KEY_ID}
+      secret_access_key = ${BACKUP_S3_SECRET_ACCESS_KEY}
+      region = garage
+      force_path_style = true
+      no_check_bucket = true

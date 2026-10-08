@@ -1,0 +1,48 @@
+# Databasus on the Docker host, deployed by Dockhand from this folder (a Git
+# stack): nightly backups of the host's own PostgreSQL databases (Semaphore's
+# semaphore and tfstate, Kea's kea and stork) to the Garage bucket
+# docker-backups on the NAS, with failure alerts. Its databases, storage,
+# schedules and notifiers are set in its web UI and kept in /opt/databasus;
+# README.md lists them, so they can be set again.
+#
+# It reaches each database over that stack's own Docker network (joined
+# below by name), as the read-only role `databasus` each stack's
+# databasus-role-init keeps; no database is published.
+#
+# The web UI is on the host's management address only, port 4005, and is
+# served at databasus.<domain> through Traefik to private networks only
+# (kubernetes external-services). Its logins are its own: it has no OIDC.
+#
+# Variables (set in the stack's environment in Dockhand):
+#   DATABASUS_BIND_ADDRESS  the host's management address (the web UI)
+#   SEMAPHORE_NETWORK       the semaphore stack's Docker network, as
+#                           `docker network ls` names it
+#   KEA_NETWORK             the kea stack's Docker network
+services:
+  databasus:
+    image: databasus/databasus:v3.60.0
+    container_name: databasus
+    restart: unless-stopped
+    ports:
+    - ${DATABASUS_BIND_ADDRESS}:4005:4005
+    volumes:
+    - /opt/databasus:/databasus-data
+    networks:
+    - default
+    - semaphore
+    - kea
+    healthcheck:
+      test: ["CMD", "databasus", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Its first start takes up to ~2 minutes.
+      start_period: 120s
+
+networks:
+  semaphore:
+    external: true
+    name: ${SEMAPHORE_NETWORK}
+  kea:
+    external: true
+    name: ${KEA_NETWORK}

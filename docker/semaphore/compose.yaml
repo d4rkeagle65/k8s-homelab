@@ -21,6 +21,7 @@
 #   SEMAPHORE_OIDC_CLIENT_SECRET  secret: the same one Authentik's blueprint reads
 #                            (AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET)
 #   TFSTATE_DB_PASSWORD      secret: the tfstate role's (OpenTofu's state database)
+#   DATABASUS_DB_PASSWORD    secret: the databasus role's (read-only, for backups)
 #   TZ                       the timezone schedules run in, e.g. America/New_York
 services:
   semaphore-postgres:
@@ -66,6 +67,35 @@ services:
       SELECT 'CREATE DATABASE tfstate OWNER tfstate' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tfstate')\gexec
       SQL
       psql -tA -d tfstate -c "SELECT 'tfstate database owned by ' || pg_get_userbyid(datdba) FROM pg_database WHERE datname = 'tfstate'"
+
+  # The read-only role Databasus backs these databases up as
+  # (docker/databasus/): created when missing, password set from
+  # DATABASUS_DB_PASSWORD, and pg_read_all_data (read every table, change
+  # nothing), on every deploy, then exits.
+  databasus-role-init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      semaphore-postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: semaphore-postgres
+      PGUSER: semaphore
+      PGDATABASE: semaphore
+      PGPASSWORD: ${SEMAPHORE_DB_PASSWORD}
+      DATABASUS_DB_PASSWORD: ${DATABASUS_DB_PASSWORD}
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      [ -n "$$DATABASUS_DB_PASSWORD" ] || { echo "DATABASUS_DB_PASSWORD is empty"; exit 1; }
+      psql -v ON_ERROR_STOP=1 -v pw="$$DATABASUS_DB_PASSWORD" <<'SQL'
+      SELECT 'CREATE ROLE databasus LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'databasus')\gexec
+      ALTER ROLE databasus PASSWORD :'pw';
+      GRANT pg_read_all_data TO databasus;
+      SQL
+      psql -tA -c "SELECT 'databasus role: login ' || rolcanlogin || ', reads all data ' || pg_has_role('databasus', 'pg_read_all_data', 'MEMBER') FROM pg_roles WHERE rolname = 'databasus'"
 
   semaphore:
     image: semaphoreui/semaphore:v2.19.12
