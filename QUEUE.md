@@ -152,6 +152,12 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
     records such as `vaultwarden-direct`, CNAMEs, lists, `bogusPriv`) lives on
     Pi-hole 1 and is copied to Pi-hole 2 by nebula-sync, so losing both would
     lose it: a scheduled Teleporter export to Garage would cover that.
+  - **Named logins instead of root:** `ansible/admin-users.yml` (not yet run) gives the owner
+    an account with sudo on every machine. Once it's proven everywhere: remove the owner's
+    key from root's `authorized_keys` (on the Proxmox hosts the shared
+    `/etc/pve/priv/authorized_keys`), and set `sshd` to `PasswordAuthentication no` and
+    `PermitRootLogin prohibit-password` (never `no`: the Proxmox hosts and Semaphore log in
+    as root by key), from a playbook that first checks the named login works.
   - **Scheduled check-mode runs in Semaphore** (weekly, failure alerts on),
     reporting pending updates and drift without changing anything.
 

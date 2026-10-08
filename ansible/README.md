@@ -12,6 +12,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
 | `pihole-update.yml` | Updates the Pi-holes one at a time (`apt dist-upgrade`, then `pihole -up`), each only while every other one answers DNS, and waits for it to answer again before the next. With a single Pi-hole it stops unless `allow_dns_outage: true`. Not yet run. |
 | `pihole-config.yml` | Sets every Pi-hole's `pihole-FTL` settings to the values in `pihole_settings` (a Semaphore variable group), one at a time and only while the others answer DNS: sets each that differs, reads it back, restarts FTL and waits for it to answer again. It refuses settings nebula-sync copies from Pi-hole 1, so each setting has one owner. Check mode reports the differences. Not yet run. |
+| `admin-users.yml` | Gives you a named login (`admin_user`) on every host of the inventory it runs against: the account with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. Not yet run. |
 | `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
 
 ## Setting up Semaphore (once)
@@ -216,6 +217,18 @@ Neither has run yet; start each with a check-mode template.
   `{"pihole_settings": {"misc.dnsmasq_lines": [...], "webserver.api.app_sudo": true}}`. The
   playbook's header says which settings it may own. Run it after changing a value there, and
   on a schedule in check mode to report drift.
+
+## Your own login on every machine (`admin-users.yml`)
+
+- **A variable group "Admin user"**, extra variables:
+  `{"admin_user": "dhardin", "admin_ssh_keys": ["ssh-ed25519 AAAA... comment"], "admin_sudo_nopasswd": true}`.
+  The public key line is the one `ssh-add -L` shows for the key in your vault. For sudo with a
+  password instead, set `admin_sudo_nopasswd` to false and add `admin_password_hash` (from
+  `openssl passwd -6`) as a secret.
+- **One template per inventory** (Proxmox, Kubernetes nodes, Pi-holes, Docker VM), each a check
+  (`["--check"]`) and a real one, with that variable group. Run the check first on each.
+- **Afterwards**, `ssh dhardin@<host>` and `sudo -n true` prove it on each machine; then
+  `~/.ssh/config` can say `User dhardin`.
 
 ## Running a Proxmox upgrade
 
