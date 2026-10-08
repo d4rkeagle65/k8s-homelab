@@ -1,0 +1,123 @@
+# The Proxmox hosts' own settings, so a rebuilt host comes back the same.
+# Upgrades are proxmox-upgrade.yml; this changes nothing that needs a reboot
+# and touches no guest, so it runs on every host at once.
+#
+# ZFS ARC cap: uncapped, ZFS's read cache may grow to nearly all of a host's
+# RAM and hand it back to guests only slowly, so a VM moving in during an
+# upgrade doesn't fit. The cap goes in /etc/modprobe.d/zfs.conf (the
+# zfs_arc_max option line only; other options there are kept) for boots,
+# into the initramfs when the root filesystem is ZFS, and live into the
+# running module; it's then read back from the ARC's own statistics.
+#
+# Inventory: the proxmox group, as for proxmox-upgrade.yml. Optional, per host
+# or for all: zfs_arc_max_gib, the cap in GiB. Unset, it's 10% of the host's
+# RAM rounded down, at least 2 (Proxmox's installer default since 8.1, which
+# for these hosts' small pools also matches its rule of 2 GiB plus 1 GiB per
+# TiB of storage).
+#
+# In check mode (--check) it reports each host's ARC size and cap, now and
+# wanted, and changes nothing.
+
+- name: Proxmox host settings
+  hosts: proxmox
+  gather_facts: true
+  gather_subset: [min, hardware]
+  vars:
+    # Where ZFS's settings live. The inventory may override these only for a
+    # test (play vars outrank inventory ones, hence the separate names).
+    module_param_file: "{{ zfs_module_param | default('/sys/module/zfs/parameters/zfs_arc_max') }}"
+    arcstats_file: "{{ zfs_arcstats | default('/proc/spl/kstat/zfs/arcstats') }}"
+    modprobe_conf_file: "{{ zfs_modprobe_conf | default('/etc/modprobe.d/zfs.conf') }}"
+    arc_gib: >-
+      {{ zfs_arc_max_gib | default([2, (ansible_facts['memtotal_mb'] * 0.1 / 1024) | int] | max) | int }}
+    arc_bytes: "{{ arc_gib | int * 1073741824 }}"
+  tasks:
+    - name: The cap is a whole number of GiB below the host's RAM
+      ansible.builtin.assert:
+        that:
+          - arc_gib | int >= 1
+          - arc_gib | int * 1024 < ansible_facts['memtotal_mb'] | int
+        fail_msg: "{{ inventory_hostname }}: an ARC cap of {{ arc_gib }} GiB doesn't fit in {{ ansible_facts['memtotal_mb'] }} MB of RAM."
+        quiet: true
+
+    - name: Read the ARC's size, ceiling and minimum
+      ansible.builtin.command:
+        argv: [awk, '$1 == "size" || $1 == "c_max" || $1 == "c_min" { print $1 "=" $3 }', "{{ arcstats_file }}"]
+      register: arcstats_before
+      changed_when: false
+      check_mode: false
+
+    - name: Read the running module's cap
+      ansible.builtin.command:
+        argv: [cat, "{{ module_param_file }}"]
+      register: param_before
+      changed_when: false
+      check_mode: false
+
+    - name: Work out the ARC now
+      ansible.builtin.set_fact:
+        arc_now: "{{ dict(arcstats_before.stdout_lines | map('split', '=')) }}"
+        param_now: "{{ param_before.stdout | trim | int }}"
+
+    - name: The ARC's statistics were read
+      ansible.builtin.assert:
+        that: arc_now.keys() | list | sort == ['c_max', 'c_min', 'size']
+        fail_msg: "{{ inventory_hostname }}: couldn't read the ARC's size, c_max and c_min from {{ arcstats_file }}."
+        quiet: true
+
+    - name: Report the ARC
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: ARC {{ '%.1f' % (arc_now['size'] | int / 1073741824) }} GiB,
+          ceiling {{ '%.1f' % (arc_now['c_max'] | int / 1073741824) }} GiB (zfs_arc_max
+          {{ param_now }}{{ ', the default' if param_now | int == 0 else '' }}); wanted {{ arc_gib }} GiB.
+
+    - name: The cap stays above ZFS's minimum
+      ansible.builtin.assert:
+        that: arc_bytes | int > arc_now['c_min'] | int
+        fail_msg: >-
+          {{ inventory_hostname }}: {{ arc_gib }} GiB is not above the ARC's minimum
+          ({{ '%.1f' % (arc_now['c_min'] | int / 1073741824) }} GiB), so ZFS would ignore it.
+        quiet: true
+
+    - name: Is the root filesystem ZFS
+      ansible.builtin.command: findmnt -n -o FSTYPE /
+      register: root_fstype
+      changed_when: false
+      check_mode: false
+
+    - name: The cap for boots
+      ansible.builtin.lineinfile:
+        path: "{{ modprobe_conf_file }}"
+        regexp: '^\s*options\s+zfs\s+zfs_arc_max='
+        line: "options zfs zfs_arc_max={{ arc_bytes }}"
+        create: true
+        mode: "0644"
+      register: modprobe_conf
+
+    # With root on ZFS the module loads from the initramfs, before /etc is
+    # read, so the setting has to be in it too.
+    - name: Rebuild the initramfs with the cap
+      ansible.builtin.command: update-initramfs -u -k all
+      when: modprobe_conf is changed and root_fstype.stdout | trim == 'zfs'
+
+    # A sysfs file: written in place, never through a temporary file.
+    - name: The cap for the running module
+      ansible.builtin.shell: printf '%s\n' {{ arc_bytes }} > {{ module_param_file | quote }}
+      when: param_now | int != arc_bytes | int
+
+    - name: Read the ARC's ceiling back
+      ansible.builtin.command:
+        argv: [awk, '$1 == "c_max" { print $3 }', "{{ arcstats_file }}"]
+      register: c_max_after
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: ZFS took the cap
+      ansible.builtin.assert:
+        that: c_max_after.stdout | trim | int == arc_bytes | int
+        fail_msg: >-
+          {{ inventory_hostname }}: wrote {{ arc_bytes }} but the ARC's ceiling is
+          {{ c_max_after.stdout | trim }}; ZFS refused or ignored the cap.
+        quiet: true
+      when: not ansible_check_mode

@@ -142,10 +142,10 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
     priorities), the nft scripts and their systemd units (management return
     path, DMZ marks, the `DOCKER-USER` rules for Tailscale), sysctls, Docker,
     Dockhand's own compose file and the certificate-sync cron.
-  - **Proxmox hosts:** repositories, packages, kernel cleanup, a ZFS ARC cap
-    (`zfs_arc_max` in `/etc/modprobe.d/zfs.conf`; uncapped, the ARC's ceiling is nearly all of
-    a host's RAM, and a VM moving in during an upgrade then doesn't fit: the 2026-10-08 run
-    needed a temporary 2 GiB cap on the target), and the host settings the k8s LXCs depend on: kernel modules, sysctls, and the parts of
+  - **Proxmox hosts:** `ansible/proxmox-host.yml` holds the ZFS ARC cap (not yet run; until it
+    is, the ARC's ceiling is nearly all of each host's RAM and a VM moving in during an upgrade
+    needs a temporary cap on the target). Still to add there: repositories, packages, kernel
+    cleanup, and the host settings the k8s LXCs depend on: kernel modules, sysctls, and the parts of
     each LXC's `/etc/pve/lxc/<id>.conf` an API token can't set (the raw
     `lxc.*` lines and the `mount=nfs` feature; OpenTofu ignores them,
     `QUEUE-terraform.md`).
