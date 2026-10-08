@@ -217,7 +217,9 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
   tags      = ["community-script", "debian13"]
 
   # Semaphore, and with it this run, lives on this VM: a change that needs a
-  # reboot only warns, and the reboot is done by hand.
+  # reboot only warns, and the reboot is done by hand. Every update to this
+  # VM also sends its name to Proxmox, changed or not, so the token needs
+  # VM.Config.Options here even for a change that is otherwise state-only.
   reboot_after_update = false
 
   bios          = "ovmf"

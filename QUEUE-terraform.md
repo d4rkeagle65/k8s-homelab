@@ -83,8 +83,9 @@ outside the cluster").
 - [x] Proxmox token for OpenTofu, Semaphore variable group and template (`tofu/README.md`)
 - [x] Plan from Semaphore (2026-10-08): 9 to import, 0 to add, 0 to destroy; the Docker VM
       imports with no differences, the containers' 8 changes are state-only
-- [ ] Import applied (the current token suffices: the apply only writes state); the next plan
-      shows no changes
+- [x] Import applied (2026-10-08): all 9 guests in state; the next plan says "No changes".
+      The VM's update needed `VM.Config.Options` after all (its name is sent with every
+      update), now in the `TofuDockerVM` role
 - [ ] A trusted certificate on each Proxmox host (Proxmox's ACME with the Cloudflare DNS
       plugin, a name under the public domain), the endpoint set to that name and
       `PROXMOX_VE_INSECURE` removed: today the token goes to whoever answers on the address

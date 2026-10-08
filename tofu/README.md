@@ -29,11 +29,12 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
 
 1. **A Proxmox API token for OpenTofu** (Datacenter > Permissions): a user `tofu@pve`, a token
    `semaphore` with privilege separation off, and the user given `PVEAuditor` on `/`. Reading
-   the Docker VM's disks also needs `VM.Config.Disk`: a role `TofuDiskRead` with only that
-   privilege, granted on `/vms/107` **together with `PVEAuditor`** (`--roles
-   PVEAuditor,TofuDiskRead`). Proxmox replaces, not adds to, what a user inherits when a path
-   has its own entry, so `TofuDiskRead` alone there loses `VM.Audit`. Importing needs nothing
-   more: the first apply only writes state. Changing guests needs more, added later.
+   the Docker VM's disks needs `VM.Config.Disk`, and any update to it needs
+   `VM.Config.Options` (the provider sends the VM's name with every update): a role
+   `TofuDockerVM` with those two, granted on `/vms/107` **together with `PVEAuditor`**
+   (`--roles PVEAuditor,TofuDockerVM`). Proxmox replaces, not adds to, what a user inherits
+   when a path has its own entry, so the role alone there loses `VM.Audit`. Changing the
+   containers or the VM's hardware needs more, added later.
 2. **A variable group** (Semaphore's sidebar; "environment" in its API) "OpenTofu: Proxmox",
    as environment variables, not extra variables:
    - variables: `PROXMOX_VE_ENDPOINT` = `https://<a Proxmox host>:8006/`,
