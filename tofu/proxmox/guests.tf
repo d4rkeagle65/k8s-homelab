@@ -216,6 +216,10 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
   on_boot   = true
   tags      = ["community-script", "debian13"]
 
+  # Semaphore, and with it this run, lives on this VM: a change that needs a
+  # reboot only warns, and the reboot is done by hand.
+  reboot_after_update = false
+
   bios          = "ovmf"
   machine       = "q35"
   scsi_hardware = "virtio-scsi-pci"
