@@ -22,9 +22,11 @@ outside the cluster").
   each provider to one release, and `.terraform.lock.hcl` committed. The claude-code image
   carries the same OpenTofu for `tofu fmt` and `tofu validate` (`init -backend=false`); it
   never reaches the state.
-- **No real values in git:** host names, node names, addresses, MAC addresses and domains come
-  from one JSON variable per root module (`TF_VAR_site`), a secret in Semaphore's environment
-  with a copy in Vaultwarden. Git holds the shape: VMIDs, roles, sizes, bridges, tags.
+- **No real values in git:** host names, node names, network prefixes, last octets and domains
+  come from one JSON variable per root module (`TF_VAR_site`), a secret in Semaphore whose
+  master copy is a Vaultwarden note. Git holds the shape: VMIDs, roles, sizes, bridges, tags.
+  Container MACs aren't stated at all (computed, kept as Proxmox assigned them); the Docker
+  VM's are, since its network devices are one list attribute.
 - **Import, never recreate:** every existing guest comes in through `import` blocks. The first
   plan must show only imports and no changes; any change it shows is a mismatch in the code,
   fixed in the code.
@@ -82,6 +84,9 @@ outside the cluster").
 - [ ] The Docker VM plans clean too: reading its disks needs `VM.Config.Disk`, which the
       claude-code token lacks, so its first plan is Semaphore's
 - [ ] Plan shows 9 imports and no real changes
+- [ ] A trusted certificate on each Proxmox host (Proxmox's ACME with the Cloudflare DNS
+      plugin, a name under the public domain), the endpoint set to that name and
+      `PROXMOX_VE_INSECURE` removed: today the token goes to whoever answers on the address
 - [ ] Import applied with the read-write token; the next plan shows no changes
 - [ ] Cloudflare root module
 
