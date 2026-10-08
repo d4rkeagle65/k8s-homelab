@@ -69,7 +69,7 @@ becomes a playbook with checks.
 - [x] VM evacuation and the DNS rule (tested against the live Proxmox API and Pi-hole with stand-ins for `pvesh`, `qm` and `hostname`)
 - [x] Semaphore set up (repo, inventory, key, known hosts, templates)
 - [x] Check-mode run clean on all four hosts (2026-10-05; one host's extra `ceph-tentacle` source disabled to match the others)
-- [ ] A real run that reboots hosts, the Docker VM moved off and back: waits for a kernel update, which a dry run lists
+- [x] A real run that reboots hosts, the Docker VM moved off and back (2026-10-08, kernel 7.0.14-22: the planned target couldn't run VMs, so the move failed safely; rerun with another target, recap clean)
 - [x] claude-code's account moved into `cluster-access`
 
 ## Resuming
