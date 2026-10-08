@@ -21,6 +21,12 @@ Everything below is in Semaphore's web UI, in one project: create it first from 
 menu at the top left, **New Project** (e.g. "Homelab", **Demo** off). Key Store, Inventory,
 Repositories and the rest are in that project's sidebar, not on the admin pages.
 
+**One template per playbook.** A check run is the same template with **Dry run** ticked in the
+run dialog (`--check`; **Diff** adds `--diff`); every playbook here supports it, and the
+sections below say what each check reports. The one exception is a scheduled check: a
+schedule can't tick a box, so it needs a template of its own with `["--check"]` as its CLI
+args.
+
 1. **An SSH key of its own for the Proxmox hosts.** On the PC, make a key pair:
 
    ```powershell
@@ -100,11 +106,11 @@ Repositories and the rest are in that project's sidebar, not on the admin pages.
 
    Clear the clipboard afterwards (`Set-Clipboard -Value ' '`).
 
-5. **Two task templates**, both with playbook `ansible/proxmox-upgrade.yml`, the inventory
-   from step 3, the repository from step 2 and the "Kubernetes" variable group:
-   - **"Proxmox upgrade: check"**, with CLI args `["--check"]`: runs the checks and lists the
-     pending upgrades, changing nothing. Safe to schedule (e.g. weekly).
-   - **"Proxmox upgrade"**: the real run. Start it by hand.
+5. **A task template "Proxmox upgrade"**, playbook `ansible/proxmox-upgrade.yml`, the
+   inventory from step 3, the repository from step 2 and the "Kubernetes" variable group. A
+   dry run runs the checks and lists the pending upgrades, changing nothing; it's safe to
+   schedule (e.g. weekly, from its own template with `["--check"]`). A real run is started by
+   hand.
 
 ## The Kubernetes nodes (`k8s-node-update.yml`)
 
@@ -143,13 +149,11 @@ Set up once, after the Proxmox hosts:
        ansible_python_interpreter: /usr/bin/python3
    ```
 
-4. **Two task templates**, playbook `ansible/k8s-node-update.yml`, the "Kubernetes nodes"
-   inventory, the repository and the "Kubernetes" variable group: **"Kubernetes nodes: check"** with CLI args
-   `["--check"]`, and **"Kubernetes nodes: update"**.
+4. **A task template "Kubernetes nodes: update"**, playbook `ansible/k8s-node-update.yml`,
+   the "Kubernetes nodes" inventory, the repository and the "Kubernetes" variable group.
 
-**Rebooting the nodes** (`k8s-node-reboot.yml`): two more templates on the same inventory,
-repository and variable group, **"Kubernetes nodes: reboot check"** (`["--check"]`) and
-**"Kubernetes nodes: reboot"**. To reboot only some nodes, set the template's (or the run's)
+**Rebooting the nodes** (`k8s-node-reboot.yml`): one more template on the same inventory,
+repository and variable group, **"Kubernetes nodes: reboot"**. To reboot only some nodes, set the template's (or the run's)
 limit to those nodes plus `localhost`, e.g. `<node>,localhost`; without `localhost`
 the run stops at its first check, having changed nothing.
 
@@ -187,8 +191,8 @@ config and fails; add `kubeadm_ignore_preflight_errors: [SystemVerification]` to
 
 **Templates:** playbook `ansible/k8s-upgrade.yml`, the "Kubernetes nodes" inventory, the
 repository and the "Kubernetes" variable group, with `k8s_bundle` in the template's extra
-variables (`{"k8s_bundle": "1.33"}`, a string): **"Kubernetes upgrade: check"** with CLI args
-`["--check"]` and **"Kubernetes upgrade"**. Change the bundle on both for each step.
+variables (`{"k8s_bundle": "1.33"}`, a string): **"Kubernetes upgrade"**. Change the bundle for
+each step, and dry-run it first.
 
 **A new bundle:** copy the newest, set the versions, and give every add-on's range from its
 project's support page, with the link. A new add-on goes into `k8s_addons` with how to read
@@ -198,7 +202,7 @@ the server.
 
 ## The Pi-holes and the Docker VM (`pihole-update.yml`, `pihole-config.yml`, `docker-vm-update.yml`)
 
-Neither has run yet; start each with a check-mode template.
+`pihole-update.yml` and `docker-vm-update.yml` haven't run yet; dry-run each first.
 
 - **Keys and inventories.** Each needs Semaphore's key in the guest's
   `/root/.ssh/authorized_keys` (from its Proxmox host with `pct exec`, as for the nodes, or
@@ -210,8 +214,8 @@ Neither has run yet; start each with a check-mode template.
   its replies out the management interface), so give `ansible_host` as the address of the
   Docker network's gateway as Semaphore's container sees it (`ip route` inside the container:
   the `default via` address).
-- **Templates:** a check (`["--check"]`) and a real one for each, with the inventory and the
-  repository; none needs the "Kubernetes" variable group.
+- **Templates:** one for each, with the inventory and the repository; none needs the
+  "Kubernetes" variable group.
 - **The Pi-hole settings** for `pihole-config.yml` live in a variable group of their own
   ("Pi-hole settings"), as extra variables, since they name the site's domains:
   `{"pihole_settings": {"misc.dnsmasq_lines": [...], "webserver.api.app_sudo": true}}`. The
@@ -225,14 +229,14 @@ Neither has run yet; start each with a check-mode template.
   The public key line is the one `ssh-add -L` shows for the key in your vault. For sudo with a
   password instead, set `admin_sudo_nopasswd` to false and add `admin_password_hash` (from
   `openssl passwd -6`) as a secret.
-- **One template per inventory** (Proxmox, Kubernetes nodes, Pi-holes, Docker VM), each a check
-  (`["--check"]`) and a real one, with that variable group. Run the check first on each.
+- **One template per inventory** (Proxmox, Kubernetes nodes, Pi-holes, Docker VM), with that
+  variable group. Dry-run each first.
 - **Afterwards**, `ssh dhardin@<host>` and `sudo -n true` prove it on each machine; then
   `~/.ssh/config` can say `User dhardin`.
 
 ## Running a Proxmox upgrade
 
-1. Run **"Proxmox upgrade: check"** and read the pending upgrades per host.
+1. Dry-run **"Proxmox upgrade"** and read the pending upgrades per host.
 2. Run **"Proxmox upgrade"**. It stops at the first failed check, before touching the next
    host; fix the cause and run it again (upgraded hosts have nothing left to do).
 3. When it reports a host that still needs a reboot by hand, reboot that host from Proxmox when
