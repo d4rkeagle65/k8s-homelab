@@ -1,6 +1,6 @@
 # Whether VM evac.vmid can be live-migrated from this host to inventory host
 # evac.to: it is a VM, the target is up with the memory and the bridges it
-# needs. Run in check mode too. Adds what is to move to evacuate_plan; a VM
+# needs, and its CPU has virtualization (VT-x/AMD-V) switched on. Run in check mode too. Adds what is to move to evacuate_plan; a VM
 # already on another host is reported and left. Needs proxmox-guests.yml first.
 - name: Find guest {{ evac.vmid }}
   ansible.builtin.set_fact:
@@ -58,6 +58,12 @@
              map(attribute='iface') | list }}
         evac_needs_mb: "{{ (evac_guest.maxmem | int // 1048576) + evacuate_memory_margin_mb | int }}"
         evac_free_mb: "{{ (evac_target_status.stdout | from_json).memory.available | int // 1048576 }}"
+        # Containers run without it, so a host can look healthy and still be
+        # unable to start a VM (Proxmox: "KVM virtualisation configured, but
+        # not available") when the BIOS has it switched off.
+        evac_target_kvm: >-
+          {{ ((evac_target_status.stdout | from_json).cpuinfo.flags | default('')).split()
+             | intersect(['vmx', 'svm']) | length > 0 }}
 
     - name: The target can take {{ evac_guest.name }}
       ansible.builtin.assert:
@@ -65,11 +71,15 @@
           - evac_target.stdout | trim != pve_node
           - evac_free_mb | int >= evac_needs_mb | int
           - evac_needs_bridges | difference(evac_has_bridges) | length == 0
+          - evac_target_kvm | bool
         fail_msg: >-
           {{ evac_guest.name }} can't move to {{ evac.to }}: it needs {{ evac_needs_mb }} MB
-          (its memory plus evacuate_memory_margin_mb) and the bridges
-          {{ evac_needs_bridges | join(', ') }}; the target has {{ evac_free_mb }} MB available
-          and is missing {{ evac_needs_bridges | difference(evac_has_bridges) | join(', ') or 'no bridge' }}.
+          (its memory plus evacuate_memory_margin_mb), the bridges
+          {{ evac_needs_bridges | join(', ') }} and a CPU with virtualization on; the target has
+          {{ evac_free_mb }} MB available, is missing
+          {{ evac_needs_bridges | difference(evac_has_bridges) | join(', ') or 'no bridge' }}, and
+          {{ 'has' if evac_target_kvm | bool else 'lacks' }} virtualization (VT-x/AMD-V, switched on
+          in the BIOS).
         quiet: true
 
     - name: Plan the move
