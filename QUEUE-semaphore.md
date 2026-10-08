@@ -70,7 +70,7 @@ becomes a playbook with checks.
 - [x] Semaphore set up (repo, inventory, key, known hosts, templates)
 - [x] Check-mode run clean on all four hosts (2026-10-05; one host's extra `ceph-tentacle` source disabled to match the others)
 - [ ] A real run that reboots hosts, the Docker VM moved off and back: waits for a kernel update, which the check template lists
-- [ ] claude-code's account moved into `cluster-access` (moved in git; left: rerun `setup-kubeconfig`, delete the `claude-code` Namespace)
+- [x] claude-code's account moved into `cluster-access`
 
 ## Resuming
 
