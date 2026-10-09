@@ -19,6 +19,19 @@
 #   SEMAPHORE_NETWORK       the semaphore stack's Docker network, as
 #                           `docker network ls` names it
 #   KEA_NETWORK             the kea stack's Docker network
+#   DATABASUS_AGENT_ID      the verification agent's ID (Settings > Verification
+#                           agents in the UI)
+#   DATABASUS_AGENT_TOKEN   secret: its token, shown once when it's created
+#
+# databasus-verification-agent restores each backup into a throwaway
+# PostgreSQL and reports row counts. It starts those databases through the
+# host's Docker socket, which is root on this host and reads every stack's
+# secrets: accepted on 2026-10-09. What it starts is locked down (all
+# capabilities dropped, no-new-privileges, CPU, memory and process limits,
+# an isolated network) and reached on a random 127.0.0.1 port, hence the host
+# network. Its binary comes from Databasus itself at each start, matching
+# the server's version; its settings, token included, are written to a
+# memory-only folder, never to disk or the process list.
 services:
   databasus:
     image: databasus/databasus:v3.60.0
@@ -42,6 +55,37 @@ services:
       retries: 3
       # Its first start takes up to ~2 minutes.
       start_period: 120s
+
+  databasus-verification-agent:
+    image: buildpack-deps:trixie-curl
+    container_name: databasus-verification-agent
+    restart: unless-stopped
+    depends_on:
+      databasus:
+        condition: service_healthy
+    network_mode: host
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    tmpfs:
+    - /run/agent:rw,exec,mode=700,size=128m
+    working_dir: /run/agent
+    environment:
+      DATABASUS_URL: ${DATABASUS_URL}
+      DATABASUS_AGENT_ID: ${DATABASUS_AGENT_ID}
+      DATABASUS_AGENT_TOKEN: ${DATABASUS_AGENT_TOKEN}
+    # Budgets for all verifications together; these databases are tiny.
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      [ -n "$$DATABASUS_AGENT_ID" ] && [ -n "$$DATABASUS_AGENT_TOKEN" ] || { echo "DATABASUS_AGENT_ID or DATABASUS_AGENT_TOKEN is empty"; exit 1; }
+      curl -fsSL -o verification-agent "$$DATABASUS_URL/api/v1/system/verification-agent?arch=amd64"
+      chmod 700 verification-agent
+      umask 077
+      printf '{"databasusHost":"%s","agentId":"%s","token":"%s","maxCpu":1,"maxRamMb":1024,"maxDiskGb":5,"maxConcurrentJobs":1}\n' \
+        "$$DATABASUS_URL" "$$DATABASUS_AGENT_ID" "$$DATABASUS_AGENT_TOKEN" > databasus-verification.json
+      exec ./verification-agent run
 
 networks:
   semaphore:

@@ -46,6 +46,8 @@ file is the record of what's set there.
 | `DATABASUS_URL` | `https://databasus.<domain>` |
 | `SEMAPHORE_NETWORK` | the semaphore stack's network |
 | `KEA_NETWORK` | the kea stack's network |
+| `DATABASUS_AGENT_ID` | the verification agent's ID (below) |
+| `DATABASUS_AGENT_TOKEN` | secret: its token (below) |
 
 ## In the web UI, after the first deploy
 
@@ -63,12 +65,24 @@ account: the first one administers the instance. Keep its password in Vaultwarde
 - **Notifier:** email through the cluster's SMTP relay (as Vaultwarden sends), failures only.
 - **Run one backup of each by hand** and check it lands in the bucket.
 
-## Restore verification (not set up)
+## Restore verification
 
-Databasus can restore each backup into a throwaway database and compare row counts, but
-through a separate agent that starts those databases with Docker. On this host that means
-giving the agent the Docker socket, which is root on the host; it's a decision for later
-(QUEUE.md). Until then, restore one by hand from the UI into a scratch database now and then.
+`databasus-verification-agent` restores backups into throwaway PostgreSQL containers and
+reports each table's row count. It has the host's Docker socket (root on the host; see the
+note in `compose.yaml`).
+
+1. In the UI, **Settings → Verification agents → Create verification agent** (e.g.
+   `docker-vm`). The dialog shows its **ID** and its **token**, once: put them in
+   `DATABASUS_AGENT_ID` and `DATABASUS_AGENT_TOKEN` (secret), keep a copy of the token in
+   Vaultwarden, and redeploy. Ignore the dialog's install commands; the stack runs the agent.
+2. The agent shows as online in that list within a minute. Its log:
+   `docker logs databasus-verification-agent`.
+3. For each database, turn verification on (its **Verifications** tab): after every backup, or
+   on a schedule such as weekly, with the email notifier for failures.
+4. Queue one check on each now and read the report: every table with its row count.
+
+A lost token is replaced with **Rotate token** on the agent's row, then the new one in
+Dockhand.
 
 ## Updating
 
