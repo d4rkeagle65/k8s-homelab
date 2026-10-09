@@ -111,9 +111,11 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
 - **Switch on VT-x in the third Proxmox host's BIOS** ("Intel Virtualization Technology"): its CPU
   supports it but the host reports no `vmx` flag, so it can't run any VM, and it's the Docker
   VM's evacuation target (the most free memory). The 2026-10-08 upgrade's migration there
-  failed; `ansible/tasks/evacuate-check.yml` now stops a run before trying. Until then the
-  Proxmox inventory's `evacuate` points at another host, which needs a temporary ZFS ARC cap
-  to have room.
+  failed; `ansible/tasks/evacuate-check.yml` now stops a run before trying. It can't be set
+  from Linux: the kernel's `hp-bioscfg` reads the settings but this 2016 firmware refuses
+  writes (`hp_bioscfg: Returned error 0x4, "Invalid command type"`), so it's F10 at boot,
+  Advanced → System Options. Until then the Proxmox inventory's `evacuate` points at another
+  host; with the ARC caps (`proxmox-host.yml`) that one has room without a temporary cap.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Dockhand's own data** (`/opt/dockhand`, SQLite: its environments, Git stacks and their
