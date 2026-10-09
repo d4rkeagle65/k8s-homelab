@@ -7,7 +7,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | Playbook | What it does |
 |---|---|
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
-| `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched). So far the ZFS ARC cap: `zfs_arc_max_gib` (default 10% of RAM, at least 2) into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics. A dry run reports each host's ARC now and wanted. Not yet run. |
+| `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). A dry run reports each host's ARC and certificate. |
 | `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are `k8s-upgrade.yml`. It also owns the nodes' Kubernetes and CRI-O package sources. |
 | `k8s-node-reboot.yml` | Reboots the Kubernetes node containers one at a time, changing nothing else: the same checks, database switchovers, drain and wait as `k8s-node-update.yml`, with a reboot in place of the upgrade. |
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
@@ -222,6 +222,21 @@ the server.
   `{"pihole_settings": {"misc.dnsmasq_lines": [...], "webserver.api.app_sudo": true}}`. The
   playbook's header says which settings it may own. Run it after changing a value there, and
   on a schedule in check mode to report drift.
+
+## Trusted certificates on the Proxmox hosts (`proxmox-host.yml`)
+
+Off until `acme_domain` is set. A variable group "Proxmox ACME", extra variables, added to the
+"Proxmox host" template:
+`{"acme_domain": "<domain>", "acme_email": "<you>", "acme_cf_zone_id": "<zone ID>"}`, and as a
+**secret** extra variable `acme_cf_token`: a Cloudflare API token of its own with **Zone → DNS
+→ Edit** on that zone only (Cloudflare: My Profile → API Tokens → Create Token, the "Edit zone
+DNS" template). The zone ID is on the zone's Overview page.
+
+Each host's name is `<its node name>.<acme_domain>` (`acme_fqdn` per host overrides it). The
+names are published in Certificate Transparency logs, like every public certificate's. For
+anything to use them, each needs a Pi-hole record pointing at that host's management address;
+the run reports whether it resolves. Running the playbook registers the Let's Encrypt account,
+which accepts its Subscriber Agreement. Proxmox renews the certificates itself.
 
 ## Your own login on every machine (`admin-users.yml`)
 

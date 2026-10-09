@@ -1,0 +1,245 @@
+# A trusted certificate for this Proxmox host's web UI and API, from Let's
+# Encrypt through Proxmox's own ACME client, proven with a DNS-01 challenge
+# through Cloudflare's API (no public record or open port). Proxmox renews it
+# itself (pve-daily-update); this keeps the setup in place and checks it.
+#
+# Off until acme_domain is set; then it needs acme_email, acme_cf_token (a
+# Cloudflare token, Zone:DNS:Edit on that zone only) and acme_cf_zone_id.
+# The account and the plugin are cluster-wide (/etc/pve), so they're set
+# once; each host's domain and certificate are its own. The certificate is
+# ordered when the host has none from the CA for its name, or it expires
+# within acme_renew_days (default 30). Every run reports the certificate.
+#
+# Needs pve_node (the host's Proxmox node name) set before it.
+
+- name: Work out the ACME settings
+  ansible.builtin.set_fact:
+    acme_on: "{{ acme_domain | default('') | length > 0 }}"
+    acme_fqdn_wanted: "{{ acme_fqdn | default(pve_node ~ '.' ~ acme_domain | default('')) }}"
+    acme_account_name: default
+    acme_plugin_id: cloudflare
+    acme_directory_url: "{{ acme_directory | default('https://acme-v02.api.letsencrypt.org/directory') }}"
+
+- name: Read this host's certificates
+  ansible.builtin.command: pvesh get /nodes/{{ pve_node }}/certificates/info --output-format json
+  register: acme_certs_before
+  changed_when: false
+  check_mode: false
+
+# pveproxy-ssl.pem is the custom (here: ACME) certificate; without it the
+# proxy uses the cluster CA's pve-ssl.pem.
+- name: Work out the certificate in use
+  ansible.builtin.set_fact:
+    acme_cert_now: >-
+      {{ (acme_certs_before.stdout | from_json | selectattr('filename', 'equalto', 'pveproxy-ssl.pem') | list
+          or acme_certs_before.stdout | from_json | selectattr('filename', 'equalto', 'pve-ssl.pem') | list
+          or [{}]) | first }}
+
+- name: Judge it
+  ansible.builtin.set_fact:
+    acme_cert_days_left: "{{ (((acme_cert_now.notafter | default(0) | int) - now(utc=true).timestamp() | int) / 86400) | int }}"
+    acme_cert_ok: >-
+      {{ acme_cert_now.filename | default('') == 'pveproxy-ssl.pem'
+         and acme_fqdn_wanted in acme_cert_now.san | default([])
+         and (acme_cert_now.issuer | default('')) is search(acme_issuer_pattern | default("Let's Encrypt"))
+         and (((acme_cert_now.notafter | default(0) | int) - now(utc=true).timestamp() | int) / 86400) | int
+             > acme_renew_days | default(30) | int }}
+
+- name: Report the certificate
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ acme_cert_now.filename | default('no certificate') }},
+      issuer {{ acme_cert_now.issuer | default('?') }}, names {{ acme_cert_now.san | default([]) | join(' ') }},
+      {{ acme_cert_days_left }} days left.
+      {{ ('ACME off (acme_domain unset).' if not acme_on | bool
+          else ('Good for ' ~ acme_fqdn_wanted ~ '.' if acme_cert_ok | bool
+          else 'Will order one for ' ~ acme_fqdn_wanted ~ '.')) }}
+
+- name: ACME setup
+  when: acme_on | bool
+  block:
+    - name: The ACME variables are set
+      ansible.builtin.assert:
+        that:
+          - acme_email | default('') is match('^[^@ ]+@[^@ ]+$')
+          - acme_cf_token | default('') | length > 0
+          - acme_cf_zone_id | default('') is match('^[0-9a-f]{32}$')
+          - acme_fqdn_wanted is match('^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$')
+        fail_msg: >-
+          With acme_domain set, acme_email, acme_cf_token and acme_cf_zone_id (32 hex characters)
+          are needed too, and {{ acme_fqdn_wanted }} must be a valid name.
+        quiet: true
+
+    # Cluster-wide: once, from the first host.
+    - name: Read the ACME accounts
+      ansible.builtin.command: pvesh get /cluster/acme/account --output-format json
+      register: acme_accounts
+      changed_when: false
+      check_mode: false
+      run_once: true
+
+    - name: Read the CA's terms of service
+      ansible.builtin.command:
+        argv: [pvesh, get, /cluster/acme/tos, --directory, "{{ acme_directory_url }}", --output-format, json]
+      register: acme_tos
+      changed_when: false
+      check_mode: false
+      run_once: true
+      when: acme_account_name not in (acme_accounts.stdout | from_json | map(attribute='name') | list)
+
+    # Setting tos_url is what accepts the terms (Let's Encrypt's Subscriber
+    # Agreement) on the owner's behalf.
+    - name: Register the ACME account
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - create
+          - /cluster/acme/account
+          - --name
+          - "{{ acme_account_name }}"
+          - --contact
+          - "{{ acme_email }}"
+          - --directory
+          - "{{ acme_directory_url }}"
+          - --tos_url
+          - "{{ acme_tos.stdout | from_json }}"
+      run_once: true
+      when: acme_account_name not in (acme_accounts.stdout | from_json | map(attribute='name') | list)
+
+    - name: Read the Cloudflare plugin
+      ansible.builtin.command: pvesh get /cluster/acme/plugins/{{ acme_plugin_id }} --output-format json
+      register: acme_plugin
+      changed_when: false
+      check_mode: false
+      failed_when: false
+      run_once: true
+      no_log: true
+
+    - name: Work out the plugin's data
+      ansible.builtin.set_fact:
+        acme_plugin_data: "CF_Token={{ acme_cf_token }}\nCF_Zone_ID={{ acme_cf_zone_id }}"
+        acme_plugin_exists: "{{ acme_plugin.rc == 0 }}"
+        acme_plugin_current: "{{ (acme_plugin.stdout | from_json).data | default('') if acme_plugin.rc == 0 else '' }}"
+      run_once: true
+      no_log: true
+
+    - name: Add the Cloudflare plugin
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - create
+          - /cluster/acme/plugins
+          - --id
+          - "{{ acme_plugin_id }}"
+          - --type
+          - dns
+          - --api
+          - cf
+          - --data
+          - "{{ acme_plugin_data | b64encode }}"
+      run_once: true
+      no_log: true
+      when: not acme_plugin_exists | bool
+
+    - name: Update the Cloudflare plugin's token or zone
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - set
+          - /cluster/acme/plugins/{{ acme_plugin_id }}
+          - --data
+          - "{{ acme_plugin_data | b64encode }}"
+      run_once: true
+      no_log: true
+      # Accepts the data back as plain text or base64, whichever Proxmox returns.
+      when: >-
+        acme_plugin_exists | bool
+        and acme_plugin_current | trim not in [acme_plugin_data, acme_plugin_data | b64encode]
+
+    # Per host.
+    - name: Read this host's ACME settings
+      ansible.builtin.command: pvesh get /nodes/{{ pve_node }}/config --output-format json
+      register: acme_node_config
+      changed_when: false
+      check_mode: false
+
+    - name: Work out this host's ACME settings
+      ansible.builtin.set_fact:
+        acme_domain_now: >-
+          {{ dict((acme_node_config.stdout | from_json).acmedomain0 | default('') | split(',')
+             | select | map('split', '=', 1) | list) }}
+        acme_node_now: >-
+          {{ dict((acme_node_config.stdout | from_json).acme | default('') | split(',')
+             | select | map('split', '=', 1) | list) }}
+
+    - name: Set this host's domain and account
+      ansible.builtin.command:
+        argv:
+          - pvesh
+          - set
+          - /nodes/{{ pve_node }}/config
+          - --acmedomain0
+          - domain={{ acme_fqdn_wanted }},plugin={{ acme_plugin_id }}
+          - --acme
+          - account={{ acme_account_name }}
+      when: >-
+        acme_domain_now.domain | default('') != acme_fqdn_wanted
+        or acme_domain_now.plugin | default('') != acme_plugin_id
+        or acme_node_now.account | default('default') != acme_account_name
+
+    # One host at a time; --force replaces a custom certificate already there.
+    # pveproxy reloads with the new one when this finishes.
+    - name: Order the certificate
+      ansible.builtin.command:
+        argv: "{{ ['pvenode', 'acme', 'cert', 'order'] + (['--force', '1'] if acme_cert_now.filename | default('') == 'pveproxy-ssl.pem' else []) }}"
+      register: acme_order
+      throttle: 1
+      when: not acme_cert_ok | bool
+
+    - name: Wait for the web UI and API to answer again
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 8006
+        timeout: 120
+      when: acme_order is changed
+
+    - name: Read the certificate back
+      ansible.builtin.command: pvesh get /nodes/{{ pve_node }}/certificates/info --output-format json
+      register: acme_certs_after
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: The certificate is the CA's, for this name, and not about to expire
+      ansible.builtin.assert:
+        that:
+          - cert.filename | default('') == 'pveproxy-ssl.pem'
+          - acme_fqdn_wanted in cert.san | default([])
+          - cert.issuer | default('') is search(acme_issuer_pattern | default("Let's Encrypt"))
+          - (((cert.notafter | default(0) | int) - now(utc=true).timestamp() | int) / 86400) | int > acme_renew_days | default(30) | int
+        fail_msg: >-
+          {{ inventory_hostname }}: the certificate in use is {{ cert.filename | default('none') }} from
+          {{ cert.issuer | default('?') }} for {{ cert.san | default([]) | join(' ') }}, expiring
+          {{ cert.notafter | default(0) }}; wanted the CA's for {{ acme_fqdn_wanted }}.
+        quiet: true
+      vars:
+        cert: >-
+          {{ (acme_certs_after.stdout | from_json | selectattr('filename', 'equalto', 'pveproxy-ssl.pem') | list
+              or [{}]) | first }}
+      when: not ansible_check_mode
+
+    # The name has to lead to this host for anything to use it; Pi-hole's
+    # records are kept by hand there, so this only reports.
+    - name: Look the name up
+      ansible.builtin.command:
+        argv: [getent, ahostsv4, "{{ acme_fqdn_wanted }}"]
+      register: acme_lookup
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: Report whether the name leads here
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: {{ acme_fqdn_wanted }}
+          {{ ('resolves to ' ~ (acme_lookup.stdout_lines | map('split') | map('first') | unique | join(', ')))
+             if acme_lookup.rc == 0 else "doesn't resolve: add a Pi-hole record for it" }}.
