@@ -43,6 +43,7 @@ file is the record of what's set there.
 | Variable | Value |
 |---|---|
 | `DATABASUS_BIND_ADDRESS` | the host's management address |
+| `DATABASUS_URL` | `https://databasus.<domain>` |
 | `SEMAPHORE_NETWORK` | the semaphore stack's network |
 | `KEA_NETWORK` | the kea stack's network |
 

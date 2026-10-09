@@ -15,6 +15,7 @@
 #
 # Variables (set in the stack's environment in Dockhand):
 #   DATABASUS_BIND_ADDRESS  the host's management address (the web UI)
+#   DATABASUS_URL           https://databasus.<domain>: the address its links use
 #   SEMAPHORE_NETWORK       the semaphore stack's Docker network, as
 #                           `docker network ls` names it
 #   KEA_NETWORK             the kea stack's Docker network
@@ -27,6 +28,9 @@ services:
     - ${DATABASUS_BIND_ADDRESS}:4005:4005
     volumes:
     - /opt/databasus:/databasus-data
+    environment:
+      DATABASUS_URL: ${DATABASUS_URL}
+      IS_DISABLE_ANONYMOUS_TELEMETRY: "true"
     networks:
     - default
     - semaphore
