@@ -110,9 +110,8 @@ Read before changing anything:
 
 The cloud has a fresh clone and no cluster access: no `kubectl`, `helm` or `flux` against the
 cluster, and no `kubernetes/.local/`, `docs/` or `kubernetes/raw/`. `generate` and the tests
-work offline.
+work offline; `capture` and `all` read the live cluster, so don't run them there.
 
-- **Don't run `capture` or `all` there.** They read the live cluster.
 - **When you're done, commit to your own branch, push that branch, and end with a summary.**
   Don't merge, push to `main` or open a PR unless asked; the owner merges locally after
   checking the change against the live cluster. The summary says what changed, what to check

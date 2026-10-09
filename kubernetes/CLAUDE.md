@@ -28,6 +28,18 @@ Databases (CloudNativePG) use the `local-db` StorageClass: node-local disk on th
 the main network (default route) and `eth1` on the management network (no gateway), so pods
 can reach management-only hosts such as dockhand's.
 
+Every CloudNativePG cluster archives WAL and takes a nightly base backup to Garage through the
+Barman Cloud plugin (an `ObjectStore` named `garage` in its namespace). A restore test is a
+one-instance Cluster recovered from that store in the same namespace, compared table by table
+with the live one; `old-queues/QUEUE-restore-tests.md` has the method.
+
+- **Create the `ObjectStore` before a Cluster that names it, and prove archiving with
+  `pg_stat_archiver`.** A Cluster applied first stays stuck: the plugin's pre-reconcile hook
+  stops the reconcile ("Pre-reconcile hook stopped the reconciliation loop") and the operator
+  doesn't retry once the store appears; an annotation on the Cluster makes it reconcile again.
+  `ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing, since
+  nothing has tried to archive yet.
+
 - **Respect what the nodes are: LXC containers on ZFS, with two networks.** They have no
   block devices or iSCSI, so Longhorn and other block-storage CSIs can't run; don't propose
   them. Calico stays pinned to `eth0` (Installation `default`,
