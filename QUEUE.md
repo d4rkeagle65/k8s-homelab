@@ -53,30 +53,18 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   that covers 1.37 (3.33.0 tested on 1.35-1.37); check the others' ranges then. Bump the
   claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
-- **Database backups: restore-test the other ten.** Since 2026-10-06 all eleven CloudNativePG
-  clusters archive WAL continuously to Garage on the NAS (`docker/garage/`, the Barman Cloud
-  plugin) and take a nightly base backup (02:00 to 02:45, mealie at 02:30), kept 30 days.
-  Only mealie's has been restored (into a scratch cluster, matching the live database table for
-  table). Until each of the others has been, its backup is unproven: restore each the same way
-  (a one-instance Cluster on `nfs-eph-rwo` bootstrapped from its `ObjectStore`, compare row
-  counts, delete it).
-  - **A Cluster that names an `ObjectStore` before it exists stays stuck:** the plugin's
-    pre-reconcile hook stops the reconcile ("Pre-reconcile hook stopped the reconciliation
-    loop") and the operator doesn't retry once the store appears. Four of the ten did that; an
-    annotation on the Cluster made the operator reconcile again. Create the store first.
-  - **`ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing:**
-    nothing has tried to archive yet. Check `pg_stat_archiver` on the primary instead.
-  - Separately, each worker's `mp0` (container images) carries `backup=1` in the Proxmox job,
-    and its database dataset `mp1` doesn't; with these backups `mp1` needn't, and `mp0` could
-    drop it.
+- **Proxmox backups of the workers' mount points:** each worker's `mp0` (container images)
+  carries `backup=1` in the Proxmox job, and its database dataset `mp1` doesn't. With every
+  CloudNativePG database backed up to Garage and restore-tested (2026-10-09), `mp1` needn't
+  be, and `mp0` could drop it.
 
 - **n8n** (workflow automation; branch `n8n`, after `n8n-vars`): app-template with the
   `n8nio/runners` sidecar (external task runners, which n8n's docs require wherever real
   credentials are stored), CloudNativePG with backups from day one, LAN only behind
   `private-networks`, n8n's own login (its OIDC is Enterprise). Before merging: the
   `N8N_ENCRYPTION_KEY` and `N8N_RUNNERS_AUTH_TOKEN` fields in Vaultwarden, then `n8n-vars`.
-  After: create the owner account at first visit, and restore-test its database once the
-  first nightly backup has run.
+  After: create the owner account at first visit. (Its backup is restore-tested:
+  `old-queues/QUEUE-restore-tests.md`.)
 
 ## Cleanup
 
