@@ -37,9 +37,9 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
    containers or the VM's hardware needs more, added later.
 2. **A variable group** (Semaphore's sidebar; "environment" in its API) "OpenTofu: Proxmox",
    as environment variables, not extra variables:
-   - variables: `PROXMOX_VE_ENDPOINT` = `https://<a Proxmox host>:8006/`,
-     `PROXMOX_VE_INSECURE` = `true` (the hosts' certificates are their own cluster CA's; a
-     trusted certificate replaces this before the token can change guests, `QUEUE-terraform.md`);
+   - variable: `PROXMOX_VE_ENDPOINT` = `https://<a Proxmox host's name>:8006/`, the name its
+     Let's Encrypt certificate carries (`ansible/proxmox-host.yml`). No
+     `PROXMOX_VE_INSECURE`: the certificate is verified like any other;
    - secrets: `PROXMOX_VE_API_TOKEN` = `tofu@pve!semaphore=<secret>`,
      `PG_CONN_STR` = `postgres://tfstate:<TFSTATE_DB_PASSWORD>@semaphore-postgres:5432/tfstate?sslmode=disable`,
      `TF_VAR_site` = the JSON value.
