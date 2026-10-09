@@ -126,9 +126,9 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   (`docker/databasus/README.md`) and a restore of one dump of each database into a scratch
   database, compared with the live one; until then those four have only the Proxmox backup of
   the VM's disks.
-  - **Restore verification in Databasus** needs its agent, which starts throwaway databases
-    through Docker: on the Docker VM that's the Docker socket, root on the host. Decide whether
-    it runs there, elsewhere, or not at all (then a restore by hand now and then).
+  - **Restore verification in Databasus:** its agent is in the stack (decided 2026-10-09, with
+    the Docker socket); left: create it in the UI, set its ID and token, turn verification on
+    for each database (`docker/databasus/README.md`).
   - **Dockhand's own data** (`/opt/dockhand`, SQLite) has no backup of its own beyond the
     Proxmox one.
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
