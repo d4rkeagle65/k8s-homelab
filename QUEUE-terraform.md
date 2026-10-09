@@ -88,8 +88,8 @@ outside the cluster").
       update), now in the `TofuDockerVM` role
 - [x] A trusted certificate on each Proxmox host (2026-10-09, `ansible/proxmox-host.yml`:
       Let's Encrypt via Proxmox's ACME and Cloudflare DNS, Pi-hole records written by the run)
-- [ ] The endpoint set to a host's name and `PROXMOX_VE_INSECURE` removed in Semaphore, a plan
-      showing no changes
+- [x] The endpoint set to a host's name and `PROXMOX_VE_INSECURE` removed in Semaphore; the
+      plan shows no changes (2026-10-09)
 - [ ] A token that can change guests, once the certificate is in place
 - [ ] Cloudflare root module
 
