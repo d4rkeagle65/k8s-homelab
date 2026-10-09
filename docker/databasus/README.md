@@ -62,7 +62,10 @@ account: the first one administers the instance. Keep its password in Vaultwarde
   `semaphore-postgres:5432` / `semaphore` and `tfstate`; `kea-postgres:5432` / `kea` and `stork`.
 - **Schedule:** daily at 03:30 UTC, after the cluster's database backups and the 01:00
   Proxmox backup. **Retention:** 30 days.
-- **Notifier:** email through the cluster's SMTP relay (as Vaultwarden sends), failures only.
+- **Notifier:** email through the cluster's SMTP relay, as Vaultwarden sends: host `smtp-relay.<domain>`,
+  **port 8025** with STARTTLS, and the Vaultwarden stack's `SMTP_USERNAME`, `SMTP_PASSWORD`
+  and `SMTP_FROM`; failures only. Traefik takes SMTP on 8025 only: 465 and 587 there answer
+  "no route to host", which looks like a network fault but is the wrong port.
 - **Run one backup of each by hand** and check it lands in the bucket.
 
 ## Restore verification
