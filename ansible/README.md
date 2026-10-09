@@ -233,10 +233,15 @@ Off until `acme_domain` is set. A variable group "Proxmox ACME", extra variables
 DNS" template). The zone ID is on the zone's Overview page.
 
 Each host's name is `<its node name>.<acme_domain>` (`acme_fqdn` per host overrides it). The
-names are published in Certificate Transparency logs, like every public certificate's. For
-anything to use them, each needs a Pi-hole record pointing at that host's management address;
-the run reports whether it resolves. Running the playbook registers the Let's Encrypt account,
-which accepts its Subscriber Agreement. Proxmox renews the certificates itself.
+names are published in Certificate Transparency logs, like every public certificate's. The run
+also writes a record for each name, pointing at the host's inventory address (`ansible_host`,
+an IPv4 address), into the primary Pi-hole's local records: through `pct exec` on the host
+carrying that container, with Pi-hole's own CLI, so it needs no Pi-hole credential. The primary
+is the container tagged `dns_guest_tag` with the lowest VMID (the inventory already sets the
+tag for `proxmox-upgrade.yml`), or `pihole_primary_vmid`; nebula-sync copies the records to
+the other Pi-hole. A run limited to hosts that don't carry it stops before changing anything.
+Running the playbook registers the Let's Encrypt account, which accepts its Subscriber
+Agreement. Proxmox renews the certificates itself.
 
 ## Your own login on every machine (`admin-users.yml`)
 
