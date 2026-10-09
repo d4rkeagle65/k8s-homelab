@@ -116,21 +116,10 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   to have room.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
-- **Back up the Docker VM's databases to Garage: deploy it.** Written: `docker/databasus/`
-  (Databasus for `semaphore`, `tfstate`, `kea`, `stork`, through a read-only `databasus` role
-  each database stack's `databasus-role-init` keeps) and `vaultwarden-backup` in
-  `docker/vaultwarden/` (SQLite `.backup` plus keys, attachments and Sends, 7z-encrypted).
-  Deployed 2026-10-09 (bucket, key, roles, both containers). Vaultwarden's backup is proven: the
-  first archive restored in a scratch folder passed SQLite's integrity check with the same
-  users and items as the live vault, RSA key included. Left: Databasus's UI setup
-  (`docker/databasus/README.md`) and a restore of one dump of each database into a scratch
-  database, compared with the live one; until then those four have only the Proxmox backup of
-  the VM's disks.
-  - **Restore verification in Databasus:** its agent is in the stack (decided 2026-10-09, with
-    the Docker socket); left: create it in the UI, set its ID and token, turn verification on
-    for each database (`docker/databasus/README.md`).
-  - **Dockhand's own data** (`/opt/dockhand`, SQLite) has no backup of its own beyond the
-    Proxmox one.
+- **Dockhand's own data** (`/opt/dockhand`, SQLite: its environments, Git stacks and their
+  variables, secrets included) has no backup of its own beyond the Proxmox backup of the Docker
+  VM's disks. The databases and Vaultwarden there are backed up to Garage nightly
+  (`docker/databasus/`, `vaultwarden-backup` in `docker/vaultwarden/`).
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule
