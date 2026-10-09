@@ -120,10 +120,12 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
   (Databasus for `semaphore`, `tfstate`, `kea`, `stork`, through a read-only `databasus` role
   each database stack's `databasus-role-init` keeps) and `vaultwarden-backup` in
   `docker/vaultwarden/` (SQLite `.backup` plus keys, attachments and Sends, 7z-encrypted).
-  Left: the Garage bucket and key, the Dockhand variables and the UI setup
-  (`docker/databasus/README.md`), then a restore of one backup of each into a scratch
-  database or container, compared with the live one. Until then their only copy off the VM is
-  the Proxmox backup of its disks.
+  Deployed 2026-10-09 (bucket, key, roles, both containers). Vaultwarden's backup is proven: the
+  first archive restored in a scratch folder passed SQLite's integrity check with the same
+  users and items as the live vault, RSA key included. Left: Databasus's UI setup
+  (`docker/databasus/README.md`) and a restore of one dump of each database into a scratch
+  database, compared with the live one; until then those four have only the Proxmox backup of
+  the VM's disks.
   - **Restore verification in Databasus** needs its agent, which starts throwaway databases
     through Docker: on the Docker VM that's the Docker socket, root on the host. Decide whether
     it runs there, elsewhere, or not at all (then a restore by hand now and then).

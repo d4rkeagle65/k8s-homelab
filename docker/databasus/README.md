@@ -15,17 +15,17 @@ file is the record of what's set there.
 
 ## Once, before the first deploy
 
-1. **The Garage bucket and key**, in the `garage` container's console (Dockhand, the NAS
-   environment):
+1. **The Garage bucket and key**, as root on the NAS. The `garage` image has no shell, so
+   Dockhand's console can't open one; `docker exec` runs the binary directly:
 
    ```sh
-   /garage bucket create docker-backups
+   docker exec garage /garage bucket create docker-backups
    ```
    ```sh
-   /garage key create docker-backups
+   docker exec garage /garage key create docker-backups
    ```
    ```sh
-   /garage bucket allow --read --write docker-backups --key docker-backups
+   docker exec garage /garage bucket allow --read --write docker-backups --key docker-backups
    ```
 
    The key's ID and secret go into Dockhand only (here and in the vaultwarden stack), with a
