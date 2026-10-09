@@ -72,7 +72,7 @@ outside the cluster").
 
 ## Checklist
 
-- [ ] `TFSTATE_DB_PASSWORD` set in Dockhand (marked secret, copy in Vaultwarden); Semaphore
+- [x] `TFSTATE_DB_PASSWORD` set in Dockhand (marked secret, copy in Vaultwarden); Semaphore
       stack redeployed; `tfstate-db-init`'s log ends `tfstate database owned by tfstate`
 - [x] claude-code image rebuilt; `tofu version` says 1.11.0
 - [x] `tofu/proxmox/` written; `tofu fmt -check` and `tofu validate` pass; lock file committed
