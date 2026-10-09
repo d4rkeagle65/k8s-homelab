@@ -86,9 +86,10 @@ outside the cluster").
 - [x] Import applied (2026-10-08): all 9 guests in state; the next plan says "No changes".
       The VM's update needed `VM.Config.Options` after all (its name is sent with every
       update), now in the `TofuDockerVM` role
-- [ ] A trusted certificate on each Proxmox host (Proxmox's ACME with the Cloudflare DNS
-      plugin, a name under the public domain), the endpoint set to that name and
-      `PROXMOX_VE_INSECURE` removed: today the token goes to whoever answers on the address
+- [ ] A trusted certificate on each Proxmox host: `ansible/proxmox-host.yml` (tested against
+      stand-ins, not yet run); then the endpoint set to a host's name and
+      `PROXMOX_VE_INSECURE` removed, checked with a plan. Until then the token goes to whoever
+      answers on the address
 - [ ] A token that can change guests, once the certificate is in place
 - [ ] Cloudflare root module
 

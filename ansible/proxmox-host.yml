@@ -15,7 +15,12 @@
 # for these hosts' small pools also matches its rule of 2 GiB plus 1 GiB per
 # TiB of storage).
 #
-# In check mode (--check) it reports each host's ARC size and cap, now and
+# Trusted certificate (tasks/proxmox-acme.yml): Let's Encrypt through
+# Proxmox's ACME client and Cloudflare DNS, for <node>.<acme_domain>; off
+# until acme_domain is set (a Semaphore variable group, with acme_email,
+# acme_cf_token and acme_cf_zone_id).
+#
+# In check mode (--check) it reports each host's ARC and certificate, now and
 # wanted, and changes nothing.
 
 - name: Proxmox host settings
@@ -121,3 +126,16 @@
           {{ c_max_after.stdout | trim }}; ZFS refused or ignored the cap.
         quiet: true
       when: not ansible_check_mode
+
+    - name: Read this host's Proxmox node name
+      ansible.builtin.command: hostname -s
+      register: node_name
+      changed_when: false
+      check_mode: false
+
+    - name: Keep it
+      ansible.builtin.set_fact:
+        pve_node: "{{ node_name.stdout | trim }}"
+
+    - name: The trusted certificate
+      ansible.builtin.include_tasks: tasks/proxmox-acme.yml
