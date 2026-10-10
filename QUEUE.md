@@ -39,15 +39,6 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Next
 
-- **The baseline on every Debian host, built:** `ansible/baseline.yml` (admin login,
-  Semaphore's shared key, packages, bash setup). Set-up and rollout order are in
-  `ansible/README.md` ("Every Debian host at once"): the shared key, one run per existing
-  inventory, then the "All Debian Hosts" inventory and its single template.
-  - Both Pi-holes' sshd listens on the management address only, and so needs to start after
-    the network (a hand-made drop-in, `ssh.service.d/20-after-network-online.conf`, added
-    2026-10-10 after Pi-hole 1's sshd failed to bind at boot and stayed down). The baseline
-    could own that drop-in wherever `ListenAddress` is set.
-
 - **NAS block storage, live (2026-10-10):** `nas-block` (`ansible/tasks/proxmox-nas-block.yml`)
   is active on all four hosts, 30 GiB each, one path per host, and each worker has a 28 GiB
   `mp2` on it at `/opt/nas-block` (added live with `pct set`; declared in `tofu/proxmox/`,
@@ -69,14 +60,6 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   CloudNativePG database backed up to Garage and restore-tested (2026-10-09), `mp1` needn't
   be, and `mp0` could drop it.
 
-- **n8n** (workflow automation; branch `n8n`, after `n8n-vars`): app-template with the
-  `n8nio/runners` sidecar (external task runners, which n8n's docs require wherever real
-  credentials are stored), CloudNativePG with backups from day one, LAN only behind
-  `private-networks`, n8n's own login (its OIDC is Enterprise). Before merging: the
-  `N8N_ENCRYPTION_KEY` and `N8N_RUNNERS_AUTH_TOKEN` fields in Vaultwarden, then `n8n-vars`.
-  After: create the owner account at first visit. (Its backup is restore-tested:
-  `old-queues/QUEUE-restore-tests.md`.)
-
 ## Cleanup
 
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
@@ -95,10 +78,10 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     Every run already lists what it would remove.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
-- **SSH to the k8s nodes only from the management network** (decision 6). Each node
-  now has a management-network interface (`eth1`), so sshd can listen there
-  only, or a firewall can limit port 22 to it. Keep Calico on `eth0` (see
-  CLAUDE.md).
+- **The Pi-holes' sshd waits for the network by a hand-made drop-in**
+  (`ssh.service.d/20-after-network-online.conf`, 2026-10-10): their sshd listens on the
+  management address only and failed to bind at a boot without it. `baseline.yml` could own
+  that drop-in on any host whose sshd sets `ListenAddress`, so a rebuilt Pi-hole gets it.
 - **Kea phase 3** (decision 5): a second Kea on another host as a hot-standby partner
   (the firewall's relay can point at both), and lease names into DNS.
 - **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
@@ -124,10 +107,10 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     priorities), the nft scripts and their systemd units (management return
     path, DMZ marks, the `DOCKER-USER` rules for Tailscale), sysctls, Docker,
     Dockhand's own compose file and the certificate-sync cron.
-  - **Proxmox hosts:** `ansible/proxmox-host.yml` holds the ZFS ARC cap (not yet run; until it
-    is, the ARC's ceiling is nearly all of each host's RAM and a VM moving in during an upgrade
-    needs a temporary cap on the target). Still to add there: repositories, packages, kernel
-    cleanup, and the host settings the k8s LXCs depend on: kernel modules, sysctls, and the parts of
+  - **Proxmox hosts:** `ansible/proxmox-host.yml` holds the ZFS ARC cap, the ACME
+    certificates and the NAS block storage (all applied), and `baseline.yml` the common
+    packages. Still to add there: repositories, kernel cleanup, and the host settings the k8s
+    LXCs depend on: kernel modules, sysctls, and the parts of
     each LXC's `/etc/pve/lxc/<id>.conf` an API token can't set (the raw
     `lxc.*` lines and the `mount=nfs` feature; OpenTofu ignores them,
     `QUEUE-terraform.md`).
@@ -140,9 +123,8 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     records such as `vaultwarden-direct`, CNAMEs, lists, `bogusPriv`) lives on
     Pi-hole 1 and is copied to Pi-hole 2 by nebula-sync, so losing both would
     lose it: a scheduled Teleporter export to Garage would cover that.
-  - **Named logins instead of root:** `ansible/admin-users.yml` gives the owner an account
-    with sudo on every machine (run on the Proxmox hosts; `baseline.yml` brings it to the
-    rest). Once it's proven everywhere: remove the owner's
+  - **Named logins instead of root:** the owner's account with sudo is on every machine
+    (`baseline.yml`, run 2026-10-10). Once it's proven everywhere: remove the owner's
     key from root's `authorized_keys` (on the Proxmox hosts the shared
     `/etc/pve/priv/authorized_keys`), and set `sshd` to `PasswordAuthentication no` and
     `PermitRootLogin prohibit-password` (never `no`: the Proxmox hosts and Semaphore log in
