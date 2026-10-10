@@ -33,7 +33,7 @@ comes with it.
 - **Placement:** by resource requests, set on everything, plus the replicas' hard
   anti-affinity. Worker 1 has the most memory requested, so the pairs usually land on 2 and 3.
 - **Memory budget** (requests / limits, per pod): Prometheus 768 MiB / 2 GiB (two of them),
-  Loki 384 MiB / 1 GiB, Grafana 192 MiB / 512 MiB, Alertmanager 64 / 128 MiB (two), the
+  Loki 384 MiB / 1 GiB, Grafana 384 MiB / 1 GiB, Alertmanager 64 / 128 MiB (two), the
   operator 64 / 256 MiB, kube-state-metrics 64 / 256 MiB, node-exporter and Alloy about
   32-128 MiB per node. Loki's memcached caches, gateway, canary and MinIO are off (their
   memory is most of Loki's default footprint, and single-binary mode doesn't need them).
@@ -84,7 +84,8 @@ comes with it.
 ## Checklist
 
 - [x] Phase 1 built
-- [ ] Phase 1 live: every target up, Grafana reachable, memory as budgeted
+- [x] Phase 1 live (2026-10-10): 40 of 40 targets up on both replicas, only Watchdog firing,
+      Grafana and its Authentik login reachable, the pairs on different workers
 - [ ] Phase 2
 - [ ] Phase 3
 - [ ] Phase 4
