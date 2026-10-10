@@ -1,0 +1,56 @@
+# The two NASes over SNMP (read only): the Synology with the exporter's
+# synology profile (volumes, disks and their temperatures, RAID state, fans,
+# UPS), the TerraMaster, a Linux box, with the generic ones (system, memory,
+# load, interfaces).
+#
+# The SNMPv2c community is in this release's ConfigMap: the exporter expands
+# environment variables only in SNMPv3 credentials, and v2c sends the
+# community in the clear on every poll anyway. SNMPv3 on both NASes would
+# take it out of both.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: snmp-exporter
+  namespace: monitoring
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: monitoring
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: prometheus-snmp-exporter
+      version: 9.18.1
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+  values:
+    # Only the login; the profiles come from the image's own snmp.yml, loaded
+    # as a second file.
+    config: |
+      auths:
+        homelab_v2:
+          community: ${SNMP_COMMUNITY}
+          version: 2
+    extraArgs:
+    - --config.file=/etc/snmp_exporter/snmp.yml
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {memory: 128Mi}
+    serviceMonitor:
+      enabled: true
+      selector: {}
+      interval: 120s
+      scrapeTimeout: 60s
+      auth: [homelab_v2]
+      params:
+      - name: synology
+        target: ${NAS_HOSTNAME}
+        module: [synology, system, if_mib]
+      - name: terramaster
+        target: ${TERRAMASTER_ADDRESS}
+        module: [system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table]

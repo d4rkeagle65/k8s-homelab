@@ -11,4 +11,6 @@ resources:
 - monitoring-extras/ks.yaml
 - monitors/ks.yaml
 - namespace.yaml
+- pihole-exporter/ks.yaml
 - pve-exporter/ks.yaml
+- snmp-exporter/ks.yaml

@@ -1,0 +1,20 @@
+# Garage on the TerraMaster (docker/garage): its admin API's /metrics, with the
+# metrics token. Requests, errors, latency, objects and bytes per bucket.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: garage
+spec:
+  staticConfigs:
+  - targets:
+    - ${TERRAMASTER_ADDRESS}:3903
+  metricsPath: /metrics
+  authorization:
+    type: Bearer
+    credentials:
+      name: garage-metrics
+      key: token
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: garage
