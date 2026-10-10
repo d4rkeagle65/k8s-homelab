@@ -361,6 +361,11 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
   `OPENWRT_AP<n>_ADDRESS` variable (`ap1` to `ap3`, in that order, are the cards Access point 1
   to 3). Set `openwrt_exporter_interface` when that address isn't on OpenWrt's `lan`
   interface.
+- **An access point behind another tailnet subnet router** (a travel router advertising its
+  own subnet): the Docker VM reaches it through Tailscale from its own tailnet address,
+  carrying its tag, while the cluster's traffic keeps its LAN address. It needs a grant in
+  the Tailscale policy from that tag to the subnet on TCP 22 and 9100, and a rule on the
+  router accepting both sources on those ports from the zone the traffic arrives in.
 - **Template** with the inventory and the repository; nothing else. The access points need
   their package feeds (the internet) for the first run.
 
