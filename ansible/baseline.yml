@@ -12,8 +12,11 @@
 # other keys; the first run goes through each older inventory so that the
 # shared one can reach every host afterwards.
 #
-# In check mode (--check) it reports the missing packages and whether the bash
-# setup differs, and changes nothing.
+# Prometheus's exporters (tasks/host-exporters.yml): node-exporter, and on the
+# Proxmox hosts the SMART and NVMe collectors, off until host_exporters is true.
+#
+# In check mode (--check) it reports the missing packages, the exporters and
+# whether the bash setup differs, and changes nothing.
 
 - name: The baseline on every Debian host
   hosts: all
@@ -125,6 +128,11 @@
       check_mode: false
       failed_when: pkg_back.rc != 0 or pkg_back.stdout is not search(' ii ?$')
       when: not ansible_check_mode
+
+    # --- Prometheus's exporters (not on the Kubernetes nodes) ------------------
+
+    - name: The host exporters
+      ansible.builtin.include_tasks: tasks/host-exporters.yml
 
     # --- The bash setup --------------------------------------------------------
 

@@ -1,0 +1,14 @@
+# node-exporter on the Docker VM (ansible/tasks/host-exporters.yml), at its
+# management name.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: docker-vm
+spec:
+  staticConfigs:
+  - targets:
+    - ${DOCKHAND_ADDRESS}:9100
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: docker-vm

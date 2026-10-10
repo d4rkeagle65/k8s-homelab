@@ -334,6 +334,16 @@ has its `nas-block` volumes copied to that host's LUN. It holds data that writes
   ones, and `admin-users.yml`'s templates. The update and upgrade playbooks keep their own
   narrower inventories, so a mis-set limit can't reach the wrong machines.
 
+**Prometheus's exporters** (`tasks/host-exporters.yml`), off until `host_exporters: true` is in
+the "Admin user" variable group: Debian's `prometheus-node-exporter` on every host but the
+Kubernetes nodes (the cluster runs its own there), listening on the host's management address
+only, and on the Proxmox hosts the packaged SMART and NVMe collectors (each SSD's wear) on their
+timers. The address is `ansible_host` unless `host_exporter_address` says otherwise: set it on
+the Docker VM's host line in "All Debian Hosts" (its `ansible_host` is the Docker bridge's
+gateway, which nothing outside the VM can reach) to its management address. Prometheus finds
+the Proxmox hosts through `proxmox-hosts.<domain>`, a Pi-hole name `proxmox-host.yml` writes
+with one address per host, and the Docker VM by its management name.
+
 The bash setup is loaded before each user's `~/.bashrc`, so anything set there wins: Debian's
 default `~/.bashrc` for a new account sets its own prompt, and the baseline's coloured prompt
 shows only where that line is removed (root's default `~/.bashrc` doesn't set one).

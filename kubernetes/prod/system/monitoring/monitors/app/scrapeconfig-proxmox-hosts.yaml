@@ -1,0 +1,19 @@
+# node-exporter on the Proxmox hosts (ansible/tasks/host-exporters.yml), found
+# through proxmox-hosts.<domain>, a Pi-hole name with one address per host
+# (ansible/tasks/proxmox-acme.yml). Each target's instance label is its
+# address; node_uname_info carries the host's name.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: proxmox-hosts
+spec:
+  dnsSDConfigs:
+  - names:
+    - proxmox-hosts.${BASE_DOMAIN}
+    type: A
+    port: 9100
+    refreshInterval: 5m
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: proxmox-hosts
