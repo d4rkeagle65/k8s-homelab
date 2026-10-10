@@ -171,6 +171,15 @@ spec:
           secretKeyRef:
             name: grafana-oidc
             key: client-secret
+      # Loki (its own release) as a data source next to Prometheus.
+      additionalDataSources:
+      - name: Loki
+        uid: loki
+        type: loki
+        url: http://loki:3100
+        access: proxy
+        jsonData:
+          maxLines: 5000
       grafana.ini:
         server:
           root_url: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
