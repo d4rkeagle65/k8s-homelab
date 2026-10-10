@@ -10,7 +10,9 @@
 # ordered when the host has none from the CA for its name, or it expires
 # within acme_renew_days (default 30). Every run reports the certificate.
 #
-# Each host's name also gets a local record in the primary Pi-hole (the
+# Each host's name also gets a local record in the primary Pi-hole, with the
+# shared name proxmox-hosts.<acme_domain> on the same line (acme_group_alias;
+# empty leaves it off), so that name answers with every host (the
 # container tagged dns_guest_tag with the lowest VMID, or pihole_primary_vmid),
 # pointing at its inventory address: written inside that container with
 # pihole-FTL's own CLI through `pct exec` on the host carrying it, so no Pi-hole
@@ -88,10 +90,18 @@
               pve_guests | selectattr('type', 'equalto', 'lxc') | selectattr('tags', 'defined')
               | selectattr('tags', 'search', '(^|;)' ~ dns_guest_tag | default('') ~ '(;|$)')
               | sort(attribute='vmid') | list) | first | default({}) }}
+        # Each line also carries the shared name (acme_group_alias, default
+        # proxmox-hosts.<acme_domain>), which so answers with every host:
+        # Prometheus finds the hosts' exporters through it.
         acme_records_wanted: >-
           {{ ansible_play_hosts | map('extract', hostvars) | map(attribute='ansible_host')
              | zip(ansible_play_hosts | map('extract', hostvars) | map(attribute='acme_fqdn_wanted'))
-             | map('join', ' ') | list }}
+             | map('join', ' ') | map('regex_replace', '$', (' ' ~ acme_group_alias_fqdn) if acme_group_alias_fqdn else '')
+             | list }}
+      vars:
+        acme_group_alias_fqdn: >-
+          {{ '' if (acme_group_alias | default('proxmox-hosts')) in ['', none]
+             else (acme_group_alias | default('proxmox-hosts')) ~ '.' ~ acme_domain }}
       run_once: true
 
     - name: There is a primary Pi-hole, and every host has an IPv4 address
@@ -99,7 +109,7 @@
         that:
           - acme_pihole.vmid is defined
           - acme_pihole_host | length == 1
-          - acme_records_wanted | reject('match', '^\d{1,3}(\.\d{1,3}){3} \S+$') | list | length == 0
+          - acme_records_wanted | reject('match', '^\d{1,3}(\.\d{1,3}){3}( \S+)+$') | list | length == 0
         fail_msg: >-
           {{ "No Pi-hole container found: set dns_guest_tag (as for proxmox-upgrade.yml) or
           pihole_primary_vmid" if acme_pihole.vmid is not defined else
@@ -130,12 +140,15 @@
       run_once: true
 
     # pihole-FTL prints a list as `[ a, b ]`, unquoted (`[]` when empty);
-    # each record is `<address> <name> [<name>...]`.
+    # each record is `<address> <name> [<name>...]`. A line naming any of the
+    # wanted names (a host's own or the shared one) is replaced, so an older
+    # line without the shared name isn't left behind as a duplicate.
     - name: Work out the records
       ansible.builtin.set_fact:
         acme_hosts_current: "{{ current }}"
         acme_hosts_new: >-
-          {{ current | reject('search', '\s(' ~ (acme_records_wanted | map('split') | map('last')
+          {{ current | reject('search', '\s(' ~ (acme_records_wanted | map('split')
+             | map('reject', 'match', '^\d') | flatten | unique
              | map('regex_escape') | join('|')) ~ ')(\s|$)') | list + acme_records_wanted }}
       vars:
         raw: >-

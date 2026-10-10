@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
 - podmonitor-cnpg-instances.yaml
 - podmonitor-flux.yaml
+- scrapeconfig-docker-vm.yaml
+- scrapeconfig-proxmox-hosts.yaml

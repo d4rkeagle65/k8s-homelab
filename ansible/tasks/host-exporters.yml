@@ -1,0 +1,118 @@
+# Prometheus's exporters on the machines outside the cluster, from Debian's own
+# packages: node-exporter (CPU, memory, ZFS, disks, network) listening on the
+# host's management address, and on hosts with physical disks the packaged
+# textfile collectors for SMART and NVMe (each SSD's wear: percentage used,
+# data written), refreshed by their systemd timers. The Kubernetes nodes are
+# left alone: the cluster runs node-exporter there on the same port.
+#
+# Variables (the "Admin user" variable group, or per host in the inventory):
+#   host_exporters         true: install and keep them; empty or false: only report
+#   host_exporter_address  the address to listen on; default ansible_host (set it
+#                          for a host reached by another address, as the Docker VM)
+#   host_exporter_smart    default true for the proxmox group, false elsewhere
+
+- name: Settle the exporter settings
+  ansible.builtin.set_fact:
+    he_on: "{{ host_exporters | default(false) | bool }}"
+    he_skip: "{{ 'k8s_nodes' in group_names }}"
+    he_addr: "{{ host_exporter_address | default(ansible_host) }}"
+    he_smart: "{{ host_exporter_smart | default('proxmox' in group_names) | bool }}"
+    he_packages: >-
+      {{ ['prometheus-node-exporter'] +
+         (['prometheus-node-exporter-collectors', 'smartmontools', 'nvme-cli']
+          if host_exporter_smart | default('proxmox' in group_names) | bool else []) }}
+
+- name: Read the exporter's state
+  ansible.builtin.shell: |
+    echo "installed=$(dpkg-query -W -f='${db:Status-Abbrev}' prometheus-node-exporter 2>/dev/null | cut -c1-2)"
+    echo "active=$(systemctl is-active prometheus-node-exporter 2>/dev/null)"
+    echo "args=$(grep -E '^ARGS=' /etc/default/prometheus-node-exporter 2>/dev/null)"
+  register: he_state
+  changed_when: false
+  check_mode: false
+  when: not he_skip
+
+- name: Report the exporter as found
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: node-exporter
+      {{ 'installed' if 'installed=ii' in he_state.stdout else 'not installed' }},
+      {{ he_state.stdout | regex_search('active=(\\S*)', '\\1') | first | default('') or 'not running' }};
+      {{ 'managing it on ' ~ he_addr ~ ':9100' ~ (' with SMART/NVMe' if he_smart else '')
+         if he_on else 'off (host_exporters is not set)' }}
+  when: not he_skip
+
+- name: Exporters
+  when: he_on and not he_skip
+  block:
+    - name: The listen address is one of this host's own
+      ansible.builtin.command: ip -4 -o addr show
+      register: he_addrs
+      changed_when: false
+      check_mode: false
+      failed_when: (' ' ~ he_addr ~ '/') not in he_addrs.stdout
+
+    - name: Install the exporter packages
+      ansible.builtin.apt:
+        name: "{{ he_packages }}"
+        state: present
+        install_recommends: false
+        update_cache: true
+        cache_valid_time: 3600
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      when: not ansible_check_mode
+
+    - name: Listen on the management address only
+      ansible.builtin.lineinfile:
+        path: /etc/default/prometheus-node-exporter
+        regexp: '^ARGS='
+        line: 'ARGS="--web.listen-address={{ he_addr }}:9100"'
+        create: true
+        mode: "0644"
+      register: he_args
+
+    - name: Run node-exporter
+      ansible.builtin.systemd_service:
+        name: prometheus-node-exporter
+        enabled: true
+        state: "{{ 'restarted' if he_args is changed else 'started' }}"
+      when: not ansible_check_mode
+
+    # The packaged collectors write their metrics files on a timer; one run now
+    # so the read-back below sees them.
+    - name: Run the SMART and NVMe collectors on their timers, and once now
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: "{{ item is search('timer$') }}"
+        state: started
+      loop:
+      - prometheus-node-exporter-smartmon.timer
+      - prometheus-node-exporter-nvme.timer
+      - prometheus-node-exporter-smartmon.service
+      - prometheus-node-exporter-nvme.service
+      when: he_smart and not ansible_check_mode
+
+    - name: Read the exporter back
+      ansible.builtin.shell: |
+        m=$(curl -sf --max-time 10 http://{{ he_addr }}:9100/metrics) || { echo "unreachable"; exit 0; }
+        echo "uname=$(echo "$m" | grep -c '^node_uname_info')"
+        echo "smart=$(echo "$m" | grep -c -E '^smartmon_')"
+        echo "nvme=$(echo "$m" | grep -c -E '^nvme_')"
+      register: he_back
+      changed_when: false
+      check_mode: false
+      failed_when: >-
+        not ansible_check_mode and
+        ('unreachable' in he_back.stdout or 'uname=1' not in he_back.stdout)
+      retries: 3
+      delay: 5
+      until: ansible_check_mode or 'uname=1' in he_back.stdout
+
+    - name: Report the exporter
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: node-exporter on {{ he_addr }}:9100{{ (', SMART series ' ~
+          (he_back.stdout | regex_search('smart=(\\d+)', '\\1') | first) ~ ', NVMe series ' ~
+          (he_back.stdout | regex_search('nvme=(\\d+)', '\\1') | first)) if he_smart and he_back.stdout is defined
+          and he_back.stdout is search('smart=') else '' }}

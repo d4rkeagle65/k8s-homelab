@@ -111,8 +111,13 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       dashboard; Grafana loads dashboards from any namespace.
 - [ ] Phase 3A live: each new target up
 - [ ] Phase 3B: the Proxmox API (`prometheus-pve-exporter`; `PVE_EXPORTER_TOKEN_VALUE`, `PVE_API_HOST`)
-- [ ] Phase 3C: node-exporter and `smartctl_exporter` on the Proxmox hosts, node-exporter and
-      cAdvisor on the Docker VM (Ansible); the hosts found through `proxmox-hosts.<domain>`
+- [x] Phase 3C built: Debian's node-exporter on the Proxmox hosts, the Pi-holes and the Docker VM
+      (`ansible/tasks/host-exporters.yml`, run by `baseline.yml`, off until `host_exporters`),
+      with the packaged SMART and NVMe collectors on the Proxmox hosts; Prometheus finds the
+      hosts through `proxmox-hosts.<domain>` (written by `proxmox-acme.yml`) and the Docker VM
+      by its management name. Not yet: cAdvisor for the Docker VM's containers.
+- [ ] Phase 3C live: `host_exporter_address` on the Docker VM's inventory line, `host_exporters:
+      true`, a baseline run, a Proxmox host-settings run (the shared name), every host up
 - [ ] Phase 3D: the NASes (SNMP, `SNMP_COMMUNITY`), the Pi-holes, Garage, the *arr apps,
       qBittorrent, Home Assistant
 - [ ] Phase 4
