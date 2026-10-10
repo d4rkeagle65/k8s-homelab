@@ -21,7 +21,7 @@ spec:
   enableSuperuserAccess: false
   failoverDelay: 0
   imageName: ghcr.io/cloudnative-pg/postgresql:15
-  instances: 1
+  instances: 2
   logLevel: info
   maxSyncReplicas: 0
   minSyncReplicas: 0
