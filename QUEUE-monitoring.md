@@ -140,10 +140,11 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       to the community limited to the management network, and snmpd restarted. TOS may rewrite
       the file (an update, a reboot, saving SNMP in its UI): the `snmp` target for the TerraMaster
       then goes down. An alert on that is phase 5; report the bug to TerraMaster.
-- [ ] The Synology's SNMP and DSM moved to its management name (`NAS_MGMT_HOSTNAME`), since
-      its management services answer only there; `NAS_HOSTNAME` stays the main-network name the
-      NFS volumes use. Confirm the snmp target is up on the new name; if it still times out,
-      SNMP (UDP 161) isn't allowed from the workers' management addresses in DSM's firewall.
+- [ ] Confirm the Synology's snmp target stays up: its agent can take over 20 seconds to answer
+      the UCD memory and load tables after a while idle, so the Synology uses copies of those
+      profiles with a 25-second timeout (`synology_ucd_*` in the snmp-exporter's config) and a
+      110-second scrape timeout. If it still fails, the scrape duration in Prometheus shows how
+      long the agent took.
 - [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`), qBittorrent (its login), Home
       Assistant (its Prometheus integration and a token)
 - [ ] Phase 4

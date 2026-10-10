@@ -188,8 +188,11 @@ def find_env_var_credentials(obj, path: str = "") -> list[tuple[str, str]]:
 # specific piece of identifying information (it can pin down a physical
 # network), so it gets treated as a real finding rather than inventory.
 # ---------------------------------------------------------------------------
+# Not part of a longer dotted number, so an SNMP OID (1.3.6.1.4.1...) or a
+# version string isn't read as an address; an address ending a sentence
+# still matches.
 IPV4_CANDIDATE_RE = re.compile(
-    r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b"
+    r"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?!\.?\d)"
 )
 
 # Dotted 4-part version numbers (container image tags, chart/appVersions)

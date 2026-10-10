@@ -29,13 +29,109 @@ spec:
         name: prometheus-community
         namespace: flux-system
   values:
-    # Only the login; the profiles come from the image's own snmp.yml, loaded
-    # as a second file.
+    # The login, and the Synology's copies of the generic memory and load
+    # profiles; the rest come from the image's own snmp.yml, loaded second
+    # (where a module of the same name would replace these, hence new names).
+    # The Synology's agent can take over 20 seconds to answer the first of
+    # these after a while idle, past the default 5-second timeout and three
+    # retries; it answers in milliseconds after that.
     config: |
       auths:
         homelab_v2:
           community: ${SNMP_COMMUNITY}
           version: 2
+      modules:
+        synology_ucd_memory:
+          walk:
+          - 1.3.6.1.4.1.2021.4
+          timeout: 25s
+          retries: 1
+          metrics:
+          - name: memTotalSwap
+            oid: 1.3.6.1.4.1.2021.4.3
+            type: gauge
+            help: The total amount of swap space configured for this host. - 1.3.6.1.4.1.2021.4.3
+          - name: memAvailSwap
+            oid: 1.3.6.1.4.1.2021.4.4
+            type: gauge
+            help: The amount of swap space currently unused or available. - 1.3.6.1.4.1.2021.4.4
+          - name: memTotalReal
+            oid: 1.3.6.1.4.1.2021.4.5
+            type: gauge
+            help: The total amount of real/physical memory installed on this host. - 1.3.6.1.4.1.2021.4.5
+          - name: memAvailReal
+            oid: 1.3.6.1.4.1.2021.4.6
+            type: gauge
+            help: The amount of real/physical memory currently unused or available. - 1.3.6.1.4.1.2021.4.6
+          - name: memTotalFree
+            oid: 1.3.6.1.4.1.2021.4.11
+            type: gauge
+            help: The total amount of memory free or available for use on this host - 1.3.6.1.4.1.2021.4.11
+          - name: memShared
+            oid: 1.3.6.1.4.1.2021.4.13
+            type: gauge
+            help: The total amount of real or virtual memory currently allocated for use as shared memory - 1.3.6.1.4.1.2021.4.13
+          - name: memBuffer
+            oid: 1.3.6.1.4.1.2021.4.14
+            type: gauge
+            help: The total amount of real or virtual memory currently allocated for use as memory buffers - 1.3.6.1.4.1.2021.4.14
+          - name: memCached
+            oid: 1.3.6.1.4.1.2021.4.15
+            type: gauge
+            help: The total amount of real or virtual memory currently allocated for use as cached memory - 1.3.6.1.4.1.2021.4.15
+        synology_ucd_la_table:
+          walk:
+          - 1.3.6.1.4.1.2021.10.1.2
+          - 1.3.6.1.4.1.2021.10.1.5
+          - 1.3.6.1.4.1.2021.10.1.6
+          timeout: 25s
+          retries: 1
+          metrics:
+          - name: laNames
+            oid: 1.3.6.1.4.1.2021.10.1.2
+            type: DisplayString
+            help: The list of loadave names we're watching. - 1.3.6.1.4.1.2021.10.1.2
+            indexes:
+            - labelname: laIndex
+              type: gauge
+            lookups:
+            - labels:
+              - laIndex
+              labelname: laNames
+              oid: 1.3.6.1.4.1.2021.10.1.2
+              type: DisplayString
+            - labels: []
+              labelname: laIndex
+          - name: laLoadInt
+            oid: 1.3.6.1.4.1.2021.10.1.5
+            type: gauge
+            help: The 1,5 and 15 minute load averages as an integer - 1.3.6.1.4.1.2021.10.1.5
+            indexes:
+            - labelname: laIndex
+              type: gauge
+            lookups:
+            - labels:
+              - laIndex
+              labelname: laNames
+              oid: 1.3.6.1.4.1.2021.10.1.2
+              type: DisplayString
+            - labels: []
+              labelname: laIndex
+          - name: laLoadFloat
+            oid: 1.3.6.1.4.1.2021.10.1.6
+            type: Float
+            help: The 1,5 and 15 minute load averages as an opaquely wrapped floating point number. - 1.3.6.1.4.1.2021.10.1.6
+            indexes:
+            - labelname: laIndex
+              type: gauge
+            lookups:
+            - labels:
+              - laIndex
+              labelname: laNames
+              oid: 1.3.6.1.4.1.2021.10.1.2
+              type: DisplayString
+            - labels: []
+              labelname: laIndex
     extraArgs:
     - --config.file=/etc/snmp_exporter/snmp.yml
     resources:
@@ -52,7 +148,9 @@ spec:
       # one without its address.
       - name: synology
         target: ${NAS_MGMT_HOSTNAME}
-        module: [synology, system, if_mib, ucd_system_stats, ucd_memory, ucd_la_table]
+        module: [synology, system, if_mib, ucd_system_stats, synology_ucd_memory, synology_ucd_la_table]
+        # Room for both slow profiles at 25 seconds and one retry each.
+        scrapeTimeout: 110s
         additionalMetricsRelabels:
           nas: synology
       - name: terramaster
