@@ -8,6 +8,7 @@ resources:
 - configmap-authentik-blueprints.yaml
 - ingress-authentik-cloudflared.yaml
 - secret-authentik-dockhand-oidc.yaml
+- secret-authentik-grafana-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml
 - secret-authentik-secret-key.yaml
 - secret-authentik-semaphore-oidc.yaml
