@@ -11,8 +11,8 @@ locals {
   # The Kubernetes nodes: privileged containers on ZFS, eth0 on the main
   # network (default route), eth1 on the management network.
   k8s_roles = {
-    control = { memory = 4096, storage_gb = 32, local_db_gb = 0, tags = ["k8s", "k8s-control"] }
-    worker  = { memory = 8192, storage_gb = 48, local_db_gb = 128, tags = ["k8s", "k8s-worker"] }
+    control = { memory = 4096, storage_gb = 32, local_db_gb = 0, nas_block_gb = 0, tags = ["k8s", "k8s-control"] }
+    worker  = { memory = 8192, storage_gb = 48, local_db_gb = 128, nas_block_gb = 28, tags = ["k8s", "k8s-worker"] }
   }
   k8s_nodes = {
     "101" = "control"
@@ -99,6 +99,21 @@ resource "proxmox_virtual_environment_container" "k8s_node" {
       path   = "/opt/local-path-provisioner"
       size   = "${local.k8s_roles[each.value].local_db_gb}G"
       backup = true
+    }
+  }
+
+  # Workers: the nas-block StorageClass's data (Prometheus), on the host's own
+  # iSCSI LUN on the NAS (ansible/tasks/proxmox-nas-block.yml), so its constant
+  # writes miss the hosts' SSDs. Not backed up: the data is disposable and a
+  # second replica holds it. Added with pct set on the running container: a
+  # change here would make the provider reboot the node without a drain.
+  dynamic "mount_point" {
+    for_each = local.k8s_roles[each.value].nas_block_gb > 0 ? [1] : []
+    content {
+      volume = "nas-block:vm-${each.key}-disk-0"
+      path   = "/opt/nas-block"
+      size   = "${local.k8s_roles[each.value].nas_block_gb}G"
+      backup = false
     }
   }
 
