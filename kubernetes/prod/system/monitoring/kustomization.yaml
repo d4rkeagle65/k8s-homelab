@@ -9,3 +9,4 @@ resources:
 - monitoring-extras/ks.yaml
 - monitors/ks.yaml
 - namespace.yaml
+- pve-exporter/ks.yaml
