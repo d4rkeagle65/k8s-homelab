@@ -65,7 +65,8 @@ spec:
                   periodSeconds: 30
                   timeoutSeconds: 5
               readiness: *probe
-    # The kubernetes widget reads nodes, pods and their metrics.
+    # The kubernetes widget reads nodes, pods and their metrics; its service
+    # discovery lists Ingresses.
     serviceAccount:
       create: true
     rbac:
@@ -75,6 +76,9 @@ spec:
           rules:
             - apiGroups: [""]
               resources: [namespaces, pods, nodes]
+              verbs: [get, list]
+            - apiGroups: [networking.k8s.io]
+              resources: [ingresses]
               verbs: [get, list]
             - apiGroups: [metrics.k8s.io]
               resources: [nodes, pods]
@@ -326,9 +330,9 @@ spec:
             - Wi-Fi:
                 - Access point 1:
                     icon: openwrt.png
-                    href: http://${OPENWRT_AP1_ADDRESS}
+                    href: https://${OPENWRT_AP1_ADDRESS}
                     description: OpenWrt
-                    siteMonitor: http://${OPENWRT_AP1_ADDRESS}
+                    siteMonitor: https://${OPENWRT_AP1_ADDRESS}
                     widget:
                       type: prometheusmetric
                       url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
@@ -348,9 +352,9 @@ spec:
                           format: {type: number, options: {maximumFractionDigits: 2}}
                 - Access point 2:
                     icon: openwrt.png
-                    href: http://${OPENWRT_AP2_ADDRESS}
+                    href: https://${OPENWRT_AP2_ADDRESS}
                     description: OpenWrt
-                    siteMonitor: http://${OPENWRT_AP2_ADDRESS}
+                    siteMonitor: https://${OPENWRT_AP2_ADDRESS}
                     widget:
                       type: prometheusmetric
                       url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
@@ -370,9 +374,9 @@ spec:
                           format: {type: number, options: {maximumFractionDigits: 2}}
                 - Access point 3:
                     icon: openwrt.png
-                    href: http://${OPENWRT_AP3_ADDRESS}
+                    href: https://${OPENWRT_AP3_ADDRESS}
                     description: OpenWrt
-                    siteMonitor: http://${OPENWRT_AP3_ADDRESS}
+                    siteMonitor: https://${OPENWRT_AP3_ADDRESS}
                     widget:
                       type: prometheusmetric
                       url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
@@ -393,11 +397,11 @@ spec:
             - Storage:
                 - Synology:
                     icon: synology.png
-                    href: https://${NAS_HOSTNAME}:5001
+                    href: https://${NAS_MGMT_HOSTNAME}:5001
                     description: Main NAS
                     widgets:
                     - type: diskstation
-                      url: https://${NAS_HOSTNAME}:5001
+                      url: https://${NAS_MGMT_HOSTNAME}:5001
                       username: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_USERNAME}}" }}"
                       password: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_PASSWORD}}" }}"
                     - type: prometheusmetric

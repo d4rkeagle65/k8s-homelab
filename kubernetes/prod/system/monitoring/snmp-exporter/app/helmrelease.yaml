@@ -51,7 +51,7 @@ spec:
       # nas names each one's series, so a query (Homepage's cards) can pick
       # one without its address.
       - name: synology
-        target: ${NAS_HOSTNAME}
+        target: ${NAS_MGMT_HOSTNAME}
         module: [synology, system, if_mib, ucd_system_stats, ucd_memory, ucd_la_table]
         additionalMetricsRelabels:
           nas: synology
