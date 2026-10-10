@@ -39,6 +39,15 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Next
 
+- **The garage stack's config is an inline compose config** (`docker/garage/compose.yaml`,
+  `configs: content`), the same mechanism that left `vaultwarden-backup` without its rclone
+  file after a recreation on 2026-10-10 (that container restarted about 600 times and made
+  no backup until it was moved to environment variables). Garage still has its file, through
+  Hawser on the NAS; if a recreation ever drops it, Garage starts without its config. Move it
+  to a form that doesn't depend on the copy (environment variables, or a file written at
+  start), and have Prometheus alert on a container restarting in a loop (cAdvisor's
+  `container_start_time_seconds` changing).
+
 - **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
   rated wear** (`nvme_percentage_used_ratio`, 2026-10-10: 62 TB written over 4.1 years, about
   42 GB a day on average): at that rate it reaches 100% in about eight months. Replace it, a
