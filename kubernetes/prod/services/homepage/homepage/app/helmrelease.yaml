@@ -127,7 +127,8 @@ spec:
             layout:
               Quick links: {style: row, columns: 8, header: false}
               Hosts: {tab: Systems, style: row, columns: 3, header: false}
-              Network: {tab: Systems, style: row, columns: 4, header: false}
+              Network: {tab: Systems, style: row, columns: 3, header: false}
+              Wi-Fi: {tab: Systems, style: row, columns: 3, header: false}
               Storage: {tab: Systems, style: row, columns: 3, header: false}
               Tools: {tab: Systems, style: row, columns: 4, header: false}
               Health: {tab: Cluster, style: row, columns: 3, header: false}
@@ -302,22 +303,110 @@ spec:
                         - label: Next renewal
                           query: min(certmanager_certificate_renewal_timestamp_seconds) - time()
                           format: {type: duration}
-            - Storage:
-                - Synology:
-                    icon: synology.png
-                    href: https://${NAS_HOSTNAME}:5001
-                    description: Main NAS
+                - Cloudflare tunnel:
+                    icon: cloudflare.png
+                    href: https://one.dash.cloudflare.com
+                    description: The way in from the internet
+                    namespace: cloudflare-tunnel
+                    app: cloudflare-tunnel-ingress-controller
+                    widget:
+                      type: cloudflared
+                      accountid: "{{ "{{HOMEPAGE_VAR_CLOUDFLARE_ACCOUNT_ID}}" }}"
+                      tunnelid: "{{ "{{HOMEPAGE_VAR_CLOUDFLARE_TUNNEL_ID}}" }}"
+                      key: "{{ "{{HOMEPAGE_VAR_CLOUDFLARE_TOKEN}}" }}"
+                - Tailscale:
+                    icon: tailscale.png
+                    href: https://login.tailscale.com/admin/machines
+                    description: Subnet router on the Docker host
+                    widget:
+                      type: tailscale
+                      deviceid: "{{ "{{HOMEPAGE_VAR_TAILSCALE_DEVICE}}" }}"
+                      key: "{{ "{{HOMEPAGE_VAR_TAILSCALE_KEY}}" }}"
+                      fields: [address, last_seen, expires, update_available]
+            - Wi-Fi:
+                - Access point 1:
+                    icon: openwrt.png
+                    href: http://${OPENWRT_AP1_ADDRESS}
+                    description: OpenWrt
+                    siteMonitor: http://${OPENWRT_AP1_ADDRESS}
                     widget:
                       type: prometheusmetric
                       url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
                       refreshInterval: 60000
                       metrics:
-                        - label: Volume free
-                          query: sum(raidFreeSize{nas="synology", raidName=~"Volume.*"})
-                          format: {type: bytes}
-                        - label: CPU
-                          query: 100 - ssCpuIdle{nas="synology"}
-                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: Clients
+                          query: sum(wifi_stations{ap="1"}) or vector(0)
+                          format: {type: number}
+                        - label: Signal
+                          query: avg(wifi_station_signal_dbm{ap="1"})
+                          format: {type: number, suffix: " dBm", options: {maximumFractionDigits: 0}}
+                        - label: Uptime
+                          query: time() - node_boot_time_seconds{ap="1"}
+                          format: {type: duration}
+                        - label: Load
+                          query: node_load1{ap="1"}
+                          format: {type: number, options: {maximumFractionDigits: 2}}
+                - Access point 2:
+                    icon: openwrt.png
+                    href: http://${OPENWRT_AP2_ADDRESS}
+                    description: OpenWrt
+                    siteMonitor: http://${OPENWRT_AP2_ADDRESS}
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Clients
+                          query: sum(wifi_stations{ap="2"}) or vector(0)
+                          format: {type: number}
+                        - label: Signal
+                          query: avg(wifi_station_signal_dbm{ap="2"})
+                          format: {type: number, suffix: " dBm", options: {maximumFractionDigits: 0}}
+                        - label: Uptime
+                          query: time() - node_boot_time_seconds{ap="2"}
+                          format: {type: duration}
+                        - label: Load
+                          query: node_load1{ap="2"}
+                          format: {type: number, options: {maximumFractionDigits: 2}}
+                - Access point 3:
+                    icon: openwrt.png
+                    href: http://${OPENWRT_AP3_ADDRESS}
+                    description: OpenWrt
+                    siteMonitor: http://${OPENWRT_AP3_ADDRESS}
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Clients
+                          query: sum(wifi_stations{ap="3"}) or vector(0)
+                          format: {type: number}
+                        - label: Signal
+                          query: avg(wifi_station_signal_dbm{ap="3"})
+                          format: {type: number, suffix: " dBm", options: {maximumFractionDigits: 0}}
+                        - label: Uptime
+                          query: time() - node_boot_time_seconds{ap="3"}
+                          format: {type: duration}
+                        - label: Load
+                          query: node_load1{ap="3"}
+                          format: {type: number, options: {maximumFractionDigits: 2}}
+            - Storage:
+                - Synology:
+                    icon: synology.png
+                    href: https://${NAS_HOSTNAME}:5001
+                    description: Main NAS
+                    widgets:
+                    - type: diskstation
+                      url: https://${NAS_HOSTNAME}:5001
+                      username: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_USERNAME}}" }}"
+                      password: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_PASSWORD}}" }}"
+                    - type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Pools healthy
+                          query: count(raidStatus{nas="synology"} == 1) or vector(0)
+                          format: {type: number}
                         - label: Disks OK
                           query: count(diskStatus{nas="synology"} == 1) or vector(0)
                           format: {type: number}

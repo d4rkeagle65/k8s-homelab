@@ -275,6 +275,10 @@ spec:
             gnetId: 12688
             revision: 4
             datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          openwrt:
+            gnetId: 11147
+            revision: 1
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
         storage:
           synology:
             gnetId: 14284

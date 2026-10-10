@@ -16,6 +16,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | `baseline.yml` | The same baseline on every Debian host at once, from the "All Debian Hosts" inventory: the admin login (`admin-users.yml`'s steps), Semaphore's shared key for root, the packages in `vars/baseline.yml` (installed when missing, never removed or upgraded), and one interactive bash setup (`files/homelab-bashrc`). Check mode reports each part. |
 | `admin-users.yml` | The admin login alone, on every host of the inventory it runs against (`baseline.yml` runs the same steps, `tasks/admin-user.yml`): the account `admin_user` with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. |
 | `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
+| `openwrt-aps.yml` | Prometheus's exporter on the OpenWrt access points (OpenWrt's `prometheus-node-exporter-lua` with its Wi-Fi collectors), listening on one interface's address, then read back from there. Only `raw`, since OpenWrt has no Python. Check mode reports the missing packages and the listening interface. |
 
 ## Setting up Semaphore (once)
 
@@ -347,6 +348,21 @@ with one address per host, and the Docker VM by its management name.
 The bash setup is loaded before each user's `~/.bashrc`, so anything set there wins: Debian's
 default `~/.bashrc` for a new account sets its own prompt, and the baseline's coloured prompt
 shows only where that line is removed (root's default `~/.bashrc` doesn't set one).
+
+## The OpenWrt access points (`openwrt-aps.yml`)
+
+- **Key.** OpenWrt's SSH server (dropbear) reads root's keys from
+  `/etc/dropbear/authorized_keys`, not `/root/.ssh`: add Semaphore's shared key there on each
+  access point (LuCI: System > Administration > SSH-Keys).
+- **Host keys.** Pin them on the Docker host as for the others
+  (`docker/semaphore/README.md`).
+- **Inventory** "OpenWrt APs", Static YAML, Semaphore's shared key, an `openwrt_aps` group,
+  user `root`, each access point by the address Prometheus scrapes, the same one as its
+  `OPENWRT_AP<n>_ADDRESS` variable (`ap1` to `ap3`, in that order, are the cards Access point 1
+  to 3). Set `openwrt_exporter_interface` when that address isn't on OpenWrt's `lan`
+  interface.
+- **Template** with the inventory and the repository; nothing else. The access points need
+  their package feeds (the internet) for the first run.
 
 ## Running a Proxmox upgrade
 

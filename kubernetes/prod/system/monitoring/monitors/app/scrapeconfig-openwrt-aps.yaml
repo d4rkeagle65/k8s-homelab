@@ -1,0 +1,25 @@
+# node-exporter on the OpenWrt access points (ansible/openwrt-aps.yml): the
+# system, and each radio's networks and connected clients. ap numbers each one,
+# so Homepage's cards can pick one without its address.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: openwrt-aps
+spec:
+  staticConfigs:
+  - targets:
+    - ${OPENWRT_AP1_ADDRESS}:9100
+    labels:
+      ap: "1"
+  - targets:
+    - ${OPENWRT_AP2_ADDRESS}:9100
+    labels:
+      ap: "2"
+  - targets:
+    - ${OPENWRT_AP3_ADDRESS}:9100
+    labels:
+      ap: "3"
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: openwrt-aps

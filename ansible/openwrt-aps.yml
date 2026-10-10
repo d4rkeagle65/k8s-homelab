@@ -1,0 +1,97 @@
+# Prometheus's exporter on the OpenWrt access points: OpenWrt's own
+# prometheus-node-exporter-lua, with its Wi-Fi collectors (each radio's
+# networks, and each connected client's signal and traffic), listening on port
+# 9100 of one interface's address. Prometheus scrapes them (the openwrt-aps
+# ScrapeConfig in kubernetes/prod/system/monitoring/monitors/), and Homepage
+# shows each access point from there. Every access point at once: the exporter
+# restarting interrupts no Wi-Fi.
+#
+# OpenWrt has no Python, so this uses only `raw`: one shell script per access
+# point, which works with both package managers (apk from OpenWrt 25, opkg
+# before it).
+#
+# Inventory (kept in Semaphore, never in git): group openwrt_aps, root over SSH,
+# by the address Prometheus scrapes (the OPENWRT_AP*_ADDRESS variables).
+# Optional: openwrt_exporter_interface (default lan), the OpenWrt interface
+# whose address the exporter listens on.
+#
+# In check mode (--check) it reports the missing packages and a listening
+# interface that differs, and changes nothing.
+
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: openwrt_aps
+
+- name: Prometheus's exporter on the OpenWrt access points
+  hosts: openwrt_aps
+  gather_facts: false
+  vars:
+    exporter_interface: "{{ openwrt_exporter_interface | default('lan') }}"
+  tasks:
+    # Prints one line per difference, starting CHANGE, then a last line
+    # VERIFIED (or UNVERIFIED in check mode, before the packages exist) after
+    # fetching its own metrics from the listening address.
+    - name: The exporter and its Wi-Fi collectors
+      ansible.builtin.raw: |
+        set -e
+        dry={{ 1 if ansible_check_mode else 0 }}
+        iface='{{ exporter_interface }}'
+        pkgs='prometheus-node-exporter-lua prometheus-node-exporter-lua-wifi prometheus-node-exporter-lua-wifi_stations'
+        if command -v apk >/dev/null 2>&1; then pm=apk; else pm=opkg; fi
+        missing=''
+        for p in $pkgs; do
+          if [ "$pm" = apk ]; then
+            apk info -e "$p" >/dev/null 2>&1 || missing="$missing $p"
+          else
+            opkg list-installed | grep -q "^$p " || missing="$missing $p"
+          fi
+        done
+        restart=0
+        pending=0
+        if [ -n "$missing" ]; then
+          echo "CHANGE install:$missing"
+          pending=1
+          if [ "$dry" = 0 ]; then
+            if [ "$pm" = apk ]; then apk update >/dev/null; apk add $missing >/dev/null
+            else opkg update >/dev/null; opkg install $missing >/dev/null; fi
+            restart=1
+          fi
+        fi
+        if [ -z "$(ubus call network.interface.$iface status 2>/dev/null)" ]; then
+          echo "ERROR OpenWrt has no interface named $iface (openwrt_exporter_interface)"
+          exit 1
+        fi
+        cur=$(uci -q get prometheus-node-exporter-lua.main.listen_interface || true)
+        if [ "$cur" != "$iface" ]; then
+          echo "CHANGE listen_interface: ${cur:-unset} -> $iface"
+          pending=1
+          if [ "$dry" = 0 ]; then
+            uci set prometheus-node-exporter-lua.main.listen_interface="$iface"
+            uci commit prometheus-node-exporter-lua
+            restart=1
+          fi
+        fi
+        if [ "$dry" = 1 ] && [ "$pending" = 1 ]; then
+          echo "UNVERIFIED until the changes above are made (check mode)"
+          exit 0
+        fi
+        if [ "$dry" = 0 ]; then
+          /etc/init.d/prometheus-node-exporter-lua enable
+          if [ "$restart" = 1 ]; then /etc/init.d/prometheus-node-exporter-lua restart; sleep 2; fi
+        fi
+        addr=$(ubus call network.interface.$iface status | jsonfilter -e '@["ipv4-address"][0].address' || true)
+        [ -n "$addr" ] || { echo "ERROR $iface has no IPv4 address"; exit 1; }
+        metrics=$(wget -q -T 10 -O - "http://$addr:9100/metrics" || true)
+        for m in node_uname_info wifi_network_quality wifi_stations; do
+          echo "$metrics" | grep -q "^$m" || { echo "ERROR $addr:9100 serves no $m"; exit 1; }
+        done
+        echo "VERIFIED listening on $addr:9100 ($iface), with the Wi-Fi metrics"
+      register: ap_exporter
+      changed_when: "'CHANGE' in ap_exporter.stdout"
+      # raw is skipped in check mode unless told otherwise; the script itself
+      # changes nothing then.
+      check_mode: false
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ ap_exporter.stdout_lines }}"
