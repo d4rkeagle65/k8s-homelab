@@ -224,14 +224,17 @@
     # Required only once the entry exists or this run added it: until every
     # host's LUN has its volume group, its absence is the expected state.
     - name: Read the storage back
-      ansible.builtin.command: pvesm status --storage {{ nb_storage }}
+      ansible.builtin.command: >-
+        pvesh get /nodes/{{ pve_node }}/storage/{{ nb_storage }}/status --output-format json
       register: nb_status
       changed_when: false
       check_mode: false
       failed_when: >-
         not ansible_check_mode and
         (nb_lvm_entry | length > 0 or nb_defined is changed) and
-        (nb_status.rc != 0 or nb_status.stdout is not search(nb_storage ~ '\\s+lvm\\s+active'))
+        (nb_status.rc != 0 or not nb_active)
+      vars:
+        nb_active: "{{ nb_status.rc == 0 and (nb_status.stdout | from_json).active | default(0) | int == 1 }}"
 
     - name: Report the NAS block storage
       ansible.builtin.debug:
@@ -239,6 +242,7 @@
           {{ pve_node }}: LUN {{ nb_dev | default('not seen') }}
           ({{ nb_gib | default('?') }} GiB), volume group
           {{ (nb_vg.stdout | trim) if nb_vg.rc == 0 else 'absent' }},
-          {{ nb_storage }} {{ 'active' if nb_status.stdout is search('\\sactive') else
-          ('not defined yet (every host needs its volume group first)'
-           if nb_status.rc != 0 else 'not active') }}
+          {{ nb_storage }}
+          {{ ('not defined yet (every host needs its volume group first)') if nb_status.rc != 0 else
+             ('active, ' ~ (((nb_status.stdout | from_json).avail | int) / 1073741824) | round(1) ~ ' GiB free')
+             if (nb_status.stdout | from_json).active | default(0) | int == 1 else 'not active' }}
