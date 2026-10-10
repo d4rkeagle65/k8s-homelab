@@ -23,6 +23,10 @@
 # In check mode (--check) it runs the checks and lists the pending upgrades,
 # and changes nothing.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: proxmox
+
 - name: Check the clusters before touching anything
   hosts: localhost
   gather_facts: false

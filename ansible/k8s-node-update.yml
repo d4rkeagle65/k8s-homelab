@@ -16,6 +16,10 @@
 # In check mode (--check) it runs the checks, lists the pending upgrades and
 # what each drain would move, and changes nothing.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: k8s_nodes
+
 - name: Check the cluster before touching anything
   hosts: localhost
   gather_facts: false

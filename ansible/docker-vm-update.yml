@@ -11,6 +11,10 @@
 #
 # In check mode (--check) it lists the pending upgrades and changes nothing.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: docker_vm
+
 - name: Update the Docker VM
   hosts: docker_vm
   gather_facts: false

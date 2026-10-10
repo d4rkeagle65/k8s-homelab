@@ -21,6 +21,10 @@
 #
 # In check mode (--check) it runs every check and changes nothing.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: k8s_nodes
+
 - name: Check the bundle can be fetched and the cluster is healthy
   hosts: localhost
   gather_facts: false

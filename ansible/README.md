@@ -358,6 +358,9 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 
 ## Checks for a playbook here
 
+- It starts with `import_playbook: require-hosts.yml` for the group it works on. An inventory
+  Ansible can't parse (a tab in Semaphore's YAML) only draws warnings, then every play matches
+  nothing and the run exits 0: Semaphore shows a success that did nothing.
 - `ansible-playbook --syntax-check` passes, with any inventory.
 - Anything a playbook reads from a cluster or a host it reads with `changed_when: false` and
   `check_mode: false`, so a check-mode run reports real facts.

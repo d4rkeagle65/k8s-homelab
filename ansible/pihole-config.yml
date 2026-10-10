@@ -21,6 +21,10 @@
 # In check mode (--check) it reports which settings differ on which Pi-hole,
 # and changes nothing.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: pihole
+
 - name: Set the Pi-holes' settings one at a time
   hosts: pihole
   serial: 1

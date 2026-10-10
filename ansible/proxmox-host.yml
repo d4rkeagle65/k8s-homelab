@@ -30,6 +30,10 @@
 # In check mode (--check) it reports each host's ARC, certificate and NAS block
 # storage, now and wanted, and changes nothing.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: proxmox
+
 - name: Proxmox host settings
   hosts: proxmox
   gather_facts: true
