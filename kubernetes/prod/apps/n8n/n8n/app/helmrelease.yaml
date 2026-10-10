@@ -96,6 +96,9 @@ spec:
                 value: "336"
               - name: N8N_DIAGNOSTICS_ENABLED
                 value: "false"
+              # Prometheus metrics at /metrics on the main port.
+              - name: N8N_METRICS
+                value: "true"
             probes:
               liveness: &probe
                 enabled: true
@@ -153,6 +156,15 @@ spec:
         ports:
           http:
             port: 5678
+    serviceMonitor:
+      main:
+        enabled: true
+        serviceName: n8n
+        endpoints:
+          - port: http
+            scheme: http
+            path: /metrics
+            interval: 60s
     ingress:
       main:
         className: traefik

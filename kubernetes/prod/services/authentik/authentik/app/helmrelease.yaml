@@ -59,6 +59,10 @@ spec:
         repository: ghcr.io/goauthentik/server
         tag: "2026.5"
     server:
+      metrics:
+        enabled: true
+        serviceMonitor:
+          enabled: true
       containerPorts:
         http: 9000
         https: 9443

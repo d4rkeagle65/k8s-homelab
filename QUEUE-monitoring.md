@@ -106,7 +106,15 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       Garage's log on the NAS for the same minute. Reads by a test client succeed.
 - [ ] Kubernetes events into Loki: one collector for the cluster (a one-replica Alloy
       Deployment with `loki.source.kubernetes_events`), not the per-node DaemonSet.
-- [ ] Phase 3
+- [x] Phase 3A built: monitors for every database instance (one PodMonitor, `monitors/`), Flux,
+      Traefik, cert-manager, ExternalDNS, MetalLB, Authentik, immich and n8n; the CloudNativePG
+      dashboard; Grafana loads dashboards from any namespace.
+- [ ] Phase 3A live: each new target up
+- [ ] Phase 3B: the Proxmox API (`prometheus-pve-exporter`; `PVE_EXPORTER_TOKEN_VALUE`, `PVE_API_HOST`)
+- [ ] Phase 3C: node-exporter and `smartctl_exporter` on the Proxmox hosts, node-exporter and
+      cAdvisor on the Docker VM (Ansible); the hosts found through `proxmox-hosts.<domain>`
+- [ ] Phase 3D: the NASes (SNMP, `SNMP_COMMUNITY`), the Pi-holes, Garage, the *arr apps,
+      qBittorrent, Home Assistant
 - [ ] Phase 4
 - [ ] Phase 5
 - [x] Phase 6 (in phase 1)

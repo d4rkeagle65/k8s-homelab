@@ -7,4 +7,5 @@ resources:
 - kube-prometheus-stack/ks.yaml
 - loki/ks.yaml
 - monitoring-extras/ks.yaml
+- monitors/ks.yaml
 - namespace.yaml
