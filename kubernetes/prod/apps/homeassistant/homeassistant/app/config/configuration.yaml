@@ -1,0 +1,30 @@
+# Home Assistant's configuration.yaml, from git: mounted read-only over the one
+# on the config volume (kustomization.yaml's configMapGenerator; a change here
+# rolls Home Assistant). What Home Assistant writes itself stays on the volume:
+# .storage (integrations set up in the UI), automations, scripts.yaml, the
+# database. Private parts (Baby Buddy's sensors and scripts) are package files
+# in /config/packages on the volume, never in this public repo. Secrets come
+# from the volume's secrets.yaml through !secret.
+
+default_config:
+
+homeassistant:
+  packages: !include_dir_named packages
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - ${CALICO_POD_CIDR}
+
+# Login through Authentik (its home-assistant provider).
+auth_oidc:
+  client_id: ${HOMEASSISTANT_OIDC_CLIENT_ID}
+  client_secret: !secret authentik_client_secret
+  discovery_url: "https://auth.${BASE_DOMAIN}/application/o/home-assistant/.well-known/openid-configuration"
+  features:
+    default_redirect: true
+
+# The Prometheus endpoint (/api/prometheus), scraped from the cluster with a
+# long-lived token (monitors/scrapeconfig-homeassistant.yaml).
+prometheus:
+  namespace: hass
