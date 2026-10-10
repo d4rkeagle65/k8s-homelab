@@ -3,7 +3,7 @@
 **The ask:** metrics and log aggregation for the cluster and the machines around it, with
 Grafana in front, light enough for these nodes (8 GiB workers, 4 GiB control planes). The
 owner picked Prometheus, Loki and Grafana over VictoriaMetrics; help with tuning log search
-comes with it.
+comes with it. Proxmox forwards metrics and logs too, and so does every application that can.
 
 ## Settled
 
@@ -56,7 +56,7 @@ comes with it.
 | Phase 1 merge | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `AUTHENTIK_GRAFANA_OIDC_CLIENT_SECRET` in the `cluster-secrets` Vaultwarden item | present (2026-10-10) |
 | Phase 1 live | the owner in the `Grafana Admins` group (made by the blueprint) | after the merge |
 | Phase 2 | a Garage bucket `loki-logs` and its key | not yet |
-| Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`) | not yet |
+| Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | not yet |
 | Phase 5 | where alerts go (email through the relay, n8n, or both) | a decision |
 
 ## Phases
@@ -68,12 +68,19 @@ comes with it.
 2. **Logs:** HelmRepository `grafana` (added with its first release: an unused source fails the
    generated-header check); `loki` (single binary, chunks in Garage) and `alloy` (a DaemonSet reading
    `/var/log/pods`, plus Kubernetes events from one instance); Loki as a Grafana datasource.
-3. **More metrics:** CloudNativePG PodMonitors (`monitoring.enablePodMonitor` on each Cluster),
-   Traefik, Flux, cert-manager, Garage, the Proxmox hosts (`prometheus-pve-exporter` with
-   the read-only token), the Pi-holes.
+3. **More metrics**, everything that exposes them:
+   - Proxmox: `prometheus-pve-exporter` in the cluster (cluster, guests, storage) with a
+     read-only token; node-exporter and `smartctl_exporter` on each host through Ansible
+     (ZFS, disks, and each SSD's wear: percentage used and data written).
+   - Around the cluster: the Synology and the TerraMaster over SNMP (the SNMP exporter, a
+     read-only community); the Pi-holes (a Pi-hole exporter); the Docker VM (node-exporter
+     and cAdvisor); Kea through Stork's Prometheus endpoint; Garage's `/metrics`.
+   - In the cluster: CloudNativePG PodMonitors (`monitoring.enablePodMonitor` on each
+     Cluster), Traefik, Flux, cert-manager, ExternalDNS, MetalLB, Authentik, immich, n8n
+     (`N8N_METRICS`), the *arr apps (`exportarr`), qBittorrent, Home Assistant.
 4. **Logs from outside the cluster:** Alloy on the Proxmox hosts, the Pi-holes and the Docker
-   VM through `ansible/baseline.yml` (journald and Docker), pushing to Loki through a
-   private route.
+   VM through `ansible/baseline.yml` (the journal, and Docker's container logs on the Docker
+   VM), pushing to Loki through a private route; the two NASes' syslog, received by Alloy.
 5. **Alerting:** Alertmanager's receivers; the control-plane metrics bound to the node address
    (kubeadm, through Ansible) and their rules on; a dead-man's switch outside the cluster.
 6. (Folded into phase 1: Grafana's Authentik login.)
@@ -85,7 +92,8 @@ comes with it.
 
 - [x] Phase 1 built
 - [x] Phase 1 live (2026-10-10): 40 of 40 targets up on both replicas, only Watchdog firing,
-      Grafana and its Authentik login reachable, the pairs on different workers
+      Grafana and its Authentik login reachable, the pairs on different workers; after the
+      drops about 103,000 series kept of 244,000 scraped, about 2,750 samples a second
 - [ ] Phase 2
 - [ ] Phase 3
 - [ ] Phase 4
