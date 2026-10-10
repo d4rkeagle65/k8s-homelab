@@ -113,16 +113,36 @@ spec:
     configMaps:
       config:
         data:
+          # Tabs of cards, the quick links on every tab (they have no tab), and
+          # the cluster's nodes along the top.
           settings.yaml: |
             title: Homelab
-            headerStyle: boxed
+            theme: dark
+            color: neutral
+            headerStyle: clean
             statusStyle: dot
+            hideVersion: true
+            useEqualHeights: true
+            target: _blank
             layout:
-              Infrastructure: {style: row, columns: 3}
-              Monitoring: {style: row, columns: 3}
-              Media: {style: row, columns: 4}
-              Home: {style: row, columns: 3}
-              Tools: {style: row, columns: 3}
+              Quick links: {style: row, columns: 8, header: false}
+              Hosts: {tab: Systems, style: row, columns: 3, header: false}
+              Network: {tab: Systems, style: row, columns: 4, header: false}
+              Storage: {tab: Systems, style: row, columns: 3, header: false}
+              Tools: {tab: Systems, style: row, columns: 4, header: false}
+              Health: {tab: Cluster, style: row, columns: 3, header: false}
+              Observability: {tab: Cluster, style: row, columns: 3, header: false}
+              Featured: {tab: Apps, style: row, columns: 3, header: false}
+              Everyday: {tab: Apps, style: row, columns: 4, header: false}
+              Watch: {tab: Media, style: row, columns: 3, header: false}
+              Download: {tab: Media, style: row, columns: 2, header: false}
+              Indexers: {tab: Media, style: row, columns: 1, header: false}
+              Library: {tab: Media, style: row, columns: 2, header: false}
+              Upcoming: {tab: Media, style: row, columns: 1, header: false}
+              Cluster docs: {tab: Reference, style: column}
+              Infrastructure docs: {tab: Reference, style: column}
+              Observability docs: {tab: Reference, style: column}
+              App docs: {tab: Reference, style: column}
           widgets.yaml: |
             - kubernetes:
                 cluster:
@@ -144,13 +164,41 @@ spec:
           kubernetes.yaml: |
             mode: cluster
           bookmarks.yaml: |
-            []
+            - Quick links:
+                - Drives:
+                    - icon: grafana.png
+                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/d/homelab-drives
+                - Logs:
+                    - icon: loki.png
+                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/a/grafana-lokiexplore-app/explore
+                - Metrics:
+                    - icon: prometheus.png
+                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/explore
+                - Alerts:
+                    - icon: alertmanager.png
+                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/alerting/list
+                - Proxmox:
+                    - icon: proxmox.png
+                      href: https://${PVE_API_HOST}:8006
+                - Authentik admin:
+                    - icon: authentik.png
+                      href: https://auth.${BASE_DOMAIN}/if/admin/
+                - Cloudflare:
+                    - icon: cloudflare.png
+                      href: https://dash.cloudflare.com
+                - GitHub:
+                    - icon: github.png
+                      href: https://github.com
           docker.yaml: |
             {}
           custom.css: ""
           custom.js: ""
+          # The prometheusmetric cards ask Prometheus once a minute, its scrape
+          # interval; a query that can come back empty ends in "or vector(0)",
+          # since an empty result shows as "-". Cards with namespace and app (or
+          # podSelector) show their pods' state and CPU and memory.
           services.yaml: |
-            - Infrastructure:
+            - Hosts:
                 - Proxmox:
                     icon: proxmox.png
                     href: https://${PVE_API_HOST}:8006
@@ -160,6 +208,46 @@ spec:
                       url: https://${PVE_API_HOST}:8006
                       username: prometheus@pve!exporter
                       password: "{{ "{{HOMEPAGE_VAR_PVE_TOKEN}}" }}"
+                - Proxmox hosts:
+                    icon: mdi-server
+                    href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/d/homelab-drives
+                    description: CPU, memory and the most worn SSD
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Up
+                          query: count(up{job="proxmox-hosts"} == 1) or vector(0)
+                          format: {type: number}
+                        - label: CPU
+                          query: 100 * (1 - avg(rate(node_cpu_seconds_total{job="proxmox-hosts", mode="idle"}[5m])))
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: Memory
+                          query: 100 * (1 - sum(node_memory_MemAvailable_bytes{job="proxmox-hosts"}) / sum(node_memory_MemTotal_bytes{job="proxmox-hosts"}))
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: SSD wear
+                          query: 100 * max(nvme_percentage_used_ratio{job="proxmox-hosts"})
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                - Docker host:
+                    icon: docker.png
+                    href: https://dockhand.${BASE_DOMAIN}
+                    description: Stacks through Dockhand
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Containers
+                          query: count(count by (name) (container_last_seen{job="docker-vm", name!=""})) or vector(0)
+                          format: {type: number}
+                        - label: CPU
+                          query: 100 * (1 - avg(rate(node_cpu_seconds_total{job="docker-vm", mode="idle"}[5m])))
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: Free memory
+                          query: node_memory_MemAvailable_bytes{job="docker-vm"}
+                          format: {type: bytes}
+            - Network:
                 - Pi-hole 1:
                     icon: pi-hole.png
                     href: https://pihole.${BASE_DOMAIN}/admin
@@ -177,93 +265,329 @@ spec:
                       url: http://${PIHOLE2_MGMT_ADDRESS}
                       version: 6
                       key: "{{ "{{HOMEPAGE_VAR_PIHOLE2_PASSWORD}}" }}"
-                - Stork:
-                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/isc-kea.png
+                - Kea DHCP:
+                    icon: isc-kea.png
                     href: https://stork.${BASE_DOMAIN}
-                    description: Kea DHCP
-                - Dockhand:
-                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dockhand.png
-                    href: https://dockhand.${BASE_DOMAIN}
-                    description: Docker stacks
+                    description: Leases, through Stork
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Leases
+                          query: sum(kea_dhcp4_addresses_assigned_total) or vector(0)
+                          format: {type: number}
+                        - label: Pool
+                          query: sum(kea_dhcp4_addresses_total)
+                          format: {type: number}
+                        - label: Used
+                          query: 100 * sum(kea_dhcp4_addresses_assigned_total) / sum(kea_dhcp4_addresses_total)
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                - Traefik:
+                    icon: traefik.png
+                    description: Ingress and certificates
+                    namespace: traefik
+                    app: traefik
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Requests
+                          query: sum(rate(traefik_service_requests_total[5m]))
+                          format: {type: number, suffix: /s, options: {maximumFractionDigits: 1}}
+                        - label: Errors
+                          query: sum(rate(traefik_service_requests_total{code=~"5.."}[5m])) or vector(0)
+                          format: {type: number, suffix: /s, options: {maximumFractionDigits: 2}}
+                        - label: Next renewal
+                          query: min(certmanager_certificate_renewal_timestamp_seconds) - time()
+                          format: {type: duration}
+            - Storage:
+                - Synology:
+                    icon: synology.png
+                    href: https://${NAS_HOSTNAME}:5001
+                    description: Main NAS
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Volume free
+                          query: sum(raidFreeSize{nas="synology", raidName=~"Volume.*"})
+                          format: {type: bytes}
+                        - label: CPU
+                          query: 100 - ssCpuIdle{nas="synology"}
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: Disks OK
+                          query: count(diskStatus{nas="synology"} == 1) or vector(0)
+                          format: {type: number}
+                        - label: Temp
+                          query: temperature{nas="synology"}
+                          format: {type: number, suffix: " °C"}
+                - TerraMaster:
+                    icon: terramaster.png
+                    description: Second NAS
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Up
+                          query: max(up{job="snmp-exporter-prometheus-snmp-exporter", nas="terramaster"}) or vector(0)
+                          format: {type: number}
+                        - label: CPU
+                          query: 100 - ssCpuIdle{nas="terramaster"}
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: Free memory
+                          query: memAvailReal{nas="terramaster"}
+                          format: {type: bytes, scale: 1024}
+                - Garage:
+                    icon: garage.png
+                    description: S3 for backups and logs
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Healthy
+                          query: max(cluster_healthy{job="garage"}) or vector(0)
+                          format: {type: number}
+                        - label: Requests
+                          query: sum(rate(api_s3_request_counter[5m]))
+                          format: {type: number, suffix: /s, options: {maximumFractionDigits: 2}}
+                        - label: Free
+                          query: sum(garage_local_disk_avail{volume="data"})
+                          format: {type: bytes}
+            - Tools:
                 - Semaphore:
                     icon: semaphore.png
                     href: https://semaphore.${BASE_DOMAIN}
                     description: Ansible and OpenTofu
-                - Vaultwarden:
-                    icon: vaultwarden.png
-                    href: https://vaultwarden.${BASE_DOMAIN}
-                    description: Passwords
+                    siteMonitor: https://semaphore.${BASE_DOMAIN}
+                - Dockhand:
+                    icon: dockhand.png
+                    href: https://dockhand.${BASE_DOMAIN}
+                    description: Docker stacks
+                    siteMonitor: https://dockhand.${BASE_DOMAIN}
                 - Databasus:
-                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/databasus.png
+                    icon: databasus.png
                     href: https://databasus.${BASE_DOMAIN}
                     description: Database backups
-                - Authentik:
-                    icon: authentik.png
-                    href: https://auth.${BASE_DOMAIN}
-                    description: Single sign-on
-            - Monitoring:
+                    siteMonitor: https://databasus.${BASE_DOMAIN}
+                - Stork:
+                    icon: isc-kea.png
+                    href: https://stork.${BASE_DOMAIN}
+                    description: Kea's dashboard
+                    siteMonitor: https://stork.${BASE_DOMAIN}
+            - Health:
+                - Kubernetes:
+                    icon: kubernetes.png
+                    href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/dashboards
+                    description: Nodes, pods and restarts
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Nodes ready
+                          query: count(kube_node_status_condition{condition="Ready", status="true"} == 1) or vector(0)
+                          format: {type: number}
+                        - label: Pods ready
+                          query: count(kube_pod_status_ready{condition="true"} == 1) or vector(0)
+                          format: {type: number}
+                        - label: Not ready
+                          query: count(kube_pod_status_ready{condition="false"} == 1) or vector(0)
+                          format: {type: number}
+                        - label: Restarts 24h
+                          query: round(sum(increase(kube_pod_container_status_restarts_total[1d])))
+                          format: {type: number}
+                - Flux:
+                    icon: flux-cd.png
+                    description: GitOps from the repo
+                    namespace: flux-system
+                    podSelector: app.kubernetes.io/instance=flux-system
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Kustomizations
+                          query: count(gotk_reconcile_duration_seconds_count{kind="Kustomization"}) or vector(0)
+                          format: {type: number}
+                        - label: Helm releases
+                          query: count(gotk_reconcile_duration_seconds_count{kind="HelmRelease"}) or vector(0)
+                          format: {type: number}
+                        - label: Errors 1h
+                          query: round(sum(increase(controller_runtime_reconcile_errors_total{namespace="flux-system"}[1h]))) or vector(0)
+                          format: {type: number}
+                - Databases:
+                    icon: sh-cloudnativepg.png
+                    description: CloudNativePG, backed up to Garage
+                    namespace: cnpg-system
+                    app: cloudnative-pg
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Clusters
+                          query: count(count by (namespace, cluster) (cnpg_collector_up)) or vector(0)
+                          format: {type: number}
+                        - label: Instances up
+                          query: sum(cnpg_collector_up) or vector(0)
+                          format: {type: number}
+                        - label: Oldest backup
+                          query: time() - min(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp)
+                          format: {type: duration}
+            - Observability:
                 - Grafana:
                     icon: grafana.png
-                    href: https://grafana.${BASE_DOMAIN}
+                    href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                     description: Dashboards, metrics and logs
+                    namespace: monitoring
+                    app: grafana
                     widget:
                       type: grafana
                       version: 2
                       url: http://kube-prometheus-stack-grafana.monitoring.svc.${CLUSTER_DOMAIN}:80
                       username: "{{ "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}" }}"
                       password: "{{ "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}" }}"
-            - Media:
+                - Prometheus:
+                    icon: prometheus.png
+                    href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/explore
+                    description: Scrape targets
+                    namespace: monitoring
+                    app: prometheus
+                    widget:
+                      type: prometheus
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                - Loki:
+                    icon: loki.png
+                    href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/a/grafana-lokiexplore-app/explore
+                    description: Logs from every pod and host
+                    namespace: monitoring
+                    app: loki
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Lines
+                          query: sum(rate(loki_distributor_lines_received_total[5m]))
+                          format: {type: number, suffix: /s, options: {maximumFractionDigits: 0}}
+                        - label: Alerts firing
+                          query: count(ALERTS{alertstate="firing", alertname!="Watchdog"}) or vector(0)
+                          format: {type: number}
+            - Featured:
+                - Home Assistant:
+                    icon: home-assistant.png
+                    href: https://homeassistant.${BASE_DOMAIN}
+                    description: Home automation
+                    namespace: homeassistant
+                    app: homeassistant
+                    podSelector: app=homeassistant
+                    widget:
+                      type: homeassistant
+                      url: http://homeassistant.homeassistant.svc.${CLUSTER_DOMAIN}:8123
+                      key: "{{ "{{HOMEPAGE_VAR_HASS_TOKEN}}" }}"
+                - Immich:
+                    icon: immich.png
+                    href: https://immich.${BASE_DOMAIN}
+                    description: Photos and videos
+                    namespace: immich
+                    app: immich
+                    podSelector: app.kubernetes.io/instance=immich
+                    widget:
+                      type: immich
+                      version: 2
+                      url: http://immich-server.immich.svc.${CLUSTER_DOMAIN}:2283
+                      key: "{{ "{{HOMEPAGE_VAR_IMMICH_KEY}}" }}"
+                - Mealie:
+                    icon: mealie.png
+                    href: https://mealie.${BASE_DOMAIN}
+                    description: Recipes
+                    namespace: mealie
+                    app: mealie
+                    podSelector: app=mealie
+            - Everyday:
+                - Vaultwarden:
+                    icon: vaultwarden.png
+                    href: https://vaultwarden.${BASE_DOMAIN}
+                    description: Passwords
+                    siteMonitor: https://vaultwarden.${BASE_DOMAIN}
+                - Authentik:
+                    icon: authentik.png
+                    href: https://auth.${BASE_DOMAIN}
+                    description: Single sign-on
+                    namespace: authentik
+                    app: authentik
+                - n8n:
+                    icon: n8n.png
+                    href: https://n8n.${BASE_DOMAIN}
+                    description: Workflow automation
+                    namespace: n8n
+                    app: n8n
+                - Baby Buddy:
+                    icon: babybuddy.png
+                    href: https://bb.${BASE_DOMAIN}
+                    description: Feeds, sleeps and changes
+                    namespace: babybuddy
+                    app: babybuddy
+                    podSelector: app=babybuddy
+                - Immich Power Tools:
+                    icon: immich.png
+                    href: https://immichpt.${BASE_DOMAIN}
+                    description: Bulk photo tools
+                    namespace: immich
+                    app: immich-power-tools
+                    podSelector: app=immich-power-tools
+                - Obsidian sync:
+                    icon: obsidian.png
+                    href: https://obsidian.${BASE_DOMAIN}
+                    description: Notes sync (CouchDB)
+                    namespace: obsidian
+                    app: couchdb
+                    podSelector: app=couchdb
+                - ManicTime:
+                    icon: mdi-clock-outline
+                    href: https://manictime.${BASE_DOMAIN}
+                    description: Time tracking
+                    namespace: manictime
+                    app: manictime-server
+                - Homepage:
+                    icon: homepage.png
+                    description: This page
+                    namespace: homepage
+                    app: homepage
+            - Watch:
                 - Jellyseerr:
                     icon: jellyseerr.png
                     href: https://jellyseerr.${BASE_DOMAIN}
                     description: Requests
+                    namespace: media
+                    app: jellyseerr
                 - Emby:
                     icon: emby.png
                     href: https://emby.${BASE_DOMAIN}
                     description: Media server
-                - Sonarr:
-                    icon: sonarr.png
-                    href: https://sonarr.${BASE_DOMAIN}
+                    namespace: emby
+                    app: emby
+                - Tdarr:
+                    icon: tdarr.png
+                    href: https://tdarr.${BASE_DOMAIN}
+                    description: Transcoding
+                    namespace: media
+                    app: tdarr
                     widget:
-                      type: sonarr
-                      url: http://sonarr.media.svc.${CLUSTER_DOMAIN}:8989
-                      key: "{{ "{{HOMEPAGE_VAR_SONARR_KEY}}" }}"
-                      enableQueue: true
-                - Radarr:
-                    icon: radarr.png
-                    href: https://radarr.${BASE_DOMAIN}
-                    widget:
-                      type: radarr
-                      url: http://radarr.media.svc.${CLUSTER_DOMAIN}:7878
-                      key: "{{ "{{HOMEPAGE_VAR_RADARR_KEY}}" }}"
-                      enableQueue: true
-                - Lidarr:
-                    icon: lidarr.png
-                    href: https://lidarr.${BASE_DOMAIN}
-                    widget:
-                      type: lidarr
-                      url: http://lidarr.media.svc.${CLUSTER_DOMAIN}:8686
-                      key: "{{ "{{HOMEPAGE_VAR_LIDARR_KEY}}" }}"
-                - Bookshelf:
-                    icon: readarr.png
-                    href: https://bookshelf.${BASE_DOMAIN}
-                    widget:
-                      type: readarr
-                      url: http://bookshelf.media.svc.${CLUSTER_DOMAIN}:8787
-                      key: "{{ "{{HOMEPAGE_VAR_BOOKSHELF_KEY}}" }}"
-                - Prowlarr:
-                    icon: prowlarr.png
-                    href: https://prowlarr.${BASE_DOMAIN}
-                    widget:
-                      type: prowlarr
-                      url: http://prowlarr.media.svc.${CLUSTER_DOMAIN}:9696
-                      key: "{{ "{{HOMEPAGE_VAR_PROWLARR_KEY}}" }}"
-                - Whisparr:
-                    icon: whisparr.png
-                    href: https://whisparr.${BASE_DOMAIN}
+                      type: tdarr
+                      url: http://tdarr.media.svc.${CLUSTER_DOMAIN}:8265
+            - Download:
                 - qBittorrent:
                     icon: qbittorrent.png
                     href: https://qbittorrent.${BASE_DOMAIN}
+                    description: Torrents
+                    namespace: media
+                    app: qbittorrent
                     widget:
                       type: qbittorrent
                       url: http://qbittorrent.media.svc.${CLUSTER_DOMAIN}:8080
@@ -272,45 +596,186 @@ spec:
                 - SABnzbd:
                     icon: sabnzbd.png
                     href: https://sabnzbd.${BASE_DOMAIN}
-                - Tdarr:
-                    icon: tdarr.png
-                    href: https://tdarr.${BASE_DOMAIN}
-            - Home:
+                    description: Usenet
+                    namespace: media
+                    app: sabnzbd
+            - Indexers:
+                - Prowlarr:
+                    icon: prowlarr.png
+                    href: https://prowlarr.${BASE_DOMAIN}
+                    description: Indexers for the *arrs
+                    namespace: media
+                    app: prowlarr
+                    widget:
+                      type: prowlarr
+                      url: http://prowlarr.media.svc.${CLUSTER_DOMAIN}:9696
+                      key: "{{ "{{HOMEPAGE_VAR_PROWLARR_KEY}}" }}"
+            - Library:
+                - Sonarr:
+                    icon: sonarr.png
+                    href: https://sonarr.${BASE_DOMAIN}
+                    description: TV series
+                    namespace: media
+                    app: sonarr
+                    widget:
+                      type: sonarr
+                      url: http://sonarr.media.svc.${CLUSTER_DOMAIN}:8989
+                      key: "{{ "{{HOMEPAGE_VAR_SONARR_KEY}}" }}"
+                      enableQueue: true
+                - Radarr:
+                    icon: radarr.png
+                    href: https://radarr.${BASE_DOMAIN}
+                    description: Movies
+                    namespace: media
+                    app: radarr
+                    widget:
+                      type: radarr
+                      url: http://radarr.media.svc.${CLUSTER_DOMAIN}:7878
+                      key: "{{ "{{HOMEPAGE_VAR_RADARR_KEY}}" }}"
+                      enableQueue: true
+                - Lidarr:
+                    icon: lidarr.png
+                    href: https://lidarr.${BASE_DOMAIN}
+                    description: Music
+                    namespace: media
+                    app: lidarr
+                    widget:
+                      type: lidarr
+                      url: http://lidarr.media.svc.${CLUSTER_DOMAIN}:8686
+                      key: "{{ "{{HOMEPAGE_VAR_LIDARR_KEY}}" }}"
+                - Bookshelf:
+                    icon: readarr.png
+                    href: https://bookshelf.${BASE_DOMAIN}
+                    description: Books
+                    namespace: media
+                    app: bookshelf
+                    widget:
+                      type: readarr
+                      url: http://bookshelf.media.svc.${CLUSTER_DOMAIN}:8787
+                      key: "{{ "{{HOMEPAGE_VAR_BOOKSHELF_KEY}}" }}"
+                - Whisparr:
+                    icon: whisparr.png
+                    href: https://whisparr.${BASE_DOMAIN}
+                    namespace: media
+                    app: whisparr
+            - Upcoming:
+                - Calendar:
+                    icon: mdi-calendar-month
+                    description: Episodes and movies due, from Sonarr and Radarr
+                    widget:
+                      type: calendar
+                      view: agenda
+                      maxEvents: 12
+                      previousDays: 1
+                      integrations:
+                        - type: sonarr
+                          service_group: Library
+                          service_name: Sonarr
+                          baseUrl: https://sonarr.${BASE_DOMAIN}
+                        - type: radarr
+                          service_group: Library
+                          service_name: Radarr
+                          baseUrl: https://radarr.${BASE_DOMAIN}
+            - Cluster docs:
+                - Flux:
+                    icon: flux-cd.png
+                    href: https://fluxcd.io/flux/
+                    description: GitOps toolkit
+                - Kubernetes:
+                    icon: kubernetes.png
+                    href: https://kubernetes.io/docs/home/
+                    description: Concepts and reference
+                - CloudNativePG:
+                    icon: sh-cloudnativepg.png
+                    href: https://cloudnative-pg.io/documentation/current/
+                    description: Postgres operator
+                - Traefik:
+                    icon: traefik.png
+                    href: https://doc.traefik.io/traefik/
+                    description: Ingress and middlewares
+                - cert-manager:
+                    icon: cert-manager.png
+                    href: https://cert-manager.io/docs/
+                    description: Certificates
+                - app-template:
+                    icon: mdi-package-variant
+                    href: https://bjw-s-labs.github.io/helm-charts/docs/app-template/
+                    description: The bjw-s chart
+            - Infrastructure docs:
+                - Proxmox VE:
+                    icon: proxmox.png
+                    href: https://pve.proxmox.com/pve-docs/
+                    description: Admin guide
+                - OpenTofu:
+                    icon: opentofu.png
+                    href: https://search.opentofu.org/provider/bpg/proxmox/latest
+                    description: The bpg Proxmox provider
+                - Ansible:
+                    icon: ansible.png
+                    href: https://docs.ansible.com/ansible/latest/collections/index_module.html
+                    description: Module index
+                - Synology:
+                    icon: synology.png
+                    href: https://kb.synology.com/en-global/search?query=iSCSI
+                    description: Knowledge center
+                - Kea:
+                    icon: isc-kea.png
+                    href: https://kea.readthedocs.io/
+                    description: DHCP server
+                - Pi-hole:
+                    icon: pi-hole.png
+                    href: https://docs.pi-hole.net/
+                    description: DNS and ad blocking
+            - Observability docs:
+                - PromQL:
+                    icon: prometheus.png
+                    href: https://prometheus.io/docs/prometheus/latest/querying/basics/
+                    description: Querying basics
+                - LogQL:
+                    icon: loki.png
+                    href: https://grafana.com/docs/loki/latest/query/
+                    description: Querying logs
+                - Grafana:
+                    icon: grafana.png
+                    href: https://grafana.com/docs/grafana/latest/
+                    description: Dashboards and alerting
+                - Alloy:
+                    icon: alloy.png
+                    href: https://grafana.com/docs/alloy/latest/reference/components/
+                    description: Collector components
+                - Dashboards:
+                    icon: grafana.png
+                    href: https://grafana.com/grafana/dashboards/
+                    description: Community dashboards
+                - Alertmanager:
+                    icon: alertmanager.png
+                    href: https://prometheus.io/docs/alerting/latest/configuration/
+                    description: Routes and receivers
+            - App docs:
+                - Homepage:
+                    icon: homepage.png
+                    href: https://gethomepage.dev/widgets/
+                    description: Widgets for this page
+                - Authentik:
+                    icon: authentik.png
+                    href: https://docs.goauthentik.io/
+                    description: Providers and blueprints
                 - Home Assistant:
                     icon: home-assistant.png
-                    href: https://homeassistant.${BASE_DOMAIN}
-                    widget:
-                      type: homeassistant
-                      url: http://homeassistant.homeassistant.svc.${CLUSTER_DOMAIN}:8123
-                      key: "{{ "{{HOMEPAGE_VAR_HASS_TOKEN}}" }}"
+                    href: https://www.home-assistant.io/docs/
+                    description: Configuration
                 - Immich:
                     icon: immich.png
-                    href: https://immich.${BASE_DOMAIN}
-                    widget:
-                      type: immich
-                      version: 2
-                      url: http://immich-server.immich.svc.${CLUSTER_DOMAIN}:2283
-                      key: "{{ "{{HOMEPAGE_VAR_IMMICH_KEY}}" }}"
-                - Immich Power Tools:
-                    icon: immich.png
-                    href: https://immichpt.${BASE_DOMAIN}
-                - Baby Buddy:
-                    icon: baby-buddy.png
-                    href: https://bb.${BASE_DOMAIN}
-                - Mealie:
-                    icon: mealie.png
-                    href: https://mealie.${BASE_DOMAIN}
-            - Tools:
-                - n8n:
-                    icon: n8n.png
-                    href: https://n8n.${BASE_DOMAIN}
-                    description: Workflow automation
-                - Obsidian sync:
-                    icon: obsidian.png
-                    href: https://obsidian.${BASE_DOMAIN}
-                - ManicTime:
-                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/manictime.png
-                    href: https://manictime.${BASE_DOMAIN}
+                    href: https://immich.app/docs/
+                    description: Photo server
+                - Servarr wiki:
+                    icon: sonarr.png
+                    href: https://wiki.servarr.com/
+                    description: Sonarr, Radarr and friends
+                - Icons:
+                    icon: mdi-image-search
+                    href: https://dashboardicons.com/
+                    description: Icons for this page
     persistence:
       config:
         type: configMap

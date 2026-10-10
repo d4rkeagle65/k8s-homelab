@@ -44,7 +44,17 @@
       Lidarr, Bookshelf, Prowlarr, qBittorrent, Home Assistant and Immich, and the cluster's
       resources. qBittorrent's widget may fail like its exporter (qBittorrent 5.2 wants an API
       key); Immich's uses the Power Tools key, which may lack the statistics permission.
+- [x] Homepage laid out in tabs (Systems, Cluster, Apps, Media, Reference) with a quick-links row
+      on every tab. Cards with no widget of their own read Prometheus (`prometheusmetric`): the
+      Proxmox hosts, the Docker host, Kea, Traefik, both NASes (the snmp-exporter's `nas` label),
+      Garage, Kubernetes, Flux, CloudNativePG, Loki. Each cluster app's card shows its pods'
+      state, CPU and memory (`namespace` and `app`, or `podSelector`), and the Docker host's apps
+      use `siteMonitor`. The calendar reads Sonarr and Radarr. Every query checked against Prometheus.
 - [ ] Homepage live: every widget shows data
+- [ ] Homepage widgets that need a key the cluster doesn't have yet. Each needs its Vaultwarden
+      field, its mapping in cluster-secrets and the `homepage` Secret, pushed before the widget:
+      Jellyseerr (`seerr`, its API key), Emby (an API key), SABnzbd (its API key), Mealie (an API
+      token), Authentik (a token, read-only use), Dockhand (a user or an API key).
 
 ## Resuming
 

@@ -48,9 +48,15 @@ spec:
       scrapeTimeout: 60s
       auth: [homelab_v2]
       params:
+      # nas names each one's series, so a query (Homepage's cards) can pick
+      # one without its address.
       - name: synology
         target: ${NAS_HOSTNAME}
         module: [synology, system, if_mib, ucd_system_stats, ucd_memory, ucd_la_table]
+        additionalMetricsRelabels:
+          nas: synology
       - name: terramaster
         target: ${TERRAMASTER_ADDRESS}
         module: [system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table]
+        additionalMetricsRelabels:
+          nas: terramaster
