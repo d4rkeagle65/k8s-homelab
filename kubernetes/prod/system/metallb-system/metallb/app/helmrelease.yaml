@@ -15,7 +15,12 @@ spec:
         kind: HelmRepository
         name: metallb
         namespace: flux-system
-  values: {}
+  values:
+    prometheus:
+      namespace: monitoring
+      serviceAccount: kps-prometheus
+      serviceMonitor:
+        enabled: true
   commonMetadata:
     labels:
       homelab.local/env: prod

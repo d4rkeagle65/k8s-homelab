@@ -19,6 +19,10 @@ spec:
     config:
       data:
         ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES: "true"
+    monitoring:
+      grafanaDashboard:
+        create: true
+      podMonitorEnabled: true
   commonMetadata:
     labels:
       homelab.local/env: prod

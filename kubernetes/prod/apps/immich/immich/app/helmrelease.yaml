@@ -45,7 +45,7 @@ spec:
       configuration: {}
       configurationKind: ConfigMap
       metrics:
-        enabled: false
+        enabled: true
       persistence:
         library:
           existingClaim: immich-data

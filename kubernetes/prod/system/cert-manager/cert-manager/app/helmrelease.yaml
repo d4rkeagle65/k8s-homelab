@@ -18,6 +18,9 @@ spec:
   values:
     crds:
       enabled: true
+    prometheus:
+      servicemonitor:
+        enabled: true
   commonMetadata:
     labels:
       homelab.local/env: prod

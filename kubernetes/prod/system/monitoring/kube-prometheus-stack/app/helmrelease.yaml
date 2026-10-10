@@ -171,6 +171,11 @@ spec:
           secretKeyRef:
             name: grafana-oidc
             key: client-secret
+      # Dashboards in ConfigMaps labelled grafana_dashboard, from any
+      # namespace, so a chart can ship its own (CloudNativePG's does).
+      sidecar:
+        dashboards:
+          searchNamespace: ALL
       # Loki (its own release) as a data source next to Prometheus.
       additionalDataSources:
       - name: Loki

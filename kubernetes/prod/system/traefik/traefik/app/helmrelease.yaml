@@ -120,6 +120,14 @@ spec:
         protocol: TCP
         http:
           aliasHeadersStrategy: delete
+    # Prometheus metrics on the internal metrics entry point, scraped through a
+    # ClusterIP Service of their own.
+    metrics:
+      prometheus:
+        service:
+          enabled: true
+        serviceMonitor:
+          enabled: true
     service:
       annotations:
         metallb.io/loadBalancerIPs: ${INGRESS_IP}

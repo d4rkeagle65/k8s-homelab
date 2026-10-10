@@ -55,6 +55,8 @@ spec:
     - ingress
     - service
     policy: upsert-only
+    serviceMonitor:
+      enabled: true
     registry: noop
     domainFilters:
     - ${BASE_DOMAIN}
