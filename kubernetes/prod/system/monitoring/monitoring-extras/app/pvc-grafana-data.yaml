@@ -1,0 +1,16 @@
+# Grafana's own database (users, preferences, dashboards made in the UI), on NFS
+# so the pod can move between nodes. Outside the chart, so removing the release
+# keeps it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 2Gi

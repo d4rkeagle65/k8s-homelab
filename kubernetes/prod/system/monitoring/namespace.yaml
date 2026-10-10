@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    homelab.local/category: system
+    homelab.local/data: files
+    homelab.local/exposure: lan
+    homelab.local/login: app
+  name: monitoring

@@ -9,7 +9,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-terraform.md`.
+- [Working queue files](#working-queue-files) - `QUEUE-terraform.md`, `QUEUE-monitoring.md`.
 
 ## Waiting on the owner
 
@@ -201,6 +201,7 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 ## Working queue files
 
 - [QUEUE-terraform.md](QUEUE-terraform.md): OpenTofu, Proxmox guests first.
+- [QUEUE-monitoring.md](QUEUE-monitoring.md): Prometheus, Loki and Grafana, in eight phases.
 
 A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks

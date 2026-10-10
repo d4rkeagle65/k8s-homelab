@@ -1,0 +1,33 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kube-prometheus-stack
+  namespace: flux-system
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: monitoring
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  path: ./kubernetes/prod/system/monitoring/kube-prometheus-stack/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: monitoring
+  dependsOn:
+  - name: monitoring-extras
+  # The Prometheus Operator CRDs (ServiceMonitor, PodMonitor) must exist before
+  # anything that uses them is applied.
+  wait: true
+  timeout: 15m
+  postBuild:
+    substituteFrom:
+    - kind: ConfigMap
+      name: cluster-settings
+      optional: true
+    - kind: Secret
+      name: cluster-secrets
+      optional: true
