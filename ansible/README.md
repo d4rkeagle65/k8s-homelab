@@ -272,7 +272,8 @@ has its `nas-block` volumes copied to that host's LUN. It holds data that writes
 (Prometheus), so those writes land on the NAS's drives, not the hosts' SSDs.
 
 1. **On the NAS** (SAN Manager): one target that allows multiple sessions, bound to the
-   management connection; one thin LUN per host, each read/write for that host's initiator only
+   management connection **only** (bound to both, it is advertised on both and each host logs in
+   twice, so its LUN appears as two disks; the run stops on that); one thin LUN per host, each read/write for that host's initiator only
    (`/etc/iscsi/initiatorname.iscsi` on the host), OS type Linux.
 2. **Variables** in the Proxmox hosts' variable group: `nas_block_portal` (the NAS's
    management address) and `nas_block_target` (the target's IQN). Run "Proxmox: host
