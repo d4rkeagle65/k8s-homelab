@@ -49,9 +49,10 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     could own that drop-in wherever `ListenAddress` is set.
 
 - **NAS block storage, live (2026-10-10):** `nas-block` (`ansible/tasks/proxmox-nas-block.yml`)
-  is active on all four hosts, 30 GiB each, one path per host. Next: a mount point on each
-  worker at `/opt/nas-block` on it (through OpenTofu, which needs the write-capable token),
-  then a `nas-block` StorageClass for Prometheus and Alertmanager (`QUEUE-monitoring.md`).
+  is active on all four hosts, 30 GiB each, one path per host, and each worker has a 28 GiB
+  `mp2` on it at `/opt/nas-block` (added live with `pct set`; declared in `tofu/proxmox/`,
+  whose plan should show no change for them). Next: the `nas-block` StorageClass for
+  Prometheus and Alertmanager (`QUEUE-monitoring.md`).
 
 - **The nodes' management access, built and off:** `ansible/tasks/k8s-node-mgmt.yml` (run by
   `k8s-node-update.yml`). Set `mgmt_gateway` in the "Kubernetes" variable group, run the
