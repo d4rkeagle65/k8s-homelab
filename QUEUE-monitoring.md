@@ -55,7 +55,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 |---|---|---|
 | Phase 1 merge | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `AUTHENTIK_GRAFANA_OIDC_CLIENT_SECRET` in the `cluster-secrets` Vaultwarden item | present (2026-10-10) |
 | Phase 1 live | the owner in the `Grafana Admins` group (made by the blueprint) | after the merge |
-| Phase 2 | a Garage bucket `loki-logs` and its key | not yet |
+| Phase 2 | a Garage bucket `loki-logs` and its key (`LOKI_S3_ACCESS_KEY_ID`, `LOKI_S3_SECRET_ACCESS_KEY`) | present (2026-10-10) |
 | Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | not yet |
 | Phase 5 | where alerts go (email through the relay, n8n, or both) | a decision |
 
@@ -94,7 +94,10 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [x] Phase 1 live (2026-10-10): 40 of 40 targets up on both replicas, only Watchdog firing,
       Grafana and its Authentik login reachable, the pairs on different workers; after the
       drops about 103,000 series kept of 244,000 scraped, about 2,750 samples a second
-- [ ] Phase 2
+- [x] Phase 2 built: Loki (single binary, chunks in `loki-logs`, an emptyDir for the rest) and
+      Alloy (a DaemonSet on every node, pod logs from `/var/log/pods`); Loki is a Grafana data
+      source. Kubernetes events are still to add (one collector, not one per node).
+- [ ] Phase 2 live: Loki writing to Garage, every node's Alloy sending, logs searchable in Grafana
 - [ ] Phase 3
 - [ ] Phase 4
 - [ ] Phase 5

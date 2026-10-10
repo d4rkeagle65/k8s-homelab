@@ -11,6 +11,7 @@ resources:
 - dandydev.yaml
 - external-dns.yaml
 - external-secrets.yaml
+- grafana.yaml
 - immich.yaml
 - jetstack.yaml
 - local-path-provisioner.yaml
