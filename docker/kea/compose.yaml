@@ -13,8 +13,8 @@
 #
 # Variables (set in the stack's environment in Dockhand):
 #   KEA_DHCP_ADDRESS    the host address the firewall relays to
-#   KEA_API_ADDRESS     the host's management address: Kea's API (8000)
-#                       and Stork's web UI (8080)
+#   KEA_API_ADDRESS     the host's management address: Kea's API (8000),
+#                       Stork's web UI (8080) and Kea's metrics (9547)
 #   POSTGRES_PASSWORD   secret: the database superuser's
 #   KEA_DB_PASSWORD     secret: the kea role's (also in site.json)
 #   STORK_DB_PASSWORD   secret: the stork role's
@@ -107,6 +107,9 @@ services:
     ports:
     - ${KEA_DHCP_ADDRESS}:67:67/udp
     - ${KEA_API_ADDRESS}:8000:8000
+    # Stork's agent (sharing this container's network) exports Kea's statistics
+    # for Prometheus in the cluster.
+    - ${KEA_API_ADDRESS}:9547:9547
     # The API on loopback too, for the host itself and its host-network
     # containers (claude-code). From there, connections to the management
     # address leave from it, and its routing rules (table 250) send them

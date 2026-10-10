@@ -1,0 +1,31 @@
+# cAdvisor on the Docker host: each container's CPU, memory, disk and network,
+# for Prometheus in the cluster (monitors/scrapeconfig-docker-vm.yaml), on the
+# host's management address only. Deployed by Dockhand from this folder (a Git
+# stack).
+#
+# Variables (set in the stack's environment in Dockhand):
+#   CADVISOR_ADDRESS   the host's management address
+services:
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6
+    container_name: cadvisor
+    restart: unless-stopped
+    # It reads every container's cgroups and the kernel's log.
+    privileged: true
+    devices:
+    - /dev/kmsg
+    command:
+    - --docker_only=true
+    - --housekeeping_interval=30s
+    # Only what the dashboards use; the rest is many series per container.
+    - --disable_metrics=advtcp,cpuLoad,cpu_topology,cpuset,hugetlb,memory_numa,percpu,perf_event,process,referenced_memory,resctrl,sched,tcp,udp
+    - --store_container_labels=false
+    - --whitelisted_container_labels=com.docker.compose.project,com.docker.compose.service
+    ports:
+    - ${CADVISOR_ADDRESS}:9338:8080
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:ro
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+    - /dev/disk/:/dev/disk:ro
