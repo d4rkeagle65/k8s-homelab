@@ -362,6 +362,10 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
   Ansible can't parse (a tab in Semaphore's YAML) only draws warnings, then every play matches
   nothing and the run exits 0: Semaphore shows a success that did nothing.
 - `ansible-playbook --syntax-check` passes, with any inventory.
+- In a block scalar (`>-`, `|`), a regex takes a single backslash: `'(\d+)'`, `'\1'`. YAML
+  keeps a block's backslashes as they are, so a doubled one reaches the regex as a literal
+  backslash and never matches, quietly (a `search` is just false) or with a crash (a
+  `regex_search` backreference). Inside double quotes it's the other way: YAML halves them.
 - Anything a playbook reads from a cluster or a host it reads with `changed_when: false` and
   `check_mode: false`, so a check-mode run reports real facts.
 - A token or password goes in Semaphore, never in this repo, and a task that sends one carries
