@@ -50,7 +50,7 @@ spec:
       params:
       - name: synology
         target: ${NAS_HOSTNAME}
-        module: [synology, system, if_mib]
+        module: [synology, system, if_mib, ucd_system_stats, ucd_memory, ucd_la_table]
       - name: terramaster
         target: ${TERRAMASTER_ADDRESS}
         module: [system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table]

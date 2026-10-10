@@ -176,6 +176,110 @@ spec:
       sidecar:
         dashboards:
           searchNamespace: ALL
+      # Community dashboards from grafana.com, by ID and pinned revision, in
+      # folders (QUEUE-dashboards.md). Their data-source inputs map to the
+      # fixed UIDs of the Prometheus and Loki data sources.
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+          - name: hosts
+            folder: Hosts
+            type: file
+            disableDeletion: true
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/hosts
+          - name: kubernetes
+            folder: Kubernetes
+            type: file
+            disableDeletion: true
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/kubernetes
+          - name: network
+            folder: Network
+            type: file
+            disableDeletion: true
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/network
+          - name: storage
+            folder: Storage
+            type: file
+            disableDeletion: true
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/storage
+          - name: logs
+            folder: Logs
+            type: file
+            disableDeletion: true
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/logs
+      dashboards:
+        hosts:
+          node-exporter-full:
+            gnetId: 1860
+            revision: 45
+            datasource: Prometheus
+          proxmox:
+            gnetId: 10347
+            revision: 5
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          cadvisor:
+            gnetId: 19792
+            revision: 6
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+        kubernetes:
+          k8s-views-global:
+            gnetId: 15757
+            revision: 43
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          k8s-views-namespaces:
+            gnetId: 15758
+            revision: 46
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          k8s-views-nodes:
+            gnetId: 15759
+            revision: 40
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          k8s-views-pods:
+            gnetId: 15760
+            revision: 41
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          k8s-system-api-server:
+            gnetId: 15761
+            revision: 21
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+        network:
+          traefik:
+            gnetId: 17346
+            revision: 9
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          pihole:
+            gnetId: 10176
+            revision: 3
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+          cert-manager:
+            gnetId: 20842
+            revision: 3
+            datasource: Prometheus
+          kea:
+            gnetId: 12688
+            revision: 4
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
+        storage:
+          synology:
+            gnetId: 14284
+            revision: 10
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}, {name: VAR_NASDEVICES, value: "1"}]
+        logs:
+          kubernetes-logs:
+            gnetId: 16976
+            revision: 7
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}, {name: DS_LOKI, value: loki}]
       # Loki (its own release) as a data source next to Prometheus.
       additionalDataSources:
       - name: Loki
