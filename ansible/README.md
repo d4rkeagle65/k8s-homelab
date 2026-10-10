@@ -13,7 +13,8 @@ and addresses), the SSH key, and the Kubernetes token.
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
 | `pihole-update.yml` | Updates the Pi-holes one at a time (`apt dist-upgrade`, then `pihole -up`), each only while every other one answers DNS, and waits for it to answer again before the next. With a single Pi-hole it stops unless `allow_dns_outage: true`. Not yet run. |
 | `pihole-config.yml` | Sets every Pi-hole's `pihole-FTL` settings to the values in `pihole_settings` (a Semaphore variable group), one at a time and only while the others answer DNS: sets each that differs, reads it back, restarts FTL and waits for it to answer again. It refuses settings nebula-sync copies from Pi-hole 1, so each setting has one owner. Check mode reports the differences. Not yet run. |
-| `admin-users.yml` | Gives you a named login (`admin_user`) on every host of the inventory it runs against: the account with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. Not yet run. |
+| `baseline.yml` | The same baseline on every Debian host at once, from the "All Debian Hosts" inventory: the admin login (`admin-users.yml`'s steps), Semaphore's shared key for root, the packages in `vars/baseline.yml` (installed when missing, never removed or upgraded), and one interactive bash setup (`files/homelab-bashrc`). Check mode reports each part. Not yet run. |
+| `admin-users.yml` | The admin login alone, on every host of the inventory it runs against (`baseline.yml` runs the same steps, `tasks/admin-user.yml`): the account `admin_user` with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. |
 | `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
 
 ## Setting up Semaphore (once)
@@ -270,10 +271,54 @@ Agreement. Proxmox renews the certificates itself.
   The public key line is the one `ssh-add -L` shows for the key in your vault. For sudo with a
   password instead, set `admin_sudo_nopasswd` to false and add `admin_password_hash` (from
   `openssl passwd -6`) as a secret.
-- **One template per inventory** (Proxmox, Kubernetes nodes, Pi-holes, Docker VM), with that
-  variable group. Dry-run each first.
+- **Run it through `baseline.yml`** (below), which takes the same variable group; a template
+  of `admin-users.yml` alone is only for the admin login without the rest.
 - **Afterwards**, `ssh dhardin@<host>` and `sudo -n true` prove it on each machine; then
   `~/.ssh/config` can say `User dhardin`.
+
+## Every Debian host at once (`baseline.yml`)
+
+- **A shared SSH key for Semaphore.** On the Docker host, `ssh-keygen -t ed25519 -N '' -C
+  semaphore-shared -f semaphore-shared`; the private half goes into the Key Store as
+  "Shared", the `.pub` line into the "Admin user" variable group as `semaphore_ssh_key`, and
+  then delete both files.
+- **A "Baseline" template per existing inventory** (Proxmox, Kubernetes nodes, Pi-holes,
+  Docker VM), playbook `ansible/baseline.yml`, the "Admin user" variable group. Run each
+  once (a dry run first): that puts the shared key on every host through the keys that
+  already work.
+- **The inventory "All Debian Hosts"**, Static YAML with the "Shared" key: every host, in
+  the groups the other playbooks use, so a playbook pointed at it still touches only its own
+  group:
+
+  ```yaml
+  proxmox:
+    hosts:
+      <host>: {ansible_host: <management address>}
+  k8s_nodes:
+    children:
+      k8s_control_planes:
+        hosts: {<node>: {ansible_host: <management address>}}
+      k8s_workers:
+        hosts: {<node>: {ansible_host: <management address>}}
+  pihole:
+    hosts: {<pi-hole>: {ansible_host: <management address>}}
+  docker_vm:
+    hosts: {<docker vm>: {ansible_host: <management address>}}
+  all:
+    vars:
+      ansible_user: root
+      ansible_python_interpreter: /usr/bin/python3
+  ```
+
+  Keep each group's own variables (for example the nodes' `kubeadm_ignore_preflight_errors`)
+  under that group. The host keys are the ones already pinned in Semaphore's `known_hosts`.
+- **One template "All Debian hosts: baseline"** on that inventory replaces the per-inventory
+  ones, and `admin-users.yml`'s templates. The update and upgrade playbooks keep their own
+  narrower inventories, so a mis-set limit can't reach the wrong machines.
+
+The bash setup is loaded before each user's `~/.bashrc`, so anything set there wins: Debian's
+default `~/.bashrc` for a new account sets its own prompt, and the baseline's coloured prompt
+shows only where that line is removed (root's default `~/.bashrc` doesn't set one).
 
 ## Running a Proxmox upgrade
 

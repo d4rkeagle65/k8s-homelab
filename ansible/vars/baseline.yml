@@ -1,0 +1,24 @@
+# What baseline.yml keeps on every Debian host. Packages are installed when
+# missing, never removed or upgraded (upgrades belong to the update playbooks);
+# dropping a name here stops ensuring it, and the package stays.
+
+baseline_packages:
+  - bash-completion
+  - bind9-dnsutils   # dig, nslookup
+  - curl
+  - htop
+  - jq
+  - less
+  - lsof
+  - ncdu
+  - rsync
+  - tcpdump
+  - tmux
+  - vim
+
+# Extra packages for one inventory group only, by group name.
+baseline_group_packages:
+  proxmox: []
+  k8s_nodes: []
+  pihole: []
+  docker_vm: []

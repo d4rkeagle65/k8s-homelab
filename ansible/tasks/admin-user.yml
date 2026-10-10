@@ -1,0 +1,178 @@
+# The steps of admin-users.yml (see its header for what they do and the
+# variables they take), shared with baseline.yml.
+
+- name: Settle the admin user settings
+  ansible.builtin.set_fact:
+    nopasswd: "{{ admin_sudo_nopasswd | default(false) | bool }}"
+    password_hash: "{{ admin_password_hash | default('') }}"
+    sudoers_file: "/etc/sudoers.d/90-{{ admin_user | default('admin') }}"
+
+- name: The variables are set and look right
+  ansible.builtin.assert:
+    that:
+      - admin_user is defined and admin_user is match('^[a-z_][a-z0-9_-]{0,31}$')
+      - admin_user != 'root'
+      - admin_ssh_keys is defined and admin_ssh_keys is sequence and admin_ssh_keys is not string
+      - admin_ssh_keys | length > 0
+      - admin_ssh_keys | reject('match', '^(ssh-|ecdsa-|sk-)[^ ]+ [A-Za-z0-9+/=]+( .*)?$') | list | length == 0
+      - password_hash == '' or password_hash is match('^[$]')
+      - nopasswd or password_hash != ''
+    fail_msg: >-
+      Set admin_user (a plain user name, not root) and admin_ssh_keys (a list of public key
+      lines) in the variable group. admin_password_hash, when given, must be a crypt hash
+      starting with $, and it's required unless admin_sudo_nopasswd is true.
+    quiet: true
+  run_once: true
+
+- name: This is a Debian machine
+  ansible.builtin.assert:
+    that: ansible_facts['os_family'] == 'Debian'
+    fail_msg: "{{ inventory_hostname }} is {{ ansible_facts['os_family'] }}; this playbook grants sudo the Debian way (the sudo group)."
+    quiet: true
+
+- name: Look for sudo
+  ansible.builtin.command: sh -c 'command -v sudo'
+  register: sudo_path
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+# apt can't simulate an install without python3-apt, which a fresh
+# container may lack; check mode only says it would install sudo.
+- name: Install sudo
+  ansible.builtin.apt:
+    name: sudo
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: sudo_path.rc != 0 and not ansible_check_mode
+
+- name: Note that sudo would be installed
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: sudo isn't installed; a real run installs it."
+  when: sudo_path.rc != 0 and ansible_check_mode
+
+- name: Stop the checks here when sudo isn't installed yet (check mode)
+  ansible.builtin.meta: end_host
+  when: sudo_path.rc != 0 and ansible_check_mode
+
+- name: The sudo group exists
+  ansible.builtin.group:
+    name: sudo
+    state: present
+
+# Without a hash the password is '*': no password matches it, but unlike a
+# locked '!' it doesn't make sshd (without PAM) refuse key logins too.
+- name: Create the account, in the sudo group
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    shell: /bin/bash
+    create_home: true
+    groups: [sudo]
+    append: true
+    password: "{{ password_hash if password_hash != '' else '*' }}"
+    update_password: always
+  no_log: "{{ password_hash != '' }}"
+
+- name: Its .ssh folder
+  ansible.builtin.file:
+    path: "~{{ admin_user }}/.ssh"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0700"
+  when: not ansible_check_mode
+
+# The whole file: a key removed from admin_ssh_keys is removed here too.
+- name: Its authorized_keys holds exactly the given keys
+  ansible.builtin.copy:
+    dest: "~{{ admin_user }}/.ssh/authorized_keys"
+    content: "{{ admin_ssh_keys | join('\n') }}\n"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0600"
+  when: not ansible_check_mode
+
+- name: Sudo without a password, when chosen
+  ansible.builtin.copy:
+    dest: "{{ sudoers_file }}"
+    content: "{{ admin_user }} ALL=(ALL:ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: visudo -cf %s
+  when: nopasswd
+
+- name: No password-free sudo otherwise
+  ansible.builtin.file:
+    path: "{{ sudoers_file }}"
+    state: absent
+  when: not nopasswd
+
+# The checks below read the result back, the way login and sudo see it.
+
+- name: sudo runs
+  ansible.builtin.command: sudo -V
+  register: sudo_version
+  changed_when: false
+  check_mode: false
+  failed_when: sudo_version.rc != 0 or sudo_version.stdout is not search('Sudo version')
+
+- name: The sudoers files are valid
+  ansible.builtin.command: visudo -c
+  changed_when: false
+  check_mode: false
+
+- name: Read the account's groups
+  ansible.builtin.command: id -nG {{ admin_user }}
+  register: admin_groups
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: The account exists and is in the sudo group
+  ansible.builtin.assert:
+    that:
+      - admin_groups.rc == 0
+      - "'sudo' in admin_groups.stdout.split()"
+    fail_msg: "{{ admin_user }} on {{ inventory_hostname }}: {{ admin_groups.stderr or ('groups are ' ~ admin_groups.stdout) }}"
+    quiet: true
+  when: not ansible_check_mode or admin_groups.rc == 0
+
+# Group membership only counts if sudoers grants that group; ask sudo.
+- name: Ask sudo what the account may run
+  ansible.builtin.command: sudo -l -U {{ admin_user }}
+  register: sudo_rights
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode or admin_groups.rc == 0
+
+- name: sudo grants it every command, with or without a password as chosen
+  ansible.builtin.assert:
+    that:
+      - "sudo_rights.stdout is search('[(]ALL( ?: ?ALL)?[)] (NOPASSWD: )?ALL')"
+      - "(not nopasswd) or (sudo_rights.stdout is search('NOPASSWD: ALL'))"
+    fail_msg: "sudo on {{ inventory_hostname }} doesn't grant {{ admin_user }} full rights{{ ' without a password' if nopasswd else '' }}: {{ sudo_rights.stdout_lines | select('search', '[(]') | join('; ') }}"
+    quiet: true
+  when: sudo_rights is not skipped
+
+- name: Read its authorized_keys back
+  ansible.builtin.slurp:
+    path: "~{{ admin_user }}/.ssh/authorized_keys"
+  register: keys_back
+  when: not ansible_check_mode
+
+- name: authorized_keys holds the given keys and nothing else
+  ansible.builtin.assert:
+    that: (keys_back.content | b64decode).splitlines() | reject('equalto', '') | list == admin_ssh_keys
+    fail_msg: "{{ inventory_hostname }}: {{ admin_user }}'s authorized_keys doesn't match admin_ssh_keys."
+    quiet: true
+  when: not ansible_check_mode
+
+- name: Report
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ admin_user }} {{ ('in groups [' ~ admin_groups.stdout ~ ']')
+      if admin_groups.rc == 0 else "doesn't exist yet (a real run creates it)" }},
+      {{ admin_ssh_keys | length }} key(s), sudo {{ 'without' if nopasswd else 'with' }} a password,
+      login password {{ 'set' if password_hash != '' else 'none (key only)' }}.

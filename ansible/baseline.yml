@@ -1,0 +1,190 @@
+# The same baseline on every Debian host: the owner's admin login (the steps of
+# admin-users.yml), a set of packages (vars/baseline.yml), and one interactive
+# bash setup (files/homelab-bashrc, loaded from /etc/bash.bashrc). It changes
+# no running service, so every host goes at once.
+#
+# Inventory (kept in Semaphore, never in git): "All Debian Hosts", every machine
+# in the groups the other playbooks use (proxmox, k8s_nodes with
+# k8s_control_planes and k8s_workers, pihole, docker_vm), root over SSH.
+# Variables (the "Admin user" variable group): admin-users.yml's (without
+# admin_user that part is skipped and said so), and semaphore_ssh_key, the
+# public line of Semaphore's shared key, which root then accepts alongside its
+# other keys; the first run goes through each older inventory so that the
+# shared one can reach every host afterwards.
+#
+# In check mode (--check) it reports the missing packages and whether the bash
+# setup differs, and changes nothing.
+
+- name: The baseline on every Debian host
+  hosts: all
+  gather_facts: true
+  gather_subset: [min]
+  vars_files: [vars/baseline.yml]
+  vars:
+    bashrc_dest: /etc/homelab/bashrc
+    wanted_packages: >-
+      {{ (baseline_packages + (group_names | map('extract', baseline_group_packages) |
+          select('defined') | flatten)) | unique | sort }}
+  tasks:
+    - name: This is a Debian machine
+      ansible.builtin.assert:
+        that: ansible_facts['os_family'] == 'Debian'
+        fail_msg: "{{ inventory_hostname }} is {{ ansible_facts['os_family'] }}; the baseline is for Debian hosts."
+        quiet: true
+
+    # --- The admin login -------------------------------------------------------
+
+    - name: The admin user
+      ansible.builtin.include_tasks: tasks/admin-user.yml
+      when: admin_user is defined
+
+    - name: Note that the admin user was skipped
+      ansible.builtin.debug:
+        msg: admin_user isn't set (the "Admin user" variable group), so the admin login was left alone.
+      when: admin_user is not defined
+      run_once: true
+
+    # --- Semaphore's shared key ------------------------------------------------
+
+    # Added, never exclusive: root's other keys stay until removed by hand.
+    - name: Root's .ssh folder
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        mode: "0700"
+      when: semaphore_ssh_key | default('') | length > 0
+
+    # An append, not lineinfile: on the Proxmox hosts the file is a link into
+    # the cluster filesystem (/etc/pve/priv), which refuses lineinfile's
+    # rename and chmod; there one append serves every host.
+    - name: Root accepts Semaphore's shared key
+      ansible.builtin.shell: |
+        set -e
+        f=/root/.ssh/authorized_keys
+        if [ -e "$f" ] && grep -qxF -- "$KEY" "$f"; then echo present; exit 0; fi
+        [ -e "$f" ] || { touch "$f"; chmod 600 "$f"; }
+        [ ! -s "$f" ] || [ -z "$(tail -c1 "$f")" ] || echo >> "$f"
+        echo "$KEY" >> "$f"
+        echo added
+      environment:
+        KEY: "{{ semaphore_ssh_key | trim }}"
+      register: shared_key
+      changed_when: "'added' in shared_key.stdout"
+      when: semaphore_ssh_key | default('') | length > 0 and not ansible_check_mode
+
+    - name: Read root's keys back
+      ansible.builtin.command: grep -cxF -- "{{ semaphore_ssh_key | trim }}" /root/.ssh/authorized_keys
+      changed_when: false
+      check_mode: false
+      register: shared_key_back
+      failed_when: not ansible_check_mode and shared_key_back.stdout | int < 1
+      when: semaphore_ssh_key | default('') | length > 0
+
+    # --- Packages --------------------------------------------------------------
+
+    - name: Read which of the packages are installed
+      ansible.builtin.command:
+        argv: [dpkg-query, -W, "-f=${Package} ${db:Status-Abbrev}\n", "{{ item }}"]
+      loop: "{{ wanted_packages }}"
+      register: pkg_query
+      changed_when: false
+      check_mode: false
+      failed_when: pkg_query.rc > 1
+
+    - name: Work out the missing packages
+      ansible.builtin.set_fact:
+        missing_packages: >-
+          {{ pkg_query.results | rejectattr('stdout', 'search', ' ii ?$') |
+             map(attribute='item') | list }}
+
+    - name: Report the packages
+      ansible.builtin.debug:
+        msg: >-
+          {{ wanted_packages | length - missing_packages | length }} of {{ wanted_packages | length }}
+          installed; missing: {{ missing_packages | join(', ') or 'none' }}
+
+    # apt can't simulate an install without python3-apt, so check mode stops at
+    # the report above.
+    - name: Install the missing packages
+      ansible.builtin.apt:
+        name: "{{ missing_packages }}"
+        state: present
+        install_recommends: false
+        update_cache: true
+        cache_valid_time: 3600
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      when: missing_packages | length > 0 and not ansible_check_mode
+
+    - name: Read the packages back
+      ansible.builtin.command:
+        argv: [dpkg-query, -W, "-f=${Package} ${db:Status-Abbrev}\n", "{{ item }}"]
+      loop: "{{ missing_packages }}"
+      register: pkg_back
+      changed_when: false
+      check_mode: false
+      failed_when: pkg_back.rc != 0 or pkg_back.stdout is not search(' ii ?$')
+      when: not ansible_check_mode
+
+    # --- The bash setup --------------------------------------------------------
+
+    - name: The bash setup's folder
+      ansible.builtin.file:
+        path: "{{ bashrc_dest | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: The bash setup
+      ansible.builtin.copy:
+        src: files/homelab-bashrc
+        dest: "{{ bashrc_dest }}"
+        mode: "0644"
+      register: bashrc_written
+
+    # Debian's /etc/bash.bashrc returns early for non-interactive shells, so a
+    # block at its end runs for interactive ones only.
+    - name: Every interactive bash loads it
+      ansible.builtin.blockinfile:
+        path: /etc/bash.bashrc
+        marker: "# {mark} homelab baseline (Ansible)"
+        block: |
+          [ -r {{ bashrc_dest }} ] && . {{ bashrc_dest }}
+        insertafter: EOF
+      register: bashrc_hooked
+
+    - name: Checksum the bash setup as it is in the repo
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/files/homelab-bashrc"
+        checksum_algorithm: sha1
+      delegate_to: localhost
+      run_once: true
+      register: bashrc_src
+
+    - name: Read the bash setup back
+      ansible.builtin.shell: |
+        set -e
+        sha1sum {{ bashrc_dest }} | cut -d' ' -f1
+        grep -cF '. {{ bashrc_dest }}' /etc/bash.bashrc
+        bash -n {{ bashrc_dest }} && echo syntax-ok
+        bash -ic 'echo "editor=$EDITOR"' 2>/dev/null | tail -1
+      register: bashrc_back
+      changed_when: false
+      check_mode: false
+      failed_when: >-
+        not ansible_check_mode and (
+          bashrc_back.rc != 0 or
+          bashrc_back.stdout_lines[0] != bashrc_src.stat.checksum or
+          bashrc_back.stdout_lines[1] != '1' or
+          'syntax-ok' not in bashrc_back.stdout_lines or
+          bashrc_back.stdout_lines[-1] != 'editor=vim')
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} ({{ group_names | join(', ') }}):
+          Semaphore's shared key {{ 'not set' if shared_key_back is skipped else
+          ('present' if shared_key_back.stdout | int > 0 else 'missing') }};
+          packages {{ 'complete' if not missing_packages else (missing_packages | length ~
+          (' missing' if ansible_check_mode else ' installed')) }};
+          bash setup {{ ('differs' if ansible_check_mode else 'updated')
+          if bashrc_written is changed or bashrc_hooked is changed else 'unchanged' }}.
