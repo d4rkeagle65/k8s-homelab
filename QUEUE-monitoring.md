@@ -133,6 +133,13 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       (`TERRAMASTER_ADDRESS`, `GARAGE_METRICS_TOKEN`; the garage stack publishes 3903), the
       NASes over SNMP (the community in the exporter's ConfigMap: it expands variables only in
       SNMPv3 logins; SNMPv3 on both NASes would take it out).
+- [x] Phase 3D live (2026-10-10): 121 of 121 targets up, among them both NASes over SNMP,
+      Garage, the Pi-holes, cAdvisor and Kea on the Docker VM, and the *arr apps.
+- [ ] The TerraMaster's SNMP community is a hand edit: TOS's SNMP setting doesn't reach
+      `/etc/snmp/snmpd.conf` (snmpd kept `rocommunity public`), so its line 33 was changed by hand
+      to the community limited to the management network, and snmpd restarted. TOS may rewrite
+      the file (an update, a reboot, saving SNMP in its UI): the `snmp` target for the TerraMaster
+      then goes down. An alert on that is phase 5; report the bug to TerraMaster.
 - [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`), qBittorrent (its login), Home
       Assistant (its Prometheus integration and a token)
 - [ ] Phase 4
