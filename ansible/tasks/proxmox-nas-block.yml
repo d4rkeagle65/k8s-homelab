@@ -98,6 +98,31 @@
       failed_when: false
       when: nb_iscsi_entry | length > 0 or not ansible_check_mode
 
+    # The NAS lists every address its target is bound to, and the host logs in
+    # through each: the same LUN then appears as two disks, which LVM refuses
+    # and which, written through both, corrupts it. One path only.
+    - name: Read this host's sessions to the target
+      ansible.builtin.shell: iscsiadm -m session 2>/dev/null | grep -F -- " {{ nb_target }}" || true
+      register: nb_sessions
+      changed_when: false
+      check_mode: false
+      when: nb_iscsi_entry | length > 0 or not ansible_check_mode
+
+    - name: The target is reached through the configured address only
+      ansible.builtin.assert:
+        that: nb_other_paths | length == 0
+        fail_msg: >-
+          {{ pve_node }} is also logged in to the target through
+          {{ nb_other_paths | join(', ') }}, so the LUN appears twice. Bind the target to the
+          management connection only on the NAS, then on this host:
+          iscsiadm -m node -T {{ nb_target }} -p <that address> --logout, and again with -o delete.
+        quiet: true
+      vars:
+        nb_other_paths: >-
+          {{ nb_sessions.stdout_lines | map('regex_search', '[0-9.]+:[0-9]+') |
+             reject('equalto', nb_portal) | list }}
+      when: nb_sessions is not skipped
+
     - name: Find the LUNs this host can see
       ansible.builtin.shell: |
         ls /dev/disk/by-path/ 2>/dev/null | grep -F -- "ip-{{ nb_portal }}-iscsi-{{ nb_target }}-lun-" | grep -v -- '-part[0-9]*$' || true
