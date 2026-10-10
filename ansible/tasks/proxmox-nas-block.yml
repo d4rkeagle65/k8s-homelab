@@ -1,0 +1,202 @@
+# NAS block storage for the Proxmox hosts: one iSCSI LUN per host on the NAS,
+# each host allowed read/write to its own LUN only (masked on the NAS). On each
+# host the LUN holds an LVM volume group of the same name, and one storage entry
+# of that name (LVM, not shared, on every host) then means "this host's own
+# LUN", as local-lvm means its own disk. A container moved between hosts has its
+# volume copied to the new host's LUN.
+#
+# Off until nas_block_target is set (a Semaphore variable group):
+#   nas_block_portal      the NAS's iSCSI address (port 3260 unless given)
+#   nas_block_target      the target's IQN
+#   nas_block_initialise  true: put the volume group on a LUN that is blank.
+#                         A LUN holding anything else stops the run, always.
+# Optional: nas_block_storage (default nas-block, also the volume group's
+# name), nas_block_iscsi_storage (default nas-iscsi).
+#
+# Needs proxmox-guests.yml (pve_node) before it. Every run reports each host's
+# LUN and storage; check mode changes nothing.
+
+- name: Work out the NAS block storage settings
+  ansible.builtin.set_fact:
+    nb_on: "{{ nas_block_target | default('') | length > 0 }}"
+    nb_target: "{{ nas_block_target | default('') | trim }}"
+    nb_portal: >-
+      {{ (nas_block_portal | default('') | trim) ~
+         ('' if ':' in (nas_block_portal | default('')) else ':3260') }}
+    nb_storage: "{{ nas_block_storage | default('nas-block') }}"
+    nb_iscsi: "{{ nas_block_iscsi_storage | default('nas-iscsi') }}"
+    nb_init: "{{ nas_block_initialise | default(false) | bool }}"
+    nb_nodes: "{{ groups['proxmox'] | map('extract', hostvars, 'pve_node') | join(',') }}"
+
+- name: Read the cluster's storage entries
+  ansible.builtin.command: pvesh get /storage --output-format json
+  register: nb_storage_cfg
+  changed_when: false
+  check_mode: false
+
+- name: Find the two entries
+  ansible.builtin.set_fact:
+    nb_iscsi_entry: "{{ nb_storage_cfg.stdout | from_json | selectattr('storage', 'equalto', nb_iscsi) | first | default({}) }}"
+    nb_lvm_entry: "{{ nb_storage_cfg.stdout | from_json | selectattr('storage', 'equalto', nb_storage) | first | default({}) }}"
+
+- name: Report the NAS block storage as found
+  ansible.builtin.debug:
+    msg: >-
+      {{ pve_node }}: {{ nb_iscsi }} {{ 'defined' if nb_iscsi_entry else 'not defined' }},
+      {{ nb_storage }} {{ 'defined' if nb_lvm_entry else 'not defined' }};
+      {{ 'managing it' if nb_on else 'off (nas_block_target is empty)' }}
+
+- name: NAS block storage
+  when: nb_on
+  block:
+    - name: The settings are complete
+      ansible.builtin.assert:
+        that:
+          - nb_portal is match('^[^:]+:[0-9]+$') and nb_portal | length > 5
+          - nb_target is match('^iqn\.')
+        fail_msg: "Set nas_block_portal (an address) and nas_block_target (an iqn.... name)."
+        quiet: true
+      run_once: true
+
+    # One owner: an existing entry that points elsewhere is reported, not
+    # rewritten.
+    - name: An existing iSCSI entry points at this target
+      ansible.builtin.assert:
+        that:
+          - nb_iscsi_entry.type == 'iscsi'
+          - nb_iscsi_entry.target == nb_target
+          - (nb_iscsi_entry.portal ~ ('' if ':' in nb_iscsi_entry.portal else ':3260')) == nb_portal
+        fail_msg: "{{ nb_iscsi }} exists but isn't this target on this portal: {{ nb_iscsi_entry }}"
+        quiet: true
+      when: nb_iscsi_entry | length > 0
+      run_once: true
+
+    - name: Define the iSCSI target for every host
+      ansible.builtin.command: >-
+        pvesm add iscsi {{ nb_iscsi }} --portal {{ nb_portal }} --target {{ nb_target }}
+        --content none --nodes {{ nb_nodes }}
+      when: nb_iscsi_entry | length == 0
+      run_once: true
+
+    # Activating the storage logs this host in to the target.
+    - name: Log in to the target
+      ansible.builtin.command: pvesm status --storage {{ nb_iscsi }}
+      register: nb_login
+      changed_when: false
+      check_mode: false
+      failed_when: false
+      when: nb_iscsi_entry | length > 0 or not ansible_check_mode
+
+    - name: Find the LUNs this host can see
+      ansible.builtin.shell: |
+        ls /dev/disk/by-path/ 2>/dev/null | grep -F -- "ip-{{ nb_portal }}-iscsi-{{ nb_target }}-lun-" | grep -v -- '-part[0-9]*$' || true
+      register: nb_luns
+      changed_when: false
+      check_mode: false
+      until: nb_luns.stdout_lines | length > 0 or ansible_check_mode
+      retries: 6
+      delay: 5
+      when: nb_iscsi_entry | length > 0 or not ansible_check_mode
+
+    - name: Exactly one LUN, this host's own
+      ansible.builtin.assert:
+        that: nb_luns.stdout_lines | length == 1
+        fail_msg: >-
+          {{ pve_node }} sees {{ nb_luns.stdout_lines | length }} LUN(s) on the target:
+          {{ nb_luns.stdout_lines | join(', ') or 'none' }}. Each host should be allowed
+          exactly one, its own (the LUN's permissions on the NAS).
+        quiet: true
+      when: nb_luns is not skipped and not (ansible_check_mode and nb_luns.stdout_lines | length == 0)
+
+    - name: Read what is on the LUN
+      ansible.builtin.shell: |
+        dev=$(readlink -f /dev/disk/by-path/{{ nb_luns.stdout_lines[0] }})
+        echo "dev=$dev"
+        echo "size=$(lsblk -bdno SIZE "$dev")"
+        echo "vg=$(pvs --noheadings -o vg_name "$dev" 2>/dev/null | tr -d ' ')"
+        echo "signatures=$(wipefs -n -O TYPE --noheadings "$dev" 2>/dev/null | tr '\n' ' ')"
+        echo "parts=$(lsblk -no NAME "$dev" | tail -n +2 | wc -l)"
+      register: nb_lun
+      changed_when: false
+      check_mode: false
+      when: nb_luns is not skipped and nb_luns.stdout_lines | length == 1
+
+    - name: Work out the LUN's state
+      ansible.builtin.set_fact:
+        nb_dev: "{{ nb_lun.stdout | regex_search('dev=(\\S+)', '\\1') | first }}"
+        nb_vg_now: "{{ nb_lun.stdout | regex_search('vg=(\\S*)', '\\1') | first }}"
+        nb_sigs: "{{ nb_lun.stdout | regex_search('signatures=(.*)', '\\1') | first | trim }}"
+        nb_parts: "{{ nb_lun.stdout | regex_search('parts=(\\d+)', '\\1') | first | int }}"
+        nb_gib: "{{ ((nb_lun.stdout | regex_search('size=(\\d+)', '\\1') | first | int) / 1073741824) | round(1) }}"
+      when: nb_lun is not skipped
+
+    - name: The LUN is this storage's, or blank
+      ansible.builtin.assert:
+        that: >-
+          nb_vg_now == nb_storage or
+          (nb_vg_now == '' and nb_sigs == '' and nb_parts | int == 0)
+        fail_msg: >-
+          {{ pve_node }}: {{ nb_dev }} holds something else (volume group
+          '{{ nb_vg_now }}', signatures '{{ nb_sigs }}', {{ nb_parts }} partition(s)).
+          Nothing was changed; clear it on purpose if it is meant for this.
+        quiet: true
+      when: nb_lun is not skipped
+
+    - name: Note a blank LUN left alone
+      ansible.builtin.debug:
+        msg: "{{ pve_node }}: {{ nb_dev }} ({{ nb_gib }} GiB) is blank; set nas_block_initialise: true to put the {{ nb_storage }} volume group on it."
+      when: nb_lun is not skipped and nb_vg_now == '' and not nb_init
+
+    - name: Put the volume group on the blank LUN
+      ansible.builtin.shell: |
+        set -e
+        pvcreate {{ nb_dev }}
+        vgcreate {{ nb_storage }} {{ nb_dev }}
+      when: nb_lun is not skipped and nb_vg_now == '' and nb_init and not ansible_check_mode
+
+    - name: An existing LVM entry is this volume group, per host
+      ansible.builtin.assert:
+        that:
+          - nb_lvm_entry.type == 'lvm'
+          - nb_lvm_entry.vgname == nb_storage
+          - not (nb_lvm_entry.shared | default(0) | int)
+        fail_msg: "{{ nb_storage }} exists but isn't an unshared LVM entry on volume group {{ nb_storage }}: {{ nb_lvm_entry }}"
+        quiet: true
+      when: nb_lvm_entry | length > 0
+      run_once: true
+
+    - name: Read which hosts have the volume group
+      ansible.builtin.command: vgs --noheadings -o vg_name,vg_size --units g {{ nb_storage }}
+      register: nb_vg
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    # Defined once every host has its volume group, so no host lists it as
+    # unavailable.
+    - name: Define the storage on every host
+      ansible.builtin.command: >-
+        pvesm add lvm {{ nb_storage }} --vgname {{ nb_storage }} --content rootdir,images
+        --shared 0 --nodes {{ nb_nodes }}
+      when: >-
+        nb_lvm_entry | length == 0 and
+        groups['proxmox'] | map('extract', hostvars, ['nb_vg', 'rc']) | select('equalto', 0) | list | length
+        == groups['proxmox'] | length
+      run_once: true
+
+    - name: Read the storage back
+      ansible.builtin.command: pvesm status --storage {{ nb_storage }}
+      register: nb_status
+      changed_when: false
+      check_mode: false
+      failed_when: >-
+        not ansible_check_mode and
+        (nb_status.rc != 0 or nb_status.stdout is not search(nb_storage ~ '\\s+lvm\\s+active'))
+
+    - name: Report the NAS block storage
+      ansible.builtin.debug:
+        msg: >-
+          {{ pve_node }}: LUN {{ nb_dev | default('not seen') }}
+          ({{ nb_gib | default('?') }} GiB), volume group
+          {{ (nb_vg.stdout | trim) if nb_vg.rc == 0 else 'absent' }},
+          {{ nb_storage }} {{ 'active' if nb_status.stdout is search('\\sactive') else 'not active' }}

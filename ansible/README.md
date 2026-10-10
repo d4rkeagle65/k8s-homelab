@@ -7,7 +7,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | Playbook | What it does |
 |---|---|
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
-| `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). A dry run reports each host's ARC and certificate. |
+| `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). Each host's own iSCSI LUN on the NAS as storage `nas-block` (`tasks/proxmox-nas-block.yml`, off until set). A dry run reports each host's ARC, certificate and NAS block storage. |
 | `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are `k8s-upgrade.yml`. It also owns the nodes' Kubernetes and CRI-O package sources. |
 | `k8s-node-reboot.yml` | Reboots the Kubernetes node containers one at a time, changing nothing else: the same checks, database switchovers, drain and wait as `k8s-node-update.yml`, with a reboot in place of the upgrade. |
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
@@ -263,6 +263,23 @@ tag for `proxmox-upgrade.yml`), or `pihole_primary_vmid`; nebula-sync copies the
 the other Pi-hole. A run limited to hosts that don't carry it stops before changing anything.
 Running the playbook registers the Let's Encrypt account, which accepts its Subscriber
 Agreement. Proxmox renews the certificates itself.
+
+## NAS block storage on the Proxmox hosts (`proxmox-host.yml`)
+
+Each host gets its own iSCSI LUN on the NAS as storage `nas-block`: one entry, LVM, not shared,
+on every host, the way `local-lvm` is each host's own disk. A container moved to another host
+has its `nas-block` volumes copied to that host's LUN. It holds data that writes constantly
+(Prometheus), so those writes land on the NAS's drives, not the hosts' SSDs.
+
+1. **On the NAS** (SAN Manager): one target that allows multiple sessions, bound to the
+   management connection; one thin LUN per host, each read/write for that host's initiator only
+   (`/etc/iscsi/initiatorname.iscsi` on the host), OS type Linux.
+2. **Variables** in the Proxmox hosts' variable group: `nas_block_portal` (the NAS's
+   management address) and `nas_block_target` (the target's IQN). Run "Proxmox: host
+   settings" as a dry run: each host should report one LUN, blank.
+3. **`nas_block_initialise: true`** and a real run: the volume group goes on each blank LUN, then
+   the storage entry is defined once all hosts have theirs. A LUN holding anything else stops
+   the run whatever the setting. Afterwards `nas_block_initialise` can go again.
 
 ## Your own login on every machine (`admin-users.yml`)
 
