@@ -64,36 +64,13 @@ spec:
         volumeMounts:
         - mountPath: /config
           name: config
+        # configuration.yaml from git, over the volume's own (app/config/).
+        - mountPath: /config/configuration.yaml
+          name: configuration
+          subPath: configuration.yaml
+          readOnly: true
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
-      initContainers:
-      - args:
-        - |
-          if [ ! -f /config/configuration.yaml ]; then
-            echo "No existing configuration.yaml found, seeding starter config..."
-            cat <<'EOF' > /config/configuration.yaml
-          default_config:
-
-          http:
-            use_x_forwarded_for: true
-            trusted_proxies:
-              - ${CALICO_POD_CIDR}
-          EOF
-          else
-            echo "Existing configuration.yaml found, leaving it untouched."
-          fi
-        command:
-        - sh
-        - -c
-        image: busybox:latest
-        imagePullPolicy: Always
-        name: seed-config
-        resources: {}
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        volumeMounts:
-        - mountPath: /config
-          name: config
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
@@ -102,3 +79,6 @@ spec:
       - name: config
         persistentVolumeClaim:
           claimName: homeassistant-config
+      - name: configuration
+        configMap:
+          name: homeassistant-configuration
