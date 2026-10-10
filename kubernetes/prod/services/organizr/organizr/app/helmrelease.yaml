@@ -1,0 +1,73 @@
+# Organizr, a start page of tabs that each open an app inside it, only on the
+# private networks, with its own login (the first visit creates the admin).
+#
+# The image has one tag, latest, last built in 2023: it fetches Organizr's
+# code from its v2-master branch into /config on each start, so the app stays
+# current while the image (nginx and PHP) is pinned here by digest.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: organizr
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: organizr
+      homelab.local/category: services
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        # One pod at a time on the SQLite database.
+        strategy: Recreate
+        containers:
+          main:
+            image:
+              repository: ghcr.io/organizr/organizr
+              tag: latest@sha256:1ce319d73cdfd2666ec7ef21e15907531fabc8a6f333c4ac61e2b2e9d2d162f5
+            env:
+              PUID: "${MEDIA_PUID}"
+              PGID: "${MEDIA_PGID}"
+              TZ: ${TIMEZONE}
+              branch: v2-master
+            resources:
+              requests: {cpu: 20m, memory: 128Mi}
+              limits: {memory: 512Mi}
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 80
+    ingress:
+      main:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+          - host: organizr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: organizr-tls
+            hosts:
+              - organizr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      config:
+        existingClaim: organizr-config
+        globalMounts:
+          - path: /config

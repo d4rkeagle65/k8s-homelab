@@ -7,5 +7,6 @@ resources:
 - cnpg-system
 - homepage
 - mqtt
+- organizr
 - redis-ha
 - smtp-relay
