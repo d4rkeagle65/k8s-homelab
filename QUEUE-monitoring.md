@@ -118,8 +118,10 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       with the packaged SMART and NVMe collectors on the Proxmox hosts; Prometheus finds the
       hosts through `proxmox-hosts.<domain>` (written by `proxmox-acme.yml`) and the Docker VM
       by its management name. Not yet: cAdvisor for the Docker VM's containers.
-- [ ] Phase 3C live: `host_exporters: true` and `management_network` in the variable group, a
-      baseline run, a Proxmox host-settings run (the shared name), every host up
+- [x] Phase 3C live (2026-10-10): node-exporter up on the four Proxmox hosts (through
+      `proxmox-hosts.<domain>`) and the Docker VM; each host's NVMe wear and data written in
+      Prometheus. The Pi-holes' node-exporter is scraped by phase 3D.
+- [x] Phase 3B live (2026-10-10): 39 of 39 Proxmox objects up through the API exporter.
 - [x] Phase 3D, first part built: exportarr for Radarr, Sonarr, Lidarr, Prowlarr and Bookshelf
       (`exportarr/`, pinned to 2.3.0, the last with the Readarr mode Bookshelf needs);
       Kubernetes events into Loki (`alloy-events/`, one Alloy for the cluster); cAdvisor on the

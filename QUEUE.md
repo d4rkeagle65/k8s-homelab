@@ -39,6 +39,15 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Next
 
+- **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
+  rated wear** (`nvme_percentage_used_ratio`, 2026-10-10: 62 TB written over 4.1 years, about
+  42 GB a day on average): at that rate it reaches 100% in about eight months. Replace it, a
+  ZFS disk swap. The first host's 256 GB boot drive is at 66% (about 1.4 years). Every host's
+  drives write 40 to 70 GB a day on lifetime average, far more than Prometheus did: once a few
+  days of `node_disk_written_bytes_total` and `pve_disk_written_bytes` exist, find the writers
+  (etcd, the workers' databases, images and logs, Proxmox's own files) and cut what can be.
+  Alerts on wear and spare capacity are phase 5 of `QUEUE-monitoring.md`.
+
 - **NAS block storage, live (2026-10-10):** `nas-block` (`ansible/tasks/proxmox-nas-block.yml`)
   is active on all four hosts, 30 GiB each, one path per host, and each worker has a 28 GiB
   `mp2` on it at `/opt/nas-block` (added live with `pct set`; declared in `tofu/proxmox/`,
