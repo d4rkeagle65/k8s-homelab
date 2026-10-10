@@ -56,7 +56,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 | Phase 1 merge | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `AUTHENTIK_GRAFANA_OIDC_CLIENT_SECRET` in the `cluster-secrets` Vaultwarden item | present (2026-10-10) |
 | Phase 1 live | the owner in the `Grafana Admins` group (made by the blueprint) | after the merge |
 | Phase 2 | a Garage bucket `loki-logs` and its key (`LOKI_S3_ACCESS_KEY_ID`, `LOKI_S3_SECRET_ACCESS_KEY`) | present (2026-10-10) |
-| Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | not yet |
+| Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | present (2026-10-10) |
 | Phase 5 | where alerts go (email through the relay, n8n, or both) | a decision |
 
 ## Phases
@@ -110,7 +110,9 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       Traefik, cert-manager, ExternalDNS, MetalLB, Authentik, immich and n8n; the CloudNativePG
       dashboard; Grafana loads dashboards from any namespace.
 - [ ] Phase 3A live: each new target up
-- [ ] Phase 3B: the Proxmox API (`prometheus-pve-exporter`; `PVE_EXPORTER_TOKEN_VALUE`, `PVE_API_HOST`)
+- [x] Phase 3B built: the Proxmox API through `prometheus-pve-exporter` 3.10.1 (`pve-exporter/`,
+      token `prometheus@pve!exporter`, PVEAuditor, from `PVE_EXPORTER_TOKEN_VALUE`; one host's API,
+      `PVE_API_HOST`, with a verified certificate)
 - [x] Phase 3C built: Debian's node-exporter on the Proxmox hosts, the Pi-holes and the Docker VM
       (`ansible/tasks/host-exporters.yml`, run by `baseline.yml`, off until `host_exporters`),
       with the packaged SMART and NVMe collectors on the Proxmox hosts; Prometheus finds the

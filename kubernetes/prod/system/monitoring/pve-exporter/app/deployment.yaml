@@ -1,0 +1,64 @@
+# prometheus-pve-exporter: the Proxmox cluster's own view (nodes, guests,
+# storage, replication, backups' state) through its API, with a read-only token
+# and a verified certificate. Prometheus asks it for one host's API
+# (monitors/scrapeconfig-proxmox-api.yaml); any host answers for the cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pve-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pve-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pve-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: pve-exporter
+        image: prompve/prometheus-pve-exporter:3.10.1
+        env:
+        - name: PVE_USER
+          value: prometheus@pve
+        - name: PVE_TOKEN_NAME
+          value: exporter
+        - name: PVE_VERIFY_SSL
+          value: "true"
+        envFrom:
+        - secretRef:
+            name: pve-exporter
+        ports:
+        - name: http
+          containerPort: 9221
+        readinessProbe:
+          tcpSocket:
+            port: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        resources:
+          requests: {cpu: 10m, memory: 48Mi}
+          limits: {memory: 128Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pve-exporter
+spec:
+  selector:
+    app.kubernetes.io/name: pve-exporter
+  ports:
+  - name: http
+    port: 9221
+    targetPort: http

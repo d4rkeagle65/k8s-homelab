@@ -1,0 +1,26 @@
+# The Proxmox cluster through pve-exporter, asking one host's API
+# (PVE_API_HOST); the cluster and node collectors on.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: proxmox-api
+spec:
+  staticConfigs:
+  - targets:
+    - ${PVE_API_HOST}
+  metricsPath: /pve
+  params:
+    module: [default]
+    cluster: ["1"]
+    node: ["1"]
+  scrapeInterval: 60s
+  scrapeTimeout: 30s
+  relabelings:
+  - sourceLabels: [__address__]
+    targetLabel: __param_target
+  - sourceLabels: [__param_target]
+    targetLabel: instance
+  - targetLabel: __address__
+    replacement: pve-exporter:9221
+  - targetLabel: job
+    replacement: proxmox-api
