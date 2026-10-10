@@ -42,6 +42,15 @@ assigned (items below refer to them); 1 to 4, 6 and 9 are done.
 
 ## Next
 
+- **The baseline on every Debian host, built:** `ansible/baseline.yml` (admin login,
+  Semaphore's shared key, packages, bash setup). Set-up and rollout order are in
+  `ansible/README.md` ("Every Debian host at once"): the shared key, one run per existing
+  inventory, then the "All Debian Hosts" inventory and its single template.
+  - Both Pi-holes' sshd listens on the management address only, and so needs to start after
+    the network (a hand-made drop-in, `ssh.service.d/20-after-network-online.conf`, added
+    2026-10-10 after Pi-hole 1's sshd failed to bind at boot and stayed down). The baseline
+    could own that drop-in wherever `ListenAddress` is set.
+
 - **The nodes' management access, built and off:** `ansible/tasks/k8s-node-mgmt.yml` (run by
   `k8s-node-update.yml`). Set `mgmt_gateway` in the "Kubernetes" variable group, run the
   update, and SSH from the PC to a node's management address; then `mgmt_ssh_only: true` and
@@ -131,8 +140,9 @@ assigned (items below refer to them); 1 to 4, 6 and 9 are done.
     records such as `vaultwarden-direct`, CNAMEs, lists, `bogusPriv`) lives on
     Pi-hole 1 and is copied to Pi-hole 2 by nebula-sync, so losing both would
     lose it: a scheduled Teleporter export to Garage would cover that.
-  - **Named logins instead of root:** `ansible/admin-users.yml` (not yet run) gives the owner
-    an account with sudo on every machine. Once it's proven everywhere: remove the owner's
+  - **Named logins instead of root:** `ansible/admin-users.yml` gives the owner an account
+    with sudo on every machine (run on the Proxmox hosts; `baseline.yml` brings it to the
+    rest). Once it's proven everywhere: remove the owner's
     key from root's `authorized_keys` (on the Proxmox hosts the shared
     `/etc/pve/priv/authorized_keys`), and set `sshd` to `PasswordAuthentication no` and
     `PermitRootLogin prohibit-password` (never `no`: the Proxmox hosts and Semaphore log in

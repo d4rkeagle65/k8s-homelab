@@ -1,0 +1,26 @@
+# Managed by Ansible (baseline.yml): the same interactive bash setup on every
+# Debian host. Loaded from /etc/bash.bashrc, which every interactive bash reads
+# (login shells through /etc/profile), so it runs before ~/.bashrc and a user's
+# own settings there win.
+
+export EDITOR=vim
+export VISUAL=vim
+export PAGER=less
+export LESS=-R
+
+HISTSIZE=10000
+HISTFILESIZE=20000
+HISTCONTROL=ignoreboth
+HISTTIMEFORMAT='%F %T  '
+shopt -s histappend checkwinsize
+
+alias ll='ls -alF --color=auto'
+alias la='ls -A --color=auto'
+alias grep='grep --color=auto'
+
+# Root's prompt is red, everyone else's green, both with the host name.
+if [ "$(id -u)" -eq 0 ]; then
+    PS1='\[\e[1;31m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]# '
+else
+    PS1='\[\e[1;32m\]\u@\h\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ '
+fi
