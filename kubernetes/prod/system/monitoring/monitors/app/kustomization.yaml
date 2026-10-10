@@ -5,6 +5,7 @@ resources:
 - podmonitor-flux.yaml
 - scrapeconfig-docker-vm.yaml
 - scrapeconfig-garage.yaml
+- scrapeconfig-homeassistant.yaml
 - scrapeconfig-pihole-hosts.yaml
 - scrapeconfig-proxmox-api.yaml
 - scrapeconfig-proxmox-hosts.yaml

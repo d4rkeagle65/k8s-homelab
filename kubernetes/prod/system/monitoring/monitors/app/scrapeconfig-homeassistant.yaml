@@ -1,0 +1,21 @@
+# Home Assistant's Prometheus endpoint (the prometheus integration, namespace
+# hass): entity states, sensors' values, automation runs. Read with a
+# long-lived token.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: homeassistant
+spec:
+  staticConfigs:
+  - targets:
+    - homeassistant.homeassistant.svc.${CLUSTER_DOMAIN}:8123
+  metricsPath: /api/prometheus
+  authorization:
+    type: Bearer
+    credentials:
+      name: homeassistant-metrics
+      key: token
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: homeassistant
