@@ -97,7 +97,15 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [x] Phase 2 built: Loki (single binary, chunks in `loki-logs`, an emptyDir for the rest) and
       Alloy (a DaemonSet on every node, pod logs from `/var/log/pods`); Loki is a Grafana data
       source. Kubernetes events are still to add (one collector, not one per node).
-- [ ] Phase 2 live: Loki writing to Garage, every node's Alloy sending, logs searchable in Grafana
+- [x] Phase 2 live (2026-10-10): all six nodes' Alloy sending (31 namespaces), Loki writing chunks
+      to `loki-logs` (about 600 in the first hour, the start-up backlog included) and searchable;
+      a test client with Loki's key reads chunks back. The first start's backlog (log files
+      reaching back to 2025) was rejected as older than 7 days, as configured, and stopped.
+- [ ] Loki's 10 failed reads from Garage at its first start (`loki_s3_request_duration_seconds_count`,
+      `S3.GetObject`, status 500), with no log line naming them: if the count grows, read
+      Garage's log on the NAS for the same minute. Reads by a test client succeed.
+- [ ] Kubernetes events into Loki: one collector for the cluster (a one-replica Alloy
+      Deployment with `loki.source.kubernetes_events`), not the per-node DaemonSet.
 - [ ] Phase 3
 - [ ] Phase 4
 - [ ] Phase 5
