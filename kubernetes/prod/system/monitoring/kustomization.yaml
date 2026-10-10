@@ -13,4 +13,5 @@ resources:
 - namespace.yaml
 - pihole-exporter/ks.yaml
 - pve-exporter/ks.yaml
+- qbittorrent-exporter/ks.yaml
 - snmp-exporter/ks.yaml
