@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - secret-grafana-admin.yaml
 - secret-grafana-oidc.yaml
+- secret-homeassistant-metrics.yaml
 - secret-exportarr.yaml
 - secret-garage-metrics.yaml
 - secret-loki-s3.yaml
