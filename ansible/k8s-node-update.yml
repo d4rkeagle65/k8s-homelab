@@ -9,7 +9,9 @@
 #              address, root over SSH. Each host's inventory name is its
 #              Kubernetes node name. kubectl runs on a control plane other
 #              than the node being worked on, with its admin.conf.
-# Variables (a Semaphore variable group): k8s_api_url, k8s_ca_b64, k8s_token.
+# Variables (a Semaphore variable group): k8s_api_url, k8s_ca_b64, k8s_token;
+# optionally mgmt_gateway and mgmt_ssh_only (tasks/k8s-node-mgmt.yml), which
+# make each node reachable on its management address from beyond that network.
 #
 # In check mode (--check) it runs the checks, lists the pending upgrades and
 # what each drain would move, and changes nothing.
@@ -72,6 +74,9 @@
       delegate_to: "{{ kubectl_host }}"
       changed_when: false
       check_mode: false
+
+    - name: Management access
+      ansible.builtin.include_tasks: tasks/k8s-node-mgmt.yml
 
     - name: Read the installed Kubernetes version
       ansible.builtin.command: dpkg-query -W -f=${Version} kubeadm

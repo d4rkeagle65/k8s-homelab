@@ -158,6 +158,26 @@ repository and variable group, **"Kubernetes nodes: reboot"**. To reboot only so
 limit to those nodes plus `localhost`, e.g. `<node>,localhost`; without `localhost`
 the run stops at its first check, having changed nothing.
 
+**Reaching the nodes on their management addresses** from beyond the management network
+(`tasks/k8s-node-mgmt.yml`, run by `k8s-node-update.yml` on each node before its upgrade; no
+drain needed). The nodes' management interface has no gateway, so a reply from a management
+address to anywhere off that network is sent out the main interface and dropped. Two
+settings in the "Kubernetes" variable group, both off until set:
+
+- `mgmt_gateway`: the management network's gateway. Each node gets routing table 250
+  (the management subnet and a default route via that gateway) and a rule sending traffic
+  from its management address there, re-added by `/etc/network/if-up.d/mgmt-return` whenever
+  the interface comes up. Pods and the node's own connections are unaffected.
+- `mgmt_ssh_only: true`: sshd listens on the management address only. It refuses to run
+  without `mgmt_gateway`, or when the inventory reaches the node by another address. Set it
+  only after a run with the gateway alone, and after SSH from your PC to a node's management
+  address has worked. If a node is ever unreachable, `pct enter <id>` on its Proxmox host
+  still works.
+
+With both empty, a run still reports each node's routing and sshd listening addresses.
+`mgmt_interface` (default `eth1`) and `mgmt_table` (default `250`) are there if they ever
+differ.
+
 What a run does to the workloads: each database cluster with two instances keeps running
 (its primary is switched over before the drain, and its replica waits for the node); a
 single-instance one (immich, manictime) is down while its node updates. If a run stops
