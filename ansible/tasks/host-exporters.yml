@@ -62,7 +62,7 @@
     msg: >-
       {{ inventory_hostname }}: node-exporter
       {{ 'installed' if 'installed=ii' in he_state.stdout else 'not installed' }},
-      {{ he_state.stdout | regex_search('active=(\\S*)', '\\1') | first | default('') or 'not running' }};
+      {{ he_state.stdout | regex_search('active=(\S*)', '\1') | first | default('') or 'not running' }};
       {{ ('managing it on ' ~ he_addr ~ ':9100' ~ (' with SMART/NVMe' if he_smart else ''))
          if he_on and he_addr else ('no address on the management network (management_network: '
          ~ (he_net or 'not set') ~ ')' if he_on else 'off (host_exporters is not set)') }}
@@ -146,6 +146,6 @@
       ansible.builtin.debug:
         msg: >-
           {{ inventory_hostname }}: node-exporter on {{ he_addr }}:9100{{ (', SMART series ' ~
-          (he_back.stdout | regex_search('smart=(\\d+)', '\\1') | first) ~ ', NVMe series ' ~
-          (he_back.stdout | regex_search('nvme=(\\d+)', '\\1') | first)) if he_smart and he_back.stdout is defined
+          (he_back.stdout | regex_search('smart=(\d+)', '\1') | first) ~ ', NVMe series ' ~
+          (he_back.stdout | regex_search('nvme=(\d+)', '\1') | first)) if he_smart and he_back.stdout is defined
           and he_back.stdout is search('smart=') else '' }}

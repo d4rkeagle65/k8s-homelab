@@ -113,7 +113,7 @@
     k8s_removed_in_use: >-
       {% set out = [] %}{% for r in k8s_metrics.results %}{% for line in r.stdout_lines
            if line.startswith('apiserver_requested_deprecated_apis{') %}{%
-        set rel = line | regex_search('removed_release="([^"]*)"', '\\1') | first %}{%
+        set rel = line | regex_search('removed_release="([^"]*)"', '\1') | first %}{%
         if rel and rel is version(k8s_target_minor, '<=') %}{%
           set _ = out.append(line | regex_replace(' [0-9.e+]+$', '')) %}{% endif %}{%
       endfor %}{% endfor %}{{ out | unique }}

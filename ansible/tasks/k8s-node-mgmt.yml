@@ -111,7 +111,7 @@
       failed_when: >-
         mgmt_after.rc != 0 or (not ansible_check_mode and not (
           ('from ' ~ mgmt_address ~ ' lookup ' ~ mgmt_tbl) in mgmt_after.stdout and
-          mgmt_after.stdout is search('192\\.0\\.2\\.1 from ' ~ (mgmt_address | regex_escape) ~ ' via ' ~ (mgmt_gw | regex_escape) ~ ' dev ' ~ mgmt_if)))
+          mgmt_after.stdout is search('192\.0\.2\.1 from ' ~ (mgmt_address | regex_escape) ~ ' via ' ~ (mgmt_gw | regex_escape) ~ ' dev ' ~ mgmt_if)))
 
 - name: sshd on the management address only
   when: mgmt_ssh
