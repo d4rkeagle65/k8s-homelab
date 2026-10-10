@@ -44,8 +44,22 @@ spec:
       enabled: false
     windowsMonitoring:
       enabled: false
+    # The API server's latency and size histograms are most of a small
+    # cluster's series and of what Prometheus writes; nothing here reads them.
+    kubeApiServer:
+      serviceMonitor:
+        metricRelabelings:
+        - action: drop
+          sourceLabels: [__name__]
+          regex: (apiserver_request_duration_seconds|apiserver_request_sli_duration_seconds|apiserver_request_slo_duration_seconds|apiserver_response_sizes|apiserver_watch_events_sizes|apiserver_watch_list_duration_seconds|etcd_request_duration_seconds|apiserver_admission_.+_duration_seconds|workqueue_.+_duration_seconds|rest_client_.+_duration_seconds|rest_client_.+_size_bytes)_bucket
     defaultRules:
       rules:
+        # The API server's SLO and latency rules read the request-latency
+        # histograms dropped below (kubeApiServer).
+        kubeApiserverAvailability: false
+        kubeApiserverBurnrate: false
+        kubeApiserverHistogram: false
+        kubeApiserverSlos: false
         etcd: false
         kubeControllerManager: false
         kubeSchedulerAlerting: false
@@ -60,16 +74,26 @@ spec:
 
     prometheus:
       prometheusSpec:
+        # Two replicas, each scraping everything into its own volume on a
+        # different worker: losing a host loses neither metrics nor history.
+        replicas: 2
+        podAntiAffinity: hard
+        # Every 60 seconds (Prometheus's default is 15): plenty for a lab, and
+        # a quarter of the writes.
+        scrapeInterval: 60s
+        evaluationInterval: 60s
         retention: 15d
         retentionSize: 18GB
         resources:
           requests: {cpu: 100m, memory: 768Mi}
           limits: {memory: 2Gi}
-        # Node-local disk: Prometheus's own docs rule out NFS for its database.
+        # nas-block: a directory on the worker's own iSCSI LUN on the NAS, so
+        # the constant writes miss the hosts' SSDs. A block device, not NFS,
+        # which Prometheus's docs rule out for its database.
         storageSpec:
           volumeClaimTemplate:
             spec:
-              storageClassName: local-db
+              storageClassName: nas-block
               accessModes: [ReadWriteOnce]
               resources:
                 requests:
@@ -84,6 +108,9 @@ spec:
 
     alertmanager:
       alertmanagerSpec:
+        # Two, clustered, on different workers.
+        replicas: 2
+        podAntiAffinity: hard
         retention: 120h
         resources:
           requests: {cpu: 10m, memory: 64Mi}
@@ -91,7 +118,7 @@ spec:
         storage:
           volumeClaimTemplate:
             spec:
-              storageClassName: local-db
+              storageClassName: nas-block
               accessModes: [ReadWriteOnce]
               resources:
                 requests:
@@ -122,9 +149,35 @@ spec:
       resources:
         requests: {cpu: 20m, memory: 192Mi}
         limits: {memory: 512Mi}
+      # The Authentik client secret (monitoring-extras); Grafana reads any
+      # GF_<SECTION>_<KEY> variable as that setting.
+      envValueFrom:
+        GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+          secretKeyRef:
+            name: grafana-oidc
+            key: client-secret
       grafana.ini:
         server:
           root_url: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        # Login through Authentik (its Grafana blueprint). Grafana Admins
+        # become Admins, everyone else Viewers; who may log in at all is
+        # Authentik's policy (Grafana Admins or Grafana Viewers). The local
+        # admin from grafana-admin stays as the way in when Authentik is down.
+        auth.generic_oauth:
+          enabled: true
+          name: Authentik
+          client_id: grafana
+          scopes: openid email profile
+          auth_url: https://auth.${BASE_DOMAIN}/application/o/authorize/
+          token_url: https://auth.${BASE_DOMAIN}/application/o/token/
+          api_url: https://auth.${BASE_DOMAIN}/application/o/userinfo/
+          signout_redirect_url: https://auth.${BASE_DOMAIN}/application/o/grafana/end-session/
+          use_pkce: true
+          allow_sign_up: true
+          login_attribute_path: preferred_username
+          email_attribute_path: email
+          name_attribute_path: name
+          role_attribute_path: contains(groups[*], 'Grafana Admins') && 'Admin' || 'Viewer'
         analytics:
           reporting_enabled: false
           check_for_updates: false

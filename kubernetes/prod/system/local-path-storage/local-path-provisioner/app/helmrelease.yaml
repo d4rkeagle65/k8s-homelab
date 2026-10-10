@@ -35,7 +35,10 @@ spec:
     # worker has; ansible/tasks/proxmox-nas-block.yml), for data that writes
     # constantly and needn't sit on the hosts' SSDs. Nodes not listed (the
     # control planes, with 8G root disks) are refused. Node names are
-    # WORKER_NODE_* fields of the cluster-secrets Vaultwarden item.
+    # WORKER_NODE_* fields of the cluster-secrets Vaultwarden item. The
+    # provisioner reads a changed class list only when it starts: after an
+    # edit here, `kubectl rollout restart -n local-path-storage
+    # deploy/local-path-provisioner`, or new volumes go where they used to.
     nodePathMap: []
     storageClass:
       provisionerName: rancher.io/local-path
