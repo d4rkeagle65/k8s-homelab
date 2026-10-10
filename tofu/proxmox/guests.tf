@@ -252,9 +252,13 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
     cores   = 2
   }
 
+  # The balloon device on with its minimum at the full size: the VM never gives
+  # memory back, and the guest reports its real use to Proxmox. Without the
+  # device (floating = 0) Proxmox counts every page the guest has touched,
+  # file cache included, and shows the VM near 100% used however idle it is.
   memory {
-    dedicated = 8192
-    floating  = 0
+    dedicated = 12288
+    floating  = 12288
   }
 
   efi_disk {
