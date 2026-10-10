@@ -8,4 +8,5 @@ resources:
 - secret-loki-s3.yaml
 - secret-pihole-exporter.yaml
 - secret-pve-exporter.yaml
+- secret-qbittorrent-exporter.yaml
 - pvc-grafana-data.yaml
