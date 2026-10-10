@@ -31,8 +31,12 @@
       `ucd_*` profiles the Synology dashboard selects by)
 - [ ] Project dashboards: exportarr, Garage, Kea/Stork (if 12688 doesn't fit), qBittorrent
       (once its exporter works: `QBITTORRENT_API_KEY`)
-- [ ] Written here: Homelab overview; Drives (writes per drive and per guest, wear); Flux;
-      Home Assistant
+- [x] Written here, Drives (`monitoring/dashboards/`, uid `homelab-drives`): NVMe wear, spare,
+      temperature and errors; writes per host, per local SSD and per guest; the NAS LUNs apart.
+      Local SSDs are the physical drives only (`node_disk_info` path not `ip-*`), so ZFS and LVM
+      volumes and the iSCSI LUNs don't count the same writes twice. Every query checked
+      against Prometheus.
+- [ ] Written here: Homelab overview; Flux; Home Assistant
 - [ ] Homepage
 
 ## Resuming

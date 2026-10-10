@@ -1,0 +1,440 @@
+{
+ "title": "Drives",
+ "uid": "homelab-drives",
+ "tags": [
+  "homelab",
+  "proxmox",
+  "storage"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": true,
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "refresh": "5m",
+ "panels": [
+  {
+   "id": 1,
+   "title": "SSD wear: rated endurance used",
+   "type": "bargauge",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "max by (nodename, device, model) (nvme_percentage_used_ratio * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"}) * 100",
+     "legendFormat": "{{nodename}} {{device}} {{model}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "min": 0,
+     "max": 100,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 70
+       },
+       {
+        "color": "red",
+        "value": 85
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "displayMode": "gradient",
+    "orientation": "horizontal"
+   },
+   "description": "The drive's own estimate of how much of its rated write endurance is used (NVMe 'percentage used'). Past 100% the maker no longer vouches for it."
+  },
+  {
+   "id": 2,
+   "title": "Written in the last 24h, per host (local SSDs)",
+   "type": "stat",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "sum by (nodename) ((increase(node_disk_written_bytes_total{job=\"proxmox-hosts\"}[24h]) * on(instance, device) group_left(model) node_disk_info{job=\"proxmox-hosts\", path!~\"ip-.*\", device=~\"nvme[0-9]+n[0-9]+|sd[a-z]+\"}) * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"})",
+     "legendFormat": "{{nodename}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 40000000000.0
+       },
+       {
+        "color": "red",
+        "value": 80000000000.0
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "colorMode": "background"
+   },
+   "description": "Bytes written to each host's own SSDs over the last day: physical NVMe and SATA drives only, not ZFS volumes, LVM volumes or the NAS's iSCSI LUNs (which would count the same writes twice)."
+  },
+  {
+   "id": 3,
+   "title": "Write rate per SSD",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 8,
+    "w": 24,
+    "h": 9
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "(rate(node_disk_written_bytes_total{job=\"proxmox-hosts\"}[$__rate_interval]) * on(instance, device) group_left(model) node_disk_info{job=\"proxmox-hosts\", path!~\"ip-.*\", device=~\"nvme[0-9]+n[0-9]+|sd[a-z]+\"}) * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"}",
+     "legendFormat": "{{nodename}} {{device}} {{model}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "Bps"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 4,
+   "title": "Written in the last 24h, per SSD",
+   "type": "bargauge",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 17,
+    "w": 12,
+    "h": 9
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "(increase(node_disk_written_bytes_total{job=\"proxmox-hosts\"}[24h]) * on(instance, device) group_left(model) node_disk_info{job=\"proxmox-hosts\", path!~\"ip-.*\", device=~\"nvme[0-9]+n[0-9]+|sd[a-z]+\"}) * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"}",
+     "legendFormat": "{{nodename}} {{device}} {{model}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes"
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "basic"
+   }
+  },
+  {
+   "id": 5,
+   "title": "Top guests by writes, last 24h",
+   "type": "bargauge",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 17,
+    "w": 12,
+    "h": 9
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "topk(15, sum by (name, node) (increase(pve_disk_written_bytes_total[24h]) * on(id) group_left(name, node) pve_guest_info))",
+     "legendFormat": "{{name}} ({{node}})"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes"
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "basic"
+   },
+   "description": "Each guest's disk writes as Proxmox counts them (its virtual disks), wherever they land."
+  },
+  {
+   "id": 6,
+   "title": "Guest write rate",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 26,
+    "w": 12,
+    "h": 9
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "topk(10, sum by (name) (rate(pve_disk_written_bytes_total[$__rate_interval]) * on(id) group_left(name) pve_guest_info))",
+     "legendFormat": "{{name}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "Bps"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 7,
+   "title": "NAS block storage writes (iSCSI LUNs)",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 26,
+    "w": 12,
+    "h": 9
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "(rate(node_disk_written_bytes_total{job=\"proxmox-hosts\"}[$__rate_interval]) * on(instance, device) group_left(model) node_disk_info{job=\"proxmox-hosts\", path=~\"ip-.*iscsi.*\"}) * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"}",
+     "legendFormat": "{{nodename}} {{device}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "Bps"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "description": "Writes to each host's LUN on the NAS (nas-block: Prometheus and Alertmanager). These miss the hosts' SSDs."
+  },
+  {
+   "id": 8,
+   "title": "NVMe available spare",
+   "type": "bargauge",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 35,
+    "w": 8,
+    "h": 8
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "min by (nodename, device) (nvme_available_spare_ratio * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"}) * 100",
+     "legendFormat": "{{nodename}} {{device}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "min": 0,
+     "max": 100,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "yellow",
+        "value": 20
+       },
+       {
+        "color": "green",
+        "value": 50
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "horizontal"
+   }
+  },
+  {
+   "id": 9,
+   "title": "NVMe temperature",
+   "type": "timeseries",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 35,
+    "w": 8,
+    "h": 8
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "max by (nodename, device) (nvme_temperature_celsius * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"})",
+     "legendFormat": "{{nodename}} {{device}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "id": 10,
+   "title": "NVMe media errors and critical warnings",
+   "type": "table",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 35,
+    "w": 8,
+    "h": 8
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "A",
+     "expr": "max by (nodename, device) (nvme_media_errors_total * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"})",
+     "legendFormat": "errors",
+     "instant": true,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "refId": "B",
+     "expr": "max by (nodename, device) (nvme_critical_warning * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"})",
+     "legendFormat": "warning",
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {},
+   "description": "Any value above 0 is worth a look.",
+   "transformations": [
+    {
+     "id": "merge"
+    }
+   ]
+  }
+ ],
+ "description": "SSD wear and writes on the Proxmox hosts, per drive and per guest. Written in git (kubernetes/prod/system/monitoring/dashboards/)."
+}

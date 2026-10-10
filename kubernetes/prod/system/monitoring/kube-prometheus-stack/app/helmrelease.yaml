@@ -176,6 +176,11 @@ spec:
       sidecar:
         dashboards:
           searchNamespace: ALL
+          # A ConfigMap's grafana_folder annotation names its folder
+          # (monitoring/dashboards).
+          folderAnnotation: grafana_folder
+          provider:
+            foldersFromFilesStructure: true
       # Community dashboards from grafana.com, by ID and pinned revision, in
       # folders (QUEUE-dashboards.md). Their data-source inputs map to the
       # fixed UIDs of the Prometheus and Loki data sources.
