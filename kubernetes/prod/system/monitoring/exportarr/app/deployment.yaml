@@ -1,8 +1,8 @@
 # exportarr for the media apps: one container per app, each reading its API
 # (queue, library, health, history) with its own key. Bookshelf is a Readarr
 # fork and uses exportarr's readarr mode, which later exportarr releases drop:
-# stay on 2.3.0 while Bookshelf is in use. Whisparr joins once its key is in
-# Vaultwarden.
+# stay on 2.3.0 while Bookshelf is in use. Whisparr is a Sonarr fork and uses
+# exportarr's sonarr mode.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -122,6 +122,24 @@ spec:
           containerPort: 9711
         securityContext: *container
         resources: *resources
+      - name: whisparr
+        image: ghcr.io/onedr0p/exportarr:v2.3.0
+        args: [sonarr]
+        env:
+        - name: PORT
+          value: "9712"
+        - name: URL
+          value: http://whisparr.media.svc.${CLUSTER_DOMAIN}:6969
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: exportarr
+              key: whisparr
+        ports:
+        - name: whisparr
+          containerPort: 9712
+        securityContext: *container
+        resources: *resources
 ---
 apiVersion: v1
 kind: Service
@@ -148,6 +166,9 @@ spec:
   - name: bookshelf
     port: 9711
     targetPort: bookshelf
+  - name: whisparr
+    port: 9712
+    targetPort: whisparr
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -171,5 +192,8 @@ spec:
     interval: 120s
     scrapeTimeout: 60s
   - port: bookshelf
+    interval: 120s
+    scrapeTimeout: 60s
+  - port: whisparr
     interval: 120s
     scrapeTimeout: 60s
