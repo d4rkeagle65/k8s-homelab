@@ -170,30 +170,30 @@ spec:
             mode: cluster
           bookmarks.yaml: |
             - Quick links:
-                - Drives:
-                    - icon: grafana.png
-                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/d/homelab-drives
-                - Logs:
-                    - icon: loki.png
-                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/a/grafana-lokiexplore-app/explore
-                - Metrics:
-                    - icon: prometheus.png
-                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/explore
-                - Alerts:
-                    - icon: alertmanager.png
-                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/alerting/list
+                - Semaphore:
+                    - icon: semaphore.png
+                      href: https://semaphore.${BASE_DOMAIN}
+                - Dockhand:
+                    - icon: dockhand.png
+                      href: https://dockhand.${BASE_DOMAIN}
                 - Proxmox:
                     - icon: proxmox.png
                       href: https://${PVE_API_HOST}:8006
-                - Authentik admin:
+                - Grafana:
+                    - icon: grafana.png
+                      href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                - Organizr:
+                    - icon: organizr.png
+                      href: https://organizr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                - Home Assistant:
+                    - icon: home-assistant.png
+                      href: https://homeassistant.${BASE_DOMAIN}
+                - Authentik:
                     - icon: authentik.png
-                      href: https://auth.${BASE_DOMAIN}/if/admin/
-                - Cloudflare:
-                    - icon: cloudflare.png
-                      href: https://dash.cloudflare.com
+                      href: https://auth.${BASE_DOMAIN}
                 - GitHub:
                     - icon: github.png
-                      href: https://github.com
+                      href: https://github.com/d4rkeagle65/k8s-homelab
           docker.yaml: |
             {}
           custom.css: ""
@@ -647,6 +647,12 @@ spec:
                     description: Time tracking
                     namespace: manictime
                     app: manictime-server
+                - Organizr:
+                    icon: organizr.png
+                    href: https://organizr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Apps in tabs
+                    namespace: organizr
+                    app: organizr
                 - Homepage:
                     icon: homepage.png
                     description: This page

@@ -1,0 +1,14 @@
+# Organizr's settings, users and tabs (SQLite) and its copy of the app's code.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: organizr-config
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 1Gi
