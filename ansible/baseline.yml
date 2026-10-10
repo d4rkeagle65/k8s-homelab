@@ -18,6 +18,10 @@
 # In check mode (--check) it reports the missing packages, the exporters and
 # whether the bash setup differs, and changes nothing.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: all
+
 - name: The baseline on every Debian host
   hosts: all
   gather_facts: true

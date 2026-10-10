@@ -12,6 +12,10 @@
 # In check mode (--check) it runs the checks and lists the pending upgrades,
 # and changes nothing; `pihole -up --check-only` reports Pi-hole's own.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: pihole
+
 - name: Update the Pi-holes one at a time
   hosts: pihole
   serial: 1

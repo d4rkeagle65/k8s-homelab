@@ -23,6 +23,10 @@
 # In check mode (--check) it reports what it would change and runs the checks
 # that don't depend on those changes.
 
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: all
+
 - name: A named admin login with sudo
   hosts: all
   gather_facts: true

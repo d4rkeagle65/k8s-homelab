@@ -1,0 +1,20 @@
+# Imported first by each playbook: stops the run when the inventory gives it
+# no hosts in the group it works on. Ansible itself only warns when an
+# inventory fails to parse (a tab in Semaphore's YAML, say) and then runs the
+# plays against nothing, exiting 0, so the run would look like a success.
+#
+#   - ansible.builtin.import_playbook: require-hosts.yml
+#     vars:
+#       required_group: proxmox
+
+- name: The inventory has hosts to work on
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: "{{ required_group }} has hosts"
+      ansible.builtin.assert:
+        that: groups[required_group] | default([]) | length > 0
+        fail_msg: >-
+          The inventory has no hosts in {{ required_group }}: either it failed to parse
+          (the warnings above say why) or it lacks that group. Nothing was run.
+        success_msg: "{{ groups[required_group] | length }} host(s) in {{ required_group }}"
