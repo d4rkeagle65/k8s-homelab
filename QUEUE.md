@@ -14,7 +14,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 4, 6 and 9 are done.
+assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
@@ -33,9 +33,6 @@ assigned (items below refer to them); 1 to 4, 6 and 9 are done.
      (Docker supports live-restore across minor and patch upgrades, not major ones; a major
      upgrade is reported for a run by hand). Before and after, it reads the running containers
      and stops if any that ran before is gone.
-8. **Keep immich and manictime up through a node loss** (item below): `instances: 2` doubles
-   their database disk on another worker. With in-place updates (1.) the remaining downtime is
-   a node's drain. Recommended: yes for immich (photos), optional for manictime.
 10. **The two test folders** (item below): move `scripts/tests` under `tests/` with one runner,
     or keep both and say why in each folder's CLAUDE.md. Recommended: keep both; the generator's
     suite needs its own fixtures and runs offline, the gate is repo-wide.
@@ -81,13 +78,10 @@ assigned (items below refer to them); 1 to 4, 6 and 9 are done.
 
 ## Later
 
-- **Keep immich and manictime up through a node loss** (decision 8). Today
-  their single database copy sits on one worker's disk.
-  - Set `instances: 2` on `immich-postgres` and `manictime-pg`, for automatic
-    failover in under a minute.
-  - Shorten the app pods' `node.kubernetes.io/unreachable`/`not-ready`
-    tolerations from the default 5 minutes to about 30 seconds.
-  - Cost: double the database disk on another worker.
+- **Faster recovery from a node loss:** every database now fails over in under a minute, but
+  the app pods on a lost node wait out the default 5-minute
+  `node.kubernetes.io/unreachable`/`not-ready` tolerations before moving. Shortening those to
+  about 30 seconds on the apps that matter (immich first) closes most of the gap.
 - **Proxmox host cleanup.**
   - Once kernel 7.0 has run cleanly for a couple of weeks (from about 2026-10-16), set
     `remove_old_kernels: true` on the Proxmox inventory and run the upgrade template: with the

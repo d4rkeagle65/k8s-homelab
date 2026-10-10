@@ -181,7 +181,7 @@ differ.
 
 What a run does to the workloads: each database cluster with two instances keeps running
 (its primary is switched over before the drain, and its replica waits for the node); a
-single-instance one (immich, manictime) is down while its node updates. If a run stops
+single-instance one (there are none now) would be down while its node updates. If a run stops
 partway, the node it was on stays cordoned: fix the cause, then run it again, or
 `kubectl uncordon` it.
 
