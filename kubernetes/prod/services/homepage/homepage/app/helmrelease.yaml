@@ -1,0 +1,340 @@
+# Homepage, the homelab's start page: its services and their widgets from
+# git (configMaps below; the chart restarts it when they change), behind its
+# own Authentik login (the homepage blueprint in authentik-extras) and only on
+# the private networks. QUEUE-dashboards.md.
+#
+# The config passes through Helm's templating (app-template's configMaps), so
+# each of Homepage's own {{HOMEPAGE_VAR_*}} placeholders is written as a Helm
+# string literal that renders to it.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: homepage
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: homepage
+      homelab.local/category: services
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: ghcr.io/gethomepage/homepage
+              tag: v2.4.0
+            env:
+              HOMEPAGE_ALLOWED_HOSTS: home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+              HOMEPAGE_EXTERNAL_URL: https://home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+              HOMEPAGE_AUTH_ENABLED: "true"
+              HOMEPAGE_OIDC_ISSUER: https://auth.${BASE_DOMAIN}/application/o/homepage/
+              HOMEPAGE_OIDC_CLIENT_ID: homepage
+              HOMEPAGE_OIDC_NAME: Authentik
+              HOMEPAGE_OIDC_AUTO_LOGIN: "true"
+            envFrom:
+              - secretRef:
+                  name: homepage
+            resources:
+              requests: {cpu: 20m, memory: 128Mi}
+              limits: {memory: 384Mi}
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/healthcheck
+                    port: 3000
+                  periodSeconds: 30
+              readiness: *probe
+    # The kubernetes widget reads nodes, pods and their metrics.
+    serviceAccount:
+      create: true
+    rbac:
+      roles:
+        homepage:
+          type: ClusterRole
+          rules:
+            - apiGroups: [""]
+              resources: [namespaces, pods, nodes]
+              verbs: [get, list]
+            - apiGroups: [metrics.k8s.io]
+              resources: [nodes, pods]
+              verbs: [get, list]
+      bindings:
+        homepage:
+          type: ClusterRoleBinding
+          roleRef:
+            identifier: homepage
+          subjects:
+            - identifier: default
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 3000
+    ingress:
+      main:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+          - host: home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: homepage-tls
+            hosts:
+              - home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    configMaps:
+      config:
+        data:
+          settings.yaml: |
+            title: Homelab
+            headerStyle: boxed
+            statusStyle: dot
+            layout:
+              Infrastructure: {style: row, columns: 3}
+              Monitoring: {style: row, columns: 3}
+              Media: {style: row, columns: 4}
+              Home: {style: row, columns: 3}
+              Tools: {style: row, columns: 3}
+          widgets.yaml: |
+            - kubernetes:
+                cluster:
+                  show: true
+                  cpu: true
+                  memory: true
+                  showLabel: true
+                  label: cluster
+                nodes:
+                  show: true
+                  cpu: true
+                  memory: true
+                  showLabel: true
+            - datetime:
+                text_size: md
+                format:
+                  dateStyle: long
+                  timeStyle: short
+          kubernetes.yaml: |
+            mode: cluster
+          bookmarks.yaml: |
+            []
+          docker.yaml: |
+            {}
+          custom.css: ""
+          custom.js: ""
+          services.yaml: |
+            - Infrastructure:
+                - Proxmox:
+                    icon: proxmox.png
+                    href: https://${PVE_API_HOST}:8006
+                    description: Virtualisation cluster
+                    widget:
+                      type: proxmox
+                      url: https://${PVE_API_HOST}:8006
+                      username: prometheus@pve!exporter
+                      password: "{{ "{{HOMEPAGE_VAR_PVE_TOKEN}}" }}"
+                - Pi-hole 1:
+                    icon: pi-hole.png
+                    href: https://pihole.${BASE_DOMAIN}/admin
+                    description: DNS and ad blocking
+                    widget:
+                      type: pihole
+                      url: http://${PIHOLE1_MGMT_ADDRESS}
+                      version: 6
+                      key: "{{ "{{HOMEPAGE_VAR_PIHOLE1_PASSWORD}}" }}"
+                - Pi-hole 2:
+                    icon: pi-hole.png
+                    description: DNS and ad blocking (replica)
+                    widget:
+                      type: pihole
+                      url: http://${PIHOLE2_MGMT_ADDRESS}
+                      version: 6
+                      key: "{{ "{{HOMEPAGE_VAR_PIHOLE2_PASSWORD}}" }}"
+                - Stork:
+                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/isc-kea.png
+                    href: https://stork.${BASE_DOMAIN}
+                    description: Kea DHCP
+                - Dockhand:
+                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dockhand.png
+                    href: https://dockhand.${BASE_DOMAIN}
+                    description: Docker stacks
+                - Semaphore:
+                    icon: semaphore.png
+                    href: https://semaphore.${BASE_DOMAIN}
+                    description: Ansible and OpenTofu
+                - Vaultwarden:
+                    icon: vaultwarden.png
+                    href: https://vaultwarden.${BASE_DOMAIN}
+                    description: Passwords
+                - Databasus:
+                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/databasus.png
+                    href: https://databasus.${BASE_DOMAIN}
+                    description: Database backups
+                - Authentik:
+                    icon: authentik.png
+                    href: https://auth.${BASE_DOMAIN}
+                    description: Single sign-on
+            - Monitoring:
+                - Grafana:
+                    icon: grafana.png
+                    href: https://grafana.${BASE_DOMAIN}
+                    description: Dashboards, metrics and logs
+                    widget:
+                      type: grafana
+                      version: 2
+                      url: http://kube-prometheus-stack-grafana.monitoring.svc.${CLUSTER_DOMAIN}:80
+                      username: "{{ "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}" }}"
+                      password: "{{ "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}" }}"
+            - Media:
+                - Jellyseerr:
+                    icon: jellyseerr.png
+                    href: https://jellyseerr.${BASE_DOMAIN}
+                    description: Requests
+                - Emby:
+                    icon: emby.png
+                    href: https://emby.${BASE_DOMAIN}
+                    description: Media server
+                - Sonarr:
+                    icon: sonarr.png
+                    href: https://sonarr.${BASE_DOMAIN}
+                    widget:
+                      type: sonarr
+                      url: http://sonarr.media.svc.${CLUSTER_DOMAIN}:8989
+                      key: "{{ "{{HOMEPAGE_VAR_SONARR_KEY}}" }}"
+                      enableQueue: true
+                - Radarr:
+                    icon: radarr.png
+                    href: https://radarr.${BASE_DOMAIN}
+                    widget:
+                      type: radarr
+                      url: http://radarr.media.svc.${CLUSTER_DOMAIN}:7878
+                      key: "{{ "{{HOMEPAGE_VAR_RADARR_KEY}}" }}"
+                      enableQueue: true
+                - Lidarr:
+                    icon: lidarr.png
+                    href: https://lidarr.${BASE_DOMAIN}
+                    widget:
+                      type: lidarr
+                      url: http://lidarr.media.svc.${CLUSTER_DOMAIN}:8686
+                      key: "{{ "{{HOMEPAGE_VAR_LIDARR_KEY}}" }}"
+                - Bookshelf:
+                    icon: readarr.png
+                    href: https://bookshelf.${BASE_DOMAIN}
+                    widget:
+                      type: readarr
+                      url: http://bookshelf.media.svc.${CLUSTER_DOMAIN}:8787
+                      key: "{{ "{{HOMEPAGE_VAR_BOOKSHELF_KEY}}" }}"
+                - Prowlarr:
+                    icon: prowlarr.png
+                    href: https://prowlarr.${BASE_DOMAIN}
+                    widget:
+                      type: prowlarr
+                      url: http://prowlarr.media.svc.${CLUSTER_DOMAIN}:9696
+                      key: "{{ "{{HOMEPAGE_VAR_PROWLARR_KEY}}" }}"
+                - Whisparr:
+                    icon: whisparr.png
+                    href: https://whisparr.${BASE_DOMAIN}
+                - qBittorrent:
+                    icon: qbittorrent.png
+                    href: https://qbittorrent.${BASE_DOMAIN}
+                    widget:
+                      type: qbittorrent
+                      url: http://qbittorrent.media.svc.${CLUSTER_DOMAIN}:8080
+                      username: "{{ "{{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}" }}"
+                      password: "{{ "{{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}" }}"
+                - SABnzbd:
+                    icon: sabnzbd.png
+                    href: https://sabnzbd.${BASE_DOMAIN}
+                - Tdarr:
+                    icon: tdarr.png
+                    href: https://tdarr.${BASE_DOMAIN}
+            - Home:
+                - Home Assistant:
+                    icon: home-assistant.png
+                    href: https://homeassistant.${BASE_DOMAIN}
+                    widget:
+                      type: homeassistant
+                      url: http://homeassistant.homeassistant.svc.${CLUSTER_DOMAIN}:8123
+                      key: "{{ "{{HOMEPAGE_VAR_HASS_TOKEN}}" }}"
+                - Immich:
+                    icon: immich.png
+                    href: https://immich.${BASE_DOMAIN}
+                    widget:
+                      type: immich
+                      version: 2
+                      url: http://immich-server.immich.svc.${CLUSTER_DOMAIN}:2283
+                      key: "{{ "{{HOMEPAGE_VAR_IMMICH_KEY}}" }}"
+                - Immich Power Tools:
+                    icon: immich.png
+                    href: https://immichpt.${BASE_DOMAIN}
+                - Baby Buddy:
+                    icon: baby-buddy.png
+                    href: https://bb.${BASE_DOMAIN}
+                - Mealie:
+                    icon: mealie.png
+                    href: https://mealie.${BASE_DOMAIN}
+            - Tools:
+                - n8n:
+                    icon: n8n.png
+                    href: https://n8n.${BASE_DOMAIN}
+                    description: Workflow automation
+                - Obsidian sync:
+                    icon: obsidian.png
+                    href: https://obsidian.${BASE_DOMAIN}
+                - ManicTime:
+                    icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/manictime.png
+                    href: https://manictime.${BASE_DOMAIN}
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /app/config/settings.yaml
+            subPath: settings.yaml
+            readOnly: true
+          - path: /app/config/widgets.yaml
+            subPath: widgets.yaml
+            readOnly: true
+          - path: /app/config/kubernetes.yaml
+            subPath: kubernetes.yaml
+            readOnly: true
+          - path: /app/config/bookmarks.yaml
+            subPath: bookmarks.yaml
+            readOnly: true
+          - path: /app/config/docker.yaml
+            subPath: docker.yaml
+            readOnly: true
+          - path: /app/config/custom.css
+            subPath: custom.css
+            readOnly: true
+          - path: /app/config/custom.js
+            subPath: custom.js
+            readOnly: true
+          - path: /app/config/services.yaml
+            subPath: services.yaml
+            readOnly: true
+      # Homepage writes its logs and caches beside its config.
+      logs:
+        type: emptyDir
+        globalMounts:
+          - path: /app/config/logs

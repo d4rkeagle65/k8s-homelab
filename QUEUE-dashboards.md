@@ -37,7 +37,14 @@
       volumes and the iSCSI LUNs don't count the same writes twice. Every query checked
       against Prometheus.
 - [ ] Written here: Homelab overview; Flux; Home Assistant
-- [ ] Homepage
+- [x] Homepage built (`services/homepage/`): v2.4.0 through app-template, its config inline (the
+      chart restarts it on a change), its own OIDC login through Authentik (the homepage
+      blueprint, authentik Admins only) and only on the private networks, at `home.<domain>`.
+      29 services in five groups; widgets for Proxmox, both Pi-holes, Grafana, Sonarr, Radarr,
+      Lidarr, Bookshelf, Prowlarr, qBittorrent, Home Assistant and Immich, and the cluster's
+      resources. qBittorrent's widget may fail like its exporter (qBittorrent 5.2 wants an API
+      key); Immich's uses the Power Tools key, which may lack the statistics permission.
+- [ ] Homepage live: every widget shows data
 
 ## Resuming
 

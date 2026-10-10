@@ -109,6 +109,11 @@ spec:
           secretKeyRef:
             key: client-secret
             name: authentik-grafana-oidc
+      - name: HOMEPAGE_OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: client-secret
+            name: authentik-homepage-oidc
       - name: SEMAPHORE_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
