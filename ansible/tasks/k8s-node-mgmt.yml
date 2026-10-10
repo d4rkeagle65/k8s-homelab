@@ -1,0 +1,200 @@
+# The node's management address, reachable from beyond the management network:
+# replies from that address leave through the management network's gateway
+# (a routing table and a rule, re-added by an if-up.d hook each time the
+# interface comes up, since Proxmox rewrites /etc/network/interfaces), and,
+# once that is in place, sshd listening on that address only.
+#
+# Variables (a Semaphore variable group):
+#   mgmt_gateway    the management network's gateway; empty = leave routing alone
+#   mgmt_ssh_only   true = sshd listens on the management address only
+#                   (needs mgmt_gateway, and the inventory's ansible_host to be
+#                   that address)
+#   mgmt_interface  default eth1; mgmt_table default 250
+# With both off it still reports what it finds.
+
+- name: Settle the management settings
+  ansible.builtin.set_fact:
+    mgmt_if: "{{ mgmt_interface | default('eth1') }}"
+    mgmt_tbl: "{{ mgmt_table | default(250) | int }}"
+    mgmt_gw: "{{ mgmt_gateway | default('') | trim }}"
+    mgmt_ssh: "{{ mgmt_ssh_only | default(false) | bool }}"
+    mgmt_rule_priority: 1001
+    mgmt_hook: /etc/network/if-up.d/mgmt-return
+    mgmt_sshd_conf: /etc/ssh/sshd_config.d/20-listen-mgmt.conf
+
+- name: Read the management interface's address and subnet
+  ansible.builtin.command: ip -4 route show dev {{ mgmt_if }} proto kernel scope link
+  register: mgmt_link
+  changed_when: false
+  check_mode: false
+
+- name: Work out the management address and subnet
+  ansible.builtin.set_fact:
+    mgmt_subnet: "{{ (mgmt_link.stdout_lines | first | default('')).split() | first | default('') }}"
+    mgmt_address: "{{ mgmt_link.stdout | regex_search('src ([0-9.]+)', '\\1') | first | default('') }}"
+
+- name: The management interface has one address
+  ansible.builtin.assert:
+    that:
+      - mgmt_link.stdout_lines | length == 1
+      - mgmt_subnet | length > 0
+      - mgmt_address | length > 0
+    fail_msg: >-
+      {{ mgmt_if }} should have exactly one IPv4 subnet; found:
+      {{ mgmt_link.stdout_lines | join('; ') or 'none' }}
+    quiet: true
+
+- name: Read the reply routing and sshd's listening sockets
+  ansible.builtin.shell: |
+    set -e
+    echo "rule: $(ip -4 rule show priority {{ mgmt_rule_priority }})"
+    echo "table: $(ip -4 route show table {{ mgmt_tbl }} 2>/dev/null | tr '\n' ';')"
+    echo "sshd: $(ss -Hltn 'sport = :22' | awk '{print $4}' | sort | tr '\n' ' ')"
+  register: mgmt_before
+  changed_when: false
+  check_mode: false
+
+- name: Report the management access as found
+  ansible.builtin.debug:
+    msg:
+      - "{{ mgmt_if }}: {{ mgmt_address }} on {{ mgmt_subnet }}"
+      - "{{ mgmt_before.stdout_lines }}"
+      - >-
+        Routing: {{ 'set to ' ~ mgmt_gw if mgmt_gw else 'off (mgmt_gateway is empty)' }};
+        sshd on the management address only: {{ 'yes' if mgmt_ssh else 'off' }}
+
+- name: Reply routing through the management gateway
+  when: mgmt_gw | length > 0
+  block:
+    - name: The gateway is on the management subnet
+      ansible.builtin.assert:
+        that: mgmt_gw is match('^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+        fail_msg: "mgmt_gateway '{{ mgmt_gw }}' isn't an IPv4 address"
+        quiet: true
+
+    - name: Write the hook that adds the routing whenever the interface comes up
+      ansible.builtin.copy:
+        dest: "{{ mgmt_hook }}"
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # Managed by Ansible (k8s-node-update.yml, tasks/k8s-node-mgmt.yml).
+          # Replies from the management address leave through the management gateway.
+          [ "$IFACE" = "{{ mgmt_if }}" ] || exit 0
+          ip -4 route replace {{ mgmt_subnet }} dev {{ mgmt_if }} src {{ mgmt_address }} table {{ mgmt_tbl }}
+          ip -4 route replace default via {{ mgmt_gw }} dev {{ mgmt_if }} table {{ mgmt_tbl }}
+          ip -4 rule del priority {{ mgmt_rule_priority }} 2>/dev/null || true
+          ip -4 rule add from {{ mgmt_address }} lookup {{ mgmt_tbl }} priority {{ mgmt_rule_priority }}
+      register: mgmt_hook_written
+
+    - name: The routing is in place as the hook would set it
+      ansible.builtin.set_fact:
+        mgmt_routing_ok: >-
+          {{ ('from ' ~ mgmt_address ~ ' lookup ' ~ mgmt_tbl) in mgmt_before.stdout and
+             ('default via ' ~ mgmt_gw ~ ' dev ' ~ mgmt_if) in mgmt_before.stdout and
+             (mgmt_subnet ~ ' dev ' ~ mgmt_if) in mgmt_before.stdout }}
+
+    - name: Apply the routing now
+      ansible.builtin.command: "{{ mgmt_hook }}"
+      environment:
+        IFACE: "{{ mgmt_if }}"
+      when: mgmt_hook_written is changed or not mgmt_routing_ok
+
+    - name: Read the routing back
+      ansible.builtin.shell: |
+        ip -4 rule show priority {{ mgmt_rule_priority }}
+        ip -4 route show table {{ mgmt_tbl }}
+        ip -4 route get 192.0.2.1 from {{ mgmt_address }}
+      register: mgmt_after
+      changed_when: false
+      check_mode: false
+      failed_when: >-
+        mgmt_after.rc != 0 or (not ansible_check_mode and not (
+          ('from ' ~ mgmt_address ~ ' lookup ' ~ mgmt_tbl) in mgmt_after.stdout and
+          mgmt_after.stdout is search('192\\.0\\.2\\.1 from ' ~ (mgmt_address | regex_escape) ~ ' via ' ~ (mgmt_gw | regex_escape) ~ ' dev ' ~ mgmt_if)))
+
+- name: sshd on the management address only
+  when: mgmt_ssh
+  block:
+    - name: The reply routing is set, and Ansible reaches this node on that address
+      ansible.builtin.assert:
+        that:
+          - mgmt_gw | length > 0
+          - ansible_host | default(inventory_hostname) == mgmt_address
+        fail_msg: >-
+          mgmt_ssh_only needs mgmt_gateway set and the inventory's ansible_host to be the
+          management address ({{ mgmt_address }}; it is
+          {{ ansible_host | default(inventory_hostname) }}), or this run would lock itself out.
+        quiet: true
+
+    - name: Start sshd once the network is up, so the address exists to bind
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/ssh.service.d/20-after-network-online.conf
+        mode: "0644"
+        content: |
+          # Managed by Ansible (tasks/k8s-node-mgmt.yml): sshd binds the management address.
+          [Unit]
+          Wants=network-online.target
+          After=network-online.target
+      register: mgmt_ssh_unit
+
+    - name: Reload systemd
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: mgmt_ssh_unit is changed
+
+    - name: Listen on the management address only
+      ansible.builtin.copy:
+        dest: "{{ mgmt_sshd_conf }}"
+        mode: "0644"
+        content: |
+          # Managed by Ansible (tasks/k8s-node-mgmt.yml).
+          ListenAddress {{ mgmt_address }}
+      register: mgmt_sshd_written
+
+    # A setting sshd rejects is taken out again before anything restarts it.
+    - name: The whole sshd configuration is valid
+      when: mgmt_sshd_written is changed and not ansible_check_mode
+      block:
+        - name: Test the sshd configuration
+          ansible.builtin.command: sshd -t
+          changed_when: false
+      rescue:
+        - name: Take the rejected setting out
+          ansible.builtin.file:
+            path: "{{ mgmt_sshd_conf }}"
+            state: absent
+
+        - name: Stop here
+          ansible.builtin.fail:
+            msg: sshd rejected {{ mgmt_sshd_conf }}; it was removed and sshd left as it was.
+
+    - name: Restart sshd (open sessions stay up)
+      ansible.builtin.systemd_service:
+        name: ssh.service
+        state: restarted
+      when: mgmt_sshd_written is changed
+
+    - name: Read sshd's listening sockets back
+      ansible.builtin.command: ss -Hltn 'sport = :22'
+      register: mgmt_ssh_after
+      changed_when: false
+      check_mode: false
+      failed_when: >-
+        not ansible_check_mode and
+        (mgmt_ssh_after.stdout_lines | map('split') | map(attribute=3) | list) != [mgmt_address ~ ':22']
+
+- name: Leave sshd on every address
+  when: not mgmt_ssh
+  block:
+    - name: Remove the management-only listen setting
+      ansible.builtin.file:
+        path: "{{ mgmt_sshd_conf }}"
+        state: absent
+      register: mgmt_sshd_removed
+
+    - name: Restart sshd (open sessions stay up)
+      ansible.builtin.systemd_service:
+        name: ssh.service
+        state: restarted
+      when: mgmt_sshd_removed is changed

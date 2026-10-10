@@ -14,7 +14,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 4 and 9 are done.
+assigned (items below refer to them); 1 to 4, 6 and 9 are done.
 
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
@@ -22,12 +22,6 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
    (b) the reservations move to a database that survives the Docker VM (a CloudNativePG
    cluster, reached through a LoadBalancer address); (c) leave HA for leases only. Recommended:
    (b), with the partner on the second Pi-hole's host.
-6. **SSH to the nodes on the management network only:** the nodes' `eth1` has no gateway, so
-   today only machines on that network can reach their management addresses (the PC's attempts
-   time out or reset). Proposed: give each node a routing table for replies from its `eth1`
-   address via the management network's gateway (as the Docker VM has), then `sshd` listens on
-   that address only, both from `k8s-node-update.yml`, off until set. Needed: the management
-   network's gateway address, and a yes.
 7. **Docker's live-restore on the Docker VM, then Docker upgrades from Semaphore.** Agreed
    2026-10-06; to build in `docker-vm-update.yml`, both parts off until set:
    - `docker_live_restore: true` merges `"live-restore": true` into `/etc/docker/daemon.json`
@@ -47,6 +41,11 @@ assigned (items below refer to them); 1 to 4 and 9 are done.
     suite needs its own fixtures and runs offline, the gate is repo-wide.
 
 ## Next
+
+- **The nodes' management access, built and off:** `ansible/tasks/k8s-node-mgmt.yml` (run by
+  `k8s-node-update.yml`). Set `mgmt_gateway` in the "Kubernetes" variable group, run the
+  update, and SSH from the PC to a node's management address; then `mgmt_ssh_only: true` and
+  run again. Until then the management addresses answer only on the management network.
 
 - **Kubernetes 1.37, when its patches settle:** add bundle 1.37 to `ansible/k8s-bundles.yml`
   (copy 1.36; versions and each add-on's range from its support page). Calico 3.33 is the one
