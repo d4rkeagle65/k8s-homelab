@@ -300,6 +300,16 @@ def test_shared_address_space_is_private():
     assert ss.classify_ip("100.63.255.255") == "public"
 
 
+
+def test_ip_candidates_skip_longer_dotted_numbers():
+    """An SNMP OID or a version string isn't an address; an address in
+    prose, even ending a sentence, still is."""
+    assert ss.find_ip_addresses_in_text("oid: 1.3.6.1.4.1.2021.4.5") == []
+    assert ss.find_ip_addresses_in_text("walk 1.3.6.1.2.1.2") == []
+    assert ss.find_ip_addresses_in_text("version 1.2.3.4.5") == []
+    assert ss.find_ip_addresses_in_text("reach 8.8.8.8.") == [("8.8.8.8", "public")]
+    assert ss.find_ip_addresses_in_text("url http://8.8.4.4:53/x") == [("8.8.4.4", "public")]
+
 _PLACEHOLDER_RE = re.compile(r"^\$\{[A-Za-z_][A-Za-z0-9_]*\}$")
 _HOSTNAME_LABEL = "kubernetes.io/hostname"
 # local-path-provisioner's catch-all entry; a keyword, not a node.
