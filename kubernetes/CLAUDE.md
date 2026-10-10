@@ -92,7 +92,8 @@ Apps made before Dockhand's were made in Authentik's UI and live only in its dat
   worker mounts and reapplies, reverting UI edits. Its client secret is a Secret in
   `authentik-extras` (a base64 Vaultwarden field, as for every promoted Secret), passed to the
   worker as an env var (`worker.env`, without the `AUTHENTIK_` prefix, which Authentik reads as
-  its own settings) and read with `!Env`.
+  its own settings) and read with `!Env`. A blueprint reading a new variable fails its first
+  apply and isn't retried: re-apply it once the restarted worker is up.
 - **Keep both `svc`s in an in-cluster service name.** The cluster domain itself starts with
   `svc.`, and `${CLUSTER_DOMAIN}` holds the whole of it, so a name is
   `<service>.<namespace>.svc.${CLUSTER_DOMAIN}`, which comes out as

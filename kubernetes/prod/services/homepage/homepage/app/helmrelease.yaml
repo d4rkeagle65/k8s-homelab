@@ -53,10 +53,17 @@ spec:
                 enabled: true
                 custom: true
                 spec:
+                  # The kubelet would send the pod's IP as Host, which Homepage's
+                  # host check refuses (400); localhost:3000 is always allowed.
                   httpGet:
                     path: /api/healthcheck
                     port: 3000
+                    httpHeaders:
+                      - name: Host
+                        value: localhost:3000
+                  initialDelaySeconds: 10
                   periodSeconds: 30
+                  timeoutSeconds: 5
               readiness: *probe
     # The kubernetes widget reads nodes, pods and their metrics.
     serviceAccount:
