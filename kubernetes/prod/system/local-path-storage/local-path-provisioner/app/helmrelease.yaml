@@ -1,7 +1,8 @@
-# Local-disk volumes for the CloudNativePG databases, via the `local-db`
-# StorageClass. Each worker LXC has a dedicated 128G ZFS dataset mounted at
-# /opt/local-path-provisioner; a volume is a directory on the dataset of the
-# node its pod runs on. CNPG's own replication covers losing a node.
+# Node-local volumes: `local-db` for the CloudNativePG databases (each worker
+# LXC's dedicated 128G ZFS dataset at /opt/local-path-provisioner) and
+# `nas-block` for Prometheus (each worker's iSCSI LUN on the NAS at
+# /opt/nas-block). A volume is a directory on the node its pod runs on; the
+# apps' own replication (CNPG, two Prometheus replicas) covers losing a node.
 # (Longhorn can't run in these LXC nodes: ZFS has no file-extent support and
 # the containers have no block-device access.)
 apiVersion: helm.toolkit.fluxcd.io/v2
@@ -28,24 +29,53 @@ spec:
     helperImage:
       # Pinned rather than the chart's `latest`.
       tag: 1.37.0
-    nodePathMap:
-    # Nodes not listed (the control planes, with 8G root disks) are refused.
-    # Node names are WORKER_NODE_* fields of the cluster-secrets Vaultwarden item.
-    - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
-      paths: []
-    - node: ${WORKER_NODE_1}
-      paths:
-      - /opt/local-path-provisioner
-    - node: ${WORKER_NODE_2}
-      paths:
-      - /opt/local-path-provisioner
-    - node: ${WORKER_NODE_3}
-      paths:
-      - /opt/local-path-provisioner
+    # One provisioner, two classes, each a directory per volume on a worker:
+    # local-db on the worker's own ZFS dataset (/opt/local-path-provisioner),
+    # nas-block on its iSCSI LUN on the NAS (/opt/nas-block, a mount point each
+    # worker has; ansible/tasks/proxmox-nas-block.yml), for data that writes
+    # constantly and needn't sit on the hosts' SSDs. Nodes not listed (the
+    # control planes, with 8G root disks) are refused. Node names are
+    # WORKER_NODE_* fields of the cluster-secrets Vaultwarden item.
+    nodePathMap: []
     storageClass:
-      defaultClass: false
-      name: local-db
       provisionerName: rancher.io/local-path
-      # Deleting a claim (or a CNPG Cluster) never deletes its data.
-      reclaimPolicy: Retain
-      volumeBindingMode: WaitForFirstConsumer
+    storageClassConfigs:
+      local-db:
+        storageClass:
+          create: true
+          defaultClass: false
+          defaultVolumeType: hostPath
+          # Deleting a claim (or a CNPG Cluster) never deletes its data.
+          reclaimPolicy: Retain
+          volumeBindingMode: WaitForFirstConsumer
+        nodePathMap:
+        - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
+          paths: []
+        - node: ${WORKER_NODE_1}
+          paths:
+          - /opt/local-path-provisioner
+        - node: ${WORKER_NODE_2}
+          paths:
+          - /opt/local-path-provisioner
+        - node: ${WORKER_NODE_3}
+          paths:
+          - /opt/local-path-provisioner
+      nas-block:
+        storageClass:
+          create: true
+          defaultClass: false
+          defaultVolumeType: hostPath
+          reclaimPolicy: Retain
+          volumeBindingMode: WaitForFirstConsumer
+        nodePathMap:
+        - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
+          paths: []
+        - node: ${WORKER_NODE_1}
+          paths:
+          - /opt/nas-block
+        - node: ${WORKER_NODE_2}
+          paths:
+          - /opt/nas-block
+        - node: ${WORKER_NODE_3}
+          paths:
+          - /opt/nas-block
