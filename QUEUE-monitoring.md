@@ -118,8 +118,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       with the packaged SMART and NVMe collectors on the Proxmox hosts; Prometheus finds the
       hosts through `proxmox-hosts.<domain>` (written by `proxmox-acme.yml`) and the Docker VM
       by its management name. Not yet: cAdvisor for the Docker VM's containers.
-- [ ] Phase 3C live: `host_exporter_address` on the Docker VM's inventory line, `host_exporters:
-      true`, a baseline run, a Proxmox host-settings run (the shared name), every host up
+- [ ] Phase 3C live: `host_exporters: true` and `management_network` in the variable group, a
+      baseline run, a Proxmox host-settings run (the shared name), every host up
 - [ ] Phase 3D: the NASes (SNMP, `SNMP_COMMUNITY`), the Pi-holes, Garage, the *arr apps,
       qBittorrent, Home Assistant
 - [ ] Phase 4

@@ -284,7 +284,7 @@ has its `nas-block` volumes copied to that host's LUN. It holds data that writes
 
 ## Your own login on every machine (`admin-users.yml`)
 
-- **A variable group "Admin user"**, extra variables:
+- **A variable group "Debian Host Baseline"**, extra variables:
   `{"admin_user": "dhardin", "admin_ssh_keys": ["ssh-ed25519 AAAA... comment"], "admin_sudo_nopasswd": true}`.
   The public key line is the one `ssh-add -L` shows for the key in your vault. For sudo with a
   password instead, set `admin_sudo_nopasswd` to false and add `admin_password_hash` (from
@@ -298,10 +298,10 @@ has its `nas-block` volumes copied to that host's LUN. It holds data that writes
 
 - **A shared SSH key for Semaphore.** On the Docker host, `ssh-keygen -t ed25519 -N '' -C
   semaphore-shared -f semaphore-shared`; the private half goes into the Key Store as
-  "Shared", the `.pub` line into the "Admin user" variable group as `semaphore_ssh_key`, and
+  "Shared", the `.pub` line into the "Debian Host Baseline" variable group as `semaphore_ssh_key`, and
   then delete both files.
 - **A "Baseline" template per existing inventory** (Proxmox, Kubernetes nodes, Pi-holes,
-  Docker VM), playbook `ansible/baseline.yml`, the "Admin user" variable group. Run each
+  Docker VM), playbook `ansible/baseline.yml`, the "Debian Host Baseline" variable group. Run each
   once (a dry run first): that puts the shared key on every host through the keys that
   already work.
 - **The inventory "All Debian Hosts"**, Static YAML with the "Shared" key: every host, in
@@ -335,12 +335,12 @@ has its `nas-block` volumes copied to that host's LUN. It holds data that writes
   narrower inventories, so a mis-set limit can't reach the wrong machines.
 
 **Prometheus's exporters** (`tasks/host-exporters.yml`), off until `host_exporters: true` is in
-the "Admin user" variable group: Debian's `prometheus-node-exporter` on every host but the
-Kubernetes nodes (the cluster runs its own there), listening on the host's management address
-only, and on the Proxmox hosts the packaged SMART and NVMe collectors (each SSD's wear) on their
-timers. The address is `ansible_host` unless `host_exporter_address` says otherwise: set it on
-the Docker VM's host line in "All Debian Hosts" (its `ansible_host` is the Docker bridge's
-gateway, which nothing outside the VM can reach) to its management address. Prometheus finds
+the variable group: Debian's `prometheus-node-exporter` on every host but the Kubernetes nodes
+(the cluster runs its own there), and on the Proxmox hosts the packaged SMART and NVMe
+collectors (each SSD's wear) on their timers. Each listens only on the host's own address in
+`management_network` (the management network with its prefix, set once in the variable group),
+found on the host itself, so no host needs an address set; a host with none or several there
+stops the run. Prometheus finds
 the Proxmox hosts through `proxmox-hosts.<domain>`, a Pi-hole name `proxmox-host.yml` writes
 with one address per host, and the Docker VM by its management name.
 
