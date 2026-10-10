@@ -42,6 +42,11 @@ spec:
         readinessProbe:
           tcpSocket:
             port: http
+        # The root filesystem is read-only; the exporter needs a temporary
+        # folder at start.
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -50,6 +55,11 @@ spec:
         resources:
           requests: {cpu: 10m, memory: 48Mi}
           limits: {memory: 128Mi}
+      volumes:
+      - name: tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 16Mi
 ---
 apiVersion: v1
 kind: Service
