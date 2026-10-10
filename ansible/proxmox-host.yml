@@ -22,8 +22,13 @@
 # acme_cf_zone_id). The Pi-hole is found by dns_guest_tag, as in
 # proxmox-upgrade.yml.
 #
-# In check mode (--check) it reports each host's ARC and certificate, now and
-# wanted, and changes nothing.
+# NAS block storage (tasks/proxmox-nas-block.yml): each host's own iSCSI LUN on
+# the NAS as an LVM storage entry of one name on every host; off until
+# nas_block_target is set, and a blank LUN is only initialised with
+# nas_block_initialise: true.
+#
+# In check mode (--check) it reports each host's ARC, certificate and NAS block
+# storage, now and wanted, and changes nothing.
 
 - name: Proxmox host settings
   hosts: proxmox
@@ -134,3 +139,6 @@
 
     - name: The trusted certificate
       ansible.builtin.include_tasks: tasks/proxmox-acme.yml
+
+    - name: NAS block storage
+      ansible.builtin.include_tasks: tasks/proxmox-nas-block.yml
