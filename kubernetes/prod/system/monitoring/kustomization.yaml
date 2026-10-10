@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
 - alloy-events/ks.yaml
 - alloy/ks.yaml
+- dashboards/ks.yaml
 - exportarr/ks.yaml
 - kube-prometheus-stack/ks.yaml
 - loki/ks.yaml
