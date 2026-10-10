@@ -6,7 +6,7 @@
 # Inventory (kept in Semaphore, never in git): "All Debian Hosts", every machine
 # in the groups the other playbooks use (proxmox, k8s_nodes with
 # k8s_control_planes and k8s_workers, pihole, docker_vm), root over SSH.
-# Variables (the "Admin user" variable group): admin-users.yml's (without
+# Variables (the "Debian Host Baseline" variable group): admin-users.yml's (without
 # admin_user that part is skipped and said so), and semaphore_ssh_key, the
 # public line of Semaphore's shared key, which root then accepts alongside its
 # other keys; the first run goes through each older inventory so that the
@@ -47,7 +47,7 @@
 
     - name: Note that the admin user was skipped
       ansible.builtin.debug:
-        msg: admin_user isn't set (the "Admin user" variable group), so the admin login was left alone.
+        msg: admin_user isn't set (the "Debian Host Baseline" variable group), so the admin login was left alone.
       when: admin_user is not defined
       run_once: true
 

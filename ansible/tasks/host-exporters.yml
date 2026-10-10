@@ -5,22 +5,47 @@
 # data written), refreshed by their systemd timers. The Kubernetes nodes are
 # left alone: the cluster runs node-exporter there on the same port.
 #
-# Variables (the "Admin user" variable group, or per host in the inventory):
-#   host_exporters         true: install and keep them; empty or false: only report
-#   host_exporter_address  the address to listen on; default ansible_host (set it
-#                          for a host reached by another address, as the Docker VM)
-#   host_exporter_smart    default true for the proxmox group, false elsewhere
+# Variables (the Debian Host Baseline variable group):
+#   host_exporters       true: install and keep them; empty or false: only report
+#   management_network   the management network (CIDR); each host listens on its
+#                        own address there, found on the host, so no host needs
+#                        one set (the Docker VM's ansible_host is the Docker
+#                        bridge's, which nothing outside the VM reaches)
+#   host_exporter_smart  default true for the proxmox group, false elsewhere
 
 - name: Settle the exporter settings
   ansible.builtin.set_fact:
     he_on: "{{ host_exporters | default(false) | bool }}"
     he_skip: "{{ 'k8s_nodes' in group_names }}"
-    he_addr: "{{ host_exporter_address | default(ansible_host) }}"
+    he_net: "{{ management_network | default('') | trim }}"
     he_smart: "{{ host_exporter_smart | default('proxmox' in group_names) | bool }}"
     he_packages: >-
       {{ ['prometheus-node-exporter'] +
          (['prometheus-node-exporter-collectors', 'smartmontools', 'nvme-cli']
           if host_exporter_smart | default('proxmox' in group_names) | bool else []) }}
+
+# The host's own address on the management network, from its interfaces.
+- name: Find this host's address on the management network
+  ansible.builtin.command:
+    argv:
+    - python3
+    - -c
+    - |
+      import ipaddress, json, subprocess, sys
+      net = ipaddress.ip_network(sys.argv[1], strict=False)
+      found = [a["local"] for i in json.loads(subprocess.check_output(["ip", "-j", "-4", "addr"]))
+               for a in i.get("addr_info", []) if ipaddress.ip_address(a["local"]) in net]
+      print(" ".join(found))
+    - "{{ he_net }}"
+  register: he_found
+  changed_when: false
+  check_mode: false
+  when: not he_skip and he_net | length > 0
+
+- name: Settle the listen address
+  ansible.builtin.set_fact:
+    he_addr: "{{ (he_found.stdout | default('')).split() | first | default('') }}"
+  when: not he_skip
 
 - name: Read the exporter's state
   ansible.builtin.shell: |
@@ -38,19 +63,27 @@
       {{ inventory_hostname }}: node-exporter
       {{ 'installed' if 'installed=ii' in he_state.stdout else 'not installed' }},
       {{ he_state.stdout | regex_search('active=(\\S*)', '\\1') | first | default('') or 'not running' }};
-      {{ 'managing it on ' ~ he_addr ~ ':9100' ~ (' with SMART/NVMe' if he_smart else '')
-         if he_on else 'off (host_exporters is not set)' }}
+      {{ ('managing it on ' ~ he_addr ~ ':9100' ~ (' with SMART/NVMe' if he_smart else ''))
+         if he_on and he_addr else ('no address on the management network (management_network: '
+         ~ (he_net or 'not set') ~ ')' if he_on else 'off (host_exporters is not set)') }}
   when: not he_skip
 
 - name: Exporters
   when: he_on and not he_skip
   block:
-    - name: The listen address is one of this host's own
-      ansible.builtin.command: ip -4 -o addr show
-      register: he_addrs
-      changed_when: false
-      check_mode: false
-      failed_when: (' ' ~ he_addr ~ '/') not in he_addrs.stdout
+    - name: The host has exactly one address on the management network
+      ansible.builtin.assert:
+        that:
+          - he_net is match('^[0-9.]+/[0-9]+$')
+          - (he_found.stdout | default('')).split() | length == 1
+        fail_msg: >-
+          {{ 'Set management_network to the management network with its prefix (for example
+          192.0.2.0/24) in the Debian Host Baseline variable group.' if he_net is not
+          match('^[0-9.]+/[0-9]+$') else inventory_hostname ~ ' has ' ~
+          ((he_found.stdout | default('')).split() | length) ~ ' address(es) on ' ~ he_net ~ ': '
+          ~ (he_found.stdout | default('') or 'none') ~ '; node-exporter would listen where
+          Prometheus cannot reach it.' }}
+        quiet: true
 
     - name: Install the exporter packages
       ansible.builtin.apt:
