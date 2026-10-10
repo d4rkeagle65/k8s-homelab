@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - secret-grafana-admin.yaml
 - secret-grafana-oidc.yaml
+- secret-exportarr.yaml
 - secret-loki-s3.yaml
 - secret-pve-exporter.yaml
 - pvc-grafana-data.yaml

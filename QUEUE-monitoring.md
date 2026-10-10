@@ -120,8 +120,19 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       by its management name. Not yet: cAdvisor for the Docker VM's containers.
 - [ ] Phase 3C live: `host_exporters: true` and `management_network` in the variable group, a
       baseline run, a Proxmox host-settings run (the shared name), every host up
-- [ ] Phase 3D: the NASes (SNMP, `SNMP_COMMUNITY`), the Pi-holes, Garage, the *arr apps,
-      qBittorrent, Home Assistant
+- [x] Phase 3D, first part built: exportarr for Radarr, Sonarr, Lidarr, Prowlarr and Bookshelf
+      (`exportarr/`, pinned to 2.3.0, the last with the Readarr mode Bookshelf needs);
+      Kubernetes events into Loki (`alloy-events/`, one Alloy for the cluster); cAdvisor on the
+      Docker VM (`docker/cadvisor`, a new Dockhand stack, `CADVISOR_ADDRESS`) and Kea's
+      statistics through Stork's agent (`docker/kea` publishes 9547), both scraped with the
+      Docker VM's node-exporter.
+- [ ] Phase 3D, second part (written, waiting on variables): the Pi-hole exporter and the
+      Pi-holes' node-exporter (`PIHOLE1_MGMT_ADDRESS`, `PIHOLE2_MGMT_ADDRESS`), Garage's
+      metrics (`TERRAMASTER_ADDRESS`, `GARAGE_METRICS_TOKEN`, and the garage stack publishing
+      3903), the NASes over SNMP (the community in the exporter's ConfigMap: it expands
+      variables only in SNMPv3 logins).
+- [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`), qBittorrent (its login), Home
+      Assistant (its Prometheus integration and a token)
 - [ ] Phase 4
 - [ ] Phase 5
 - [x] Phase 6 (in phase 1)

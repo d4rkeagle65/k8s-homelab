@@ -1,5 +1,6 @@
-# node-exporter on the Docker VM (ansible/tasks/host-exporters.yml), at its
-# management name.
+# The Docker VM, at its management name: node-exporter
+# (ansible/tasks/host-exporters.yml), cAdvisor's per-container metrics
+# (docker/cadvisor) and Kea's statistics through Stork's agent (docker/kea).
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
@@ -8,6 +9,16 @@ spec:
   staticConfigs:
   - targets:
     - ${DOCKHAND_ADDRESS}:9100
+    labels:
+      exporter: node
+  - targets:
+    - ${DOCKHAND_ADDRESS}:9338
+    labels:
+      exporter: cadvisor
+  - targets:
+    - ${DOCKHAND_ADDRESS}:9547
+    labels:
+      exporter: kea
   scrapeInterval: 60s
   relabelings:
   - targetLabel: job

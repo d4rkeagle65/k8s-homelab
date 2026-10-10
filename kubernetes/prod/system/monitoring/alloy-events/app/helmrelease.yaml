@@ -1,0 +1,54 @@
+# Kubernetes events (scheduling, image pulls, OOM kills, probe failures) into
+# Loki, from one Alloy for the whole cluster: the per-node DaemonSet (alloy)
+# would send each event once per node. Events land in namespace "cluster-events"
+# streams labelled with the event's own namespace and kind.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: alloy-events
+  namespace: monitoring
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: monitoring
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: alloy
+      version: 1.13.1
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+  values:
+    controller:
+      type: deployment
+      replicas: 1
+    alloy:
+      enableReporting: false
+      resources:
+        requests: {cpu: 10m, memory: 48Mi}
+        limits: {memory: 192Mi}
+      configMap:
+        content: |
+          logging {
+            level  = "info"
+            format = "logfmt"
+          }
+
+          loki.source.kubernetes_events "cluster" {
+            job_name   = "cluster-events"
+            log_format = "logfmt"
+            forward_to = [loki.write.default.receiver]
+          }
+
+          loki.write "default" {
+            endpoint {
+              url = "http://loki:3100/loki/api/v1/push"
+            }
+          }
+    serviceMonitor:
+      enabled: true
