@@ -51,7 +51,21 @@ spec:
         metricRelabelings:
         - action: drop
           sourceLabels: [__name__]
-          regex: (apiserver_request_duration_seconds|apiserver_request_sli_duration_seconds|apiserver_request_slo_duration_seconds|apiserver_response_sizes|apiserver_watch_events_sizes|apiserver_watch_list_duration_seconds|etcd_request_duration_seconds|apiserver_admission_.+_duration_seconds|workqueue_.+_duration_seconds|rest_client_.+_duration_seconds|rest_client_.+_size_bytes)_bucket
+          regex: (apiserver_request_duration_seconds|apiserver_request_sli_duration_seconds|apiserver_request_slo_duration_seconds|apiserver_response_sizes|apiserver_request_body_size_bytes|apiserver_watch_events_sizes|apiserver_watch_list_duration_seconds|apiserver_watch_cache_read_wait_seconds|etcd_request_duration_seconds|apiserver_admission_.+_duration_seconds|workqueue_.+_duration_seconds|rest_client_.+_duration_seconds|rest_client_.+_size_bytes)_bucket
+        - action: drop
+          sourceLabels: [__name__]
+          regex: kubernetes_feature_enabled
+    # The kubelet's probe and runtime timing histograms and its feature list,
+    # likewise unread; the chart's own drop is kept first.
+    kubelet:
+      serviceMonitor:
+        metricRelabelings:
+        - action: drop
+          sourceLabels: [__name__, le]
+          regex: (csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?
+        - action: drop
+          sourceLabels: [__name__]
+          regex: (prober_probe_duration_seconds|kubelet_runtime_operations_duration_seconds|kubelet_http_requests_duration_seconds|kubelet_pod_worker_duration_seconds|kubelet_pod_start_sli_duration_seconds)_bucket|kubernetes_feature_enabled
     defaultRules:
       rules:
         # The API server's SLO and latency rules read the request-latency
@@ -146,9 +160,10 @@ spec:
         existingClaim: grafana-data
       deploymentStrategy:
         type: Recreate
+      # About 450 MiB in use from the start.
       resources:
-        requests: {cpu: 20m, memory: 192Mi}
-        limits: {memory: 512Mi}
+        requests: {cpu: 20m, memory: 384Mi}
+        limits: {memory: 1Gi}
       # The Authentik client secret (monitoring-extras); Grafana reads any
       # GF_<SECTION>_<KEY> variable as that setting.
       envValueFrom:
