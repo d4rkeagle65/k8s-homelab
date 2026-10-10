@@ -1,0 +1,144 @@
+# Metrics and Grafana: the Prometheus Operator, Prometheus, Alertmanager,
+# Grafana, node-exporter and kube-state-metrics. QUEUE-monitoring.md has the
+# decisions behind these values (storage, retention, the memory budget).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: monitoring
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  timeout: 15m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: 92.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+  install:
+    crds: Create
+  upgrade:
+    crds: CreateReplace
+  values:
+    fullnameOverride: kps
+    cleanPrometheusOperatorObjectNames: true
+
+    # kubeadm binds the scheduler's, the controller-manager's, etcd's and
+    # kube-proxy's metrics to 127.0.0.1, out of Prometheus's reach: their scrapes
+    # and rules stay off until those bind to the node address (phase 5).
+    kubeEtcd:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+    kubeControllerManager:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    windowsMonitoring:
+      enabled: false
+    defaultRules:
+      rules:
+        etcd: false
+        kubeControllerManager: false
+        kubeSchedulerAlerting: false
+        kubeSchedulerRecording: false
+        kubeProxy: false
+        windows: false
+
+    prometheusOperator:
+      resources:
+        requests: {cpu: 20m, memory: 64Mi}
+        limits: {memory: 256Mi}
+
+    prometheus:
+      prometheusSpec:
+        retention: 15d
+        retentionSize: 18GB
+        resources:
+          requests: {cpu: 100m, memory: 768Mi}
+          limits: {memory: 2Gi}
+        # Node-local disk: Prometheus's own docs rule out NFS for its database.
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-db
+              accessModes: [ReadWriteOnce]
+              resources:
+                requests:
+                  storage: 20Gi
+        # Pick up monitors and rules from every namespace, not only those
+        # labelled with this release.
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+        probeSelectorNilUsesHelmValues: false
+        scrapeConfigSelectorNilUsesHelmValues: false
+
+    alertmanager:
+      alertmanagerSpec:
+        retention: 120h
+        resources:
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {memory: 128Mi}
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-db
+              accessModes: [ReadWriteOnce]
+              resources:
+                requests:
+                  storage: 1Gi
+
+    kube-state-metrics:
+      resources:
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {memory: 256Mi}
+
+    prometheus-node-exporter:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 64Mi}
+
+    grafana:
+      admin:
+        existingSecret: grafana-admin
+        userKey: admin-user
+        passwordKey: admin-password
+      # The claim is in monitoring-extras. Recreate, so two Grafanas never
+      # share its SQLite database during an upgrade.
+      persistence:
+        enabled: true
+        existingClaim: grafana-data
+      deploymentStrategy:
+        type: Recreate
+      resources:
+        requests: {cpu: 20m, memory: 192Mi}
+        limits: {memory: 512Mi}
+      grafana.ini:
+        server:
+          root_url: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        analytics:
+          reporting_enabled: false
+          check_for_updates: false
+          check_for_plugin_updates: false
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+        - grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        tls:
+        - secretName: grafana-tls
+          hosts:
+          - grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}

@@ -12,6 +12,7 @@ resources:
 - local-path-storage
 - metallb-system
 - metrics-server
+- monitoring
 - nebula-sync
 - nfs-client
 - noip-duc
