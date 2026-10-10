@@ -1,0 +1,15 @@
+# node-exporter on the Pi-holes (ansible/tasks/host-exporters.yml), on their
+# management addresses.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: pihole-hosts
+spec:
+  staticConfigs:
+  - targets:
+    - ${PIHOLE1_MGMT_ADDRESS}:9100
+    - ${PIHOLE2_MGMT_ADDRESS}:9100
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: pihole-hosts

@@ -28,6 +28,9 @@ services:
     command: ["/garage", "server", "--single-node", "--default-bucket"]
     ports:
     - ${GARAGE_BIND_ADDRESS}:3900:3900
+    # The admin API, for Prometheus's scrape of /metrics (with the metrics
+    # token); every admin call needs the admin token.
+    - ${GARAGE_BIND_ADDRESS}:3903:3903
     environment:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
