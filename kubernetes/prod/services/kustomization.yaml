@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
 - authentik
 - cnpg-system
+- homepage
 - mqtt
 - redis-ha
 - smtp-relay
