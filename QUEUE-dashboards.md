@@ -51,6 +51,13 @@
       state, CPU and memory (`namespace` and `app`, or `podSelector`), and the Docker host's apps
       use `siteMonitor`. The calendar reads Sonarr and Radarr. Every query checked against Prometheus.
 - [ ] Homepage live: every widget shows data
+- [ ] Homepage's Synology (DSM's `diskstation`, a DSM user limited as the widget's docs say),
+      Cloudflare tunnel and Tailscale widgets, and the OpenWrt access points' cards: their nine
+      variables (cluster-secrets) must hold values; the access points need `ansible/openwrt-aps.yml`
+      run. The Tailscale API key lasts 90 days at most, so its widget fails when it expires:
+      renew it in `TAILSCALE_API_KEY`.
+- [ ] TP-Link switches: the one that supports SNMP as an snmp-exporter target (`if_mib`, a
+      `switch` label) with a Homepage card (ports up, traffic); the models decide which.
 - [ ] Homepage widgets that need a key the cluster doesn't have yet. Each needs its Vaultwarden
       field, its mapping in cluster-secrets and the `homepage` Secret, pushed before the widget:
       Jellyseerr (`seerr`, its API key), Emby (an API key), SABnzbd (its API key), Mealie (an API
