@@ -48,11 +48,10 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     2026-10-10 after Pi-hole 1's sshd failed to bind at boot and stayed down). The baseline
     could own that drop-in wherever `ListenAddress` is set.
 
-- **NAS block storage, built and off:** `ansible/tasks/proxmox-nas-block.yml` (run by
-  `proxmox-host.yml`). The four LUNs exist on the NAS (2026-10-10); next: the target's
-  multiple-sessions setting checked, `nas_block_portal` and `nas_block_target` in the Proxmox
-  variable group, a dry run (one blank LUN per host), then `nas_block_initialise: true`. It is
-  where Prometheus's volumes go (`QUEUE-monitoring.md`).
+- **NAS block storage, live (2026-10-10):** `nas-block` (`ansible/tasks/proxmox-nas-block.yml`)
+  is active on all four hosts, 30 GiB each, one path per host. Next: a mount point on each
+  worker at `/opt/nas-block` on it (through OpenTofu, which needs the write-capable token),
+  then a `nas-block` StorageClass for Prometheus and Alertmanager (`QUEUE-monitoring.md`).
 
 - **The nodes' management access, built and off:** `ansible/tasks/k8s-node-mgmt.yml` (run by
   `k8s-node-update.yml`). Set `mgmt_gateway` in the "Kubernetes" variable group, run the
