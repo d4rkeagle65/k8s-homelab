@@ -12,6 +12,7 @@ baseline_packages:
   - lsof
   - ncdu
   - rsync
+  - sudo
   - tcpdump
   - tmux
   - vim
