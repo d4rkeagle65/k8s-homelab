@@ -3,6 +3,11 @@
 # with its own MariaDB (it supports no other database). Login through Authentik (the grimmory blueprint); its
 # settings, libraries and users come from sync/grimmory.yaml through the
 # grimmory-sync Job. Only on the private networks.
+#
+# Reader apps (KOReader, Moon+, Panels) over OPDS: each user makes an OPDS
+# login in Grimmory's settings, and the app points at
+# https://grimmory.<domain>/api/v1/opds (private networks only, so at home or
+# over Tailscale).
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:

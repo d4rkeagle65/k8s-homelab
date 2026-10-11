@@ -34,12 +34,11 @@ and Grafana, configured from git with the Authentik login.
       worker and the NAS), its Authentik application and provider, and the BOOKLORE_* fields
 - [x] The nightly dump, run by hand: `gzip -t` passes, and restored into a scratch database it
       matches the live one (73 tables, 0 differences, 158 books)
-- [ ] Login through Authentik as a Grimmory Admin. Its provider test passes every check since
-      `OIDC_ALLOW_UNSAFE_HOSTS` (Grimmory refuses private addresses otherwise, and Authentik is
-      one); the owner's first login is left
-- [ ] Reader apps over OPDS: each user makes an OPDS login in Grimmory's settings, and the app
-      points at `https://grimmory.<domain>/api/v1/opds` (private networks only, so at home or
-      over Tailscale). The endpoint is on and asks for a login (checked)
+- [x] Login through Authentik as a Grimmory Admin (the owner, 2026-10-11). Its provider test
+      passes every check since `OIDC_ALLOW_UNSAFE_HOSTS` (Grimmory refuses private addresses
+      otherwise, and Authentik is one)
+- [x] OPDS is on and asks for a login (checked); setting up a reader app is a how-to, kept in the
+      HelmRelease's header
 
 ## Resuming
 
