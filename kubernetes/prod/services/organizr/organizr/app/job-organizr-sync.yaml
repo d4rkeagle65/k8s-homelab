@@ -1,0 +1,48 @@
+# Applies sync/organizr.yaml to Organizr (sync/organizr-sync.py). The
+# ConfigMap's generated name changes with either file, which changes this
+# Job's spec; Flux then replaces the Job (force), so each change runs once.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: organizr-sync
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      initContainers:
+        - name: deps
+          image: python:3.13-alpine
+          command: [pip, install, --quiet, --no-cache-dir, --target, /deps, pyyaml==6.0.3]
+          env:
+            - {name: HOME, value: /tmp}
+          volumeMounts:
+            - {name: deps, mountPath: /deps}
+      containers:
+        - name: sync
+          image: python:3.13-alpine
+          command: [python, /etc/organizr-sync/organizr-sync.py]
+          env:
+            - {name: PYTHONPATH, value: /deps}
+            - {name: ORGANIZR_URL, value: "http://organizr.organizr.svc.${CLUSTER_DOMAIN}"}
+          envFrom:
+            - secretRef:
+                name: organizr-sync
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          volumeMounts:
+            - {name: deps, mountPath: /deps}
+            - {name: sync, mountPath: /etc/organizr-sync}
+      volumes:
+        - name: deps
+          emptyDir: {}
+        - name: sync
+          configMap:
+            name: organizr-sync

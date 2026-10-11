@@ -1,0 +1,100 @@
+# Organizr's configuration, applied through its API by the organizr-sync Job
+# (organizr-sync.py says how). Edit here, not in Organizr's settings: the next
+# run puts a setting listed here back. A value written env:NAME comes from the
+# organizr-sync Secret; Flux fills in the cluster variables as everywhere else.
+#
+# Organizr's groups, most privileged first: 0 Admin, 1 Co-Admin, 2 Super User,
+# 3 Power User, 4 User, 999 Guest. A tab's group_id is the least privileged
+# group that sees it.
+
+# First-run setup, used only when Organizr has none (a rebuilt volume).
+wizard:
+  license: personal
+  driver: sqlite3
+  dbName: organizr
+  dbPath: /config/www/organizr/data/
+  username: env:ORGANIZR_ADMIN_USERNAME
+  password: env:ORGANIZR_ADMIN_PASSWORD
+  email: env:ORGANIZR_ADMIN_EMAIL
+  api: env:ORGANIZR_API_KEY
+  hashKey: env:ORGANIZR_HASH_KEY
+  registrationPassword: env:ORGANIZR_REGISTRATION_PASSWORD
+
+settings:
+  # Login through Authentik (its organizr blueprint), straight there without
+  # Organizr's own form. Organizr Admins become Admins, Organizr Users Users;
+  # Authentik admits no one else. The local admin from the first-run setup
+  # stays as the way in when Authentik is down: add #noredirect to the address.
+  oidcEnabled: "true"
+  oidcAuthentikEnabled: "true"
+  oidcAuthentikName: Authentik
+  oidcAuthentikClientId: organizr
+  oidcAuthentikClientSecret: env:OIDC_CLIENT_SECRET
+  oidcAuthentikDiscoveryUrl: https://auth.${BASE_DOMAIN}/application/o/organizr/.well-known/openid-configuration
+  oidcAuthentikScopes: openid email profile
+  oidcAuthentikGroupClaim: groups
+  oidcAutoCreateUsers: "true"
+  oidcLinkExistingUsers: "true"
+  oidcUpdateGroupsOnLogin: "true"
+  oidcGroupMappingMode: highest_privilege
+  oidcGroupMappings: '{"Organizr Admins": 0, "Organizr Users": 4}'
+  oidcDefaultGroupId: "4"
+  oidcAutoRedirect: "true"
+  oidcAutoRedirectProvider: authentik
+  oidcAutoRedirectLogoutUrl: https://auth.${BASE_DOMAIN}/application/o/organizr/end-session/
+
+  # Organizr's homepage: the media apps' calendars and queues, and the
+  # downloads, from inside the cluster.
+  sonarrURL: http://sonarr.media.svc.${CLUSTER_DOMAIN}:8989
+  sonarrToken: env:SONARR_KEY
+  homepageSonarrEnabled: "true"
+  homepageSonarrQueueEnabled: "true"
+  radarrURL: http://radarr.media.svc.${CLUSTER_DOMAIN}:7878
+  radarrToken: env:RADARR_KEY
+  homepageRadarrEnabled: "true"
+  homepageRadarrQueueEnabled: "true"
+  lidarrURL: http://lidarr.media.svc.${CLUSTER_DOMAIN}:8686
+  lidarrToken: env:LIDARR_KEY
+  homepageLidarrEnabled: "true"
+  ProwlarrURL: http://prowlarr.media.svc.${CLUSTER_DOMAIN}:9696
+  ProwlarrToken: env:PROWLARR_KEY
+  qBittorrentURL: http://qbittorrent.media.svc.${CLUSTER_DOMAIN}:8080
+  qBittorrentUsername: env:QBITTORRENT_USERNAME
+  qBittorrentPassword: env:QBITTORRENT_PASSWORD
+  homepageqBittorrentEnabled: "true"
+
+categories:
+  - {category: Media, image: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png}
+  - {category: Downloads, image: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/qbittorrent.png}
+  - {category: Home, image: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/home-assistant.png}
+  - {category: Infrastructure, image: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proxmox.png}
+
+# type 1 opens the app inside Organizr; type 2 in a new browser tab, for apps
+# that refuse to be framed or log in through Authentik (its cookies don't
+# reach a frame on another site).
+tabs:
+  # Tabs are matched by name, and Homepage and Settings are Organizr's own:
+  # another tab by either name would take it over. Organizr's own homepage (built in, type 0), with the apps' calendars and
+  # queues from the settings above; the tab it opens on.
+  - {name: Homepage, type: 0, category_id: 0, group_id: 4, enabled: 1, default: 1, url: api/v2/page/homepage, image: "fontawesome::home"}
+  - {name: Emby, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://emby.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png"}
+  - {name: Jellyseerr, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://jellyseerr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/jellyseerr.png"}
+  - {name: Immich, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://immich.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/immich.png"}
+  - {name: Sonarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://sonarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/sonarr.png"}
+  - {name: Radarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://radarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/radarr.png"}
+  - {name: Lidarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://lidarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/lidarr.png"}
+  - {name: Bookshelf, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://bookshelf.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/readarr.png"}
+  - {name: Prowlarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://prowlarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/prowlarr.png"}
+  - {name: SABnzbd, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://sabnzbd.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/sabnzbd.png"}
+  - {name: qBittorrent, category: Downloads, type: 2, group_id: 1, enabled: 1, url: "https://qbittorrent.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/qbittorrent.png"}
+  - {name: Tdarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://tdarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/tdarr.png"}
+  - {name: Home Assistant, category: Home, type: 2, group_id: 4, enabled: 1, url: "https://homeassistant.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/home-assistant.png"}
+  - {name: Mealie, category: Home, type: 2, group_id: 4, enabled: 1, url: "https://mealie.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/mealie.png"}
+  - {name: n8n, category: Home, type: 2, group_id: 0, enabled: 1, url: "https://n8n.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/n8n.png"}
+  - {name: Dashboard, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/homepage.png"}
+  - {name: Grafana, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/grafana.png"}
+  - {name: Proxmox, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://${PVE_API_HOST}:8006", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proxmox.png"}
+  - {name: Semaphore, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://semaphore.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/semaphore.png"}
+  - {name: Dockhand, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://dockhand.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dockhand.png"}
+  - {name: Authentik, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://auth.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/authentik.png"}
+  - {name: Vaultwarden, category: Infrastructure, type: 2, group_id: 4, enabled: 1, url: "https://vaultwarden.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/vaultwarden.png"}

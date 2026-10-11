@@ -2,4 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - helmrelease.yaml
+- job-organizr-sync.yaml
 - pvc.yaml
+- secret-organizr-sync.yaml
+# Organizr's configuration and the script that applies it. The generated name
+# carries a hash of both, so a change renames the ConfigMap and the Job runs
+# again (job-organizr-sync.yaml).
+configMapGenerator:
+- name: organizr-sync
+  files:
+  - sync/organizr.yaml
+  - sync/organizr-sync.py

@@ -10,6 +10,7 @@ resources:
 - secret-authentik-dockhand-oidc.yaml
 - secret-authentik-grafana-oidc.yaml
 - secret-authentik-homepage-oidc.yaml
+- secret-authentik-organizr-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml
 - secret-authentik-secret-key.yaml
 - secret-authentik-semaphore-oidc.yaml

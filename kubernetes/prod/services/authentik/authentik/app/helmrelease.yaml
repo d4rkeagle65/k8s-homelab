@@ -114,6 +114,11 @@ spec:
           secretKeyRef:
             key: client-secret
             name: authentik-homepage-oidc
+      - name: ORGANIZR_OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: client-secret
+            name: authentik-organizr-oidc
       - name: SEMAPHORE_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
