@@ -9,7 +9,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-terraform.md`, `QUEUE-monitoring.md`, `QUEUE-dashboards.md`.
+- [Working queue files](#working-queue-files) - `QUEUE-terraform.md`, `QUEUE-monitoring.md`.
 
 ## Waiting on the owner
 
@@ -197,6 +197,11 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   `tests/scripts/`) with one runner, or leave the layout and make the split obvious in
   `tests/CLAUDE.md` and `scripts/CLAUDE.md`. Left as is, a new test can land in the wrong
   folder and skip the checks it was meant for.
+
+- **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
+  `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
+  Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
+  put it in those two fields.
 
 ## Working queue files
 
