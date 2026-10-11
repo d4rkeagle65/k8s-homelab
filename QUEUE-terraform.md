@@ -90,8 +90,16 @@ outside the cluster").
       Let's Encrypt via Proxmox's ACME and Cloudflare DNS, Pi-hole records written by the run)
 - [x] The endpoint set to a host's name and `PROXMOX_VE_INSECURE` removed in Semaphore; the
       plan shows no changes (2026-10-09)
-- [ ] A token that can change guests, once the certificate is in place
-- [ ] Cloudflare root module
+- [ ] A token that can change guests: the `TofuGuests` role (`tofu/README.md`, two `pveum`
+      commands, then the `/vms/107` entry and `TofuDockerVM` removed), then a plan from
+      Semaphore that shows no changes. Talos's phase 1 needs it (OpenTofu creates the VMs)
+- [x] Cloudflare root module written (`tofu/cloudflare/`): the 29 hand-made records in both
+      zones; the tunnel controller's 8 and cert-manager's challenges left to their owners.
+      Planned from claude-code with local state: 29 to import, 0 to change. `TF_VAR_dns` in
+      the Vaultwarden note "OpenTofu DNS (Cloudflare)"
+- [ ] Cloudflare in Semaphore: its token, the variable group and template (`tofu/README.md`);
+      a plan (29 to import, 0 to change), the apply that imports, then a plan with no changes;
+      then `imports.tf` can go
 
 ## Resuming
 
