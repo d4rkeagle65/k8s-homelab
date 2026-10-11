@@ -11,14 +11,15 @@ admin:
   email: env:BOOKLORE_ADMIN_EMAIL
   name: Booklore admin
 
-# The books Bookshelf collects, one folder per book.
+# The books Bookshelf collects. A folder can hold several books (a series),
+# so each file is a book, with one title's formats grouped.
 libraries:
   - name: Books
     paths: [/books]
     watch: true
     icon: pi pi-book
     iconType: PRIME_NG
-    organizationMode: BOOK_PER_FOLDER
+    organizationMode: BOOK_PER_FILE
     metadataSource: PREFER_EMBEDDED
 
 settings:

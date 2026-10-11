@@ -45,9 +45,11 @@ spec:
                     name: booklore-db
                     key: password
               SWAGGER_ENABLED: "false"
+            # A library scan takes every core it's given; capped so a scan on a
+            # 2-core worker leaves room for the databases beside it.
             resources:
               requests: {cpu: 100m, memory: 512Mi}
-              limits: {memory: 1536Mi}
+              limits: {cpu: 1000m, memory: 1536Mi}
             probes:
               startup: &probe
                 enabled: true

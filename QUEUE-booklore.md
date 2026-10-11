@@ -18,9 +18,12 @@ and Grafana, configured from git with the Authentik login.
 
 ## Checklist
 
-- [ ] The variables reach the cluster, then the rest is pushed; the blueprint re-applied once the
+- [x] The variables reach the cluster, then the rest is pushed; the blueprint re-applied once the
       worker restarts (`kubernetes/CLAUDE.md`)
-- [ ] MariaDB and Booklore start; the Job's first run passes
+- [x] MariaDB and Booklore start; the Job's first run passes (2026-10-11)
+- [x] The library as one book per file (folders hold whole series): 255 books, no failures; the
+      first scan, uncapped, took 1.2 cores on a 2-core worker and starved the databases there
+      (failovers in authentik, immich), hence Booklore's 1-core limit
 - [ ] Login through Authentik as a Booklore Admin; the Books library scans
 - [ ] Homepage's widget shows counts; the Organizr tab opens; Grafana's MySQL dashboard (Apps
       folder) shows the database
