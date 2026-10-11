@@ -2,8 +2,9 @@
 # contents are the site's, so they stay out of git (README.md).
 #   zones    each zone's name and Cloudflare id
 #   records  keyed r01, r02, ... (meaningless on purpose, so git names nothing):
-#            the zone's name, Cloudflare's record id (for its import), and the
-#            record. A new record takes the next free key.
+#            the zone's name, Cloudflare's record id (from its import; for a new
+#            record, any placeholder until it's created), and the record. A new
+#            record takes the next free key.
 #
 # Not in it, each with one owner already: the records the Cloudflare tunnel's
 # ingress controller makes for the tunnel Ingresses (their comment says
