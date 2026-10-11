@@ -13,3 +13,8 @@ spec:
   relabelings:
   - targetLabel: job
     replacement: pihole-hosts
+  # Only failed units' state, as in scrapeconfig-proxmox-hosts.yaml.
+  metricRelabelings:
+  - action: drop
+    sourceLabels: [__name__, state]
+    regex: node_systemd_unit_state;(active|activating|deactivating|inactive)

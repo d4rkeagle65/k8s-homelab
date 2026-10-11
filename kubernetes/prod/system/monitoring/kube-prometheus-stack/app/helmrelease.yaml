@@ -54,7 +54,7 @@ spec:
           regex: (apiserver_request_duration_seconds|apiserver_request_sli_duration_seconds|apiserver_request_slo_duration_seconds|apiserver_response_sizes|apiserver_request_body_size_bytes|apiserver_watch_events_sizes|apiserver_watch_list_duration_seconds|apiserver_watch_cache_read_wait_seconds|etcd_request_duration_seconds|apiserver_admission_.+_duration_seconds|workqueue_.+_duration_seconds|rest_client_.+_duration_seconds|rest_client_.+_size_bytes)_bucket
         - action: drop
           sourceLabels: [__name__]
-          regex: kubernetes_feature_enabled
+          regex: kubernetes_feature_enabled|etcd_requests_total|etcd_request_duration_seconds_(count|sum)
     # The kubelet's probe and runtime timing histograms and its feature list,
     # likewise unread; the chart's own drop is kept first.
     kubelet:
@@ -66,6 +66,42 @@ spec:
         - action: drop
           sourceLabels: [__name__]
           regex: (prober_probe_duration_seconds|kubelet_runtime_operations_duration_seconds|kubelet_http_requests_duration_seconds|kubelet_pod_worker_duration_seconds|kubelet_pod_start_sli_duration_seconds)_bucket|kubernetes_feature_enabled
+        # The probe timings come from their own endpoint, /metrics/probes.
+        probesMetricRelabelings:
+        - action: drop
+          sourceLabels: [__name__]
+          regex: prober_probe_duration_seconds_bucket
+        # cAdvisor's: setting these replaces the chart's defaults, so they are
+        # copied here (chart 92.3.0) with the last rule added: memory-failure
+        # counters, block-device usage, load and health, which nothing reads.
+        cAdvisorMetricRelabelings:
+        - sourceLabels: [__name__]
+          action: drop
+          regex: container_cpu_(cfs_throttled_seconds_total|load_average_10s|system_seconds_total|user_seconds_total)
+        - sourceLabels: [__name__]
+          action: drop
+          regex: container_fs_(io_current|io_time_seconds_total|io_time_weighted_seconds_total|reads_merged_total|sector_reads_total|sector_writes_total|writes_merged_total)
+        - sourceLabels: [__name__]
+          action: drop
+          regex: container_memory_(mapped_file|swap)
+        - sourceLabels: [__name__]
+          action: drop
+          regex: container_(file_descriptors|tasks_state|threads_max)
+        - sourceLabels: [__name__, scope]
+          action: drop
+          regex: container_memory_failures_total;hierarchy
+        - sourceLabels: [__name__, interface]
+          action: drop
+          regex: container_network_.*;(cali|cilium|cni|lxc|nodelocaldns|tunl).*
+        - sourceLabels: [__name__]
+          action: drop
+          regex: container_spec.*
+        - sourceLabels: [id, pod]
+          action: drop
+          regex: .+;
+        - sourceLabels: [__name__]
+          action: drop
+          regex: container_(memory_failures_total|blkio_device_usage_total|cpu_load_d_average_10s|cpu_load_average_10s|health_state)
     defaultRules:
       rules:
         # The API server's SLO and latency rules read the request-latency
@@ -142,6 +178,11 @@ spec:
       resources:
         requests: {cpu: 10m, memory: 64Mi}
         limits: {memory: 256Mi}
+      # Each namespace's category (apps, services, system) as
+      # kube_namespace_labels{label_homelab_local_category}, for the Resources
+      # dashboard's filter.
+      metricLabelsAllowlist:
+      - namespaces=[homelab.local/category]
       # Flux's objects as metrics (gotk_resource_info: each Kustomization's,
       # HelmRelease's and source's ready state, revision and suspension), for
       # Flux's own dashboards (monitoring/dashboards). From
@@ -532,6 +573,13 @@ spec:
       resources:
         requests: {cpu: 20m, memory: 384Mi}
         limits: {memory: 1Gi}
+      # Grafana's own latency and size histograms and its feature-flag list
+      # (about 2,800 series); no dashboard here reads them.
+      serviceMonitor:
+        metricRelabelings:
+        - action: drop
+          sourceLabels: [__name__]
+          regex: grafana_.+_bucket|grafana_feature_toggles_info
       # The Authentik client secret (monitoring-extras); Grafana reads any
       # GF_<SECTION>_<KEY> variable as that setting.
       envValueFrom:

@@ -13,6 +13,7 @@ configMapGenerator:
   - json/homelab/overview.json
   - json/homelab/drives.json
   - json/homelab/home-assistant.json
+  - json/homelab/resources.json
   options:
     disableNameSuffixHash: true
     labels:

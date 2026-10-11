@@ -17,3 +17,10 @@ spec:
   relabelings:
   - targetLabel: job
     replacement: proxmox-hosts
+  # node_systemd_unit_state is five series per unit, one per state; only
+  # "failed" is worth an alert, so the other four are dropped. The Pi-holes and
+  # the Docker VM do the same.
+  metricRelabelings:
+  - action: drop
+    sourceLabels: [__name__, state]
+    regex: node_systemd_unit_state;(active|activating|deactivating|inactive)

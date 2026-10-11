@@ -13,3 +13,16 @@ spec:
   podMetricsEndpoints:
   - port: metrics
     interval: 60s
+    # cnpg_pg_settings_setting is every Postgres setting of every instance
+    # (about 6,400 series); keep the ones CloudNativePG's dashboard reads.
+    metricRelabelings:
+    - action: replace
+      sourceLabels: [__name__, name]
+      regex: cnpg_pg_settings_setting;(block_size|effective_cache_size|maintenance_work_mem|max_connections|random_page_cost|seq_page_cost|shared_buffers|work_mem)
+      targetLabel: __tmp_keep
+      replacement: "yes"
+    - action: drop
+      sourceLabels: [__name__, __tmp_keep]
+      regex: cnpg_pg_settings_setting;
+    - action: labeldrop
+      regex: __tmp_keep

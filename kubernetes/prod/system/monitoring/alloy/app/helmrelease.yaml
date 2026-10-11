@@ -118,3 +118,9 @@ spec:
           }
     serviceMonitor:
       enabled: true
+      # Alloy counts bytes and lines per log file it tails (about 3,000 series,
+      # one set per container log); the totals per component are enough.
+      metricRelabelings:
+      - action: drop
+        sourceLabels: [__name__]
+        regex: loki_source_file_(file_bytes_total|read_bytes_total|read_lines_total)
