@@ -1,8 +1,8 @@
-# Booklore's settings, covers and caches, and its upload folder (bookdrop).
+# Grimmory's settings, covers and caches, and its upload folder (bookdrop).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: booklore-data
+  name: grimmory-data
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
@@ -13,11 +13,11 @@ spec:
     requests:
       storage: 5Gi
 ---
-# The nightly database dumps (cronjob-booklore-db-backup.yaml), on the NAS.
+# The nightly database dumps (cronjob-grimmory-db-backup.yaml), on the NAS.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: booklore-db-backup
+  name: grimmory-db-backup
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:

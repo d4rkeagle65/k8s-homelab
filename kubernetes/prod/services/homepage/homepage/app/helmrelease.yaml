@@ -595,18 +595,19 @@ spec:
                       version: 2
                       url: http://immich-server.immich.svc.${CLUSTER_DOMAIN}:2283
                       key: "{{ "{{HOMEPAGE_VAR_IMMICH_KEY}}" }}"
-                - Booklore:
-                    icon: booklore.png
-                    href: https://booklore${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                - Grimmory:
+                    icon: sh-grimmory.png
+                    href: https://grimmory${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                     description: E-books
-                    namespace: booklore
-                    app: booklore
-                    podSelector: app.kubernetes.io/component=booklore
+                    namespace: grimmory
+                    app: grimmory
+                    podSelector: app.kubernetes.io/component=grimmory
+                    # Grimmory keeps Booklore's API, so Booklore's widget reads it.
                     widget:
                       type: booklore
-                      url: http://booklore.booklore.svc.${CLUSTER_DOMAIN}:6060
+                      url: http://grimmory.grimmory.svc.${CLUSTER_DOMAIN}:6060
                       username: homepage
-                      password: "{{ "{{HOMEPAGE_VAR_BOOKLORE_PASSWORD}}" }}"
+                      password: "{{ "{{HOMEPAGE_VAR_GRIMMORY_PASSWORD}}" }}"
                 - Mealie:
                     icon: mealie.png
                     href: https://mealie.${BASE_DOMAIN}

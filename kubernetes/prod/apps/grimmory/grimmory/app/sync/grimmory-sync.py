@@ -1,20 +1,20 @@
-"""Applies booklore.yaml to Booklore through its API, then reads it back.
+"""Applies grimmory.yaml to Grimmory through its API, then reads it back.
 
-Runs as the booklore-sync Job whenever booklore.yaml or this script changes.
+Runs as the grimmory-sync Job whenever grimmory.yaml or this script changes.
 Steps, each idempotent:
 
-1. First-run setup, only when Booklore has no user yet: the local admin.
+1. First-run setup, only when Grimmory has no user yet: the local admin.
 2. Libraries, matched by name: missing ones are added with their folders, and
    an existing one is updated and rescanned when a field listed here differs.
-3. Settings: each entry is one of Booklore's settings, by its key name
+3. Settings: each entry is one of Grimmory's settings, by its key name
    (AppSettingKey), written as given. A string value env:NAME anywhere in it
    comes from that environment variable, so no secret is in the ConfigMap.
-4. Group mappings (an Authentik group to Booklore's permissions and
+4. Group mappings (an Authentik group to Grimmory's permissions and
    libraries), matched by group: added or updated.
 5. Local users, matched by username: missing ones are added; an existing one
    is left alone, and its password is checked by logging in as it.
 6. Read back: every setting listed, library, mapping and user must match, or
-   the Job fails. Secrets are checked only as set, since Booklore masks them.
+   the Job fails. Secrets are checked only as set, since Grimmory masks them.
 """
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ import urllib.request
 
 import yaml
 
-BASE = os.environ["BOOKLORE_URL"].rstrip("/") + "/api/v1"
-CONFIG = os.environ.get("BOOKLORE_SYNC_CONFIG", "/etc/booklore-sync/booklore.yaml")
+BASE = os.environ["GRIMMORY_URL"].rstrip("/") + "/api/v1"
+CONFIG = os.environ.get("GRIMMORY_SYNC_CONFIG", "/etc/grimmory-sync/grimmory.yaml")
 TOKEN = None
 
 
@@ -64,7 +64,7 @@ def resolve(value):
     if isinstance(value, str) and value.startswith("env:"):
         name = value[4:]
         if name not in os.environ:
-            sys.exit(f"FAIL: booklore.yaml reads {name}, which this Job's environment lacks")
+            sys.exit(f"FAIL: grimmory.yaml reads {name}, which this Job's environment lacks")
         return os.environ[name]
     return value
 
@@ -80,11 +80,11 @@ def wait_ready() -> None:
         except OSError as e:
             last = str(e)
         time.sleep(5)
-    sys.exit(f"FAIL: Booklore didn't answer /api/v1/healthcheck within 7.5 minutes (last: {last})")
+    sys.exit(f"FAIL: Grimmory didn't answer /api/v1/healthcheck within 7.5 minutes (last: {last})")
 
 
 def login(username: str, password: str) -> str | None:
-    # Two logins by one user within about a second collide in Booklore ("A data
+    # Two logins by one user within about a second collide in Grimmory ("A data
     # conflict occurred", 400), so a 400 is retried once the second has passed.
     for _ in range(3):
         status, body = call("POST", "/auth/login", {"username": username, "password": password})
@@ -107,7 +107,7 @@ def first_run(admin: dict) -> None:
         print("setup: done before")
     TOKEN = login(admin["username"], admin["password"])
     if not TOKEN:
-        sys.exit("FAIL: the local admin from booklore.yaml can't log in")
+        sys.exit("FAIL: the local admin from grimmory.yaml can't log in")
 
 
 def libraries_by_name() -> dict:
@@ -130,7 +130,7 @@ def apply_libraries(wanted: list[dict]) -> dict:
             print(f"libraries: updated {lib['name']} and started a rescan")
     extra = sorted(set(have) - {lib["name"] for lib in wanted})
     if extra:
-        print(f"libraries: left alone, not in booklore.yaml: {', '.join(extra)}")
+        print(f"libraries: left alone, not in grimmory.yaml: {', '.join(extra)}")
     return {name: lib["id"] for name, lib in libraries_by_name().items()}
 
 
@@ -151,7 +151,7 @@ def apply_settings(settings: dict) -> None:
 def mapping_body(m: dict, library_ids: dict) -> dict:
     missing = [n for n in m.get("libraries", []) if n not in library_ids]
     if missing:
-        sys.exit(f"FAIL: mapping {m['group']} names libraries booklore.yaml doesn't define: {missing}")
+        sys.exit(f"FAIL: mapping {m['group']} names libraries grimmory.yaml doesn't define: {missing}")
     return {
         "oidcGroupClaim": m["group"],
         "isAdmin": bool(m.get("admin", False)),
@@ -199,13 +199,17 @@ def verify(spec: dict, library_ids: dict) -> None:
     for key, value in (spec.get("settings") or {}).items():
         field = "".join(w.capitalize() if i else w.lower() for i, w in enumerate(key.split("_")))
         got = current.get(field)
+        if "secret" in key.lower():
+            if not got:
+                problems.append(f"setting {field} is empty")
+            continue
         problems += compare(field, got, resolve(value))
     have = libraries_by_name()
     for lib in spec.get("libraries") or []:
         if lib["name"] not in have:
             problems.append(f"library {lib['name']} is missing")
         elif library_differs(have[lib["name"]], lib):
-            problems.append(f"library {lib['name']} differs from booklore.yaml")
+            problems.append(f"library {lib['name']} differs from grimmory.yaml")
     mappings = {m["oidcGroupClaim"]: m for m in must(*call("GET", "/admin/oidc-group-mappings"), "reading mappings back")}
     for m in spec.get("groupMappings") or []:
         if m["group"] not in mappings:
@@ -218,7 +222,7 @@ def verify(spec: dict, library_ids: dict) -> None:
         if u["username"] not in users:
             problems.append(f"user {u['username']} is missing")
         elif not login(u["username"], u["password"]):
-            problems.append(f"user {u['username']} can't log in with its password from booklore.yaml")
+            problems.append(f"user {u['username']} can't log in with its password from grimmory.yaml")
     if problems:
         sys.exit("FAIL: read back:\n  " + "\n  ".join(problems))
     print(f"verified: {len(spec.get('settings') or {})} settings, {len(have)} libraries, "
