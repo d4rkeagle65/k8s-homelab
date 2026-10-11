@@ -63,10 +63,11 @@ spec:
                     key: api-key
             resources:
               requests:
-                cpu: 100m
-                memory: 512Mi
+                cpu: 10m
+                memory: 224Mi
               limits:
-                memory: 2Gi
+                cpu: 500m
+                memory: 512Mi
     service:
       main:
         controller: main

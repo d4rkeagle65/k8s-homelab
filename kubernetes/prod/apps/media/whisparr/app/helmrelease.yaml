@@ -56,10 +56,11 @@ spec:
                 value: whisparr-log
             resources:
               requests:
-                cpu: 100m
-                memory: 256Mi
+                cpu: 10m
+                memory: 352Mi
               limits:
-                memory: 1Gi
+                cpu: 500m
+                memory: 640Mi
     service:
       main:
         controller: main

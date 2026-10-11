@@ -45,10 +45,11 @@ spec:
                 value: "false"
             resources:
               requests:
-                cpu: 100m
-                memory: 512Mi
+                cpu: 10m
+                memory: 128Mi
               limits:
-                memory: 2Gi
+                cpu: 500m
+                memory: 512Mi
           node:
             image:
               repository: ghcr.io/haveagitgat/tdarr_node
@@ -70,9 +71,10 @@ spec:
                 value: "8266"
             resources:
               requests:
-                cpu: 500m
-                memory: 1Gi
+                cpu: 10m
+                memory: 128Mi
               limits:
+                cpu: 2000m
                 memory: 4Gi
     service:
       main:
