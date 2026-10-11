@@ -1,0 +1,1174 @@
+{
+ "uid": "homelab-overview",
+ "title": "Homelab overview",
+ "description": "Everything at a glance: what's down, what's close to a limit, and the hosts, cluster, network and storage.",
+ "tags": [
+  "homelab"
+ ],
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": true,
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "refresh": "1m",
+ "timezone": "browser",
+ "panels": [
+  {
+   "id": 1,
+   "type": "row",
+   "title": "At a glance",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "stat",
+   "title": "Hosts down",
+   "description": "Proxmox hosts, Pi-holes and the Docker VM whose node-exporter doesn't answer.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(up{job=~\"proxmox-hosts|pihole-hosts|docker-vm\"} == 0) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 2,
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Nodes not ready",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(kube_node_status_condition{condition=\"Ready\", status=\"true\"} == 0) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 3,
+   "gridPos": {
+    "x": 3,
+    "y": 1,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Pods not ready",
+   "description": "Not counting Jobs' pods.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "red",
+        "value": 5
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count((kube_pod_status_ready{condition=\"false\"} == 1) unless on(namespace, pod) kube_pod_owner{owner_kind=\"Job\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 4,
+   "gridPos": {
+    "x": 6,
+    "y": 1,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Alerts firing",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "red",
+        "value": 3
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(ALERTS{alertstate=\"firing\", alertname!=\"Watchdog\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 5,
+   "gridPos": {
+    "x": 9,
+    "y": 1,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Scrape targets down",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "red",
+        "value": 3
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(up == 0) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 6,
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Oldest database backup",
+   "description": "The CloudNativePG base backup that's oldest; nightly, so over 26 hours means one was missed.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 93600
+       },
+       {
+        "color": "red",
+        "value": 172800
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - min(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 7,
+   "gridPos": {
+    "x": 15,
+    "y": 1,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Most worn SSD",
+   "description": "The NVMe drive with the most of its rated writes used (Drives has each).",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 80
+       },
+       {
+        "color": "red",
+        "value": 90
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 * max(nvme_percentage_used_ratio)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 8,
+   "gridPos": {
+    "x": 18,
+    "y": 1,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Next certificate expiry",
+   "description": "cert-manager renews 30 days ahead, so under 14 days means renewals are failing.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 604800
+       },
+       {
+        "color": "green",
+        "value": 1209600
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "min(certmanager_certificate_expiration_timestamp_seconds) - time()",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 9,
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 3,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "id": 10,
+   "type": "row",
+   "title": "Proxmox hosts",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 9,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "CPU",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 * (1 - avg by (nodename) (rate(node_cpu_seconds_total{job=\"proxmox-hosts\", mode=\"idle\"}[$__rate_interval]) * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"}))",
+     "legendFormat": "{{nodename}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 11,
+   "gridPos": {
+    "x": 0,
+    "y": 10,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Memory used",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 * (1 - node_memory_MemAvailable_bytes{job=\"proxmox-hosts\"} / node_memory_MemTotal_bytes{job=\"proxmox-hosts\"}) * on(instance) group_left(nodename) node_uname_info{job=\"proxmox-hosts\"}",
+     "legendFormat": "{{nodename}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 12,
+   "gridPos": {
+    "x": 12,
+    "y": 10,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "id": 13,
+   "type": "row",
+   "title": "Kubernetes nodes",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 18,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "Memory used",
+   "description": "What each node's processes use (node-exporter inside it).",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 * (1 - node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"}) * on(instance) group_left(nodename) node_uname_info{job=\"node-exporter\"}",
+     "legendFormat": "{{nodename}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 14,
+   "gridPos": {
+    "x": 0,
+    "y": 19,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Memory requested",
+   "description": "What the pods on each node reserve; the scheduler places nothing that doesn't fit, so a node near 100% takes no more pods (QUEUE-resource-limits.md).",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 * sum by (node) (kube_pod_container_resource_requests{resource=\"memory\"}) / sum by (node) (kube_node_status_allocatable{resource=\"memory\"})",
+     "legendFormat": "{{node}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 15,
+   "gridPos": {
+    "x": 12,
+    "y": 19,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "id": 16,
+   "type": "row",
+   "title": "Network",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 27,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "DNS queries (Pi-hole, today)",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(pihole_dns_queries_today)",
+     "legendFormat": "queries",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "sum(pihole_ads_blocked_today)",
+     "legendFormat": "blocked",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 17,
+   "gridPos": {
+    "x": 0,
+    "y": 28,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Traefik requests",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (code) (rate(traefik_service_requests_total[$__rate_interval]))",
+     "legendFormat": "{{code}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 18,
+   "gridPos": {
+    "x": 8,
+    "y": 28,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "DHCP leases used",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 * sum(kea_dhcp4_addresses_assigned_total) / sum(kea_dhcp4_addresses_total)",
+     "legendFormat": "used",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 19,
+   "gridPos": {
+    "x": 16,
+    "y": 28,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "id": 20,
+   "type": "row",
+   "title": "Storage",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 36,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "NAS volumes used",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     },
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 * (1 - sum by (raidName) (raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}) / sum by (raidName) (raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"}))",
+     "legendFormat": "Synology {{raidName}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 21,
+   "gridPos": {
+    "x": 0,
+    "y": 37,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Garage free",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(garage_local_disk_avail{volume=\"data\"})",
+     "legendFormat": "data",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "sum(garage_local_disk_avail{volume=\"metadata\"})",
+     "legendFormat": "metadata",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 22,
+   "gridPos": {
+    "x": 8,
+    "y": 37,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Host disk writes",
+   "description": "All Proxmox hosts' physical disks together; Drives has each drive and guest.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "Bps",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(node_disk_written_bytes_total{job=\"proxmox-hosts\", device!~\"zd.*|dm.*|loop.*\"}[$__rate_interval]))",
+     "legendFormat": "Proxmox hosts' local disks",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 23,
+   "gridPos": {
+    "x": 16,
+    "y": 37,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  }
+ ],
+ "templating": {
+  "list": []
+ },
+ "annotations": {
+  "list": []
+ }
+}

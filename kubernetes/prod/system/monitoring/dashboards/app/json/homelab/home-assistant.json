@@ -1,0 +1,764 @@
+{
+ "uid": "homelab-home-assistant",
+ "title": "Home Assistant",
+ "description": "Home Assistant through its Prometheus integration: entities, availability, state changes, updates and batteries.",
+ "tags": [
+  "homelab",
+  "home-assistant"
+ ],
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": true,
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "refresh": "1m",
+ "timezone": "browser",
+ "panels": [
+  {
+   "id": 1,
+   "type": "row",
+   "title": "At a glance",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "stat",
+   "title": "Entities",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(hass_entity_available)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 2,
+   "gridPos": {
+    "x": 0,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Unavailable entities",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "red",
+        "value": 10
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(hass_entity_available == 0) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 3,
+   "gridPos": {
+    "x": 4,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Updates pending",
+   "description": "Update entities (Home Assistant itself, add-ons, integrations, firmware) that have one waiting.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(hass_update_state == 1) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 4,
+   "gridPos": {
+    "x": 8,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "State changes, last hour",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(increase(hass_state_change_total[1h]))",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 5,
+   "gridPos": {
+    "x": 12,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Lowest battery",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 15
+       },
+       {
+        "color": "green",
+        "value": 30
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "min(hass_sensor_battery_percent)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 6,
+   "gridPos": {
+    "x": 16,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Scrape",
+   "description": "1: Prometheus reaches Home Assistant's /api/prometheus.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "noValue": "0"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "max(up{job=\"homeassistant\"})",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "legendFormat": ""
+    }
+   ],
+   "id": 7,
+   "gridPos": {
+    "x": 20,
+    "y": 1,
+    "w": 4,
+    "h": 4
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "id": 8,
+   "type": "row",
+   "title": "Activity",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "timeseries",
+   "title": "State changes by domain",
+   "description": "Per minute.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (domain) (rate(hass_state_change_total[$__rate_interval])) * 60",
+     "legendFormat": "{{domain}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 9,
+   "gridPos": {
+    "x": 0,
+    "y": 6,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Entities by domain",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "normal"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count by (domain) (hass_entity_available)",
+     "legendFormat": "{{domain}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 10,
+   "gridPos": {
+    "x": 12,
+    "y": 6,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "id": 11,
+   "type": "row",
+   "title": "Details",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 14,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "type": "table",
+   "title": "Unavailable entities",
+   "description": "Entities Home Assistant reports as unavailable right now.",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "hass_entity_available == 0",
+     "format": "table",
+     "instant": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      },
+      "renameByName": {
+       "friendly_name": "Entity",
+       "domain": "Domain",
+       "entity": "Id",
+       "Value": "Available"
+      }
+     }
+    }
+   ],
+   "id": 12,
+   "gridPos": {
+    "x": 0,
+    "y": 15,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "table",
+   "title": "Updates pending",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": []
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "hass_update_state == 1",
+     "format": "table",
+     "instant": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      },
+      "renameByName": {
+       "friendly_name": "Update",
+       "entity": "Id",
+       "Value": "Pending"
+      }
+     }
+    }
+   ],
+   "id": 13,
+   "gridPos": {
+    "x": 12,
+    "y": 15,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "table",
+   "title": "Batteries",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "sortBy": [
+     {
+      "displayName": "Percent",
+      "desc": false
+     }
+    ]
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "hass_sensor_battery_percent",
+     "format": "table",
+     "instant": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      },
+      "renameByName": {
+       "friendly_name": "Device",
+       "entity": "Id",
+       "Value": "Percent"
+      }
+     }
+    }
+   ],
+   "id": 14,
+   "gridPos": {
+    "x": 0,
+    "y": 23,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Temperatures",
+   "description": "",
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "stacking": {
+       "mode": "none"
+      }
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "hass_sensor_temperature_celsius",
+     "legendFormat": "{{friendly_name}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     }
+    }
+   ],
+   "id": 15,
+   "gridPos": {
+    "x": 12,
+    "y": 23,
+    "w": 12,
+    "h": 8
+   },
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   }
+  }
+ ],
+ "templating": {
+  "list": []
+ },
+ "annotations": {
+  "list": []
+ }
+}
