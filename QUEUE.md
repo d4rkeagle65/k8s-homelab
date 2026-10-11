@@ -16,6 +16,11 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
+- **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
+  `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
+  Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
+  put it in those two fields.
+
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
    (a) the partner keeps a copy of the reservations in its own config (two places to change);
@@ -198,16 +203,13 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   `tests/CLAUDE.md` and `scripts/CLAUDE.md`. Left as is, a new test can land in the wrong
   folder and skip the checks it was meant for.
 
-- **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
-  `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
-  Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
-  put it in those two fields.
-
 ## Working queue files
 
 - [QUEUE-terraform.md](QUEUE-terraform.md): OpenTofu, Proxmox guests first.
 - [QUEUE-monitoring.md](QUEUE-monitoring.md): Prometheus, Loki and Grafana, in eight phases.
-- [QUEUE-dashboards.md](QUEUE-dashboards.md): Grafana's dashboards and Homepage.
+- [QUEUE-resource-limits.md](QUEUE-resource-limits.md): requests and limits on every container, in batches.
+- [QUEUE-talos.md](QUEUE-talos.md): the nodes onto Talos VMs, surviving the loss of any host; the fifth host first.
+- [QUEUE-organizr.md](QUEUE-organizr.md): Organizr configured from git; its remaining checks.
 
 A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
