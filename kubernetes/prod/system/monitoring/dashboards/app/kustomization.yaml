@@ -19,10 +19,12 @@ configMapGenerator:
       grafana_dashboard: "1"
     annotations:
       grafana_folder: Homelab
-# exportarr's own (examples/grafana/dashboard2.json, v2.3.0).
+# exportarr's own (examples/grafana/dashboard2.json, v2.3.0) and
+# qbittorrent-exporter's (grafana/dashboard.json, v2.0.3).
 - name: dashboards-apps
   files:
   - json/apps/media-exportarr.json
+  - json/apps/qbittorrent.json
   options:
     disableNameSuffixHash: true
     labels:
