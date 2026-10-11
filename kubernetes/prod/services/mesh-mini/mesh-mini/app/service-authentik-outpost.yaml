@@ -1,0 +1,14 @@
+# Authentik's proxy outpost, for the /outpost.goauthentik.io path on mesh-mini's
+# route (its login callback), as babybuddy does.
+apiVersion: v1
+kind: Service
+metadata:
+  name: authentik-outpost
+spec:
+  type: ExternalName
+  externalName: ak-outpost-default-proxy-outpost.authentik.svc.${CLUSTER_DOMAIN}
+  ports:
+    - name: http
+      port: 9000
+      protocol: TCP
+      targetPort: 9000

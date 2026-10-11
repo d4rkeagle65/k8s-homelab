@@ -1,0 +1,14 @@
+# The saved list of Intel AMT machines (computers.json), with their AMT logins.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mesh-mini-config
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 128Mi

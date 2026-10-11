@@ -1,0 +1,101 @@
+# mesh-mini, MeshCommander's maintained fork: Intel AMT remote management
+# (power, the KVM console, serial and disk redirection) for the hosts with AMT.
+# It has no login of its own and relays TCP to any host it's asked for, so it
+# sits behind Authentik's proxy (the mesh-mini blueprint: authentik Admins
+# only), on the private networks only, and its NetworkPolicy lets it reach
+# nothing but AMT's ports.
+#
+# The image (built 2024-05 on Node 21) is pinned by digest and runs as its
+# unprivileged node user with a read-only root; the computer list is the only
+# thing it writes (COMPUTER_PATH, on the mesh-mini-config volume).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: mesh-mini
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: mesh-mini
+      homelab.local/category: services
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: brytonsalisbury/mesh-mini
+              tag: amd64@sha256:ce17abcb129451bedce0db61ee5cc0086ba01f5b33f5163385f19814844c9b5d
+            env:
+              NODE_ENV: production
+              COMPUTER_PATH: /config/computers.json
+            securityContext:
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+              capabilities: {drop: [ALL]}
+            resources:
+              requests: {cpu: 10m, memory: 64Mi}
+              limits: {cpu: 500m, memory: 512Mi}
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: /, port: 3000}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+              readiness: *probe
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 3000
+    ingress:
+      main:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_authentik@kubernetescrd
+        hosts:
+          - host: mesh${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /outpost.goauthentik.io
+                pathType: Prefix
+                service:
+                  name: authentik-outpost
+                  port: 9000
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: mesh-mini-tls
+            hosts:
+              - mesh${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      config:
+        existingClaim: mesh-mini-config
+        globalMounts:
+          - path: /config
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

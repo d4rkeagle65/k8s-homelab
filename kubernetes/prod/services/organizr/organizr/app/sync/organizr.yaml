@@ -97,5 +97,6 @@ tabs:
   - {name: Proxmox, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://${PVE_API_HOST}:8006", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proxmox.png"}
   - {name: Semaphore, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://semaphore.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/semaphore.png"}
   - {name: Dockhand, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://dockhand.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dockhand.png"}
+  - {name: mesh-mini, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://mesh${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/meshcentral.png"}
   - {name: Authentik, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://auth.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/authentik.png"}
   - {name: Vaultwarden, category: Infrastructure, type: 2, group_id: 4, enabled: 1, url: "https://vaultwarden.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/vaultwarden.png"}

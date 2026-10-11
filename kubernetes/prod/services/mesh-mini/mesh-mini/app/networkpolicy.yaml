@@ -1,0 +1,34 @@
+# mesh-mini's /webrelay.ashx opens a TCP connection to whatever host and port
+# the browser names, and the app has no login of its own. So: only Traefik
+# reaches it (Authentik's login is on that route), and it reaches only DNS and
+# Intel AMT's ports (16992-16993 WS-Management, 16994-16995 redirection: the
+# console, serial and disk), never anything else on the networks.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mesh-mini
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mesh-mini
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - {protocol: TCP, port: 3000}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - ports:
+        - {protocol: TCP, port: 16992, endPort: 16995}
