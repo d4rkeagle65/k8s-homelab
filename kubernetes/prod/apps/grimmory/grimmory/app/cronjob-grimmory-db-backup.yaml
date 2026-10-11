@@ -1,10 +1,10 @@
-# A nightly dump of Booklore's MariaDB to the NAS, keeping 14 days.
+# A nightly dump of Grimmory's MariaDB to the NAS, keeping 14 days.
 # CloudNativePG's backups cover only Postgres. To restore: gunzip the file
-# into `mariadb -uroot -p booklore` in the booklore-mariadb-0 pod.
+# into `mariadb -uroot -p grimmory` in the grimmory-mariadb-0 pod.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: booklore-db-backup
+  name: grimmory-db-backup
 spec:
   schedule: "30 3 * * *"
   concurrencyPolicy: Forbid
@@ -23,19 +23,19 @@ spec:
                 - name: MYSQL_PWD
                   valueFrom:
                     secretKeyRef:
-                      name: booklore-db
+                      name: grimmory-db
                       key: root-password
               command:
                 - sh
                 - -ec
                 - |
-                  f=/backup/booklore-$(date +%Y%m%d-%H%M).sql.gz
-                  mariadb-dump -h booklore-mariadb -uroot --single-transaction --routines --triggers booklore | gzip > "$f.part"
+                  f=/backup/grimmory-$(date +%Y%m%d-%H%M).sql.gz
+                  mariadb-dump -h grimmory-mariadb -uroot --single-transaction --routines --triggers grimmory | gzip > "$f.part"
                   # An empty or truncated dump is a failure, not a backup.
                   gzip -t "$f.part"
                   [ "$(gzip -dc "$f.part" | tail -c 200 | grep -c 'Dump completed')" = 1 ]
                   mv "$f.part" "$f"
-                  find /backup -name 'booklore-*.sql.gz' -mtime +14 -delete
+                  find /backup -name 'grimmory-*.sql.gz' -mtime +14 -delete
                   ls -l "$f"
               resources:
                 requests: {cpu: 10m, memory: 64Mi}
@@ -45,4 +45,4 @@ spec:
           volumes:
             - name: backup
               persistentVolumeClaim:
-                claimName: booklore-db-backup
+                claimName: grimmory-db-backup

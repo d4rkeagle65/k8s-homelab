@@ -7,9 +7,9 @@ resources:
 - cluster-authentik-postgres.yaml
 - configmap-authentik-blueprints.yaml
 - ingress-authentik-cloudflared.yaml
-- secret-authentik-booklore-oidc.yaml
 - secret-authentik-dockhand-oidc.yaml
 - secret-authentik-grafana-oidc.yaml
+- secret-authentik-grimmory-oidc.yaml
 - secret-authentik-homepage-oidc.yaml
 - secret-authentik-organizr-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml

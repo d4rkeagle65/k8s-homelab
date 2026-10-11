@@ -1,10 +1,10 @@
-# Applies sync/booklore.yaml to Booklore (sync/booklore-sync.py). The
+# Applies sync/grimmory.yaml to Grimmory (sync/grimmory-sync.py). The
 # ConfigMap's generated name changes with either file, which changes this
 # Job's spec; Flux then replaces the Job (force), so each change runs once.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: booklore-sync
+  name: grimmory-sync
   annotations:
     kustomize.toolkit.fluxcd.io/force: enabled
 spec:
@@ -27,22 +27,22 @@ spec:
       containers:
         - name: sync
           image: python:3.13-alpine
-          command: [python, /etc/booklore-sync/booklore-sync.py]
+          command: [python, /etc/grimmory-sync/grimmory-sync.py]
           env:
             - {name: PYTHONPATH, value: /deps}
-            - {name: BOOKLORE_URL, value: "http://booklore.booklore.svc.${CLUSTER_DOMAIN}:6060"}
+            - {name: GRIMMORY_URL, value: "http://grimmory.grimmory.svc.${CLUSTER_DOMAIN}:6060"}
           envFrom:
             - secretRef:
-                name: booklore-sync
+                name: grimmory-sync
           resources:
             requests: {cpu: 10m, memory: 32Mi}
             limits: {memory: 128Mi}
           volumeMounts:
             - {name: deps, mountPath: /deps}
-            - {name: sync, mountPath: /etc/booklore-sync}
+            - {name: sync, mountPath: /etc/grimmory-sync}
       volumes:
         - name: deps
           emptyDir: {}
         - name: sync
           configMap:
-            name: booklore-sync
+            name: grimmory-sync

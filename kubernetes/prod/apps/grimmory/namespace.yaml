@@ -6,4 +6,4 @@ metadata:
     homelab.local/data: files
     homelab.local/exposure: lan
     homelab.local/login: authentik-oidc
-  name: booklore
+  name: grimmory
