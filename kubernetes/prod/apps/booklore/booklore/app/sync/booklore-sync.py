@@ -4,9 +4,8 @@ Runs as the booklore-sync Job whenever booklore.yaml or this script changes.
 Steps, each idempotent:
 
 1. First-run setup, only when Booklore has no user yet: the local admin.
-2. Libraries, matched by name: missing ones are added with their folders.
-   Existing ones are left as they are (changing one rescans it, which is
-   Booklore's to do from its UI).
+2. Libraries, matched by name: missing ones are added with their folders, and
+   an existing one is updated and rescanned when a field listed here differs.
 3. Settings: each entry is one of Booklore's settings, by its key name
    (AppSettingKey), written as given. A string value env:NAME anywhere in it
    comes from that environment variable, so no secret is in the ConfigMap.
@@ -85,9 +84,15 @@ def wait_ready() -> None:
 
 
 def login(username: str, password: str) -> str | None:
-    status, body = call("POST", "/auth/login", {"username": username, "password": password})
-    if status == 200 and isinstance(body, dict) and body.get("accessToken"):
-        return body["accessToken"]
+    # Two logins by one user within about a second collide in Booklore ("A data
+    # conflict occurred", 400), so a 400 is retried once the second has passed.
+    for _ in range(3):
+        status, body = call("POST", "/auth/login", {"username": username, "password": password})
+        if status == 200 and isinstance(body, dict) and body.get("accessToken"):
+            return body["accessToken"]
+        if status != 400:
+            return None
+        time.sleep(2)
     return None
 
 
@@ -112,16 +117,27 @@ def libraries_by_name() -> dict:
 def apply_libraries(wanted: list[dict]) -> dict:
     have = libraries_by_name()
     for lib in wanted:
-        if lib["name"] in have:
-            continue
         body = dict(lib)
         body["paths"] = [{"path": p} for p in lib["paths"]]
-        must(*call("POST", "/libraries", body), f"adding library {lib['name']}")
-        print(f"libraries: added {lib['name']}")
+        cur = have.get(lib["name"])
+        if cur is None:
+            must(*call("POST", "/libraries", body), f"adding library {lib['name']}")
+            print(f"libraries: added {lib['name']}")
+        elif library_differs(cur, lib):
+            must(*call("PUT", f"/libraries/{cur['id']}", body), f"updating library {lib['name']}")
+            # A changed setting applies to files only on the next scan.
+            must(*call("PUT", f"/libraries/{cur['id']}/refresh"), f"rescanning library {lib['name']}")
+            print(f"libraries: updated {lib['name']} and started a rescan")
     extra = sorted(set(have) - {lib["name"] for lib in wanted})
     if extra:
         print(f"libraries: left alone, not in booklore.yaml: {', '.join(extra)}")
     return {name: lib["id"] for name, lib in libraries_by_name().items()}
+
+
+def library_differs(cur: dict, want: dict) -> bool:
+    if sorted(p["path"] for p in cur.get("paths") or []) != sorted(want["paths"]):
+        return True
+    return any(str(cur.get(k)) != str(v) for k, v in want.items() if k not in ("name", "paths"))
 
 
 def apply_settings(settings: dict) -> None:
@@ -188,8 +204,8 @@ def verify(spec: dict, library_ids: dict) -> None:
     for lib in spec.get("libraries") or []:
         if lib["name"] not in have:
             problems.append(f"library {lib['name']} is missing")
-        elif sorted(p["path"] for p in have[lib["name"]].get("paths") or []) != sorted(lib["paths"]):
-            problems.append(f"library {lib['name']} has other folders")
+        elif library_differs(have[lib["name"]], lib):
+            problems.append(f"library {lib['name']} differs from booklore.yaml")
     mappings = {m["oidcGroupClaim"]: m for m in must(*call("GET", "/admin/oidc-group-mappings"), "reading mappings back")}
     for m in spec.get("groupMappings") or []:
         if m["group"] not in mappings:
