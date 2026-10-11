@@ -70,10 +70,11 @@
       two TL-SG105E (Easy Smart, no SNMP) pinged every minute by the blackbox exporter
       (`monitoring/blackbox-exporter/`, Probes `switch-02`/`switch-04`), on a Homepage card. All
       targets up; Grafana lists every new dashboard in its folder
-- [ ] Homepage widgets that need a key the cluster doesn't have yet. Each needs its Vaultwarden
-      field, its mapping in cluster-secrets and the `homepage` Secret, pushed before the widget:
-      Jellyseerr (`seerr`, its API key), Emby (an API key), SABnzbd (its API key), Mealie (an API
-      token), Authentik (a token, read-only use), Dockhand (a user or an API key).
+- [x] Homepage widgets with keys of their own (2026-10-11): Jellyseerr (`seerr`), Emby, SABnzbd,
+      Mealie (v3: `version: 2`), Authentik (`version: 2`) and Dockhand (no API keys in Dockhand:
+      a username and password). Each credential tested from the Homepage pod against its app
+      before the push: all answer. The Dockhand login stored is Dockhand's admin, root-equivalent
+      on the Docker host: a limited Dockhand user for Homepage is better (QUEUE.md)
 
 ## Resuming
 
