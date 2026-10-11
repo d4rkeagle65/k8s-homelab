@@ -216,6 +216,13 @@ spec:
             editable: true
             options:
               path: /var/lib/grafana/dashboards/storage
+          - name: apps
+            folder: Apps
+            type: file
+            disableDeletion: true
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/apps
           - name: logs
             folder: Logs
             type: file
@@ -284,6 +291,11 @@ spec:
             gnetId: 14284
             revision: 10
             datasource: [{name: DS_PROMETHEUS, value: prometheus}, {name: VAR_NASDEVICES, value: "1"}]
+        apps:
+          mysql:
+            gnetId: 14057
+            revision: 1
+            datasource: Prometheus
         logs:
           kubernetes-logs:
             gnetId: 16976

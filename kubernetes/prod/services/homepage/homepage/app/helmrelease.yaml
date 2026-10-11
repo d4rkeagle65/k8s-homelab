@@ -137,7 +137,7 @@ spec:
               Tools: {tab: Systems, style: row, columns: 4, header: false}
               Health: {tab: Cluster, style: row, columns: 3, header: false}
               Observability: {tab: Cluster, style: row, columns: 3, header: false}
-              Featured: {tab: Apps, style: row, columns: 3, header: false}
+              Featured: {tab: Apps, style: row, columns: 4, header: false}
               Everyday: {tab: Apps, style: row, columns: 4, header: false}
               Watch: {tab: Media, style: row, columns: 3, header: false}
               Download: {tab: Media, style: row, columns: 2, header: false}
@@ -595,6 +595,18 @@ spec:
                       version: 2
                       url: http://immich-server.immich.svc.${CLUSTER_DOMAIN}:2283
                       key: "{{ "{{HOMEPAGE_VAR_IMMICH_KEY}}" }}"
+                - Booklore:
+                    icon: booklore.png
+                    href: https://booklore${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: E-books
+                    namespace: booklore
+                    app: booklore
+                    podSelector: app.kubernetes.io/component=booklore
+                    widget:
+                      type: booklore
+                      url: http://booklore.booklore.svc.${CLUSTER_DOMAIN}:6060
+                      username: homepage
+                      password: "{{ "{{HOMEPAGE_VAR_BOOKLORE_PASSWORD}}" }}"
                 - Mealie:
                     icon: mealie.png
                     href: https://mealie.${BASE_DOMAIN}

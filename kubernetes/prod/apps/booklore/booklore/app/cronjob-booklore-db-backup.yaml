@@ -1,0 +1,48 @@
+# A nightly dump of Booklore's MariaDB to the NAS, keeping 14 days.
+# CloudNativePG's backups cover only Postgres. To restore: gunzip the file
+# into `mariadb -uroot -p booklore` in the booklore-mariadb-0 pod.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: booklore-db-backup
+spec:
+  schedule: "30 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: dump
+              image: mariadb:11.4.9
+              env:
+                - name: MYSQL_PWD
+                  valueFrom:
+                    secretKeyRef:
+                      name: booklore-db
+                      key: root-password
+              command:
+                - sh
+                - -ec
+                - |
+                  f=/backup/booklore-$(date +%Y%m%d-%H%M).sql.gz
+                  mariadb-dump -h booklore-mariadb -uroot --single-transaction --routines --triggers booklore | gzip > "$f.part"
+                  # An empty or truncated dump is a failure, not a backup.
+                  gzip -t "$f.part"
+                  [ "$(gzip -dc "$f.part" | tail -c 200 | grep -c 'Dump completed')" = 1 ]
+                  mv "$f.part" "$f"
+                  find /backup -name 'booklore-*.sql.gz' -mtime +14 -delete
+                  ls -l "$f"
+              resources:
+                requests: {cpu: 10m, memory: 64Mi}
+                limits: {memory: 256Mi}
+              volumeMounts:
+                - {name: backup, mountPath: /backup}
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: booklore-db-backup

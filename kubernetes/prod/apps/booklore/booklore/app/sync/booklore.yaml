@@ -1,0 +1,66 @@
+# Booklore's configuration, applied through its API by the booklore-sync Job
+# (booklore-sync.py says how). Edit here, not in Booklore's settings: the next
+# run puts a setting listed here back. A value written env:NAME comes from the
+# booklore-sync Secret; Flux fills in the cluster variables as everywhere else.
+
+# The local admin: created by the first-run setup, and the login this Job uses.
+# Also the way in when Authentik is down (Booklore keeps its own login form).
+admin:
+  username: env:BOOKLORE_ADMIN_USERNAME
+  password: env:BOOKLORE_ADMIN_PASSWORD
+  email: env:BOOKLORE_ADMIN_EMAIL
+  name: Booklore admin
+
+# The books Bookshelf collects, one folder per book.
+libraries:
+  - name: Books
+    paths: [/books]
+    watch: true
+    icon: pi pi-book
+    iconType: PRIME_NG
+    organizationMode: BOOK_PER_FOLDER
+    metadataSource: PREFER_EMBEDDED
+
+settings:
+  # Login through Authentik (its booklore blueprint). A first login creates
+  # the account; the group mappings below then set its rights on each login.
+  OIDC_ENABLED: true
+  OIDC_PROVIDER_DETAILS:
+    providerName: Authentik
+    clientId: booklore
+    clientSecret: env:OIDC_CLIENT_SECRET
+    issuerUri: https://auth.${BASE_DOMAIN}/application/o/booklore/
+    scopes: openid profile email
+    claimMapping:
+      username: preferred_username
+      name: name
+      email: email
+      groups: groups
+  OIDC_AUTO_PROVISION_DETAILS:
+    enableAutoProvisioning: true
+    allowLocalAccountLinking: true
+    defaultPermissions: []
+    defaultLibraryIds: []
+  OIDC_GROUP_SYNC_MODE: ON_LOGIN
+  # Reader apps (KOReader, Moon+, Panels) browse and download over OPDS, with
+  # a Booklore login of their own (each user's OPDS settings).
+  OPDS_SERVER_ENABLED: true
+
+# Authentik groups (the blueprint admits only these two) to Booklore's rights.
+groupMappings:
+  - group: Booklore Admins
+    admin: true
+    libraries: [Books]
+    description: Everything
+  - group: Booklore Users
+    libraries: [Books]
+    permissions: [permissionDownload, permissionAccessOpds, permissionSyncKoreader, permissionSyncKobo]
+    description: Read, download and sync
+
+# Homepage's Booklore widget logs in as this read-only user.
+users:
+  - username: homepage
+    password: env:HOMEPAGE_PASSWORD
+    name: Homepage
+    email: homepage@booklore.invalid
+    libraries: [Books]
