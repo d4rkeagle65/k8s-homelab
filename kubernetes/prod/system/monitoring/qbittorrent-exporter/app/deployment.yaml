@@ -27,6 +27,12 @@ spec:
         env:
         - name: QBITTORRENT_BASE_URL
           value: http://qbittorrent.media.svc.${CLUSTER_DOMAIN}:8080
+        # qBittorrent 5.2 names its session cookie after its port; without
+        # this the exporter keeps logging in again ("Cookie changed") and
+        # answers 503. With it, the username and password still work, so no
+        # API key is needed.
+        - name: QBITTORRENT_COOKIE_NAME
+          value: QBT_SID_8080
         envFrom:
         - secretRef:
             name: qbittorrent-exporter

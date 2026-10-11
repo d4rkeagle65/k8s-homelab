@@ -29,14 +29,22 @@
 
 - [x] Community dashboards, in folders (14; the Synology target also polls the generic
       `ucd_*` profiles the Synology dashboard selects by)
-- [ ] Project dashboards: exportarr, Garage, Kea/Stork (if 12688 doesn't fit), qBittorrent
-      (once its exporter works: `QBITTORRENT_API_KEY`)
+- [x] Project dashboards (`monitoring/dashboards/`, made to fit: data source uid `prometheus`,
+      `${var}` as `$var`, the rest `$${...}` for Flux): exportarr's Media dashboard and
+      qbittorrent-exporter's (Apps), Garage's (Storage), Flux's cluster and control plane
+      (Kubernetes; kube-state-metrics makes `gotk_resource_info` from the 10 Flux kinds). Kea's
+      12688 fits (only its DHCPv6 panels are empty)
+- [ ] qBittorrent's dashboard shows data: its exporter now names qBittorrent 5.2's cookie
+      (`QBITTORRENT_COOKIE_NAME=QBT_SID_8080`, no API key needed); check its target is up
 - [x] Written here, Drives (`monitoring/dashboards/`, uid `homelab-drives`): NVMe wear, spare,
       temperature and errors; writes per host, per local SSD and per guest; the NAS LUNs apart.
       Local SSDs are the physical drives only (`node_disk_info` path not `ip-*`), so ZFS and LVM
       volumes and the iSCSI LUNs don't count the same writes twice. Every query checked
       against Prometheus.
-- [ ] Written here: Homelab overview; Flux; Home Assistant
+- [x] Written here (Homelab folder): the overview (what's down, what's near a limit, hosts,
+      nodes' memory used and requested, network, storage) and Home Assistant (entities, the
+      unavailable ones, updates, state changes, batteries); every query checked. Flux's come
+      from the project instead (above)
 - [x] Homepage built (`services/homepage/`): v2.4.0 through app-template, its config inline (the
       chart restarts it on a change), its own OIDC login through Authentik (the homepage
       blueprint, authentik Admins only) and only on the private networks, at `home.<domain>`.
@@ -50,12 +58,13 @@
       Garage, Kubernetes, Flux, CloudNativePG, Loki. Each cluster app's card shows its pods'
       state, CPU and memory (`namespace` and `app`, or `podSelector`), and the Docker host's apps
       use `siteMonitor`. The calendar reads Sonarr and Radarr. Every query checked against Prometheus.
-- [ ] Homepage live: every widget shows data
-- [ ] Homepage's Synology (DSM's `diskstation`, a DSM user limited as the widget's docs say),
-      Cloudflare tunnel and Tailscale widgets, and the OpenWrt access points' cards: their nine
-      variables (cluster-secrets) must hold values; the access points need `ansible/openwrt-aps.yml`
-      run. The Tailscale API key lasts 90 days at most, so its widget fails when it expires:
-      renew it in `TAILSCALE_API_KEY`.
+- [x] Homepage live (2026-10-11): every widget's API call made from inside the Homepage pod with
+      its own credentials and addresses: all 18 answer (Proxmox, both Pi-holes, the Cloudflare
+      tunnel, Tailscale, DSM, Grafana, Prometheus, Home Assistant, Immich's statistics,
+      Grimmory, Tdarr, qBittorrent's login, the five *arrs)
+- [x] Homepage's Synology, Cloudflare tunnel and Tailscale widgets and the OpenWrt access
+      points' cards work. The Tailscale API key lasts 90 days at most, so its widget fails when
+      it expires: renew it in `TAILSCALE_API_KEY` (from about 2027-01-08).
 - [ ] TP-Link switches: the one that supports SNMP as an snmp-exporter target (`if_mib`, a
       `switch` label) with a Homepage card (ports up, traffic); the models decide which.
 - [ ] Homepage widgets that need a key the cluster doesn't have yet. Each needs its Vaultwarden
