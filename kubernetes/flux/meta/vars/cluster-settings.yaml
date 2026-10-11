@@ -7,7 +7,7 @@ metadata:
   name: cluster-settings
   namespace: flux-system
 data:
-  MEDIA_PUID: "1027"
+  MEDIA_PUID: "1028"
   MEDIA_PGID: "100"
   # Empty in production; the test overlay sets "-test".
   SUBDOMAIN_SUFFIX: ""

@@ -9,7 +9,7 @@ additionalVolumes:
 affinity: {}
 env:
   PGID: "999"
-  PUID: "1027"
+  PUID: "${MEDIA_PUID}"
   TZ: ${TIMEZONE}
 image:
   pullPolicy: IfNotPresent
