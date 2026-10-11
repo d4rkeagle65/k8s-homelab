@@ -97,9 +97,9 @@ outside the cluster").
       zones; the tunnel controller's 8 and cert-manager's challenges left to their owners.
       Planned from claude-code with local state: 29 to import, 0 to change. `TF_VAR_dns` in
       the Vaultwarden note "OpenTofu DNS (Cloudflare)"
-- [ ] Cloudflare in Semaphore: its token, the variable group and template (`tofu/README.md`);
-      a plan (29 to import, 0 to change), the apply that imports, then a plan with no changes;
-      then `imports.tf` can go
+- [x] Cloudflare in Semaphore (2026-10-11): its own token, the variable group and template;
+      the apply imported all 29 records; `imports.tf` removed afterwards
+- [ ] A plan from Semaphore with `imports.tf` gone shows no changes
 
 ## Resuming
 

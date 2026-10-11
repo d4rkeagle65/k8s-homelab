@@ -73,9 +73,11 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
 - **Semaphore:** a variable group "OpenTofu: Cloudflare", environment variables, all secrets:
   `CLOUDFLARE_API_TOKEN`, `PG_CONN_STR` (the same as Proxmox's; the schema differs) and
   `TF_VAR_dns` (the note). A template, type OpenTofu, subdirectory `tofu/cloudflare`.
-- **The first apply imports every record** (`imports.tf`, one block per record: OpenTofu
-  takes import keys only written out, not looped over a variable). Planned from claude-code
-  against Cloudflare with local state before the first commit: 29 to import, 0 to change.
+- **A record that already exists in Cloudflare** is adopted with an import block, keyed by
+  its `r` key, its id from `TF_VAR_dns`, removed again once applied: OpenTofu takes import keys
+  only written out, not looped over a variable (`import { to = cloudflare_dns_record.this["r30"]
+  id = "${var.dns.zones[var.dns.records["r30"].zone]}/${var.dns.records["r30"].id}" }`). A new
+  record needs none: the apply creates it.
 
 ## Checks for a change here
 
