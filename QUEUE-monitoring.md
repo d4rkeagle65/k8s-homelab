@@ -145,8 +145,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       profiles with a 25-second timeout (`synology_ucd_*` in the snmp-exporter's config) and a
       110-second scrape timeout. If it still fails, the scrape duration in Prometheus shows how
       long the agent took.
-- [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`), qBittorrent (its exporter
-      names qBittorrent 5.2's cookie, `QBT_SID_8080`, since 2026-10-11; check it's up), Home
+- [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`), Home
       Assistant (its Prometheus integration and a token)
 - [ ] Pi-hole 1's exporter (pihole-exporter's `pihole1` container, port 9617) takes 20-28 s
       to answer since about 2026-10-10 23:00 UTC, past Prometheus's 10 s timeout, so its target

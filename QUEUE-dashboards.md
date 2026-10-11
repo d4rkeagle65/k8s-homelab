@@ -34,8 +34,8 @@
       qbittorrent-exporter's (Apps), Garage's (Storage), Flux's cluster and control plane
       (Kubernetes; kube-state-metrics makes `gotk_resource_info` from the 10 Flux kinds). Kea's
       12688 fits (only its DHCPv6 panels are empty)
-- [ ] qBittorrent's dashboard shows data: its exporter now names qBittorrent 5.2's cookie
-      (`QBITTORRENT_COOKIE_NAME=QBT_SID_8080`, no API key needed); check its target is up
+- [x] qBittorrent's dashboard shows data (2026-10-11): its exporter names qBittorrent 5.2's
+      cookie (`QBITTORRENT_COOKIE_NAME=QBT_SID_8080`), no API key needed; 17 torrents
 - [x] Written here, Drives (`monitoring/dashboards/`, uid `homelab-drives`): NVMe wear, spare,
       temperature and errors; writes per host, per local SSD and per guest; the NAS LUNs apart.
       Local SSDs are the physical drives only (`node_disk_info` path not `ip-*`), so ZFS and LVM
@@ -65,13 +65,11 @@
 - [x] Homepage's Synology, Cloudflare tunnel and Tailscale widgets and the OpenWrt access
       points' cards work. The Tailscale API key lasts 90 days at most, so its widget fails when
       it expires: renew it in `TAILSCALE_API_KEY` (from about 2027-01-08).
-- [ ] The TL-SG3428 over SNMP (`switch-core`, `switch="core"`, the NASes' community; its two
-      TL-SG105E are Easy Smart, without SNMP): the snmp-exporter target, the SNMP Interface Detail
-      dashboard (12492, Network) and a Homepage card (ports linked, traffic, errors). Walked
-      from the exporter before: 33 interfaces, 16 up. The two TL-SG105E pinged every minute by
-      the blackbox exporter (`monitoring/blackbox-exporter/`, Probes `switch-02`/`switch-04`,
-      tested from a pod: both answer in about 4 ms), on a Homepage card. Check the targets are
-      up and both cards show data
+- [x] The switches (2026-10-11): the TL-SG3428 over SNMP (`switch-core`, `switch="core"`, 15
+      ports linked), the SNMP Interface Detail dashboard (12492, Network) and a Homepage card; the
+      two TL-SG105E (Easy Smart, no SNMP) pinged every minute by the blackbox exporter
+      (`monitoring/blackbox-exporter/`, Probes `switch-02`/`switch-04`), on a Homepage card. All
+      targets up; Grafana lists every new dashboard in its folder
 - [ ] Homepage widgets that need a key the cluster doesn't have yet. Each needs its Vaultwarden
       field, its mapping in cluster-secrets and the `homepage` Secret, pushed before the widget:
       Jellyseerr (`seerr`, its API key), Emby (an API key), SABnzbd (its API key), Mealie (an API
