@@ -25,7 +25,7 @@
 #   BACKUP_ZIP_PASSWORD the archive's password
 services:
   vaultwarden:
-    image: vaultwarden/server:1.37.2
+    image: vaultwarden/server:1.37.4
     container_name: vaultwarden
     restart: unless-stopped
     ports:
