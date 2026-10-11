@@ -125,7 +125,7 @@ spec:
                 memory: 672Mi
               limits:
                 cpu: 500m
-                memory: 1152Mi
+                memory: 1408Mi
           runners:
             image:
               repository: n8nio/runners

@@ -41,7 +41,7 @@ spec:
                 memory: 320Mi
               limits:
                 cpu: 900m
-                memory: 640Mi
+                memory: 1536Mi
     service:
       main:
         controller: main

@@ -85,7 +85,7 @@ spec:
       memory: 416Mi
     limits:
       cpu: 1000m
-      memory: 768Mi
+      memory: 1280Mi
   smartShutdownTimeout: 180
   startDelay: 3600
   stopDelay: 1800

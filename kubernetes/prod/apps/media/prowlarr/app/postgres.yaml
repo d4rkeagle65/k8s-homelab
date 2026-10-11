@@ -11,7 +11,7 @@ spec:
       memory: 128Mi
     limits:
       cpu: 1000m
-      memory: 384Mi
+      memory: 1Gi
   storage:
     size: 2Gi
     storageClass: local-db

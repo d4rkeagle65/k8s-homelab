@@ -19,12 +19,26 @@ started; re-measure at seven days, 2026-10-18, and tighten). CPU uses the 5-minu
 smooths short bursts, hence the generous CPU limits.
 
 - **Memory request:** 1.2 x peak, at least 64Mi, rounded up to 32Mi.
-- **Memory limit:** 2 x peak, rounded up to 128Mi; at least 512Mi for an app, 384Mi for a
-  database (CloudNativePG's default `shared_buffers` is 128MB), 256Mi for a sidecar or
-  exporter, and never below the request.
+- **Memory limit: what the container can allocate under load, not what was sampled.** A scrape
+  every 30 to 60 seconds misses short spikes: Immich's database never sampled above 150Mi and
+  was OOM-killed at 384Mi by an upgrade's migrations. Never below the request.
+  - **PostgreSQL:** `shared_buffers` + 4 x `maintenance_work_mem` (three autovacuum workers and
+    one index build) + 20Mi per connection (`work_mem` for a sort and a hash, plus the backend
+    itself) for twice the peak connections, at least 20, + 64Mi, rounded up to 128Mi. With
+    CloudNativePG's settings here (160Mi, 64Mi, 4Mi) that's 1Gi; Authentik's 19 connections
+    make 1280Mi. Read the settings from `pg_settings` and the peak from `cnpg_backends_total`.
+    An extension that builds large indexes (Immich's vectorchord) gets more, with a comment.
+  - **Other databases** (MariaDB, CouchDB): 768Mi.
+  - **Apps:** 2.5 x peak, rounded up to 128Mi, at least 512Mi; the .NET media apps (Sonarr,
+    Radarr, Lidarr, Prowlarr, Whisparr, Bookshelf) at least 1Gi for library scans and imports.
+  - **Sidecars and exporters:** 2 x peak, at least 256Mi.
 - **CPU request:** the 95th percentile, at least 10m, rounded up to 10m.
-- **CPU limit:** 3 x peak, rounded up to 100m, between 500m and 1000m. Transcoders (Emby, Tdarr's
-  node) 2000m. Databases 1000m.
+- **CPU limit:** 3 x peak, rounded up to 100m, between 500m and 1000m (two of the three workers
+  have 2 cores; above 1000m a scan starves the databases beside it). Raise to 1000m when
+  throttled in more than 10% of CFS periods over the window
+  (`container_cpu_cfs_throttled_periods_total` / `container_cpu_cfs_periods_total`).
+  Transcoders (Emby, Tdarr's node) 2000m. Databases 1000m.
+- **Requests set where pods schedule; limits don't.** Raising a limit needs no node-fit check.
 - A value set by hand for a known reason (a comment says why) stays, unless the data shows it's
   too low.
 - **Before adding requests to pods pinned to a node** (a database instance on `local-db`, or
@@ -60,6 +74,9 @@ Queries (Prometheus, `kube-prometheus-stack`):
       a 2 GiB limit (models load far above the idle peak); n8n's task runners keep 1 GiB;
       Grimmory's CPU request stays 100m (its 95th percentile was library scans). Authentik's
       two outposts are created by Authentik, not this repo: batch 6
+- [x] Batches 1-3's limits recalculated by the load rules above, after Immich's database was
+      OOM-killed. Requests unchanged. Alloy's limit went to 512Mi ahead of batch 5 (it was at
+      87%)
 - [ ] Batch 4: the platform: Traefik (both), cert-manager, External Secrets, ExternalDNS, the
       CloudNativePG operator and Barman plugin, local-path, the NFS provisioners, metrics-server,
       the Cloudflare tunnel, the SMTP relay, Redis, Mosquitto, No-IP, nebula-sync
@@ -74,7 +91,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
       memory higher: kube-scheduler's `NodeResourcesFit` with `LeastAllocated` and
       `resources: [{name: memory, weight: 3}, {name: cpu, weight: 1}]`, through kubeadm's
       scheduler config (Ansible, `k8s-upgrade.yml`'s territory)
-- [ ] Re-measure at seven days (2026-10-18) and tighten
+- [ ] Re-measure at seven days (2026-10-18): requests from the new peaks, limits by the rules
+      above. Immich's server was throttled in 66% of periods over the first two days, mostly
+      while it crash-looped on 2026-10-11; if it stays above 10% it needs a judgement against
+      the 1000m cap
 
 ## Resuming
 

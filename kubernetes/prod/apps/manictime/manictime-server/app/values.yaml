@@ -30,7 +30,7 @@ resources:
     memory: 384Mi
   limits:
     cpu: 500m
-    memory: 640Mi
+    memory: 896Mi
 service:
   httpPort: 8080
   type: ClusterIP
