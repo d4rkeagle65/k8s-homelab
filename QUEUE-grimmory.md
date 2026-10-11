@@ -30,8 +30,8 @@ and Grafana, configured from git with the Authentik login.
 - [ ] Login through Authentik as a Grimmory Admin (the groups were Booklore's, renamed)
 - [ ] Homepage's widget shows counts; the Organizr tab opens; Grafana's MySQL dashboard (Apps
       folder) shows the database
-- [ ] Booklore removed: its namespace (by hand: Flux keeps Namespaces and their PVCs), its
-      Authentik application and provider, and the BOOKLORE_* fields in Vaultwarden
+- [x] Booklore removed (2026-10-11): its namespace, its three volumes and their data (on a
+      worker and the NAS), its Authentik application and provider, and the BOOKLORE_* fields
 - [ ] The first nightly dump lands and `gzip -t` passes; a restore test into a scratch database
 - [ ] Reader apps over OPDS (each user's OPDS login in Grimmory)
 

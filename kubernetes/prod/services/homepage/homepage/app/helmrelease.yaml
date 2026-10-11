@@ -46,8 +46,8 @@ spec:
               - secretRef:
                   name: homepage
             resources:
-              requests: {cpu: 20m, memory: 128Mi}
-              limits: {memory: 384Mi}
+              requests: {cpu: 60m, memory: 288Mi}
+              limits: {cpu: 500m, memory: 512Mi}
             probes:
               liveness: &probe
                 enabled: true

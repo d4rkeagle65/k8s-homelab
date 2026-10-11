@@ -67,8 +67,8 @@ spec:
         cpu: 2000m
         memory: 4Gi
       requests:
-        cpu: 250m
-        memory: 512Mi
+        cpu: 30m
+        memory: 896Mi
     service:
       httpPort: 8096
       httpsPort: 8920

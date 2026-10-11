@@ -46,3 +46,10 @@ service:
   enabled: true
   port: 5984
   type: ClusterIP
+resources:
+  requests:
+    cpu: 10m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 384Mi

@@ -51,8 +51,8 @@ spec:
             # A library scan takes every core it's given; capped so a scan on a
             # 2-core worker leaves room for the databases beside it.
             resources:
-              requests: {cpu: 100m, memory: 512Mi}
-              limits: {cpu: 1000m, memory: 1536Mi}
+              requests: {cpu: 100m, memory: 864Mi}
+              limits: {cpu: 1000m, memory: 1408Mi}
             probes:
               startup: &probe
                 enabled: true
@@ -105,8 +105,8 @@ spec:
               # Upgrade the data files in place after a new MariaDB version.
               MARIADB_AUTO_UPGRADE: "1"
             resources:
-              requests: {cpu: 50m, memory: 256Mi}
-              limits: {memory: 768Mi}
+              requests: {cpu: 30m, memory: 224Mi}
+              limits: {cpu: 1000m, memory: 384Mi}
             probes:
               liveness: &dbprobe
                 enabled: true
@@ -134,8 +134,8 @@ spec:
                     name: grimmory-db
                     key: root-password
             resources:
-              requests: {cpu: 10m, memory: 32Mi}
-              limits: {memory: 64Mi}
+              requests: {cpu: 10m, memory: 64Mi}
+              limits: {cpu: 500m, memory: 256Mi}
         statefulset:
           # Node-local disk, Retain, like the CloudNativePG databases.
           volumeClaimTemplates:

@@ -44,6 +44,15 @@ machine-learning:
             pullPolicy: IfNotPresent
             repository: ghcr.io/immich-app/immich-machine-learning
             tag: v3.1.0
+          # Loading the face and search models takes far more than its idle
+          # peak, hence the 2 GiB limit.
+          resources:
+            requests:
+              cpu: 10m
+              memory: 384Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
   enabled: true
   persistence:
     cache:
@@ -59,6 +68,14 @@ server:
           image:
             pullPolicy: IfNotPresent
             repository: ghcr.io/immich-app/immich-server
+          # It makes thumbnails and transcodes on upload, hence a whole core.
+          resources:
+            requests:
+              cpu: 30m
+              memory: 1376Mi
+            limits:
+              cpu: 1000m
+              memory: 2304Mi
   enabled: true
   ingress:
     main:
