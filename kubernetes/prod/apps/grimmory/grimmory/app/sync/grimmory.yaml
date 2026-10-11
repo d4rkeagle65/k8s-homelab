@@ -46,6 +46,8 @@ settings:
   # Reader apps (KOReader, Moon+, Panels) browse and download over OPDS, with
   # a Grimmory login of their own (each user's OPDS settings).
   OPDS_SERVER_ENABLED: true
+  # Uploads up to 250 MB (Grimmory's own ceiling is 1 GB; Traefik adds none).
+  MAX_FILE_UPLOAD_SIZE_IN_MB: 250
 
 # Authentik groups (the blueprint admits only these two) to Grimmory's rights.
 groupMappings:
