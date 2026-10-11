@@ -134,7 +134,7 @@ spec:
               Network: {tab: Systems, style: row, columns: 3, header: false}
               Wi-Fi: {tab: Systems, style: row, columns: 3, header: false}
               Storage: {tab: Systems, style: row, columns: 3, header: false}
-              Tools: {tab: Systems, style: row, columns: 4, header: false}
+              Tools: {tab: Systems, style: row, columns: 5, header: false}
               Health: {tab: Cluster, style: row, columns: 3, header: false}
               Observability: {tab: Cluster, style: row, columns: 3, header: false}
               Featured: {tab: Apps, style: row, columns: 4, header: false}
@@ -467,6 +467,12 @@ spec:
                     href: https://databasus.${BASE_DOMAIN}
                     description: Database backups
                     siteMonitor: https://databasus.${BASE_DOMAIN}
+                - mesh-mini:
+                    icon: meshcentral.png
+                    href: https://mesh${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Intel AMT consoles
+                    namespace: mesh-mini
+                    app: mesh-mini
                 - Stork:
                     icon: isc-kea.png
                     href: https://stork.${BASE_DOMAIN}

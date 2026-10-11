@@ -6,6 +6,7 @@ resources:
 - authentik
 - cnpg-system
 - homepage
+- mesh-mini
 - mqtt
 - organizr
 - redis-ha
