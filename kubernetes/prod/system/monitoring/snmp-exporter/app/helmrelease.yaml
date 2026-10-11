@@ -134,6 +134,10 @@ spec:
               labelname: laIndex
     extraArgs:
     - --config.file=/etc/snmp_exporter/snmp.yml
+    # Reload the exporter when the config above changes; it reads it only at
+    # start, and the chart doesn't restart it.
+    configmapReload:
+      enabled: true
     resources:
       requests: {cpu: 10m, memory: 32Mi}
       limits: {memory: 128Mi}
