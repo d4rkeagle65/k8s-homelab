@@ -22,18 +22,25 @@ and Grafana, configured from git with the Authentik login.
 
 ## Checklist
 
-- [ ] The variables (copies of Booklore's) reach the cluster, then the rest is pushed; the blueprint
-      re-applied once the worker restarts (`kubernetes/CLAUDE.md`)
-- [ ] MariaDB and Grimmory start; the sync Job's first run passes
-- [ ] The library scans as one book per file (folders hold whole series; one book per folder
-      failed 39 of them under Booklore, which found 255 books per file)
-- [ ] Login through Authentik as a Grimmory Admin (the groups were Booklore's, renamed)
-- [ ] Homepage's widget shows counts; the Organizr tab opens; Grafana's MySQL dashboard (Apps
-      folder) shows the database
+- [x] The variables (copies of Booklore's) reached the cluster, then the rest; the blueprint
+      re-applied once the worker restarted
+- [x] MariaDB and Grimmory start; the sync Job's first run passed (6 settings, the library, both
+      group mappings, Homepage's user, all read back)
+- [x] The library scans as one book per file: 158 books from 246 files (a title's EPUB, MOBI,
+      AZW3 and PDF are one book), no failures
+- [x] Homepage's widget logs in; the Organizr tab is there; Grafana's MySQL dashboard (Apps folder)
+      has data (`mysql_up` 1)
 - [x] Booklore removed (2026-10-11): its namespace, its three volumes and their data (on a
       worker and the NAS), its Authentik application and provider, and the BOOKLORE_* fields
-- [ ] The first nightly dump lands and `gzip -t` passes; a restore test into a scratch database
-- [ ] Reader apps over OPDS (each user's OPDS login in Grimmory)
+- [x] The nightly dump, run by hand: `gzip -t` passes, and restored into a scratch database it
+      matches the live one (73 tables, 0 differences, 158 books)
+- [ ] Login through Authentik as a Grimmory Admin. Grimmory's own test of the provider failed:
+      it refuses outbound connections to private addresses, and Authentik is one;
+      `OIDC_ALLOW_UNSAFE_HOSTS` lifts that for its OIDC calls only. Rerun its test (Settings,
+      OIDC), then log in
+- [ ] Reader apps over OPDS: each user makes an OPDS login in Grimmory's settings, and the app
+      points at `https://grimmory.<domain>/api/v1/opds` (private networks only, so at home or
+      over Tailscale). The endpoint is on and asks for a login (checked)
 
 ## Resuming
 

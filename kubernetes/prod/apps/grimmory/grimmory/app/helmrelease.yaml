@@ -48,6 +48,11 @@ spec:
               # The library is on the NAS over NFS: Grimmory then never deletes,
               # moves or renames files there (Bookshelf owns that folder).
               DISK_TYPE: NETWORK
+              # Grimmory refuses outbound connections to private addresses, and
+              # Authentik is one, so its login couldn't fetch Authentik's
+              # discovery document. This lifts the filter for its OIDC calls
+              # only, which go to the issuer set in sync/grimmory.yaml.
+              OIDC_ALLOW_UNSAFE_HOSTS: "true"
             # A library scan takes every core it's given; capped so a scan on a
             # 2-core worker leaves room for the databases beside it.
             resources:
