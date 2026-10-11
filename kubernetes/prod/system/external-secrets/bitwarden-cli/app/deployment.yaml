@@ -42,7 +42,7 @@ spec:
           type: RuntimeDefault
       initContainers:
       - name: fetch-cli
-        image: alpine:3.22
+        image: alpine:3.24
         command: ["/bin/sh", "-ec"]
         args:
         - |
