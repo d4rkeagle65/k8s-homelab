@@ -1,0 +1,68 @@
+# Requests and limits on every container
+
+**The ask (2026-10-11):** limits on everything. Booklore's first library scan, with no CPU limit,
+took 1.2 cores on a 2-core worker and starved the databases beside it (health checks failed;
+Authentik's and Immich's databases failed over). The owner chose generous CPU limits on
+everything, a LimitRange per namespace, a PriorityClass for critical pods, and alerts.
+
+## What the data said when this started
+
+242 containers: 169 without a memory limit, 228 without a CPU limit, 156 without a memory request.
+The 8-core worker had 7.8 of its 7.9 GiB memory promised in requests (27.5 GiB in limits), the
+other two workers 3.2 and 2.1: inflated requests in some places and none in others pack pods onto
+it. Right-sizing requests matters as much as adding limits.
+
+## Rules (every batch sizes the same way)
+
+From Prometheus: the peak and the 95th percentile over the history it has (only one day when this
+started; re-measure at seven days, 2026-10-18, and tighten). CPU uses the 5-minute rate, which
+smooths short bursts, hence the generous CPU limits.
+
+- **Memory request:** 1.2 x peak, at least 64Mi, rounded up to 32Mi.
+- **Memory limit:** 2 x peak, rounded up to 128Mi; at least 512Mi for an app, 256Mi for a
+  sidecar or exporter, and never below the request.
+- **CPU request:** the 95th percentile, at least 10m, rounded up to 10m.
+- **CPU limit:** 3 x peak, rounded up to 100m, between 500m and 1000m. Transcoders (Emby, Tdarr's
+  node) 2000m. Databases 1000m.
+- A value set by hand for a known reason (a comment says why) stays, unless the data shows it's
+  too low.
+- Only what this repo owns. kubeadm's static pods (API server, etcd, scheduler, controller
+  manager) are left alone; operator-managed pods (Calico, MetalLB) through their operator's
+  settings where it has some.
+
+Queries (Prometheus, `kube-prometheus-stack`):
+
+- peak memory: `max_over_time(container_memory_working_set_bytes{container!=""}[7d])`
+- peak CPU: `max_over_time(rate(container_cpu_usage_seconds_total{container!=""}[5m])[7d:5m])`
+- 95th percentile CPU: the same with `quantile_over_time(0.95, ...)`
+- current settings: `kube_pod_container_resource_requests` / `_limits`
+
+## Checklist
+
+- [x] Batch 1: the media apps (`prod/apps/media/`): Bookshelf, Jellyseerr, Lidarr, Prowlarr,
+      qBittorrent, Radarr, SABnzbd, Sonarr, Tdarr, Whisparr. Memory requests went from 4224Mi to
+      3904Mi: Tdarr freed 1.28 GiB, while SABnzbd, Jellyseerr and Radarr were requesting less
+      than they use
+- [ ] Batch 2: the CloudNativePG databases (each Cluster's `resources`; a change restarts its
+      instances one at a time, replica first, then a switchover)
+- [ ] Batch 3: the other apps: Authentik, Immich, n8n, Mealie, Baby Buddy, ManicTime, Home
+      Assistant, Emby, Obsidian, Organizr, Homepage, Booklore's MariaDB and its exporter
+- [ ] Batch 4: the platform: Traefik (both), cert-manager, External Secrets, ExternalDNS, the
+      CloudNativePG operator and Barman plugin, local-path, the NFS provisioners, metrics-server,
+      the Cloudflare tunnel, the SMTP relay, Redis, Mosquitto, No-IP, nebula-sync
+- [ ] Batch 5: monitoring (Prometheus, Alertmanager, Grafana, Loki, Alloy, the exporters)
+- [ ] Batch 6: operator-managed: Calico (its Installation), MetalLB, Flux
+- [ ] A LimitRange in each app namespace with defaults for a container that sets none
+- [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring
+- [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
+      (with monitoring phase 5)
+- [ ] Re-measure at seven days (2026-10-18) and tighten
+
+## Resuming
+
+Rerun the queries above; the first unticked batch is next. A batch is one commit.
+
+## Done when
+
+Every container has requests and limits, the workers' memory requests are balanced, every box is
+ticked, and this file moves to `old-queues/`.
