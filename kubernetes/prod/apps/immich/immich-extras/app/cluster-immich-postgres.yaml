@@ -85,13 +85,16 @@ spec:
     synchronizeReplicas:
       enabled: true
     updateInterval: 30
+  # Immich's startup work after an upgrade (migrations, reloading the reverse
+  # geocoding data, vector index builds) takes far more than the idle peak:
+  # 384Mi was OOM-killed on every attempt, hence 1.5 GiB.
   resources:
     requests:
       cpu: 20m
       memory: 192Mi
     limits:
       cpu: 1000m
-      memory: 384Mi
+      memory: 1536Mi
   smartShutdownTimeout: 180
   startDelay: 3600
   stopDelay: 1800
