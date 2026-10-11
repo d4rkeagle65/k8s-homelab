@@ -7,6 +7,7 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
 | Module | Owns |
 |---|---|
 | `proxmox/` | The Proxmox guests: the six Kubernetes node containers, both Pi-holes and the Docker VM (not the Windows DC). |
+| `cloudflare/` | The hand-made DNS records in both Cloudflare zones (not the tunnel controller's records, the tunnel's public hostnames, or cert-manager's challenges: each has its own owner). |
 
 ## What lives where
 
@@ -30,11 +31,24 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
 1. **A Proxmox API token for OpenTofu** (Datacenter > Permissions): a user `tofu@pve`, a token
    `semaphore` with privilege separation off, and the user given `PVEAuditor` on `/`. Reading
    the Docker VM's disks needs `VM.Config.Disk`, and any update to it needs
-   `VM.Config.Options` (the provider sends the VM's name with every update): a role
-   `TofuDockerVM` with those two, granted on `/vms/107` **together with `PVEAuditor`**
-   (`--roles PVEAuditor,TofuDockerVM`). Proxmox replaces, not adds to, what a user inherits
-   when a path has its own entry, so the role alone there loses `VM.Audit`. Changing the
-   containers or the VM's hardware needs more, added later.
+   `VM.Config.Options` (the provider sends the VM's name with every update). To change and
+   create guests (the Talos VMs, QUEUE-talos.md), the user has a role `TofuGuests` on `/`
+   beside `PVEAuditor`, with only what the guests need: `VM.Allocate`, `VM.Audit`,
+   `VM.Config.*` (CDROM, CPU, Cloudinit, Disk, HWType, Memory, Network, Options),
+   `VM.PowerMgmt`, `VM.Migrate`, `VM.GuestAgent.Audit`, `Datastore.AllocateSpace`,
+   `Datastore.AllocateTemplate`, `Datastore.Audit`, `SDN.Use`, `Sys.Audit` and
+   `Sys.AccessNetwork` (downloading an image by URL). No backups, snapshots, consoles or host
+   settings. On a Proxmox host:
+
+   ```sh
+   pveum role add TofuGuests -privs VM.Allocate,VM.Audit,VM.Config.CDROM,VM.Config.CPU,VM.Config.Cloudinit,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options,VM.PowerMgmt,VM.Migrate,VM.GuestAgent.Audit,Datastore.AllocateSpace,Datastore.AllocateTemplate,Datastore.Audit,SDN.Use,Sys.Audit,Sys.AccessNetwork
+   pveum acl modify / -users tofu@pve -roles PVEAuditor,TofuGuests
+   ```
+
+   A path with its own entry replaces what a user inherits there, not adds to it: so no
+   entry on `/vms/...` for this user (an older `TofuDockerVM` entry on `/vms/107` is removed:
+   `pveum acl delete /vms/107 -users tofu@pve -roles PVEAuditor,TofuDockerVM`, then
+   `pveum role delete TofuDockerVM`).
 2. **A variable group** (Semaphore's sidebar; "environment" in its API) "OpenTofu: Proxmox",
    as environment variables, not extra variables:
    - variable: `PROXMOX_VE_ENDPOINT` = `https://<a Proxmox host's name>:8006/`, the name its
@@ -46,6 +60,22 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
 3. **A template**, type OpenTofu, repository this one, subdirectory `tofu/proxmox`, that
    environment. Each run plans first and waits for a confirmation before it applies; reject it
    to plan only.
+
+## The Cloudflare module (`cloudflare/`)
+
+- **What's specific to the site** is one JSON value, `TF_VAR_dns`: each zone's name and id,
+  and the records keyed `r01`, `r02`, ... (meaningless on purpose, so git names nothing), each
+  with its zone, Cloudflare's record id, and the record. Its **master copy is a Vaultwarden
+  note** ("OpenTofu DNS (Cloudflare)"), handled like the Proxmox site note. A new record takes
+  the next free key and an import block if it already exists in Cloudflare.
+- **Token:** its own Cloudflare API token, Zone > DNS > Edit and Zone > Zone > Read on the two
+  zones only (not cert-manager's or the tunnel controller's).
+- **Semaphore:** a variable group "OpenTofu: Cloudflare", environment variables, all secrets:
+  `CLOUDFLARE_API_TOKEN`, `PG_CONN_STR` (the same as Proxmox's; the schema differs) and
+  `TF_VAR_dns` (the note). A template, type OpenTofu, subdirectory `tofu/cloudflare`.
+- **The first apply imports every record** (`imports.tf`, one block per record: OpenTofu
+  takes import keys only written out, not looped over a variable). Planned from claude-code
+  against Cloudflare with local state before the first commit: 29 to import, 0 to change.
 
 ## Checks for a change here
 
