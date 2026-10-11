@@ -33,7 +33,7 @@ spec:
       pullPolicy: IfNotPresent
       registry: docker.io
       repository: linuxserver/emby
-      tag: version-4.9.1.90
+      tag: version-4.10.1.0
     ingress:
       enabled: false
     livenessProbe:

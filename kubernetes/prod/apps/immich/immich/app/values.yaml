@@ -22,7 +22,7 @@ controllers:
                 key: REDIS_URL
                 name: immich-redis-url
         image:
-          tag: v3.1.0
+          tag: v3.3.1
 immich:
   configuration: {}
   configurationKind: ConfigMap
@@ -43,7 +43,7 @@ machine-learning:
           image:
             pullPolicy: IfNotPresent
             repository: ghcr.io/immich-app/immich-machine-learning
-            tag: v3.1.0
+            tag: v3.3.1
           # Loading the face and search models takes far more than its idle
           # peak, hence the 2 GiB limit.
           resources:

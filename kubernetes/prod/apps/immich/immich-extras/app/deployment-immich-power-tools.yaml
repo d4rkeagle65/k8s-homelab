@@ -59,7 +59,7 @@ spec:
               name: immich-postgres-app
         - name: DB_PORT
           value: "5432"
-        image: ghcr.io/varun-raj/immich-power-tools:0.18.0
+        image: ghcr.io/varun-raj/immich-power-tools:0.19.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3

@@ -3,7 +3,7 @@ kind: Cluster
 metadata:
   name: lidarr-postgres
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11
   instances: 2
   resources:
     requests:

@@ -21,7 +21,7 @@ spec:
       initContainers:
       # mealie exits if its database isn't up when it starts.
       - name: wait-for-db
-        image: ghcr.io/cloudnative-pg/postgresql:17.5
+        image: ghcr.io/cloudnative-pg/postgresql:17.11
         command:
         - sh
         - -c

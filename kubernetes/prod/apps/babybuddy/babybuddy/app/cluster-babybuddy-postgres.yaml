@@ -18,7 +18,7 @@ spec:
   enablePDB: true
   enableSuperuserAccess: false
   failoverDelay: 0
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11
   instances: 2
   logLevel: info
   maxSyncReplicas: 0
