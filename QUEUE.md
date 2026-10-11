@@ -9,7 +9,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - [Next](#next)
 - [Cleanup](#cleanup)
 - [Later](#later)
-- [Working queue files](#working-queue-files) - `QUEUE-terraform.md`, `QUEUE-monitoring.md`.
+- [Working queue files](#working-queue-files) - one `QUEUE-<task>.md` per long job.
 
 ## Waiting on the owner
 
@@ -210,6 +210,8 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md): the nodes onto Talos VMs, surviving the loss of any host; the fifth host first.
 - [QUEUE-organizr.md](QUEUE-organizr.md): Organizr configured from git; its remaining checks.
+- [QUEUE-updates.md](QUEUE-updates.md): version updates that change behaviour (Mealie, MetalLB,
+  Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 
 A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks

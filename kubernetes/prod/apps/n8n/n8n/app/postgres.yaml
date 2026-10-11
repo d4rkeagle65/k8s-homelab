@@ -17,7 +17,7 @@ spec:
     limits:
       cpu: 1000m
       memory: 384Mi
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.5
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11
   affinity:
     podAntiAffinityType: preferred
   enablePDB: true

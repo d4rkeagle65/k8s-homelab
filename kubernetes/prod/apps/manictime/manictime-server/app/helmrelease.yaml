@@ -20,7 +20,7 @@ spec:
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       TZ: ${TIMEZONE}
     image:
-      tag: 2026.2.2
+      tag: 2026.2.4
     ingress:
       annotations:
         cert-manager.io/cluster-issuer: cloudflare-letsencrypt

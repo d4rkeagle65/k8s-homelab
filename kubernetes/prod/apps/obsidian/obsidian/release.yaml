@@ -5,7 +5,7 @@
 release: obsidian
 namespace: obsidian
 chart: couchdb
-chartVersion: 4.6.2
+chartVersion: 4.6.3
 appVersion: 3.5.0
 revision: 8
 status: deployed

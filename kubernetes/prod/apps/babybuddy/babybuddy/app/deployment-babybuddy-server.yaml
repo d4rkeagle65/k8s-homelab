@@ -80,7 +80,7 @@ spec:
         - sh
         - -c
         - until pg_isready -h babybuddy-postgres-rw -p 5432; do echo waiting for database; sleep 2; done;
-        image: postgres:9.6.5
+        image: ghcr.io/cloudnative-pg/postgresql:17.11
         imagePullPolicy: IfNotPresent
         name: check-db-ready
         resources: {}

@@ -34,7 +34,7 @@ spec:
           main:
             image:
               repository: n8nio/n8n
-              tag: 2.42.3
+              tag: 2.43.3
             env:
               - name: DB_TYPE
                 value: postgresdb
@@ -129,7 +129,7 @@ spec:
           runners:
             image:
               repository: n8nio/runners
-              tag: 2.42.3
+              tag: 2.43.3
             env:
               - name: N8N_RUNNERS_TASK_BROKER_URI
                 value: http://127.0.0.1:5679
