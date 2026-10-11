@@ -79,7 +79,13 @@ spec:
     synchronizeReplicas:
       enabled: true
     updateInterval: 30
-  resources: {}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 416Mi
+    limits:
+      cpu: 1000m
+      memory: 768Mi
   smartShutdownTimeout: 180
   startDelay: 3600
   stopDelay: 1800

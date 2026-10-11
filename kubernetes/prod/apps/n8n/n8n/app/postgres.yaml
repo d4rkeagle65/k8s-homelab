@@ -10,6 +10,13 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   instances: 2
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 384Mi
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   affinity:
     podAntiAffinityType: preferred
