@@ -89,6 +89,7 @@ tabs:
   - {name: qBittorrent, category: Downloads, type: 2, group_id: 1, enabled: 1, url: "https://qbittorrent.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/qbittorrent.png"}
   - {name: Tdarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://tdarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/tdarr.png"}
   - {name: Home Assistant, category: Home, type: 2, group_id: 4, enabled: 1, url: "https://homeassistant.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/home-assistant.png"}
+  - {name: Booklore, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://booklore${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/booklore.png"}
   - {name: Mealie, category: Home, type: 2, group_id: 4, enabled: 1, url: "https://mealie.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/mealie.png"}
   - {name: n8n, category: Home, type: 2, group_id: 0, enabled: 1, url: "https://n8n.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/n8n.png"}
   - {name: Dashboard, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/homepage.png"}

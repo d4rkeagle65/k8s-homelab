@@ -1,0 +1,202 @@
+# Booklore, the e-book library and reader, over the books Bookshelf collects
+# (/synmedia/media/books, mounted at /books), with its own MariaDB (it supports
+# no other database). Login through Authentik (the booklore blueprint); its
+# settings, libraries and users come from sync/booklore.yaml through the
+# booklore-sync Job. Only on the private networks.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: booklore
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: booklore
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      booklore:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/booklore-app/booklore
+              tag: v2.4.0
+            env:
+              # The media apps' user, which owns the library on the NAS.
+              USER_ID: "${MEDIA_PUID}"
+              GROUP_ID: "${MEDIA_PGID}"
+              TZ: ${TIMEZONE}
+              DATABASE_URL: jdbc:mariadb://booklore-mariadb:3306/booklore
+              DATABASE_USERNAME: booklore
+              DATABASE_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: booklore-db
+                    key: password
+              SWAGGER_ENABLED: "false"
+            resources:
+              requests: {cpu: 100m, memory: 512Mi}
+              limits: {memory: 1536Mi}
+            probes:
+              startup: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/healthcheck
+                    port: 6060
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+              liveness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /api/v1/healthcheck
+                    port: 6060
+                  periodSeconds: 60
+                  timeoutSeconds: 10
+                  failureThreshold: 5
+              readiness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /api/v1/healthcheck
+                    port: 6060
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+      mariadb:
+        type: statefulset
+        containers:
+          app:
+            image:
+              repository: mariadb
+              tag: 11.4.9
+            env:
+              MARIADB_DATABASE: booklore
+              MARIADB_USER: booklore
+              MARIADB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: booklore-db
+                    key: password
+              MARIADB_ROOT_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: booklore-db
+                    key: root-password
+              # Upgrade the data files in place after a new MariaDB version.
+              MARIADB_AUTO_UPGRADE: "1"
+            resources:
+              requests: {cpu: 50m, memory: 256Mi}
+              limits: {memory: 768Mi}
+            probes:
+              liveness: &dbprobe
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: [healthcheck.sh, --connect, --innodb_initialized]
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 5
+              readiness: *dbprobe
+          # Prometheus's view of the database (the booklore-mariadb
+          # ServiceMonitor below), through the root login on localhost.
+          exporter:
+            image:
+              repository: prom/mysqld-exporter
+              tag: v0.20.0
+            args:
+              - --mysqld.address=localhost:3306
+              - --mysqld.username=root
+            env:
+              MYSQLD_EXPORTER_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: booklore-db
+                    key: root-password
+            resources:
+              requests: {cpu: 10m, memory: 32Mi}
+              limits: {memory: 64Mi}
+        statefulset:
+          # Node-local disk, Retain, like the CloudNativePG databases.
+          volumeClaimTemplates:
+            - name: data
+              accessMode: ReadWriteOnce
+              size: 5Gi
+              storageClass: local-db
+              advancedMounts:
+                app:
+                  - path: /var/lib/mysql
+    service:
+      booklore:
+        controller: booklore
+        ports:
+          http:
+            port: 6060
+      mariadb:
+        controller: mariadb
+        ports:
+          mysql:
+            port: 3306
+          metrics:
+            port: 9104
+    serviceMonitor:
+      mariadb:
+        serviceName: booklore-mariadb
+        endpoints:
+          - port: metrics
+            scheme: http
+            path: /metrics
+            interval: 60s
+    ingress:
+      booklore:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+          - host: booklore${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: booklore
+                  port: http
+        tls:
+          - secretName: booklore-tls
+            hosts:
+              - booklore${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      # Settings, covers and caches.
+      data:
+        existingClaim: booklore-data
+        advancedMounts:
+          booklore:
+            app:
+              - path: /app/data
+              - path: /bookdrop
+                subPath: bookdrop
+      # The library, straight from the NAS's export (the same one the media
+      # apps' synmedia-nfs volume mounts).
+      books:
+        type: nfs
+        server: ${NAS_HOSTNAME}
+        path: /volume1/media/media/books
+        advancedMounts:
+          booklore:
+            app:
+              - path: /books

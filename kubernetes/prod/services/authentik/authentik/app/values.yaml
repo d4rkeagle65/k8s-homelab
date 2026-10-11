@@ -81,6 +81,11 @@ worker:
     value: /certs/ldap-authentik/tls.key
   - name: AUTHENTIK_LDAP__TLS_CA_FILE
     value: /certs/ldap-authentik/tls.crt
+  - name: BOOKLORE_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-booklore-oidc
   - name: DOCKHAND_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
