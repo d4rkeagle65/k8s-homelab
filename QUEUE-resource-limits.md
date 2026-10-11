@@ -19,13 +19,19 @@ started; re-measure at seven days, 2026-10-18, and tighten). CPU uses the 5-minu
 smooths short bursts, hence the generous CPU limits.
 
 - **Memory request:** 1.2 x peak, at least 64Mi, rounded up to 32Mi.
-- **Memory limit:** 2 x peak, rounded up to 128Mi; at least 512Mi for an app, 256Mi for a
-  sidecar or exporter, and never below the request.
+- **Memory limit:** 2 x peak, rounded up to 128Mi; at least 512Mi for an app, 384Mi for a
+  database (CloudNativePG's default `shared_buffers` is 128MB), 256Mi for a sidecar or
+  exporter, and never below the request.
 - **CPU request:** the 95th percentile, at least 10m, rounded up to 10m.
 - **CPU limit:** 3 x peak, rounded up to 100m, between 500m and 1000m. Transcoders (Emby, Tdarr's
   node) 2000m. Databases 1000m.
 - A value set by hand for a known reason (a comment says why) stays, unless the data shows it's
   too low.
+- **Before adding requests to pods pinned to a node** (a database instance on `local-db`, or
+  anything on `nas-block`), check each node's allocatable memory against its requests plus the
+  increase: a restarted instance that no longer fits stays Pending. Make room by moving a
+  stateless pod: cordon the node, restart the pod, uncordon (restarting alone puts it back on
+  the 8-core worker, below).
 - Only what this repo owns. kubeadm's static pods (API server, etcd, scheduler, controller
   manager) are left alone; operator-managed pods (Calico, MetalLB) through their operator's
   settings where it has some.
@@ -43,8 +49,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
       qBittorrent, Radarr, SABnzbd, Sonarr, Tdarr, Whisparr. Memory requests went from 4224Mi to
       3904Mi: Tdarr freed 1.28 GiB, while SABnzbd, Jellyseerr and Radarr were requesting less
       than they use
-- [ ] Batch 2: the CloudNativePG databases (each Cluster's `resources`; a change restarts its
-      instances one at a time, replica first, then a switchover)
+- [x] Batch 2: the CloudNativePG databases (each Cluster's `resources`; a change restarts its
+      instances one at a time, replica first, then a switchover). Peaks 91-332Mi; 4.7 GiB of
+      requests added across 24 instances, where none had any. Sonarr and Radarr were moved off
+      the 8-core worker first, or one of its instances wouldn't have fit
 - [ ] Batch 3: the other apps: Authentik, Immich, n8n, Mealie, Baby Buddy, ManicTime, Home
       Assistant, Emby, Obsidian, Organizr, Homepage, Booklore's MariaDB and its exporter
 - [ ] Batch 4: the platform: Traefik (both), cert-manager, External Secrets, ExternalDNS, the
@@ -56,6 +64,11 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring
 - [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
       (with monitoring phase 5)
+- [ ] The scheduler weighs memory and CPU equally, so the 8-core worker always scores as the
+      emptiest and attracts pods until its memory is full (2026-10-11: 97%, evictions). Weight
+      memory higher: kube-scheduler's `NodeResourcesFit` with `LeastAllocated` and
+      `resources: [{name: memory, weight: 3}, {name: cpu, weight: 1}]`, through kubeadm's
+      scheduler config (Ansible, `k8s-upgrade.yml`'s territory)
 - [ ] Re-measure at seven days (2026-10-18) and tighten
 
 ## Resuming

@@ -4,6 +4,13 @@ metadata:
   name: whisparr-postgres
 spec:
   instances: 2
+  resources:
+    requests:
+      cpu: 20m
+      memory: 192Mi
+    limits:
+      cpu: 1000m
+      memory: 384Mi
   imageName: ghcr.io/cloudnative-pg/postgresql:16
   storage:
     size: 2Gi

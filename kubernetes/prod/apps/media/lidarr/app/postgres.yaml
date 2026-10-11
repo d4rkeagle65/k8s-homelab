@@ -5,6 +5,13 @@ metadata:
 spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:17.5
   instances: 2
+  resources:
+    requests:
+      cpu: 20m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
   storage:
     size: 5Gi
     storageClass: local-db
