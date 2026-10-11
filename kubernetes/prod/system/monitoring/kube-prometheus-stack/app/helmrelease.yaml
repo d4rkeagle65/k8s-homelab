@@ -646,6 +646,10 @@ spec:
             gnetId: 20842
             revision: 3
             datasource: Prometheus
+          snmp-interfaces:
+            gnetId: 12492
+            revision: 4
+            datasource: [{name: DS_PROMETHEUS, value: prometheus}]
           kea:
             gnetId: 12688
             revision: 4

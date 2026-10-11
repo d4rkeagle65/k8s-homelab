@@ -65,8 +65,11 @@
 - [x] Homepage's Synology, Cloudflare tunnel and Tailscale widgets and the OpenWrt access
       points' cards work. The Tailscale API key lasts 90 days at most, so its widget fails when
       it expires: renew it in `TAILSCALE_API_KEY` (from about 2027-01-08).
-- [ ] TP-Link switches: the one that supports SNMP as an snmp-exporter target (`if_mib`, a
-      `switch` label) with a Homepage card (ports up, traffic); the models decide which.
+- [ ] The TL-SG3428 over SNMP (`switch-core`, `switch="core"`, the NASes' community; its two
+      TL-SG105E are Easy Smart, without SNMP): the snmp-exporter target, the SNMP Interface Detail
+      dashboard (12492, Network) and a Homepage card (ports linked, traffic, errors). Walked
+      from the exporter before: 33 interfaces, 16 up. Check the target is up and the card shows
+      data
 - [ ] Homepage widgets that need a key the cluster doesn't have yet. Each needs its Vaultwarden
       field, its mapping in cluster-secrets and the `homepage` Secret, pushed before the widget:
       Jellyseerr (`seerr`, its API key), Emby (an API key), SABnzbd (its API key), Mealie (an API

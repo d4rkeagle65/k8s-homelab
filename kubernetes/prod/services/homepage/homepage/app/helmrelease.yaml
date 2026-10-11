@@ -327,6 +327,27 @@ spec:
                       deviceid: "{{ "{{HOMEPAGE_VAR_TAILSCALE_DEVICE}}" }}"
                       key: "{{ "{{HOMEPAGE_VAR_TAILSCALE_KEY}}" }}"
                       fields: [address, last_seen, expires, update_available]
+                - Switch:
+                    icon: tp-link.png
+                    href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/dashboards
+                    description: TL-SG3428 (SNMP)
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Ports linked
+                          query: count(ifHighSpeed{switch="core"} > 0) or vector(0)
+                          format: {type: number}
+                        - label: In
+                          query: 8 * sum(rate(ifHCInOctets{switch="core"}[5m]))
+                          format: {type: bitrate}
+                        - label: Out
+                          query: 8 * sum(rate(ifHCOutOctets{switch="core"}[5m]))
+                          format: {type: bitrate}
+                        - label: Errors
+                          query: sum(rate(ifInErrors{switch="core"}[5m]) + rate(ifOutErrors{switch="core"}[5m])) or vector(0)
+                          format: {type: number, suffix: /s}
             - Wi-Fi:
                 - Access point 1:
                     icon: openwrt.png

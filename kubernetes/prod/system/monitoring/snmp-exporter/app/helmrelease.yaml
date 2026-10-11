@@ -1,4 +1,4 @@
-# The two NASes over SNMP (read only): the Synology with the exporter's
+# The two NASes and the core switch over SNMP (read only): the Synology with the exporter's
 # synology profile (volumes, disks and their temperatures, RAID state, fans,
 # UPS), the TerraMaster, a Linux box, with the generic ones (system, memory,
 # load, interfaces).
@@ -162,3 +162,11 @@ spec:
         module: [system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table]
         additionalMetricsRelabels:
           nas: terramaster
+      # The TP-Link TL-SG3428 (JetStream, managed): each port's state,
+      # speed, traffic and errors. Its two TL-SG105E are Easy Smart switches,
+      # without SNMP; their uplinks are ports here.
+      - name: switch-core
+        target: ${SWITCH_CORE_ADDRESS}
+        module: [system, if_mib]
+        additionalMetricsRelabels:
+          switch: core
