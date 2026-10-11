@@ -283,6 +283,10 @@ has its `nas-block` volumes copied to that host's LUN. It holds data that writes
    the storage entry is defined once all hosts have theirs. A LUN holding anything else stops
    the run whatever the setting. Afterwards `nas_block_initialise` can go again.
 
+A host without a LUN of its own (one that only carries Talos VMs, which don't use `nas-block`)
+gets `nas_block: false` as a host variable in the inventory: the run leaves it out, and the
+storage entry lists only the other hosts.
+
 ## Your own login on every machine (`admin-users.yml`)
 
 - **A variable group "Debian Host Baseline"**, extra variables:

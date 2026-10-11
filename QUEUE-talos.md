@@ -103,6 +103,45 @@ with no guests and no cluster of its own, and the cluster runs PVE 9 (Debian tri
   Then `pvecm add <an existing host>` from H5, over the management network.
 - Afterwards: 5 votes (quorum 3); `proxmox-upgrade.yml` covers it.
 
+**The steps, in order** (each checked before the next; real addresses and names are given in
+chat, never here):
+
+1. **Backups.** On the TerraMaster, the `vzdump` files of H5's old guests (VMs 103, 111, 114, 117
+   and any containers) are there and complete; `local512`'s 121 GB is checked, and anything
+   wanted copied off. Nothing is wiped before this.
+2. **Install media.** The current PVE 9 ISO on a USB stick, or over Intel AMT if H5 has it
+   (mesh-mini's disk redirection mounts the ISO, and its console shows the installer).
+3. **Switch.** At the start of the install (it cuts H5's present management access): H5's 1 Gbit
+   port to the other hosts' port profile (management untagged; VLANs 3, 4, 6, 7, 8, 9 tagged);
+   its 2.5 Gbit port stays on the isolated 2.5 Gbit switch.
+4. **Installer.** Target disk: the Samsung 970 EVO Plus 2 TB (check the model, not the device
+   name). Filesystem ext4; advanced options: disk size limit 64 GB, swap 8 GB, `maxvz` 0 (no
+   local-lvm: the rest of the disk becomes the `vms` pool). Management interface: the 1 Gbit
+   NIC (the MAC that ends `:7a:f3`); its hostname, management address and gateway, DNS a Pi-hole.
+5. **Repositories and updates** (over SSH, commands given then): the enterprise and Ceph
+   repositories off, no-subscription on, a full upgrade to the cluster's PVE 9 point release,
+   and a reboot.
+6. **Bridges** (`/etc/network/interfaces`, then `ifreload -a`): `vmbr1` on the 2.5 Gbit NIC with
+   its storage address; `vmbr2`, `vmbr4`, `vmbr6`, `vmbr7`, `vmbr8`, `vmbr9` on the 1 Gbit NIC's
+   VLANs 3, 4, 6, 7, 8, 9, without addresses; checked with `ip -br addr` and a ping to another
+   host on each network that has addresses.
+7. **The `vms` pool.** A fourth partition on the Samsung for the rest of the disk, then
+   `zpool create -o ashift=12 vms` on it by its `/dev/disk/by-id` name. The old disks (the 2 TB
+   HDD's `HDD` volume group, the NX-512's `local512`, the SanDisk) wiped with `wipefs` once step 1
+   is done, so nothing old is imported later.
+8. **Access.** Semaphore's shared key in root's `authorized_keys`; H5's host key pinned in
+   Semaphore's `known_hosts` (`docker/semaphore/README.md`); its name in Pi-hole.
+9. **Ansible.** H5 in the Semaphore inventories: the Proxmox hosts' (`proxmox` group, with
+   `nas_block: false`) and All Debian Hosts. Dry runs, then real runs: `baseline.yml` (admin
+   login, packages, node-exporter) and `proxmox-host.yml` (ZFS ARC cap, certificate).
+10. **Join.** From H5: `pvecm add <an existing host's management address> --link0 <H5's
+    management address>`. Checked: `pvecm status` shows 5 nodes and quorate; the shared
+    storages (`syn-nfs`, `tm-nfs`, `nas-iscsi`) active on H5; H5 added to the `vms` storage's
+    host list (`pvesm set vms --nodes ...`), and `vms` active on it.
+11. **Monitoring.** Prometheus finds H5 through `proxmox-hosts.<domain>` once
+    `proxmox-host.yml` has written its line; its node-exporter and SMART targets up, and
+    Homepage's Proxmox card counts 5 hosts.
+
 ## Phase 1: preparation (no change to the running cluster)
 
 - Shared storage for Proxmox HA already exists: `syn-nfs` (the Synology over NFS, shared, holds
