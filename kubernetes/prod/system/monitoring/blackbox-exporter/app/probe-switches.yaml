@@ -1,0 +1,32 @@
+# Pings of the two TL-SG105E switches (Easy Smart: no SNMP), every minute.
+# probe_success is 1 when one answers; probe_icmp_duration_seconds{phase="rtt"}
+# is its round trip. switch matches the core switch's label (snmp-exporter).
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: switch-02
+spec:
+  interval: 60s
+  module: icmp
+  prober:
+    url: blackbox-exporter:9115
+  targets:
+    staticConfig:
+      static: ["${SWITCH_02_ADDRESS}"]
+      labels:
+        switch: "02"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: switch-04
+spec:
+  interval: 60s
+  module: icmp
+  prober:
+    url: blackbox-exporter:9115
+  targets:
+    staticConfig:
+      static: ["${SWITCH_04_ADDRESS}"]
+      labels:
+        switch: "04"

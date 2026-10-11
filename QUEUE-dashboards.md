@@ -68,8 +68,10 @@
 - [ ] The TL-SG3428 over SNMP (`switch-core`, `switch="core"`, the NASes' community; its two
       TL-SG105E are Easy Smart, without SNMP): the snmp-exporter target, the SNMP Interface Detail
       dashboard (12492, Network) and a Homepage card (ports linked, traffic, errors). Walked
-      from the exporter before: 33 interfaces, 16 up. Check the target is up and the card shows
-      data
+      from the exporter before: 33 interfaces, 16 up. The two TL-SG105E pinged every minute by
+      the blackbox exporter (`monitoring/blackbox-exporter/`, Probes `switch-02`/`switch-04`,
+      tested from a pod: both answer in about 4 ms), on a Homepage card. Check the targets are
+      up and both cards show data
 - [ ] Homepage widgets that need a key the cluster doesn't have yet. Each needs its Vaultwarden
       field, its mapping in cluster-secrets and the `homepage` Secret, pushed before the widget:
       Jellyseerr (`seerr`, its API key), Emby (an API key), SABnzbd (its API key), Mealie (an API
