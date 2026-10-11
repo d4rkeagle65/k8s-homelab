@@ -78,11 +78,11 @@ spec:
           protocol: TCP
         resources:
           limits:
-            cpu: 128m
-            memory: 256Mi
+            cpu: 500m
+            memory: 512Mi
           requests:
-            cpu: 80m
-            memory: 128Mi
+            cpu: 10m
+            memory: 64Mi
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       dnsPolicy: ClusterFirst

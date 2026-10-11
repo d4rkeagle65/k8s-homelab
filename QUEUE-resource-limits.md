@@ -53,8 +53,13 @@ Queries (Prometheus, `kube-prometheus-stack`):
       instances one at a time, replica first, then a switchover). Peaks 91-332Mi; 4.7 GiB of
       requests added across 24 instances, where none had any. Sonarr and Radarr were moved off
       the 8-core worker first, or one of its instances wouldn't have fit
-- [ ] Batch 3: the other apps: Authentik, Immich, n8n, Mealie, Baby Buddy, ManicTime, Home
-      Assistant, Emby, Obsidian, Organizr, Homepage, Booklore's MariaDB and its exporter
+- [x] Batch 3: the other apps: Authentik, Immich, n8n, Mealie, Baby Buddy, ManicTime, Home
+      Assistant, Emby, Obsidian, Organizr, Homepage, Grimmory with its MariaDB and exporter.
+      Judgement over the rules, each said in a comment: Emby keeps 2 cores and 4 GiB for
+      transcoding; Immich's server gets a core (thumbnails, transcodes) and its machine learning
+      a 2 GiB limit (models load far above the idle peak); n8n's task runners keep 1 GiB;
+      Grimmory's CPU request stays 100m (its 95th percentile was library scans). Authentik's
+      two outposts are created by Authentik, not this repo: batch 6
 - [ ] Batch 4: the platform: Traefik (both), cert-manager, External Secrets, ExternalDNS, the
       CloudNativePG operator and Barman plugin, local-path, the NFS provisioners, metrics-server,
       the Cloudflare tunnel, the SMTP relay, Redis, Mosquitto, No-IP, nebula-sync

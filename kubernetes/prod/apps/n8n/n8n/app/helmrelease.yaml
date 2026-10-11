@@ -121,10 +121,11 @@ spec:
                   failureThreshold: 60
             resources:
               requests:
-                cpu: 100m
-                memory: 512Mi
+                cpu: 60m
+                memory: 672Mi
               limits:
-                memory: 2Gi
+                cpu: 500m
+                memory: 1152Mi
           runners:
             image:
               repository: n8nio/runners
@@ -144,11 +145,14 @@ spec:
                 enabled: false
               startup:
                 enabled: false
+            # The task runners run workflows' code, hence the room above
+            # their idle use.
             resources:
               requests:
-                cpu: 50m
-                memory: 256Mi
+                cpu: 10m
+                memory: 64Mi
               limits:
+                cpu: 1000m
                 memory: 1Gi
     service:
       main:
