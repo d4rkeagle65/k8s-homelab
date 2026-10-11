@@ -181,6 +181,20 @@ spec:
         redirectScheme:
           scheme: https
           permanent: true
+    # For an app that forbids framing (X-Frame-Options) but should open inside
+    # Organizr: lets Organizr's pages, and only those, frame it. An empty
+    # value removes the app's own header. Used as
+    # traefik_frame-from-organizr@kubernetescrd (sabnzbd).
+    - apiVersion: traefik.io/v1alpha1
+      kind: Middleware
+      metadata:
+        name: frame-from-organizr
+        namespace: traefik
+      spec:
+        headers:
+          customResponseHeaders:
+            X-Frame-Options: ""
+          contentSecurityPolicy: "frame-ancestors 'self' https://organizr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}"
     # On web and websecure (see ports above). An empty value removes the
     # header. Keep the list in step with the authentik Middleware's
     # authResponseHeaders.

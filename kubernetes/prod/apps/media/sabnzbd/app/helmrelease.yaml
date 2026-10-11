@@ -53,7 +53,8 @@ spec:
         className: traefik
         annotations:
           cert-manager.io/cluster-issuer: cloudflare-letsencrypt
-          traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+          # Organizr opens it in a frame (frame-from-organizr in Traefik's release).
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd,traefik_frame-from-organizr@kubernetescrd
         hosts:
           - host: sabnzbd${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             paths:
