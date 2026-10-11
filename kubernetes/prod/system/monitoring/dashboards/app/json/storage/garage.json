@@ -662,32 +662,7 @@
       ]
      }
     },
-    "overrides": [
-     {
-      "__systemRef": "hideSeriesFrom",
-      "matcher": {
-       "id": "byNames",
-       "options": {
-        "mode": "exclude",
-        "names": [
-         "10.83.2.3:3903"
-        ],
-        "prefix": "All except:",
-        "readOnly": true
-       }
-      },
-      "properties": [
-       {
-        "id": "custom.hideFrom",
-        "value": {
-         "legend": false,
-         "tooltip": false,
-         "viz": true
-        }
-       }
-      ]
-     }
-    ]
+    "overrides": []
    },
    "gridPos": {
     "h": 8,
