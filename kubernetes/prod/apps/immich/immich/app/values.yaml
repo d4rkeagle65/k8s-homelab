@@ -75,7 +75,7 @@ server:
               memory: 1376Mi
             limits:
               cpu: 1000m
-              memory: 2304Mi
+              memory: 3Gi
   enabled: true
   ingress:
     main:

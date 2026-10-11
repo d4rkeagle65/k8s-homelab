@@ -59,10 +59,12 @@ spec:
               # only, which go to the issuer set in sync/grimmory.yaml.
               OIDC_ALLOW_UNSAFE_HOSTS: "true"
             # A library scan takes every core it's given; capped so a scan on a
-            # 2-core worker leaves room for the databases beside it.
+            # 2-core worker leaves room for the databases beside it. Java's heap
+            # defaults to a quarter of the memory limit, so the limit sizes the
+            # heap too; the rest of its working set is the books' file cache.
             resources:
               requests: {cpu: 100m, memory: 864Mi}
-              limits: {cpu: 1000m, memory: 1408Mi}
+              limits: {cpu: 1000m, memory: 2Gi}
             probes:
               startup: &probe
                 enabled: true
@@ -116,7 +118,7 @@ spec:
               MARIADB_AUTO_UPGRADE: "1"
             resources:
               requests: {cpu: 30m, memory: 224Mi}
-              limits: {cpu: 1000m, memory: 384Mi}
+              limits: {cpu: 1000m, memory: 768Mi}
             probes:
               liveness: &dbprobe
                 enabled: true

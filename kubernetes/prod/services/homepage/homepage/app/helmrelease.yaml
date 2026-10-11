@@ -47,7 +47,7 @@ spec:
                   name: homepage
             resources:
               requests: {cpu: 60m, memory: 288Mi}
-              limits: {cpu: 500m, memory: 512Mi}
+              limits: {cpu: 1000m, memory: 640Mi}
             probes:
               liveness: &probe
                 enabled: true
