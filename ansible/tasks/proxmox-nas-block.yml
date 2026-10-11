@@ -11,14 +11,16 @@
 #   nas_block_initialise  true: put the volume group on a LUN that is blank.
 #                         A LUN holding anything else stops the run, always.
 # Optional: nas_block_storage (default nas-block, also the volume group's
-# name), nas_block_iscsi_storage (default nas-iscsi).
+# name), nas_block_iscsi_storage (default nas-iscsi). A host var
+# nas_block: false leaves that host out (no LUN of its own, not in the
+# storage's host list); every host takes part otherwise.
 #
 # Needs proxmox-guests.yml (pve_node) before it. Every run reports each host's
 # LUN and storage; check mode changes nothing.
 
 - name: Work out the NAS block storage settings
   ansible.builtin.set_fact:
-    nb_on: "{{ nas_block_target | default('') | length > 0 }}"
+    nb_on: "{{ nas_block_target | default('') | length > 0 and nas_block | default(true) | bool }}"
     nb_target: "{{ nas_block_target | default('') | trim }}"
     nb_portal: >-
       {{ (nas_block_portal | default('') | trim) ~
@@ -26,7 +28,8 @@
     nb_storage: "{{ nas_block_storage | default('nas-block') }}"
     nb_iscsi: "{{ nas_block_iscsi_storage | default('nas-iscsi') }}"
     nb_init: "{{ nas_block_initialise | default(false) | bool }}"
-    nb_nodes: "{{ groups['proxmox'] | map('extract', hostvars, 'pve_node') | join(',') }}"
+    nb_hosts: "{{ groups['proxmox'] | reject('in', groups['proxmox'] | map('extract', hostvars) | selectattr('nas_block', 'defined') | rejectattr('nas_block', 'truthy') | map(attribute='inventory_hostname') | list) | list }}"
+    nb_nodes: "{{ groups['proxmox'] | reject('in', groups['proxmox'] | map('extract', hostvars) | selectattr('nas_block', 'defined') | rejectattr('nas_block', 'truthy') | map(attribute='inventory_hostname') | list) | map('extract', hostvars, 'pve_node') | join(',') }}"
 
 # A misspelt setting (nas_block_initialize) would otherwise be ignored in silence.
 - name: Every nas_block_ setting is one this knows
@@ -55,7 +58,7 @@
     msg: >-
       {{ pve_node }}: {{ nb_iscsi }} {{ 'defined' if nb_iscsi_entry else 'not defined' }},
       {{ nb_storage }} {{ 'defined' if nb_lvm_entry else 'not defined' }};
-      {{ 'managing it' if nb_on else 'off (nas_block_target is empty)' }}
+      {{ 'managing it' if nb_on else ('off for this host (nas_block: false)' if nas_block_target | default('') | length > 0 else 'off (nas_block_target is empty)') }}
 
 - name: NAS block storage
   when: nb_on
@@ -217,8 +220,8 @@
       register: nb_defined
       when: >-
         nb_lvm_entry | length == 0 and
-        groups['proxmox'] | map('extract', hostvars, ['nb_vg', 'rc']) | select('equalto', 0) | list | length
-        == groups['proxmox'] | length
+        nb_hosts | map('extract', hostvars, ['nb_vg', 'rc']) | select('equalto', 0) | list | length
+        == nb_hosts | length
       run_once: true
 
     # Required only once the entry exists or this run added it: until every
