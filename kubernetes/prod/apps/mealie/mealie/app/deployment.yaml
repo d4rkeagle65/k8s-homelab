@@ -28,7 +28,7 @@ spec:
         - until pg_isready -h mealie-postgres-rw -p 5432; do echo waiting for database; sleep 2; done
       containers:
       - name: mealie
-        image: ghcr.io/mealie-recipes/mealie:v3.20.1
+        image: ghcr.io/mealie-recipes/mealie:v3.28.0
         ports:
         - name: http
           containerPort: 9000
