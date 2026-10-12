@@ -6,11 +6,13 @@ baseline_packages:
   - bash-completion
   - bind9-dnsutils   # dig, nslookup
   - curl
+  - gcc
   - git
   - htop
   - jq
   - less
   - lsof
+  - make
   - ncdu
   - rsync
   - sudo
