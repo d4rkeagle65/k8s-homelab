@@ -11,6 +11,7 @@ resources:
 - ingress-babybuddy-api-ingress.yaml
 - ingress-babybuddy-ingress.yaml
 - ingress-babybuddy-mcp.yaml
+- middleware-api-slash.yaml
 - networkpolicy-babybuddy-server.yaml
 - persistentvolumeclaim-babybuddy-config-v2.yaml
 - secret-babybuddy-mcp-secrets.yaml
