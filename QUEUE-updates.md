@@ -45,10 +45,13 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       (1.36.7 here); the chart carries no CRDs, the operator applies them (`-manage-crds`).
       Checked with a pod-network mesh test (a pod on each node calling every node's Alloy
       pod, cluster DNS and a ClusterIP Service) before and after.
-- [ ] **Authentik 2026.5 -> 2026.8** (chart 2026.5.6 -> 2026.8.3; the LDAP and proxy outposts
-      follow the server). Three feature releases: read each one's upgrade notes. Every
-      forward-auth and OIDC login depends on it; test one of each afterwards. Take a fresh
-      backup of its database first.
+- [x] **Authentik 2026.5 -> 2026.8.3** (chart 2026.5.6 -> 2026.8.3; one feature release). The
+      image is pinned to the chart's version instead of the floating `2026.5`. 2026.8 reads
+      forwarded headers only from `AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS`; every pod that
+      proxies to it (Traefik, the tunnel connector, the outposts) is inside the default ranges,
+      so it stays unset. `AUTHENTIK_WEB__BASE_URL` seeds the Base URL setting 2026.11 requires.
+      Both outposts run in the cluster and follow the server's version. The chart's defaults
+      didn't change. Checked with a backup first, then one forward-auth and one OIDC login.
 - [ ] **app-template 3.7.3 -> 5.3.0** (15 handwritten releases: the media apps, Grimmory,
       Homepage, mesh-mini, n8n, Organizr). Two major versions, each changing the values
       format. Migrate one release, verify it, then the rest by the same pattern.
