@@ -24,6 +24,13 @@ spec:
       onDelete: retain
       provisionerName: ${CLUSTER_DOMAIN}/nfs-retain-rwo
       reclaimPolicy: Retain
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
   commonMetadata:
     labels:
       homelab.local/env: prod

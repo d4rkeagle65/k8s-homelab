@@ -160,11 +160,13 @@ spec:
           periodSeconds: 120
           timeoutSeconds: 30
           failureThreshold: 3
+        # By QUEUE-resource-limits.md's rules.
         resources:
           requests:
-            cpu: 10m
-            memory: 128Mi
+            cpu: 20m
+            memory: 192Mi
           limits:
+            cpu: 500m
             memory: 512Mi
         securityContext:
           allowPrivilegeEscalation: false

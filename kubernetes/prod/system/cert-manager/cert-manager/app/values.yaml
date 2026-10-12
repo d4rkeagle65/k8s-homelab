@@ -3,3 +3,17 @@ crds:
 prometheus:
   servicemonitor:
     enabled: true
+# Requests and limits by QUEUE-resource-limits.md's rules; the webhook's CPU
+# request above them (its 95th percentile is 1m), since every apply of a
+# cert-manager object waits on it.
+resources:
+  requests: {cpu: 10m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+webhook:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+cainjector:
+  resources:
+    requests: {cpu: 10m, memory: 96Mi}
+    limits: {cpu: 500m, memory: 512Mi}

@@ -5,3 +5,7 @@ storageClass:
   defaultClass: true
   name: nfs-eph-rwo
   provisionerName: ${CLUSTER_DOMAIN}/nfs-eph-rwo
+# Requests and limits by QUEUE-resource-limits.md's rules.
+resources:
+  requests: {cpu: 10m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 512Mi}

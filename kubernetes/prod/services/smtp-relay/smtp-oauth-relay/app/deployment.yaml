@@ -73,12 +73,14 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 60
           failureThreshold: 2
+        # By QUEUE-resource-limits.md's rules.
         resources:
           requests:
             cpu: 10m
-            memory: 64Mi
+            memory: 96Mi
           limits:
-            memory: 256Mi
+            cpu: 500m
+            memory: 512Mi
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

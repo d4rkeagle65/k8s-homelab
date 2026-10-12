@@ -94,9 +94,11 @@ spec:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+        # By QUEUE-resource-limits.md's rules.
         resources:
           requests:
             cpu: 10m
-            memory: 32Mi
+            memory: 64Mi
           limits:
-            memory: 128Mi
+            cpu: 500m
+            memory: 512Mi

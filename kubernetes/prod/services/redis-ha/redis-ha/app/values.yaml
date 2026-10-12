@@ -9,12 +9,25 @@ persistentVolume:
   enabled: true
   size: 10Gi
   storageClass: nfs-retain-rwo
+# Requests and limits by QUEUE-resource-limits.md's rules: Redis as one of the
+# other databases (768Mi limit, 1000m CPU), Sentinel and the split-brain check
+# as sidecars.
 redis:
   config:
     maxmemory-policy: noeviction
   masterGroupName: mymaster
+  resources:
+    requests: {cpu: 10m, memory: 64Mi}
+    limits: {cpu: 1000m, memory: 768Mi}
+splitBrainDetection:
+  resources:
+    requests: {cpu: 10m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
 replicas: 3
 sentinel:
+  resources:
+    requests: {cpu: 10m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
   auth: true
   authKey: sentinel-password
   existingSecret: redis-ha-creds

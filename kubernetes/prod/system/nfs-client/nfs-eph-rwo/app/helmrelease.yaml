@@ -23,6 +23,13 @@ spec:
       defaultClass: true
       name: nfs-eph-rwo
       provisionerName: ${CLUSTER_DOMAIN}/nfs-eph-rwo
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
   commonMetadata:
     labels:
       homelab.local/env: prod

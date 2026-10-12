@@ -77,16 +77,15 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [x] Batches 1-3's limits recalculated by the load rules above, after Immich's database was
       OOM-killed. Requests unchanged. Alloy's limit went to 512Mi ahead of batch 5 (it was at
       87%)
-- [ ] Batch 4: the platform: the isolated Traefik, cert-manager, External Secrets, ExternalDNS,
-      local-path, the NFS provisioners, metrics-server, the Cloudflare tunnel, the SMTP relay,
-      Redis, Mosquitto, No-IP, nebula-sync. All BestEffort today (no requests), so on a busy
-      node they get the least CPU of anything: give each a CPU request, above its 95th
-      percentile with a comment where others wait on it (Traefik, the webhooks). The
-      CloudNativePG operator and Barman plugin went first (2026-10-12): starved on w01a while
-      w03a was drained, the operator failed its health check 26 times and left two databases'
-      `-rw` Services on their old primaries. The main Traefik next, the same day, after a
-      crash-looping Linkwarden starved it on w01a and took every app down: requests, and two
-      replicas on different nodes with a PodDisruptionBudget
+- [x] Batch 4: the platform (2026-10-12), by the rules from seven days of data, all of it
+      light (the busiest, the Bitwarden CLI, peaked at 158Mi and 34m). Judgement, each said in a
+      comment: a CPU request above the 95th percentile where others wait on it (the
+      CloudNativePG operator 100m and Barman plugin 50m, both Traefiks, the cert-manager and
+      External Secrets webhooks, the Cloudflare connector, Mosquitto: 50m to 100m); the main
+      Traefik and the Cloudflare connector keep a 1000m CPU limit for large uploads; Redis
+      sized as one of the other databases. metrics-server's chart default (100m, 200Mi) went
+      to the rules' 10m and 64Mi. The main Traefik also got a second replica on another node.
+      Redis-ha's config-init init container has none; it runs once at start
 - [ ] Batch 5: monitoring (Prometheus, Alertmanager, Grafana, Loki, Alloy, the exporters)
 - [ ] Batch 6: operator-managed: Calico (its Installation), MetalLB, Flux
 - [ ] A LimitRange in each app namespace with defaults for a container that sets none

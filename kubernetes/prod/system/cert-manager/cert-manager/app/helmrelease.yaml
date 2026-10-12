@@ -21,6 +21,29 @@ spec:
     prometheus:
       servicemonitor:
         enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    webhook:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+    cainjector:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 96Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
   commonMetadata:
     labels:
       homelab.local/env: prod

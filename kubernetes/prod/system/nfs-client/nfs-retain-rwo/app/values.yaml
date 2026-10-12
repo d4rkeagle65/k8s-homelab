@@ -6,3 +6,7 @@ storageClass:
   onDelete: retain
   provisionerName: ${CLUSTER_DOMAIN}/nfs-retain-rwo
   reclaimPolicy: Retain
+# Requests and limits by QUEUE-resource-limits.md's rules.
+resources:
+  requests: {cpu: 10m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 512Mi}

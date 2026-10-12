@@ -31,8 +31,30 @@ spec:
       config:
         maxmemory-policy: noeviction
       masterGroupName: mymaster
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 1000m
+          memory: 768Mi
+    splitBrainDetection:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
     replicas: 3
     sentinel:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
       auth: true
       authKey: sentinel-password
       existingSecret: redis-ha-creds
