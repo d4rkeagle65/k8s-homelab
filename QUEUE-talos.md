@@ -134,9 +134,9 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
 - [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed
-- [ ] The 2.5 Gbit network (isolated, every host's second port, `vmbr1`): already
-      the live-migration network; add it as corosync's second link before enabling Proxmox HA, so
-      a management network blip can't make HA reboot a healthy host
+- [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
+      connected from every host, so a management network blip can't make HA reboot a healthy
+      host. It was already the live-migration network
 - [ ] A replacement for the DS415+, with 2.5 or 10 Gbit on the storage network (built in or a
       PCIe card), so the NAS isn't a 2014 box on a shared 1 Gbit trunk; migrate its shares and
       LUNs; the TerraMaster backups checked by a restore first
