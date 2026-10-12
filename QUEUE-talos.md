@@ -81,8 +81,9 @@ Control planes on H1, H2, H4: losing any one keeps etcd's quorum.
 - Move the Docker VM's and the domain controller VM's disks to it, and put both under Proxmox HA.
   Test: stop a host, the VM comes back elsewhere.
 - The Talos image from Sidero's Image Factory: Talos 1.14.2 (2026-09-29), schematic
-  `53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83` (qemu-guest-agent,
-  iscsi-tools, util-linux-tools; both iSCSI ones for democratic-csi), the `nocloud` image so
+  in `talos/patches/common.yaml` (qemu-guest-agent; nfs-utils, whose rpc.statd every NFS
+  volume here needs, since they all mount NFS v3; iscsi-tools and util-linux-tools for
+  democratic-csi), the `nocloud` image so
   OpenTofu's cloud-init drive gives each VM its addresses. Machine configs from the cluster's
   PKI and a kubeadm bootstrap token (`talosctl gen secrets --from-kubernetes-pki`), generated
   on a control plane so the CA keys never leave it; `secrets.yaml` kept in Vaultwarden, never
@@ -145,8 +146,9 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       places by configured memory, not by counting services). Left: the test, by cutting H4's
       power in a quiet window; both VMs should come back on H5 within about three minutes, then
       return to H4 once it's back
-- [ ] Phase 1: Talos image (done) and machine configs; kube-proxy labels (done); the
-      service-account issuer (done); the API address plan; Calico's address detection (done)
+- [ ] Phase 1: Talos image (done) and machine configs (done: `talos/`, the secrets as
+      `TALOS_SECRETS`); kube-proxy labels (done); the service-account issuer (done); the API
+      address plan; Calico's address detection (done)
 - [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed

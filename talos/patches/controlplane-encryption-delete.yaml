@@ -1,0 +1,6 @@
+# Applied before controlplane-encryption.yaml: removes the generated
+# KubeEtcdEncryptionConfig (secretbox), which a patch would merge into rather
+# than replace.
+apiVersion: v1alpha1
+kind: KubeEtcdEncryptionConfig
+$patch: delete
