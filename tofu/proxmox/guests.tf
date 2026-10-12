@@ -31,6 +31,15 @@ locals {
     "105" = 12288
     "106" = 16384
   }
+  # Cores per node where it isn't 2. 104's host has 8, and with a worker
+  # drained 104 carries most of the cluster, which 2 cores can't (its pods
+  # stalled until their health checks failed). Set live with pct set --cores,
+  # which a container takes without a restart; the kubelet counts the new
+  # cores only once it restarts. Live and here must agree before an apply, or
+  # the provider reboots the node to match (tofu/CLAUDE.md).
+  k8s_cores = {
+    "104" = 4
+  }
 
   # The Pi-holes (community-scripts installs, unprivileged), one interface per
   # network they answer on.
@@ -73,7 +82,7 @@ resource "proxmox_virtual_environment_container" "k8s_node" {
   tags          = local.k8s_roles[each.value].tags
 
   cpu {
-    cores = 2
+    cores = lookup(local.k8s_cores, each.key, 2)
   }
 
   memory {
