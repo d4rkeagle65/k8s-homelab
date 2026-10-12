@@ -1,0 +1,17 @@
+# Control planes only, while kubeadm control planes remain: the kubeadm API
+# servers have no encryption config, so a Talos one encrypting Secrets at rest
+# would write what they can't read. Talos 1.14 requires the document on a
+# control plane, so after controlplane-encryption-delete.yaml removes the
+# generated one, this adds one naming the identity provider: Secrets stored as
+# the kubeadm ones store them. Encryption comes back after the last kubeadm
+# control plane leaves (QUEUE-talos.md).
+apiVersion: v1alpha1
+kind: KubeEtcdEncryptionConfig
+config:
+  apiVersion: apiserver.config.k8s.io/v1
+  kind: EncryptionConfiguration
+  resources:
+    - resources:
+        - secrets
+      providers:
+        - identity: {}

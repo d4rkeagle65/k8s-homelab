@@ -1,0 +1,24 @@
+# Every Talos node: the installer image, and no CNI of Talos's own (Calico,
+# from git, already runs the pod network). The image is Talos 1.14.2 from
+# Sidero's Image Factory with four extensions (schematic below):
+# qemu-guest-agent; nfs-utils, whose rpc.statd every NFS volume here needs for
+# locking, since they all mount NFS v3; iscsi-tools and util-linux-tools, for
+# democratic-csi's iSCSI volumes. `nocloud` reads each VM's
+# addresses from the cloud-init drive OpenTofu attaches. gen-config.py reads
+# the Talos version from this line. Talos 1.14's config is one document per
+# subject; these are strategic merge patches, a document deleted by
+# `$patch: delete`.
+apiVersion: v1alpha1
+kind: UnattendedInstallConfig
+installer:
+  image: factory.talos.dev/nocloud-installer/c23d16533980fd972f96a79cc22130404615c16de18f43da4a40d801d4fe8d6a:v1.14.2
+# A patched document replaces the generated one whole, so the disk is stated
+# too: each VM's first SCSI disk (tofu/proxmox/).
+provisioning:
+  diskSelector:
+    match: disk.dev_path == "/dev/sda"
+  wipe: false
+---
+apiVersion: v1alpha1
+kind: KubeFlannelCNIConfig
+$patch: delete
