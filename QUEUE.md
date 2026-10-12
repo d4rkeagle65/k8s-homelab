@@ -20,15 +20,6 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
-- **Renovate's GitHub token lacks Commit statuses** (`RENOVATE_GITHUB_TOKEN`,
-  `services/renovate/`): every run stops at its first branch ("Repository has changed during
-  renovation"), because GitHub refuses the release-age status Renovate sets on it (403). Add
-  Commit statuses: read and write, and Dependabot alerts: read, to the token on GitHub (its
-  value doesn't change). Then start a run by hand
-  (`kubectl -n renovate create job --from=cronjob/renovate manual-run`) and check: the
-  Dependency Dashboard issue appears, the pull requests are sane (a captured release's
-  chart update touches `release.yaml` as well), and Homelab updates in Grafana fills.
-
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
    (a) the partner keeps a copy of the reservations in its own config (two places to change);

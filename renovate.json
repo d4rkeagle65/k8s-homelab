@@ -55,6 +55,15 @@
       "versioning": "regex:^(?<compatibility>\\d+)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
     },
     {
+      "description": "A chart and the images its values pin move together: merging one without the other would run a new chart with an old image.",
+      "matchPackageNames": ["authentik", "ghcr.io/goauthentik/**"],
+      "groupName": "Authentik"
+    },
+    {
+      "matchPackageNames": ["immich", "ghcr.io/immich-app/**"],
+      "groupName": "Immich"
+    },
+    {
       "description": "One pull request for the app-template chart across every release that uses it.",
       "matchDepNames": ["app-template"],
       "groupName": "app-template chart"
