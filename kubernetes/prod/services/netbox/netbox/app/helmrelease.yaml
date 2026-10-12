@@ -85,10 +85,15 @@ spec:
       existingClaim: netbox-media
     ingress:
       enabled: false
+    # Each Granian worker is a whole copy of NetBox (about 250 MiB); the
+    # image's four took the pod past 1 GiB. Two are plenty on a 2-core node.
+    extraEnvs:
+      - name: GRANIAN_WORKERS
+        value: "2"
     resourcesPreset: none
     resources:
       requests: {cpu: 50m, memory: 448Mi}
-      limits: {cpu: 1000m, memory: 1Gi}
+      limits: {cpu: 1000m, memory: 1536Mi}
     worker:
       enabled: true
       resourcesPreset: none
