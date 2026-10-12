@@ -128,14 +128,13 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       and move the root to the Samsung or a new disk before trusting H5 with more than
       workers. The 2 TB HDD still holds the old `HDD` volume group: wipe it once its two old
       VM disks (111, 117) are confirmed backed up
-- [ ] Phase 1: shared storage for HA; the Docker VM and the domain controller under Proxmox HA,
-      tested by stopping a host. In this order: their disks moved live to `syn-nfs`
-      (`qm disk move <vm> <disk> syn-nfs --format raw --delete 1`, the EFI disks too, at a
-      shutdown if a running VM refuses); then `tofu/proxmox/` saying so for the Docker VM (an
-      apply before the move would move or recreate its disks); then `shutdown_policy=migrate`,
-      a non-strict node-affinity rule (its host first, H5 next: the only other with room for
-      both) and both VMs added to HA; the test last, by cutting a host's power in a quiet
-      window
+- [ ] Phase 1: Proxmox HA for the Docker VM and the domain controller. Done 2026-10-12: their
+      disks on `syn-nfs` (raw, moved live), `tofu/proxmox/` matching for the Docker VM, both VMs
+      in HA (started), the non-strict node-affinity rule `infra-vms` (H4 first, H5 next: the
+      only other host with room for both), `shutdown_policy=migrate` and `crs ha=static` (HA
+      places by configured memory, not by counting services). Left: the test, by cutting H4's
+      power in a quiet window; both VMs should come back on H5 within about three minutes, then
+      return to H4 once it's back
 - [ ] Phase 1: Talos image and machine configs; kube-proxy labels; the service-account issuer;
       the API address plan; Calico's address detection
 - [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP
