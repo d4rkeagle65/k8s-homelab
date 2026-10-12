@@ -1,0 +1,129 @@
+# Linkwarden, bookmarks with an archived copy of each page (a screenshot, a
+# PDF and a readable copy, taken by its own Chromium). Login through Authentik
+# only (the linkwarden blueprint): passwords and sign-up are off. Reachable on
+# the private networks through Traefik, and from the internet through the
+# Cloudflare tunnel (ingress-cloudflared.yaml), so the browser extension and
+# the phone app work anywhere; they sign in with an access token made in
+# Linkwarden's settings.
+#
+# Search is Linkwarden's built-in database search; Meilisearch (MEILI_HOST)
+# would add full-text search of archived pages, at the cost of another pod.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: linkwarden
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: linkwarden
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.7.3
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      linkwarden:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/linkwarden/linkwarden
+              tag: v2.16.3
+            env:
+              TZ: ${TIMEZONE}
+              NEXTAUTH_URL: https://linkwarden${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/v1/auth
+              DATABASE_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: linkwarden-postgres-app
+                    key: uri
+              # Authentik only: no passwords, no sign-up form. A first login
+              # through Authentik makes the account; the blueprint's groups
+              # decide who may.
+              NEXT_PUBLIC_CREDENTIALS_ENABLED: "false"
+              NEXT_PUBLIC_DISABLE_REGISTRATION: "true"
+              NEXT_PUBLIC_AUTHENTIK_ENABLED: "true"
+              AUTHENTIK_CUSTOM_NAME: Authentik
+              AUTHENTIK_ISSUER: https://auth.${BASE_DOMAIN}/application/o/linkwarden
+              AUTHENTIK_CLIENT_ID: linkwarden
+              # One page archived at a time, so its Chromium stays inside the
+              # memory limit.
+              MAX_WORKERS: "1"
+              ARCHIVE_TAKE_COUNT: "1"
+            envFrom:
+              - secretRef:
+                  name: linkwarden
+            probes:
+              startup: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 3000
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+              liveness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /
+                    port: 3000
+                  periodSeconds: 60
+                  timeoutSeconds: 10
+                  failureThreshold: 5
+              readiness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /
+                    port: 3000
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            # Archiving a page starts Chromium, far above the idle use.
+            resources:
+              requests: {cpu: 50m, memory: 512Mi}
+              limits: {cpu: 1000m, memory: 1536Mi}
+    service:
+      linkwarden:
+        controller: linkwarden
+        ports:
+          http:
+            port: 3000
+    ingress:
+      linkwarden:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+          - host: linkwarden${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: linkwarden
+                  port: http
+        tls:
+          - secretName: linkwarden-tls
+            hosts:
+              - linkwarden${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      # The archived copies, previews and uploads (STORAGE_FOLDER, data/ under
+      # the working directory).
+      data:
+        existingClaim: linkwarden-data
+        advancedMounts:
+          linkwarden:
+            app:
+              - path: /data/data

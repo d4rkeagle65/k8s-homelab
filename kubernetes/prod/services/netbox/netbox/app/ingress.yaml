@@ -1,0 +1,71 @@
+# NetBox on the private networks, through Authentik's forward-auth proxy, with
+# the outpost's own path (its login callback) beside it, as mesh-mini does.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netbox
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_authentik@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /outpost.goauthentik.io
+        pathType: Prefix
+        backend:
+          service:
+            name: authentik-outpost
+            port:
+              number: 9000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: netbox
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    secretName: netbox-tls
+---
+# The API without the proxy, so scripts and tools (Ansible, OpenTofu,
+# Semaphore) reach it with a token. NetBox still demands a login on every API
+# request (loginRequired): a token, or the session a browser got through the
+# proxy, which NetBox keeps when a request carries no Authentik headers. The
+# longer path wins in Traefik, so /api and /graphql come here.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netbox-api
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: netbox
+            port:
+              number: 80
+      - path: /graphql
+        pathType: Prefix
+        backend:
+          service:
+            name: netbox
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    secretName: netbox-tls

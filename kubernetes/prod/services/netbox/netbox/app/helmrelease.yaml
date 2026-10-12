@@ -1,0 +1,104 @@
+# NetBox, the record of what the homelab is: sites, racks, devices, VMs,
+# cables, VLANs, prefixes and addresses. NetBox's own chart, with this
+# repo's pieces in place of its bundled Bitnami ones: a CloudNativePG database
+# (postgres.yaml) and a Valkey (valkey.yaml).
+#
+# Login is Authentik's forward-auth proxy (the netbox blueprint): the outpost
+# adds X-authentik-username, -email, -name and -groups, which NetBox's
+# remote-user login reads, making the user on first login and syncing groups;
+# authentik Admins are superusers. NetBox believes those headers, so only
+# Traefik may reach it (networkpolicy.yaml), and Traefik strips them from
+# incoming requests. Scripts and tools use an API token on /api, which has a
+# route without the proxy (ingress.yaml). Private networks only.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: netbox
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: netbox
+      homelab.local/category: services
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  timeout: 15m
+  chart:
+    spec:
+      chart: netbox
+      version: 8.3.91
+      sourceRef:
+        kind: HelmRepository
+        name: netbox
+        namespace: flux-system
+  values:
+    image:
+      tag: v4.7.2
+    existingSecret: netbox
+    # The local admin, for when Authentik is down: the chart makes its
+    # password once and keeps it (the netbox-superuser Secret).
+    superuser:
+      name: admin
+      email: admin@${BASE_DOMAIN}
+    allowedHosts:
+      - netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    csrf:
+      trustedOrigins:
+        - https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    loginRequired: true
+    timeZone: ${TIMEZONE}
+    remoteAuth:
+      enabled: true
+      backends:
+        - netbox.authentication.RemoteUserBackend
+      header: HTTP_X_AUTHENTIK_USERNAME
+      userEmail: HTTP_X_AUTHENTIK_EMAIL
+      userFirstName: HTTP_X_AUTHENTIK_NAME
+      autoCreateUser: true
+      autoCreateGroups: true
+      groupSyncEnabled: true
+      groupHeader: HTTP_X_AUTHENTIK_GROUPS
+      groupSeparator: "|"
+      superuserGroups:
+        - authentik Admins
+      staffGroups:
+        - authentik Admins
+    postgresql:
+      enabled: false
+    externalDatabase:
+      host: netbox-postgres-rw
+      port: 5432
+      database: netbox
+      username: app
+      existingSecretName: netbox-postgres-app
+      existingSecretKey: password
+    valkey:
+      enabled: false
+    tasksDatabase:
+      host: netbox-valkey
+      database: 0
+    cachingDatabase:
+      host: netbox-valkey
+      database: 1
+    persistence:
+      enabled: true
+      existingClaim: netbox-media
+    ingress:
+      enabled: false
+    resourcesPreset: none
+    resources:
+      requests: {cpu: 50m, memory: 448Mi}
+      limits: {cpu: 1000m, memory: 1Gi}
+    worker:
+      enabled: true
+      resourcesPreset: none
+      resources:
+        requests: {cpu: 20m, memory: 192Mi}
+        limits: {cpu: 1000m, memory: 768Mi}
+    # Daily clean-up of expired sessions, old change records and finished jobs.
+    housekeeping:
+      enabled: true
+      resourcesPreset: none
+      resources:
+        requests: {cpu: 10m, memory: 128Mi}
+        limits: {memory: 512Mi}
