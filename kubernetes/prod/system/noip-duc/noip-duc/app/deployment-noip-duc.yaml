@@ -33,7 +33,7 @@ spec:
             secretKeyRef:
               key: NOIP_PASSWORD
               name: noip-duc-credentials
-        image: noipcom/noip-duc:latest
+        image: noipcom/noip-duc:3.3.0
         imagePullPolicy: Always
         name: noip-duc
         resources:

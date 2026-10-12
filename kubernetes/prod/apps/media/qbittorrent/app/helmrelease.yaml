@@ -25,7 +25,7 @@ spec:
           main:
             image:
               repository: linuxserver/qbittorrent
-              tag: latest
+              tag: 5.2.4_v2.0.15-ls480
             env:
               - name: PUID
                 value: "${MEDIA_PUID}"

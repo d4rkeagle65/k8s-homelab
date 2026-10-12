@@ -61,11 +61,16 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       (`old-queues/QUEUE-restore-tests.md`).
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd). Either a kubeadm upgrade
       (`k8s-upgrade.yml`) or as part of the Talos move (`QUEUE-talos.md`): decide there.
-- [ ] **Images on floating tags** (Lidarr, Prowlarr, qBittorrent, Radarr, Sonarr: `latest`;
-      Tdarr and its node: `latest`) pick up a new build only on a restart, so their versions
-      aren't in git. Pin each to a version tag. Tdarr's server and node must run the same
-      version: on 2026-10-11 the node's tag had a newer build than the running one while the
-      server's didn't, so restart them together, never one alone.
+- [x] **Images on floating tags pinned** to the version each was running (read from the
+      image's version label, or matched by digest): the linuxserver apps to their full
+      `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
+      gives the linuxserver tags (and qBittorrent's `_v<libtorrent>`) a versioning regex, so
+      Renovate offers them as updates. Tdarr's server and node share a pod, so they always
+      restart together; the node's `3.00.00` tag is a newer build of the same version than
+      the one running, and it pulls that on its next restart.
+- [ ] **Jellyseerr -> Seerr.** `fallenbagel/jellyseerr` stopped at 2.7.3 (2025-08); its
+      newest tags (`preview-seerr`) point to the project continuing as Seerr. Read Seerr's
+      migration notes (image name, config and database location) and move to it.
 
 ## Left as they are, and why
 
@@ -74,6 +79,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
 - `python:3.12-slim` in `babybuddy-mcp`: it installs its requirements at start; move with a
   test of the server.
 - `node:22-bookworm-slim` in `bitwarden-cli`: Node 22 is a supported LTS line until 2027-04.
+- `curlimages/curl:latest` and `busybox:latest` in Obsidian's CouchDB: the chart's defaults for
+  its setup job and init container, set in the chart, not here.
 - Loki's `k8s-sidecar:2.5.0` and Redis `8.2.4`: what the newest charts ship.
 
 ## Resuming

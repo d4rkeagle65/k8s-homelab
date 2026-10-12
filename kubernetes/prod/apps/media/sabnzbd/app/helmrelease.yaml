@@ -25,7 +25,7 @@ spec:
           main:
             image:
               repository: linuxserver/sabnzbd
-              tag: latest
+              tag: 5.1.3-ls276
             # This image takes no settings from env vars. The hostname the
             # ingress uses must be in host_whitelist (Config > Special) in
             # /config/sabnzbd.ini, or SABnzbd refuses it while it has no login.
