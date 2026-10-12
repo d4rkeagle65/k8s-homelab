@@ -3,6 +3,8 @@
 module.exports = {
   platform: 'github',
   repositories: ['d4rkeagle65/k8s-homelab'],
+  // Not the default, which is an address belonging to Mend's own bot.
+  gitAuthor: 'Renovate (homelab) <renovate@users.noreply.github.com>',
   // renovate.json is in the repo; no onboarding pull request.
   onboarding: false,
   requireConfig: 'required',
