@@ -100,7 +100,7 @@ spec:
           app:
             image:
               repository: mariadb
-              tag: 11.4.9
+              tag: 11.8.9
             env:
               MARIADB_DATABASE: grimmory
               MARIADB_USER: grimmory
