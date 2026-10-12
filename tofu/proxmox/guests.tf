@@ -25,7 +25,7 @@ locals {
   # A worker sized to its host rather than its role (MiB): each leaves its
   # host at least 4 GiB free at its two-day low. 105's host has 16 GB, and
   # holds 12 GiB only because the third control-plane container moved off it.
-  # A kubelet reads its node's size when it starts, so restart it after a change.
+  # Changing one reboots that node (tofu/CLAUDE.md).
   k8s_memory = {
     "104" = 16384
     "105" = 12288
