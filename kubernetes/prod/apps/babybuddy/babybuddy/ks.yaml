@@ -23,6 +23,7 @@ spec:
   # (scripts/k8s_backup/dependencies.py).
   dependsOn:
   - name: cnpg
+  - name: traefik
   # Fields Flux leaves as they are live (promote.py, FLUX_IGNORE_RULES).
   ignore:
   - paths:

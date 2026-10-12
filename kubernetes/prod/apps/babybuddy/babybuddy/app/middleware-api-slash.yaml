@@ -1,0 +1,13 @@
+# Baby Buddy answers /api, without the slash, with a 500 (its URLs all end in
+# a slash); this sends that one path to /api/, keeping any query string.
+# $${...} is Traefik's capture group, escaped from Flux's substitution.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-slash
+  namespace: babybuddy
+spec:
+  redirectRegex:
+    regex: ^(https?://[^/]+/api)(\?.*)?$
+    replacement: $${1}/$${2}
+    permanent: true
