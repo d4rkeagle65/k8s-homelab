@@ -5,7 +5,7 @@
 release: metallb
 namespace: metallb-system
 chart: metallb
-chartVersion: 0.15.2
+chartVersion: 0.16.1
 appVersion: v0.15.2
 revision: 3
 status: deployed
