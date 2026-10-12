@@ -49,7 +49,7 @@ spec:
         type: Calico
       controlPlaneReplicas: 2
       enabled: true
-      flexVolumePath: /usr/libexec/kubernetes/kubelet-plugins/volume/exec/
+      flexVolumePath: None
       kubeletVolumePluginPath: /var/lib/kubelet
       kubernetesProvider: ""
       logging:
