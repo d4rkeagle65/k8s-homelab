@@ -37,12 +37,9 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       limit on what Mealie fetches touches nothing here (no webhooks or recipe actions; recipe
       imports are from the internet), so no `HTTP_ALLOW_LIST`. No setting Mealie reads was
       renamed between the two.
-- [ ] **MetalLB 0.15.2 -> 0.16.1** (`system/metallb-system/metallb/`, captured). 0.16 makes
-      frr-k8s the default BGP backend; this cluster uses L2 only (one `L2Advertisement`, no
-      `BGPPeer`), so set the chart's FRR and frr-k8s off rather than gain a component it doesn't
-      use. Metrics are HTTPS only from 0.16 (kube-rbac-proxy is gone): after the upgrade, check
-      the two ServiceMonitors' targets are up in Prometheus. MetalLB carries every LoadBalancer
-      address: watch Traefik's address answer during the speakers' rollout.
+- [x] **MetalLB 0.15.2 -> 0.16.1.** L2 only, so both BGP backends off (frr-k8s, the new
+      default, and FRR mode); the speakers lose their three FRR containers. The chart's
+      ServiceMonitors follow the metrics to HTTPS on 9120 themselves.
 - [ ] **Calico v3.32.2 -> v3.33.0** (`system/tigera-operator/tigera-operator/`, captured). Felix
       now programs the IPIP cluster routes instead of BIRD, the CNI config moves to
       `cniVersion 1.0.0`, and Whisker's backend is HTTPS only. The nodes are LXC containers, so

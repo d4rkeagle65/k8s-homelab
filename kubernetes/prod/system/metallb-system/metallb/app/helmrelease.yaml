@@ -10,7 +10,7 @@ spec:
   chart:
     spec:
       chart: metallb
-      version: 0.15.2
+      version: 0.16.1
       sourceRef:
         kind: HelmRepository
         name: metallb
@@ -21,6 +21,11 @@ spec:
       serviceAccount: kps-prometheus
       serviceMonitor:
         enabled: true
+    frrk8s:
+      enabled: false
+    speaker:
+      frr:
+        enabled: false
   commonMetadata:
     labels:
       homelab.local/env: prod

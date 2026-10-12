@@ -3,3 +3,11 @@ prometheus:
   serviceAccount: kps-prometheus
   serviceMonitor:
     enabled: true
+# The cluster announces its addresses over L2 only (one L2Advertisement, no
+# BGPPeer), so neither BGP backend: not frr-k8s (the chart's default from 0.16)
+# nor FRR mode (deprecated). The speakers run MetalLB's native code alone.
+frrk8s:
+  enabled: false
+speaker:
+  frr:
+    enabled: false
