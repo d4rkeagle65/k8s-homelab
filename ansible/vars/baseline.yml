@@ -6,6 +6,7 @@ baseline_packages:
   - bash-completion
   - bind9-dnsutils   # dig, nslookup
   - curl
+  - git
   - htop
   - jq
   - less
