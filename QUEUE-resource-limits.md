@@ -77,9 +77,14 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [x] Batches 1-3's limits recalculated by the load rules above, after Immich's database was
       OOM-killed. Requests unchanged. Alloy's limit went to 512Mi ahead of batch 5 (it was at
       87%)
-- [ ] Batch 4: the platform: Traefik (both), cert-manager, External Secrets, ExternalDNS, the
-      CloudNativePG operator and Barman plugin, local-path, the NFS provisioners, metrics-server,
-      the Cloudflare tunnel, the SMTP relay, Redis, Mosquitto, No-IP, nebula-sync
+- [ ] Batch 4: the platform: Traefik (both), cert-manager, External Secrets, ExternalDNS,
+      local-path, the NFS provisioners, metrics-server, the Cloudflare tunnel, the SMTP relay,
+      Redis, Mosquitto, No-IP, nebula-sync. All BestEffort today (no requests), so on a busy
+      node they get the least CPU of anything: give each a CPU request, above its 95th
+      percentile with a comment where others wait on it (Traefik, the webhooks). The
+      CloudNativePG operator and Barman plugin went first (2026-10-12): starved on w01a while
+      w03a was drained, the operator failed its health check 26 times and left two databases'
+      `-rw` Services on their old primaries
 - [ ] Batch 5: monitoring (Prometheus, Alertmanager, Grafana, Loki, Alloy, the exporters)
 - [ ] Batch 6: operator-managed: Calico (its Installation), MetalLB, Flux
 - [ ] A LimitRange in each app namespace with defaults for a container that sets none
@@ -87,8 +92,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
       (with monitoring phase 5)
 - [ ] Watch whether w01 still collects pods. It did (2026-10-11: 97% of its memory, evictions)
-      because its kubelet counted 8 CPUs, so it always scored as the emptiest; every node has 2
-      (`cores = 2`), and since 2026-10-12 every kubelet reports 2. If it still does, weight
+      because its kubelet counted 8 CPUs, so it always scored as the emptiest. Every kubelet
+      reports 2 since 2026-10-12; w01a's container has 4 (`k8s_cores` in `tofu/proxmox/`),
+      but its kubelet keeps reporting 2 until it restarts, which leaves it scheduling as a
+      2-core node with spare CPU underneath. Restart it only with a decision on this item. If it still does, weight
       memory higher: kube-scheduler's `NodeResourcesFit` with `LeastAllocated` and
       `resources: [{name: memory, weight: 3}, {name: cpu, weight: 1}]`, through kubeadm's
       scheduler config (Ansible, `k8s-upgrade.yml`'s territory)

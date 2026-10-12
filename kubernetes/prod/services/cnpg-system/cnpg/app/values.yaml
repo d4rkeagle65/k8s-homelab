@@ -5,3 +5,11 @@ monitoring:
   grafanaDashboard:
     create: true
   podMonitorEnabled: true
+# CPU request above the rules' 95th percentile (6m): every database's failover,
+# relabelling and switchover waits on the operator, and with no request it was
+# starved on a busy worker until it failed its 1-second health check (which
+# the chart doesn't expose) and restarted in a loop. Memory and the limits by
+# the rules (QUEUE-resource-limits.md).
+resources:
+  requests: {cpu: 100m, memory: 96Mi}
+  limits: {cpu: 500m, memory: 512Mi}

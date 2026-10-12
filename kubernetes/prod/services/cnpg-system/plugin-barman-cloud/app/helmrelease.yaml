@@ -24,3 +24,10 @@ spec:
         kind: HelmRepository
         name: cnpg
         namespace: flux-system
+  values:
+    # CPU request above its 95th percentile (1m): the operator calls the plugin
+    # in every reconcile, so a starved plugin stalls them all. Memory and the
+    # limits by the rules (QUEUE-resource-limits.md).
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
