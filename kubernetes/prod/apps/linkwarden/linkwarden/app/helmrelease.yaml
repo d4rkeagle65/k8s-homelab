@@ -90,10 +90,12 @@ spec:
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 3
-            # Archiving a page starts Chromium, far above the idle use.
+            # Archiving a page starts Chromium, far above the idle use: a long
+            # page's full screenshot and PDF took it past 1.5 GiB, and a link
+            # that fails that way is retried on every restart.
             resources:
               requests: {cpu: 50m, memory: 512Mi}
-              limits: {cpu: 1000m, memory: 1536Mi}
+              limits: {cpu: 1000m, memory: 3Gi}
     service:
       linkwarden:
         controller: linkwarden
