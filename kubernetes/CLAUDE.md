@@ -42,9 +42,9 @@ with the live one; `old-queues/QUEUE-restore-tests.md` has the method.
 
 - **Respect what the nodes are: LXC containers on ZFS, with two networks.** They have no
   block devices or iSCSI, so Longhorn and other block-storage CSIs can't run; don't propose
-  them. Calico stays pinned to `eth0` (Installation `default`,
-  `nodeAddressAutodetectionV4: {interface: eth0}`, set by hand; Calico isn't in git): with the
-  default `firstFound` it picks `eth1` and moves all pod traffic onto the management network.
+  them. Calico stays pinned to `eth0` (`nodeAddressAutodetectionV4: {interface: eth0}` in the
+  tigera-operator release's `installation` values): with the default `firstFound` it picks
+  `eth1` and moves all pod traffic onto the management network.
   kube-vip is pinned to `eth0` too.
 
 ## Ingress
