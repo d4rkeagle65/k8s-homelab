@@ -40,12 +40,13 @@ with the live one; `old-queues/QUEUE-restore-tests.md` has the method.
   `ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing, since
   nothing has tried to archive yet.
 
-- **Respect what the nodes are: LXC containers on ZFS, with two networks.** They have no
-  block devices or iSCSI, so Longhorn and other block-storage CSIs can't run; don't propose
-  them. Calico stays pinned to `eth0` (`nodeAddressAutodetectionV4: {interface: eth0}` in the
-  tigera-operator release's `installation` values): with the default `firstFound` it picks
-  `eth1` and moves all pod traffic onto the management network.
-  kube-vip is pinned to `eth0` too.
+- **Respect what the nodes are: LXC containers on ZFS, with two networks; Talos VMs are
+  joining (QUEUE-talos.md).** LXC nodes have no block devices or iSCSI, so Longhorn and other
+  block-storage CSIs can't run there; don't propose them. Calico takes each node's address
+  from its kubelet's InternalIP (`nodeAddressAutodetectionV4: {kubernetes: NodeInternalIP}`
+  in the tigera-operator release's `installation` values): the default `firstFound` picks an
+  LXC node's `eth1` and moves pod traffic onto the management network, and a Talos VM's
+  interface isn't `eth0`. kube-vip is pinned to `eth0` on the LXC control planes.
 
 ## Ingress
 
