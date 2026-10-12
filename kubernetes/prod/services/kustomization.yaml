@@ -8,6 +8,7 @@ resources:
 - homepage
 - mesh-mini
 - mqtt
+- netbox
 - organizr
 - redis-ha
 - renovate

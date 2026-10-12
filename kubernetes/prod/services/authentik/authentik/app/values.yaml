@@ -104,6 +104,11 @@ worker:
       secretKeyRef:
         key: client-secret
         name: authentik-homepage-oidc
+  - name: LINKWARDEN_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-linkwarden-oidc
   - name: ORGANIZR_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:

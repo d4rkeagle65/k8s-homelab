@@ -1,0 +1,38 @@
+# NetBox logs in whoever the X-authentik-username header names, so its web pod
+# takes traffic from Traefik only, which strips that header from incoming
+# requests and lets only Authentik's middleware set it. Valkey is NetBox's
+# alone.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: netbox
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: netbox
+      app.kubernetes.io/component: netbox
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - {protocol: TCP, port: 8080}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: netbox-valkey
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: netbox-valkey
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: netbox
+      ports:
+        - {protocol: TCP, port: 6379}

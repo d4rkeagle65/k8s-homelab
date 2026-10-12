@@ -1,0 +1,33 @@
+# NetBox's database: one copy on a worker's local disk (local-db), backed
+# up continuously to Garage (objectstore.yaml). One instance while the workers
+# are short of memory; a second makes it survive losing that worker.
+# CloudNativePG puts the app user's credentials in netbox-postgres-app.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: netbox-postgres
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  instances: 1
+  resources:
+    requests:
+      cpu: 20m
+      memory: 192Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.11
+  enableSuperuserAccess: false
+  bootstrap:
+    initdb:
+      database: netbox
+      owner: app
+  storage:
+    size: 4Gi
+    storageClass: local-db
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage

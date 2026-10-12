@@ -56,6 +56,17 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Next
 
+- **Linkwarden and NetBox are built, not yet connected** (`apps/linkwarden/`,
+  `services/netbox/`). Each database is one instance while the workers are short of
+  memory: once the workers' memory is raised (above), set `instances: 2` in each
+  `postgres.yaml`. Then the integrations, each its own change:
+  - Homepage: Linkwarden's widget (an access token made in Linkwarden), and a NetBox card.
+  - Organizr: a tab each.
+  - NetBox as the source of truth: an Ansible inventory from it (`netbox.netbox` collection,
+    for Semaphore), the OpenTofu provider reading guests and addresses from it, and the
+    Proxmox hosts, guests and Kea's subnets loaded into it to begin with. Each tool gets its
+    own NetBox API token, not the local admin's.
+
 - **The garage stack's config is an inline compose config** (`docker/garage/compose.yaml`,
   `configs: content`), the same mechanism that left `vaultwarden-backup` without its rclone
   file after a recreation on 2026-10-10 (that container restarted about 600 times and made

@@ -1,0 +1,21 @@
+# Linkwarden from the internet: the Cloudflare tunnel straight to its Service,
+# not through Traefik (the tunnel arrives on port 80, which Traefik would
+# redirect to HTTPS and loop; kubernetes/CLAUDE.md). Authentik's login and its
+# group binding (the linkwarden blueprint) are what keep strangers out.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: linkwarden-cloudflared
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: linkwarden${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: linkwarden
+            port:
+              number: 3000
