@@ -6,6 +6,7 @@ kind: ServiceMonitor
 metadata:
   name: renovate-report
 spec:
+  fallbackScrapeProtocol: PrometheusText0.0.4
   selector:
     matchLabels:
       app.kubernetes.io/name: renovate-report
@@ -13,4 +14,3 @@ spec:
     - port: http
       path: /metrics.txt
       interval: 5m
-      fallbackScrapeProtocol: PrometheusText0.0.4
