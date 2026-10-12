@@ -85,10 +85,16 @@ function Get-VariableUsage {
         $rel = $file.FullName.Substring($root.Length + 1) -replace '\\', '/'
         # capture's gitignored local copies (.local/, raw/) aren't applied by Flux.
         if ($rel -match '^(\.local|raw)/') { continue }
-        foreach ($m in [regex]::Matches($text, '(?<!\$)\$\{([A-Za-z0-9_]+)\}')) {
-            $var = $m.Groups[1].Value
-            if (-not $usage[$var]) { $usage[$var] = @{} }
-            $usage[$var][$rel] = $isSecret
+        # Only a Secret's data: holds base64; its stringData: takes the value as
+        # is. So what counts is the top-level key a variable sits under.
+        $section = ''
+        foreach ($line in $text -split "`n") {
+            if ($line -match '^([A-Za-z]+):') { $section = $Matches[1] }
+            foreach ($m in [regex]::Matches($line, '(?<!\$)\$\{([A-Za-z0-9_]+)\}')) {
+                $var = $m.Groups[1].Value
+                if (-not $usage[$var]) { $usage[$var] = @{} }
+                $usage[$var][$rel] = $isSecret -and $section -eq 'data'
+            }
         }
     }
     $usage
