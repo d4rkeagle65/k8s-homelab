@@ -20,6 +20,15 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
+- **Renovate's GitHub token** (`RENOVATE_GITHUB_TOKEN`, `services/renovate/`): a fine-grained
+  personal access token for this repository only, with read and write on Contents, Pull
+  requests and Issues, in a new Vaultwarden field (`scripts/vaultwarden-fields.ps1
+  RENOVATE_GITHUB_TOKEN -New -NoSync`). Until it exists, the mapping commit can't be pushed (a
+  missing field fails the whole cluster-secrets sync), nor Renovate after it. Then: push the
+  mapping, force-sync, push the app, and start a first run by hand
+  (`kubectl -n renovate create job --from=cronjob/renovate first-run`). Check that run: the
+  Dependency Dashboard issue appears, the first pull requests are sane (a captured release's
+  touches `release.yaml` as well), and Homelab updates in Grafana fills.
 
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:

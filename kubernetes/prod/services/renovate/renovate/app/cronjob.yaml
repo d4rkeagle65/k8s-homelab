@@ -1,0 +1,73 @@
+# Renovate, every six hours: it reads the repository, pushes a branch and opens
+# a pull request for each update (renovate.json says which and how), keeps the
+# Dependency Dashboard issue current, and writes its report. Then
+# report-to-metrics.py turns the report into the metrics the report server
+# hands Prometheus. Nothing reaches main until a pull request is merged.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: renovate
+spec:
+  schedule: "17 */6 * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 900
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: renovate
+              # The slim image (about 440 MB; the full one is 2.6 GB, too much
+              # for the nodes' 7 GiB of image storage). It installs a tool when
+              # a task needs one (Python for generate), cached on the claim.
+              image: ghcr.io/renovatebot/renovate:44.151.0
+              env:
+                - {name: RENOVATE_CONFIG_FILE, value: /config/config.js}
+                - {name: LOG_LEVEL, value: info}
+                - {name: CONTAINERBASE_CACHE_DIR, value: /data/containerbase}
+              envFrom:
+                - secretRef:
+                    name: renovate
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests: {cpu: 100m, memory: 384Mi}
+                limits: {cpu: 1000m, memory: 2Gi}
+              volumeMounts:
+                - {name: config, mountPath: /config}
+                - {name: data, mountPath: /data}
+          containers:
+            - name: metrics
+              image: python:3.14-alpine
+              command: [python, /config/report-to-metrics.py, /data/report.json, /data/metrics/metrics.txt]
+              securityContext:
+                runAsUser: 65534
+                runAsGroup: 65534
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {memory: 128Mi}
+              volumeMounts:
+                - {name: config, mountPath: /config}
+                - {name: data, mountPath: /data}
+          volumes:
+            - name: config
+              configMap:
+                name: renovate
+            - name: data
+              persistentVolumeClaim:
+                claimName: renovate-data

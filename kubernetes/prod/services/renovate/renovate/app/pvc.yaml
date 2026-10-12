@@ -1,0 +1,14 @@
+# Renovate's cache (lookups and the repository cache, so a run doesn't start
+# from nothing), its last report, and the metrics made from it. All of it is
+# remade by the next run, hence the ephemeral class. Shared by the CronJob's
+# pods and the report server, which may run on different nodes.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: renovate-data
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: nfs-eph-rwo
+  resources:
+    requests:
+      storage: 5Gi

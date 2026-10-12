@@ -1,0 +1,72 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Runs from the cluster (kubernetes/prod/services/renovate/). Every update is a pull request for the owner to merge; nothing merges itself.",
+  "extends": ["config:recommended", ":semanticCommitsDisabled"],
+  "dependencyDashboardTitle": "Renovate: dependency dashboard",
+  "minimumReleaseAge": "3 days",
+  "constraints": {"python": "~=3.14.0"},
+  "ignorePaths": [
+    "**/values-all.yaml",
+    "kubernetes/raw/**",
+    "kubernetes/.local/**",
+    "kubernetes/test/**",
+    "kubernetes/**/migrations/**",
+    "docs/**",
+    "old-queues/**"
+  ],
+  "flux": {
+    "managerFilePatterns": ["/^kubernetes/.+\\.ya?ml$/"]
+  },
+  "kubernetes": {
+    "managerFilePatterns": ["/^kubernetes/.+\\.ya?ml$/"]
+  },
+  "customManagers": [
+    {
+      "description": "CloudNativePG clusters name their image as imageName, which the kubernetes manager doesn't read.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^kubernetes/.+\\.ya?ml$/"],
+      "matchStrings": ["imageName: (?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)"],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "A captured release is updated through its generated files; regenerate so release.yaml, values.yaml and the generated files agree (scripts/renovate_post_upgrade.py).",
+      "matchFileNames": ["kubernetes/**"],
+      "postUpgradeTasks": {
+        "commands": [
+          "python3 -m pip install --quiet --target /tmp/renovate-py -r scripts/requirements.txt",
+          "python3 scripts/renovate_post_upgrade.py --deps /tmp/renovate-py"
+        ],
+        "installTools": {"python": {}},
+        "fileFilters": ["kubernetes/**"],
+        "executionMode": "branch"
+      }
+    },
+    {
+      "description": "A database's major version is a migration (QUEUE-updates.md), not a version bump: listed on the Dependency Dashboard, opened only when ticked there. Likewise Whisparr's v3, a different app.",
+      "matchPackageNames": ["ghcr.io/cloudnative-pg/postgresql", "ghcr.io/tensorchord/cloudnative-vectorchord", "mariadb", "postgres", "ghcr.io/hotio/whisparr"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "vectorchord's tags are <PostgreSQL major>-<extension version>: only the extension moves.",
+      "matchPackageNames": ["ghcr.io/tensorchord/cloudnative-vectorchord"],
+      "versioning": "regex:^(?<compatibility>\\d+)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "description": "One pull request for the app-template chart across every release that uses it.",
+      "matchDepNames": ["app-template"],
+      "groupName": "app-template chart"
+    },
+    {
+      "description": "OpenTofu, not Terraform: providers from OpenTofu's registry, and required_version (an exact OpenTofu version, matching Semaphore's) left to a hand update.",
+      "matchDatasources": ["terraform-provider"],
+      "registryUrls": ["https://registry.opentofu.org"]
+    },
+    {
+      "matchDepTypes": ["required_version"],
+      "enabled": false
+    }
+  ]
+}
