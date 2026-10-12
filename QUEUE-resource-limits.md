@@ -86,12 +86,9 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring
 - [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
       (with monitoring phase 5)
-- [ ] w01 attracts pods until its memory is full (2026-10-11: 97%, evictions) because its
-      kubelet reports 8 CPUs, so it always scores as the emptiest. It has 2, like every node
-      (`cores = 2` in `tofu/proxmox/guests.tf`): its kubelet started five seconds after the
-      container, before Proxmox pinned it to two cores on its 8-thread host, and a kubelet
-      reads its node's size only at start (c01 likewise). The kubelet restart after the
-      memory increase (QUEUE.md) corrects both. If w01 still collects pods after that, weight
+- [ ] Watch whether w01 still collects pods. It did (2026-10-11: 97% of its memory, evictions)
+      because its kubelet counted 8 CPUs, so it always scored as the emptiest; every node has 2
+      (`cores = 2`), and since 2026-10-12 every kubelet reports 2. If it still does, weight
       memory higher: kube-scheduler's `NodeResourcesFit` with `LeastAllocated` and
       `resources: [{name: memory, weight: 3}, {name: cpu, weight: 1}]`, through kubeadm's
       scheduler config (Ansible, `k8s-upgrade.yml`'s territory)

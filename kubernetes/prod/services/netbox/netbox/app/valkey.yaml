@@ -39,6 +39,11 @@ spec:
             exec:
               command: [valkey-cli, ping]
             periodSeconds: 15
+          livenessProbe:
+            exec:
+              command: [valkey-cli, ping]
+            periodSeconds: 30
+            failureThreshold: 5
           resources:
             requests: {cpu: 10m, memory: 32Mi}
             limits: {cpu: 500m, memory: 256Mi}

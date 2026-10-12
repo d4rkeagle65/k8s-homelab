@@ -1,6 +1,5 @@
-# NetBox's database: one copy on a worker's local disk (local-db), backed
-# up continuously to Garage (objectstore.yaml). One instance while the workers
-# are short of memory; a second makes it survive losing that worker.
+# NetBox's database: two copies on the workers' local disks (local-db), so it
+# survives losing a worker, backed up continuously to Garage (objectstore.yaml).
 # CloudNativePG puts the app user's credentials in netbox-postgres-app.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
@@ -9,7 +8,10 @@ metadata:
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
-  instances: 1
+  instances: 2
+  affinity:
+    podAntiAffinityType: preferred
+  enablePDB: true
   resources:
     requests:
       cpu: 20m

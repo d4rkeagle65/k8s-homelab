@@ -145,6 +145,20 @@ spec:
                   secretKeyRef:
                     name: grimmory-db
                     key: root-password
+            probes:
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: {port: 9104}
+                  periodSeconds: 30
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: {port: 9104}
+                  periodSeconds: 60
+                  failureThreshold: 5
             resources:
               requests: {cpu: 10m, memory: 64Mi}
               limits: {cpu: 500m, memory: 256Mi}

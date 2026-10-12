@@ -39,6 +39,8 @@ spec:
         ports:
         - name: http
           containerPort: 8090
+        readinessProbe: {tcpSocket: {port: http}, periodSeconds: 30}
+        livenessProbe: {tcpSocket: {port: http}, periodSeconds: 60, failureThreshold: 5}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

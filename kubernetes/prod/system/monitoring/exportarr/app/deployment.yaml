@@ -25,7 +25,8 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-      # The first container carries the shared settings, as YAML anchors.
+      # The first container carries the shared settings, as YAML anchors. Each
+      # answers /healthz, which its probes ask.
       - name: radarr
         image: ghcr.io/onedr0p/exportarr:v2.3.0
         args: [radarr]
@@ -42,6 +43,8 @@ spec:
         ports:
         - name: radarr
           containerPort: 9707
+        readinessProbe: {httpGet: {path: /healthz, port: radarr}, periodSeconds: 30}
+        livenessProbe: {httpGet: {path: /healthz, port: radarr}, periodSeconds: 60, failureThreshold: 5}
         securityContext: &container
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -66,6 +69,8 @@ spec:
         ports:
         - name: sonarr
           containerPort: 9708
+        readinessProbe: {httpGet: {path: /healthz, port: sonarr}, periodSeconds: 30}
+        livenessProbe: {httpGet: {path: /healthz, port: sonarr}, periodSeconds: 60, failureThreshold: 5}
         securityContext: *container
         resources: *resources
       - name: lidarr
@@ -84,6 +89,8 @@ spec:
         ports:
         - name: lidarr
           containerPort: 9709
+        readinessProbe: {httpGet: {path: /healthz, port: lidarr}, periodSeconds: 30}
+        livenessProbe: {httpGet: {path: /healthz, port: lidarr}, periodSeconds: 60, failureThreshold: 5}
         securityContext: *container
         resources: *resources
       - name: prowlarr
@@ -102,6 +109,8 @@ spec:
         ports:
         - name: prowlarr
           containerPort: 9710
+        readinessProbe: {httpGet: {path: /healthz, port: prowlarr}, periodSeconds: 30}
+        livenessProbe: {httpGet: {path: /healthz, port: prowlarr}, periodSeconds: 60, failureThreshold: 5}
         securityContext: *container
         resources: *resources
       - name: bookshelf
@@ -120,6 +129,8 @@ spec:
         ports:
         - name: bookshelf
           containerPort: 9711
+        readinessProbe: {httpGet: {path: /healthz, port: bookshelf}, periodSeconds: 30}
+        livenessProbe: {httpGet: {path: /healthz, port: bookshelf}, periodSeconds: 60, failureThreshold: 5}
         securityContext: *container
         resources: *resources
       - name: whisparr
@@ -138,6 +149,8 @@ spec:
         ports:
         - name: whisparr
           containerPort: 9712
+        readinessProbe: {httpGet: {path: /healthz, port: whisparr}, periodSeconds: 30}
+        livenessProbe: {httpGet: {path: /healthz, port: whisparr}, periodSeconds: 60, failureThreshold: 5}
         securityContext: *container
         resources: *resources
 ---

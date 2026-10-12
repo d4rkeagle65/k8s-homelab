@@ -39,6 +39,32 @@ spec:
               PGID: "${MEDIA_PGID}"
               TZ: ${TIMEZONE}
               branch: v2-master
+            # Health probes, timed as Sonarr's (apps/media/sonarr/app/helmrelease.yaml).
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: /, port: 80}
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: /, port: 80}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: /, port: 80}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
             resources:
               requests: {cpu: 40m, memory: 128Mi}
               limits: {cpu: 500m, memory: 512Mi}

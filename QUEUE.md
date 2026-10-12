@@ -20,19 +20,6 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
-- **More memory for the workers** (`tofu/proxmox/guests.tf`, `k8s_memory`: 104 and 106 to
-  16 GiB, 105 to 12 GiB), in this order, since two of the three need room made first:
-  1. Move the domain-controller VM (108, not OpenTofu's) off 104's host, live:
-     `qm migrate 108 <host> --online --with-local-disks`, to the host with no k8s nodes.
-  2. Move control-plane container 102 off 105's host, to the same host:
-     `pct migrate 102 <host> --restart` (a container can't move live; the other two keep
-     etcd's quorum). Check etcd's three members are healthy before and after.
-  3. Change 102's `node` in the "OpenTofu site (Proxmox)" note and paste it into Semaphore's
-     `TF_VAR_site`. Until then a plan wants 102 back where it was.
-  4. Run the Proxmox template: the plan must show only the three workers' memory, in place.
-  5. Restart each worker's kubelet, which reads its node's size only when it starts, and
-     c01's (its CPU count, QUEUE-resource-limits.md): one node at a time, checking each is
-     Ready with its new capacity before the next.
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
    (a) the partner keeps a copy of the reservations in its own config (two places to change);
@@ -56,16 +43,19 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Next
 
-- **Linkwarden and NetBox are built, not yet connected** (`apps/linkwarden/`,
-  `services/netbox/`). Each database is one instance while the workers are short of
-  memory: once the workers' memory is raised (above), set `instances: 2` in each
-  `postgres.yaml`. Then the integrations, each its own change:
-  - Homepage: Linkwarden's widget (an access token made in Linkwarden), and a NetBox card.
-  - Organizr: a tab each.
-  - NetBox as the source of truth: an Ansible inventory from it (`netbox.netbox` collection,
-    for Semaphore), the OpenTofu provider reading guests and addresses from it, and the
-    Proxmox hosts, guests and Kea's subnets loaded into it to begin with. Each tool gets its
-    own NetBox API token, not the local admin's.
+- **Containers still without health probes** (2026-10-12 survey; the media apps, Organizr,
+  the exporters and Mosquitto got theirs after Sonarr and Bookshelf hung at start, counted
+  ready, when all the workers rebooted at once). Left: n8n's task runners (they serve
+  `/healthz` once `N8N_RUNNERS_HEALTH_CHECK_SERVER_ENABLED` is set; check the endpoint
+  before adding a liveness probe, or the runners restart in a loop), NetBox's worker (no
+  port: an exec probe on the rq worker), External Secrets' controller and cert-manager's
+  cainjector (their charts' probe settings), and the config-reloader and dashboard
+  sidecars, which are the charts' own. Calico, kube-proxy, Authentik's outposts and the
+  tunnel connector belong to their operators.
+- **NetBox as the source of truth** (`services/netbox/`), each its own change: an Ansible
+  inventory from it (`netbox.netbox` collection, for Semaphore), the OpenTofu provider reading
+  guests and addresses from it, and the Proxmox hosts, guests and Kea's subnets loaded into it
+  to begin with. Each tool gets its own NetBox API token, not the local admin's.
 
 - **The garage stack's config is an inline compose config** (`docker/garage/compose.yaml`,
   `configs: content`), the same mechanism that left `vaultwarden-backup` without its rclone
