@@ -1,0 +1,16 @@
+# The metrics report-to-metrics.py writes. A static file served as text/plain,
+# so the classic text format is named as the fallback. They change every six
+# hours; a scrape every five minutes is plenty.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: renovate-report
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: renovate-report
+  endpoints:
+    - port: http
+      path: /metrics.txt
+      interval: 5m
+      fallbackScrapeProtocol: PrometheusText0.0.4

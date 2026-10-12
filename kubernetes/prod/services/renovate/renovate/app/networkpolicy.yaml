@@ -1,0 +1,18 @@
+# Only Prometheus reaches the report server. Renovate's own pods are left open:
+# they reach GitHub and every image and chart registry.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: renovate-report
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: renovate-report
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - {protocol: TCP, port: 8080}

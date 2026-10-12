@@ -1,0 +1,47 @@
+# Serves the metrics file the CronJob writes (metrics/metrics.txt on the shared
+# claim) for Prometheus to scrape: BusyBox's web server, read-only.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: renovate-report
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: renovate-report
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: renovate-report
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: httpd
+          image: busybox:1.38.0
+          command: [httpd, -f, -p, "8080", -h, /data/metrics]
+          ports:
+            - {name: http, containerPort: 8080}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+          resources:
+            requests: {cpu: 5m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          volumeMounts:
+            - {name: data, mountPath: /data, readOnly: true}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: renovate-data
+            readOnly: true

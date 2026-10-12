@@ -191,6 +191,10 @@ in `dependencies.py`:
 4. Once the HelmRelease reports the new version, `all` captures it and `appVersion` and
    `revision` follow.
 
+Renovate's pull requests do steps 1 and 2 themselves: it bumps the generated
+`helmrelease.yaml`, and `renovate_post_upgrade.py` copies the version into `release.yaml` and
+runs generate before it commits. Step 3 is still the review.
+
 ### Add a new app written in git first (`.handwritten`)
 
 1. Label the Namespace with its category, then create `prod/<category>/<ns>/namespace.yaml`

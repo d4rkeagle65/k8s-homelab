@@ -7,6 +7,11 @@ live before the next.
 
 ## How a version was checked
 
+Once Renovate runs (`services/renovate/`), its Dependency Dashboard and Grafana's Homelab
+updates list what git pins; the items below arrive there as pull requests, held for these
+checks. Images on floating tags aren't pinned in git, so Renovate skips them: for those, the
+check below still applies.
+
 Each running image (`kubectl get pods -A`, containers and init containers) against its
 registry's tags: the newest tag of the same shape (prefix, number of parts, suffix such as
 `-alpine`), pre-releases skipped, reported within the same major version and overall. A floating
