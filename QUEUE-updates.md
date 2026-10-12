@@ -40,12 +40,11 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
 - [x] **MetalLB 0.15.2 -> 0.16.1.** L2 only, so both BGP backends off (frr-k8s, the new
       default, and FRR mode); the speakers lose their three FRR containers. The chart's
       ServiceMonitors follow the metrics to HTTPS on 9120 themselves.
-- [ ] **Calico v3.32.2 -> v3.33.0** (`system/tigera-operator/tigera-operator/`, captured). Felix
-      now programs the IPIP cluster routes instead of BIRD, the CNI config moves to
-      `cniVersion 1.0.0`, and Whisker's backend is HTTPS only. The nodes are LXC containers, so
-      check routes and pod-to-pod traffic across nodes afterwards. The HelmRelease sets no
-      `crds:` policy, so Flux won't update the CRDs on upgrade: apply them from the release
-      first, or set `upgrade.crds: CreateReplace`.
+- [x] **Calico v3.32.2 -> v3.33.0** (operator v1.44.0). The pool is VXLAN cross-subnet, so the
+      IPIP route change doesn't apply; the CNI config's `cniVersion 1.0.0` needs CRI-O 1.24+
+      (1.36.7 here); the chart carries no CRDs, the operator applies them (`-manage-crds`).
+      Checked with a pod-network mesh test (a pod on each node calling every node's Alloy
+      pod, cluster DNS and a ClusterIP Service) before and after.
 - [ ] **Authentik 2026.5 -> 2026.8** (chart 2026.5.6 -> 2026.8.3; the LDAP and proxy outposts
       follow the server). Three feature releases: read each one's upgrade notes. Every
       forward-auth and OIDC login depends on it; test one of each afterwards. Take a fresh
