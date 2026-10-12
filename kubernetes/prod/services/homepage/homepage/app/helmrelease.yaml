@@ -134,7 +134,7 @@ spec:
               Network: {tab: Systems, style: row, columns: 3, header: false}
               Wi-Fi: {tab: Systems, style: row, columns: 3, header: false}
               Storage: {tab: Systems, style: row, columns: 3, header: false}
-              Tools: {tab: Systems, style: row, columns: 5, header: false}
+              Tools: {tab: Systems, style: row, columns: 3, header: false}
               Health: {tab: Cluster, style: row, columns: 3, header: false}
               Observability: {tab: Cluster, style: row, columns: 3, header: false}
               Featured: {tab: Apps, style: row, columns: 4, header: false}
@@ -525,6 +525,27 @@ spec:
                     href: https://stork.${BASE_DOMAIN}
                     description: Kea's dashboard
                     siteMonitor: https://stork.${BASE_DOMAIN}
+                - NetBox:
+                    icon: netbox.png
+                    href: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Hosts, addresses and networks
+                    namespace: netbox
+                    app: netbox
+                    podSelector: app.kubernetes.io/component=netbox
+                    # Through Traefik's token route (/api): only Traefik reaches
+                    # NetBox's pod. A read-only API token of NetBox's own; its
+                    # field holds the whole header value as NetBox shows it
+                    # ("Bearer nbt_<key>.<token>").
+                    widget:
+                      type: customapi
+                      url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/status/
+                      headers:
+                        Authorization: "{{ "{{HOMEPAGE_VAR_NETBOX_TOKEN}}" }}"
+                      mappings:
+                        - field: netbox-version
+                          label: Version
+                        - field: rq-workers-running
+                          label: Workers
             - Health:
                 - Kubernetes:
                     icon: kubernetes.png
@@ -673,6 +694,18 @@ spec:
                       version: 2
                       url: http://mealie.mealie.svc.${CLUSTER_DOMAIN}:9000
                       key: "{{ "{{HOMEPAGE_VAR_MEALIE_KEY}}" }}"
+                - Linkwarden:
+                    icon: linkwarden.png
+                    href: https://linkwarden${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Bookmarks and archived pages
+                    namespace: linkwarden
+                    app: linkwarden
+                    podSelector: app.kubernetes.io/controller=linkwarden
+                    # An access token made in Linkwarden (Settings > Access Tokens).
+                    widget:
+                      type: linkwarden
+                      url: http://linkwarden.linkwarden.svc.${CLUSTER_DOMAIN}:3000
+                      key: "{{ "{{HOMEPAGE_VAR_LINKWARDEN_KEY}}" }}"
             - Everyday:
                 - Vaultwarden:
                     icon: vaultwarden.png
@@ -906,6 +939,10 @@ spec:
                     icon: synology.png
                     href: https://kb.synology.com/en-global/search?query=iSCSI
                     description: Knowledge center
+                - NetBox:
+                    icon: netbox.png
+                    href: https://netboxlabs.com/docs/netbox/
+                    description: Data model and API
                 - Kea:
                     icon: isc-kea.png
                     href: https://kea.readthedocs.io/
@@ -956,6 +993,10 @@ spec:
                     icon: immich.png
                     href: https://immich.app/docs/
                     description: Photo server
+                - Linkwarden:
+                    icon: linkwarden.png
+                    href: https://docs.linkwarden.app/
+                    description: Bookmarks, the extension and the app
                 - Servarr wiki:
                     icon: sonarr.png
                     href: https://wiki.servarr.com/

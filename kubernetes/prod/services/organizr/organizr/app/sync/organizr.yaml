@@ -91,6 +91,7 @@ tabs:
   - {name: Home Assistant, category: Home, type: 2, group_id: 4, enabled: 1, url: "https://homeassistant.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/home-assistant.png"}
   - {name: Grimmory, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://grimmory${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/selfhst/icons/png/grimmory.png"}
   - {name: Mealie, category: Home, type: 2, group_id: 4, enabled: 1, url: "https://mealie.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/mealie.png"}
+  - {name: Linkwarden, category: Home, type: 2, group_id: 4, enabled: 1, url: "https://linkwarden${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/linkwarden.png"}
   - {name: n8n, category: Home, type: 2, group_id: 0, enabled: 1, url: "https://n8n.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/n8n.png"}
   - {name: Dashboard, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/homepage.png"}
   - {name: Grafana, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/grafana.png"}
@@ -98,5 +99,6 @@ tabs:
   - {name: Semaphore, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://semaphore.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/semaphore.png"}
   - {name: Dockhand, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://dockhand.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dockhand.png"}
   - {name: mesh-mini, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://mesh${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/meshcentral.png"}
+  - {name: NetBox, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/netbox.png"}
   - {name: Authentik, category: Infrastructure, type: 2, group_id: 0, enabled: 1, url: "https://auth.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/authentik.png"}
   - {name: Vaultwarden, category: Infrastructure, type: 2, group_id: 4, enabled: 1, url: "https://vaultwarden.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/vaultwarden.png"}
