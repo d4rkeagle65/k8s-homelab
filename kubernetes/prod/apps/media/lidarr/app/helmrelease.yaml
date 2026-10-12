@@ -25,7 +25,7 @@ spec:
           main:
             image:
               repository: linuxserver/lidarr
-              tag: latest
+              tag: 3.1.0.4875-ls43
             env:
               - name: PUID
                 value: "${MEDIA_PUID}"

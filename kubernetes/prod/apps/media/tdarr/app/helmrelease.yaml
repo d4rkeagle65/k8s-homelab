@@ -25,7 +25,7 @@ spec:
           server:
             image:
               repository: ghcr.io/haveagitgat/tdarr
-              tag: latest
+              tag: 3.00.00
             env:
               - name: TZ
                 value: ${TIMEZONE}
@@ -80,7 +80,7 @@ spec:
           node:
             image:
               repository: ghcr.io/haveagitgat/tdarr_node
-              tag: latest
+              tag: 3.00.00
             env:
               - name: TZ
                 value: ${TIMEZONE}

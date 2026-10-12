@@ -25,7 +25,7 @@ spec:
           main:
             image:
               repository: linuxserver/sonarr
-              tag: latest
+              tag: 4.0.20.3014-ls327
             env:
               - name: PUID
                 value: "${MEDIA_PUID}"

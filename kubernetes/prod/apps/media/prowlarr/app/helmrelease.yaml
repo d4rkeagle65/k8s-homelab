@@ -25,7 +25,7 @@ spec:
           main:
             image:
               repository: linuxserver/prowlarr
-              tag: latest
+              tag: 2.6.5.5623-ls163
             env:
               - name: PUID
                 value: "${MEDIA_PUID}"

@@ -55,6 +55,16 @@
       "versioning": "regex:^(?<compatibility>\\d+)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
     },
     {
+      "description": "linuxserver tags are the app's version plus the image's own build (-ls<n>), which moves on a rebuild of the same app version.",
+      "matchPackageNames": ["linuxserver/**", "!linuxserver/qbittorrent"],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?-ls(?<revision>\\d+)$"
+    },
+    {
+      "description": "qBittorrent's tags add the libtorrent version: <qBittorrent>_v<libtorrent>-ls<n>, kept to the same libtorrent.",
+      "matchPackageNames": ["linuxserver/qbittorrent"],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)_v(?<compatibility>[\\d.]+)-ls(?<build>\\d+)$"
+    },
+    {
       "description": "A chart and the images its values pin move together: merging one without the other would run a new chart with an old image.",
       "matchPackageNames": ["authentik", "ghcr.io/goauthentik/**"],
       "groupName": "Authentik"
