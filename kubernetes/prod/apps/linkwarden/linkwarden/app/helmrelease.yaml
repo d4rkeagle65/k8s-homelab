@@ -1,5 +1,10 @@
-# Linkwarden, bookmarks with an archived copy of each page (a screenshot, a
-# PDF and a readable copy, taken by its own Chromium). Login through Authentik
+# Linkwarden, bookmarks with an archived copy of each page, taken by its own
+# Chromium: a single-file webpage and a readable copy. Screenshot and PDF are
+# off (Settings > Preservation, per user): a long page's full screenshot took
+# Chromium past 3 GiB, and its retry on every restart crash-looped the pod and
+# starved the node it ran on. Turn them back on only with that in mind, and
+# change them with the pod stopped, since the archive worker starts with it.
+# Login through Authentik
 # only (the linkwarden blueprint): passwords and sign-up are off. Reachable on
 # the private networks through Traefik, and from the internet through the
 # Cloudflare tunnel (ingress-cloudflared.yaml), so the browser extension and
@@ -90,8 +95,7 @@ spec:
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 3
-            # Archiving a page starts Chromium, far above the idle use: a long
-            # page's full screenshot and PDF took it past 1.5 GiB, and a link
+            # Archiving a page starts Chromium, far above the idle use; a link
             # that fails that way is retried on every restart.
             resources:
               requests: {cpu: 50m, memory: 512Mi}
