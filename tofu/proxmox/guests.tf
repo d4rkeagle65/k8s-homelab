@@ -279,13 +279,18 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
     floating  = 12288
   }
 
+  # Every disk on the NAS (syn-nfs, shared), so Proxmox HA can restart the VM
+  # on another host. Moved there live with qm disk move (QUEUE-talos.md, Phase
+  # 1); applying a different datastore here would move or recreate them.
   efi_disk {
-    datastore_id = "vms"
+    datastore_id = "syn-nfs"
+    file_format  = "raw"
   }
 
   disk {
     interface    = "scsi0"
-    datastore_id = "vms"
+    datastore_id = "syn-nfs"
+    file_format  = "raw"
     size         = 32
     discard      = "on"
     ssd          = true
@@ -294,7 +299,8 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
   # /opt: the stacks' data.
   disk {
     interface    = "scsi1"
-    datastore_id = "vms"
+    datastore_id = "syn-nfs"
+    file_format  = "raw"
     size         = 64
     discard      = "on"
     ssd          = true
