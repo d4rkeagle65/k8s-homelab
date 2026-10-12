@@ -32,16 +32,11 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
 
 ## Checklist
 
-- [ ] **Mealie v3.20.1 -> v3.28.0.** Since v3.21 Mealie refuses an OIDC login whose
-      `email_verified` claim isn't true, and Authentik's default `email` scope mapping returns
-      `"email_verified": False`. Before upgrading: a scope mapping in the Mealie blueprint
-      returning `request.user.email` with `email_verified: True`, set as the mealie provider's
-      `email` mapping in place of the default (the provider was made in Authentik's UI; adopt it
-      into a blueprint first). Not `OIDC_REQUIRES_EMAIL_VERIFICATION=false`. v3.26 also limits
-      what Mealie fetches (recipe imports, images, webhooks, recipe actions) to public internet
-      addresses; anything on the LAN or tailnet needs `HTTP_ALLOW_LIST`. v3.25 moved
-      `/api/auth/refresh` to POST (only matters to API clients). Mealie's database is already
-      on 17.11.
+- [x] **Mealie v3.20.1 -> v3.28.0.** v3.21's `email_verified` requirement: the `mealie`
+      Authentik blueprint swaps the provider's email mapping for one that says true. v3.26's
+      limit on what Mealie fetches touches nothing here (no webhooks or recipe actions; recipe
+      imports are from the internet), so no `HTTP_ALLOW_LIST`. No setting Mealie reads was
+      renamed between the two.
 - [ ] **MetalLB 0.15.2 -> 0.16.1** (`system/metallb-system/metallb/`, captured). 0.16 makes
       frr-k8s the default BGP backend; this cluster uses L2 only (one `L2Advertisement`, no
       `BGPPeer`), so set the chart's FRR and frr-k8s off rather than gain a component it doesn't
