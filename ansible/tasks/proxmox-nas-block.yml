@@ -224,6 +224,30 @@
         == nb_hosts | length
       run_once: true
 
+    # The entry's host list follows the inventory, so a host added later (its
+    # LUN given its volume group above) is enabled there too. Only once every
+    # host has its volume group, as for the definition.
+    - name: The storage's host list is the inventory's
+      ansible.builtin.command: pvesm set {{ nb_storage }} --nodes {{ nb_nodes }}
+      register: nb_nodes_set
+      when: >-
+        nb_lvm_entry | length > 0 and
+        (nb_lvm_entry.nodes | default('')).split(',') | sort != nb_nodes.split(',') | sort and
+        nb_hosts | map('extract', hostvars, ['nb_vg', 'rc']) | select('equalto', 0) | list | length
+        == nb_hosts | length
+      run_once: true
+
+    - name: Report a host list that differs
+      ansible.builtin.debug:
+        msg: >-
+          {{ nb_storage }} is enabled on {{ nb_lvm_entry.nodes | default('every host') }};
+          the inventory wants {{ nb_nodes }}{{ ' (changed)' if nb_nodes_set is changed else
+          (' (left: a host has no volume group yet)' if not ansible_check_mode else '') }}.
+      when: >-
+        nb_lvm_entry | length > 0 and
+        (nb_lvm_entry.nodes | default('')).split(',') | sort != nb_nodes.split(',') | sort
+      run_once: true
+
     # Required only once the entry exists or this run added it: until every
     # host's LUN has its volume group, its absence is the expected state.
     - name: Read the storage back
