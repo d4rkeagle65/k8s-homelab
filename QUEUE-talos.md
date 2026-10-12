@@ -149,7 +149,12 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
 - [ ] Phase 1: Talos image (done) and machine configs (done: `talos/`, the secrets as
       `TALOS_SECRETS`); kube-proxy labels (done); the service-account issuer (done); the API
       address plan; Calico's address detection (done)
-- [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP
+- [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP.
+      The first, on H2, built by hand (`talos/README.md`) on 2026-10-12: etcd's fourth member,
+      its API server, controller manager and scheduler up on the first try. Calico couldn't
+      start there until its FlexVolume driver was turned off (`flexVolumePath: None`): Talos
+      keeps `/usr/libexec` read-only. Then: the node Ready and the mesh test with it in; a
+      kubeadm control plane removed; the other two through Semaphore
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
