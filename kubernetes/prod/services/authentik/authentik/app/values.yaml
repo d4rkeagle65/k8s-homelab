@@ -36,10 +36,14 @@ global:
       secretKeyRef:
         key: email
         name: authentik-secret-bootstrap
+  # Seeds the Base URL system setting when it is unset (required from 2026.11);
+  # the Admin interface's value wins once there is one.
+  - name: AUTHENTIK_WEB__BASE_URL
+    value: https://auth.${BASE_DOMAIN}
   image:
     pullPolicy: IfNotPresent
     repository: ghcr.io/goauthentik/server
-    tag: "2026.5"
+    tag: "2026.8.3"
 server:
   metrics:
     enabled: true

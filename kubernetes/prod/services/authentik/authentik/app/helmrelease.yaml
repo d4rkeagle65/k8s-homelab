@@ -10,7 +10,7 @@ spec:
   chart:
     spec:
       chart: authentik
-      version: 2026.5.6
+      version: 2026.8.3
       sourceRef:
         kind: HelmRepository
         name: authentik
@@ -54,10 +54,12 @@ spec:
           secretKeyRef:
             key: email
             name: authentik-secret-bootstrap
+      - name: AUTHENTIK_WEB__BASE_URL
+        value: https://auth.${BASE_DOMAIN}
       image:
         pullPolicy: IfNotPresent
         repository: ghcr.io/goauthentik/server
-        tag: "2026.5"
+        tag: 2026.8.3
     server:
       metrics:
         enabled: true
