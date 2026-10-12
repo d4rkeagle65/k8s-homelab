@@ -38,6 +38,31 @@ spec:
     remediation:
       retries: 3
   values:
+    # Two, on different nodes: every app's traffic goes through Traefik, so a
+    # node in trouble takes down one copy, not every app. MetalLB announces
+    # INGRESS_IP from a node whose copy is ready (externalTrafficPolicy:
+    # Local, below) and moves it when that copy fails. A drain keeps one.
+    deployment:
+      replicas: 2
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+              app.kubernetes.io/instance: traefik-traefik
+          topologyKey: kubernetes.io/hostname
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+    # CPU request above the rules' 95th percentile (5m): with none (BestEffort)
+    # it got the least CPU on a node another pod overloaded, failed its health
+    # checks and took every app down with it. CPU limit at the 1000m cap, not
+    # the rules' 500m: TLS for large uploads (Immich) is the work it does.
+    # Memory by the rules (QUEUE-resource-limits.md).
+    resources:
+      requests: {cpu: 100m, memory: 128Mi}
+      limits: {cpu: 1000m, memory: 512Mi}
     providers:
       # Class `traefik` only. Not the cluster default (see ingressClass below),
       # and the isolated controller has its own class.
