@@ -22,6 +22,15 @@ locals {
     "105" = "worker"
     "106" = "worker"
   }
+  # A worker sized to its host rather than its role (MiB): each leaves its
+  # host at least 4 GiB free at its two-day low. 105's host has 16 GB, and
+  # holds 12 GiB only because the third control-plane container moved off it.
+  # A kubelet reads its node's size when it starts, so restart it after a change.
+  k8s_memory = {
+    "104" = 16384
+    "105" = 12288
+    "106" = 16384
+  }
 
   # The Pi-holes (community-scripts installs, unprivileged), one interface per
   # network they answer on.
@@ -68,7 +77,7 @@ resource "proxmox_virtual_environment_container" "k8s_node" {
   }
 
   memory {
-    dedicated = local.k8s_roles[each.value].memory
+    dedicated = lookup(local.k8s_memory, each.key, local.k8s_roles[each.value].memory)
     swap      = 0
   }
 

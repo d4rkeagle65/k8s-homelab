@@ -20,6 +20,19 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
+- **More memory for the workers** (`tofu/proxmox/guests.tf`, `k8s_memory`: 104 and 106 to
+  16 GiB, 105 to 12 GiB), in this order, since two of the three need room made first:
+  1. Move the domain-controller VM (108, not OpenTofu's) off 104's host, live:
+     `qm migrate 108 <host> --online --with-local-disks`, to the host with no k8s nodes.
+  2. Move control-plane container 102 off 105's host, to the same host:
+     `pct migrate 102 <host> --restart` (a container can't move live; the other two keep
+     etcd's quorum). Check etcd's three members are healthy before and after.
+  3. Change 102's `node` in the "OpenTofu site (Proxmox)" note and paste it into Semaphore's
+     `TF_VAR_site`. Until then a plan wants 102 back where it was.
+  4. Run the Proxmox template: the plan must show only the three workers' memory, in place.
+  5. Restart each worker's kubelet, which reads its node's size only when it starts, and
+     c01's (its CPU count, QUEUE-resource-limits.md): one node at a time, checking each is
+     Ready with its new capacity before the next.
 5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
    partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
    (a) the partner keeps a copy of the reservations in its own config (two places to change);
