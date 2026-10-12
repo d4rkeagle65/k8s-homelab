@@ -231,6 +231,36 @@ data:
         order: 0
       attrs:
         group: !Find [authentik_core.group, [name, authentik Admins]]
+  mealie.yaml: |
+    # Authentik blueprint: Mealie's OIDC provider (made in the UI) is left as it
+    # is except its scope mappings. Mealie refuses a login whose email_verified
+    # claim isn't true, and Authentik's default email mapping says false, since
+    # Authentik never verifies an address itself. Accounts here are made by the
+    # owner, so their addresses are vouched for: this mapping says true, for
+    # Mealie's provider only.
+    version: 1
+    metadata:
+      name: mealie
+    entries:
+    - model: authentik_providers_oauth2.scopemapping
+      id: email-verified
+      identifiers:
+        name: "Mealie: email (verified)"
+      attrs:
+        scope_name: email
+        description: Email address, vouched for as verified
+        expression: |
+          return {"email": request.user.email, "email_verified": True}
+    - model: authentik_providers_oauth2.oauth2provider
+      identifiers:
+        name: Provider for Mealie
+      attrs:
+        property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !KeyOf email-verified
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-entitlements]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
   mesh-mini.yaml: |
     # Authentik blueprint: mesh-mini's login (Intel AMT remote management, which
     # has no login of its own) as a forward-auth proxy, like babybuddy's: Traefik's
