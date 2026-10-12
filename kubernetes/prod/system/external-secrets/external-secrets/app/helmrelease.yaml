@@ -30,4 +30,18 @@ spec:
     remediation:
       retries: 3
   values:
+    # Requests and limits by QUEUE-resource-limits.md's rules; the webhook's
+    # CPU request above them (its 95th percentile is 0), since every apply of
+    # an ExternalSecret waits on it.
+    resources:
+      requests: {cpu: 10m, memory: 96Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+    webhook:
+      resources:
+        requests: {cpu: 50m, memory: 96Mi}
+        limits: {cpu: 500m, memory: 512Mi}
+    certController:
+      resources:
+        requests: {cpu: 10m, memory: 96Mi}
+        limits: {cpu: 500m, memory: 512Mi}
     installCRDs: true

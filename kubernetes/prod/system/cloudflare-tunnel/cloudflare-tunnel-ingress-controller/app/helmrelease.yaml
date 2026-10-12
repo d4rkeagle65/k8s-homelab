@@ -22,6 +22,21 @@ spec:
         apiTokenKey: api_token
         name: cloudflare-tunnel-secret
         tunnelNameKey: tunnel_name
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    cloudflared:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 1000m
+          memory: 512Mi
   commonMetadata:
     labels:
       homelab.local/env: prod

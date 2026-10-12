@@ -4,3 +4,14 @@ cloudflare:
     apiTokenKey: api_token
     name: cloudflare-tunnel-secret
     tunnelNameKey: tunnel_name
+# Requests and limits by QUEUE-resource-limits.md's rules, except the
+# connector's: every request from the internet goes through it, so its CPU
+# request is above its 95th percentile (2m) and its limit at the 1000m cap, as
+# for Traefik (large uploads through the tunnel).
+resources:
+  requests: {cpu: 10m, memory: 64Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+cloudflared:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 1000m, memory: 512Mi}
