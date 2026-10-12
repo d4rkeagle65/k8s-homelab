@@ -20,7 +20,9 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
   - Its **master copy is a Vaultwarden note** ("OpenTofu site (Proxmox)"). Semaphore hides a
     secret once saved, so a change is made in the note and the whole note pasted into the
     `TF_VAR_site` secret, then checked with a plan.
-  - It changes only when a guest is added, moved, renamed or re-addressed.
+  - It changes only when a guest is added, moved, renamed or re-addressed. A plan that wants
+    to replace a guest usually means it moved and the note didn't: `prevent_destroy` stops
+    the apply, and the fix is the note, then Semaphore's copy, then a fresh plan.
 - **The state** is in Semaphore's PostgreSQL, database `tfstate`, schema per module
   (`backend "pg"`); it holds the same site values, so it never goes in git.
 - **What an API token can't set** (the raw `lxc.*` lines, container features other than
