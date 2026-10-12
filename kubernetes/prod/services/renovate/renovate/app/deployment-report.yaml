@@ -20,6 +20,22 @@ spec:
         runAsGroup: 65534
         seccompProfile:
           type: RuntimeDefault
+      # A fresh claim has no metrics folder until Renovate's first run, and
+      # httpd won't start without its document root.
+      initContainers:
+        - name: mkdir
+          image: busybox:1.38.0
+          command: [mkdir, -p, /data/metrics]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: {cpu: 5m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+          volumeMounts:
+            - {name: data, mountPath: /data}
       containers:
         - name: httpd
           image: busybox:1.38.0
@@ -44,4 +60,3 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: renovate-data
-            readOnly: true
