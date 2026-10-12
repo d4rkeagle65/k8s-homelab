@@ -36,6 +36,8 @@ spec:
             secretKeyRef: {name: pihole-exporter, key: pihole1}
         ports:
         - {name: pihole1, containerPort: 9617}
+        readinessProbe: {tcpSocket: {port: pihole1}, periodSeconds: 30}
+        livenessProbe: {tcpSocket: {port: pihole1}, periodSeconds: 60, failureThreshold: 5}
         securityContext: &container
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -56,6 +58,8 @@ spec:
             secretKeyRef: {name: pihole-exporter, key: pihole2}
         ports:
         - {name: pihole2, containerPort: 9618}
+        readinessProbe: {tcpSocket: {port: pihole2}, periodSeconds: 30}
+        livenessProbe: {tcpSocket: {port: pihole2}, periodSeconds: 60, failureThreshold: 5}
         securityContext: *container
         resources: *resources
 ---

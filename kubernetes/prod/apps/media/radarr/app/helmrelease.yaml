@@ -53,6 +53,32 @@ spec:
                   secretKeyRef:
                     name: radarr
                     key: api-key
+            # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml).
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 7878}
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 7878}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 7878}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
             resources:
               requests:
                 cpu: 20m

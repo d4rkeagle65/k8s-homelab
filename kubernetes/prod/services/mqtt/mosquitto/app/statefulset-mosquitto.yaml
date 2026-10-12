@@ -30,6 +30,8 @@ spec:
         - containerPort: 9001
           name: websockets
           protocol: TCP
+        readinessProbe: {tcpSocket: {port: mqtt}, periodSeconds: 30}
+        livenessProbe: {tcpSocket: {port: mqtt}, periodSeconds: 60, failureThreshold: 5}
         resources:
           limits:
             cpu: 250m

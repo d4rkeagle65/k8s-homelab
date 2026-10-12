@@ -53,6 +53,36 @@ spec:
                   secretKeyRef:
                     name: sonarr
                     key: api-key
+            # Startup allows ten minutes (database migrations); after that a
+            # minute and a half without an answer takes it out of service and
+            # two and a half restarts it. Without them, a start that gave up on
+            # its database hung while counted as ready (2026-10-12). The other
+            # media apps use the same timings.
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 8989}
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 8989}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 8989}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
             resources:
               requests:
                 cpu: 110m

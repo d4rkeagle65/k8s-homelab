@@ -43,6 +43,33 @@ spec:
                 value: "8265"
               - name: internalNode
                 value: "false"
+            # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml). The
+            # node container serves nothing to probe; it reconnects to the server.
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/api/v2/status", port: 8265}
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/api/v2/status", port: 8265}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/api/v2/status", port: 8265}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
             resources:
               requests:
                 cpu: 10m
