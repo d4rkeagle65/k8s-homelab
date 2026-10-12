@@ -23,7 +23,7 @@ installation:
     linuxPolicySetupTimeoutSeconds: 0
     multiInterfaceMode: None
     nodeAddressAutodetectionV4:
-      interface: eth0
+      kubernetes: NodeInternalIP
     windowsDataplane: Disabled
   cni:
     ipam:

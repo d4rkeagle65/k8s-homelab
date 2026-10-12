@@ -86,8 +86,8 @@ Control planes on H1, H2, H4: losing any one keeps etcd's quorum.
   OpenTofu's cloud-init drive gives each VM its addresses. Machine configs from the cluster's
   PKI and a kubeadm bootstrap token (`talosctl gen secrets --from-kubernetes-pki`), generated
   on a control plane so the CA keys never leave it; `secrets.yaml` kept in Vaultwarden, never
-  git. Generated with `cni: none`, the pod and service subnets (10.229.0.0/16, 10.228.0.0/16)
-  and the DNS domain from `kubeadm-config`, and without `secretboxEncryptionSecret`: the
+  git. Generated with `cni: none`, and the pod and service subnets and the DNS domain read
+  from `kubeadm-config`, and without `secretboxEncryptionSecret`: the
   kubeadm API servers have no encryption config, so a Talos one encrypting Secrets would write
   what they can't read. Encryption at rest comes after the last kubeadm control plane.
 - Done 2026-10-12 for the guide: kube-proxy's DaemonSet recreated with `tier: node` in its
@@ -97,9 +97,10 @@ Control planes on H1, H2, H4: losing any one keeps etcd's quorum.
   itself, since kubeadm's own DaemonSet has the old selector. Left: the API address handover
   (kube-vip on the kubeadm control planes today; Talos has its own shared VIP, which takes over
   once the last kubeadm control plane leaves; the API name stays, so no client changes).
-- Calico on Talos VMs: its address detection is pinned to `eth0` (CLAUDE.md, kubernetes/); give
-  the VMs predictable `eth0`/`eth1` names (`net.ifnames=0`) or switch detection to the main
-  subnet (`cidrs:`) for all nodes first.
+- Calico's address detection: `kubernetes: NodeInternalIP` (2026-10-12), the kubelet's address,
+  which the Talos configs pin to the main network (`KubeNodeConfig` `nodeIP.validSubnets`)
+  and which equals what `interface: eth0` picked on every LXC node, so the switch moved no
+  address. A Talos VM's interface isn't `eth0`, so the old pin would have left it NotReady.
 - The VMs through OpenTofu (`tofu/proxmox/`), like the other guests.
 
 ## Phase 2: control planes
@@ -145,7 +146,7 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       power in a quiet window; both VMs should come back on H5 within about three minutes, then
       return to H4 once it's back
 - [ ] Phase 1: Talos image (done) and machine configs; kube-proxy labels (done); the
-      service-account issuer (done); the API address plan; Calico's address detection
+      service-account issuer (done); the API address plan; Calico's address detection (done)
 - [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed
