@@ -41,9 +41,10 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
   disks Proxmox HA restarts. It's a Synology DS415+ (2014: Atom C2538, 2 GB RAM, two 1 Gbit
   ports, both in use, no PCIe slot). Its board was repaired in January 2026 after its CPU failed
   (the Atom C2000 fault, Intel's AVR54), so that fault is fixed, but the rest of it is 2014
-  hardware, and its SNMP agent takes 15 to 40 seconds to answer when idle. Replacing it is part of
-  this work, not optional (see the checklist); until then, the backups on the TerraMaster (Garage,
-  `tm-nfs`) must stay current and tested, so losing it means restoring, not losing data. A USB
+  hardware, and its SNMP agent takes 15 to 40 seconds to answer when idle. Replacing it is not
+  part of this work (the owner, 2026-10-12: months or years away); meanwhile the backups on the
+  TerraMaster (Garage, `tm-nfs`) must stay current and tested, so losing it means restoring, not
+  losing data. A USB
   2.5 Gbit adapter isn't worth it on this model: the community driver (bb-qq/r8152) targets
   models from 2017 on (check its releases for an `avoton` build), and the CPU limits it anyway.
 - **Size for the loss of the largest host:** with any one host down, the remaining workers must
@@ -137,9 +138,6 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network
-- [ ] A replacement for the DS415+, with 2.5 or 10 Gbit on the storage network (built in or a
-      PCIe card), so the NAS isn't a 2014 box on a shared 1 Gbit trunk; migrate its shares and
-      LUNs; the TerraMaster backups checked by a restore first
 - [ ] Failover test: stop one host at a time; everything comes back on the others
 - [ ] Phase 4: the kubeadm playbooks, LXC rules and `nas-block` removed
 
