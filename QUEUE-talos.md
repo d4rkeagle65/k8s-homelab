@@ -80,14 +80,23 @@ Control planes on H1, H2, H4: losing any one keeps etcd's quorum.
   disk images). An HA group over all hosts.
 - Move the Docker VM's and the domain controller VM's disks to it, and put both under Proxmox HA.
   Test: stop a host, the VM comes back elsewhere.
-- The Talos image from Sidero's Image Factory: the QEMU guest agent and iSCSI tools extensions,
-  pinned to a Talos 1.13 release matching Kubernetes v1.36. Talos machine configs generated from
-  the cluster's CA and a kubeadm bootstrap token (`kubeadm token create`), kept out of git apart
-  from what's public; secrets in Vaultwarden.
-- Fix what the migration guide requires: kube-proxy's pods labelled `tier: node` as well as
-  `k8s-app: kube-proxy` (still only `k8s-app` on 2026-10-12); the service-account issuer the same on old and new
-  control planes; decide the API address handover (kube-vip on the kubeadm control planes today;
-  Talos has its own shared VIP, which takes over once the last kubeadm control plane leaves).
+- The Talos image from Sidero's Image Factory: Talos 1.14.2 (2026-09-29), schematic
+  `53513e54bb39202f35694412577a6bc53d484744d35a126e5d42ef34785c0d83` (qemu-guest-agent,
+  iscsi-tools, util-linux-tools; both iSCSI ones for democratic-csi), the `nocloud` image so
+  OpenTofu's cloud-init drive gives each VM its addresses. Machine configs from the cluster's
+  PKI and a kubeadm bootstrap token (`talosctl gen secrets --from-kubernetes-pki`), generated
+  on a control plane so the CA keys never leave it; `secrets.yaml` kept in Vaultwarden, never
+  git. Generated with `cni: none`, the pod and service subnets (10.229.0.0/16, 10.228.0.0/16)
+  and the DNS domain from `kubeadm-config`, and without `secretboxEncryptionSecret`: the
+  kubeadm API servers have no encryption config, so a Talos one encrypting Secrets would write
+  what they can't read. Encryption at rest comes after the last kubeadm control plane.
+- Done 2026-10-12 for the guide: kube-proxy's DaemonSet recreated with `tier: node` in its
+  selector; the service-account issuer `https://<API name>:6443` first on all three kubeadm
+  API servers, the old in-cluster one kept second so existing tokens stay valid, both in
+  `kubeadm-config` too. `k8s-upgrade.yml` skips kubeadm's kube-proxy phase and sets its image
+  itself, since kubeadm's own DaemonSet has the old selector. Left: the API address handover
+  (kube-vip on the kubeadm control planes today; Talos has its own shared VIP, which takes over
+  once the last kubeadm control plane leaves; the API name stays, so no client changes).
 - Calico on Talos VMs: its address detection is pinned to `eth0` (CLAUDE.md, kubernetes/); give
   the VMs predictable `eth0`/`eth1` names (`net.ifnames=0`) or switch detection to the main
   subnet (`cidrs:`) for all nodes first.
@@ -135,8 +144,8 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       places by configured memory, not by counting services). Left: the test, by cutting H4's
       power in a quiet window; both VMs should come back on H5 within about three minutes, then
       return to H4 once it's back
-- [ ] Phase 1: Talos image and machine configs; kube-proxy labels; the service-account issuer;
-      the API address plan; Calico's address detection
+- [ ] Phase 1: Talos image (done) and machine configs; kube-proxy labels (done); the
+      service-account issuer (done); the API address plan; Calico's address detection
 - [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed

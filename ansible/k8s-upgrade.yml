@@ -19,6 +19,13 @@
 # Variables: k8s_api_url, k8s_ca_b64, k8s_token; k8s_bundle, set on the task.
 # Flux-managed add-ons are upgraded by commits beforehand: the checks say which.
 #
+# kube-proxy's DaemonSet carries tier: node in its selector as well as
+# k8s-app, as Talos requires (QUEUE-talos.md). kubeadm's own kube-proxy has
+# only k8s-app, and a selector can't be changed, so its kube-proxy phase is
+# skipped everywhere and this sets kube-proxy's image instead. The two
+# --service-account-issuer flags are in the kubeadm-config ConfigMap, so the
+# API servers keep both through an upgrade.
+#
 # In check mode (--check) it runs every check and changes nothing.
 
 - ansible.builtin.import_playbook: require-hosts.yml
@@ -139,13 +146,21 @@
           check_mode: false
 
         - name: kubeadm upgrade apply
-          ansible.builtin.command: kubeadm upgrade apply v{{ k8s_target.kubernetes }} --yes{{ kubeadm_preflight_flag }}
+          ansible.builtin.command: kubeadm upgrade apply v{{ k8s_target.kubernetes }} --yes --skip-phases addon/kube-proxy{{ kubeadm_preflight_flag }}
           changed_when: true
           when: >-
             (k8s_server_version.stdout | from_json).serverVersion.gitVersion != 'v' ~ k8s_target.kubernetes
 
+        - name: Set kube-proxy's image (kubeadm's phase for it is skipped)
+          ansible.builtin.command: >-
+            kubectl --kubeconfig /etc/kubernetes/admin.conf -n kube-system set image
+            daemonset/kube-proxy kube-proxy=registry.k8s.io/kube-proxy:v{{ k8s_target.kubernetes }}
+          register: k8s_proxy_image
+          changed_when: "'image updated' in k8s_proxy_image.stdout"
+          when: not ansible_check_mode
+
     - name: kubeadm upgrade node (other control planes)
-      ansible.builtin.command: kubeadm upgrade node{{ kubeadm_preflight_flag }}
+      ansible.builtin.command: kubeadm upgrade node --skip-phases addon/kube-proxy{{ kubeadm_preflight_flag }}
       changed_when: true
       when: inventory_hostname != groups['k8s_control_planes'][0]
 
@@ -182,7 +197,7 @@
       ansible.builtin.include_tasks: tasks/k8s-kubeadm.yml
 
     - name: kubeadm upgrade node
-      ansible.builtin.command: kubeadm upgrade node{{ kubeadm_preflight_flag }}
+      ansible.builtin.command: kubeadm upgrade node --skip-phases addon/kube-proxy{{ kubeadm_preflight_flag }}
       changed_when: true
 
     - name: Move kubelet, kubectl and CRI-O to the bundle
