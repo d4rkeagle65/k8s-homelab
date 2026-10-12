@@ -10,8 +10,12 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
   kubeadm-to-Talos path: Talos control planes join the existing cluster with its CA and etcd, one
   at a time; then Talos workers join; then the LXC nodes go. A Talos worker can't join while every
   control plane is still kubeadm (it needs a Talos control plane's trustd), so control planes come
-  first. Checked against the cluster on 2026-10-11: Kubernetes v1.36.5 (Talos 1.13 supports 1.31-1.36),
-  a single self-signed root CA (no intermediates, which Talos can't use), stacked etcd.
+  first. Checked against the cluster on 2026-10-12: Kubernetes v1.36.5, a single self-signed root CA
+  (no intermediates, which Talos can't use), stacked etcd (three members, one per control plane);
+  the three API servers share one service-account issuer and key pair; the API address is a DNS
+  name kube-vip serves, so the handover changes no client.
+- **Talos 1.14** (2026-08), which supports Kubernetes 1.33 to 1.37: the cluster's 1.36 now, and the
+  1.37 upgrade (QUEUE-updates.md) afterwards through `talosctl upgrade-k8s`.
 - **Two layers of failover, each doing what it's good at:**
   - *Kubernetes* for everything in the cluster. Nodes are cattle on local disks: when a host
     dies, its Talos VMs die with it and Kubernetes restarts their pods on the other hosts' nodes.
@@ -50,11 +54,11 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 
 | | Threads | RAM | Today | Notes |
 |---|---|---|---|---|
-| H1 | 8 | 31 GB | control plane 1, worker 1, domain controller VM, Pi-hole 2 | |
-| H2 | 4 | 31 GB | control plane 3, worker 3 | |
-| H3 | 4 | 15.5 GB | control plane 2, worker 2 | its NVMe is at 86% wear (QUEUE.md) |
-| H4 | 4 | 31 GB | Pi-hole 1, Docker VM | no Kubernetes node yet |
-| H5 | 8 (i7-7700) | 64 GB | Proxmox VE 7.4-17, standalone, old guests, nothing running | to join the cluster |
+| H1 | 8 | 31 GB | control plane 1, worker 1 (4 cores), Pi-hole 2 | |
+| H2 | 4 | 31 GB | control plane 3, worker 3 | VT-x and VT-d on since 2026-10-12 |
+| H3 | 4 | 15.5 GB | worker 2 | its NVMe is at 86% wear (QUEUE.md) |
+| H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
+| H5 | 8 (i7-7700) | 63 GB | nothing yet | in the cluster since 2026-10-12; its root is on the worn NX-512 (Phase 0) |
 
 **Target layout** (adjust once H5 is in and measured):
 
@@ -69,79 +73,6 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 58 GiB of workers in all; losing the largest (H5) leaves 38 GiB, above the requests with room.
 Control planes on H1, H2, H4: losing any one keeps etcd's quorum.
 
-## Phase 0: the fifth host joins the Proxmox cluster
-
-Nothing runs on H5, and every guest on it has a backup. A node can only join a Proxmox cluster
-with no guests and no cluster of its own, and the cluster runs PVE 9 (Debian trixie).
-
-- **Decided: reinstall** PVE 9 from the ISO (the owner, 2026-10-11), rather than two in-place major
-  upgrades (7 to 8 to 9) on a box full of old guests and packages. First make sure every backup
-  of its old guests is off the box (a reinstall wipes its disks): the owner keeps them on the
-  TerraMaster, outside `tm-nfs`, so they're checked there, along with `local512`'s 121 GB.
-- **Disks** (SMART, 2026-10-11): root (64 GB, the installer's disk size limit) and the `vms` pool
-  (the rest) both on the Samsung 970 EVO Plus 2 TB (1% used, no errors). Not the NX-512 NVMe
-  (61% used, 9 media integrity errors) nor the SanDisk SSD Plus 120 GB (4 years on, few rated
-  writes; a cluster member's root writes a lot): spares. The 2 TB HDD stays out.
-- **Network:** its switch port moves to the other hosts' profile (management untagged; VLANs 3,
-  4, 6, 7, 8, 9 tagged) during the reinstall: today management reaches it tagged (VLAN 5) and
-  production untagged. Addresses by the other hosts' pattern: the same last number on the
-  management network (`vmbr0`) and the 2.5 Gbit network (`vmbr1`, its 2.5 Gbit port).
-- Match the other hosts (read from the Proxmox API, 2026-10-11): every host has the same bridges,
-  by name, and guests refer to them, so a guest only moves to a host that has them:
-  - `vmbr0`: the management network, untagged, with the host's address and the default route
-    (the installer creates it on the NIC chosen; give it the management address and gateway);
-  - `vmbr1`: on the second NIC, with an address and no gateway (the NAS's storage side);
-  - `vmbr2`, `vmbr4`, `vmbr6`, `vmbr7` (the main network), `vmbr8`, `vmbr9`: one per VLAN 3, 4, 6, 7,
-    8, 9 on the first NIC (`<nic>.<vlan>`), no addresses.
-  The other hosts' NICs are named `eth5`/`eth6`; only the bridge names have to match.
-- Storage: a ZFS pool named `vms` for local guest disks (the other hosts' `vms` storage lists its
-  hosts, so H5 is added to it); `syn-nfs`, `tm-nfs` and `nas-iscsi` are shared and reach every host
-  without changes. No `nas-block` LUN: Talos replaces it.
-- Before joining: its management address and name in Pi-hole, the no-subscription repository,
-  root's SSH key for Semaphore, and the Ansible inventories (`proxmox` group, All Debian Hosts) so
-  `baseline.yml` and `proxmox-host.yml` give it the baseline, the ZFS ARC cap and its certificate.
-  Then `pvecm add <an existing host>` from H5, over the management network.
-- Afterwards: 5 votes (quorum 3); `proxmox-upgrade.yml` covers it.
-
-**The steps, in order** (each checked before the next; real addresses and names are given in
-chat, never here):
-
-1. **Backups.** On the TerraMaster, the `vzdump` files of H5's old guests (VMs 103, 111, 114, 117
-   and any containers) are there and complete; `local512`'s 121 GB is checked, and anything
-   wanted copied off. Nothing is wiped before this.
-2. **Install media.** The current PVE 9 ISO on a USB stick, or over Intel AMT if H5 has it
-   (mesh-mini's disk redirection mounts the ISO, and its console shows the installer).
-3. **Switch.** At the start of the install (it cuts H5's present management access): H5's 1 Gbit
-   port to the other hosts' port profile (management untagged; VLANs 3, 4, 6, 7, 8, 9 tagged);
-   its 2.5 Gbit port stays on the isolated 2.5 Gbit switch.
-4. **Installer.** Target disk: the Samsung 970 EVO Plus 2 TB (check the model, not the device
-   name). Filesystem ext4; advanced options: disk size limit 64 GB, swap 8 GB, `maxvz` 0 (no
-   local-lvm: the rest of the disk becomes the `vms` pool). Management interface: the 1 Gbit
-   NIC (the MAC that ends `:7a:f3`); its hostname, management address and gateway, DNS a Pi-hole.
-5. **Repositories and updates** (over SSH, commands given then): the enterprise and Ceph
-   repositories off, no-subscription on, a full upgrade to the cluster's PVE 9 point release,
-   and a reboot.
-6. **Bridges** (`/etc/network/interfaces`, then `ifreload -a`): `vmbr1` on the 2.5 Gbit NIC with
-   its storage address; `vmbr2`, `vmbr4`, `vmbr6`, `vmbr7`, `vmbr8`, `vmbr9` on the 1 Gbit NIC's
-   VLANs 3, 4, 6, 7, 8, 9, without addresses; checked with `ip -br addr` and a ping to another
-   host on each network that has addresses.
-7. **The `vms` pool.** A fourth partition on the Samsung for the rest of the disk, then
-   `zpool create -o ashift=12 vms` on it by its `/dev/disk/by-id` name. The old disks (the 2 TB
-   HDD's `HDD` volume group, the NX-512's `local512`, the SanDisk) wiped with `wipefs` once step 1
-   is done, so nothing old is imported later.
-8. **Access.** Semaphore's shared key in root's `authorized_keys`; H5's host key pinned in
-   Semaphore's `known_hosts` (`docker/semaphore/README.md`); its name in Pi-hole.
-9. **Ansible.** H5 in the Semaphore inventories: the Proxmox hosts' (`proxmox` group, with
-   `nas_block: false`) and All Debian Hosts. Dry runs, then real runs: `baseline.yml` (admin
-   login, packages, node-exporter) and `proxmox-host.yml` (ZFS ARC cap, certificate).
-10. **Join.** From H5: `pvecm add <an existing host's management address> --link0 <H5's
-    management address>`. Checked: `pvecm status` shows 5 nodes and quorate; the shared
-    storages (`syn-nfs`, `tm-nfs`, `nas-iscsi`) active on H5; H5 added to the `vms` storage's
-    host list (`pvesm set vms --nodes ...`), and `vms` active on it.
-11. **Monitoring.** Prometheus finds H5 through `proxmox-hosts.<domain>` once
-    `proxmox-host.yml` has written its line; its node-exporter and SMART targets up, and
-    Homepage's Proxmox card counts 5 hosts.
-
 ## Phase 1: preparation (no change to the running cluster)
 
 - Shared storage for Proxmox HA already exists: `syn-nfs` (the Synology over NFS, shared, holds
@@ -153,7 +84,7 @@ chat, never here):
   the cluster's CA and a kubeadm bootstrap token (`kubeadm token create`), kept out of git apart
   from what's public; secrets in Vaultwarden.
 - Fix what the migration guide requires: kube-proxy's pods labelled `tier: node` as well as
-  `k8s-app: kube-proxy` (only `k8s-app` today); the service-account issuer the same on old and new
+  `k8s-app: kube-proxy` (still only `k8s-app` on 2026-10-12); the service-account issuer the same on old and new
   control planes; decide the API address handover (kube-vip on the kubeadm control planes today;
   Talos has its own shared VIP, which takes over once the last kubeadm control plane leaves).
 - Calico on Talos VMs: its address detection is pinned to `eth0` (CLAUDE.md, kubernetes/); give
@@ -185,9 +116,17 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
 
 ## Checklist
 
-- [ ] Phase 0: H5's old backups confirmed off the box; PVE 9 installed; bridges, `vms` pool and
-      repository matching; in the Ansible inventories with the baseline run; joined to the Proxmox
-      cluster
+- [x] Phase 0 (2026-10-12): H5 reinstalled with PVE 9.2.21 and joined (node 5, quorate); the same
+      bridges by name (Work is `vmbr2` on VLAN 3, the one bridge not named after its VLAN), the
+      `vms` pool on the whole Samsung 2 TB, `nas-block` on a LUN of its own (the plan said
+      none; harmless, and it goes with the rest in Phase 4), Ansible's baseline and host
+      playbooks run, Prometheus scraping it. **Not as planned: Proxmox itself is on the NX-512
+      (61% worn, media errors in October's SMART check) and boots from the SanDisk's EFI
+      partition.** The owner chose to keep it so for now. Until it moves, H5 depends on both old
+      disks: watch their SMART data, keep no control plane there (the target layout has none),
+      and move the root to the Samsung or a new disk before trusting H5 with more than
+      workers. The 2 TB HDD still holds the old `HDD` volume group: wipe it once its two old
+      VM disks (111, 117) are confirmed backed up
 - [ ] Phase 1: shared storage for HA; the Docker VM and the domain controller under Proxmox HA,
       tested by stopping a host
 - [ ] Phase 1: Talos image and machine configs; kube-proxy labels; the service-account issuer;
