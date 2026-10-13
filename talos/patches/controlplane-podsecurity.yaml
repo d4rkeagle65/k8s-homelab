@@ -1,0 +1,25 @@
+# Pod Security admission on the control planes. Talos's default enforces
+# baseline in every namespace but kube-system; the kubeadm API servers it
+# replaced enforced nothing, and monitoring (Alloy, node-exporter),
+# metallb-system, metrics-server and homeassistant run pods baseline refuses
+# (host network, host paths, host PIDs, NET_RAW). So privileged is enforced,
+# as before, with restricted still audited and warned about, and a namespace
+# made stricter by its own pod-security.kubernetes.io labels (QUEUE.md).
+apiVersion: v1alpha1
+kind: KubeAdmissionControlConfig
+name: PodSecurity
+configuration:
+  apiVersion: pod-security.admission.config.k8s.io/v1alpha1
+  kind: PodSecurityConfiguration
+  defaults:
+    enforce: privileged
+    enforce-version: latest
+    audit: restricted
+    audit-version: latest
+    warn: restricted
+    warn-version: latest
+  exemptions:
+    namespaces:
+      - kube-system
+    runtimeClasses: []
+    usernames: []

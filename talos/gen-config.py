@@ -31,6 +31,8 @@ COMMON = PATCHES / "common.yaml"
 # (built from the secrets and encryption-order.txt) goes in.
 ENCRYPTION_DELETE = PATCHES / "controlplane-encryption-delete.yaml"
 ENCRYPTION_ORDER = PATCHES / "encryption-order.txt"
+# Control planes only, in this order: Talos's PodSecurity config out, ours in.
+PODSECURITY = [PATCHES / "controlplane-podsecurity-delete.yaml", PATCHES / "controlplane-podsecurity.yaml"]
 
 
 def fail(message):
@@ -227,6 +229,7 @@ def main():
          "--config-patch", f"@{site}",
          "--config-patch-control-plane", f"@{ENCRYPTION_DELETE}",
          "--config-patch-control-plane", f"@{encryption}",
+         *[a for p in PODSECURITY for a in ("--config-patch-control-plane", f"@{p}")],
          "--config-patch-control-plane", f"@{etcd}",
          "--output-dir", str(out), "--force"])
 
