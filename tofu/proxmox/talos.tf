@@ -91,14 +91,15 @@ resource "proxmox_virtual_environment_vm" "talos" {
 }
 
 # Sends each new node its config, once it's up in maintenance mode, and again
-# whenever the config changes (Talos applies what it can without a reboot).
+# whenever the config changes, in the node's apply_mode (talos-config.tf).
 resource "talos_machine_configuration_apply" "node" {
-  for_each = { for id, n in local.talos_nodes : id => n if n.apply_config }
+  for_each = local.talos_nodes
 
   client_configuration        = local.talos_client_configuration
   machine_configuration_input = data.talos_machine_configuration.node[each.key].machine_configuration
   node                        = local.talos_address[each.key]
   endpoint                    = local.talos_address[each.key]
+  apply_mode                  = each.value.apply_mode
 
   timeouts = {
     create = "20m"
