@@ -150,35 +150,24 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
 - [ ] Phase 1: Talos image (done) and machine configs (done: `talos/`, the secrets as
       `TALOS_SECRETS`); kube-proxy labels (done); the service-account issuer (done); the API
       address plan; Calico's address detection (done)
-- [ ] Phase 2: three Talos control planes (H1, H4, H5), the kubeadm ones removed, Talos's VIP.
-      Done 2026-10-12/13: the first, `[redacted]k8sc04a` (VM 110, on H5), built by hand
-      (`talos/README.md`), Ready after Calico's FlexVolume driver was turned off
-      (`flexVolumePath: None`; Talos keeps `/usr/libexec` read-only), the mesh test passed with
-      it in; then the kubeadm control plane on H2 retired: drained, `kubeadm reset` (which
-      removed its etcd member), node deleted. etcd is three members again, on H1, H4 and H5.
-      The second, `[redacted]k8sc06a` (VM 113, on H4), built by OpenTofu from Semaphore
-      (`tofu/proxmox/talos.tf`, 2026-10-13), which also imported VM 110 (its disk line now
-      spells out Proxmox's defaults, pending until the VM is next stopped; nothing to do).
-      The mesh test passed with it in, and c02a (the kubeadm control plane on H4) was retired
-      the same way, 2026-10-13: etcd is three members, two of them Talos (H4, H5) and c01a.
-      112 on H1 joined the same day (etcd four members, three Talos; mesh test passed). Next:
-      the API address handover, then c01a's retirement. The handover, in this order, since two
-      holders of one address on a network break it: `api_vip` in the site note and
-      `TF_VAR_site`, with the Layer2VIPConfig in git (`talos-config.tf`) but not applied; an
-      etcd snapshot; on c01a, kube-vip's manifest moved out of `/etc/kubernetes/manifests`
-      (the address goes when its pod stops); at once, the same Layer2VIPConfig patched onto
-      the three Talos control planes with `talosctl patch mc --mode=no-reboot` (seconds,
-      where an apply from Semaphore takes minutes); then the address answering from a Talos
-      node, the API through it, every node Ready; then Semaphore's apply, which finds the
-      configs already as it wants them. Back out by deleting the patch and moving kube-vip's
-      manifest back. LXC kubelets reach the API by that address, so they miss it for the
-      seconds between; Talos nodes use KubePrism and pods the `kubernetes` Service. Then c01a's
-      retirement, as c02a's (its controller-manager and scheduler leases move by themselves).
-      Left: c02a's and c03a's LXCs (102, 103), kept stopped as fallbacks
-      (`k8s_retired` in `guests.tf`: an apply had started 103 again), destroyed by hand after
-      about a week, then taken out of `k8s_nodes` (a `removed` block can't drop one for_each
-      instance; the plan after the destroy drops it from the state) and of Semaphore's
-      Kubernetes inventory
+- [x] Phase 2 (2026-10-12/13): three Talos control planes, `[redacted]k8sc04a` (VM 110, H5, built by
+      hand), `[redacted]k8sc06a` (113, H4) and `[redacted]k8sc05a` (112, H1), both through OpenTofu;
+      the three kubeadm ones drained, `kubeadm reset` (which removed each etcd member) and
+      deleted. etcd is the three Talos members. The API address moved from kube-vip to the
+      Talos control planes' `Layer2VIPConfig`: kube-vip's manifest moved out on c01a, the
+      config patched on with `talosctl patch mc --mode=no-reboot`, a 36-second gap, every node
+      Ready throughout. Calico needed its FlexVolume driver off (`flexVolumePath: None`).
+- [ ] After Phase 2: the kubeadm control planes' LXCs (101, 102, 103), stopped as fallbacks
+      (`k8s_retired` in `guests.tf`), destroyed by hand after about a week, then taken out of
+      `k8s_nodes` (a `removed` block can't drop one for_each instance; the plan after the
+      destroy drops each from the state) and of Semaphore's Kubernetes inventory. Secrets
+      encryption at rest: with no kubeadm API server left, the control planes' identity-only
+      `KubeEtcdEncryptionConfig` (`talos/patches/controlplane-encryption*.yaml`) can become
+      secretbox, then every Secret rewritten (`kubectl get secrets -A -o json | kubectl
+      replace -f -`) so the old ones are encrypted too. VM 110's config isn't OpenTofu's yet
+      (`apply_config = false`): switch it on with a plan that shows only its apply. Until the
+      workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane): no Kubernetes
+      upgrade until Phase 3 is done, then `talosctl upgrade-k8s`
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
