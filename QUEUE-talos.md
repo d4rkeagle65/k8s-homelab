@@ -161,7 +161,8 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       spells out Proxmox's defaults, pending until the VM is next stopped; nothing to do).
       The mesh test passed with it in, and c02a (the kubeadm control plane on H4) was retired
       the same way, 2026-10-13: etcd is three members, two of them Talos (H4, H5) and c01a.
-      Next: 112 on H1 by a commit of its own; then the API address handover (c01a holds
+      Next: 112 on H1 (in `talos_nodes` since 2026-10-13, built by the apply after it); then
+      the API address handover (c01a holds
       kube-vip's VIP and the controller manager's and scheduler's leases) and c01a's
       retirement. Left: c02a's and c03a's LXCs (102, 103), kept stopped as fallbacks
       (`k8s_retired` in `guests.tf`: an apply had started 103 again), destroyed by hand after
