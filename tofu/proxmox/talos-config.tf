@@ -81,14 +81,25 @@ locals {
   ])
   talos_etcd_patch = yamlencode({ cluster = { etcd = { advertisedSubnets = [local.talos_subnet] } } })
 
+  # The API address, held by one control plane at a time (an election through
+  # etcd), on the main network's interface: eth0 on these VMs. Not for the
+  # talosconfig's endpoints, which must reach a node when etcd or the API
+  # server doesn't.
+  talos_vip_patch = var.site.talos.api_vip == null ? [] : [yamlencode({
+    apiVersion = "v1alpha1"
+    kind       = "Layer2VIPConfig"
+    name       = var.site.talos.api_vip
+    link       = "eth0"
+  })]
+
   talos_patches = {
-    controlplane = [
+    controlplane = concat([
       local.talos_common,
       local.talos_site_patch,
       file("${local.talos_patches_dir}/controlplane-encryption-delete.yaml"),
       file("${local.talos_patches_dir}/controlplane-encryption.yaml"),
       local.talos_etcd_patch,
-    ]
+    ], local.talos_vip_patch)
     worker = [local.talos_common, local.talos_site_patch]
   }
 }

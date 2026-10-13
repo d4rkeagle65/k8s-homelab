@@ -161,10 +161,20 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       spells out Proxmox's defaults, pending until the VM is next stopped; nothing to do).
       The mesh test passed with it in, and c02a (the kubeadm control plane on H4) was retired
       the same way, 2026-10-13: etcd is three members, two of them Talos (H4, H5) and c01a.
-      Next: 112 on H1 (in `talos_nodes` since 2026-10-13, built by the apply after it); then
-      the API address handover (c01a holds
-      kube-vip's VIP and the controller manager's and scheduler's leases) and c01a's
-      retirement. Left: c02a's and c03a's LXCs (102, 103), kept stopped as fallbacks
+      112 on H1 joined the same day (etcd four members, three Talos; mesh test passed). Next:
+      the API address handover, then c01a's retirement. The handover, in this order, since two
+      holders of one address on a network break it: `api_vip` in the site note and
+      `TF_VAR_site`, with the Layer2VIPConfig in git (`talos-config.tf`) but not applied; an
+      etcd snapshot; on c01a, kube-vip's manifest moved out of `/etc/kubernetes/manifests`
+      (the address goes when its pod stops); at once, the same Layer2VIPConfig patched onto
+      the three Talos control planes with `talosctl patch mc --mode=no-reboot` (seconds,
+      where an apply from Semaphore takes minutes); then the address answering from a Talos
+      node, the API through it, every node Ready; then Semaphore's apply, which finds the
+      configs already as it wants them. Back out by deleting the patch and moving kube-vip's
+      manifest back. LXC kubelets reach the API by that address, so they miss it for the
+      seconds between; Talos nodes use KubePrism and pods the `kubernetes` Service. Then c01a's
+      retirement, as c02a's (its controller-manager and scheduler leases move by themselves).
+      Left: c02a's and c03a's LXCs (102, 103), kept stopped as fallbacks
       (`k8s_retired` in `guests.tf`: an apply had started 103 again), destroyed by hand after
       about a week, then taken out of `k8s_nodes` (a `removed` block can't drop one for_each
       instance; the plan after the destroy drops it from the state) and of Semaphore's

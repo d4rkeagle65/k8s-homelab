@@ -26,6 +26,10 @@ variable "site" {
       dns_domain       = string
       pod_subnet       = string
       service_subnet   = string
+      # The API address the control planes share (Layer2VIPConfig), the one
+      # cluster_endpoint's name resolves to. Unset, they share none (kube-vip
+      # on the kubeadm control planes holds it until the handover).
+      api_vip = optional(string)
     })
   })
 
