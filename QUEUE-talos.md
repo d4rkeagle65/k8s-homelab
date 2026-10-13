@@ -164,9 +164,10 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       encryption at rest, in stages (`talos/patches/encryption-order.txt`): stage A,
       `identity, secretbox`, then stage B, `secretbox, identity` (both 2026-10-13; B rolled
       node by node with `talosctl patch mc` after A, applied by OpenTofu to all three at once,
-      cost a 50-second API outage). Left: every Secret rewritten (`kubectl get secrets -A -o
-      json | kubectl replace -f -`) so the ones stored before B are encrypted too, then
-      checked with each API server's `apiserver_storage_transformation_operations_total`. VM 110's config is OpenTofu's since
+      cost a 50-second API outage), then every Secret rewritten (`kubectl get secrets -A -o
+      json | kubectl replace -f -`): 382 writes through secretbox, none unencrypted, by
+      `apiserver_storage_transformation_operations_total`. `identity` stays second in the order
+      so anything older reads; dropping it would make an unencrypted leftover unreadable. VM 110's config is OpenTofu's since
       2026-10-13 (every built node applies with `no_reboot`). Until the
       workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane): no Kubernetes
       upgrade until Phase 3 is done, then `talosctl upgrade-k8s`
