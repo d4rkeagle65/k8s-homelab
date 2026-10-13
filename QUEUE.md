@@ -52,6 +52,12 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   cainjector (their charts' probe settings), and the config-reloader and dashboard
   sidecars, which are the charts' own. Calico, kube-proxy, Authentik's outposts and the
   tunnel connector belong to their operators.
+- **Pod Security, namespace by namespace.** The Talos control planes enforce `privileged`
+  cluster-wide (`talos/patches/controlplane-podsecurity.yaml`), as kubeadm did, and warn and
+  audit `restricted`. Label each namespace with the strictest level its pods pass
+  (`pod-security.kubernetes.io/enforce`): `baseline` for most, `restricted` where possible;
+  monitoring, metallb-system, metrics-server and homeassistant need `privileged` (host network,
+  host paths, NET_RAW). The API's warnings on apply list what a level would refuse.
 - **Prometheus doesn't scrape etcd** (`kube-prometheus-stack`'s `kubeEtcd` is off), so there's
   no WAL fsync latency, leader changes or database size history: on 2026-10-13 the Talos control
   plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. Add it once the

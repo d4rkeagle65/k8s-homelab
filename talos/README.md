@@ -5,7 +5,9 @@ The cluster's nodes are moving from LXC containers (kubeadm) to Talos Linux VMs
 
 - `patches/`: the Talos settings every node gets. `common.yaml` names the installer image
   (Talos version and Image Factory schematic); `encryption-order.txt` is the order of the
-  control planes' encryption providers for Secrets at rest, and says why it changes in stages.
+  control planes' encryption providers for Secrets at rest, and says why it changes in stages;
+  the `controlplane-podsecurity*` pair sets Pod Security admission (privileged enforced, as
+  under kubeadm).
 - `gen-config.py`: builds the machine configs from the owner's `secrets.yaml`, the patches,
   and what it reads from the live cluster (API name, DNS domain, subnets, the nodes'
   network), so nothing internal is kept here. It checks before it writes: `talosctl`'s

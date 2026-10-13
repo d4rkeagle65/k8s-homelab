@@ -1,0 +1,6 @@
+# Applied before controlplane-podsecurity.yaml: removes Talos's generated
+# PodSecurity admission config, which a patch would merge into.
+apiVersion: v1alpha1
+kind: KubeAdmissionControlConfig
+name: PodSecurity
+$patch: delete
