@@ -52,6 +52,11 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   cainjector (their charts' probe settings), and the config-reloader and dashboard
   sidecars, which are the charts' own. Calico, kube-proxy, Authentik's outposts and the
   tunnel connector belong to their operators.
+- **Prometheus doesn't scrape etcd** (`kube-prometheus-stack`'s `kubeEtcd` is off), so there's
+  no WAL fsync latency, leader changes or database size history: on 2026-10-13 the Talos control
+  plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. Add it once the
+  control planes are all Talos (QUEUE-talos.md), where etcd's metrics endpoint is set in one
+  place, the Talos config.
 - **NetBox as the source of truth** (`services/netbox/`), each its own change: an Ansible
   inventory from it (`netbox.netbox` collection, for Semaphore), the OpenTofu provider reading
   guests and addresses from it, and the Proxmox hosts, guests and Kea's subnets loaded into it
