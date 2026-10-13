@@ -19,6 +19,14 @@ variable "site" {
       host     = optional(number)           # a container's last octet, the same on every network
       macs     = optional(list(string), []) # the VM's NICs, in order
     }))
+    # The cluster's values the Talos configs need (talos-config.tf): the API
+    # address as host:port, without https://, and kubeadm-config's networking.
+    talos = object({
+      cluster_endpoint = string
+      dns_domain       = string
+      pod_subnet       = string
+      service_subnet   = string
+    })
   })
 
   validation {
@@ -37,7 +45,24 @@ variable "site" {
   }
 
   validation {
+    condition     = alltrue([for id, _ in local.talos_nodes : try(var.site.guests[id].host != null, false)])
+    error_message = "site.guests needs an entry, with host (its last octet), for every Talos node in talos-config.tf."
+  }
+
+  validation {
     condition     = length(var.site.guests["107"].macs) == length(local.docker_vm_bridges)
     error_message = "site.guests[\"107\"].macs needs one MAC per Docker VM network device."
+  }
+}
+
+# The cluster's Talos secrets: the base64 of secrets.yaml (TALOS_SECRETS in
+# Vaultwarden), a secret in Semaphore's environment as TF_VAR_talos_secrets.
+variable "talos_secrets" {
+  type      = string
+  sensitive = true
+
+  validation {
+    condition     = can(yamldecode(base64decode(var.talos_secrets)).certs.os.key)
+    error_message = "talos_secrets isn't the base64 of a Talos secrets.yaml."
   }
 }

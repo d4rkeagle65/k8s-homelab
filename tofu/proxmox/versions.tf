@@ -8,6 +8,16 @@ terraform {
       source  = "bpg/proxmox"
       version = "0.116.0"
     }
+    # The Talos nodes' configs and their applying (talos-config.tf, talos.tf).
+    talos = {
+      source  = "siderolabs/talos"
+      version = "0.12.0"
+    }
+    # The Talos admin client certificate (talos-config.tf).
+    tls = {
+      source  = "hashicorp/tls"
+      version = "4.4.1"
+    }
   }
 
   # State in Semaphore's PostgreSQL (database tfstate, tfstate-db-init in

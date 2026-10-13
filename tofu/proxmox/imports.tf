@@ -17,3 +17,9 @@ import {
   to = proxmox_virtual_environment_vm.docker_vm
   id = "${var.site.guests["107"].node}/107"
 }
+
+# The first Talos control plane, built by hand (talos/README.md).
+import {
+  to = proxmox_virtual_environment_vm.talos["110"]
+  id = "${var.site.guests["110"].node}/110"
+}
