@@ -46,7 +46,8 @@ with the live one; `old-queues/QUEUE-restore-tests.md` has the method.
   from its kubelet's InternalIP (`nodeAddressAutodetectionV4: {kubernetes: NodeInternalIP}`
   in the tigera-operator release's `installation` values): the default `firstFound` picks an
   LXC node's `eth1` and moves pod traffic onto the management network, and a Talos VM's
-  interface isn't `eth0`. kube-vip is pinned to `eth0` on the LXC control planes.
+  interface isn't `eth0`. The API address is shared by the Talos control planes
+  (`Layer2VIPConfig`, `tofu/proxmox/talos-config.tf`).
 
 ## Ingress
 
