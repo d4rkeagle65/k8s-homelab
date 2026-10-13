@@ -40,6 +40,11 @@ locals {
   k8s_cores = {
     "104" = 4
   }
+  # Retired nodes kept as a fallback: stopped and not started at boot. A
+  # removed block can't drop one for_each instance, so a retired node stays
+  # here until its container is destroyed in Proxmox; then it leaves k8s_nodes,
+  # and the next plan, finding it gone, drops it from the state by itself.
+  k8s_retired = toset(["103"])
 
   # The Pi-holes (community-scripts installs, unprivileged), one interface per
   # network they answer on.
@@ -78,7 +83,8 @@ resource "proxmox_virtual_environment_container" "k8s_node" {
   node_name     = var.site.guests[each.key].node
   vm_id         = tonumber(each.key)
   unprivileged  = false
-  start_on_boot = true
+  start_on_boot = !contains(local.k8s_retired, each.key)
+  started       = !contains(local.k8s_retired, each.key)
   tags          = local.k8s_roles[each.value].tags
 
   cpu {
