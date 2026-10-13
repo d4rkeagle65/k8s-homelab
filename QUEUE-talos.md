@@ -156,13 +156,15 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       (`flexVolumePath: None`; Talos keeps `/usr/libexec` read-only), the mesh test passed with
       it in; then the kubeadm control plane on H2 retired: drained, `kubeadm reset` (which
       removed its etcd member), node deleted. etcd is three members again, on H1, H4 and H5.
-      Left on H2: its LXC
-      (103), shut down and kept about a week as a fallback, then destroyed, and taken out of
-      `tofu/proxmox/` with a `removed` block (`lifecycle { destroy = false }`, since
-      `prevent_destroy` blocks a destroy) and of Semaphore's Kubernetes inventory. VM 110 is
-      not in OpenTofu yet: imported with the next two. Next: H1 and H4 through Semaphore
-      (OpenTofu, with Sidero's Talos provider and `TALOS_SECRETS` in Semaphore's environment),
-      each retiring the kubeadm control plane on its host; then the API address handover
+      The second, `coprvmk8sc06a` (VM 113, on H4), built by OpenTofu from Semaphore
+      (`tofu/proxmox/talos.tf`, 2026-10-13), which also imported VM 110 (its disk line now
+      spells out Proxmox's defaults, pending until the VM is next stopped; nothing to do).
+      Next: the mesh test with it in, then retire c02a (the kubeadm control plane on H4) as
+      c03a was; then 112 on H1 by a commit of its own; then the API address handover and
+      c01a. Left on H2: c03a's LXC (103), kept stopped as a fallback (`k8s_retired` in
+      `guests.tf`: an apply had started it again), destroyed by hand after about a week, then
+      taken out of `k8s_nodes` (a `removed` block can't drop one for_each instance; the plan
+      after the destroy drops it from the state) and of Semaphore's Kubernetes inventory
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
