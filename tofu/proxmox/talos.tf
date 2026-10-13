@@ -61,6 +61,20 @@ resource "proxmox_virtual_environment_vm" "talos" {
     iothread     = true
   }
 
+  # A worker's local-db disk: scsi1, so Talos sees it as /dev/sdb.
+  dynamic "disk" {
+    for_each = each.value.data_gb > 0 ? [each.value.data_gb] : []
+    content {
+      interface    = "scsi1"
+      datastore_id = "vms"
+      file_format  = "raw"
+      size         = disk.value
+      discard      = "on"
+      ssd          = true
+      iothread     = true
+    }
+  }
+
   network_device {
     bridge = "vmbr7"
   }
