@@ -161,10 +161,10 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       (`k8s_retired` in `guests.tf`), destroyed by hand after about a week, then taken out of
       `k8s_nodes` (a `removed` block can't drop one for_each instance; the plan after the
       destroy drops each from the state) and of Semaphore's Kubernetes inventory. Secrets
-      encryption at rest: with no kubeadm API server left, the control planes' identity-only
-      `KubeEtcdEncryptionConfig` (`talos/patches/controlplane-encryption*.yaml`) can become
-      secretbox, then every Secret rewritten (`kubectl get secrets -A -o json | kubectl
-      replace -f -`) so the old ones are encrypted too. VM 110's config is OpenTofu's since
+      encryption at rest, in stages (`talos/patches/encryption-order.txt`): stage A,
+      `identity, secretbox` (2026-10-13, reads encrypted, still writes plain); stage B,
+      `secretbox, identity`; then every Secret rewritten (`kubectl get secrets -A -o json |
+      kubectl replace -f -`) so the old ones are encrypted too. VM 110's config is OpenTofu's since
       2026-10-13 (every built node applies with `no_reboot`). Until the
       workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane): no Kubernetes
       upgrade until Phase 3 is done, then `talosctl upgrade-k8s`
