@@ -80,6 +80,31 @@ locals {
   ])
   talos_etcd_patch = yamlencode({ cluster = { etcd = { advertisedSubnets = [local.talos_subnet] } } })
 
+  # Secrets' encryption at rest, its providers in the order
+  # talos/patches/encryption-order.txt gives (which says why it changes in
+  # stages); applied after controlplane-encryption-delete.yaml removes the
+  # generated document, which a patch would merge into.
+  talos_encryption_order = [
+    for l in split("\n", file("${local.talos_patches_dir}/encryption-order.txt")) :
+    trimspace(l) if trimspace(l) != "" && !startswith(trimspace(l), "#")
+  ]
+  talos_encryption_provider = {
+    identity  = { identity = {} }
+    secretbox = { secretbox = { keys = [{ name = "key2", secret = local.ts.secrets.secretboxencryptionsecret }] } }
+  }
+  talos_encryption_patch = yamlencode({
+    apiVersion = "v1alpha1"
+    kind       = "KubeEtcdEncryptionConfig"
+    config = {
+      apiVersion = "apiserver.config.k8s.io/v1"
+      kind       = "EncryptionConfiguration"
+      resources = [{
+        resources = ["secrets"]
+        providers = [for p in local.talos_encryption_order : local.talos_encryption_provider[p]]
+      }]
+    }
+  })
+
   # The API address, held by one control plane at a time (an election through
   # etcd), on the main network's interface: eth0 on these VMs. Not for the
   # talosconfig's endpoints, which must reach a node when etcd or the API
@@ -96,7 +121,7 @@ locals {
       local.talos_common,
       local.talos_site_patch,
       file("${local.talos_patches_dir}/controlplane-encryption-delete.yaml"),
-      file("${local.talos_patches_dir}/controlplane-encryption.yaml"),
+      local.talos_encryption_patch,
       local.talos_etcd_patch,
     ], local.talos_vip_patch)
     worker = [local.talos_common, local.talos_site_patch]

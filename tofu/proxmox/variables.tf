@@ -66,7 +66,7 @@ variable "talos_secrets" {
   sensitive = true
 
   validation {
-    condition     = can(yamldecode(base64decode(var.talos_secrets)).certs.os.key)
-    error_message = "talos_secrets isn't the base64 of a Talos secrets.yaml."
+    condition     = can(yamldecode(base64decode(var.talos_secrets)).certs.os.key) && can(yamldecode(base64decode(var.talos_secrets)).secrets.secretboxencryptionsecret)
+    error_message = "talos_secrets isn't the base64 of a Talos secrets.yaml (with a secretbox encryption secret)."
   }
 }
