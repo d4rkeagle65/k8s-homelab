@@ -82,7 +82,12 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
    VM through `ansible/baseline.yml` (the journal, and Docker's container logs on the Docker
    VM), pushing to Loki through a private route; the two NASes' syslog, received by Alloy.
 5. **Alerting:** Alertmanager's receivers; the control-plane metrics bound to the node address
-   (kubeadm, through Ansible) and their rules on; a dead-man's switch outside the cluster.
+   (kubeadm, through Ansible) and their rules on; a dead-man's switch outside the cluster. The
+   disks: an NVMe drive's `nvme_media_errors_total` rising, its `nvme_available_spare_ratio`
+   nearing its threshold, its `nvme_percentage_used_ratio` above 90%, and SMART's reallocated
+   and pending sectors rising on the SATA ones. A rising count is the warning; the absolute
+   wear figure says little on its own (the fifth host's 61%-worn root has a decade left at its
+   write rate).
 6. (Folded into phase 1: Grafana's Authentik login.)
 7. **Convert the three releases to captured** (Settled, above).
 8. **Log search tuning:** labels kept few (namespace, app, node, stream), the rest as

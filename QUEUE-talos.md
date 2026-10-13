@@ -56,23 +56,24 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 | | Threads | RAM | Today | Notes |
 |---|---|---|---|---|
 | H1 | 8 | 31 GB | control plane 1, worker 1 (4 cores), Pi-hole 2 | |
-| H2 | 4 | 31 GB | control plane 3, worker 3 | VT-x and VT-d on since 2026-10-12 |
+| H2 | 4 | 31 GB | worker 3 (control plane 3 retired 2026-10-13; its LXC kept off for now) | VT-x and VT-d on since 2026-10-12 |
 | H3 | 4 | 15.5 GB | worker 2 | its NVMe is at 86% wear (QUEUE.md) |
 | H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
-| H5 | 8 (i7-7700) | 63 GB | nothing yet | in the cluster since 2026-10-12; its root is on the worn NX-512 (Phase 0) |
+| H5 | 8 (i7-7700) | 63 GB | Talos control plane (VM 110) | in the cluster since 2026-10-12; its root is on the NX-512 (Phase 0) |
 
 **Target layout** (adjust once H5 is in and measured):
 
 | | Talos control plane (2 vCPU, 4 GiB) | Talos worker |
 |---|---|---|
 | H1 | yes | 4 vCPU, 12 GiB |
-| H2 | yes | 3 vCPU, 12 GiB |
+| H2 | no | 3 vCPU, 16 GiB |
 | H3 | no (small, worn disk) | 2 vCPU, 6 GiB |
 | H4 | yes | 2 vCPU, 8 GiB |
-| H5 | no | 6 vCPU, 20 GiB |
+| H5 | yes | 6 vCPU, 20 GiB |
 
 58 GiB of workers in all; losing the largest (H5) leaves 38 GiB, above the requests with room.
-Control planes on H1, H2, H4: losing any one keeps etcd's quorum.
+Control planes on H1, H4, H5 (the owner, 2026-10-13: the first Talos one was built on H5): losing
+any one keeps etcd's quorum.
 
 ## Phase 1: preparation (no change to the running cluster)
 
@@ -132,13 +133,13 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       bridges by name (Work is `vmbr2` on VLAN 3, the one bridge not named after its VLAN), the
       `vms` pool on the whole Samsung 2 TB, `nas-block` on a LUN of its own (the plan said
       none; harmless, and it goes with the rest in Phase 4), Ansible's baseline and host
-      playbooks run, Prometheus scraping it. **Not as planned: Proxmox itself is on the NX-512
-      (61% worn, media errors in October's SMART check) and boots from the SanDisk's EFI
-      partition.** The owner chose to keep it so for now. Until it moves, H5 depends on both old
-      disks: watch their SMART data, keep no control plane there (the target layout has none),
-      and move the root to the Samsung or a new disk before trusting H5 with more than
-      workers. The 2 TB HDD still holds the old `HDD` volume group: wipe it once its two old
-      VM disks (111, 117) are confirmed backed up
+      playbooks run, Prometheus scraping it. Not as planned: Proxmox itself is on the NX-512
+      and boots from the SanDisk's EFI partition; the owner chose to keep it so. Wear isn't the
+      risk: 61% used after 57 TB, written at about 8 GB a day as a Proxmox root (2026-10-13),
+      so about a decade of rated endurance left. What to watch is its available spare (78%) and
+      its 9 media errors: a rising count of either means moving the root to the Samsung or a new
+      disk. The 2 TB HDD still holds the old `HDD` volume group: wipe it once its two old VM
+      disks (111, 117) are confirmed backed up
 - [ ] Phase 1: Proxmox HA for the Docker VM and the domain controller. Done 2026-10-12: their
       disks on `syn-nfs` (raw, moved live), `tofu/proxmox/` matching for the Docker VM, both VMs
       in HA (started), the non-strict node-affinity rule `infra-vms` (H4 first, H5 next: the
@@ -149,12 +150,13 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
 - [ ] Phase 1: Talos image (done) and machine configs (done: `talos/`, the secrets as
       `TALOS_SECRETS`); kube-proxy labels (done); the service-account issuer (done); the API
       address plan; Calico's address detection (done)
-- [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP.
-      Done for H2 (2026-10-12/13): the first, `[redacted]k8sc04a` (VM 110), built by hand
+- [ ] Phase 2: three Talos control planes (H1, H4, H5), the kubeadm ones removed, Talos's VIP.
+      Done 2026-10-12/13: the first, `[redacted]k8sc04a` (VM 110, on H5), built by hand
       (`talos/README.md`), Ready after Calico's FlexVolume driver was turned off
       (`flexVolumePath: None`; Talos keeps `/usr/libexec` read-only), the mesh test passed with
-      it in, then the kubeadm control plane on H2 retired: drained, `kubeadm reset` (which
-      removed its etcd member), node deleted. etcd is three members again. Left on H2: its LXC
+      it in; then the kubeadm control plane on H2 retired: drained, `kubeadm reset` (which
+      removed its etcd member), node deleted. etcd is three members again, on H1, H4 and H5.
+      Left on H2: its LXC
       (103), shut down and kept about a week as a fallback, then destroyed, and taken out of
       `tofu/proxmox/` with a `removed` block (`lifecycle { destroy = false }`, since
       `prevent_destroy` blocks a destroy) and of Semaphore's Kubernetes inventory. VM 110 is
