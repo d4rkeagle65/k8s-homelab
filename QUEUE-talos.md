@@ -172,7 +172,14 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane): no Kubernetes
       upgrade until Phase 3 is done, then `talosctl upgrade-k8s`
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
-      single-instance stateful apps moved; the LXC workers removed
+      single-instance stateful apps moved; the LXC workers removed. The first worker,
+      `[redacted]k8sw04a` (VM 114, H5, 6 vCPU, 20 GiB), in `talos_nodes` since 2026-10-13: a second
+      disk (scsi1) as the Talos user volume `local-db` at `/var/mnt/local-db`
+      (`talos/patches/worker-local-db.yaml`), local-path's local-db class pointed there for it
+      (`WORKER_NODE_4`), no nas-block (the iSCSI driver comes next). Then: a throwaway claim
+      on it to prove local-db works on Talos; H3's databases moved onto it (a CNPG instance on
+      the new worker, switchover, the old one dropped), H3's other pods drained over, and H3's
+      LXC worker (105) retired first, for its worn disk
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network

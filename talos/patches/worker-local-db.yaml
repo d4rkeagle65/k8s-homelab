@@ -1,0 +1,13 @@
+# Workers only: the local-db volume, on the VM's second disk (scsi1, /dev/sdb;
+# tofu/proxmox/talos.tf), as the LXC workers had a ZFS dataset for it. Talos
+# formats it and mounts it at /var/mnt/local-db, where local-path-provisioner
+# makes a directory per volume for the local-db class (CloudNativePG).
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: local-db
+provisioning:
+  diskSelector:
+    match: disk.dev_path == "/dev/sdb"
+  minSize: 100GiB
+filesystem:
+  type: xfs

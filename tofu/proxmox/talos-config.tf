@@ -29,10 +29,13 @@ locals {
   # Talos and reboots once), then "no_reboot", so a later change that would
   # need a reboot fails the apply instead of rebooting a running node; that
   # change is then made by hand, node by node, after draining.
+  # data_gb: a worker's second disk, its local-db volume
+  # (talos/patches/worker-local-db.yaml); 0 for none.
   talos_nodes = {
-    "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_mode = "no_reboot" }
-    "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_mode = "no_reboot" }
-    "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_mode = "no_reboot" }
+    "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
+    "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
+    "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
+    "114" = { role = "worker", cores = 6, memory = 20480, disk_gb = 32, data_gb = 128, apply_mode = "auto" }
   }
 
   # Each node's address on the main network, the one its kubelet and etcd use.
@@ -126,7 +129,7 @@ locals {
       file("${local.talos_patches_dir}/controlplane-podsecurity.yaml"),
       local.talos_etcd_patch,
     ], local.talos_vip_patch)
-    worker = [local.talos_common, local.talos_site_patch]
+    worker = [local.talos_common, local.talos_site_patch, file("${local.talos_patches_dir}/worker-local-db.yaml")]
   }
 }
 
