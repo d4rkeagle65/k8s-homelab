@@ -72,9 +72,10 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   `container_start_time_seconds` changing).
 
 - **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
-  rated wear** (`nvme_percentage_used_ratio`, 2026-10-10: 62 TB written over 4.1 years, about
-  42 GB a day on average): at that rate it reaches 100% in about eight months. Replace it, a
-  ZFS disk swap. The first host's 256 GB boot drive is at 66% (about 1.4 years). Every host's
+  rated wear** (`nvme_percentage_used_ratio`, 2026-10-10: 62 TB written over 4.1 years). It's
+  written at about 108 GB a day now (a week of `nvme_data_units_written_total`, 2026-10-13),
+  with a Kubernetes worker on it: its last 14% (about 10 TB) lasts about three months at that
+  rate. Replace it, a ZFS disk swap, or move the worker off it sooner. The first host's 256 GB boot drive is at 66% (about 1.4 years). Every host's
   drives write 40 to 70 GB a day on lifetime average, far more than Prometheus did: once a few
   days of `node_disk_written_bytes_total` and `pve_disk_written_bytes` exist, find the writers
   (etcd, the workers' databases, images and logs, Proxmox's own files) and cut what can be.
