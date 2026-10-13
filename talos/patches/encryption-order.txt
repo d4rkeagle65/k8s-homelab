@@ -7,5 +7,5 @@
 #   identity, secretbox  -> writes unencrypted, reads both
 #   secretbox, identity  -> writes encrypted, still reads the unencrypted
 # then every Secret rewritten, so the old ones are encrypted too.
-identity
 secretbox
+identity
