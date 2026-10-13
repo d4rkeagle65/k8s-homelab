@@ -42,12 +42,22 @@
       {{ (k8s_reads.results[1].stdout | from_json)['items'] | map(attribute='status.nodeInfo') |
          map(attribute='containerRuntimeVersion') | list }}
     k8s_node_names: "{{ (k8s_reads.results[1].stdout | from_json)['items'] | map(attribute='metadata.name') | list }}"
+
+- name: Note which nodes run CRI-O (the ones this upgrades)
+  ansible.builtin.set_fact:
+    k8s_crio_runtimes: "{{ k8s_node_runtimes | select('match', '^cri-o://') | list }}"
+    k8s_crio_versions: >-
+      {% set out = [] %}{% for r in k8s_node_runtimes %}{% if r is match('^cri-o://') %}{%
+        set _ = out.append(k8s_node_versions[loop.index0]) %}{% endif %}{% endfor %}{{ out }}
     k8s_etcd_tags: >-
       {{ (k8s_reads.results[2].stdout | from_json)['items'] | map(attribute='spec.containers') |
          map('first') | map(attribute='image') | map('regex_replace', '^.*:', '') | list }}
+    # A Talos API server has no kubeadm annotation: its pod's address (host
+    # network) and the API port instead.
     k8s_apiserver_endpoints: >-
       {% set out = [] %}{% for p in (k8s_reads.results[3].stdout | from_json)['items'] %}{%
-        set _ = out.append(p.metadata.annotations['kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint']) %}{%
+        set _ = out.append((p.metadata.annotations | default({})).get('kubeadm.kubernetes.io/kube-apiserver.advertise-address.endpoint',
+                           p.status.podIP ~ ':6443')) %}{%
       endfor %}{{ out }}
 
 - name: Show where the cluster is and where the bundle goes
@@ -70,16 +80,17 @@
       is not it or the next minor. Run the bundles in order.
     quiet: true
 
-# The kubelet may lag the API server but never lead it; CRI-O's minor goes with
-# the kubelet's on each node.
+# The kubelet may lag the API server but never lead it, on every node. CRI-O's
+# minor goes with the kubelet's on the nodes this upgrades (CRI-O ones); a Talos
+# node runs containerd and is upgraded by talosctl upgrade-k8s (QUEUE-talos.md).
 - name: Every node is within the skew the target allows
   ansible.builtin.assert:
     that:
       - k8s_node_versions | reject('version', k8s_current, '<=') | list | length == 0
       - k8s_node_versions | map('regex_replace', '^(\d+\.\d+).*', '\1') |
         reject('in', [k8s_current | regex_replace('^(\d+\.\d+).*', '\1'), k8s_target_minor]) | list | length == 0
-      - k8s_node_runtimes | map('regex_replace', '^cri-o://(\d+\.\d+).*', '\1') | list ==
-        k8s_node_versions | map('regex_replace', '^(\d+\.\d+).*', '\1') | list
+      - k8s_crio_runtimes | map('regex_replace', '^cri-o://(\d+\.\d+).*', '\1') | list ==
+        k8s_crio_versions | map('regex_replace', '^(\d+\.\d+).*', '\1') | list
     fail_msg: >-
       Nodes out of step: {% for n in k8s_node_names %}{{ n }} kubelet {{ k8s_node_versions[loop.index0] }}
       / {{ k8s_node_runtimes[loop.index0] }}{{ ', ' if not loop.last }}{% endfor %}; API server {{ k8s_current }}.

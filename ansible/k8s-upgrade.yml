@@ -216,15 +216,32 @@
       changed_when: false
       check_mode: false
 
-    - name: Every node runs the bundle
+    # The CRI-O nodes are this playbook's; a Talos node (containerd) is upgraded
+    # with talosctl upgrade-k8s, and is named here when it's behind.
+    - name: Every CRI-O node runs the bundle
       ansible.builtin.assert:
-        that: >-
-          (k8s_final_nodes.stdout | from_json)['items'] | map(attribute='status.nodeInfo.kubeletVersion') |
-          reject('equalto', 'v' ~ k8s_target.kubernetes) | list | length == 0
-        fail_msg: >-
-          Not on {{ k8s_target.kubernetes }}: {{ (k8s_final_nodes.stdout | from_json)['items'] |
-          map(attribute='metadata.name') | list }}
-        success_msg: Every node runs Kubernetes {{ k8s_target.kubernetes }}.
+        that: k8s_behind | length == 0
+        fail_msg: "Not on {{ k8s_target.kubernetes }}: {{ k8s_behind | join(', ') }}"
+        success_msg: Every CRI-O node runs Kubernetes {{ k8s_target.kubernetes }}.
+      vars:
+        k8s_behind: >-
+          {{ (k8s_final_nodes.stdout | from_json)['items'] |
+             selectattr('status.nodeInfo.containerRuntimeVersion', 'match', '^cri-o://') |
+             rejectattr('status.nodeInfo.kubeletVersion', 'equalto', 'v' ~ k8s_target.kubernetes) |
+             map(attribute='metadata.name') | list }}
+      when: not ansible_check_mode
+
+    - name: Name the Talos nodes still to upgrade
+      ansible.builtin.debug:
+        msg: >-
+          {{ k8s_talos_behind | join(', ') if k8s_talos_behind else 'No Talos node is behind.' }}
+          {{ '- upgrade them with talosctl upgrade-k8s --to ' ~ k8s_target.kubernetes if k8s_talos_behind else '' }}
+      vars:
+        k8s_talos_behind: >-
+          {{ (k8s_final_nodes.stdout | from_json)['items'] |
+             rejectattr('status.nodeInfo.containerRuntimeVersion', 'match', '^cri-o://') |
+             rejectattr('status.nodeInfo.kubeletVersion', 'equalto', 'v' ~ k8s_target.kubernetes) |
+             map(attribute='metadata.name') | list }}
       when: not ansible_check_mode
 
 - name: Clean up
