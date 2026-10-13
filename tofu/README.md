@@ -6,7 +6,7 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
 
 | Module | Owns |
 |---|---|
-| `proxmox/` | The Proxmox guests: the six Kubernetes node containers, both Pi-holes and the Docker VM (not the Windows DC). |
+| `proxmox/` | The Proxmox guests: the Kubernetes node containers, the Talos VMs replacing them (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes and the Docker VM (not the Windows DC). |
 | `cloudflare/` | The hand-made DNS records in both Cloudflare zones (not the tunnel controller's records, the tunnel's public hostnames, or cert-manager's challenges: each has its own owner). |
 
 ## What lives where
@@ -58,7 +58,9 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
      `PROXMOX_VE_INSECURE`: the certificate is verified like any other;
    - secrets: `PROXMOX_VE_API_TOKEN` = `tofu@pve!semaphore=<secret>`,
      `PG_CONN_STR` = `postgres://tfstate:<TFSTATE_DB_PASSWORD>@semaphore-postgres:5432/tfstate?sslmode=disable`,
-     `TF_VAR_site` = the JSON value.
+     `TF_VAR_site` = the JSON value, `TF_VAR_talos_secrets` = the Talos secrets (`TALOS_SECRETS`
+     in Vaultwarden: the base64 of a `secrets.yaml`). The state then holds the Talos secrets and
+     an admin certificate for every Talos node's API, so it's as secret as they are.
 3. **A template**, type OpenTofu, repository this one, subdirectory `tofu/proxmox`, that
    environment. Each run plans first and waits for a confirmation before it applies; reject it
    to plan only.
