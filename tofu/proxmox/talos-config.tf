@@ -32,6 +32,7 @@ locals {
   # re-apply a config to a running control plane it didn't build.
   talos_nodes = {
     "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_config = false }
+    "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_config = true }
     "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_config = true }
   }
 
