@@ -176,8 +176,11 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       `coprvmk8sw04a` (VM 114, H5, 6 vCPU, 20 GiB), in `talos_nodes` since 2026-10-13: a second
       disk (scsi1) as the Talos user volume `local-db` at `/var/mnt/local-db`
       (`talos/patches/worker-local-db.yaml`), local-path's local-db class pointed there for it
-      (`WORKER_NODE_4`), no nas-block (the iSCSI driver comes next). Then: a throwaway claim
-      on it to prove local-db works on Talos; H3's databases moved onto it (a CNPG instance on
+      (`WORKER_NODE_4`), no nas-block (the iSCSI driver comes next). A throwaway claim proved
+      local-db there. The Talos VMs had only the main network, and pods on them couldn't reach
+      the management one (Garage's WAL restore timed out, 2026-10-13): every Talos VM gets eth1
+      on vmbr0 like the containers (`k8s_bridges`), read from cloud-init at the next boot, so
+      each is rebooted once, the worker first, then the control planes one at a time. Then: H3's databases moved onto it (a CNPG instance on
       the new worker, switchover, the old one dropped), H3's other pods drained over, and H3's
       LXC worker (105) retired first, for its worn disk
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked

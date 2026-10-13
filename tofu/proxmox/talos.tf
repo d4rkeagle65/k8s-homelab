@@ -75,19 +75,32 @@ resource "proxmox_virtual_environment_vm" "talos" {
     }
   }
 
-  network_device {
-    bridge = "vmbr7"
+  # The Kubernetes nodes' networks (k8s_bridges, guests.tf): eth0 on the main
+  # network, eth1 on the management one, where the NAS's Garage, the Docker
+  # VM's apps and Proxmox's API are; the router keeps main from reaching
+  # management. The kubelet, etcd, Calico and the API address are pinned to
+  # eth0 (talos-config.tf), so eth1 carries only what's addressed to it.
+  dynamic "network_device" {
+    for_each = local.k8s_bridges
+    content {
+      bridge = network_device.value
+    }
   }
 
-  # Its address on the main network, read by Talos's nocloud platform; the
-  # VM's name is its hostname, and so its Kubernetes node name.
+  # One address per network, read by Talos's nocloud platform at boot, with
+  # the same last octet on each and a gateway only where the network has one
+  # (as for the containers); the VM's name is its hostname, and so its
+  # Kubernetes node name.
   initialization {
     datastore_id = "vms"
     interface    = "ide2"
-    ip_config {
-      ipv4 {
-        address = "${local.talos_address[each.key]}/${local.talos_net.prefix_length}"
-        gateway = local.talos_net.gateway
+    dynamic "ip_config" {
+      for_each = local.k8s_bridges
+      content {
+        ipv4 {
+          address = "${var.site.networks[ip_config.value].prefix}.${var.site.guests[each.key].host}/${var.site.networks[ip_config.value].prefix_length}"
+          gateway = var.site.networks[ip_config.value].gateway
+        }
       }
     }
     dns {
