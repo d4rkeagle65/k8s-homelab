@@ -24,16 +24,15 @@ locals {
 
   # The Talos nodes, by VMID: their role and size here, their host, name and
   # last octet in TF_VAR_site, as for the other guests (README.md). A node is
-  # added by a commit of its own, so an apply builds one node and the kubeadm
-  # control plane on its host is retired before the next (QUEUE-talos.md:
-  # 113 on H4 first, then 112 on H1, whose kubeadm control plane holds the API
-  # address until the handover). apply_config is false for a node whose config was
-  # applied by hand (110, talos/README.md): OpenTofu owns its VM but doesn't
-  # re-apply a config to a running control plane it didn't build.
+  # added by a commit of its own, so an apply builds one node (tofu/CLAUDE.md).
+  # apply_mode: "auto" while a node is being created (its first config installs
+  # Talos and reboots once), then "no_reboot", so a later change that would
+  # need a reboot fails the apply instead of rebooting a running node; that
+  # change is then made by hand, node by node, after draining.
   talos_nodes = {
-    "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_config = false }
-    "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_config = true }
-    "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_config = true }
+    "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_mode = "no_reboot" }
+    "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_mode = "no_reboot" }
+    "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, apply_mode = "no_reboot" }
   }
 
   # Each node's address on the main network, the one its kubelet and etcd use.

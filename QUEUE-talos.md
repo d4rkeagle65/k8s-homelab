@@ -164,8 +164,8 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       encryption at rest: with no kubeadm API server left, the control planes' identity-only
       `KubeEtcdEncryptionConfig` (`talos/patches/controlplane-encryption*.yaml`) can become
       secretbox, then every Secret rewritten (`kubectl get secrets -A -o json | kubectl
-      replace -f -`) so the old ones are encrypted too. VM 110's config isn't OpenTofu's yet
-      (`apply_config = false`): switch it on with a plan that shows only its apply. Until the
+      replace -f -`) so the old ones are encrypted too. VM 110's config is OpenTofu's since
+      2026-10-13 (every built node applies with `no_reboot`). Until the
       workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane): no Kubernetes
       upgrade until Phase 3 is done, then `talosctl upgrade-k8s`
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
