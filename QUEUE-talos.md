@@ -150,11 +150,17 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       `TALOS_SECRETS`); kube-proxy labels (done); the service-account issuer (done); the API
       address plan; Calico's address detection (done)
 - [ ] Phase 2: three Talos control planes (H1, H2, H4), the kubeadm ones removed, Talos's VIP.
-      The first, on H2, built by hand (`talos/README.md`) on 2026-10-12: etcd's fourth member,
-      its API server, controller manager and scheduler up on the first try. Calico couldn't
-      start there until its FlexVolume driver was turned off (`flexVolumePath: None`): Talos
-      keeps `/usr/libexec` read-only. Then: the node Ready and the mesh test with it in; a
-      kubeadm control plane removed; the other two through Semaphore
+      Done for H2 (2026-10-12/13): the first, `[redacted]k8sc04a` (VM 110), built by hand
+      (`talos/README.md`), Ready after Calico's FlexVolume driver was turned off
+      (`flexVolumePath: None`; Talos keeps `/usr/libexec` read-only), the mesh test passed with
+      it in, then the kubeadm control plane on H2 retired: drained, `kubeadm reset` (which
+      removed its etcd member), node deleted. etcd is three members again. Left on H2: its LXC
+      (103), shut down and kept about a week as a fallback, then destroyed, and taken out of
+      `tofu/proxmox/` with a `removed` block (`lifecycle { destroy = false }`, since
+      `prevent_destroy` blocks a destroy) and of Semaphore's Kubernetes inventory. VM 110 is
+      not in OpenTofu yet: imported with the next two. Next: H1 and H4 through Semaphore
+      (OpenTofu, with Sidero's Talos provider and `TALOS_SECRETS` in Semaphore's environment),
+      each retiring the kubeadm control plane on its host; then the API address handover
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
