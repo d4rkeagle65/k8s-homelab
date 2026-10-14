@@ -56,7 +56,7 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 | | Threads | RAM | Today | Notes |
 |---|---|---|---|---|
 | H1 | 8 | 31 GB | control plane 1, worker 1 (4 cores), Pi-hole 2 | |
-| H2 | 4 | 31 GB | nothing running (control plane 3 and worker 3 retired, their LXCs kept off for now) | VT-x and VT-d on since 2026-10-12 |
+| H2 | 4 | 31 GB | Talos worker (VM 116); control plane 3 and worker 3 retired, their LXCs kept off | VT-x and VT-d on since 2026-10-12 |
 | H3 | 4 | 15.5 GB | Talos worker (VM 115) | its NVMe is at 86% wear (QUEUE.md) |
 | H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
 | H5 | 8 (i7-7700) | 63 GB | Talos control plane (VM 110) | in the cluster since 2026-10-12; its root is on the NX-512 (Phase 0) |
@@ -191,7 +191,8 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       workers cordoned so the Talos worker is the only place left); drain; the VM ID into
       `k8s_retired`. Left for each: its node object deleted once stopped, and with 101-103
       (~2026-10-20) the container destroyed, then removed from `k8s_nodes` and its
-      local-path entries. Next: a Talos worker on H2, then w01a (H1) by the same recipe. The
+      local-path entries. The third Talos worker, `coprvmk8sw06a` (VM 116, H2, 3 vCPU, 16 GiB,
+      local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14; next w01a (H1). The
       iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only): mount, detach, reattach and a move between Talos workers
