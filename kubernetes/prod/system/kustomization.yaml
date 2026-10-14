@@ -6,6 +6,7 @@ resources:
 - cert-manager
 - cloudflare-tunnel
 - cluster-access
+- democratic-csi
 - external-dns
 - external-secrets
 - external-services

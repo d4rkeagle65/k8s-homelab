@@ -1,0 +1,128 @@
+# democratic-csi with its Synology iSCSI driver: the `nas-iscsi` storage class,
+# a LUN on the NAS per claim, attached to whichever node its pod runs on. It
+# is for the single-copy data that writes constantly (Prometheus, Loki,
+# CouchDB): it follows its pod to any node, and spares the hosts' SSDs.
+#
+# Only Talos nodes can mount these volumes: the node plugin runs the node's
+# own iscsiadm (Talos's iscsi-tools extension) and the LXC workers have no
+# iSCSI initiator. The storage class has no topology to say so, so a pod on
+# `nas-iscsi` needs node affinity for the `extensions.talos.dev/iscsi-tools`
+# label, as the node plugin below has.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: democratic-csi
+  namespace: democratic-csi
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: democratic-csi
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: democratic-csi
+      version: 0.15.1
+      sourceRef:
+        kind: HelmRepository
+        name: democratic-csi
+        namespace: flux-system
+  valuesFrom:
+    - kind: Secret
+      name: democratic-csi-dsm-login
+      valuesKey: username
+      targetPath: driver.config.httpConnection.username
+    - kind: Secret
+      name: democratic-csi-dsm-login
+      valuesKey: password
+      targetPath: driver.config.httpConnection.password
+  values:
+    csiDriver:
+      name: org.democratic-csi.synology-iscsi
+    # Each claim on `nas-iscsi` is a LUN on volume1 with its own target, made
+    # through DSM's API; the node mounts it over iSCSI on the main network. The
+    # login comes from valuesFrom above.
+    driver:
+      config:
+        driver: synology-iscsi
+        httpConnection:
+          protocol: https
+          host: ${NAS_HOSTNAME}
+          port: 5001
+          # DSM's own self-signed certificate.
+          allowInsecure: true
+          session: democratic-csi
+          serialize: true
+        synology:
+          volume: /volume1
+        iscsi:
+          targetPortal: ${NAS_HOSTNAME}:3260
+          baseiqn: "iqn.2000-01.com.synology:csi."
+          # Tells these LUNs and targets apart from the Proxmox hosts' nas-block
+          # LUNs in DSM's SAN Manager.
+          namePrefix: k8s-
+          lunTemplate:
+            # Thin-provisioned on volume1's Btrfs.
+            type: BLUN
+            description: "{{ parameters.[csi.storage.k8s.io/pvc/namespace] }}/{{ parameters.[csi.storage.k8s.io/pvc/name] }}"
+          targetTemplate:
+            auth_type: 0
+            max_sessions: 0
+    storageClasses:
+      - name: nas-iscsi
+        defaultClass: false
+        # As nfs-retain-rwo: deleting a claim never deletes its LUN.
+        reclaimPolicy: Retain
+        volumeBindingMode: WaitForFirstConsumer
+        allowVolumeExpansion: true
+        parameters:
+          fsType: ext4
+    controller:
+      driver:
+        image:
+          # Pinned rather than the chart's `latest`.
+          tag: v1.9.5
+        resources:
+          requests: {cpu: 10m, memory: 96Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+      externalAttacher:
+        resources: &sidecar
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+      externalProvisioner:
+        resources: *sidecar
+      externalResizer:
+        resources: *sidecar
+      externalSnapshotter:
+        resources: *sidecar
+      externalHealthMonitorController:
+        resources: *sidecar
+    node:
+      # Talos: iscsiadm runs in the node's own namespaces, where its iscsid is.
+      hostPID: true
+      driver:
+        image:
+          tag: v1.9.5
+        extraEnv:
+          - name: ISCSIADM_HOST_STRATEGY
+            value: nsenter
+          - name: ISCSIADM_HOST_PATH
+            value: /usr/local/sbin/iscsiadm
+        resources:
+          requests: {cpu: 10m, memory: 96Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+      driverRegistrar:
+        resources: *sidecar
+      cleanup:
+        resources: *sidecar
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: extensions.talos.dev/iscsi-tools
+                    operator: Exists
+    csiProxy:
+      resources: *sidecar
