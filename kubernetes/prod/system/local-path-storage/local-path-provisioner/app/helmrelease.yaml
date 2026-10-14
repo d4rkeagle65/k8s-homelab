@@ -67,9 +67,12 @@ spec:
         - node: ${WORKER_NODE_3}
           paths:
           - /opt/local-path-provisioner
-        # The first Talos worker: its local-db user volume
+        # The Talos workers: each one's local-db user volume
         # (talos/patches/worker-local-db.yaml).
         - node: ${WORKER_NODE_4}
+          paths:
+          - /var/mnt/local-db
+        - node: ${WORKER_NODE_5}
           paths:
           - /var/mnt/local-db
       nas-block:

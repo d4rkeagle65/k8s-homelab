@@ -57,7 +57,7 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 |---|---|---|---|---|
 | H1 | 8 | 31 GB | control plane 1, worker 1 (4 cores), Pi-hole 2 | |
 | H2 | 4 | 31 GB | worker 3 (control plane 3 retired 2026-10-13; its LXC kept off for now) | VT-x and VT-d on since 2026-10-12 |
-| H3 | 4 | 15.5 GB | worker 2 | its NVMe is at 86% wear (QUEUE.md) |
+| H3 | 4 | 15.5 GB | Talos worker (VM 115) | its NVMe is at 86% wear (QUEUE.md) |
 | H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
 | H5 | 8 (i7-7700) | 63 GB | Talos control plane (VM 110) | in the cluster since 2026-10-12; its root is on the NX-512 (Phase 0) |
 
@@ -67,11 +67,11 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 |---|---|---|
 | H1 | yes | 4 vCPU, 12 GiB |
 | H2 | no | 3 vCPU, 16 GiB |
-| H3 | no (small, worn disk) | 2 vCPU, 6 GiB |
+| H3 | no (small, worn disk) | 4 vCPU, 10 GiB (the owner, 2026-10-14: with local-db, worn disk or not) |
 | H4 | yes | 2 vCPU, 8 GiB |
 | H5 | yes | 6 vCPU, 20 GiB |
 
-58 GiB of workers in all; losing the largest (H5) leaves 38 GiB, above the requests with room.
+62 GiB of workers in all; losing the largest (H5) leaves 42 GiB, above the requests with room.
 Control planes on H1, H4, H5 (the owner, 2026-10-13: the first Talos one was built on H5): losing
 any one keeps etcd's quorum.
 
@@ -193,7 +193,8 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       local-path entries. The iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only): mount, detach and reattach proven 2026-10-14; a move to
-      another node waits for a second Talos worker
+      another node waits for the second Talos worker, `[redacted]k8sw05a` (VM 115, H3, 4 vCPU,
+      10 GiB, local-db as the first's, `WORKER_NODE_5`), in `talos_nodes` since 2026-10-14
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network
