@@ -68,14 +68,15 @@ server:
           image:
             pullPolicy: IfNotPresent
             repository: ghcr.io/immich-app/immich-server
-          # It makes thumbnails and transcodes on upload, hence a whole core.
+          # It makes thumbnails and transcodes on upload, hence a whole core; 6Gi
+          # while the owner's library import runs (QUEUE-resource-limits.md).
           resources:
             requests:
               cpu: 30m
               memory: 1376Mi
             limits:
               cpu: 1000m
-              memory: 3Gi
+              memory: 6Gi
   enabled: true
   ingress:
     main:
