@@ -268,7 +268,8 @@ Agreement. Proxmox renews the certificates itself.
 ## Serial-over-LAN on the Proxmox hosts (`proxmox-host.yml`)
 
 `tasks/proxmox-amt-sol.yml` sets up the Linux side of Intel AMT's Serial-over-LAN on every
-host whose AMT shows a serial port (the "KT Controller"); a host without one is reported and
+host whose AMT shows a serial port (an Intel 16550 at 00:16.3, "KT Controller" or "Active
+Management Technology - SOL" in lspci); a host without one is reported and
 left alone. AMT itself (provisioning, SOL enabled in MEBx or MeshCommander) is set by hand, and
 SOL only works over the NIC AMT is bound to, the onboard Intel one.
 
