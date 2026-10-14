@@ -1,0 +1,73 @@
+# Intel's onboard gigabit NICs (the e1000e driver: every host's I219 or
+# 82579) hang under heavy traffic with segmentation offload on: "Detected
+# Hardware Unit Hang" in the kernel log every two seconds, and the host is off
+# that network until a reboot. TSO, GSO and GRO go off on each e1000e
+# interface, now and at every boot, through a udev rule that matches the
+# driver rather than an interface name. Other drivers (the Realtek 2.5 GbE
+# cards) are left alone. Every run reports each e1000e interface's offloads.
+
+- name: Find this host's e1000e interfaces
+  ansible.builtin.shell: |
+    for d in /sys/class/net/*; do
+      if [ "$(basename "$(readlink -f "$d/device/driver" 2>/dev/null)")" = e1000e ]; then
+        basename "$d"
+      fi
+    done
+  register: nic_e1000e
+  changed_when: false
+  check_mode: false
+
+- name: The udev rule that turns their offloads off at every boot
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/70-e1000e-offloads.rules
+    content: |
+      # From ansible/tasks/proxmox-nic-offloads.yml: e1000e hangs under load
+      # with segmentation offload on.
+      ACTION=="add", SUBSYSTEM=="net", DRIVERS=="e1000e", RUN+="/usr/sbin/ethtool -K $name tso off gso off gro off"
+    owner: root
+    group: root
+    mode: "0644"
+  when: nic_e1000e.stdout_lines | length > 0
+
+- name: Read their offloads
+  ansible.builtin.command:
+    argv: [/usr/sbin/ethtool, -k, "{{ item }}"]
+  loop: "{{ nic_e1000e.stdout_lines }}"
+  register: nic_offloads_before
+  changed_when: false
+  check_mode: false
+
+- name: Turn them off now
+  ansible.builtin.command:
+    argv: [/usr/sbin/ethtool, -K, "{{ item.item }}", tso, "off", gso, "off", gro, "off"]
+  loop: "{{ nic_offloads_before.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.stdout is search('^(tcp-segmentation|generic-segmentation|generic-receive)-offload: on', multiline=True)
+
+- name: Read them back
+  ansible.builtin.command:
+    argv: [/usr/sbin/ethtool, -k, "{{ item }}"]
+  loop: "{{ nic_e1000e.stdout_lines }}"
+  register: nic_offloads_after
+  changed_when: false
+  check_mode: false
+
+- name: Report each e1000e interface's offloads
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} {{ item.item }}:
+      {{ item.stdout_lines | select('search', '^(tcp-segmentation|generic-segmentation|generic-receive)-offload:') | join(', ') }}
+  loop: "{{ nic_offloads_after.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: They're off
+  ansible.builtin.assert:
+    that: item.stdout is not search('^(tcp-segmentation|generic-segmentation|generic-receive)-offload: on', multiline=True)
+    fail_msg: "{{ inventory_hostname }} {{ item.item }}: an offload is still on after ethtool -K; the driver refused it."
+    quiet: true
+  loop: "{{ nic_offloads_after.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not ansible_check_mode

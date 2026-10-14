@@ -27,8 +27,11 @@
 # nas_block_target is set, and a blank LUN is only initialised with
 # nas_block_initialise: true.
 #
-# In check mode (--check) it reports each host's ARC, certificate and NAS block
-# storage, now and wanted, and changes nothing.
+# Intel NIC offloads (tasks/proxmox-nic-offloads.yml): TSO, GSO and GRO off on
+# every e1000e interface, now and at boot, as that driver hangs under load.
+#
+# In check mode (--check) it reports each host's ARC, certificate, NAS block
+# storage and NIC offloads, now and wanted, and changes nothing.
 
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
@@ -146,3 +149,6 @@
 
     - name: NAS block storage
       ansible.builtin.include_tasks: tasks/proxmox-nas-block.yml
+
+    - name: Intel NIC offloads
+      ansible.builtin.include_tasks: tasks/proxmox-nic-offloads.yml
