@@ -111,6 +111,10 @@ spec:
             value: nsenter
           - name: ISCSIADM_HOST_PATH
             value: /usr/local/sbin/iscsiadm
+        # Talos's kubelet runs in its own container without the host's
+        # /etc/iscsi; iscsiadm reads the real one through nsenter.
+        iscsiDirHostPath: /var/iscsi
+        iscsiDirHostPathType: ""
         resources:
           requests: {cpu: 10m, memory: 96Mi}
           limits: {cpu: 500m, memory: 256Mi}
