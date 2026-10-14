@@ -43,7 +43,7 @@
   loop: "{{ nic_offloads_before.results }}"
   loop_control:
     label: "{{ item.item }}"
-  when: item.stdout is search('^(tcp-segmentation|generic-segmentation|generic-receive)-offload: on', multiline=True)
+  when: "item.stdout is search('^(tcp-segmentation|generic-segmentation|generic-receive)-offload: on', multiline=True)"
 
 - name: Read them back
   ansible.builtin.command:
@@ -64,7 +64,7 @@
 
 - name: They're off
   ansible.builtin.assert:
-    that: item.stdout is not search('^(tcp-segmentation|generic-segmentation|generic-receive)-offload: on', multiline=True)
+    that: "item.stdout is not search('^(tcp-segmentation|generic-segmentation|generic-receive)-offload: on', multiline=True)"
     fail_msg: "{{ inventory_hostname }} {{ item.item }}: an offload is still on after ethtool -K; the driver refused it."
     quiet: true
   loop: "{{ nic_offloads_after.results }}"
