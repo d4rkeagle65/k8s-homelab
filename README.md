@@ -8,13 +8,32 @@ addresses and secrets come from a password-manager vault or from the tools that 
 ## How it fits together
 
 ```
-                    Proxmox cluster (five hosts)
-  +------------------------------------------------------------------+
-  |  Kubernetes: Talos control planes (3)  +  workers (LXC -> Talos)  |
-  |  Pi-holes (2)    Docker VM    domain controller VM                |
-  +------------------------------------------------------------------+
-        |  NFS, iSCSI, VM disks                 |  backups (S3, NFS)
-     main NAS                               backup NAS
+                                  Internet
+                                     |  Cloudflare tunnel: the few public routes
+                                     v
+ +-------------------------- Kubernetes cluster ----------------------------------------+
+ |  Ingress: Traefik (a MetalLB address) -> Authentik login -> apps                     |
+ |           ExternalDNS writes each hostname to the Pi-holes                           |
+ |  Control plane: 3 Talos VMs, etcd on each, one shared API address                    |
+ |  Workers: Talos VMs (LXC containers being retired)                                   |
+ |  Pods: Calico network; secrets from the vault via External Secrets; Flux syncs main  |
+ |  Data: databases on node-local disk (2 instances each), app data on NFS,             |
+ |        Prometheus/Alertmanager on NAS block storage                                  |
+ |  Watching: Prometheus, Alertmanager, Grafana, Loki, Alloy                            |
+ +--------------------------------------------------------------------------------------+
+        |  each node: main network (default route) + management network (no gateway)
+        v
+ +-------------------- Proxmox cluster: 5 hosts, HA for the VMs outside Kubernetes ----+
+ |  Kubernetes nodes (Talos VMs, LXC containers)   Pi-holes x2 (DNS)                   |
+ |  Docker VM: Vaultwarden, Semaphore (Ansible, OpenTofu), Kea DHCP, Tailscale,        |
+ |             Dockhand                                     domain controller VM       |
+ +--------------------------------------------------------------------------------------+
+   networks: main (pods, ingress, clients) | management (hosts, NAS, Docker VM, Proxmox API)
+             | 2.5 Gbit (live migration, second cluster heartbeat link)
+        |                                                 |
+        v NFS (app data), iSCSI (block), HA VM disks      v backups
+   Main NAS                                         Backup NAS: Garage (S3) for the databases'
+                                                    WAL and nightly base backups; Proxmox backups
 ```
 
 ### Hardware and virtualisation
