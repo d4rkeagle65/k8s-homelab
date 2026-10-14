@@ -181,19 +181,19 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       the management one (Garage's WAL restore timed out, 2026-10-13): every Talos VM gets eth1
       on vmbr0 like the containers (`k8s_bridges`), read from cloud-init at the next boot, so
       each is rebooted once, the worker first, then the control planes one at a time (done
-      2026-10-13). H3's LXC worker (w02a, VM 105), 2026-10-14: cordoned (CloudNativePG moved
-      every main copy off it by itself); the nine databases' second copies rebuilt on the Talos
-      worker (old claim deleted, then its pod; the new copy joins from the main one).
-      Grimmory's MariaDB is on the Talos worker's local-db too (dumped, claim deleted, the new
-      claim pinned there for its first start, restored and counted). Left on w02a:
-      Prometheus's second replica (nas-block: waits for the iSCSI driver). Then w02a drained,
-      "105" added to `k8s_retired`, and retired. The iSCSI driver is democratic-csi
+      2026-10-13). H3's LXC worker (w02a, VM 105) retired 2026-10-14, the recipe for the next:
+      cordon (CloudNativePG moves every main copy off by itself); each database's second copy
+      rebuilt on a Talos worker (old claim deleted, then its pod; the new copy joins from the
+      main one); a single-copy local-db app dumped, its claim deleted, the new claim pinned to
+      the Talos worker for its first start, restored and counted (Grimmory's MariaDB); a
+      Prometheus replica onto `nas-iscsi` (its claim deleted, then its pod, with the other LXC
+      workers cordoned so the Talos worker is the only place left); drain; the VM ID into
+      `k8s_retired`. Left for w02a: its node object deleted once stopped, and with 101-103
+      (~2026-10-20) the container destroyed, then removed from `k8s_nodes` and its
+      local-path entries. The iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
-      plugin on Talos nodes only), proven on 2026-10-14 by a throwaway claim: made, written,
-      detached (no session left), reattached in a new pod with the same data. A move to another
-      node waits for a second Talos worker. Prometheus's template is `nas-iscsi` with a
-      preferred Talos affinity; its second replica moves (old claim deleted, then its pod, with
-      w03a cordoned so the Talos worker is the only place left for it)
+      plugin on Talos nodes only): mount, detach and reattach proven 2026-10-14; a move to
+      another node waits for a second Talos worker
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network
