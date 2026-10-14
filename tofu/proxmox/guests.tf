@@ -44,7 +44,7 @@ locals {
   # removed block can't drop one for_each instance, so a retired node stays
   # here until its container is destroyed in Proxmox; then it leaves k8s_nodes,
   # and the next plan, finding it gone, drops it from the state by itself.
-  k8s_retired = toset(["101", "102", "103", "105", "106"])
+  k8s_retired = toset(["101", "102", "103", "104", "105", "106"])
 
   # The Pi-holes (community-scripts installs, unprivileged), one interface per
   # network they answer on.

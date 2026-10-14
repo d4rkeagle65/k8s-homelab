@@ -55,7 +55,7 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 
 | | Threads | RAM | Today | Notes |
 |---|---|---|---|---|
-| H1 | 8 | 31 GB | control plane 1, worker 1 (4 cores), Pi-hole 2 | |
+| H1 | 8 | 31 GB | Talos control plane (VM 112), Pi-hole 2; its LXC worker retired | |
 | H2 | 4 | 31 GB | Talos worker (VM 116); control plane 3 and worker 3 retired, their LXCs kept off | VT-x and VT-d on since 2026-10-12 |
 | H3 | 4 | 15.5 GB | Talos worker (VM 115) | its NVMe is at 86% wear (QUEUE.md) |
 | H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
@@ -181,18 +181,19 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       the management one (Garage's WAL restore timed out, 2026-10-13): every Talos VM gets eth1
       on vmbr0 like the containers (`k8s_bridges`), read from cloud-init at the next boot, so
       each is rebooted once, the worker first, then the control planes one at a time (done
-      2026-10-13). H3's and H2's LXC workers (w02a, VM 105; w03a, VM 106) retired 2026-10-14,
-      the recipe for the next:
+      2026-10-13). Every LXC worker retired 2026-10-14 (w02a VM 105 on H3, w03a VM 106 on H2,
+      w01a VM 104 on H1), by this recipe:
       cordon (CloudNativePG moves every main copy off by itself); each database's second copy
       rebuilt on a Talos worker (old claim deleted, then its pod; the new copy joins from the
       main one); a single-copy local-db app dumped, its claim deleted, the new claim pinned to
       the Talos worker for its first start, restored and counted (Grimmory's MariaDB); a
-      Prometheus replica onto `nas-iscsi` (its claim deleted, then its pod, with the other LXC
-      workers cordoned so the Talos worker is the only place left); drain; the VM ID into
+      Prometheus or Alertmanager replica onto `nas-iscsi` (its claim deleted, then its pod, with
+      the LXC workers cordoned so a Talos worker is the only place left); drain; the VM ID into
       `k8s_retired`. Left for each: its node object deleted once stopped, and with 101-103
       (~2026-10-20) the container destroyed, then removed from `k8s_nodes` and its
       local-path entries. The third Talos worker, `[redacted]k8sw06a` (VM 116, H2, 3 vCPU, 16 GiB,
-      local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14; next w01a (H1). The
+      local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14. Next: a fourth Talos
+      worker on H1 (4 vCPU, 12 GiB, local-db), so losing H5 still leaves room. The
       iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only): mount, detach, reattach and a move between Talos workers
