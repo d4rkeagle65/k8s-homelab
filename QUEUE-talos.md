@@ -187,7 +187,11 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       Grimmory's MariaDB is on the Talos worker's local-db too (dumped, claim deleted, the new
       claim pinned there for its first start, restored and counted). Left on w02a:
       Prometheus's second replica (nas-block: waits for the iSCSI driver). Then w02a drained,
-      "105" added to `k8s_retired`, and retired
+      "105" added to `k8s_retired`, and retired. The iSCSI driver is democratic-csi
+      (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
+      plugin on Talos nodes only); next a throwaway claim proves it (made, written, moved to
+      another Talos node, deleted, its LUN then removed by hand as `Retain` keeps it), then
+      Prometheus's second replica moves onto it with node affinity for Talos
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network
