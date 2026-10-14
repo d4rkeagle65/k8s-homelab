@@ -183,10 +183,11 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       each is rebooted once, the worker first, then the control planes one at a time (done
       2026-10-13). H3's LXC worker (w02a, VM 105), 2026-10-14: cordoned (CloudNativePG moved
       every main copy off it by itself); the nine databases' second copies rebuilt on the Talos
-      worker (old claim deleted, then its pod; the new copy joins from the main one). Left on
-      w02a: Grimmory's MariaDB (one copy on local-db: its data copied to the Talos worker, or
-      onto the iSCSI driver once that's in) and Prometheus's second replica (nas-block: waits
-      for the iSCSI driver). Then w02a drained, "105" added to `k8s_retired`, and retired
+      worker (old claim deleted, then its pod; the new copy joins from the main one).
+      Grimmory's MariaDB is on the Talos worker's local-db too (dumped, claim deleted, the new
+      claim pinned there for its first start, restored and counted). Left on w02a:
+      Prometheus's second replica (nas-block: waits for the iSCSI driver). Then w02a drained,
+      "105" added to `k8s_retired`, and retired
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network
