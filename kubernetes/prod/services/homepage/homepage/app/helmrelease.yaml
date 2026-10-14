@@ -369,7 +369,7 @@ spec:
                           query: 1000 * max(probe_icmp_duration_seconds{switch="04", phase="rtt"})
                           format: {type: number, suffix: " ms", options: {maximumFractionDigits: 1}}
             - Wi-Fi:
-                - Access point 1:
+                - Production AP:
                     icon: openwrt.png
                     href: https://${OPENWRT_AP1_ADDRESS}
                     description: OpenWrt
@@ -391,7 +391,7 @@ spec:
                         - label: Load
                           query: node_load1{ap="1"}
                           format: {type: number, options: {maximumFractionDigits: 2}}
-                - Access point 2:
+                - IoT AP:
                     icon: openwrt.png
                     href: https://${OPENWRT_AP2_ADDRESS}
                     description: OpenWrt
@@ -413,7 +413,7 @@ spec:
                         - label: Load
                           query: node_load1{ap="2"}
                           format: {type: number, options: {maximumFractionDigits: 2}}
-                - Access point 3:
+                - Travel Router:
                     icon: openwrt.png
                     href: https://${OPENWRT_AP3_ADDRESS}
                     description: OpenWrt
