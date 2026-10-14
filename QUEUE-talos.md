@@ -194,9 +194,10 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       local-path entries. The third Talos worker, `coprvmk8sw06a` (VM 116, H2, 3 vCPU, 16 GiB,
       local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14. The fourth, `coprvmk8sw07a`
       (VM 117, H1, 4 vCPU, 16 GiB, 80G system disk, local-db, `WORKER_NODE_7`), in
-      `talos_nodes` since 2026-10-14, so any one worker can drain. Next: the other workers'
-      system disks to 80G (114's done, 2026-10-14: grown, then a drained host reboot by
-      proxmox-reboot.yml, and Talos extended EPHEMERAL to 75.9G). The
+      `talos_nodes` since 2026-10-14, so any one worker can drain. Every worker's system
+      disk is 80G (2026-10-14: grown in place, then a drained host reboot by
+      proxmox-reboot.yml, and Talos extends EPHEMERAL to 75.9G at boot); 116's waits for
+      H2's reboot. The
       iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only): mount, detach, reattach and a move between Talos workers
