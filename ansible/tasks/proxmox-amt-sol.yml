@@ -1,0 +1,236 @@
+# Intel AMT Serial-over-LAN, the Linux side: the kernel console and a login
+# getty on AMT's serial port, and GRUB's menu there too where GRUB boots the
+# host. AMT's own setup (provisioning, enabling SOL in MEBx or MeshCommander)
+# is the owner's, by hand; SOL rides the NIC AMT is bound to, the onboard
+# Intel one.
+#
+# AMT shows SOL to the OS as a PCI 16550 UART, the "KT Controller"; 8250_pci
+# makes it a ttyS<N>, whose number and I/O port differ by host, so both are
+# read from sysfs (amt_sol_tty and amt_sol_port override them). A host without
+# one is reported and left alone. With one but no tty, 8250 ran out of its
+# default four UARTs: 8250.nr_uarts goes on the kernel command line, and the
+# console and getty wait for the run after the reboot.
+#
+# The command line lives where the bootloader reads it, worked out per host:
+# proxmox-boot-tool's ESPs with systemd-boot read /etc/kernel/cmdline; GRUB
+# (its own or proxmox-boot-tool's) reads GRUB_CMDLINE_LINUX in
+# /etc/default/grub. A host that is neither stops with the reason. console=tty0
+# stays first and the serial console goes last, so the serial port is
+# /dev/console; any other console=ttyS* goes. A change is written, the
+# bootloader refreshed (update-grub or proxmox-boot-tool refresh), and Debian's
+# /run/reboot-required flag set, which proxmox-upgrade.yml reboots for; this
+# never reboots a host itself. The getty is enabled and started now.
+#
+# Settings (optional, per host or for all): amt_sol (default true; false
+# reports only), amt_sol_baud (115200), amt_sol_keep_vga (true: console=tty0
+# stays), amt_sol_grub_menu (true), amt_sol_nr_uarts (8), amt_sol_tty and
+# amt_sol_port. Every run reports what it found and what it wants.
+
+- name: Work out the SOL settings
+  ansible.builtin.set_fact:
+    sol_on: "{{ amt_sol | default(true) | bool }}"
+    sol_baud: "{{ amt_sol_baud | default(115200) | int }}"
+    sol_keep_vga: "{{ amt_sol_keep_vga | default(true) | bool }}"
+    sol_grub_menu: "{{ amt_sol_grub_menu | default(true) | bool }}"
+    sol_nr_uarts: "{{ amt_sol_nr_uarts | default(8) | int }}"
+
+- name: Find AMT's serial port (the KT Controller) and its tty and I/O port
+  ansible.builtin.shell: |
+    set -o pipefail
+    pci=$(lspci -D | awk 'tolower($0) ~ /kt controller/ && !f { f = $1 } END { print f }')
+    echo "pci=$pci"
+    [ -n "$pci" ] || exit 0
+    tty=
+    for t in "/sys/bus/pci/devices/$pci/tty/"*; do
+      [ -e "$t" ] && { tty=${t##*/}; break; }
+    done
+    echo "tty=$tty"
+    [ -n "$tty" ] || exit 0
+    echo "port=$(tr 'A-F' 'a-f' < "/sys/class/tty/$tty/port")"
+  args:
+    executable: /bin/bash
+  register: sol_found
+  changed_when: false
+  check_mode: false
+
+- name: Work out what was found
+  ansible.builtin.set_fact:
+    sol_pci: "{{ sol_kv.pci | default('') }}"
+    sol_tty: "{{ amt_sol_tty | default(sol_kv.tty | default('')) }}"
+    sol_port: "{{ amt_sol_port | default(sol_kv.port | default('')) | lower }}"
+  vars:
+    sol_kv: "{{ dict(sol_found.stdout_lines | select('search', '=') | map('split', '=', 1)) }}"
+
+- name: Report AMT's serial port
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}:
+      {{ 'no KT Controller (no AMT SOL); nothing to do' if not sol_pci else
+         'KT Controller ' ~ sol_pci ~ ', no tty (8250 ran out of UARTs)' if not sol_tty else
+         'KT Controller ' ~ sol_pci ~ ' = ' ~ sol_tty ~ ', I/O port ' ~ (sol_port or 'none') }}
+
+- name: Set up SOL
+  when: sol_pci | length > 0
+  block:
+    - name: Look for proxmox-boot-tool's ESPs and for EFI
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: [/etc/kernel/proxmox-boot-uuids, /sys/firmware/efi, /etc/default/grub]
+      register: sol_paths
+
+    - name: Read proxmox-boot-tool's status
+      ansible.builtin.command: proxmox-boot-tool status
+      register: sol_pbt
+      changed_when: false
+      check_mode: false
+      failed_when: false
+      when: sol_paths.results[0].stat.exists
+
+    # proxmox-boot-tool names each ESP's bootloader: "uefi" is systemd-boot,
+    # "grub" is GRUB. Without its ESPs, GRUB boots the host from
+    # /etc/default/grub through update-grub.
+    - name: Work out how this host boots
+      ansible.builtin.set_fact:
+        sol_boot: >-
+          {{ 'pbt-systemd-boot' if sol_pbt_out is search('configured with: uefi') and sol_pbt_out is not search('grub')
+             else 'pbt-grub' if sol_pbt_out is search('configured with:.*grub')
+             else 'unknown' if sol_paths.results[0].stat.exists
+             else 'grub' if sol_paths.results[2].stat.exists
+             else 'unknown' }}
+      vars:
+        sol_pbt_out: "{{ sol_pbt.stdout | default('') }}"
+
+    - name: Report how it boots
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} boots with {{ sol_boot }}
+          ({{ 'EFI' if sol_paths.results[1].stat.exists else 'BIOS' }});
+          proxmox-boot-tool: {{ (sol_pbt.stdout_lines | default([]) | select('search', 'configured with') | join('; ')) or 'no ESPs of its own' }}
+
+    - name: The bootloader is one this knows
+      ansible.builtin.assert:
+        that: sol_boot != 'unknown'
+        fail_msg: >-
+          {{ inventory_hostname }}: couldn't tell how it boots (proxmox-boot-tool:
+          {{ sol_pbt.stdout | default('absent') }}); nothing changed.
+        quiet: true
+
+    - name: Read the kernel command line's file
+      ansible.builtin.slurp:
+        src: "{{ '/etc/kernel/cmdline' if sol_boot == 'pbt-systemd-boot' else '/etc/default/grub' }}"
+      register: sol_cmdline_file
+
+    # GRUB's file: the value of GRUB_CMDLINE_LINUX; systemd-boot's: the one
+    # line. With a tty, every console= for tty0 or a ttyS goes, then tty0 and
+    # the serial port go back on the end, in that order. Without one, only
+    # 8250.nr_uarts is added, and it stays once there: it's what makes the tty.
+    - name: Work out the command line wanted
+      ansible.builtin.set_fact:
+        sol_args_now: "{{ sol_now }}"
+        sol_args_wanted: "{{ sol_base + sol_nr + (sol_new_consoles if sol_tty else sol_old_consoles) }}"
+      vars:
+        sol_console_re: '^console=(tty0|ttyS[0-9]+)(,.*)?$'
+        sol_base: "{{ sol_now | reject('match', sol_console_re) | list }}"
+        sol_old_consoles: "{{ sol_now | select('match', sol_console_re) | list }}"
+        sol_nr: "{{ [] if sol_tty or sol_now | select('match', '^8250\\.nr_uarts=') | list else ['8250.nr_uarts=' ~ sol_nr_uarts] }}"
+        sol_new_consoles: "{{ (['console=tty0'] if sol_keep_vga else []) + ['console=' ~ sol_tty ~ ',' ~ sol_baud ~ 'n8'] }}"
+        sol_text: "{{ sol_cmdline_file.content | b64decode }}"
+        sol_line: >-
+          {{ sol_text | trim if sol_boot == 'pbt-systemd-boot'
+             else (sol_text | regex_search('(?m)^GRUB_CMDLINE_LINUX="([^"]*)"', '\1') or ['']) | first }}
+        sol_now: "{{ sol_line.split() }}"
+
+    - name: Report the command line
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: now "{{ sol_args_now | join(' ') }}";
+          {{ 'as wanted' if sol_args_now == sol_args_wanted else 'wanted "' ~ sol_args_wanted | join(' ') ~ '"' }}
+
+    - name: The command line for systemd-boot
+      ansible.builtin.copy:
+        dest: /etc/kernel/cmdline
+        content: "{{ sol_args_wanted | join(' ') }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+      register: sol_write_cmdline
+      when: sol_on and sol_boot == 'pbt-systemd-boot'
+
+    - name: The command line for GRUB
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="{{ sol_args_wanted | join(" ") }}"'
+      register: sol_write_grub_cmdline
+      when: sol_on and sol_boot != 'pbt-systemd-boot'
+
+    # --port takes the I/O address; --unit only knows the four legacy COM ports.
+    - name: GRUB's menu on the serial port too
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - regexp: '^#?\s*GRUB_TERMINAL='
+          line: 'GRUB_TERMINAL="console serial"'
+        - regexp: '^#?\s*GRUB_SERIAL_COMMAND='
+          line: 'GRUB_SERIAL_COMMAND="serial --port={{ sol_port }} --speed={{ sol_baud }} --word=8 --parity=no --stop=1"'
+      loop_control:
+        label: "{{ item.line }}"
+      register: sol_write_grub_menu
+      when: sol_on and sol_tty | length > 0 and sol_grub_menu and sol_boot != 'pbt-systemd-boot' and sol_port not in ['', '0x0', '0x0000']
+
+    - name: Say why GRUB's menu isn't on the serial port
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: GRUB menu over SOL skipped:
+          {{ 'systemd-boot has no serial menu' if sol_boot == 'pbt-systemd-boot' else
+             'amt_sol_grub_menu is off' if not sol_grub_menu else
+             'the port has no I/O address' if sol_port in ['', '0x0', '0x0000'] else
+             'no tty yet' }}
+      when: sol_tty | length == 0 or not sol_grub_menu or sol_boot == 'pbt-systemd-boot' or sol_port in ['', '0x0', '0x0000']
+
+    - name: Work out whether the bootloader needs a refresh
+      ansible.builtin.set_fact:
+        sol_boot_changed: >-
+          {{ (sol_write_cmdline is changed) or (sol_write_grub_cmdline is changed) or (sol_write_grub_menu is changed) }}
+
+    - name: Refresh the bootloader
+      ansible.builtin.command: "{{ 'update-grub' if sol_boot == 'grub' else 'proxmox-boot-tool refresh' }}"
+      changed_when: true
+      when: sol_boot_changed | bool
+
+    - name: Flag the reboot for proxmox-upgrade.yml
+      ansible.builtin.shell: |
+        touch /run/reboot-required
+        grep -qx amt-sol /run/reboot-required.pkgs 2>/dev/null || echo amt-sol >> /run/reboot-required.pkgs
+      changed_when: true
+      when: sol_boot_changed | bool
+
+    - name: The login getty on the serial port
+      ansible.builtin.systemd_service:
+        name: "serial-getty@{{ sol_tty }}.service"
+        enabled: true
+        state: started
+      when: sol_on and sol_tty | length > 0
+
+    - name: Read the getty back
+      ansible.builtin.systemd_service:
+        name: "serial-getty@{{ sol_tty }}.service"
+      register: sol_getty
+      when: sol_on and sol_tty | length > 0 and not ansible_check_mode
+
+    - name: The getty runs
+      ansible.builtin.assert:
+        that: sol_getty.status.ActiveState == 'active'
+        fail_msg: "{{ inventory_hostname }}: serial-getty@{{ sol_tty }} is {{ sol_getty.status.ActiveState }} after starting it."
+        quiet: true
+      when: sol_on and sol_tty | length > 0 and not ansible_check_mode
+
+    - name: Report what's left
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ 'reboot due for the SOL console (flagged for proxmox-upgrade.yml)' if sol_boot_changed | bool else 'boot settings unchanged' }}{{
+             '; run this again after that reboot, for the console and getty' if not sol_tty else '' }}{{
+             '; amt_sol is off, nothing written' if not sol_on else '' }}
