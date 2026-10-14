@@ -29,13 +29,17 @@ locals {
   # Talos and reboots once), then "no_reboot", so a later change that would
   # need a reboot fails the apply instead of rebooting a running node; that
   # change is then made by hand, node by node, after draining.
+  # disk_gb: the system disk. A worker's holds every image its pods use, which
+  # filled 32G once three workers carried every app (disk pressure evicted
+  # pods), so workers get 80; it grows in place, and Talos extends its
+  # EPHEMERAL partition at the next boot (proxmox-reboot.yml drains first).
   # data_gb: a worker's second disk, its local-db volume
   # (talos/patches/worker-local-db.yaml); 0 for none.
   talos_nodes = {
     "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
     "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
     "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
-    "114" = { role = "worker", cores = 6, memory = 20480, disk_gb = 32, data_gb = 128, apply_mode = "no_reboot" }
+    "114" = { role = "worker", cores = 6, memory = 20480, disk_gb = 80, data_gb = 128, apply_mode = "no_reboot" }
     "115" = { role = "worker", cores = 4, memory = 10240, disk_gb = 32, data_gb = 128, apply_mode = "no_reboot" }
     "116" = { role = "worker", cores = 3, memory = 16384, disk_gb = 32, data_gb = 128, apply_mode = "no_reboot" }
   }
