@@ -4,10 +4,12 @@
 # is the owner's, by hand; SOL rides the NIC AMT is bound to, the onboard
 # Intel one.
 #
-# AMT shows SOL to the OS as a PCI 16550 UART, the "KT Controller"; 8250_pci
-# makes it a ttyS<N>, whose number and I/O port differ by host, so both are
-# read from sysfs (amt_sol_tty and amt_sol_port override them). A host without
-# one is reported and left alone. With one but no tty, 8250 ran out of its
+# AMT shows SOL to the OS as an Intel PCI 16550 UART (class 0700), usually at
+# 00:16.3, which lspci names "KT Controller", "KT Redirection" or "Active
+# Management Technology - SOL" by chipset generation. 8250_pci makes it a
+# ttyS<N>, whose number and I/O port differ by host, so both are read from
+# sysfs (amt_sol_tty and amt_sol_port override them). A host without one is
+# reported and left alone. With one but no tty, 8250 ran out of its
 # default four UARTs: 8250.nr_uarts goes on the kernel command line, and the
 # console and getty wait for the run after the reboot.
 #
@@ -37,7 +39,10 @@
 - name: Find AMT's serial port (the KT Controller) and its tty and I/O port
   ansible.builtin.shell: |
     set -o pipefail
-    pci=$(lspci -D | awk 'tolower($0) ~ /kt controller/ && !f { f = $1 } END { print f }')
+    pci=$(lspci -Dnn | awk '
+      !f && /\[0700\]/ && /\[8086:/ &&
+      (tolower($0) ~ /kt (controller|redirection)|sol|active management/ || $1 ~ /:16\.3$/) { f = $1 }
+      END { print f }')
     echo "pci=$pci"
     [ -n "$pci" ] || exit 0
     tty=
