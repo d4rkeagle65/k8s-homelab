@@ -7,7 +7,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | Playbook | What it does |
 |---|---|
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
-| `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). Each host's own iSCSI LUN on the NAS as storage `nas-block` (`tasks/proxmox-nas-block.yml`, off until set). TSO, GSO and GRO off on every Intel `e1000e` NIC, now and at boot through a udev rule, as that driver hangs under load (`tasks/proxmox-nic-offloads.yml`). A dry run reports each host's ARC, certificate, NAS block storage and NIC offloads. |
+| `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). Each host's own iSCSI LUN on the NAS as storage `nas-block` (`tasks/proxmox-nas-block.yml`, off until set). TSO, GSO and GRO off on every Intel `e1000e` NIC, now and at boot through a udev rule, as that driver hangs under load (`tasks/proxmox-nic-offloads.yml`). Intel AMT Serial-over-LAN where a host has it (`tasks/proxmox-amt-sol.yml`, below). A dry run reports each host's ARC, certificate, NAS block storage, NIC offloads and SOL setup. |
 | `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are `k8s-upgrade.yml`. It also owns the nodes' Kubernetes and CRI-O package sources. |
 | `k8s-node-reboot.yml` | Reboots the Kubernetes node containers one at a time, changing nothing else: the same checks, database switchovers, drain and wait as `k8s-node-update.yml`, with a reboot in place of the upgrade. |
 | `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
@@ -264,6 +264,31 @@ tag for `proxmox-upgrade.yml`), or `pihole_primary_vmid`; nebula-sync copies the
 the other Pi-hole. A run limited to hosts that don't carry it stops before changing anything.
 Running the playbook registers the Let's Encrypt account, which accepts its Subscriber
 Agreement. Proxmox renews the certificates itself.
+
+## Serial-over-LAN on the Proxmox hosts (`proxmox-host.yml`)
+
+`tasks/proxmox-amt-sol.yml` sets up the Linux side of Intel AMT's Serial-over-LAN on every
+host whose AMT shows a serial port (the "KT Controller"); a host without one is reported and
+left alone. AMT itself (provisioning, SOL enabled in MEBx or MeshCommander) is set by hand, and
+SOL only works over the NIC AMT is bound to, the onboard Intel one.
+
+- **What it sets:** `console=tty0 console=ttyS<N>,115200n8` on the kernel command line (the
+  serial one last, so it's `/dev/console`), GRUB's menu on the same port where GRUB boots the
+  host, and `serial-getty@ttyS<N>` enabled and started. The tty and its I/O port are read per
+  host; `amt_sol_tty` and `amt_sol_port` override them.
+- **Where the command line lives:** `/etc/default/grub` (`update-grub`) for GRUB on its own,
+  the same file with `proxmox-boot-tool refresh` for GRUB on proxmox-boot-tool's ESPs, and
+  `/etc/kernel/cmdline` for systemd-boot on them (which has no serial menu). A host it can't
+  place stops with proxmox-boot-tool's output.
+- **Reboots:** a boot change sets `/run/reboot-required`, so the next `proxmox-upgrade.yml`
+  run reboots that host the usual careful way. Nothing here reboots a host.
+- **No tty:** if the KT Controller has no tty, 8250 ran out of UARTs; the run adds
+  `8250.nr_uarts=8`, and the console and getty come with the run after the reboot.
+- **Settings:** `amt_sol` (default true; false reports only), `amt_sol_baud` (115200),
+  `amt_sol_keep_vga` (true), `amt_sol_grub_menu` (true), `amt_sol_nr_uarts` (8).
+- **Check after the reboot:** `cat /proc/cmdline` shows the two consoles, `systemctl status
+  serial-getty@ttyS<N>` is active, and MeshCommander's Terminal (or `amtterm`) shows a login
+  prompt, and GRUB's menu on the next boot.
 
 ## NAS block storage on the Proxmox hosts (`proxmox-host.yml`)
 

@@ -30,8 +30,13 @@
 # Intel NIC offloads (tasks/proxmox-nic-offloads.yml): TSO, GSO and GRO off on
 # every e1000e interface, now and at boot, as that driver hangs under load.
 #
+# Intel AMT Serial-over-LAN (tasks/proxmox-amt-sol.yml): on a host whose AMT
+# shows a serial port, the kernel console, a login getty and GRUB's menu on
+# it; a boot change is flagged for proxmox-upgrade.yml to reboot for, never
+# rebooted here. amt_sol: false reports only.
+#
 # In check mode (--check) it reports each host's ARC, certificate, NAS block
-# storage and NIC offloads, now and wanted, and changes nothing.
+# storage, NIC offloads and SOL setup, now and wanted, and changes nothing.
 
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
@@ -152,3 +157,6 @@
 
     - name: Intel NIC offloads
       ansible.builtin.include_tasks: tasks/proxmox-nic-offloads.yml
+
+    - name: Intel AMT Serial-over-LAN
+      ansible.builtin.include_tasks: tasks/proxmox-amt-sol.yml

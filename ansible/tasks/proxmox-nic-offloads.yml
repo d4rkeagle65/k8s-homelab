@@ -43,6 +43,7 @@
   loop: "{{ nic_offloads_before.results }}"
   loop_control:
     label: "{{ item.item }}"
+  changed_when: true
   when: "item.stdout is search('^(tcp-segmentation|generic-segmentation|generic-receive)-offload: on', multiline=True)"
 
 - name: Read them back
