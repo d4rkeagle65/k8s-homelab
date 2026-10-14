@@ -78,6 +78,9 @@ spec:
         - node: ${WORKER_NODE_6}
           paths:
           - /var/mnt/local-db
+        - node: ${WORKER_NODE_7}
+          paths:
+          - /var/mnt/local-db
       nas-block:
         storageClass:
           create: true
