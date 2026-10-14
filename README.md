@@ -40,8 +40,8 @@ its own databases. Two Pi-hole containers serve DNS.
 - **Login and certificates:** Authentik for single sign-on, cert-manager for TLS.
 - **Storage:** databases are CloudNativePG clusters of two instances on node-local disk
   (`local-db`), archiving to the backup NAS's S3 store; application data is on NFS from the
-  NAS (`nfs-retain-rwo` and friends); the few single-instance stateful apps that need a block
-  device use NAS block storage.
+  NAS (`nfs-retain-rwo` and friends); Prometheus and Alertmanager, which write constantly,
+  use block storage on the NAS (`nas-block`) to spare the hosts' SSDs.
 - **Monitoring:** Prometheus, Alertmanager and Grafana (kube-prometheus-stack), with Loki for
   logs and Alloy collecting them, for the cluster and the machines around it.
 
