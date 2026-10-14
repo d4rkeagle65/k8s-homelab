@@ -1,6 +1,9 @@
 # Rolling upgrade of the Proxmox hosts, one at a time, with the Proxmox
 # cluster and the Kubernetes cluster checked healthy before each host and after
-# any reboot. A failed check stops the run before the next host is touched.
+# any reboot. A reboot drains the host's Kubernetes nodes first and waits for
+# every database cluster afterwards (tasks/proxmox-host-reboot.yml, as
+# proxmox-reboot.yml). A failed check stops the run before the next host is
+# touched.
 #
 # Inventory (kept in Semaphore, never in git; see README.md):
 #   proxmox    every host, in the order to upgrade them; root over SSH
@@ -53,6 +56,9 @@
     - name: The Kubernetes cluster is healthy
       ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
 
+    - name: Set up kubectl, for draining a host's Kubernetes nodes before its reboot
+      ansible.builtin.include_tasks: tasks/kubectl-local.yml
+
 - name: Upgrade the Proxmox hosts one at a time
   hosts: proxmox
   serial: 1
@@ -62,6 +68,9 @@
   vars:
     in_no_reboot: "{{ inventory_hostname in groups.get('no_reboot', []) }}"
     dns_on: "{{ dns_guest_tag | default('') | length > 0 }}"
+    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
+    kubectl_host: localhost
+    reboot_reason: Rebooting for the Proxmox upgrade (Semaphore)
   tasks:
     - name: The Proxmox cluster has quorum
       ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
@@ -165,54 +174,9 @@
       ansible.builtin.set_fact:
         will_reboot: "{{ reboot_due and not in_no_reboot | bool and not dns_blocks_reboot | bool }}"
 
-    - name: Reboot, keeping DNS and the evacuated VMs up
+    - name: Reboot, draining its Kubernetes nodes and keeping DNS and the evacuated VMs up
+      ansible.builtin.include_tasks: tasks/proxmox-host-reboot.yml
       when: will_reboot | bool
-      block:
-        - name: The other DNS servers answer, just before the reboot
-          ansible.builtin.include_tasks: tasks/dns-answers.yml
-          vars:
-            dns_check: "{{ dns_elsewhere }}"
-            dns_wait: true
-          when: dns_here | length > 0 and dns_elsewhere | length > 0
-
-        - name: Move the VMs off
-          ansible.builtin.include_tasks: tasks/migrate.yml
-          loop: "{{ evacuate_plan }}"
-          loop_control:
-            loop_var: planned
-            label: "{{ planned.name }}"
-          vars:
-            mig: "{{ planned | combine({'from': inventory_hostname, 'node': planned.to_node}) }}"
-
-        - name: Reboot
-          ansible.builtin.reboot:
-            reboot_timeout: 900
-            msg: Rebooting for the Proxmox upgrade (Semaphore)
-
-        - name: Wait for the Kubernetes nodes to be Ready again
-          ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
-          args:
-            apply:
-              delegate_to: localhost
-          vars:
-            k8s_wait: true
-
-        - name: Wait for this host's DNS servers to answer again
-          ansible.builtin.include_tasks: tasks/dns-answers.yml
-          vars:
-            dns_check: "{{ dns_here }}"
-            dns_wait: true
-          when: dns_here | length > 0
-
-        - name: Move the VMs back
-          ansible.builtin.include_tasks: tasks/migrate.yml
-          loop: "{{ evacuate_plan }}"
-          loop_control:
-            loop_var: planned
-            label: "{{ planned.name }}"
-          vars:
-            mig: "{{ planned | combine({'from': planned.to, 'node': pve_node}) }}"
-          when: evacuate_return | default(true) | bool
 
     - name: The Proxmox cluster has quorum after this host
       ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
@@ -255,8 +219,11 @@
                        map(attribute='dns_guests') | first | default([]) | length) == 1
                    else 'none') }}
 
-    - name: Remove the written CA certificate
+    - name: Remove the CA certificate, and kubectl with its kubeconfig
       ansible.builtin.file:
-        path: "{{ playbook_dir }}/.k8s-ca.pem"
+        path: "{{ item }}"
         state: absent
+      loop:
+        - "{{ playbook_dir }}/.k8s-ca.pem"
+        - "{{ kubectl_dir }}"
       check_mode: false

@@ -1,0 +1,142 @@
+# Reboots this Proxmox host without breaking either cluster, for
+# proxmox-reboot.yml and proxmox-upgrade.yml:
+#
+# 1. Every Kubernetes node running here (a guest whose name is a node's) is
+#    taken out of service: its database primaries switched to a replica on
+#    another node, then cordoned and drained (k8s-node-drain.yml). Two control
+#    planes on one host would take etcd's quorum down with it, so that stops
+#    the run.
+# 2. The VMs in evacuate_plan (evacuate-check.yml) are live-migrated off; HA
+#    VMs move by Proxmox HA's own shutdown policy; any other guest here is
+#    shut down with the host and starts again at boot, and is listed first.
+# 3. The host reboots once this host's DNS servers have others answering.
+# 4. Afterwards: quorum, every Kubernetes node Ready, this host's nodes
+#    uncordoned, every database cluster whole again, this host's DNS servers
+#    answering, and the evacuated VMs moved back (unless evacuate_return is
+#    false). A failed check stops the run, before the next host.
+#
+# Needs proxmox-guests.yml, dns-guests.yml (dns_here, dns_elsewhere, or both
+# empty), evacuate_plan, kubectl_cmd and kubectl_host (kubectl-local.yml),
+# and the CA at .k8s-ca.pem for kubernetes-healthy.yml.
+
+- name: Start the list of database maintenance windows
+  ansible.builtin.set_fact:
+    cnpg_maintenance_all: []
+
+- name: Read the Kubernetes nodes
+  ansible.builtin.command: "{{ kubectl_cmd }} get nodes -o json"
+  delegate_to: "{{ kubectl_host }}"
+  register: reboot_nodes_json
+  changed_when: false
+  check_mode: false
+
+- name: Work out what runs here
+  ansible.builtin.set_fact:
+    reboot_k8s_here: "{{ reboot_here_running | map(attribute='name') | intersect(reboot_all_nodes | map(attribute='metadata.name')) }}"
+    reboot_cp_here: >-
+      {% set cps = [] %}{% for n in reboot_all_nodes
+         if 'node-role.kubernetes.io/control-plane' in n.metadata.labels | default({}) %}{%
+         set _ = cps.append(n.metadata.name) %}{% endfor %}{{ cps | intersect(reboot_here_running | map(attribute='name')) }}
+    reboot_others_here: >-
+      {{ reboot_here_running | map(attribute='name')
+         | difference(reboot_all_nodes | map(attribute='metadata.name'))
+         | difference(evacuate_plan | map(attribute='name')) }}
+  vars:
+    reboot_all_nodes: "{{ (reboot_nodes_json.stdout | from_json)['items'] }}"
+    reboot_here_running: "{{ pve_guests | selectattr('node', 'equalto', pve_node) | selectattr('status', 'equalto', 'running') | list }}"
+
+- name: Report what the reboot does to it
+  ansible.builtin.debug:
+    msg:
+      - "Kubernetes nodes to drain: {{ reboot_k8s_here or ['none'] }} (control planes: {{ reboot_cp_here or ['none'] }})"
+      - "VMs to move off first: {{ evacuate_plan | map(attribute='name') | list or ['none'] }}"
+      - "Shut down and started again with the host, or moved by Proxmox HA: {{ reboot_others_here or ['none'] }}"
+
+- name: At most one control plane here, so etcd keeps its quorum
+  ansible.builtin.assert:
+    that: reboot_cp_here | length <= 1
+    fail_msg: >-
+      {{ inventory_hostname }} runs the control planes {{ reboot_cp_here | join(', ') }}; rebooting it
+      would take etcd's quorum down. Move one to another host first.
+    quiet: true
+
+- name: Take each Kubernetes node here out of service
+  ansible.builtin.include_tasks: k8s-node-drain.yml
+  loop: "{{ reboot_k8s_here }}"
+  loop_control:
+    loop_var: k8s_node
+
+- name: The other DNS servers answer, just before the reboot
+  ansible.builtin.include_tasks: dns-answers.yml
+  vars:
+    dns_check: "{{ dns_elsewhere }}"
+    dns_wait: true
+  when: dns_here | default([]) | length > 0 and dns_elsewhere | default([]) | length > 0
+
+- name: Move the VMs off
+  ansible.builtin.include_tasks: migrate.yml
+  loop: "{{ evacuate_plan }}"
+  loop_control:
+    loop_var: planned
+    label: "{{ planned.name }}"
+  vars:
+    mig: "{{ planned | combine({'from': inventory_hostname, 'node': planned.to_node}) }}"
+
+- name: Reboot
+  ansible.builtin.reboot:
+    reboot_timeout: 900
+    msg: "{{ reboot_reason | default('Rebooting the host (Semaphore)') }}"
+
+- name: The Proxmox cluster has quorum again
+  ansible.builtin.include_tasks: proxmox-quorate.yml
+
+- name: Wait for every Kubernetes node to be Ready
+  ansible.builtin.include_tasks: kubernetes-healthy.yml
+  args:
+    apply:
+      delegate_to: localhost
+  vars:
+    k8s_wait: true
+
+- name: Uncordon this host's Kubernetes nodes
+  ansible.builtin.command: "{{ kubectl_cmd }} uncordon {{ item }}"
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ reboot_k8s_here }}"
+  changed_when: true
+
+- name: Read them back
+  ansible.builtin.command: "{{ kubectl_cmd }} get node {{ item }} -o jsonpath={.spec.unschedulable}"
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ reboot_k8s_here }}"
+  register: reboot_uncordoned
+  failed_when: reboot_uncordoned.stdout | trim == 'true'
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Close the database maintenance windows
+  ansible.builtin.include_tasks: cnpg-maintenance-end.yml
+  vars:
+    cnpg_maintenance: "{{ cnpg_maintenance_all }}"
+  when: cnpg_maintenance_all | length > 0
+
+- name: Wait for every database cluster to be whole again
+  ansible.builtin.include_tasks: cnpg-healthy.yml
+  vars:
+    cnpg_wait: true
+
+- name: Wait for this host's DNS servers to answer again
+  ansible.builtin.include_tasks: dns-answers.yml
+  vars:
+    dns_check: "{{ dns_here }}"
+    dns_wait: true
+  when: dns_here | default([]) | length > 0
+
+- name: Move the VMs back
+  ansible.builtin.include_tasks: migrate.yml
+  loop: "{{ evacuate_plan }}"
+  loop_control:
+    loop_var: planned
+    label: "{{ planned.name }}"
+  vars:
+    mig: "{{ planned | combine({'from': planned.to, 'node': pve_node}) }}"
+  when: evacuate_return | default(true) | bool

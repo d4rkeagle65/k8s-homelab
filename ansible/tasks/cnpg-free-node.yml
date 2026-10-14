@@ -4,10 +4,11 @@
 # single-instance cluster on it gets nodeMaintenanceWindow {inProgress: true,
 # reusePVC: true}, so its PodDisruptionBudget goes and its pod waits for the
 # node's local disk. Sets cnpg_maintenance (namespace/name list) for
-# cnpg-maintenance-end.yml. kubectl runs on kubectl_host.
+# cnpg-maintenance-end.yml, and adds it to cnpg_maintenance_all. kubectl runs
+# on kubectl_host, as kubectl_cmd (default: kubeadm's admin.conf).
 - name: Read the database clusters and their pods
   ansible.builtin.command: >-
-    kubectl --kubeconfig /etc/kubernetes/admin.conf get {{ item }} -A -o json
+    {{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} get {{ item }} -A -o json
   delegate_to: "{{ kubectl_host }}"
   loop:
     - clusters.postgresql.cnpg.io
@@ -43,6 +44,10 @@
           set _ = out.append(c.metadata.namespace ~ '/' ~ c.metadata.name) %}{%
         endfor %}{% endfor %}{{ out | unique }}
 
+- name: Add them to the run's list, for a caller draining several nodes
+  ansible.builtin.set_fact:
+    cnpg_maintenance_all: "{{ cnpg_maintenance_all | default([]) + cnpg_maintenance }}"
+
 - name: Every primary here has a ready replica elsewhere
   ansible.builtin.assert:
     that: cnpg_switchovers | selectattr('to', 'equalto', '') | list | length == 0
@@ -59,7 +64,7 @@
 
 - name: Switch each primary over
   ansible.builtin.command: >-
-    kubectl --kubeconfig /etc/kubernetes/admin.conf patch clusters.postgresql.cnpg.io
+    {{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} patch clusters.postgresql.cnpg.io
     -n {{ item.namespace }} {{ item.name }} --subresource=status --type=merge
     -p '{{ {"status": {"targetPrimary": item.to,
                        "targetPrimaryTimestamp": now(utc=true).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
@@ -73,7 +78,7 @@
 
 - name: Wait for each switchover
   ansible.builtin.command: >-
-    kubectl --kubeconfig /etc/kubernetes/admin.conf get clusters.postgresql.cnpg.io
+    {{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} get clusters.postgresql.cnpg.io
     -n {{ item.namespace }} {{ item.name }} -o jsonpath={.status.currentPrimary}|{.status.phase}
   delegate_to: "{{ kubectl_host }}"
   loop: "{{ cnpg_switchovers }}"
@@ -88,7 +93,7 @@
 
 - name: Open a maintenance window on each single-instance cluster here
   ansible.builtin.command: >-
-    kubectl --kubeconfig /etc/kubernetes/admin.conf patch clusters.postgresql.cnpg.io
+    {{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} patch clusters.postgresql.cnpg.io
     -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} --type=merge
     -p '{"spec": {"nodeMaintenanceWindow": {"inProgress": true, "reusePVC": true}}}'
   delegate_to: "{{ kubectl_host }}"
@@ -97,7 +102,7 @@
 
 - name: Read the maintenance windows back
   ansible.builtin.command: >-
-    kubectl --kubeconfig /etc/kubernetes/admin.conf get clusters.postgresql.cnpg.io
+    {{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} get clusters.postgresql.cnpg.io
     -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} -o jsonpath={.spec.nodeMaintenanceWindow.inProgress}
   delegate_to: "{{ kubectl_host }}"
   loop: "{{ cnpg_maintenance }}"

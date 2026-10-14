@@ -1,0 +1,133 @@
+# Reboots Proxmox hosts one at a time, with nothing else changed: for each,
+# the Kubernetes nodes on it are drained (their database primaries switched
+# to replicas elsewhere first), the VMs listed in evacuate are live-migrated
+# off, the host reboots, and the run waits until every node is Ready, every
+# database cluster whole and the moved VMs back before the next host
+# (tasks/proxmox-host-reboot.yml, which proxmox-upgrade.yml uses too).
+#
+# Which hosts: reboot_hosts, an Ansible host pattern (one host, a
+# comma-separated list, or a group); unset, every host in the proxmox group,
+# in inventory order. Each must be in the proxmox group.
+#
+# Inventory and variables as for proxmox-upgrade.yml: the proxmox group,
+# dns_guest_tag, evacuate (per host), evacuate_return, and the Kubernetes
+# variable group (k8s_api_url, k8s_ca_b64, k8s_token). The ServiceAccount
+# behind k8s_token may cordon nodes, evict pods and switch database primaries
+# over (kubernetes/prod/system/cluster-access/semaphore/).
+#
+# In check mode (--check) it runs the checks and lists, per host, what it
+# would drain, move and restart, and changes nothing.
+
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: proxmox
+
+- name: Check the clusters and set up kubectl
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Decode the Kubernetes CA certificate
+      ansible.builtin.set_fact:
+        k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+    - name: The CA certificate is one
+      ansible.builtin.assert:
+        that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+        fail_msg: >-
+          k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
+          token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+        quiet: true
+
+    - name: Write the Kubernetes CA certificate for the API checks
+      ansible.builtin.copy:
+        content: "{{ k8s_ca_pem }}"
+        dest: "{{ playbook_dir }}/.k8s-ca.pem"
+        mode: "0600"
+      check_mode: false
+
+    - name: The Kubernetes cluster is healthy
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+
+    - name: Set up kubectl
+      ansible.builtin.include_tasks: tasks/kubectl-local.yml
+
+    - name: Every database cluster is healthy
+      ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+
+    - name: Every host to reboot is a Proxmox host
+      ansible.builtin.assert:
+        that: reboot_targets | difference(groups['proxmox']) | length == 0 and reboot_targets | length > 0
+        fail_msg: >-
+          reboot_hosts ({{ reboot_hosts | default('unset') }}) names
+          {{ reboot_targets | difference(groups['proxmox']) | join(', ') or 'no host' }},
+          not in the proxmox group.
+        quiet: true
+      vars:
+        reboot_targets: "{{ query('inventory_hostnames', reboot_hosts | default('proxmox')) }}"
+
+- name: Reboot the hosts one at a time
+  hosts: "{{ reboot_hosts | default('proxmox') }}"
+  serial: 1
+  order: inventory
+  any_errors_fatal: true
+  gather_facts: false
+  vars:
+    dns_on: "{{ dns_guest_tag | default('') | length > 0 }}"
+    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
+    kubectl_host: localhost
+    reboot_reason: Rebooting the host (Semaphore, proxmox-reboot.yml)
+  tasks:
+    - name: The Proxmox cluster has quorum
+      ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
+
+    - name: The Kubernetes cluster is healthy before this host
+      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+
+    - name: Every database cluster is healthy before this host
+      ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+
+    - name: Read the Proxmox guests
+      ansible.builtin.include_tasks: tasks/proxmox-guests.yml
+
+    - name: Find the DNS servers
+      ansible.builtin.include_tasks: tasks/dns-guests.yml
+      when: dns_on | bool
+
+    - name: DNS allows rebooting this host
+      ansible.builtin.assert:
+        that: >-
+          not (dns_on | bool and dns_here | default([]) | length > 0
+               and dns_elsewhere | default([]) | length == 0 and dns_guests | default([]) | length > 1)
+        fail_msg: "{{ inventory_hostname }} carries every DNS server; reboot it by hand."
+        quiet: true
+
+    - name: Start the evacuation plan
+      ansible.builtin.set_fact:
+        evacuate_plan: []
+
+    - name: Check the VMs to move off this host can go
+      ansible.builtin.include_tasks: tasks/evacuate-check.yml
+      loop: "{{ evacuate | default([]) }}"
+      loop_control:
+        loop_var: evac
+      vars:
+        evacuate_memory_margin_mb: "{{ evacuate_memory_margin | default(1024) }}"
+
+    - name: Reboot it
+      ansible.builtin.include_tasks: tasks/proxmox-host-reboot.yml
+
+- name: Clean up
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove the CA certificate, and kubectl with its kubeconfig
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ playbook_dir }}/.k8s-ca.pem"
+        - "{{ kubectl_dir }}"
+      check_mode: false
