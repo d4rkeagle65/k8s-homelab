@@ -55,7 +55,7 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 
 | | Threads | RAM | Today | Notes |
 |---|---|---|---|---|
-| H1 | 8 | 31 GB | Talos control plane (VM 112), Pi-hole 2; its LXC worker retired | |
+| H1 | 8 | 31 GB | Talos control plane (VM 112), Talos worker (VM 117), Pi-hole 2 | |
 | H2 | 4 | 31 GB | Talos worker (VM 116); control plane 3 and worker 3 retired, their LXCs kept off | VT-x and VT-d on since 2026-10-12 |
 | H3 | 4 | 15.5 GB | Talos worker (VM 115) | its NVMe is at 86% wear (QUEUE.md) |
 | H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
@@ -65,13 +65,13 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 
 | | Talos control plane (2 vCPU, 4 GiB) | Talos worker |
 |---|---|---|
-| H1 | yes | 4 vCPU, 12 GiB |
+| H1 | yes | 4 vCPU, 16 GiB (2026-10-14: memory was what kept a worker from draining) |
 | H2 | no | 3 vCPU, 16 GiB |
 | H3 | no (small, worn disk) | 4 vCPU, 10 GiB (the owner, 2026-10-14: with local-db, worn disk or not) |
 | H4 | yes | 2 vCPU, 8 GiB |
 | H5 | yes | 6 vCPU, 20 GiB |
 
-62 GiB of workers in all; losing the largest (H5) leaves 42 GiB, above the requests with room.
+66 GiB of workers in all; losing the largest (H5) leaves 46 GiB, above the requests with room.
 Control planes on H1, H4, H5 (the owner, 2026-10-13: the first Talos one was built on H5): losing
 any one keeps etcd's quorum.
 
@@ -192,8 +192,10 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       `k8s_retired`. Left for each: its node object deleted once stopped, and with 101-103
       (~2026-10-20) the container destroyed, then removed from `k8s_nodes` and its
       local-path entries. The third Talos worker, `[redacted]k8sw06a` (VM 116, H2, 3 vCPU, 16 GiB,
-      local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14. Next: a fourth Talos
-      worker on H1 (4 vCPU, 12 GiB, local-db), so losing H5 still leaves room. The
+      local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14. The fourth, `[redacted]k8sw07a`
+      (VM 117, H1, 4 vCPU, 16 GiB, 80G system disk, local-db, `WORKER_NODE_7`), in
+      `talos_nodes` since 2026-10-14, so any one worker can drain. Next: the other workers'
+      system disks to 80G (114's grown, waiting for its drained reboot). The
       iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only): mount, detach, reattach and a move between Talos workers

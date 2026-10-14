@@ -42,6 +42,7 @@ locals {
     "114" = { role = "worker", cores = 6, memory = 20480, disk_gb = 80, data_gb = 128, apply_mode = "no_reboot" }
     "115" = { role = "worker", cores = 4, memory = 10240, disk_gb = 32, data_gb = 128, apply_mode = "no_reboot" }
     "116" = { role = "worker", cores = 3, memory = 16384, disk_gb = 32, data_gb = 128, apply_mode = "no_reboot" }
+    "117" = { role = "worker", cores = 4, memory = 16384, disk_gb = 80, data_gb = 128, apply_mode = "auto" }
   }
 
   # Each node's address on the main network, the one its kubelet and etcd use.
