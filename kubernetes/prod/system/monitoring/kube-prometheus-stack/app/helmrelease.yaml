@@ -137,13 +137,24 @@ spec:
         resources:
           requests: {cpu: 100m, memory: 768Mi}
           limits: {memory: 2Gi}
-        # nas-block: a directory on the worker's own iSCSI LUN on the NAS, so
-        # the constant writes miss the hosts' SSDs. A block device, not NFS,
-        # which Prometheus's docs rule out for its database.
+        # nas-iscsi: each replica's own LUN on the NAS, so the constant writes
+        # miss the hosts' SSDs and the volume follows its pod to any Talos node.
+        # A block device, not NFS, which Prometheus's docs rule out for its
+        # database. Only Talos nodes mount nas-iscsi, hence the affinity; it's
+        # preferred, not required, while a replica keeps its claim from the
+        # template before (nas-block, on an LXC worker) until that worker goes.
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: extensions.talos.dev/iscsi-tools
+                      operator: Exists
         storageSpec:
           volumeClaimTemplate:
             spec:
-              storageClassName: nas-block
+              storageClassName: nas-iscsi
               accessModes: [ReadWriteOnce]
               resources:
                 requests:
