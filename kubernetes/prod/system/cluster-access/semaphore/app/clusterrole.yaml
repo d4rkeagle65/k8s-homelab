@@ -1,4 +1,9 @@
-# Read the nodes and the API server's health endpoints; nothing else.
+# Semaphore's ServiceAccount: read the nodes and the API server's health, and
+# what taking a node out of service needs (ansible/tasks/k8s-node-drain.yml,
+# cnpg-free-node.yml, proxmox-host-reboot.yml): cordon and uncordon nodes,
+# evict their pods (kubectl drain reads the pods and their DaemonSets), and
+# switch CloudNativePG primaries over and open maintenance windows. Nothing
+# else: no Secrets, no deleting, no other writes.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6,6 +11,21 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["nodes"]
+  verbs: ["get", "list", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
   verbs: ["get", "list"]
-- nonResourceURLs: ["/readyz", "/readyz/*", "/livez", "/livez/*"]
+- apiGroups: [""]
+  resources: ["pods/eviction"]
+  verbs: ["create"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets"]
+  verbs: ["get", "list"]
+- apiGroups: ["postgresql.cnpg.io"]
+  resources: ["clusters"]
+  verbs: ["get", "list", "patch"]
+- apiGroups: ["postgresql.cnpg.io"]
+  resources: ["clusters/status"]
+  verbs: ["patch"]
+- nonResourceURLs: ["/readyz", "/readyz/*", "/livez", "/livez/*", "/version"]
   verbs: ["get"]

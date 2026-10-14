@@ -1,0 +1,81 @@
+# kubectl on the machine running the playbook (Semaphore), for the plays that
+# change the cluster now that no node has kubeadm's admin.conf: the release
+# matching the API server's version from dl.k8s.io, checked against its
+# published SHA-256, and a kubeconfig with Semaphore's ServiceAccount token
+# (k8s_api_url, k8s_token and the CA written to .k8s-ca.pem before this).
+# Sets kubectl_cmd, kubectl_host (localhost) and kubectl_dir for the
+# k8s-node-* and cnpg-* tasks. Both files go in a new private temporary
+# directory (0700), never the playbook's folder, which Semaphore keeps between
+# runs; the playbook's last play removes it.
+- name: Read the API server's version
+  ansible.builtin.uri:
+    url: "{{ k8s_api_url }}/version"
+    headers:
+      Authorization: "Bearer {{ k8s_token }}"
+    ca_path: "{{ playbook_dir }}/.k8s-ca.pem"
+    return_content: true
+  register: kubectl_server_version
+  no_log: true
+  check_mode: false
+
+- name: Read this machine's architecture
+  ansible.builtin.command: uname -m
+  register: kubectl_uname
+  changed_when: false
+  check_mode: false
+
+- name: Work out the download
+  ansible.builtin.set_fact:
+    kubectl_url: >-
+      https://dl.k8s.io/release/{{ kubectl_server_version.json.gitVersion }}/bin/linux/{{
+      {'x86_64': 'amd64', 'aarch64': 'arm64'}[kubectl_uname.stdout | trim] }}/kubectl
+
+- name: Make a private directory for kubectl and its kubeconfig
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: kubectl.
+  register: kubectl_tmp
+  check_mode: false
+
+- name: Download kubectl {{ kubectl_server_version.json.gitVersion }}
+  ansible.builtin.get_url:
+    url: "{{ kubectl_url }}"
+    checksum: "sha256:{{ kubectl_url }}.sha256"
+    dest: "{{ kubectl_tmp.path }}/kubectl"
+    mode: "0700"
+  check_mode: false
+
+- name: Write the kubeconfig
+  ansible.builtin.copy:
+    dest: "{{ kubectl_tmp.path }}/kubeconfig"
+    mode: "0600"
+    content: |
+      apiVersion: v1
+      kind: Config
+      clusters:
+      - name: cluster
+        cluster:
+          server: {{ k8s_api_url }}
+          certificate-authority: {{ playbook_dir }}/.k8s-ca.pem
+      users:
+      - name: semaphore
+        user:
+          token: {{ k8s_token }}
+      contexts:
+      - name: semaphore
+        context: {cluster: cluster, user: semaphore}
+      current-context: semaphore
+  no_log: true
+  check_mode: false
+
+- name: Use it
+  ansible.builtin.set_fact:
+    kubectl_cmd: "{{ kubectl_tmp.path }}/kubectl --kubeconfig {{ kubectl_tmp.path }}/kubeconfig"
+    kubectl_host: localhost
+    kubectl_dir: "{{ kubectl_tmp.path }}"
+
+- name: The cluster answers kubectl
+  ansible.builtin.command: "{{ kubectl_cmd }} get nodes -o name"
+  register: kubectl_check
+  changed_when: false
+  check_mode: false

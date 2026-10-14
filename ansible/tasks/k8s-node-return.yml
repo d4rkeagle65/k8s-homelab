@@ -2,7 +2,7 @@
 # node to be Ready, close the database maintenance windows, and wait until
 # every database cluster has all its instances ready again.
 - name: Uncordon the node
-  ansible.builtin.command: kubectl --kubeconfig /etc/kubernetes/admin.conf uncordon {{ k8s_node }}
+  ansible.builtin.command: "{{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} uncordon {{ k8s_node }}"
   delegate_to: "{{ kubectl_host }}"
   changed_when: true
 
