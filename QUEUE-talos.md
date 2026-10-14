@@ -192,9 +192,12 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       (~2026-10-20) the container destroyed, then removed from `k8s_nodes` and its
       local-path entries. The iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
-      plugin on Talos nodes only): mount, detach and reattach proven 2026-10-14; a move to
-      another node waits for the second Talos worker, `coprvmk8sw05a` (VM 115, H3, 4 vCPU,
-      10 GiB, local-db as the first's, `WORKER_NODE_5`), in `talos_nodes` since 2026-10-14
+      plugin on Talos nodes only): mount, detach, reattach and a move between Talos workers
+      proven 2026-10-14. The second Talos worker, `coprvmk8sw05a` (VM 115, H3, 4 vCPU, 10 GiB,
+      local-db as the first's, `WORKER_NODE_5`), in `talos_nodes` since 2026-10-14, local-db
+      proven there. A Talos VM is created on its `guests` entry's `node`: check it before the
+      apply (115 was first made on H5 from a copied entry, then live-migrated). Next: w01a and
+      w03a retired by the recipe above
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network

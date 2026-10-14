@@ -35,7 +35,7 @@ locals {
     "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
     "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
     "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
-    "114" = { role = "worker", cores = 6, memory = 20480, disk_gb = 32, data_gb = 128, apply_mode = "auto" }
+    "114" = { role = "worker", cores = 6, memory = 20480, disk_gb = 32, data_gb = 128, apply_mode = "no_reboot" }
     "115" = { role = "worker", cores = 4, memory = 10240, disk_gb = 32, data_gb = 128, apply_mode = "auto" }
   }
 
