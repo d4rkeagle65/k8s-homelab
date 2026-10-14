@@ -191,8 +191,9 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only), proven on 2026-10-14 by a throwaway claim: made, written,
       detached (no session left), reattached in a new pod with the same data. A move to another
-      node waits for a second Talos worker. Next: Prometheus's second replica onto it, with
-      node affinity for Talos
+      node waits for a second Talos worker. Prometheus's template is `nas-iscsi` with a
+      preferred Talos affinity; its second replica moves (old claim deleted, then its pod, with
+      w03a cordoned so the Talos worker is the only place left for it)
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network

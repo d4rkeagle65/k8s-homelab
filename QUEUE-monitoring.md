@@ -17,9 +17,11 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - **Conversion to captured** (last phase), per release: remove `.handwritten`, `capture`,
   `generate`, then check that the captured `values.yaml` matches what was in git and that
   Flux has nothing to change. Write the recipe into `scripts/README.md` the first time.
-- **Storage:** Prometheus and Alertmanager on `nas-block`, a directory on each worker's own
-  iSCSI LUN on the NAS (`ansible/tasks/proxmox-nas-block.yml`), so their constant writes land on
+- **Storage:** Prometheus and Alertmanager on the NAS's iSCSI, so their constant writes land on
   the NAS's hard drives, not the hosts' SSDs; a block device, since Prometheus's docs rule out NFS.
+  Prometheus's template is `nas-iscsi` (a LUN per replica, Talos nodes only); a replica moves to it
+  when its LXC worker is retired (QUEUE-talos.md). Alertmanager is still on `nas-block`, a
+  directory on each LXC worker's own LUN (`ansible/tasks/proxmox-nas-block.yml`).
   Grafana on `nfs-retain-rwo` (its own small SQLite: users and UI-made dashboards survive a pod
   move). Loki's chunks go to Garage on the NAS (S3), only its write-ahead log stays local.
 - **No single host:** two Prometheus replicas, each scraping everything into its own volume,
@@ -28,8 +30,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - **Light writes:** scrape and rule evaluation every 60 seconds; the API server's latency and
   size histograms dropped at scrape time (most of a small cluster's series), with the four
   rule groups that read them off.
-- **Retention:** Prometheus 15 days, capped at 18 GiB per replica (each `nas-block` mount is
-  28 GiB); Loki 14 days. Logs are for diagnosis, not records.
+- **Retention:** Prometheus 15 days, capped at 18 GiB per replica (each volume is
+  20 GiB); Loki 14 days. Logs are for diagnosis, not records.
 - **Placement:** by resource requests, set on everything, plus the replicas' hard
   anti-affinity. Worker 1 has the most memory requested, so the pairs usually land on 2 and 3.
 - **Memory budget** (requests / limits, per pod): Prometheus 768 MiB / 2 GiB (two of them),
