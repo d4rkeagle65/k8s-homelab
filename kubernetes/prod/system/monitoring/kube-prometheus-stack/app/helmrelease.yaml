@@ -176,10 +176,20 @@ spec:
         resources:
           requests: {cpu: 10m, memory: 64Mi}
           limits: {memory: 128Mi}
+        # On nas-iscsi, preferring Talos nodes, for the same reasons as
+        # Prometheus's storage above.
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: extensions.talos.dev/iscsi-tools
+                      operator: Exists
         storage:
           volumeClaimTemplate:
             spec:
-              storageClassName: nas-block
+              storageClassName: nas-iscsi
               accessModes: [ReadWriteOnce]
               resources:
                 requests:

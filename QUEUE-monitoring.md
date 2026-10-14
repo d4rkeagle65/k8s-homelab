@@ -19,9 +19,9 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
   Flux has nothing to change. Write the recipe into `scripts/README.md` the first time.
 - **Storage:** Prometheus and Alertmanager on the NAS's iSCSI, so their constant writes land on
   the NAS's hard drives, not the hosts' SSDs; a block device, since Prometheus's docs rule out NFS.
-  Prometheus's template is `nas-iscsi` (a LUN per replica, Talos nodes only); a replica moves to it
-  when its LXC worker is retired (QUEUE-talos.md). Alertmanager is still on `nas-block`, a
-  directory on each LXC worker's own LUN (`ansible/tasks/proxmox-nas-block.yml`).
+  Prometheus's and Alertmanager's templates are `nas-iscsi` (a LUN per replica, Talos nodes
+  only); a replica still on `nas-block` (a directory on its LXC worker's own LUN,
+  `ansible/tasks/proxmox-nas-block.yml`) moves when that worker is retired (QUEUE-talos.md).
   Grafana on `nfs-retain-rwo` (its own small SQLite: users and UI-made dashboards survive a pod
   move). Loki's chunks go to Garage on the NAS (S3), only its write-ahead log stays local.
 - **No single host:** two Prometheus replicas, each scraping everything into its own volume,
