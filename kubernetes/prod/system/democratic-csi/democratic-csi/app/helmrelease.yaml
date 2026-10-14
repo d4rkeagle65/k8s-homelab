@@ -42,14 +42,15 @@ spec:
     csiDriver:
       name: org.democratic-csi.synology-iscsi
     # Each claim on `nas-iscsi` is a LUN on volume1 with its own target, made
-    # through DSM's API; the node mounts it over iSCSI on the main network. The
+    # through DSM's API; the node mounts it over iSCSI on the management network
+    # (the NAS's only iSCSI listener; every Talos node has eth1 there). The
     # login comes from valuesFrom above.
     driver:
       config:
         driver: synology-iscsi
         httpConnection:
           protocol: https
-          host: ${NAS_HOSTNAME}
+          host: ${NAS_MGMT_HOSTNAME}
           port: 5001
           # DSM's own self-signed certificate.
           allowInsecure: true
@@ -58,7 +59,7 @@ spec:
         synology:
           volume: /volume1
         iscsi:
-          targetPortal: ${NAS_HOSTNAME}:3260
+          targetPortal: ${NAS_MGMT_HOSTNAME}:3260
           baseiqn: "iqn.2000-01.com.synology:csi."
           # Tells these LUNs and targets apart from the Proxmox hosts' nas-block
           # LUNs in DSM's SAN Manager.
