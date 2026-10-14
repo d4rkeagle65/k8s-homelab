@@ -90,7 +90,7 @@ spec:
                   memory: 1376Mi
                 limits:
                   cpu: 1000m
-                  memory: 3Gi
+                  memory: 6Gi
       enabled: true
       ingress:
         main:

@@ -103,7 +103,8 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] Re-measure at seven days (2026-10-18): requests from the new peaks, limits by the rules
       above. Immich's server was throttled in 66% of periods over the first two days, mostly
       while it crash-looped on 2026-10-11; if it stays above 10% it needs a judgement against
-      the 1000m cap
+      the 1000m cap. Its memory limit is 6Gi while the owner's library import runs (3Gi was
+      OOM-killed within 30 seconds of each start by the import's jobs); size it again once the import is done
 
 ## Resuming
 
