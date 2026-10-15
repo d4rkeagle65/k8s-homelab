@@ -54,7 +54,7 @@ Smallest risk first; Authentik last, since every forward-auth login waits on it.
 | 8 | `n8n/n8n-postgres` | 38 MB | env in its HelmRelease: **done 2026-10-15**, `n8n-db`, 101 s down |
 | 9 | `babybuddy/babybuddy-postgres` | 35 MB | `configmap-babybuddy-env.yaml` and its Deployment: **done 2026-10-15**, `babybuddy-db`, 81 s down |
 | 10 | `netbox/netbox-postgres` | 49 MB | its HelmRelease: **done 2026-10-15**, `netbox-db`, 130 s down |
-| 11 | `authentik/authentik-postgres` | 175 MB | `values.yaml` (captured release; `generate`) |
+| 11 | `authentik/authentik-postgres` | 175 MB | `values.yaml` (captured release; `generate`): **done 2026-10-15**, `authentik-db`, 108 s down |
 | 12 | `immich/immich-postgres` | | vectorchord `16-1.1.1`, already bookworm: Immich's own upgrade notes decide when |
 
 Each row is ticked with its date, the downtime and anything that differed, and gets a
@@ -70,6 +70,8 @@ From about 2026-10-17, once each app has run a day on 18: remove `postgres.yaml`
 - [ ] Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr (moved 2026-10-15)
 - [ ] Mealie, Linkwarden, n8n (`n8n/app/`), NetBox (`netbox/app/`): `postgres.yaml` and
       `scheduledbackup.yaml` with their lines in `app/kustomization.yaml` (moved 2026-10-15)
+- [ ] Authentik: `cluster-authentik-postgres.yaml` (`authentik-extras`, `.promote`; `generate`
+      after) and `scheduledbackup-authentik-postgres.yaml` (`authentik-backup/`) (moved 2026-10-15)
 - [ ] BabyBuddy: `cluster-babybuddy-postgres.yaml` (`.promote`; `generate` after) and
       `scheduledbackup-babybuddy-postgres.yaml` (`babybuddy-backup/`) (moved 2026-10-15) The retirements from ManicTime and
 Whisparr are in `QUEUE-updates.md`.
