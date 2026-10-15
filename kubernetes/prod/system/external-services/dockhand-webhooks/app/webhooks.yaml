@@ -1,0 +1,188 @@
+# When main moves, Flux calls each Docker stack's webhook in Dockhand (docker/<stack>/,
+# deployed from git by Dockhand), from inside the network. Dockhand re-clones and
+# redeploys a stack only if files in its own folder changed, so one call per stack
+# per commit is all it takes; any body is accepted. The stack IDs are Dockhand's.
+# claude-code has none: it redeploys on its own weekly schedule, since a redeploy
+# restarts the session running in it.
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-cadvisor
+spec:
+  type: generic
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/9/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-cadvisor
+spec:
+  providerRef:
+    name: dockhand-cadvisor
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-databasus
+spec:
+  type: generic
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/8/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-databasus
+spec:
+  providerRef:
+    name: dockhand-databasus
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-garage
+spec:
+  type: generic
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/7/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-garage
+spec:
+  providerRef:
+    name: dockhand-garage
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-kea
+spec:
+  type: generic
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/4/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-kea
+spec:
+  providerRef:
+    name: dockhand-kea
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-semaphore
+spec:
+  type: generic
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/6/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-semaphore
+spec:
+  providerRef:
+    name: dockhand-semaphore
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-tailscale
+spec:
+  type: generic
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/3/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-tailscale
+spec:
+  providerRef:
+    name: dockhand-tailscale
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-vaultwarden
+spec:
+  type: generic
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/2/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-vaultwarden
+spec:
+  providerRef:
+    name: dockhand-vaultwarden
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"

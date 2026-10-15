@@ -3,5 +3,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- dockhand-webhooks/ks.yaml
 - external-services/ks.yaml
 - namespace.yaml
