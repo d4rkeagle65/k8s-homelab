@@ -21,7 +21,7 @@ spec:
   chart:
     spec:
       chart: app-template
-      version: 3.7.3
+      version: 5.3.0
       sourceRef:
         kind: HelmRepository
         name: bjw-s
@@ -29,6 +29,12 @@ spec:
   values:
     controllers:
       main:
+        # Its own account, with the API token mounted: the kubernetes widget
+        # and service discovery read the cluster (rbac below).
+        serviceAccount:
+          identifier: homepage
+        pod:
+          automountServiceAccountToken: true
         containers:
           main:
             image:
@@ -68,7 +74,7 @@ spec:
     # The kubernetes widget reads nodes, pods and their metrics; its service
     # discovery lists Ingresses.
     serviceAccount:
-      create: true
+      homepage: {}
     rbac:
       roles:
         homepage:
@@ -89,7 +95,7 @@ spec:
           roleRef:
             identifier: homepage
           subjects:
-            - identifier: default
+            - identifier: homepage
     service:
       main:
         controller: main
