@@ -4,7 +4,7 @@ authentik:
   host: https://auth.${BASE_DOMAIN}
   log_level: debug
   postgresql:
-    host: authentik-postgres-rw
+    host: authentik-db-rw
     name: authentik
 blueprints:
   configMaps:
@@ -15,12 +15,12 @@ global:
     valueFrom:
       secretKeyRef:
         key: username
-        name: authentik-postgres-app
+        name: authentik-db-app
   - name: AUTHENTIK_POSTGRESQL__PASSWORD
     valueFrom:
       secretKeyRef:
         key: password
-        name: authentik-postgres-app
+        name: authentik-db-app
   - name: AUTHENTIK_SECRET_KEY
     valueFrom:
       secretKeyRef:
