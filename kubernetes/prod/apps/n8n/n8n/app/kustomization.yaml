@@ -4,5 +4,7 @@ resources:
 - secret.yaml
 - pvc.yaml
 - postgres.yaml
+- db.yaml
 - scheduledbackup.yaml
+- scheduledbackup-db.yaml
 - helmrelease.yaml
