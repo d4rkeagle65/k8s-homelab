@@ -38,11 +38,11 @@ Smallest risk first; Authentik last, since every forward-auth login waits on it.
 
 | Order | Cluster | Size | The app reads its connection from |
 |---|---|---|---|
-| 1 | `media/prowlarr-postgres` | 47 MB | env in its HelmRelease |
-| 2 | `media/bookshelf-postgres` | 69 MB | env in its HelmRelease |
-| 3 | `media/radarr-postgres` | 79 MB | env in its HelmRelease |
-| 4 | `media/sonarr-postgres` | 105 MB | env in its HelmRelease |
-| 5 | `media/lidarr-postgres` | 142 MB | env in its HelmRelease |
+| 1 | `media/prowlarr-postgres` | 47 MB | env in its HelmRelease: **done 2026-10-15**, `prowlarr-db`, 60 s down |
+| 2 | `media/bookshelf-postgres` | 69 MB | env in its HelmRelease (`READARR__POSTGRES__*`): **done 2026-10-15**, `bookshelf-db`, 67 s down |
+| 3 | `media/radarr-postgres` | 79 MB | env in its HelmRelease: **done 2026-10-15**, `radarr-db`, 64 s down |
+| 4 | `media/sonarr-postgres` | 105 MB | env in its HelmRelease: **done 2026-10-15**, `sonarr-db`, 65 s down |
+| 5 | `media/lidarr-postgres` | 142 MB | env in its HelmRelease: **done 2026-10-15**, `lidarr-db`, 63 s down |
 | 6 | `mealie/mealie-postgres` | 37 MB | env in `deployment.yaml` |
 | 7 | `linkwarden/linkwarden-postgres` | 34 MB | env in its HelmRelease |
 | 8 | `n8n/n8n-postgres` | 38 MB | env in its HelmRelease |
@@ -52,7 +52,16 @@ Smallest risk first; Authentik last, since every forward-auth login waits on it.
 | 12 | `immich/immich-postgres` | | vectorchord `16-1.1.1`, already bookworm: Immich's own upgrade notes decide when |
 
 Each row is ticked with its date, the downtime and anything that differed, and gets a
-"retire `<app>-postgres`" line until its old cluster is gone. The retirements from ManicTime and
+"retire `<app>-postgres`" line until its old cluster is gone.
+
+## Retire the old clusters
+
+From about 2026-10-17, once each app has run a day on 18: remove `postgres.yaml` and its
+`kustomization.yaml` line (`<app>/app/`), and `scheduledbackup-<app>-postgres.yaml` with its line
+(`media-backup/app/`); the owner then deletes the Cluster (kept from pruning) and its claims
+`<app>-postgres-1`/`-2`.
+
+- [ ] Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr (moved 2026-10-15) The retirements from ManicTime and
 Whisparr are in `QUEUE-updates.md`.
 
 ## Resuming
