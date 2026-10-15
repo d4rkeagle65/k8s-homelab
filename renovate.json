@@ -155,7 +155,7 @@
       ]
     },
     {
-      "description": "Kubernetes and Talos: a commit, then ansible/talos-k8s-upgrade.yml or talos-upgrade.yml, then the OpenTofu job (the playbooks' headers say why). A minor waits for approval on the Dependency Dashboard, after its add-ons' and Talos's support is checked.",
+      "description": "Kubernetes and Talos: a pull request for every release, ready for when the upgrade is wanted. Merging changes only tofu/proxmox/talos-config.tf or talos/patches/common.yaml, which Flux doesn't apply; the upgrade is the playbook, then the OpenTofu job (the playbooks' headers say why). Check the add-ons' support for a new Kubernetes minor first (QUEUE-updates.md).",
       "matchPackageNames": [
         "kubernetes/kubernetes",
         "siderolabs/talos"
@@ -163,17 +163,6 @@
       "prBodyNotes": [
         "Merging this changes nothing by itself. Run the upgrade playbook (`ansible/talos-k8s-upgrade.yml` for Kubernetes, `ansible/talos-upgrade.yml` for Talos) in check mode, then for real, and only then the OpenTofu job."
       ]
-    },
-    {
-      "matchPackageNames": [
-        "kubernetes/kubernetes",
-        "siderolabs/talos"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "major"
-      ],
-      "dependencyDashboardApproval": true
     },
     {
       "matchDepTypes": [

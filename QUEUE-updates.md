@@ -67,8 +67,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       supported: 1.37"). Already fine: Talos 1.14 (1.37.1 is its default), Calico 3.33 (tests
       1.37), metrics-server, ExternalDNS and local-path (open ranges); the rest state none. No
       removed API is in use (only core/v1 Endpoints, deprecated with no removal release), and
-      1.37's notes touch nothing here (no SELinux, IPVS mode or cAdvisor flags). Renovate
-      opens the bump once approved on its Dependency Dashboard.
+      1.37's notes touch nothing here (no SELinux, IPVS mode or cAdvisor flags). Renovate's
+      pull request for it is ready to merge once they do.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
