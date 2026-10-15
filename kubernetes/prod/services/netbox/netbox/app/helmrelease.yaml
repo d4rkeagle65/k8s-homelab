@@ -66,11 +66,11 @@ spec:
     postgresql:
       enabled: false
     externalDatabase:
-      host: netbox-postgres-rw
+      host: netbox-db-rw
       port: 5432
       database: netbox
       username: app
-      existingSecretName: netbox-postgres-app
+      existingSecretName: netbox-db-app
       existingSecretKey: password
     valkey:
       enabled: false
