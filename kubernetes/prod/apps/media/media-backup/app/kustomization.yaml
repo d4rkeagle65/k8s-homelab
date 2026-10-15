@@ -4,6 +4,7 @@ resources:
 - secret-cnpg-backup-s3.yaml
 - objectstore.yaml
 - scheduledbackup-bookshelf-postgres.yaml
+- scheduledbackup-bookshelf-db.yaml
 - scheduledbackup-lidarr-postgres.yaml
 - scheduledbackup-prowlarr-postgres.yaml
 - scheduledbackup-prowlarr-db.yaml
