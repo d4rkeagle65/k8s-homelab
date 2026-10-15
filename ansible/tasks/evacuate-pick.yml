@@ -1,16 +1,16 @@
-# Adds every Proxmox HA VM running on this host to evacuate_plan, with a
-# target picked here, so the VMs that must stay up (the Docker VM, where
-# Semaphore runs, among them) are live-migrated off before this host reboots,
-# whatever host they're on. A VM evacuate already lists keeps its own target.
+# The Proxmox HA VMs running on this host, for its reboot: they leave by HA
+# maintenance mode (proxmox-host-reboot.yml), as HA's node-affinity rules
+# refuse a manual move to any node but the highest-priority one online, which
+# is this host while it's up. This only plans and checks: sets ha_plan, one
+# entry per HA VM with where it should land and whether this host is its
+# preferred node (so the run waits for it to come back).
 #
-# The target is another online node with the VM's memory free (plus
-# evacuate_memory_margin_mb, less what this step already sends it), every
-# bridge the VM uses, and virtualization on. Among those: the VM's HA
-# node-affinity rule's nodes first, by priority, as HA would move it there
-# anyway; then the one with the most memory free. None fits: the run stops
-# before this host is touched. Needs proxmox-guests.yml first; run in check
+# The expected node is the VM's rule's next node by priority with the VM's
+# memory free (plus evacuate_memory_margin_mb, less what this step already
+# sends it), every bridge it uses and virtualization on, else the online
+# node with the most memory free that has those. None fits: the run stops
+# before this host is touched. Needs proxmox-guests.yml first; runs in check
 # mode too.
-
 - name: Read the HA resources and rules, and the cluster's nodes
   ansible.builtin.command: pvesh get {{ item }} --output-format json
   loop: [/cluster/ha/resources, /cluster/ha/rules, /nodes]
@@ -25,6 +25,7 @@
          | selectattr('status', 'equalto', 'running')
          | selectattr('vmid', 'in', pick_ha_ids) | rejectattr('vmid', 'in', evacuate_plan | map(attribute='vmid') | list)
          | list }}
+    ha_plan: []
     pick_nodes: >-
       {{ (pick_reads.results[2].stdout | from_json) | selectattr('status', 'equalto', 'online')
          | map(attribute='node') | reject('equalto', pve_node) | list }}
@@ -50,10 +51,10 @@
   changed_when: false
   check_mode: false
 
-- name: Pick a target for each
+- name: Work out where each should land
   ansible.builtin.set_fact:
-    evacuate_plan: >-
-      {% set plan = evacuate_plan | list %}{% set taken = {} %}{%
+    ha_plan: >-
+      {% set plan = [] %}{% set taken = {} %}{%
       for r in pick_configs.results %}{%
         set vm = r.item %}{%
         set bridges = r.stdout | from_json | dict2items | selectattr('key', 'match', '^net[0-9]+$')
@@ -75,25 +76,29 @@
         if fits %}{%
           set best = (fits | sort(attribute='free', reverse=true) | sort(attribute='prio', reverse=true) | first) %}{%
           set _ = taken.update({best.node: taken.get(best.node, 0) + need_mb}) %}{%
-          set _ = plan.append({'vmid': vm.vmid, 'name': vm.name, 'to_node': best.node, 'running': true,
+          set _ = plan.append({'vmid': vm.vmid, 'name': vm.name, 'to_node': best.node,
+                               'preferred_here': prio.get(pve_node, -1) >= 0 and prio.get(pve_node, -1) == (prio.values() | list | max),
                                'why': 'HA rule priority ' ~ best.prio if best.prio >= 0 else 'most memory free'}) %}{%
         else %}{%
-          set _ = plan.append({'vmid': vm.vmid, 'name': vm.name, 'to_node': '', 'running': true, 'why': 'no node fits'}) %}{%
+          set _ = plan.append({'vmid': vm.vmid, 'name': vm.name, 'to_node': '', 'preferred_here': false,
+                               'why': 'no node fits'}) %}{%
         endif %}{% endfor %}{{ plan }}
   when: pick_vms | length > 0
 
-- name: Report the HA VMs' targets
+- name: Report where the HA VMs should land
   ansible.builtin.debug:
-    msg: "{{ item.name }} ({{ item.vmid }}) -> {{ item.to_node or 'nowhere' }} ({{ item.why }})"
-  loop: "{{ evacuate_plan | selectattr('why', 'defined') | list }}"
+    msg: >-
+      {{ item.name }} ({{ item.vmid }}) -> {{ item.to_node or 'nowhere' }} ({{ item.why }}){{
+      ', back here afterwards' if item.preferred_here else '' }}
+  loop: "{{ ha_plan }}"
   loop_control:
     label: "{{ item.name }}"
 
 - name: Every HA VM here has somewhere to go
   ansible.builtin.assert:
-    that: evacuate_plan | selectattr('to_node', 'equalto', '') | list | length == 0
+    that: ha_plan | selectattr('to_node', 'equalto', '') | list | length == 0
     fail_msg: >-
       No other node has the memory, bridges and virtualization for
-      {{ evacuate_plan | selectattr('to_node', 'equalto', '') | map(attribute='name') | join(', ') }};
+      {{ ha_plan | selectattr('to_node', 'equalto', '') | map(attribute='name') | join(', ') }};
       not rebooting {{ inventory_hostname }}.
     quiet: true
