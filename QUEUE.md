@@ -198,15 +198,17 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Working queue files
 
-- [QUEUE-terraform.md](QUEUE-terraform.md): OpenTofu, Proxmox guests first.
-- [QUEUE-monitoring.md](QUEUE-monitoring.md): Prometheus, Loki and Grafana, in eight phases.
-- [QUEUE-resource-limits.md](QUEUE-resource-limits.md): requests and limits on every container, in batches.
-- [QUEUE-talos.md](QUEUE-talos.md): the nodes onto Talos VMs, surviving the loss of any host; the fifth host first.
-- [QUEUE-netbox.md](QUEUE-netbox.md): NetBox documenting the homelab, then owning DNS and new guests' addresses; its plugins.
-- [QUEUE-organizr.md](QUEUE-organizr.md): Organizr configured from git; its remaining checks.
-- [QUEUE-updates.md](QUEUE-updates.md): version updates that change behaviour (Mealie, MetalLB,
+- [QUEUE-terraform.md](QUEUE-terraform.md) (100%): OpenTofu, Proxmox guests first. Every box ticked: due to move to `old-queues/`.
+- [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 50%): Prometheus, Loki and Grafana, in eight phases.
+- [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 45%): requests and limits on every container, in batches.
+- [QUEUE-talos.md](QUEUE-talos.md) (about 90%): the nodes onto Talos VMs, surviving the loss of any host.
+- [QUEUE-netbox.md](QUEUE-netbox.md) (about 5%): NetBox on the Docker VM as the source of Semaphore's hosts, then documenting the homelab, owning DNS and new guests' addresses.
+- [QUEUE-organizr.md](QUEUE-organizr.md) (about 25%): Organizr configured from git; its remaining checks.
+- [QUEUE-updates.md](QUEUE-updates.md) (about 55%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 
-A long job gets a `QUEUE-<task>.md` at the repo root; `CLAUDE.md` says when. A
+The percentages are estimates as of 2026-10-15, from each file's checklist weighed by the
+size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
+the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
 came back negative.
