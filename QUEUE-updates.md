@@ -122,7 +122,10 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       Dockerfile `ARG`s (`docker/claude-code/`: kubectl, Flux, Helm, OpenTofu;
       `docker/kea/`: Kea, Stork), which Renovate's dockerfile manager doesn't read; and
       whether images in hand-written HelmReleases' inline values (20 files) are detected,
-      to be read from the run's log. Kept out on purpose: OpenTofu's `required_version`
+      to be read from the run's log. Also: a tag pinned only to a minor (`valkey/valkey:9.0-alpine`) lets
+      Renovate offer the next minor's tag while it's still a release candidate (`9.2-alpine` was
+      `9.2.0-rc1`, merged 2026-10-15 and pinned back to `9.1.2-alpine`): pin full versions so
+      Renovate can see a `-rc` suffix. Kept out on purpose: OpenTofu's `required_version`
       (matches Semaphore's, a hand update), `values-all.yaml` and the other `ignorePaths`.
       Done when a run's dependency list matches the inventory, every exception listed here.
 
