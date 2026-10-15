@@ -516,6 +516,17 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     assert not set(settings) & secrets, "a variable is defined both in git and in Vaultwarden"
     for d in external["spec"]["data"]:
         assert d["remoteRef"]["property"] == d["secretKey"], f"{d['secretKey']}: field name must match the variable"
+    # Variables built from those fields by the target's template. Without Merge, a
+    # template's keys replace every field's, and all the other variables vanish.
+    template = external["spec"]["target"].get("template") or {}
+    built = set(template.get("data") or {})
+    if built:
+        assert template.get("mergePolicy") == "Merge", "cluster-secrets' template must use mergePolicy: Merge"
+        assert not built & secrets, f"a built variable has a field's name: {sorted(built & secrets)}"
+        for name, text in template["data"].items():
+            sources = set(re.findall(r"\{\{\s*\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}", text))
+            assert sources and sources <= secrets, f"{name} is built from fields that aren't mapped: {sorted(sources - secrets)}"
+    secrets |= built
 
     kubernetes = repo_root / "kubernetes"
     local_root = kubernetes / ".local"
