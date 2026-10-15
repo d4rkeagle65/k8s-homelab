@@ -25,7 +25,7 @@ spec:
         command:
         - sh
         - -c
-        - until pg_isready -h mealie-postgres-rw -p 5432; do echo waiting for database; sleep 2; done
+        - until pg_isready -h mealie-db-rw -p 5432; do echo waiting for database; sleep 2; done
       containers:
       - name: mealie
         image: ghcr.io/mealie-recipes/mealie:v3.28.0
@@ -48,7 +48,7 @@ spec:
         - name: DB_ENGINE
           value: postgres
         - name: POSTGRES_SERVER
-          value: mealie-postgres-rw
+          value: mealie-db-rw
         - name: POSTGRES_PORT
           value: "5432"
         - name: POSTGRES_DB
@@ -56,12 +56,12 @@ spec:
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: mealie-postgres-app
+              name: mealie-db-app
               key: username
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: mealie-postgres-app
+              name: mealie-db-app
               key: password
         - name: OIDC_AUTH_ENABLED
           value: "true"
