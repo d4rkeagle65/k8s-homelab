@@ -52,9 +52,9 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       so it stays unset. `AUTHENTIK_WEB__BASE_URL` seeds the Base URL setting 2026.11 requires.
       Both outposts run in the cluster and follow the server's version. The chart's defaults
       didn't change. Checked with a backup first, then one forward-auth and one OIDC login.
-- [ ] **app-template 3.7.3 -> 5.3.0** (15 handwritten releases: the media apps, Grimmory,
-      Homepage, mesh-mini, n8n, Organizr). Two major versions, each changing the values
-      format. Migrate one release, verify it, then the rest by the same pattern.
+- [ ] **app-template 3.7.3 -> 5.3.0** (16 hand-written releases, and Jackett in the test
+      overlay): in progress in [QUEUE-app-template.md](QUEUE-app-template.md). Every
+      Deployment must be recreated (an immutable selector label changed).
 - [ ] **PostgreSQL major versions:** `manictime-pg` on 15 and `whisparr-postgres` on 16, to 18; Immich's on vectorchord `16-1.1.1` (an extension, so Immich's own upgrade notes
       decide when). CloudNativePG upgrades a major version offline in place when `imageName`
       changes major. Take a base backup and run a restore test first
