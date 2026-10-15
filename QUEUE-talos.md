@@ -209,7 +209,26 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network
 - [ ] Failover test: stop one host at a time; everything comes back on the others
-- [ ] Phase 4: the kubeadm playbooks, LXC rules and `nas-block` removed
+- [ ] Phase 4: the kubeadm playbooks, LXC rules and `nas-block` removed. Concretely:
+  - [ ] Semaphore: schedules 10 ("Daily k8s Node Update Check", `k8s-node-update.yml`) and 6
+        ("Daily k8s App Upgrade Check", `k8s-upgrade.yml`) disabled, then their templates and
+        the "k8s LXCs" inventory deleted. Since every worker went Talos (2026-10-14) both
+        fail each night at "The inventory needs k8s_control_planes with at least two nodes"
+        (tasks 677, 678), correctly: that inventory is empty
+  - [ ] Talos replacements as playbooks, before the kubeadm ones go: node upgrades by
+        `talosctl upgrade` (a new installer image, one node at a time, each drained first
+        with `tasks/k8s-node-drain.yml` and `tasks/kubectl-local.yml`, as
+        `tasks/proxmox-host-reboot.yml` does) and Kubernetes upgrades by
+        `talosctl upgrade-k8s`. They need a talosconfig in Semaphore (none there today) and
+        `talos/patches/common.yaml`'s installer image as the one place the version is set
+  - [ ] Then the kubeadm playbooks and tasks go (`k8s-node-update.yml`,
+        `k8s-node-reboot.yml`, `k8s-upgrade.yml`, `k8s-bundles.yml`, `tasks/k8s-node-*`,
+        `tasks/k8s-bundle-*`, `tasks/k8s-kubeadm.yml`, `tasks/k8s-etcd-tag.yml`), the
+        `kubectl_cmd` default of kubeadm's admin.conf in the drain and database tasks with them
+  - [ ] The retired guests (101-106) destroyed by the owner (~2026-10-20), then out of
+        `k8s_nodes` and local-path's maps, and `nas-block` (the per-host LUNs, its storage
+        class and `tasks/proxmox-nas-block.yml`) removed, nothing having used it since
+        Prometheus and Alertmanager moved to `nas-iscsi`
 
 ## Resuming
 
