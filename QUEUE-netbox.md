@@ -1,28 +1,35 @@
 # NetBox: the homelab documented, then the source of truth
 
-**The ask (2026-10-15):** use NetBox to document the homelab (hosts, guests, addresses,
-networks), have it supply new guests' addresses so `TF_VAR_site` needs fewer hand edits, make
-it the owner of local DNS (ExternalDNS's records included) synced to the Pi-holes, and add the
-plugins the owner picked. NetBox is v4.7.2 (the community chart, `prod/services/netbox/`) and
+**The ask (2026-10-15):** move NetBox to the Docker VM, then **make it the source of
+Semaphore's hosts and host variables (the primary goal)**, in place of the static
+inventories pasted into Semaphore. After that: document the rest of the homelab in it, make it
+the owner of local DNS (ExternalDNS's records included) synced to the Pi-holes, and have it
+supply new guests' addresses so `TF_VAR_site` needs fewer hand edits; with the plugins the
+owner picked. NetBox is v4.7.2 (the community chart, `prod/services/netbox/`) and
 was empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 ## Settled
 
 - **Nothing site-specific comes into git for this.** Hostnames and addresses live in NetBox
   (and `TF_VAR_site` until NetBox replaces it), never in this repo.
-- **Documentation first, no dependency:** phase A only writes to NetBox, so NetBox being down
-  breaks nothing.
+- **Once Semaphore's inventories come from NetBox, a NetBox outage stops the playbooks** (the
+  reboot and upgrade ones included) unless the inventory plugin's cache answers. Both live on
+  the Docker VM, so they're mostly up or down together; the cache and a kept copy of the
+  static inventories cover the rest until the switch has proved itself.
 - **Before anything reads from NetBox** (DNS, OpenTofu), NetBox moves out of the cluster onto
   the Docker VM, beside Vaultwarden and Semaphore, for the same reason they're there: OpenTofu
   builds the cluster's VMs, so it can't depend on a service running on them. Room checked
   2026-10-15: the Docker VM's lowest free memory over a week was 9.1 of 11.7 GiB; NetBox uses
   about 1 GiB (web 609 MiB, worker 256 MiB, database about 160 MiB, cache 6 MiB).
-- **Plugins mean a custom image:** `docker/netbox/` (FROM the upstream image at the chart's
-  NetBox version, plugins from a pinned requirements file, `collectstatic`), built by a GitHub
-  Actions workflow (the repo's first) into a public `ghcr.io` image, since it holds no secret.
-  Renovate bumps the base and each plugin. **A NetBox minor upgrade waits for every plugin to
-  support it** (several pin one minor per release: floorplan, reorder-rack, topology-views);
-  Renovate groups NetBox with its plugins.
+- **NetBox moves first, and its plugins are built there** (the owner, 2026-10-15): a Dockhand
+  stack, `docker/netbox/`, whose compose file builds the image on the Docker host (`build: .`,
+  as `kea/` and `claude-code/` do) from the upstream image plus a pinned
+  `plugin_requirements.txt` (`uv pip install`, then `collectstatic` with a throwaway
+  SECRET_KEY, as netbox-docker documents). No registry, no CI. The stack's `plugins.py` is
+  the one owner of PLUGINS and PLUGINS_CONFIG: the build's `collectstatic` reads it, and so
+  does NetBox at runtime. Renovate bumps the base and each plugin. **A NetBox minor upgrade
+  waits for every plugin to support it** (floorplan, reorder-rack and topology-views each pin
+  one minor per release); Renovate groups NetBox with its plugins.
 - **Proxmox to NetBox by a playbook, not ProxBox:** ProxBox (`netbox-proxbox`) supports 4.7 but
   is pre-1.0, changes weekly and needs its own `proxbox-api` backend service. A Semaphore
   playbook with the `netbox.netbox` collection, reading Proxmox's API and the cluster, does
@@ -43,20 +50,46 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 ## Phases
 
-1. **The image and the plugins** (below), deployed where NetBox runs now.
-2. **Phase A, documentation:** `ansible/netbox-sync.yml`, scheduled in Semaphore, idempotent:
-   the Proxmox cluster, each host as a device, every VM and container with its host, CPU,
-   memory, disks and interfaces, their addresses (cloud-init and guest configs), and the
-   Kubernetes nodes' roles. HA moves and failovers show up by the next run. The owner creates
-   the prefixes and VLANs by hand once: the one thing the sync can't discover.
-3. **NetBox onto the Docker VM:** a Dockhand stack (NetBox, its worker, PostgreSQL, Valkey) from
-   the custom image, served through Traefik as an external service with Authentik's
-   forward auth as now; the database moved by dump and restore; backups as the Docker VM's
-   other databases.
+1. **NetBox onto the Docker VM, with its plugins:** the Dockhand stack (NetBox, its worker,
+   PostgreSQL, Valkey), its real values as Dockhand variables; the database moved by dump and
+   restore and the media copied (NetBox is still empty, so both are small); served through
+   Traefik as an external service with Authentik's forward auth and the token-only API route
+   as now; backed up by Databasus with the Docker VM's other databases; the in-cluster release
+   removed once the new one is checked. The Kea plugin reaches Kea's API on the same host
+   through `127.0.0.1` (`docker/CLAUDE.md`).
+2. **Semaphore's inventories from NetBox (the primary goal):**
+   - **The data, imported once:** a one-off script reads Semaphore's static inventories
+     through its API and creates in NetBox the Proxmox hosts (devices), the Pi-holes, the
+     Docker VM and the APs (VMs, containers or devices), each with its management address as
+     primary IP (prefixes first), so no address passes through git or chat. Groups become
+     tags (`proxmox`, `pihole`, `docker_vm`, `openwrt_aps`), variables become config contexts
+     on them (`dns_guest_tag` on `proxmox`, `allow_dns_outage` on `pihole`, `ansible_user`
+     and `ansible_python_interpreter` on all Debian hosts). Per-host variables (an `evacuate`
+     list, say) are local config contexts on that host.
+   - **The inventory:** `ansible/inventory/netbox.yml` with the `netbox.netbox.nb_inventory`
+     plugin: hosts by tag into those groups, `ansible_host` from the primary IP, config
+     contexts as variables. NetBox's URL and a read-only token come from Semaphore's variable
+     group (environment), never git. The collection (`ansible/collections/requirements.yml`,
+     which Semaphore installs) and whatever Python it needs in Semaphore's container: check
+     first, as `docker/semaphore/` runs the upstream image.
+   - **The switch, template by template:** each Semaphore template moves to a File inventory
+     on that path; its first run in check mode, its host list and variables compared with
+     the static inventory's (`ansible-inventory --list` both ways); the static inventories
+     kept until every template has run on NetBox's. The inventory cache (a few hours, on
+     Semaphore's disk) rides out a NetBox restart.
+3. **Phase A, documentation:** `ansible/netbox-sync.yml`, scheduled in Semaphore, idempotent:
+   every VM and container with its host, CPU, memory, disks and interfaces, their addresses,
+   and the Kubernetes nodes' roles, read from Proxmox and the cluster. It only adds and
+   updates what phase 2 entered by hand; HA moves and failovers show up by the next run.
 4. **DNS owned by NetBox** (NetBox DNS), synced to the Pi-holes:
    - Ingress hostnames into NetBox by the custom ExternalDNS webhook provider (Settled), in
      place of ExternalDNS's Pi-hole provider. No ExternalDNS provider for NetBox exists
-     (checked 2026-10-15), so it's written here: its code, image and tests in this repo.
+     (checked 2026-10-15), so it's written here, code and tests in this repo, and runs in the
+     NetBox stack, built by Dockhand like NetBox's image, with ExternalDNS calling it by URL
+     (`--webhook-provider-url`) rather than as a sidecar: no registry. ExternalDNS's webhook
+     API has no authentication of its own, so the provider listens only where ExternalDNS
+     can reach it and nothing else can (to settle with the stack: a token in front, or a
+     listener on one address that the Docker VM's firewall limits to the cluster).
    - NetBox to Pi-hole 1 by octoDNS: `octodns-netbox-dns` as the source, `octodns-pihole`
      (the roosnic1 fork on PyPI, Pi-hole v6 through `pihole6api`; local A, AAAA and CNAME
      records only, no TTLs) as the target; nebula-sync copies Pi-hole 2 as now.
@@ -97,25 +130,28 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
 ## Checklist
 
 - [x] Owner's choices (2026-10-15): every "yes" plugin, Attachments not Documents, the custom
-      ExternalDNS webhook for the Ingress records
-- [ ] `docker/netbox/` image, its GitHub Actions workflow and Renovate rules; the HelmRelease on
-      it with `plugins` and `pluginsConfig`; each plugin's page checked in NetBox
-- [ ] Owner: a NetBox API token for Semaphore (write), the prefixes and VLANs entered by hand
-- [ ] `ansible/netbox-sync.yml` and its Semaphore template and schedule; a dry run, then a run,
-      then a second run changing nothing
-- [ ] Owner decides the move to the Docker VM; then the Dockhand stack, dump and restore, the
-      Traefik external service, the old release removed
-- [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, image, tests); octoDNS
-      from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked to
-      answer the same names before and after
-- [ ] OpenTofu: `ignore_changes = [node_name]` on HA and Talos VMs (no change in the plan), host
-      picked from free memory for new guests
-- [ ] Phase B: addresses and names from NetBox; `TF_VAR_site` cut down to the stable facts
+      ExternalDNS webhook for the Ingress records, NetBox moved first and the inventories next
+- [ ] Phase 1: `docker/netbox/` (the image with the fourteen plugins, the stack, `plugins.py`,
+      Renovate rules), Dockhand variables from the owner; the move (dump and restore, media,
+      Traefik and Authentik, Databasus); each plugin's page checked; the in-cluster release
+      removed
+- [ ] Phase 2: owner makes the prefixes and a read-only and a write token; the import script
+      run (a dry run first); `ansible/inventory/netbox.yml`, the collection and Semaphore's
+      Python; each template switched after its host list matched; the static inventories
+      deleted last
+- [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
+      second run changing nothing
+- [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
+      octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
+      to answer the same names before and after
+- [ ] Phase 5: OpenTofu's `ignore_changes = [node_name]` on HA and Talos VMs (no change in the
+      plan) and a host picked from free memory for new guests; then addresses and names from
+      NetBox, and `TF_VAR_site` cut down to the stable facts
 
 ## Resuming
 
-The first unticked box is next. NetBox's own pages show what phase A has synced; `kubectl -n
-netbox get hr` (or the Dockhand stack, after the move) shows where it runs.
+The first unticked box is next. NetBox's own pages show what phase A has synced; until the
+move NetBox is the `netbox` HelmRelease, after it the Dockhand stack.
 
 ## Done when
 
