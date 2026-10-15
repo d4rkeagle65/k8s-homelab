@@ -1,0 +1,37 @@
+# Bookshelf's databases on PostgreSQL 18 (Debian trixie), taking over from
+# bookshelf-postgres (Debian bullseye; QUEUE-postgres18.md). Created empty; the data is
+# copied in with pg_dump and pg_restore while the app is stopped.
+# Bookshelf (a Readarr fork) keeps three databases: main, log, and a cache of
+# book metadata.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: bookshelf-db
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  instances: 2
+  resources:
+    requests:
+      cpu: 20m
+      memory: 224Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  storage:
+    size: 5Gi
+    storageClass: local-db
+  # Continuous WAL archiving and base backups to Garage (media-backup/).
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage
+  bootstrap:
+    initdb:
+      database: bookshelf-main
+      owner: bookshelf
+      postInitApplicationSQL:
+        - CREATE DATABASE "bookshelf-log" OWNER bookshelf;
+        - CREATE DATABASE "bookshelf-cache" OWNER bookshelf;
