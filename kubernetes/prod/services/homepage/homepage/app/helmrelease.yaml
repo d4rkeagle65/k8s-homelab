@@ -280,6 +280,7 @@ spec:
                     icon: isc-kea.png
                     href: https://stork.${BASE_DOMAIN}
                     description: Leases, through Stork
+                    siteMonitor: https://stork.${BASE_DOMAIN}
                     widget:
                       type: prometheusmetric
                       url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
@@ -374,6 +375,17 @@ spec:
                         - label: 04 ping
                           query: 1000 * max(probe_icmp_duration_seconds{switch="04", phase="rtt"})
                           format: {type: number, suffix: " ms", options: {maximumFractionDigits: 1}}
+                - Dockhand:
+                    icon: dockhand.png
+                    href: https://dockhand.${BASE_DOMAIN}
+                    description: Docker stacks
+                    siteMonitor: https://dockhand.${BASE_DOMAIN}
+                    # Dockhand has no API keys: a local Dockhand user for Homepage.
+                    widget:
+                      type: dockhand
+                      url: http://dockhand.external-services.svc.${CLUSTER_DOMAIN}:3000
+                      username: "{{ "{{HOMEPAGE_VAR_DOCKHAND_USERNAME}}" }}"
+                      password: "{{ "{{HOMEPAGE_VAR_DOCKHAND_PASSWORD}}" }}"
             - Wi-Fi:
                 - Production AP:
                     icon: openwrt.png
@@ -504,17 +516,6 @@ spec:
                     href: https://semaphore.${BASE_DOMAIN}
                     description: Ansible and OpenTofu
                     siteMonitor: https://semaphore.${BASE_DOMAIN}
-                - Dockhand:
-                    icon: dockhand.png
-                    href: https://dockhand.${BASE_DOMAIN}
-                    description: Docker stacks
-                    siteMonitor: https://dockhand.${BASE_DOMAIN}
-                    # Dockhand has no API keys: a local Dockhand user for Homepage.
-                    widget:
-                      type: dockhand
-                      url: http://dockhand.external-services.svc.${CLUSTER_DOMAIN}:3000
-                      username: "{{ "{{HOMEPAGE_VAR_DOCKHAND_USERNAME}}" }}"
-                      password: "{{ "{{HOMEPAGE_VAR_DOCKHAND_PASSWORD}}" }}"
                 - Databasus:
                     icon: databasus.png
                     href: https://databasus.${BASE_DOMAIN}
@@ -526,11 +527,6 @@ spec:
                     description: Intel AMT consoles
                     namespace: mesh-mini
                     app: mesh-mini
-                - Stork:
-                    icon: isc-kea.png
-                    href: https://stork.${BASE_DOMAIN}
-                    description: Kea's dashboard
-                    siteMonitor: https://stork.${BASE_DOMAIN}
                 - NetBox:
                     icon: netbox.png
                     href: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
