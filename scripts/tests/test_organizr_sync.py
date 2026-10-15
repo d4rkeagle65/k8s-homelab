@@ -83,6 +83,9 @@ def load(monkeypatch, fake: FakeOrganizr, spec: dict):
     monkeypatch.setenv("ORGANIZR_API_KEY", "test-only")
     # PyYAML is installed by the Job, not necessarily here; main only needs safe_load.
     monkeypatch.setitem(sys.modules, "yaml", types.SimpleNamespace(safe_load=lambda f: spec))
+    # No bytecode beside the manifests: a cached copy is trusted by mtime and size,
+    # so an edit of the same length within a second would run the old code.
+    monkeypatch.setattr(sys, "dont_write_bytecode", True)
     loader = importlib.util.spec_from_file_location("organizr_sync_under_test", SCRIPT)
     module = importlib.util.module_from_spec(loader)
     loader.loader.exec_module(module)
