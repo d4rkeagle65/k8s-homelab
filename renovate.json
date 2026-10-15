@@ -7,6 +7,7 @@
   ],
   "dependencyDashboardTitle": "Renovate: dependency dashboard",
   "minimumReleaseAge": "3 days",
+  "ignoreUnstable": true,
   "constraints": {
     "python": "~=3.14.0"
   },
@@ -68,6 +69,13 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Stable releases only. ignoreUnstable (set above, config:recommended's default) skips what a versioning scheme can tell is a pre-release; this also refuses any tag naming one, and the images pin full versions, since a tag pinned to a minor (valkey's 9.2-alpine was 9.2.0-rc1) carries no suffix to tell by (QUEUE-updates.md).",
+      "matchDatasources": [
+        "docker"
+      ],
+      "allowedVersions": "!/(^|[.\\-_])(alpha|beta|rc|pre|preview|dev|nightly|snapshot|canary|edge|next|unstable)([.\\-_]?\\d*)($|[.\\-_])/i"
+    },
     {
       "description": "A captured release is updated through its generated files; regenerate so release.yaml, values.yaml and the generated files agree (scripts/renovate_post_upgrade.py).",
       "matchFileNames": [
