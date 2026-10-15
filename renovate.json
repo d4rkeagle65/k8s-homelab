@@ -1,10 +1,15 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Runs from the cluster (kubernetes/prod/services/renovate/). Every update is a pull request for the owner to merge; nothing merges itself.",
-  "extends": ["config:recommended", ":semanticCommitsDisabled"],
+  "extends": [
+    "config:recommended",
+    ":semanticCommitsDisabled"
+  ],
   "dependencyDashboardTitle": "Renovate: dependency dashboard",
   "minimumReleaseAge": "3 days",
-  "constraints": {"python": "~=3.14.0"},
+  "constraints": {
+    "python": "~=3.14.0"
+  },
   "ignorePaths": [
     "**/values-all.yaml",
     "kubernetes/raw/**",
@@ -15,76 +20,165 @@
     "old-queues/**"
   ],
   "flux": {
-    "managerFilePatterns": ["/^kubernetes/.+\\.ya?ml$/"]
+    "managerFilePatterns": [
+      "/^kubernetes/.+\\.ya?ml$/"
+    ]
   },
   "kubernetes": {
-    "managerFilePatterns": ["/^kubernetes/.+\\.ya?ml$/"]
+    "managerFilePatterns": [
+      "/^kubernetes/.+\\.ya?ml$/"
+    ]
   },
   "customManagers": [
     {
       "description": "CloudNativePG clusters name their image as imageName, which the kubernetes manager doesn't read.",
       "customType": "regex",
-      "managerFilePatterns": ["/^kubernetes/.+\\.ya?ml$/"],
-      "matchStrings": ["imageName: (?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)"],
+      "managerFilePatterns": [
+        "/^kubernetes/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "imageName: (?<depName>[^\\s:@]+):(?<currentValue>[^\\s@]+)"
+      ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "description": "Kubernetes's version for the Talos cluster: kubernetes_version in tofu/proxmox/talos-config.tf.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^tofu/proxmox/talos-config\\.tf$/"
+      ],
+      "matchStrings": [
+        "kubernetes_version\\s*=\\s*\"(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "kubernetes/kubernetes",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    },
+    {
+      "description": "Talos's version: the installer image's tag in talos/patches/common.yaml (the schematic ID before it stays).",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^talos/patches/common\\.yaml$/"
+      ],
+      "matchStrings": [
+        "image: factory\\.talos\\.dev/nocloud-installer/[0-9a-f]+:(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "siderolabs/talos"
     }
   ],
   "packageRules": [
     {
       "description": "A captured release is updated through its generated files; regenerate so release.yaml, values.yaml and the generated files agree (scripts/renovate_post_upgrade.py).",
-      "matchFileNames": ["kubernetes/**"],
+      "matchFileNames": [
+        "kubernetes/**"
+      ],
       "postUpgradeTasks": {
         "commands": [
           "python3 -m pip install --quiet --target /tmp/renovate-py -r scripts/requirements.txt",
           "python3 scripts/renovate_post_upgrade.py --deps /tmp/renovate-py"
         ],
-        "installTools": {"python": {}},
-        "fileFilters": ["kubernetes/**"],
+        "installTools": {
+          "python": {}
+        },
+        "fileFilters": [
+          "kubernetes/**"
+        ],
         "executionMode": "branch"
       }
     },
     {
       "description": "A database's major version is a migration (QUEUE-updates.md), not a version bump: listed on the Dependency Dashboard, opened only when ticked there. Likewise Whisparr's v3, a different app.",
-      "matchPackageNames": ["ghcr.io/cloudnative-pg/postgresql", "ghcr.io/tensorchord/cloudnative-vectorchord", "mariadb", "postgres", "ghcr.io/hotio/whisparr"],
-      "matchUpdateTypes": ["major"],
+      "matchPackageNames": [
+        "ghcr.io/cloudnative-pg/postgresql",
+        "ghcr.io/tensorchord/cloudnative-vectorchord",
+        "mariadb",
+        "postgres",
+        "ghcr.io/hotio/whisparr"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     },
     {
       "description": "vectorchord's tags are <PostgreSQL major>-<extension version>: only the extension moves.",
-      "matchPackageNames": ["ghcr.io/tensorchord/cloudnative-vectorchord"],
+      "matchPackageNames": [
+        "ghcr.io/tensorchord/cloudnative-vectorchord"
+      ],
       "versioning": "regex:^(?<compatibility>\\d+)-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
     },
     {
       "description": "linuxserver tags are the app's version plus the image's own build (-ls<n>), which moves on a rebuild of the same app version.",
-      "matchPackageNames": ["linuxserver/**", "!linuxserver/qbittorrent"],
+      "matchPackageNames": [
+        "linuxserver/**",
+        "!linuxserver/qbittorrent"
+      ],
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?-ls(?<revision>\\d+)$"
     },
     {
       "description": "qBittorrent's tags add the libtorrent version: <qBittorrent>_v<libtorrent>-ls<n>, kept to the same libtorrent.",
-      "matchPackageNames": ["linuxserver/qbittorrent"],
+      "matchPackageNames": [
+        "linuxserver/qbittorrent"
+      ],
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)_v(?<compatibility>[\\d.]+)-ls(?<build>\\d+)$"
     },
     {
       "description": "A chart and the images its values pin move together: merging one without the other would run a new chart with an old image.",
-      "matchPackageNames": ["authentik", "ghcr.io/goauthentik/**"],
+      "matchPackageNames": [
+        "authentik",
+        "ghcr.io/goauthentik/**"
+      ],
       "groupName": "Authentik"
     },
     {
-      "matchPackageNames": ["immich", "ghcr.io/immich-app/**"],
+      "matchPackageNames": [
+        "immich",
+        "ghcr.io/immich-app/**"
+      ],
       "groupName": "Immich"
     },
     {
       "description": "One pull request for the app-template chart across every release that uses it.",
-      "matchDepNames": ["app-template"],
+      "matchDepNames": [
+        "app-template"
+      ],
       "groupName": "app-template chart"
     },
     {
       "description": "OpenTofu, not Terraform: providers from OpenTofu's registry, and required_version (an exact OpenTofu version, matching Semaphore's) left to a hand update.",
-      "matchDatasources": ["terraform-provider"],
-      "registryUrls": ["https://registry.opentofu.org"]
+      "matchDatasources": [
+        "terraform-provider"
+      ],
+      "registryUrls": [
+        "https://registry.opentofu.org"
+      ]
     },
     {
-      "matchDepTypes": ["required_version"],
+      "description": "Kubernetes and Talos: a commit, then ansible/talos-k8s-upgrade.yml or talos-upgrade.yml, then the OpenTofu job (the playbooks' headers say why). A minor waits for approval on the Dependency Dashboard, after its add-ons' and Talos's support is checked.",
+      "matchPackageNames": [
+        "kubernetes/kubernetes",
+        "siderolabs/talos"
+      ],
+      "prBodyNotes": [
+        "Merging this changes nothing by itself. Run the upgrade playbook (`ansible/talos-k8s-upgrade.yml` for Kubernetes, `ansible/talos-upgrade.yml` for Talos) in check mode, then for real, and only then the OpenTofu job."
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "kubernetes/kubernetes",
+        "siderolabs/talos"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchDepTypes": [
+        "required_version"
+      ],
       "enabled": false
     }
   ]

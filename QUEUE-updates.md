@@ -60,7 +60,15 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       changes major. Take a base backup and run a restore test first
       (`old-queues/QUEUE-restore-tests.md`).
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
-      `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says.
+      `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says. Held (2026-10-15)
+      until these list 1.37 as supported: Flux (2.9.6 says 1.34-1.36; its unreleased main
+      adds 1.37), cert-manager (1.21.2 says 1.33-1.36; 1.22 due about 2026-11), External
+      Secrets (2.12.0 says 1.36), CloudNativePG (1.30.1 supports 1.34-1.36, "tested, but not
+      supported: 1.37"). Already fine: Talos 1.14 (1.37.1 is its default), Calico 3.33 (tests
+      1.37), metrics-server, ExternalDNS and local-path (open ranges); the rest state none. No
+      removed API is in use (only core/v1 Endpoints, deprecated with no removal release), and
+      1.37's notes touch nothing here (no SELinux, IPVS mode or cAdvisor flags). Renovate
+      opens the bump once approved on its Dependency Dashboard.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
