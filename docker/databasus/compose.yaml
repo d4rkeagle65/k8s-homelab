@@ -34,7 +34,7 @@
 # memory-only folder, never to disk or the process list.
 services:
   databasus:
-    image: databasus/databasus:v3.60.0
+    image: databasus/databasus:v3.61.0
     container_name: databasus
     restart: unless-stopped
     ports:
