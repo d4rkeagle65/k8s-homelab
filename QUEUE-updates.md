@@ -63,8 +63,9 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       database moves to a new `<app>-postgres` cluster on `18.x-standard-trixie`: created
       empty with the same databases and owner, the data streamed in with `pg_dump | pg_restore`
       (`kubectl exec` as `postgres` on each side, no passwords) while the app is stopped,
-      every table's rows compared, then the app pointed at `<app>-postgres-rw` and
-      `<app>-postgres-app`, and the old cluster removed. A base backup and a restore test
+      every table's rows compared, then the app pointed at the new cluster's `-rw` Service and
+      `-app` Secret, and the old cluster removed. Check where the app really reads its
+      connection first (ManicTime's is a file on its volume). A base backup and a restore test
       first (`old-queues/QUEUE-restore-tests.md`). ManicTime publishes no PostgreSQL range
       (its own Docker guide uses 15), so its first start on 18 is the test.
   - [x] ManicTime (2026-10-15): on `manictime-postgres` (18.6, trixie), every table's rows
@@ -80,7 +81,11 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
         Cluster (it's kept from pruning), its claims `manictime-pg-1`/`-2`, and
         `ManicTimeServerSettings.json.pre-pg18` on ManicTime's volume (it holds the old
         password). Until then it's the way back: the `.pre-pg18` file and the old cluster.
-  - [ ] Whisparr (`whisparr-postgres`, 16)
+  - [ ] Whisparr (`whisparr-postgres`, 16, two databases). Restore test 2026-10-15: pass,
+        39 tables; `Commands` and `Logs` behind only by rows written since, `Logs` identical
+        by checksum up to the copy's last row. `whisparr-db` created (new clusters whose
+        `<app>-postgres` name is taken are `<app>-db`). Whisparr reads its connection from
+        `WHISPARR__POSTGRES__*` env vars, which override `config.xml`.
   - [ ] The twelve on 17.11, in an order of their own
   - [ ] Immich's (vectorchord `16-1.1.1`, bookworm): Immich's own upgrade notes decide when
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
