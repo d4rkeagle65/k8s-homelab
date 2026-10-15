@@ -34,7 +34,7 @@ spec:
               - name: TZ
                 value: ${TIMEZONE}
               - name: PROWLARR__POSTGRES__HOST
-                value: prowlarr-postgres-rw
+                value: prowlarr-db-rw
               - name: PROWLARR__POSTGRES__PORT
                 value: "5432"
               - name: PROWLARR__POSTGRES__USER
@@ -42,7 +42,7 @@ spec:
               - name: PROWLARR__POSTGRES__PASSWORD
                 valueFrom:
                   secretKeyRef:
-                    name: prowlarr-postgres-app
+                    name: prowlarr-db-app
                     key: password
               - name: PROWLARR__POSTGRES__MAINDB
                 value: prowlarr-main
