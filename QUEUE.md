@@ -106,6 +106,9 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Cleanup
 
+- **`prod/apps/media/lidarr/migrations/`**: six Jobs from Lidarr's move off SQLite (`01-rename-tables-job.yaml`
+  to `06-fix-casing-job.yaml`), listed by no kustomization, so never applied, yet they name
+  `lidarr-postgres-rw` and read as current. Delete the folder.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
@@ -205,6 +208,7 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 - [QUEUE-netbox.md](QUEUE-netbox.md) (about 5%): NetBox on the Docker VM as the source of Semaphore's hosts, then documenting the homelab, owning DNS and new guests' addresses.
 - [QUEUE-organizr.md](QUEUE-organizr.md) (about 25%): Organizr configured from git; its remaining checks.
 - [QUEUE-app-template.md](QUEUE-app-template.md) (about 95%): the app-template chart to 5.3.0 on every release that uses it, recreating each Deployment.
+- [QUEUE-postgres18.md](QUEUE-postgres18.md) (about 15%): every database onto PostgreSQL 18 on Debian trixie, a new cluster each.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 55%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 
