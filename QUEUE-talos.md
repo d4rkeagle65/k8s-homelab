@@ -215,7 +215,9 @@ goes once the retired guests are destroyed.
 - [ ] Phase 4: the kubeadm playbooks, LXC rules and `nas-block` removed. Concretely:
   - [ ] Semaphore: delete the templates "Node: k8s Update" and "App: k8s Upgrade" and the
         "k8s LXCs" inventory (their schedules, 10 and 6, disabled 2026-10-15: both failed
-        nightly at "The inventory needs k8s_control_planes", the inventory being empty)
+        nightly at "The inventory needs k8s_control_planes", the inventory being empty). The
+        "k8s Bundle Version" variable group went 2026-10-15: the Kubernetes version is
+        `kubernetes_version` in `tofu/proxmox/talos-config.tf`, which Renovate watches
   - [x] Talos replacements: `talos-upgrade.yml` (`talosctl upgrade` node by node, drained
         and capacity-checked first) and `talos-k8s-upgrade.yml` (`talosctl upgrade-k8s`),
         2026-10-15, with Semaphore templates and an os:admin `talosconfig_b64`; check-mode
