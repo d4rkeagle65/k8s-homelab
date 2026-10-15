@@ -7,9 +7,10 @@
 #    planes on one host would take etcd's quorum down with it, so that stops
 #    the run, and so do pods that wouldn't fit on the other nodes by their
 #    memory requests (reboot_allow_pending: true accepts them waiting).
-# 2. The VMs in evacuate_plan (evacuate-check.yml) are live-migrated off; HA
-#    VMs move by Proxmox HA's own shutdown policy; any other guest here is
-#    shut down with the host and starts again at boot, and is listed first.
+# 2. The VMs in evacuate_plan are live-migrated off: those evacuate lists
+#    (evacuate-check.yml), and every HA VM here, to a node picked for it
+#    (evacuate-pick.yml). Any other guest here is shut down with the host and
+#    starts again at boot, and is listed first.
 # 3. The host reboots once this host's DNS servers have others answering.
 # 4. Afterwards: quorum, every Kubernetes node Ready, this host's nodes
 #    uncordoned, every database cluster whole again, this host's DNS servers
@@ -23,6 +24,9 @@
 - name: Start the list of database maintenance windows
   ansible.builtin.set_fact:
     cnpg_maintenance_all: []
+
+- name: Plan the HA VMs' moves off this host
+  ansible.builtin.include_tasks: evacuate-pick.yml
 
 - name: Read the Kubernetes nodes
   ansible.builtin.command: "{{ kubectl_cmd }} get nodes -o json"
@@ -133,7 +137,7 @@
     loop_var: planned
     label: "{{ planned.name }}"
   vars:
-    mig: "{{ planned | combine({'from': inventory_hostname, 'node': planned.to_node}) }}"
+    mig: "{{ planned | combine({'from_node': pve_node, 'node': planned.to_node}) }}"
 
 - name: Reboot
   ansible.builtin.reboot:
@@ -191,5 +195,5 @@
     loop_var: planned
     label: "{{ planned.name }}"
   vars:
-    mig: "{{ planned | combine({'from': planned.to, 'node': pve_node}) }}"
+    mig: "{{ planned | combine({'from_node': planned.to_node, 'node': pve_node}) }}"
   when: evacuate_return | default(true) | bool
