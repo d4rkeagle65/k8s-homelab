@@ -76,9 +76,11 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       Renovate offers them as updates. Tdarr's server and node share a pod, so they always
       restart together; the node's `3.00.00` tag is a newer build of the same version than
       the one running, and it pulls that on its next restart.
-- [ ] **Jellyseerr -> Seerr.** `fallenbagel/jellyseerr` stopped at 2.7.3 (2025-08); its
-      newest tags (`preview-seerr`) point to the project continuing as Seerr. Read Seerr's
-      migration notes (image name, config and database location) and move to it.
+- [x] **Jellyseerr -> Seerr v3.5.0** (`ghcr.io/seerr-team/seerr`, 2026-10-15). Same config
+      path and port; Seerr migrates Jellyseerr's settings and database on its first start, one
+      way, so a tar of the config came first; it runs as UID 1000, not root, so the config
+      claim was chowned to it (the NAS export doesn't squash root). The release, claim and
+      hostname keep Jellyseerr's names, for Homepage, Organizr and bookmarks.
 
 ## Left as they are, and why
 
