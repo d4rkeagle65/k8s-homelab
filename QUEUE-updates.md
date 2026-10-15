@@ -87,8 +87,7 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
   - [ ] Retire `whisparr-postgres` from about 2026-10-17: remove `postgres.yaml` (`whisparr/`)
         and `scheduledbackup-whisparr-postgres.yaml` (`media-backup/`); the owner then deletes
         the Cluster (kept from pruning) and its claims `whisparr-postgres-1`/`-2`.
-  - [ ] The twelve on 17.11, in an order of their own
-  - [ ] Immich's (vectorchord `16-1.1.1`, bookworm): Immich's own upgrade notes decide when
+  - [ ] The other eleven, and Immich's: [QUEUE-postgres18.md](QUEUE-postgres18.md).
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
       `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says. Held (2026-10-15)
       until these list 1.37 as supported: Flux (2.9.6 says 1.34-1.36; its unreleased main
