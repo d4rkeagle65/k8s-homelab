@@ -63,7 +63,7 @@ object by object. For every release:
       before MariaDB took connections.
 - [x] Jackett in the test overlay (`kubernetes/test/media/jackett/`, suspended): the version
       only, nothing running to recreate
-- [ ] Renovate's #8 closes on its next run, finding 5.3.0 on `main` everywhere
+- [x] Renovate's #8 closed itself (2026-10-15), finding 5.3.0 on `main` everywhere
 
 ## Resuming
 
