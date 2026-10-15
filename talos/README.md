@@ -1,7 +1,8 @@
 # Talos nodes
 
-The cluster's nodes are moving from LXC containers (kubeadm) to Talos Linux VMs
-(`QUEUE-talos.md` has the plan and where it stands). This folder holds what isn't secret:
+The cluster's nodes are Talos Linux VMs, built by OpenTofu (`tofu/proxmox/talos.tf`) and
+upgraded by `ansible/talos-upgrade.yml` and `ansible/talos-k8s-upgrade.yml`. This folder
+holds what isn't secret:
 
 - `patches/`: the Talos settings every node gets. `common.yaml` names the installer image
   (Talos version and Image Factory schematic); `encryption-order.txt` is the order of the
@@ -53,9 +54,9 @@ Set-Clipboard -Value " "
 py -3 talos\gen-config.py --secrets "$dir\secrets.yaml"
 ```
 
-**3. Before a control plane joins:** etcd healthy on every member and a snapshot taken
-(`etcdctl snapshot save` on a kubeadm control plane); Calico and kube-proxy as
-`QUEUE-talos.md` Phase 1 left them.
+**3. Before a control plane joins:** etcd healthy on every member
+(`talosctl etcd members`, `talosctl etcd status`) and a snapshot taken
+(`talosctl etcd snapshot <file>`).
 
 **4. Apply, then watch it join:**
 

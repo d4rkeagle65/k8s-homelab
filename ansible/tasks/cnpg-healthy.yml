@@ -1,9 +1,9 @@
 # Every CloudNativePG cluster is healthy: all its instances ready and its
-# phase "Cluster in healthy state". Read with kubectl on kubectl_host. With
+# phase "Cluster in healthy state". Read with kubectl_cmd on kubectl_host. With
 # cnpg_wait set it keeps asking for up to 20 minutes, for after a node returns.
 - name: Read the database clusters
   ansible.builtin.command: >-
-    {{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} get clusters.postgresql.cnpg.io -A -o json
+    {{ kubectl_cmd }} get clusters.postgresql.cnpg.io -A -o json
   delegate_to: "{{ kubectl_host }}"
   register: cnpg_clusters
   changed_when: false

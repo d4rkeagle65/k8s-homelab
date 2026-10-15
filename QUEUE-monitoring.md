@@ -39,9 +39,10 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
   operator 64 / 256 MiB, kube-state-metrics 64 / 256 MiB, node-exporter and Alloy about
   32-128 MiB per node. Loki's memcached caches, gateway, canary and MinIO are off (their
   memory is most of Loki's default footprint, and single-binary mode doesn't need them).
-- **Control-plane components:** kubeadm binds the scheduler, controller-manager and etcd
-  metrics to 127.0.0.1, so their scrapes and alert rules are off at first rather than firing
-  "target down" forever. Turning them on is a kubeadm setting (phase 5).
+- **Control-plane components:** the scheduler, controller-manager and etcd metrics were bound
+  to 127.0.0.1 under kubeadm, so their scrapes and alert rules are off rather than firing
+  "target down" forever. On Talos, check where they bind; turning them on is then a Talos
+  machine-config setting through `tofu/proxmox/talos-config.tf` (phase 5).
 - **Access:** Grafana at `grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}`, private-only (LAN,
   cluster and tailnet), logging in through Authentik (a blueprint in `authentik-extras`):
   members of `Grafana Admins` become Admins, of `Grafana Viewers` Viewers, nobody else gets in.
@@ -84,7 +85,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
    VM through `ansible/baseline.yml` (the journal, and Docker's container logs on the Docker
    VM), pushing to Loki through a private route; the two NASes' syslog, received by Alloy.
 5. **Alerting:** Alertmanager's receivers; the control-plane metrics bound to the node address
-   (kubeadm, through Ansible) and their rules on; a dead-man's switch outside the cluster. The
+   (Talos's machine config, through OpenTofu) and their rules on; a dead-man's switch outside the cluster. The
    disks: an NVMe drive's `nvme_media_errors_total` rising, its `nvme_available_spare_ratio`
    nearing its threshold, its `nvme_percentage_used_ratio` above 90%, and SMART's reallocated
    and pending sectors rising on the SATA ones. A rising count is the warning; the absolute

@@ -18,8 +18,9 @@ locals {
   talos_version     = split(":", local.talos_image_ref)[1]
   talos_contract    = join(".", slice(split(".", local.talos_version), 0, 2))
 
-  # The cluster's Kubernetes version: raised with each upgrade (the kubeadm
-  # side through k8s-upgrade.yml, the Talos side through talosctl upgrade-k8s).
+  # The cluster's Kubernetes version: raised in a commit, then
+  # ansible/talos-k8s-upgrade.yml, then this job (that playbook says why in
+  # that order).
   kubernetes_version = "1.36.5"
 
   # The Talos nodes, by VMID: their role and size here, their host, name and

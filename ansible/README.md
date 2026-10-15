@@ -9,11 +9,8 @@ and addresses), the SSH key, and the Kubernetes token.
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. A reboot first drains the Kubernetes nodes running on the host and afterwards waits for every database cluster to be whole (`tasks/proxmox-host-reboot.yml`). It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
 | `proxmox-reboot.yml` | Reboots Proxmox hosts one at a time, changing nothing else: `reboot_hosts` picks them (one host, a comma-separated list or a group; `ALL` or empty, every host, one at a time). For each: the Kubernetes nodes running on it are drained (each database primary switched to a replica elsewhere first; two control planes on one host stops the run, as it would cost etcd its quorum), its Proxmox HA VMs moved off by putting it in HA maintenance mode (HA's node-affinity rules refuse a manual move while their preferred node is up; the run first checks some node has room for each, and stops if not) and the VMs in `evacuate` live-migrated off, then the reboot, maintenance off (HA moves its VMs back where this host is their preferred node), and the run waits for quorum, every node Ready, the host's nodes uncordoned, every database cluster whole and the VMs moved back before the next host. The same steps as `proxmox-upgrade.yml`'s reboots; the same inventory and variables. A dry run lists what each host's reboot would drain, move and restart. |
 | `talos-upgrade.yml` | Upgrades Talos on the Kubernetes nodes, one at a time, control planes first, skipping nodes already on the target (the installer image in `talos/patches/common.yaml`). Each node: health and capacity checks, drained (database primaries switched over first), `talosctl upgrade`, back Ready on the new version, uncordoned, every database cluster whole. Change the image in a commit, run this, then the OpenTofu job. `talos_nodes_only` limits it to some nodes. A dry run lists each node's version and what it would upgrade. |
-| `talos-k8s-upgrade.yml` | Upgrades Kubernetes with `talosctl upgrade-k8s` to `kubernetes_version` in `tofu/proxmox/talos-config.tf`, with the cluster and every database checked healthy before and after. Change the version in a commit, run this, then the OpenTofu job (the other way round, OpenTofu would push it to every control plane at once). A dry run runs `upgrade-k8s --dry-run`. |
+| `talos-k8s-upgrade.yml` | Upgrades Kubernetes with `talosctl upgrade-k8s` to `kubernetes_version` in `tofu/proxmox/talos-config.tf`, with the cluster and every database checked healthy before and after. Change the version in a commit, run this, then the OpenTofu job (the other way round, OpenTofu would push it to every control plane at once). A dry run runs `upgrade-k8s --dry-run`. After a new minor, bump `KUBECTL_VERSION` in `docker/claude-code/Dockerfile` to match: kubectl supports one minor either side of the server. |
 | `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). Each host's own iSCSI LUN on the NAS as storage `nas-block` (`tasks/proxmox-nas-block.yml`, off until set). TSO, GSO and GRO off on every Intel `e1000e` NIC, now and at boot through a udev rule, as that driver hangs under load (`tasks/proxmox-nic-offloads.yml`). Intel AMT Serial-over-LAN where a host has it (`tasks/proxmox-amt-sol.yml`, below). A dry run reports each host's ARC, certificate, NAS block storage, NIC offloads and SOL setup. |
-| `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are `k8s-upgrade.yml`. It also owns the nodes' Kubernetes and CRI-O package sources. |
-| `k8s-node-reboot.yml` | Reboots the Kubernetes node containers one at a time, changing nothing else: the same checks, database switchovers, drain and wait as `k8s-node-update.yml`, with a reboot in place of the upgrade. |
-| `k8s-upgrade.yml` | Moves Kubernetes to one bundle from `k8s-bundles.yml` (`k8s_bundle`): this minor's latest patch or the next minor, with CRI-O, etcd, kube-vip and the pause image to match. It first checks the bundle against the live cluster and stops on anything that fails or can't be answered. |
 | `pihole-update.yml` | Updates the Pi-holes one at a time (`apt dist-upgrade`, then `pihole -up`), each only while every other one answers DNS, and waits for it to answer again before the next. With a single Pi-hole it stops unless `allow_dns_outage: true`. |
 | `pihole-config.yml` | Sets every Pi-hole's `pihole-FTL` settings to the values in `pihole_settings` (a Semaphore variable group), one at a time and only while the others answer DNS: sets each that differs, reads it back, restarts FTL and waits for it to answer again. It refuses settings nebula-sync copies from Pi-hole 1, so each setting has one owner. Check mode reports the differences. |
 | `baseline.yml` | The same baseline on every Debian host at once, from the "All Debian Hosts" inventory: the admin login (`admin-users.yml`'s steps), Semaphore's shared key for root, the packages in `vars/baseline.yml` (installed when missing, never removed or upgraded), and one interactive bash setup (`files/homelab-bashrc`). Check mode reports each part. |
@@ -132,114 +129,6 @@ args.
    schedule (e.g. weekly, from its own template with `["--check"]`). A real run is started by
    hand.
 
-## The Kubernetes nodes (`k8s-node-update.yml`)
-
-Set up once, after the Proxmox hosts:
-
-1. **An SSH key of its own for the nodes**, made like the hosts' (step 1 above), in the Key
-   Store as its own key. Add its `.pub` line to `/root/.ssh/authorized_keys` in each node
-   container; from the Proxmox host a container is on:
-   `pct exec <id> -- sh -c 'mkdir -p -m 700 /root/.ssh && echo "<the .pub line>" >> /root/.ssh/authorized_keys'`.
-   Only `ssh.service` should serve SSH there: with `ssh.socket` enabled too, systemd holds
-   port 22 and `sshd` fails on its next reload (`systemctl disable --now ssh.socket`).
-2. **Pin the nodes' host keys**, on the Docker host, with their management addresses (as for
-   the hosts in `docker/semaphore/README.md`, appending):
-
-   ```sh
-   ssh-keyscan -t ed25519 <node 1> <node 2> ... >> /opt/semaphore/config/known_hosts
-   ```
-
-3. **The inventory:** a second one, "Kubernetes nodes", type Static YAML, with the key from
-   step 1 (an inventory has one key). Each node is named exactly as its Kubernetes node, by
-   management address:
-
-   ```yaml
-   k8s_nodes:
-     children:
-       k8s_control_planes:
-         hosts:
-           <control plane 1>: {ansible_host: <management address>}
-           ...
-       k8s_workers:
-         hosts:
-           <worker 1>: {ansible_host: <management address>}
-           ...
-     vars:
-       ansible_user: root
-       ansible_python_interpreter: /usr/bin/python3
-   ```
-
-4. **A task template "Kubernetes nodes: update"**, playbook `ansible/k8s-node-update.yml`,
-   the "Kubernetes nodes" inventory, the repository and the "Kubernetes" variable group.
-
-**Rebooting the nodes** (`k8s-node-reboot.yml`): one more template on the same inventory,
-repository and variable group, **"Kubernetes nodes: reboot"**. To reboot only some nodes, set the template's (or the run's)
-limit to those nodes plus `localhost`, e.g. `<node>,localhost`; without `localhost`
-the run stops at its first check, having changed nothing.
-
-**Reaching the nodes on their management addresses** from beyond the management network
-(`tasks/k8s-node-mgmt.yml`, run by `k8s-node-update.yml` on each node before its upgrade; no
-drain needed). The nodes' management interface has no gateway, so a reply from a management
-address to anywhere off that network is sent out the main interface and dropped. Two
-settings in the "Kubernetes" variable group, both off until set:
-
-- `mgmt_gateway`: the management network's gateway. Each node gets routing table 250
-  (the management subnet and a default route via that gateway) and a rule sending traffic
-  from its management address there, re-added by `/etc/network/if-up.d/mgmt-return` whenever
-  the interface comes up. Pods and the node's own connections are unaffected.
-- `mgmt_ssh_only: true`: sshd listens on the management address only. It refuses to run
-  without `mgmt_gateway`, or when the inventory reaches the node by another address. Set it
-  only after a run with the gateway alone, and after SSH from your PC to a node's management
-  address has worked. If a node is ever unreachable, `pct enter <id>` on its Proxmox host
-  still works.
-
-With both empty, a run still reports each node's routing and sshd listening addresses.
-`mgmt_interface` (default `eth1`) and `mgmt_table` (default `250`) are there if they ever
-differ.
-
-What a run does to the workloads: each database cluster with two instances keeps running
-(its primary is switched over before the drain, and its replica waits for the node); a
-single-instance one (there are none now) would be down while its node updates. If a run stops
-partway, the node it was on stays cordoned: fix the cause, then run it again, or
-`kubectl uncordon` it.
-
-## Kubernetes version upgrades (`k8s-upgrade.yml`)
-
-A **bundle** in `k8s-bundles.yml` is one Kubernetes minor with everything that has to match
-it: the exact kubeadm, kubelet, kubectl and CRI-O packages, the pause image, kube-vip, an etcd
-override where one is needed, and the version range each add-on must be in. A run installs one
-bundle, chosen with `k8s_bundle`.
-
-Before it touches anything, a run stops unless:
-
-- the bundle is the cluster's current minor or the next one, and not older;
-- every node's kubelet is within the skew the target allows, with CRI-O on the kubelet's minor;
-- etcd is new enough (etcd 3.6 needs every member on 3.5.32 or later first);
-- the bundle's packages exist in their repositories, and its etcd and kube-vip images exist;
-- no API the target removes is in use (each API server's own count of deprecated requests);
-- every add-on runs a version inside the bundle's range, and every HelmRelease is either an
-  add-on or listed as version-independent: an unknown counts as incompatible;
-- every node runs cgroup v2.
-
-Add-ons that Flux installs are upgraded by commits first; the checks say which. Then a run
-upgrades the control planes one at a time, then the workers, each drained like a node update.
-A node already on the bundle isn't drained again, so a run that stopped can be run again.
-
-**On LXC nodes,** kubeadm's SystemVerification preflight check can't read the host's kernel
-config and fails; add `kubeadm_ignore_preflight_errors: [SystemVerification]` to the
-"Kubernetes nodes" inventory's `vars:`. Its cgroup part is covered by the check above.
-
-**Templates:** playbook `ansible/k8s-upgrade.yml`, the "Kubernetes nodes" inventory, the
-repository and the "Kubernetes" variable group, with `k8s_bundle` in the template's extra
-variables (`{"k8s_bundle": "1.33"}`, a string): **"Kubernetes upgrade"**. Change the bundle for
-each step, and dry-run it first.
-
-**A new bundle:** copy the newest, set the versions, and give every add-on's range from its
-project's support page, with the link. A new add-on goes into `k8s_addons` with how to read
-its version, and a range in every bundle. Once the cluster runs a new minor, bump `KUBECTL_VERSION`
-in `docker/claude-code/Dockerfile` to match: kubectl supports one minor version either side of
-the server.
-
 ## The Pi-holes and the Docker VM (`pihole-update.yml`, `pihole-config.yml`, `docker-vm-update.yml`)
 
 `pihole-update.yml` and `docker-vm-update.yml` haven't run yet; dry-run each first.
@@ -348,8 +237,7 @@ storage entry lists only the other hosts.
   semaphore-shared -f semaphore-shared`; the private half goes into the Key Store as
   "Shared", the `.pub` line into the "Debian Host Baseline" variable group as `semaphore_ssh_key`, and
   then delete both files.
-- **A "Baseline" template per existing inventory** (Proxmox, Kubernetes nodes, Pi-holes,
-  Docker VM), playbook `ansible/baseline.yml`, the "Debian Host Baseline" variable group. Run each
+- **A "Baseline" template per existing inventory** (Proxmox, Pi-holes, Docker VM), playbook `ansible/baseline.yml`, the "Debian Host Baseline" variable group. Run each
   once (a dry run first): that puts the shared key on every host through the keys that
   already work.
 - **The inventory "All Debian Hosts"**, Static YAML with the "Shared" key: every host, in
@@ -360,12 +248,6 @@ storage entry lists only the other hosts.
   proxmox:
     hosts:
       <host>: {ansible_host: <management address>}
-  k8s_nodes:
-    children:
-      k8s_control_planes:
-        hosts: {<node>: {ansible_host: <management address>}}
-      k8s_workers:
-        hosts: {<node>: {ansible_host: <management address>}}
   pihole:
     hosts: {<pi-hole>: {ansible_host: <management address>}}
   docker_vm:
@@ -376,15 +258,14 @@ storage entry lists only the other hosts.
       ansible_python_interpreter: /usr/bin/python3
   ```
 
-  Keep each group's own variables (for example the nodes' `kubeadm_ignore_preflight_errors`)
-  under that group. The host keys are the ones already pinned in Semaphore's `known_hosts`.
+  Keep each group's own variables under that group. The host keys are the ones already pinned in Semaphore's `known_hosts`.
 - **One template "All Debian hosts: baseline"** on that inventory replaces the per-inventory
   ones, and `admin-users.yml`'s templates. The update and upgrade playbooks keep their own
   narrower inventories, so a mis-set limit can't reach the wrong machines.
 
 **Prometheus's exporters** (`tasks/host-exporters.yml`), off until `host_exporters: true` is in
-the variable group: Debian's `prometheus-node-exporter` on every host but the Kubernetes nodes
-(the cluster runs its own there), and on the Proxmox hosts the packaged SMART and NVMe
+the variable group: Debian's `prometheus-node-exporter` on every host here (the Kubernetes
+nodes, Talos, run the cluster's own), and on the Proxmox hosts the packaged SMART and NVMe
 collectors (each SSD's wear) on their timers. Each listens only on the host's own address in
 `management_network` (the management network with its prefix, set once in the variable group),
 found on the host itself, so no host needs an address set; a host with none or several there

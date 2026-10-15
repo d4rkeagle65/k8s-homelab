@@ -40,14 +40,14 @@ with the live one; `old-queues/QUEUE-restore-tests.md` has the method.
   `ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing, since
   nothing has tried to archive yet.
 
-- **Respect what the nodes are: LXC containers on ZFS, with two networks; Talos VMs are
-  joining (QUEUE-talos.md).** LXC nodes have no block devices or iSCSI, so Longhorn and other
-  block-storage CSIs can't run there; don't propose them. Calico takes each node's address
-  from its kubelet's InternalIP (`nodeAddressAutodetectionV4: {kubernetes: NodeInternalIP}`
-  in the tigera-operator release's `installation` values): the default `firstFound` picks an
-  LXC node's `eth1` and moves pod traffic onto the management network, and a Talos VM's
-  interface isn't `eth0`. The API address is shared by the Talos control planes
-  (`Layer2VIPConfig`, `tofu/proxmox/talos-config.tf`).
+- **Respect what the nodes are: Talos VMs, with two networks.** Calico takes each node's
+  address from its kubelet's InternalIP (`nodeAddressAutodetectionV4: {kubernetes:
+  NodeInternalIP}` in the tigera-operator release's `installation` values): the default
+  `firstFound` can pick `eth1` and move pod traffic onto the management network. The API
+  address is shared by the control planes (`Layer2VIPConfig`, `tofu/proxmox/talos-config.tf`).
+  Single-copy data that writes constantly goes on `nas-iscsi`, which only Talos nodes mount,
+  with node affinity for `extensions.talos.dev/iscsi-tools` (the democratic-csi HelmRelease
+  says why).
 
 ## Ingress
 

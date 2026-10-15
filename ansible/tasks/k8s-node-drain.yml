@@ -1,9 +1,9 @@
 # Takes node k8s_node out of service: cordon, move its databases off
 # (cnpg-free-node.yml), drain. kubectl runs on kubectl_host, as kubectl_cmd
-# (default: kubeadm's admin.conf). Undone by k8s-node-return.yml, or by
-# proxmox-host-reboot.yml for a whole host.
+# (kubectl-local.yml). Undone by proxmox-host-reboot.yml for a whole host,
+# or talos-node-upgrade.yml for one node.
 - name: Cordon the node
-  ansible.builtin.command: "{{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} cordon {{ k8s_node }}"
+  ansible.builtin.command: "{{ kubectl_cmd }} cordon {{ k8s_node }}"
   delegate_to: "{{ kubectl_host }}"
   changed_when: true
 
@@ -12,7 +12,7 @@
 
 - name: Drain the node
   ansible.builtin.command: >-
-    {{ kubectl_cmd | default('kubectl --kubeconfig /etc/kubernetes/admin.conf') }} drain {{ k8s_node }}
+    {{ kubectl_cmd }} drain {{ k8s_node }}
     --ignore-daemonsets --delete-emptydir-data --timeout=15m
   delegate_to: "{{ kubectl_host }}"
   changed_when: true

@@ -1,8 +1,7 @@
 # The Talos VMs (QUEUE-talos.md): one per local.talos_nodes entry
 # (talos-config.tf), each booted from the Image Factory's nocloud image, given
-# its address by cloud-init, and sent its machine config. One node per apply:
-# a control plane joins etcd, and the kubeadm one on its host is retired
-# after it (talos/README.md), never two at once.
+# its address by cloud-init, and sent its machine config. One node per apply,
+# so control planes join etcd one at a time (tofu/CLAUDE.md).
 
 # The image, once, on the NAS's shared storage, which every host reads; the
 # Image Factory serves it as qcow2, which Proxmox imports as a disk.

@@ -46,7 +46,7 @@ smooths short bursts, hence the generous CPU limits.
   increase: a restarted instance that no longer fits stays Pending. Make room by moving a
   stateless pod: cordon the node, restart the pod, uncordon (restarting alone puts it back on
   the 8-core worker, below).
-- Only what this repo owns. kubeadm's static pods (API server, etcd, scheduler, controller
+- Only what this repo owns. The control plane's static pods (API server, etcd, scheduler, controller
   manager) are left alone; operator-managed pods (Calico, MetalLB) through their operator's
   settings where it has some.
 
@@ -92,14 +92,6 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring
 - [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
       (with monitoring phase 5)
-- [ ] Watch whether w01 still collects pods. It did (2026-10-11: 97% of its memory, evictions)
-      because its kubelet counted 8 CPUs, so it always scored as the emptiest. Every kubelet
-      reports 2 since 2026-10-12; w01a's container has 4 (`k8s_cores` in `tofu/proxmox/`),
-      but its kubelet keeps reporting 2 until it restarts, which leaves it scheduling as a
-      2-core node with spare CPU underneath. Restart it only with a decision on this item. If it still does, weight
-      memory higher: kube-scheduler's `NodeResourcesFit` with `LeastAllocated` and
-      `resources: [{name: memory, weight: 3}, {name: cpu, weight: 1}]`, through kubeadm's
-      scheduler config (Ansible, `k8s-upgrade.yml`'s territory)
 - [ ] Re-measure at seven days (2026-10-18): requests from the new peaks, limits by the rules
       above. Immich's server was throttled in 66% of periods over the first two days, mostly
       while it crash-looped on 2026-10-11; if it stays above 10% it needs a judgement against
