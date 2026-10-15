@@ -82,6 +82,20 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       claim was chowned to it (the NAS export doesn't squash root). The release, claim and
       hostname keep Jellyseerr's names, for Homepage, Organizr and bookmarks.
 
+- [ ] **Renovate watches every version it can** (the owner, 2026-10-15). Inventory every
+      pinned version in the repo (images in manifests, HelmRelease values, compose files and
+      Dockerfiles; charts; Dockerfile `ARG` versions; OpenTofu providers; Kubernetes and
+      Talos; Python requirements and `# /// script` blocks; Ansible's pinned images and
+      collections) against what a Renovate run reports detecting (its log's dependency
+      list, or the Dependency Dashboard), and close each gap with a custom manager, an inline
+      `# renovate:` annotation or a package rule. Known gaps when this was written: the
+      Dockerfile `ARG`s (`docker/claude-code/`: kubectl, Flux, Helm, OpenTofu;
+      `docker/kea/`: Kea, Stork), which Renovate's dockerfile manager doesn't read; and
+      whether images in hand-written HelmReleases' inline values (20 files) are detected,
+      to be read from the run's log. Kept out on purpose: OpenTofu's `required_version`
+      (matches Semaphore's, a hand update), `values-all.yaml` and the other `ignorePaths`.
+      Done when a run's dependency list matches the inventory, every exception listed here.
+
 ## Left as they are, and why
 
 - `busybox:1.36` in ManicTime's `seed-settings`: the chart's default (`d4rkeagle65`), changed in
