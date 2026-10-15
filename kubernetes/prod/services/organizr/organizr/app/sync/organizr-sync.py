@@ -11,10 +11,14 @@ Steps, each idempotent:
    as env:NAME is read from that environment variable, so no secret is in the
    ConfigMap.
 3. Categories and tabs, matched by name: missing ones are added, differing
-   ones updated. Ones Organizr has that organizr.yaml doesn't list are left
-   alone and reported.
-4. Read back: every setting (secrets only as present, since Organizr stores
-   them encrypted), every category and every tab must match, or the Job fails.
+   ones updated.
+4. Ones Organizr has that organizr.yaml doesn't list: with remove_unlisted
+   true, deleted, tabs before categories; otherwise reported and left. Organizr's
+   own (a built-in tab, type 0, or the default category) is never deleted: the
+   run stops before deleting anything and asks for it to be listed.
+5. Read back: every setting (secrets only as present, since Organizr stores
+   them encrypted), every category and every tab must match, and with
+   remove_unlisted nothing unlisted may remain, or the Job fails.
 """
 from __future__ import annotations
 
@@ -143,9 +147,32 @@ def apply_list(path: str, field: str, wanted: list[dict]) -> None:
             if status != 200:
                 sys.exit(f"FAIL: updating {path} {name} answered {status}: {message_of(resp)}")
             print(f"{path.strip('/')}: updated {name} ({', '.join(sorted(change))})")
+
+
+def is_builtin(path: str, item: dict) -> bool:
+    if path == "/tabs":
+        return str(item.get("type")) == "0"
+    return str(item.get("default")) == "1" or str(item.get("category_id")) == "0"
+
+
+def remove_unlisted(path: str, field: str, wanted: list[dict], enabled: bool) -> None:
+    have = list_of(path, field)
     extra = sorted(set(have) - {i[field] for i in wanted})
-    if extra:
-        print(f"{path.strip('/')}: left alone, not in organizr.yaml: {', '.join(extra)}")
+    what = path.strip("/")
+    if not extra:
+        return
+    if not enabled:
+        print(f"{what}: left alone, not in organizr.yaml (remove_unlisted is off): {', '.join(extra)}")
+        return
+    builtin = [name for name in extra if is_builtin(path, have[name])]
+    if builtin:
+        sys.exit(f"FAIL: {what} {', '.join(builtin)} are Organizr's own and not in organizr.yaml; "
+                 f"list them there. Nothing was removed.")
+    for name in extra:
+        status, resp = call("DELETE", f"{path}/{have[name]['id']}")
+        if status not in (200, 204):
+            sys.exit(f"FAIL: removing {what} {name} answered {status}: {message_of(resp)}")
+        print(f"{what}: removed {name}, not in organizr.yaml")
 
 
 def category_ids(categories: list[dict]) -> dict:
@@ -153,7 +180,7 @@ def category_ids(categories: list[dict]) -> dict:
     return {name: have[name]["category_id"] for name in (c["category"] for c in categories) if name in have}
 
 
-def verify(settings: dict, categories: list[dict], tabs: list[dict]) -> None:
+def verify(settings: dict, categories: list[dict], tabs: list[dict], exact: bool) -> None:
     problems = []
     status, resp = call("GET", "/config")
     config = data_of(resp) if status == 200 else None
@@ -168,7 +195,13 @@ def verify(settings: dict, categories: list[dict], tabs: list[dict]) -> None:
             problems.append(f"setting {key} is {got!r}")
     have = list_of("/categories", "category")
     problems += [f"category {c['category']} is missing" for c in categories if c["category"] not in have]
+    if exact:
+        listed = {c["category"] for c in categories}
+        problems += [f"category {name} is there, not in organizr.yaml" for name in sorted(set(have) - listed)]
     have = list_of("/tabs", "name")
+    if exact:
+        listed = {t["name"] for t in tabs}
+        problems += [f"tab {name} is there, not in organizr.yaml" for name in sorted(set(have) - listed)]
     for tab in tabs:
         if tab["name"] not in have:
             problems.append(f"tab {tab['name']} is missing")
@@ -198,7 +231,10 @@ def main() -> None:
             tab["category_id"] = ids[cat]
         tabs.append(tab)
     apply_list("/tabs", "name", tabs)
-    verify(spec.get("settings") or {}, categories, tabs)
+    exact = spec.get("remove_unlisted") is True
+    remove_unlisted("/tabs", "name", tabs, exact)
+    remove_unlisted("/categories", "category", categories, exact)
+    verify(spec.get("settings") or {}, categories, tabs, exact)
 
 
 if __name__ == "__main__":
