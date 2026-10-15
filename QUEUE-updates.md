@@ -67,9 +67,19 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       `<app>-postgres-app`, and the old cluster removed. A base backup and a restore test
       first (`old-queues/QUEUE-restore-tests.md`). ManicTime publishes no PostgreSQL range
       (its own Docker guide uses 15), so its first start on 18 is the test.
-  - [ ] ManicTime (`manictime-pg`, 15, 124 MB). Restore test 2026-10-15: pass, 44 tables;
-        the copy's rows all in the live database except Reports totals updated since.
-        `manictime-postgres` created.
+  - [x] ManicTime (2026-10-15): on `manictime-postgres` (18.6, trixie), every table's rows
+        and every object identical to the old cluster before the switch; about five minutes
+        down. **Its database connection lives in `ManicTimeServerSettings.json` on the
+        `manictime-server-data` volume**, copied from the `manictime-server-settings` Secret
+        only when missing, so changing the release's `settings.database` alone changes
+        nothing: replace the file from the Secret too (the old one is kept beside it as
+        `.pre-pg18`).
+  - [ ] Retire `manictime-pg` from about 2026-10-17, once ManicTime has run on 18 for a day:
+        remove `cluster-manictime-pg.yaml` (`manictime-extras`) and
+        `scheduledbackup-manictime-pg.yaml` (`manictime-backup`); the owner then deletes the
+        Cluster (it's kept from pruning), its claims `manictime-pg-1`/`-2`, and
+        `ManicTimeServerSettings.json.pre-pg18` on ManicTime's volume (it holds the old
+        password). Until then it's the way back: the `.pre-pg18` file and the old cluster.
   - [ ] Whisparr (`whisparr-postgres`, 16)
   - [ ] The twelve on 17.11, in an order of their own
   - [ ] Immich's (vectorchord `16-1.1.1`, bookworm): Immich's own upgrade notes decide when
