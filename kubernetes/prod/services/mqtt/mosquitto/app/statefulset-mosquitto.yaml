@@ -20,7 +20,7 @@ spec:
         app: mosquitto
     spec:
       containers:
-      - image: eclipse-mosquitto:2
+      - image: eclipse-mosquitto:2.1.2-alpine
         imagePullPolicy: IfNotPresent
         name: mosquitto
         ports:

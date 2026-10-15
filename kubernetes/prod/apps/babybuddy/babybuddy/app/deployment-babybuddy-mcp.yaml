@@ -33,7 +33,7 @@ spec:
         envFrom:
         - secretRef:
             name: babybuddy-mcp-secrets
-        image: python:3.12-slim
+        image: python:3.12.15-slim
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3

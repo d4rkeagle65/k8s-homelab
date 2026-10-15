@@ -18,7 +18,7 @@ spec:
         runAsGroup: 65534
       initContainers:
         - name: deps
-          image: python:3.14-alpine
+          image: python:3.14.8-alpine
           command: [pip, install, --quiet, --no-cache-dir, --target, /deps, pyyaml==6.0.3]
           env:
             - {name: HOME, value: /tmp}
@@ -26,7 +26,7 @@ spec:
             - {name: deps, mountPath: /deps}
       containers:
         - name: sync
-          image: python:3.14-alpine
+          image: python:3.14.8-alpine
           command: [python, /etc/grimmory-sync/grimmory-sync.py]
           env:
             - {name: PYTHONPATH, value: /deps}
