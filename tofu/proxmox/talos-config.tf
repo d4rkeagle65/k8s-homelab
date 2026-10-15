@@ -21,7 +21,7 @@ locals {
   # The cluster's Kubernetes version: raised in a commit, then
   # ansible/talos-k8s-upgrade.yml, then this job (that playbook says why in
   # that order).
-  kubernetes_version = "1.36.5"
+  kubernetes_version = "1.37.1"
 
   # The Talos nodes, by VMID: their role and size here, their host, name and
   # last octet in TF_VAR_site, as for the other guests (README.md). A node is
