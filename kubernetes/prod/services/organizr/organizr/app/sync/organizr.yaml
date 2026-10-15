@@ -3,6 +3,12 @@
 # run puts a setting listed here back. A value written env:NAME comes from the
 # organizr-sync Secret; Flux fills in the cluster variables as everywhere else.
 #
+# The categories and tabs below are the whole list: with remove_unlisted on,
+# the sync deletes any other, so one added in Organizr's UI goes on the next
+# run. Organizr's own (the Settings and Homepage tabs, the Unsorted category)
+# are listed too; the sync refuses to delete them and stops instead.
+remove_unlisted: true
+
 # Organizr's groups, most privileged first: 0 Admin, 1 Co-Admin, 2 Super User,
 # 3 Power User, 4 User, 999 Guest. A tab's group_id is the least privileged
 # group that sees it.
@@ -64,6 +70,8 @@ settings:
   homepageqBittorrentEnabled: "true"
 
 categories:
+  # Organizr's own default category (category_id 0), where Homepage and Settings sit.
+  - {category: Unsorted, image: "fontawesome::question"}
   - {category: Media, image: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png}
   - {category: Downloads, image: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/qbittorrent.png}
   - {category: Home, image: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/home-assistant.png}
@@ -73,9 +81,12 @@ categories:
 # that refuse to be framed or log in through Authentik (its cookies don't
 # reach a frame on another site).
 tabs:
-  # Tabs are matched by name, and Homepage and Settings are Organizr's own:
-  # another tab by either name would take it over. Organizr's own homepage (built in, type 0), with the apps' calendars and
-  # queues from the settings above; the tab it opens on.
+  # Tabs are matched by name, and Homepage and Settings are Organizr's own
+  # (built in, type 0): another tab by either name would take it over.
+  # Organizr's settings page, for its Co-Admins and Admins.
+  - {name: Settings, type: 0, category_id: 0, group_id: 1, enabled: 1, default: 0, url: api/v2/page/settings, image: "fontawesome::cog"}
+  # Organizr's own homepage, with the apps' calendars and queues from the
+  # settings above; the tab it opens on.
   - {name: Homepage, type: 0, category_id: 0, group_id: 4, enabled: 1, default: 1, url: api/v2/page/homepage, image: "fontawesome::home"}
   - {name: Emby, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://emby.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png"}
   - {name: Seerr, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://seerr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/seerr.png"}
