@@ -26,12 +26,12 @@ spec:
           valueFrom:
             secretKeyRef:
               key: username
-              name: babybuddy-postgres-app
+              name: babybuddy-db-app
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               key: password
-              name: babybuddy-postgres-app
+              name: babybuddy-db-app
         envFrom:
         - configMapRef:
             name: babybuddy-env
@@ -79,7 +79,7 @@ spec:
       - command:
         - sh
         - -c
-        - until pg_isready -h babybuddy-postgres-rw -p 5432; do echo waiting for database; sleep 2; done;
+        - until pg_isready -h babybuddy-db-rw -p 5432; do echo waiting for database; sleep 2; done;
         image: ghcr.io/cloudnative-pg/postgresql:17.11
         imagePullPolicy: IfNotPresent
         name: check-db-ready
