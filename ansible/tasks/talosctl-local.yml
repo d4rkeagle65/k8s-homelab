@@ -1,0 +1,51 @@
+# talosctl on the machine running the playbook (Semaphore): talos_version's
+# release from GitHub, checked against the release's sha256sum.txt, and the
+# talosconfig from talosconfig_b64 (an os:admin one, as Talos lets only
+# os:admin upgrade or apply configs; base64 on one line, a Semaphore secret).
+# Sets talosctl_cmd and talos_dir. Both files go in a new private temporary
+# directory (0700), never the playbook's folder, which Semaphore keeps
+# between runs; the playbook's last play removes it.
+- name: The talosconfig is set
+  ansible.builtin.assert:
+    that: talosconfig_b64 | default('') | length > 0
+    fail_msg: >-
+      talosconfig_b64 is unset: an os:admin talosconfig, base64 on one line, in the
+      Semaphore variable group these templates use (ansible/README.md).
+    quiet: true
+
+- name: Read this machine's architecture
+  ansible.builtin.command: uname -m
+  register: talosctl_uname
+  changed_when: false
+  check_mode: false
+
+- name: Make a private directory for talosctl and its talosconfig
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: talosctl.
+  register: talosctl_tmp
+  check_mode: false
+
+- name: Download talosctl {{ talos_version }}
+  ansible.builtin.get_url:
+    url: "{{ talosctl_release }}/talosctl-linux-{{ talosctl_arch }}"
+    checksum: "sha256:{{ talosctl_release }}/sha256sum.txt"
+    dest: "{{ talosctl_tmp.path }}/talosctl"
+    mode: "0700"
+  check_mode: false
+  vars:
+    talosctl_release: https://github.com/siderolabs/talos/releases/download/{{ talos_version }}
+    talosctl_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[talosctl_uname.stdout | trim] }}"
+
+- name: Write the talosconfig
+  ansible.builtin.copy:
+    content: "{{ talosconfig_b64 | regex_replace('\\s', '') | b64decode }}"
+    dest: "{{ talosctl_tmp.path }}/talosconfig"
+    mode: "0600"
+  no_log: true
+  check_mode: false
+
+- name: Use it
+  ansible.builtin.set_fact:
+    talosctl_cmd: "{{ talosctl_tmp.path }}/talosctl --talosconfig {{ talosctl_tmp.path }}/talosconfig"
+    talos_dir: "{{ talosctl_tmp.path }}"

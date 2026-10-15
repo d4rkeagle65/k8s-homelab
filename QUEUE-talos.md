@@ -215,12 +215,14 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
         the "k8s LXCs" inventory deleted. Since every worker went Talos (2026-10-14) both
         fail each night at "The inventory needs k8s_control_planes with at least two nodes"
         (tasks 677, 678), correctly: that inventory is empty
-  - [ ] Talos replacements as playbooks, before the kubeadm ones go: node upgrades by
-        `talosctl upgrade` (a new installer image, one node at a time, each drained first
-        with `tasks/k8s-node-drain.yml` and `tasks/kubectl-local.yml`, as
-        `tasks/proxmox-host-reboot.yml` does) and Kubernetes upgrades by
-        `talosctl upgrade-k8s`. They need a talosconfig in Semaphore (none there today) and
-        `talos/patches/common.yaml`'s installer image as the one place the version is set
+  - [ ] Talos replacements: `talos-upgrade.yml` (`talosctl upgrade` node by node, drained
+        and capacity-checked first) and `talos-k8s-upgrade.yml` (`talosctl upgrade-k8s`),
+        written 2026-10-15 and run in check mode against the cluster (versions read, plan,
+        talosctl and kubectl fetched and checksummed, health checks; "nothing to do", as
+        every node is on the targets). Left: `talosconfig_b64` (os:admin) in Semaphore's
+        Kubernetes variable group and a template for each, then a check-mode run of each from
+        Semaphore. The first real talosctl call happens at the next Talos or Kubernetes
+        release
   - [ ] Then the kubeadm playbooks and tasks go (`k8s-node-update.yml`,
         `k8s-node-reboot.yml`, `k8s-upgrade.yml`, `k8s-bundles.yml`, `tasks/k8s-node-*`,
         `tasks/k8s-bundle-*`, `tasks/k8s-kubeadm.yml`, `tasks/k8s-etcd-tag.yml`), the

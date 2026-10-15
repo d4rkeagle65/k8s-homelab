@@ -1,0 +1,75 @@
+# Upgrades one Talos node (talos_node: name, address, control_plane) to
+# talos_image: every node Ready and every database cluster whole first, its
+# pods checked to fit elsewhere (k8s-capacity-check.yml), then out of service
+# (k8s-node-drain.yml: primaries switched over, cordon, drain), talosctl
+# upgrade with --wait (it installs, reboots and waits for the node), then the
+# node Ready on the new version, uncordoned and every database cluster whole
+# again. A control plane runs alone at a time, so etcd keeps its quorum; its
+# API server answers through the shared address meanwhile. For
+# talos-upgrade.yml; needs kubectl-local.yml and talosctl-local.yml.
+
+- name: Every Kubernetes node is Ready first
+  ansible.builtin.include_tasks: kubernetes-healthy.yml
+
+- name: Every database cluster is healthy first
+  ansible.builtin.include_tasks: cnpg-healthy.yml
+
+- name: Its pods fit on the other nodes
+  ansible.builtin.include_tasks: k8s-capacity-check.yml
+  vars:
+    capacity_nodes: ["{{ talos_node.name }}"]
+    capacity_allow_pending: "{{ reboot_allow_pending | default(false) }}"
+
+- name: Upgrade it, saying what's left cordoned if it fails
+  block:
+    - name: Take it out of service
+      ansible.builtin.include_tasks: k8s-node-drain.yml
+      vars:
+        k8s_node: "{{ talos_node.name }}"
+
+    - name: Upgrade Talos on the node
+      ansible.builtin.command: >-
+        {{ talosctl_cmd }} --nodes {{ talos_node.address }} --endpoints {{ talos_node.address }}
+        upgrade --image {{ talos_image }} --wait --timeout 20m
+      changed_when: true
+      when: not ansible_check_mode
+
+    - name: Wait for it to be Ready on {{ talos_version }}
+      ansible.builtin.command: "{{ kubectl_cmd }} get node {{ talos_node.name }} -o json"
+      delegate_to: "{{ kubectl_host }}"
+      register: talos_node_after
+      changed_when: false
+      until: >-
+        talos_node_after.rc == 0
+        and (talos_node_after.stdout | from_json).status.nodeInfo.osImage is search('\(' ~ talos_version ~ '\)')
+        and (talos_node_after.stdout | from_json).status.conditions | selectattr('type', 'equalto', 'Ready')
+            | selectattr('status', 'equalto', 'True') | list | length == 1
+      retries: 60
+      delay: 10
+      when: not ansible_check_mode
+
+    - name: Uncordon the node
+      ansible.builtin.command: "{{ kubectl_cmd }} uncordon {{ talos_node.name }}"
+      delegate_to: "{{ kubectl_host }}"
+      changed_when: true
+
+    - name: Close the database maintenance windows
+      ansible.builtin.include_tasks: cnpg-maintenance-end.yml
+      when: cnpg_maintenance | default([]) | length > 0
+
+    - name: Wait for every database cluster to be whole again
+      ansible.builtin.include_tasks: cnpg-healthy.yml
+      vars:
+        cnpg_wait: true
+
+  rescue:
+    - name: Say what this node's failure left behind
+      ansible.builtin.debug:
+        msg:
+          - "{{ talos_node.name }} stopped at: {{ ansible_failed_task.name | default('?') }}"
+          - "It may still be cordoned. Once it's Ready: kubectl uncordon {{ talos_node.name }}"
+          - "Its version now: talosctl -n {{ talos_node.address }} -e {{ talos_node.address }} version"
+
+    - name: Stop the run
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('A step failed') }} ({{ talos_node.name }}); see the message above."
