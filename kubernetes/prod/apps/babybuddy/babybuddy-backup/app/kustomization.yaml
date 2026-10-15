@@ -4,3 +4,4 @@ resources:
 - secret-cnpg-backup-s3.yaml
 - objectstore.yaml
 - scheduledbackup-babybuddy-postgres.yaml
+- scheduledbackup-babybuddy-db.yaml
