@@ -39,7 +39,7 @@ spec:
               - name: DB_TYPE
                 value: postgresdb
               - name: DB_POSTGRESDB_HOST
-                value: n8n-postgres-rw
+                value: n8n-db-rw
               - name: DB_POSTGRESDB_PORT
                 value: "5432"
               - name: DB_POSTGRESDB_DATABASE
@@ -47,12 +47,12 @@ spec:
               - name: DB_POSTGRESDB_USER
                 valueFrom:
                   secretKeyRef:
-                    name: n8n-postgres-app
+                    name: n8n-db-app
                     key: username
               - name: DB_POSTGRESDB_PASSWORD
                 valueFrom:
                   secretKeyRef:
-                    name: n8n-postgres-app
+                    name: n8n-db-app
                     key: password
               - name: N8N_ENCRYPTION_KEY
                 valueFrom:
