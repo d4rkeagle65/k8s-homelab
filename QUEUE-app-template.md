@@ -54,10 +54,10 @@ object by object. For every release:
 - [x] The other media apps: Lidarr, Prowlarr, qBittorrent, Radarr, SABnzbd, Seerr, Sonarr,
       Tdarr, Whisparr (2026-10-15): each about 20 seconds down, Lidarr about a minute.
 - [x] Linkwarden, mesh-mini, Organizr, n8n (2026-10-15); n8n's metrics kept job `n8n`.
-- [ ] Homepage: `serviceAccount: {homepage: {}}`, `controllers.main.serviceAccount.identifier:
+- [x] Homepage (2026-10-15): `serviceAccount: {homepage: {}}`, `controllers.main.serviceAccount.identifier:
       homepage`, `controllers.main.pod.automountServiceAccountToken: true`, the binding's
       subject `homepage`. Rendered 2026-10-15: same account name, binding and role as now.
-      Check its Kubernetes widgets still show nodes and pods.
+      Recreated: its own account with the token, `can-i list pods` yes, no 403s in its log.
 - [ ] Grimmory: the Deployment and the MariaDB StatefulSet; its metrics' job label
 - [ ] Jackett in the test overlay (`kubernetes/test/media/jackett/`, suspended): the version
       only, nothing running to recreate
