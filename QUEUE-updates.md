@@ -55,10 +55,24 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
 - [ ] **app-template 3.7.3 -> 5.3.0** (16 hand-written releases, and Jackett in the test
       overlay): in progress in [QUEUE-app-template.md](QUEUE-app-template.md). Every
       Deployment must be recreated (an immutable selector label changed).
-- [ ] **PostgreSQL major versions:** `manictime-pg` on 15 and `whisparr-postgres` on 16, to 18; Immich's on vectorchord `16-1.1.1` (an extension, so Immich's own upgrade notes
-      decide when). CloudNativePG upgrades a major version offline in place when `imageName`
-      changes major. Take a base backup and run a restore test first
-      (`old-queues/QUEUE-restore-tests.md`).
+- [ ] **PostgreSQL 18 on Debian trixie, by a new cluster per database** (the owner,
+      2026-10-15). Every cluster but Immich's runs the plain `postgresql:15`/`:16`/`:17.11`
+      tags, which are Debian 11 (bullseye) `system` images: those tags are deprecated and no
+      longer built, so they get no patch releases, and Debian 11's LTS ended 2026-08.
+      CloudNativePG's in-place major upgrade can't change the Debian release, so each
+      database moves to a new `<app>-postgres` cluster on `18.x-standard-trixie`: created
+      empty with the same databases and owner, the data streamed in with `pg_dump | pg_restore`
+      (`kubectl exec` as `postgres` on each side, no passwords) while the app is stopped,
+      every table's rows compared, then the app pointed at `<app>-postgres-rw` and
+      `<app>-postgres-app`, and the old cluster removed. A base backup and a restore test
+      first (`old-queues/QUEUE-restore-tests.md`). ManicTime publishes no PostgreSQL range
+      (its own Docker guide uses 15), so its first start on 18 is the test.
+  - [ ] ManicTime (`manictime-pg`, 15, 124 MB). Restore test 2026-10-15: pass, 44 tables;
+        the copy's rows all in the live database except Reports totals updated since.
+        `manictime-postgres` created.
+  - [ ] Whisparr (`whisparr-postgres`, 16)
+  - [ ] The twelve on 17.11, in an order of their own
+  - [ ] Immich's (vectorchord `16-1.1.1`, bookworm): Immich's own upgrade notes decide when
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
       `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says. Held (2026-10-15)
       until these list 1.37 as supported: Flux (2.9.6 says 1.34-1.36; its unreleased main

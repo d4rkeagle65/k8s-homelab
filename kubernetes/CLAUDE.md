@@ -34,11 +34,12 @@ one-instance Cluster recovered from that store in the same namespace, compared t
 with the live one; `old-queues/QUEUE-restore-tests.md` has the method.
 
 - **Create the `ObjectStore` before a Cluster that names it, and prove archiving with
-  `pg_stat_archiver`.** A Cluster applied first stays stuck: the plugin's pre-reconcile hook
-  stops the reconcile ("Pre-reconcile hook stopped the reconciliation loop") and the operator
-  doesn't retry once the store appears; an annotation on the Cluster makes it reconcile again.
-  `ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing, since
-  nothing has tried to archive yet.
+  `pg_stat_archiver`.** A Cluster applied first stays stuck at "Pre-reconcile hook stopped the
+  reconciliation loop", and isn't retried once the store appears; annotate it to reconcile.
+  `ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing. A Backup
+  says `completed` before its last segment is archived: until `last_archived_wal` reaches its
+  `status.endWal` (up to `archive_timeout`, 5 minutes), recovering from it fails with "could
+  not locate required checkpoint record". Wait for that before relying on it.
 
 - **Respect what the nodes are: Talos VMs, with two networks.** Calico takes each node's
   address from its kubelet's InternalIP (`nodeAddressAutodetectionV4: {kubernetes:
