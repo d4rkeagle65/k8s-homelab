@@ -1,7 +1,7 @@
 # cAdvisor on the Docker host: each container's CPU, memory, disk and network,
 # for Prometheus in the cluster (monitors/scrapeconfig-docker-vm.yaml), on the
 # host's management address only. Deployed by Dockhand from this folder (a Git
-# stack).
+# stack), redeployed when a change here reaches main (its webhook; docker/CLAUDE.md).
 #
 # Variables (set in the stack's environment in Dockhand):
 #   CADVISOR_ADDRESS   the host's management address
