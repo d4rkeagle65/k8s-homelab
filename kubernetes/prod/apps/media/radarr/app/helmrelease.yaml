@@ -34,7 +34,7 @@ spec:
               - name: TZ
                 value: ${TIMEZONE}
               - name: RADARR__POSTGRES__HOST
-                value: radarr-postgres-rw
+                value: radarr-db-rw
               - name: RADARR__POSTGRES__PORT
                 value: "5432"
               - name: RADARR__POSTGRES__USER
@@ -42,7 +42,7 @@ spec:
               - name: RADARR__POSTGRES__PASSWORD
                 valueFrom:
                   secretKeyRef:
-                    name: radarr-postgres-app
+                    name: radarr-db-app
                     key: password
               - name: RADARR__POSTGRES__MAINDB
                 value: radarr-main
