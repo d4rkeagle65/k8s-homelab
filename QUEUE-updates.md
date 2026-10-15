@@ -126,9 +126,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       Renovate offer the next minor's tag while it's still a release candidate (`9.2-alpine` was
       `9.2.0-rc1`). `renovate.json` now takes stable releases only (`ignoreUnstable`, and a
       rule refusing tags that name a pre-release), and the cluster's images pin full versions
-      (2026-10-15). Left: `postgres:17-alpine` in `docker/kea/` and `docker/semaphore/`
-      (`17.11-alpine` is the same image today; pinning recreates those containers, so the
-      owner picks the time); a new image is pinned to a full version from the start. Kept out on purpose: OpenTofu's `required_version`
+      (2026-10-15), as do the Docker host's (Kea's and Semaphore's `postgres:17.11-alpine`). A
+      new image is pinned to a full version from the start. Kept out on purpose: OpenTofu's `required_version`
       (matches Semaphore's, a hand update), `values-all.yaml` and the other `ignorePaths`.
       Done when a run's dependency list matches the inventory, every exception listed here.
 

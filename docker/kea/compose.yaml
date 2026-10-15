@@ -26,7 +26,7 @@
 #                             reads (AUTHENTIK_STORK_OIDC_CLIENT_SECRET)
 services:
   kea-postgres:
-    image: postgres:17-alpine
+    image: postgres:17.11-alpine
     container_name: kea-postgres
     restart: unless-stopped
     environment:
@@ -48,7 +48,7 @@ services:
   # DATABASUS_DB_PASSWORD, and pg_read_all_data (read every table, change
   # nothing), on every deploy, then exits.
   databasus-role-init:
-    image: postgres:17-alpine
+    image: postgres:17.11-alpine
     restart: "no"
     depends_on:
       kea-postgres:
