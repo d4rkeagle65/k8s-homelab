@@ -31,7 +31,7 @@ automatically, like Homepage.
 - [ ] The *arr tabs load inside Organizr (if one refuses framing, make it type 2)
 - [ ] Organizr's homepage shows Sonarr, Radarr, Lidarr and qBittorrent data (qBittorrent may
       need its API key, as for Homepage)
-- [ ] Emby, SABnzbd and Jellyseerr (Organizr's overseerr settings) once their keys exist
+- [ ] Emby, SABnzbd and Seerr (Organizr's overseerr settings) once their keys exist
 
 ## Resuming
 
