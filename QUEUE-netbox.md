@@ -27,6 +27,16 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
   is pre-1.0, changes weekly and needs its own `proxbox-api` backend service. A Semaphore
   playbook with the `netbox.netbox` collection, reading Proxmox's API and the cluster, does
   the same with nothing new to run.
+- **The plugins (the owner, 2026-10-15): every row marked "yes" below,** fourteen: NetBox
+  DNS, Attachments, Prometheus SD, Floorplan, Data Flows, Kea, the DHCP model, Config Diff,
+  Topology Views, Security, Custom Objects, Routing, Inventory, Reorder Rack. Not Documents
+  (Attachments instead), Interface Synchronization, IPCalculator or Nbservice; any of them can
+  join once it supports the NetBox version running.
+- **Ingress records reach NetBox through a custom ExternalDNS webhook provider** (the owner,
+  2026-10-15), so a new hostname is in NetBox within ExternalDNS's interval, as it reaches the
+  Pi-holes today. ExternalDNS's webhook API is small (negotiate the domain filter, list
+  records, adjust endpoints, apply changes), served beside ExternalDNS in its pod; the
+  provider keeps its records apart from the hand-made ones by a tag or an ownership field.
 - **Kea's configuration stays in git** (`docker/kea/`): the only tool that pushes NetBox data
   to Kea (`netbox-kea-dhcp`) is an alpha from 2023. `netbox-kea` shows Kea's leases and
   subnets in NetBox instead.
@@ -44,10 +54,9 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
    forward auth as now; the database moved by dump and restore; backups as the Docker VM's
    other databases.
 4. **DNS owned by NetBox** (NetBox DNS), synced to the Pi-holes:
-   - Ingress hostnames into NetBox: either **(B, preferred)** an in-cluster CronJob reading the
-     Ingresses and upserting them as records tagged as Kubernetes's, or **(A)** a custom
-     ExternalDNS webhook provider for NetBox DNS, near-instant but a service to maintain. No
-     ExternalDNS provider for NetBox exists (checked 2026-10-15).
+   - Ingress hostnames into NetBox by the custom ExternalDNS webhook provider (Settled), in
+     place of ExternalDNS's Pi-hole provider. No ExternalDNS provider for NetBox exists
+     (checked 2026-10-15), so it's written here: its code, image and tests in this repo.
    - NetBox to Pi-hole 1 by octoDNS: `octodns-netbox-dns` as the source, `octodns-pihole`
      (the roosnic1 fork on PyPI, Pi-hole v6 through `pihole6api`; local A, AAAA and CNAME
      records only, no TTLs) as the target; nebula-sync copies Pi-hole 2 as now.
@@ -87,8 +96,8 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 ## Checklist
 
-- [ ] Owner: which plugins go in the first image (the "yes" rows, or fewer), and Documents or
-      Attachments
+- [x] Owner's choices (2026-10-15): every "yes" plugin, Attachments not Documents, the custom
+      ExternalDNS webhook for the Ingress records
 - [ ] `docker/netbox/` image, its GitHub Actions workflow and Renovate rules; the HelmRelease on
       it with `plugins` and `pluginsConfig`; each plugin's page checked in NetBox
 - [ ] Owner: a NetBox API token for Semaphore (write), the prefixes and VLANs entered by hand
@@ -96,8 +105,9 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       then a second run changing nothing
 - [ ] Owner decides the move to the Docker VM; then the Dockhand stack, dump and restore, the
       Traefik external service, the old release removed
-- [ ] Phase 4: B or A for the Ingresses; octoDNS stack; the record owners switched over, the
-      Pi-holes checked to answer the same names before and after
+- [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, image, tests); octoDNS
+      from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked to
+      answer the same names before and after
 - [ ] OpenTofu: `ignore_changes = [node_name]` on HA and Talos VMs (no change in the plan), host
       picked from free memory for new guests
 - [ ] Phase B: addresses and names from NetBox; `TF_VAR_site` cut down to the stable facts
