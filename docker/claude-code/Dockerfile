@@ -9,9 +9,13 @@
 # only formats and validates (tofu init -backend=false).
 FROM debian:trixie-slim
 
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
 ARG KUBECTL_VERSION=1.36.5
+# renovate: datasource=github-releases depName=fluxcd/flux2
 ARG FLUX_VERSION=2.9.6
+# renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=4.2.2
+# renovate: datasource=github-releases depName=opentofu/opentofu
 ARG TOFU_VERSION=1.11.0
 # Claude Code's release channel: stable (about a week old) or latest.
 ARG CLAUDE_CODE_CHANNEL=stable

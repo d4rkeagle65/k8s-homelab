@@ -111,24 +111,26 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       throughout (release, Flux Kustomization, claim `seerr-config`, hostname, Homepage,
       Organizr, `SEERR_API_KEY`); the config was copied to the new claim with Seerr stopped.
 
-- [ ] **Renovate watches every version it can** (the owner, 2026-10-15). Inventory every
-      pinned version in the repo (images in manifests, HelmRelease values, compose files and
-      Dockerfiles; charts; Dockerfile `ARG` versions; OpenTofu providers; Kubernetes and
-      Talos; Python requirements and `# /// script` blocks; Ansible's pinned images and
-      collections) against what a Renovate run reports detecting (its log's dependency
-      list, or the Dependency Dashboard), and close each gap with a custom manager, an inline
-      `# renovate:` annotation or a package rule. Known gaps when this was written: the
-      Dockerfile `ARG`s (`docker/claude-code/`: kubectl, Flux, Helm, OpenTofu;
-      `docker/kea/`: Kea, Stork), which Renovate's dockerfile manager doesn't read; and
-      whether images in hand-written HelmReleases' inline values (20 files) are detected,
-      to be read from the run's log. Also: a tag pinned only to a minor (`valkey/valkey:9.0-alpine`) lets
-      Renovate offer the next minor's tag while it's still a release candidate (`9.2-alpine` was
-      `9.2.0-rc1`). `renovate.json` now takes stable releases only (`ignoreUnstable`, and a
-      rule refusing tags that name a pre-release), and the cluster's images pin full versions
-      (2026-10-15), as do the Docker host's (Kea's and Semaphore's `postgres:17.11-alpine`). A
-      new image is pinned to a full version from the start. Kept out on purpose: OpenTofu's `required_version`
-      (matches Semaphore's, a hand update), `values-all.yaml` and the other `ignorePaths`.
-      Done when a run's dependency list matches the inventory, every exception listed here.
+- [ ] **Renovate watches every version it can** (the owner, 2026-10-15). Inventoried
+      2026-10-15 against the Dependency Dashboard's detected list (issue #3; the run logs only
+      totals at `LOG_LEVEL=info`): images in HelmReleases' inline values were already read. The
+      gaps, closed the same day: a chart value with a tag but no `repository` (Immich's server,
+      ManicTime's, Obsidian's CouchDB: the chart's default repository now named beside it),
+      democratic-csi's `registry`-named image and the Dockerfile `ARG`s (kubectl, Flux, Helm,
+      OpenTofu in `docker/claude-code/`, Kea and Stork in `docker/kea/`), now read by the
+      custom manager for a `# renovate: datasource=... depName=...` comment on the line above.
+      Kea and Stork minors wait for approval (their package sources are per minor). Stable
+      releases only (`ignoreUnstable`, a rule refusing tags naming a pre-release), and images
+      pin full versions: a tag pinned to a minor (`valkey/valkey:9.0-alpine`) let Renovate
+      offer `9.2-alpine` while it was `9.2.0-rc1`. **Done when** the next run's dashboard lists
+      each of these (`docker/claude-code/Dockerfile` with four, `docker/kea/Dockerfile` with
+      three, democratic-csi's helmrelease with three, Immich's server image). Left, each on
+      purpose: `homelab/claude-code` and `homelab/kea-tools`, local builds whose tags only
+      name what was built (and `homelab/claude-code`'s now trails its Dockerfile); `debian:trixie-slim`
+      and `buildpack-deps:trixie-curl`, Debian codename tags with no version to compare;
+      BabyBuddy MCP's `>=` requirements in its ConfigMap (below); OpenTofu's
+      `required_version` (matches Semaphore's, a hand update), `values-all.yaml` and the
+      other `ignorePaths`.
 
 ## Left as they are, and why
 

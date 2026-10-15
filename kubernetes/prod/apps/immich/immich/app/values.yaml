@@ -22,6 +22,7 @@ controllers:
                 key: REDIS_URL
                 name: immich-redis-url
         image:
+          repository: ghcr.io/immich-app/immich-server
           tag: v3.3.1
 immich:
   configuration: {}
