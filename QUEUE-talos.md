@@ -123,9 +123,9 @@ MariaDB, Prometheus, Loki and CouchDB move to it.
 
 ## Phase 4: clean-up
 
-The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-reboot.yml`,
-`k8s-upgrade.yml`, `k8s-bundles.yml`, the node tasks) are replaced by `talosctl upgrade` and
-`talosctl upgrade-k8s`; the LXC-specific rules in `kubernetes/CLAUDE.md` go; `nas-block` goes.
+The kubeadm playbooks are replaced by `ansible/talos-upgrade.yml` (`talosctl upgrade`) and
+`ansible/talos-k8s-upgrade.yml` (`talosctl upgrade-k8s`); the LXC-specific rules go; `nas-block`
+goes once the retired guests are destroyed.
 
 ## Checklist
 
@@ -169,8 +169,8 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       `apiserver_storage_transformation_operations_total`. `identity` stays second in the order
       so anything older reads; dropping it would make an unencrypted leftover unreadable. VM 110's config is OpenTofu's since
       2026-10-13 (every built node applies with `no_reboot`). Until the
-      workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane): no Kubernetes
-      upgrade until Phase 3 is done, then `talosctl upgrade-k8s`
+      workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane); Kubernetes
+      upgrades are `ansible/talos-k8s-upgrade.yml` since 2026-10-15
 - [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
       single-instance stateful apps moved; the LXC workers removed. The first worker,
       `coprvmk8sw04a` (VM 114, H5, 6 vCPU, 20 GiB), in `talos_nodes` since 2026-10-13: a second
@@ -210,23 +210,21 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
       host. It was already the live-migration network
 - [ ] Failover test: stop one host at a time; everything comes back on the others
 - [ ] Phase 4: the kubeadm playbooks, LXC rules and `nas-block` removed. Concretely:
-  - [ ] Semaphore: schedules 10 ("Daily k8s Node Update Check", `k8s-node-update.yml`) and 6
-        ("Daily k8s App Upgrade Check", `k8s-upgrade.yml`) disabled, then their templates and
-        the "k8s LXCs" inventory deleted. Since every worker went Talos (2026-10-14) both
-        fail each night at "The inventory needs k8s_control_planes with at least two nodes"
-        (tasks 677, 678), correctly: that inventory is empty
-  - [ ] Talos replacements: `talos-upgrade.yml` (`talosctl upgrade` node by node, drained
+  - [ ] Semaphore: delete the templates "Node: k8s Update" and "App: k8s Upgrade" and the
+        "k8s LXCs" inventory (their schedules, 10 and 6, disabled 2026-10-15: both failed
+        nightly at "The inventory needs k8s_control_planes", the inventory being empty)
+  - [x] Talos replacements: `talos-upgrade.yml` (`talosctl upgrade` node by node, drained
         and capacity-checked first) and `talos-k8s-upgrade.yml` (`talosctl upgrade-k8s`),
-        written 2026-10-15 and run in check mode against the cluster (versions read, plan,
-        talosctl and kubectl fetched and checksummed, health checks; "nothing to do", as
-        every node is on the targets). Left: `talosconfig_b64` (os:admin) in Semaphore's
-        Kubernetes variable group and a template for each, then a check-mode run of each from
-        Semaphore. The first real talosctl call happens at the next Talos or Kubernetes
-        release
-  - [ ] Then the kubeadm playbooks and tasks go (`k8s-node-update.yml`,
-        `k8s-node-reboot.yml`, `k8s-upgrade.yml`, `k8s-bundles.yml`, `tasks/k8s-node-*`,
-        `tasks/k8s-bundle-*`, `tasks/k8s-kubeadm.yml`, `tasks/k8s-etcd-tag.yml`), the
-        `kubectl_cmd` default of kubeadm's admin.conf in the drain and database tasks with them
+        2026-10-15, with Semaphore templates and an os:admin `talosconfig_b64`; check-mode
+        runs from Semaphore (tasks 685, 686) reached Talos and found nothing to do. The first
+        real talosctl upgrade comes with the next Talos or Kubernetes release
+  - [x] The kubeadm playbooks and tasks removed (2026-10-15), with the LXC node rules in
+        `kubernetes/CLAUDE.md`, the queue items only they needed, and the drain and database
+        tasks' admin.conf default (`kubectl_cmd` is now required)
+  - [ ] `talos/gen-config.py` reads the cluster's settings (API name, DNS domain, subnets)
+        from the `kubeadm-config` ConfigMap kubeadm left in `kube-system`: deleting it breaks
+        gen-config. Read them from `TF_VAR_site`'s `talos` block or a control plane's machine
+        config instead, then the ConfigMap can go
   - [ ] The retired guests (101-106) destroyed by the owner (~2026-10-20), then out of
         `k8s_nodes` and local-path's maps, and `nas-block` (the per-host LUNs, its storage
         class and `tasks/proxmox-nas-block.yml`) removed, nothing having used it since
@@ -234,8 +232,7 @@ The Ansible playbooks for the kubeadm nodes (`k8s-node-update.yml`, `k8s-node-re
 
 ## Resuming
 
-`kubectl get nodes -o wide` shows which nodes are Talos (OS image) and which are still LXC; the
-first unticked box is next. Every step leaves a working cluster.
+`kubectl get nodes -o wide` shows each node's Talos version; the first unticked box is next. Every step leaves a working cluster.
 
 ## Done when
 

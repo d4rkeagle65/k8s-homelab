@@ -93,15 +93,11 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   whose plan should show no change for them). Next: the `nas-block` StorageClass for
   Prometheus and Alertmanager (`QUEUE-monitoring.md`).
 
-- **The nodes' management access, built and off:** `ansible/tasks/k8s-node-mgmt.yml` (run by
-  `k8s-node-update.yml`). Set `mgmt_gateway` in the "Kubernetes" variable group, run the
-  update, and SSH from the PC to a node's management address; then `mgmt_ssh_only: true` and
-  run again. Until then the management addresses answer only on the management network.
-
-- **Kubernetes 1.37, when its patches settle:** add bundle 1.37 to `ansible/k8s-bundles.yml`
-  (copy 1.36; versions and each add-on's range from its support page). Calico 3.33 is the one
-  that covers 1.37 (3.33.0 tested on 1.35-1.37); check the others' ranges then. Bump the
-  claude-code image's `KUBECTL_VERSION` once the cluster is on it.
+- **Kubernetes 1.37, when its patches settle:** `kubernetes_version` in
+  `tofu/proxmox/talos-config.tf` in a commit, then `ansible/talos-k8s-upgrade.yml` (its dry run
+  first), then the OpenTofu job. Check first that Talos 1.14 supports 1.37 (its support
+  matrix) and the add-ons' ranges: Calico 3.33 is the one that covers 1.37 (3.33.0 tested on
+  1.35-1.37). Bump the claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
 - **Proxmox backups of the workers' mount points:** each worker's `mp0` (container images)
   carries `backup=1` in the Proxmox job, and its database dataset `mp1` doesn't. With every
@@ -157,15 +153,7 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     Dockhand's own compose file and the certificate-sync cron.
   - **Proxmox hosts:** `ansible/proxmox-host.yml` holds the ZFS ARC cap, the ACME
     certificates and the NAS block storage (all applied), and `baseline.yml` the common
-    packages. Still to add there: repositories, kernel cleanup, and the host settings the k8s
-    LXCs depend on: kernel modules, sysctls, and the parts of
-    each LXC's `/etc/pve/lxc/<id>.conf` an API token can't set (the raw
-    `lxc.*` lines and the `mount=nfs` feature; OpenTofu ignores them,
-    `QUEUE-terraform.md`).
-  - **A k8s node join:** prepare a fresh LXC (repositories, CRI-O, kubelet
-    and kubeadm at the current bundle's versions, the ssh.socket fix) and
-    `kubeadm join` it as a worker or control plane, from the `k8s-node-*`
-    tasks. Without it a node OpenTofu creates is an empty container.
+    packages. Still to add there: repositories and kernel cleanup.
   - **Pi-hole:** `ansible/pihole-config.yml` sets what nebula-sync can't copy
     (`misc.dnsmasq_lines`) on both, from Semaphore. Everything else (local
     records such as `vaultwarden-direct`, CNAMEs, lists, `bogusPriv`) lives on
@@ -200,26 +188,6 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   decisions (state in Semaphore's PostgreSQL, plans and applies run from
   Semaphore, existing resources imported first) and the checklist.
 
-- **Review moving the cluster to Talos Linux** (low priority; a review first, not a decision).
-  Talos is a minimal, API-managed OS made only to run Kubernetes: no SSH, no package manager,
-  configured from one machine config per node and upgraded with `talosctl upgrade` (OS) and
-  `talosctl upgrade-k8s` (Kubernetes) as atomic image swaps that roll back on failure. What it
-  would change here:
-  - **It replaces most of the upgrade machinery (`ansible/k8s-upgrade.yml`, `old-queues/QUEUE-k8s-upgrade.md`):** kubeadm, the apt sources,
-    CRI-O (Talos uses containerd), the node update playbook and most of the version bundles.
-    The add-on ranges and the database drain steps stay useful.
-  - **It can't run in LXC.** Talos is its own OS, so every node becomes a VM: more memory per
-    node than a container, and one host has only 15 GB. Count what the six nodes need as VMs
-    before anything else.
-  - **VMs get block devices**, which these LXC nodes can't: Longhorn or another replicated
-    storage becomes possible, so databases on `local-db` could stop being pinned to one worker.
-  - **Migration is a rebuild:** a new cluster beside the old, Flux bootstrapped onto it from this
-    repo, workloads and data moved (CloudNativePG databases by replica or backup/restore, PVC
-    data copied), then the old nodes removed. It fits the Terraform item (VMs and machine
-    configs from code).
-  - **Things to check:** kube-vip versus Talos's built-in shared VIP; Calico's support on Talos;
-    the NFS mounts; how `scripts/` captures a cluster with no node access; Semaphore's role once
-    the nodes have no SSH (talosctl from Semaphore, or Omni).
 - **Consolidate the two test folders** (low priority; decision 10). `tests/` is the repo-wide gate
   (doc-style, harness, hygiene, script-health suites, run by `tests/run-all-tests.py` and the
   pre-commit hook); `scripts/tests/` is the generator's pytest suite, reached only through

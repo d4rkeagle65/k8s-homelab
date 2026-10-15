@@ -1,5 +1,5 @@
 # kubectl on the machine running the playbook (Semaphore), for the plays that
-# change the cluster now that no node has kubeadm's admin.conf: the release
+# change the cluster: the release
 # matching the API server's version from dl.k8s.io, checked against its
 # published SHA-256, and a kubeconfig with Semaphore's ServiceAccount token
 # (k8s_api_url, k8s_token and the CA written to .k8s-ca.pem before this).

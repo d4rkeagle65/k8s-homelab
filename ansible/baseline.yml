@@ -4,8 +4,8 @@
 # no running service, so every host goes at once.
 #
 # Inventory (kept in Semaphore, never in git): "All Debian Hosts", every machine
-# in the groups the other playbooks use (proxmox, k8s_nodes with
-# k8s_control_planes and k8s_workers, pihole, docker_vm), root over SSH.
+# in the groups the other playbooks use (proxmox, pihole, docker_vm), root over
+# SSH. The Kubernetes nodes are Talos, with no SSH: not here.
 # Variables (the "Debian Host Baseline" variable group): admin-users.yml's (without
 # admin_user that part is skipped and said so), and semaphore_ssh_key, the
 # public line of Semaphore's shared key, which root then accepts alongside its

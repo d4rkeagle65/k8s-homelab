@@ -59,8 +59,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       decide when). CloudNativePG upgrades a major version offline in place when `imageName`
       changes major. Take a base backup and run a restore test first
       (`old-queues/QUEUE-restore-tests.md`).
-- [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd). Either a kubeadm upgrade
-      (`k8s-upgrade.yml`) or as part of the Talos move (`QUEUE-talos.md`): decide there.
+- [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
+      `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
