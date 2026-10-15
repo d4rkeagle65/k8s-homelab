@@ -40,7 +40,7 @@ spec:
               - name: TZ
                 value: ${TIMEZONE}
               - name: WHISPARR__POSTGRES__HOST
-                value: whisparr-postgres-rw
+                value: whisparr-db-rw
               - name: WHISPARR__POSTGRES__PORT
                 value: "5432"
               - name: WHISPARR__POSTGRES__USER
@@ -48,7 +48,7 @@ spec:
               - name: WHISPARR__POSTGRES__PASSWORD
                 valueFrom:
                   secretKeyRef:
-                    name: whisparr-postgres-app
+                    name: whisparr-db-app
                     key: password
               - name: WHISPARR__POSTGRES__MAINDB
                 value: whisparr-main
