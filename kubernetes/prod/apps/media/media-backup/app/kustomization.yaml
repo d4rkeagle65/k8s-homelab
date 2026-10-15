@@ -9,3 +9,4 @@ resources:
 - scheduledbackup-radarr-postgres.yaml
 - scheduledbackup-sonarr-postgres.yaml
 - scheduledbackup-whisparr-postgres.yaml
+- scheduledbackup-whisparr-db.yaml
