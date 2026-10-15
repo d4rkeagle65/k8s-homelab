@@ -75,8 +75,11 @@ services:
   # Creates Kea's tables on an empty database, and upgrades them to match
   # this Kea version otherwise; runs on every deploy, then exits.
   kea-db-init:
+    # Built here from the Dockerfile, which holds the versions; never pulled,
+    # since no registry has it.
     build: .
-    image: homelab/kea-tools:3.2.1-stork-2.5.1
+    image: homelab/kea-tools:local
+    pull_policy: build
     restart: "no"
     depends_on:
       kea-postgres:
@@ -129,7 +132,8 @@ services:
   # once in Stork (Services > Machines).
   stork-agent:
     build: .
-    image: homelab/kea-tools:3.2.1-stork-2.5.1
+    image: homelab/kea-tools:local
+    pull_policy: build
     restart: unless-stopped
     depends_on:
     - kea-dhcp4
@@ -149,7 +153,8 @@ services:
 
   stork-server:
     build: .
-    image: homelab/kea-tools:3.2.1-stork-2.5.1
+    image: homelab/kea-tools:local
+    pull_policy: build
     container_name: stork-server
     restart: unless-stopped
     depends_on:

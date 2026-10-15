@@ -214,6 +214,13 @@
         "major"
       ],
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "homelab/* images are built on the Docker host from their Dockerfile (pull_policy: build), not pulled: there's nothing to look up.",
+      "matchPackageNames": [
+        "homelab/**"
+      ],
+      "enabled": false
     }
   ]
 }
