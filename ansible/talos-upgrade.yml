@@ -71,10 +71,20 @@
                   'version': n.status.nodeInfo.osImage | regex_search('v[0-9.]+') }) %}{%
               endfor %}{{ out | sort(attribute='name') | sort(attribute='control_plane', reverse=true) }}
 
+        - name: Talos's API answers with this talosconfig (read only)
+          ansible.builtin.command: >-
+            {{ talosctl_cmd }} --nodes {{ talos_cp.address }} --endpoints {{ talos_cp.address }} version --short
+          register: talosctl_reach
+          changed_when: false
+          check_mode: false
+          vars:
+            talos_cp: "{{ talos_plan | selectattr('control_plane') | first }}"
+
         - name: Report the plan
           ansible.builtin.debug:
             msg:
               - "Target: {{ talos_image }}"
+              - "talosctl reaches Talos: {{ talosctl_reach.stdout_lines | select('search', 'Tag:') | list | join(' ') }}"
               - "{{ talos_plan | map(attribute='name') | zip(talos_plan | map(attribute='version')) | map('join', ' on ') | list }}"
               - >-
                 To upgrade: {{ talos_plan | rejectattr('version', 'equalto', talos_version) | map(attribute='name') | list
