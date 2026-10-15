@@ -6,6 +6,7 @@ resources:
 - scheduledbackup-bookshelf-postgres.yaml
 - scheduledbackup-lidarr-postgres.yaml
 - scheduledbackup-prowlarr-postgres.yaml
+- scheduledbackup-prowlarr-db.yaml
 - scheduledbackup-radarr-postgres.yaml
 - scheduledbackup-sonarr-postgres.yaml
 - scheduledbackup-whisparr-postgres.yaml
