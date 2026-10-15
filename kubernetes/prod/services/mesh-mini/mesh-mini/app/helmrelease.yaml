@@ -35,6 +35,18 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+      # AMT can't be reached from its own host (it answers only what arrives
+      # over the wire), so mesh-mini prefers the worker on the one host
+      # without AMT, from where every other host's AMT is reachable.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["${WORKER_NODE_4}"]
     controllers:
       main:
         containers:
