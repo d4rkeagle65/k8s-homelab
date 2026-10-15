@@ -4,7 +4,9 @@ resources:
 - secret-cnpg-backup-s3.yaml
 - objectstore.yaml
 - postgres.yaml
+- db.yaml
 - scheduledbackup.yaml
+- scheduledbackup-db.yaml
 - pvc.yaml
 - secret.yaml
 - helmrelease.yaml
