@@ -73,12 +73,21 @@
                 set _ = out.append((n.status.addresses | selectattr('type', 'equalto', 'InternalIP') | first).address) %}{%
               endfor %}{{ out | sort }}
 
+        - name: Talos's API answers with this talosconfig (read only)
+          ansible.builtin.command: >-
+            {{ talosctl_cmd }} --nodes {{ k8s_control_planes | first }} --endpoints {{ k8s_control_planes | first }}
+            version --short
+          register: talosctl_reach
+          changed_when: false
+          check_mode: false
+
         - name: Report the plan
           ansible.builtin.debug:
             msg: >-
               Kubernetes now {{ k8s_now | join(', ') }}, target v{{ k8s_target }}:
               {{ 'nothing to do' if k8s_now == ['v' ~ k8s_target] else 'upgrading' }}
-              (control planes {{ k8s_control_planes | length }}).
+              (control planes {{ k8s_control_planes | length }}; talosctl reaches Talos:
+              {{ talosctl_reach.stdout_lines | select('search', 'Tag:') | list | join(' ') }}).
 
         - name: Upgrade (a dry run in check mode)
           ansible.builtin.command: >-
