@@ -81,11 +81,12 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
         Cluster (it's kept from pruning), its claims `manictime-pg-1`/`-2`, and
         `ManicTimeServerSettings.json.pre-pg18` on ManicTime's volume (it holds the old
         password). Until then it's the way back: the `.pre-pg18` file and the old cluster.
-  - [ ] Whisparr (`whisparr-postgres`, 16, two databases). Restore test 2026-10-15: pass,
-        39 tables; `Commands` and `Logs` behind only by rows written since, `Logs` identical
-        by checksum up to the copy's last row. `whisparr-db` created (new clusters whose
-        `<app>-postgres` name is taken are `<app>-db`). Whisparr reads its connection from
-        `WHISPARR__POSTGRES__*` env vars, which override `config.xml`.
+  - [x] Whisparr (2026-10-15): on `whisparr-db` (18.6, trixie); rows, objects and sequences
+        identical before the switch; under two minutes down. New clusters whose
+        `<app>-postgres` name is taken are `<app>-db`.
+  - [ ] Retire `whisparr-postgres` from about 2026-10-17: remove `postgres.yaml` (`whisparr/`)
+        and `scheduledbackup-whisparr-postgres.yaml` (`media-backup/`); the owner then deletes
+        the Cluster (kept from pruning) and its claims `whisparr-postgres-1`/`-2`.
   - [ ] The twelve on 17.11, in an order of their own
   - [ ] Immich's (vectorchord `16-1.1.1`, bookworm): Immich's own upgrade notes decide when
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
