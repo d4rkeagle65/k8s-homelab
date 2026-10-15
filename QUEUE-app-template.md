@@ -58,9 +58,12 @@ object by object. For every release:
       homepage`, `controllers.main.pod.automountServiceAccountToken: true`, the binding's
       subject `homepage`. Rendered 2026-10-15: same account name, binding and role as now.
       Recreated: its own account with the token, `can-i list pods` yes, no 403s in its log.
-- [ ] Grimmory: the Deployment and the MariaDB StatefulSet; its metrics' job label
-- [ ] Jackett in the test overlay (`kubernetes/test/media/jackett/`, suspended): the version
+- [x] Grimmory (2026-10-15): a dump first, then both recreated; MariaDB back on the same
+      worker and volume, metrics under job `grimmory`. Grimmory restarted once, having started
+      before MariaDB took connections.
+- [x] Jackett in the test overlay (`kubernetes/test/media/jackett/`, suspended): the version
       only, nothing running to recreate
+- [ ] Renovate's #8 closes on its next run, finding 5.3.0 on `main` everywhere
 
 ## Resuming
 
