@@ -140,16 +140,16 @@ goes once the retired guests are destroyed.
       its 9 media errors: a rising count of either means moving the root to the Samsung or a new
       disk. The 2 TB HDD still holds the old `HDD` volume group: wipe it once its two old VM
       disks (111, 117) are confirmed backed up
-- [ ] Phase 1: Proxmox HA for the Docker VM and the domain controller. Done 2026-10-12: their
+- [x] Phase 1: Proxmox HA for the Docker VM and the domain controller. Done 2026-10-12: their
       disks on `syn-nfs` (raw, moved live), `tofu/proxmox/` matching for the Docker VM, both VMs
       in HA (started), the non-strict node-affinity rule `infra-vms` (H4 first, H5 next: the
       only other host with room for both), `shutdown_policy=migrate` and `crs ha=static` (HA
-      places by configured memory, not by counting services). Left: the test, by cutting H4's
-      power in a quiet window; both VMs should come back on H5 within about three minutes, then
-      return to H4 once it's back
-- [ ] Phase 1: Talos image (done) and machine configs (done: `talos/`, the secrets as
-      `TALOS_SECRETS`); kube-proxy labels (done); the service-account issuer (done); the API
-      address plan; Calico's address detection (done)
+      places by configured memory, not by counting services). HA moved both live to H5 and back
+      for H4's drained reboot (2026-10-15, maintenance mode, `proxmox-reboot.yml`); recovery
+      from a dead host is the failover test below
+- [x] Phase 1: Talos image and machine configs (`talos/`, the secrets as `TALOS_SECRETS`);
+      kube-proxy labels; the service-account issuer; the API address (the control planes'
+      `Layer2VIPConfig`, Phase 2); Calico's address detection
 - [x] Phase 2 (2026-10-12/13): three Talos control planes, `coprvmk8sc04a` (VM 110, H5, built by
       hand), `coprvmk8sc06a` (113, H4) and `coprvmk8sc05a` (112, H1), both through OpenTofu;
       the three kubeadm ones drained, `kubeadm reset` (which removed each etcd member) and
@@ -157,10 +157,8 @@ goes once the retired guests are destroyed.
       Talos control planes' `Layer2VIPConfig`: kube-vip's manifest moved out on c01a, the
       config patched on with `talosctl patch mc --mode=no-reboot`, a 36-second gap, every node
       Ready throughout. Calico needed its FlexVolume driver off (`flexVolumePath: None`).
-- [ ] After Phase 2: the kubeadm control planes' LXCs (101, 102, 103), stopped as fallbacks
-      (`k8s_retired` in `guests.tf`), destroyed by hand after about a week, then taken out of
-      `k8s_nodes` (a `removed` block can't drop one for_each instance; the plan after the
-      destroy drops each from the state) and of Semaphore's Kubernetes inventory. Secrets
+- [x] After Phase 2: the kubeadm control planes' LXCs (101, 102, 103) stopped as fallbacks
+      (`k8s_retired` in `guests.tf`); destroying them is Phase 4's last item. Secrets
       encryption at rest, in stages (`talos/patches/encryption-order.txt`): stage A,
       `identity, secretbox`, then stage B, `secretbox, identity` (both 2026-10-13; B rolled
       node by node with `talosctl patch mc` after A, applied by OpenTofu to all three at once,
@@ -208,7 +206,9 @@ goes once the retired guests are destroyed.
 - [x] Corosync's second link on the 2.5 Gbit network (`vmbr1`, link 1, 2026-10-12), checked
       connected from every host, so a management network blip can't make HA reboot a healthy
       host. It was already the live-migration network
-- [ ] Failover test: stop one host at a time; everything comes back on the others
+- [ ] Failover test: stop one host at a time, by cutting its power in a quiet window;
+      everything comes back on the others. For H4: the Docker VM and the DC VM back on H5
+      within about three minutes, then on H4 again once it's up
 - [ ] Phase 4: the kubeadm playbooks, LXC rules and `nas-block` removed. Concretely:
   - [ ] Semaphore: delete the templates "Node: k8s Update" and "App: k8s Upgrade" and the
         "k8s LXCs" inventory (their schedules, 10 and 6, disabled 2026-10-15: both failed
@@ -226,7 +226,8 @@ goes once the retired guests are destroyed.
         gen-config. Read them from `TF_VAR_site`'s `talos` block or a control plane's machine
         config instead, then the ConfigMap can go
   - [ ] The retired guests (101-106) destroyed by the owner (~2026-10-20), then out of
-        `k8s_nodes` and local-path's maps, and `nas-block` (the per-host LUNs, its storage
+        `k8s_nodes` (a `removed` block can't drop one for_each instance; the plan after the
+        destroy drops each from the state) and local-path's maps, and `nas-block` (the per-host LUNs, its storage
         class and `tasks/proxmox-nas-block.yml`) removed, nothing having used it since
         Prometheus and Alertmanager moved to `nas-iscsi`
 
