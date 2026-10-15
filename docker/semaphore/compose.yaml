@@ -25,7 +25,7 @@
 #   TZ                       the timezone schedules run in, e.g. America/New_York
 services:
   semaphore-postgres:
-    image: postgres:17-alpine
+    image: postgres:17.11-alpine
     container_name: semaphore-postgres
     restart: unless-stopped
     environment:
@@ -44,7 +44,7 @@ services:
   # the tfstate role and database when missing and sets the role's password from
   # TFSTATE_DB_PASSWORD, on every deploy, then exits.
   tfstate-db-init:
-    image: postgres:17-alpine
+    image: postgres:17.11-alpine
     restart: "no"
     depends_on:
       semaphore-postgres:
@@ -73,7 +73,7 @@ services:
   # DATABASUS_DB_PASSWORD, and pg_read_all_data (read every table, change
   # nothing), on every deploy, then exits.
   databasus-role-init:
-    image: postgres:17-alpine
+    image: postgres:17.11-alpine
     restart: "no"
     depends_on:
       semaphore-postgres:
