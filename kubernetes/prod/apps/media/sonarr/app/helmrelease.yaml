@@ -34,7 +34,7 @@ spec:
               - name: TZ
                 value: ${TIMEZONE}
               - name: SONARR__POSTGRES__HOST
-                value: sonarr-postgres-rw
+                value: sonarr-db-rw
               - name: SONARR__POSTGRES__PORT
                 value: "5432"
               - name: SONARR__POSTGRES__USER
@@ -42,7 +42,7 @@ spec:
               - name: SONARR__POSTGRES__PASSWORD
                 valueFrom:
                   secretKeyRef:
-                    name: sonarr-postgres-app
+                    name: sonarr-db-app
                     key: password
               - name: SONARR__POSTGRES__MAINDB
                 value: sonarr-main
