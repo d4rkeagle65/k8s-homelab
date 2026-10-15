@@ -48,7 +48,7 @@ spec:
               DATABASE_URL:
                 valueFrom:
                   secretKeyRef:
-                    name: linkwarden-postgres-app
+                    name: linkwarden-db-app
                     key: uri
               # Authentik only: no passwords, no sign-up form. A first login
               # through Authentik makes the account; the blueprint's groups
