@@ -40,7 +40,7 @@ spec:
               - name: TZ
                 value: ${TIMEZONE}
               - name: READARR__POSTGRES__HOST
-                value: bookshelf-postgres-rw
+                value: bookshelf-db-rw
               - name: READARR__POSTGRES__PORT
                 value: "5432"
               - name: READARR__POSTGRES__USER
@@ -48,7 +48,7 @@ spec:
               - name: READARR__POSTGRES__PASSWORD
                 valueFrom:
                   secretKeyRef:
-                    name: bookshelf-postgres-app
+                    name: bookshelf-db-app
                     key: password
               - name: READARR__POSTGRES__MAINDB
                 value: bookshelf-main
