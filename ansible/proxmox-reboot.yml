@@ -6,8 +6,10 @@
 # (tasks/proxmox-host-reboot.yml, which proxmox-upgrade.yml uses too).
 #
 # Which hosts: reboot_hosts, an Ansible host pattern (one host, a
-# comma-separated list, or a group); unset, every host in the proxmox group,
-# in inventory order. Each must be in the proxmox group.
+# comma-separated list, or a group), or ALL (any case), empty or unset for
+# every host in the proxmox group; in inventory order, one at a time either
+# way. Each must be in the proxmox group. (Ansible's own "all" would add
+# localhost and any other inventory host, hence the mapping.)
 #
 # Inventory and variables as for proxmox-upgrade.yml: the proxmox group,
 # dns_guest_tag, evacuate (per host), evacuate_return, and the Kubernetes
@@ -63,10 +65,11 @@
           not in the proxmox group.
         quiet: true
       vars:
-        reboot_targets: "{{ query('inventory_hostnames', reboot_hosts | default('proxmox')) }}"
+        reboot_targets: "{{ query('inventory_hostnames', reboot_pattern) }}"
+        reboot_pattern: "{{ 'proxmox' if reboot_hosts | default('') | string | trim | lower in ['', 'all'] else reboot_hosts }}"
 
 - name: Reboot the hosts one at a time
-  hosts: "{{ reboot_hosts | default('proxmox') }}"
+  hosts: "{{ 'proxmox' if reboot_hosts | default('') | string | trim | lower in ['', 'all'] else reboot_hosts }}"
   serial: 1
   order: inventory
   any_errors_fatal: true
