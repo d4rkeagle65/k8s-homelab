@@ -14,7 +14,9 @@ object by object. For every release:
 - **The selector label `app.kubernetes.io/component` becomes `app.kubernetes.io/controller`**
   (common 4.0) on every Deployment and StatefulSet, their pods and their Services. A
   Deployment's selector is immutable, so the upgrade fails: "spec.selector: ... field is
-  immutable". The old pod keeps running; nothing is down until the Deployment is deleted.
+  immutable". **The app is down from that failure until its Deployment is recreated**: the
+  failed upgrade has already applied the Service with the new selector, which no longer
+  matches the old pod (Lidarr's ingress answered 503). Recreate it right after the failure.
 - **A ServiceAccount per release, named after it, and no API token in the pods** (common 5.0).
   Only Homepage reads the Kubernetes API; it names its account and mounts the token.
 - **ServiceMonitors' `jobLabel` becomes `app.kubernetes.io/name`** (Grimmory's and n8n's): the
@@ -31,7 +33,9 @@ object by object. For every release:
 - **Per release: the version in its `helmrelease.yaml`, pushed; then delete the old workload and
   reconcile.** Once Flux reports `UpgradeFailed` on the selector, `kubectl delete deployment
   <name> -n <ns>` (and `statefulset` for Grimmory's MariaDB), then `flux reconcile hr <name> -n
-  <ns> --reset`; the upgrade then creates them anew. Downtime is the pod's start. Tested
+  <ns> --reset`; the upgrade then creates them anew. Whether a release is done is read from
+  its Deployment's selector (`app.kubernetes.io/controller`), never from the HelmRelease's
+  history, which records the failed 5.3.0 attempt too. Tested
   2026-10-15 on a throwaway release: `spec.upgrade.force: true` doesn't help (Flux's Helm
   applies server-side and is refused the same way), deleting the Deployment does.
 - **Applied means**: the HelmRelease Ready and Released on 5.3.0, the pod Ready on the same
@@ -44,8 +48,8 @@ object by object. For every release:
 
 - [x] Bookshelf (the pilot, 2026-10-15): failed on the selector as expected, recreated in
       about 15 seconds; `/ping` 200 directly and through the ingress.
-- [ ] The other media apps: Lidarr, Prowlarr, qBittorrent, Radarr, SABnzbd, Seerr, Sonarr,
-      Tdarr, Whisparr
+- [x] The other media apps: Lidarr, Prowlarr, qBittorrent, Radarr, SABnzbd, Seerr, Sonarr,
+      Tdarr, Whisparr (2026-10-15): each about 20 seconds down, Lidarr about a minute.
 - [ ] Linkwarden, mesh-mini, Organizr, n8n (n8n: its metrics' job label)
 - [ ] Homepage: `serviceAccount: {homepage: {}}`, `controllers.main.serviceAccount.identifier:
       homepage`, `controllers.main.pod.automountServiceAccountToken: true`, the binding's
