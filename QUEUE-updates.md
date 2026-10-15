@@ -82,9 +82,6 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       claim was chowned to it (the NAS export doesn't squash root). Renamed to `seerr`
       throughout (release, Flux Kustomization, claim `seerr-config`, hostname, Homepage,
       Organizr, `SEERR_API_KEY`); the config was copied to the new claim with Seerr stopped.
-- [ ] **Delete Jellyseerr's old config** (the owner): the claim `jellyseerr-config` in
-      `media`, then its Released volume and NAS folder. The copy on `seerr-config` matched it
-      file for file. Left, it is a stale second copy of the config.
 
 - [ ] **Renovate watches every version it can** (the owner, 2026-10-15). Inventory every
       pinned version in the repo (images in manifests, HelmRelease values, compose files and
