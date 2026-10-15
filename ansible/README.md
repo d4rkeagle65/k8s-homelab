@@ -8,6 +8,8 @@ and addresses), the SSH key, and the Kubernetes token.
 |---|---|
 | `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. A reboot first drains the Kubernetes nodes running on the host and afterwards waits for every database cluster to be whole (`tasks/proxmox-host-reboot.yml`). It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
 | `proxmox-reboot.yml` | Reboots Proxmox hosts one at a time, changing nothing else: `reboot_hosts` picks them (one host, a comma-separated list or a group; `ALL` or empty, every host, one at a time). For each: the Kubernetes nodes running on it are drained (each database primary switched to a replica elsewhere first; two control planes on one host stops the run, as it would cost etcd its quorum), its Proxmox HA VMs moved off by putting it in HA maintenance mode (HA's node-affinity rules refuse a manual move while their preferred node is up; the run first checks some node has room for each, and stops if not) and the VMs in `evacuate` live-migrated off, then the reboot, maintenance off (HA moves its VMs back where this host is their preferred node), and the run waits for quorum, every node Ready, the host's nodes uncordoned, every database cluster whole and the VMs moved back before the next host. The same steps as `proxmox-upgrade.yml`'s reboots; the same inventory and variables. A dry run lists what each host's reboot would drain, move and restart. |
+| `talos-upgrade.yml` | Upgrades Talos on the Kubernetes nodes, one at a time, control planes first, skipping nodes already on the target (the installer image in `talos/patches/common.yaml`). Each node: health and capacity checks, drained (database primaries switched over first), `talosctl upgrade`, back Ready on the new version, uncordoned, every database cluster whole. Change the image in a commit, run this, then the OpenTofu job. `talos_nodes_only` limits it to some nodes. A dry run lists each node's version and what it would upgrade. |
+| `talos-k8s-upgrade.yml` | Upgrades Kubernetes with `talosctl upgrade-k8s` to `kubernetes_version` in `tofu/proxmox/talos-config.tf`, with the cluster and every database checked healthy before and after. Change the version in a commit, run this, then the OpenTofu job (the other way round, OpenTofu would push it to every control plane at once). A dry run runs `upgrade-k8s --dry-run`. |
 | `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guests touched): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). Each host's own iSCSI LUN on the NAS as storage `nas-block` (`tasks/proxmox-nas-block.yml`, off until set). TSO, GSO and GRO off on every Intel `e1000e` NIC, now and at boot through a udev rule, as that driver hangs under load (`tasks/proxmox-nic-offloads.yml`). Intel AMT Serial-over-LAN where a host has it (`tasks/proxmox-amt-sol.yml`, below). A dry run reports each host's ARC, certificate, NAS block storage, NIC offloads and SOL setup. |
 | `k8s-node-update.yml` | Routine OS updates of the Kubernetes node containers, one at a time: drains the node (switching each database primary on it over to a replica elsewhere first), `apt dist-upgrade`, reboots the container when anything was upgraded, uncordons, and waits for the node and every database cluster before the next. kubeadm, kubelet, kubectl and cri-o stay held; Kubernetes version upgrades are `k8s-upgrade.yml`. It also owns the nodes' Kubernetes and CRI-O package sources. |
 | `k8s-node-reboot.yml` | Reboots the Kubernetes node containers one at a time, changing nothing else: the same checks, database switchovers, drain and wait as `k8s-node-update.yml`, with a reboot in place of the upgrade. |
@@ -112,6 +114,17 @@ args.
      ```
 
    Clear the clipboard afterwards (`Set-Clipboard -Value ' '`).
+
+   **The Talos access**, for `talos-upgrade.yml` and `talos-k8s-upgrade.yml`: `talosconfig_b64`,
+   an `os:admin` talosconfig (Talos lets only `os:admin` upgrade or apply configs), base64 on one
+   line, as a secret in the same variable group. `talos/gen-config.py` writes one beside the
+   configs (`talos/README.md`); on the PC, from that folder:
+
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\talosconfig")) | Set-Clipboard
+   ```
+
+   Keep a copy in Vaultwarden, clear the clipboard, and delete the file as `talos/README.md` says.
 
 5. **A task template "Proxmox upgrade"**, playbook `ansible/proxmox-upgrade.yml`, the
    inventory from step 3, the repository from step 2 and the "Kubernetes" variable group. A

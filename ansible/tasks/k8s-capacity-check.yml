@@ -1,0 +1,63 @@
+# Whether the pods on capacity_nodes fit on the other nodes, by memory
+# requests as the scheduler counts them: what has to move (less DaemonSets and
+# database instances, which stay with their node's disk) against what's free
+# on every other node taking pods. Reports both and stops unless
+# capacity_allow_pending (as the callers' reboot_allow_pending) is true. For
+# proxmox-host-reboot.yml and talos-node-upgrade.yml; kubectl_cmd and
+# kubectl_host from kubectl-local.yml.
+- name: Read the nodes
+  ansible.builtin.command: "{{ kubectl_cmd }} get nodes -o json"
+  delegate_to: "{{ kubectl_host }}"
+  register: capacity_nodes_json
+  changed_when: false
+  check_mode: false
+  when: capacity_nodes | length > 0
+
+- name: Read the pods
+  ansible.builtin.command: "{{ kubectl_cmd }} get pods -A -o json"
+  delegate_to: "{{ kubectl_host }}"
+  register: capacity_pods_json
+  changed_when: false
+  check_mode: false
+  when: capacity_nodes | length > 0
+
+- name: Work out whether their pods fit elsewhere
+  ansible.builtin.set_fact:
+    capacity_room: >-
+      {% set used = {} %}{% set moving = [0] %}{%
+      for p in (capacity_pods_json.stdout | from_json)['items']
+         if p.status.phase | default('') in ['Running', 'Pending'] and p.spec.nodeName is defined %}{%
+        set req = p.spec.containers | map(attribute='resources') | map('default', {}) |
+                  map(attribute='requests', default={}) | map(attribute='memory', default='0') |
+                  map('string') | map('regex_replace', 'i$', '') | map('upper') | map('human_to_bytes') | sum %}{%
+        set _ = used.update({p.spec.nodeName: used.get(p.spec.nodeName, 0) + req}) %}{%
+        if p.spec.nodeName in capacity_nodes
+           and 'DaemonSet' not in p.metadata.ownerReferences | default([]) | map(attribute='kind')
+           and 'cnpg.io/cluster' not in p.metadata.labels | default({}) %}{%
+          set _ = moving.append(moving.pop() + req) %}{%
+        endif %}{% endfor %}{% set free = [0] %}{%
+      for n in (capacity_nodes_json.stdout | from_json)['items']
+         if n.metadata.name not in capacity_nodes and not n.spec.unschedulable | default(false)
+            and not n.spec.taints | default([]) | selectattr('effect', 'in', ['NoSchedule', 'NoExecute']) | list %}{%
+        set _ = free.append(free.pop() + [0, (n.status.allocatable.memory | string | regex_replace('i$', '') | upper | human_to_bytes)
+                                               - used.get(n.metadata.name, 0)] | max) %}{%
+      endfor %}{{ {'moving': moving[0], 'free': free[0]} }}
+  when: capacity_nodes | length > 0
+
+- name: Report the room
+  ansible.builtin.debug:
+    msg: >-
+      {{ capacity_nodes | join(', ') }}: {{ '%.1f' % (capacity_room.moving / 1073741824) }} GiB of memory requests
+      to move, {{ '%.1f' % (capacity_room.free / 1073741824) }} GiB free on the other nodes taking pods.
+  when: capacity_nodes | length > 0
+
+- name: The pods here fit on the other nodes
+  ansible.builtin.assert:
+    that: capacity_room.moving <= capacity_room.free or capacity_allow_pending | default(false) | bool
+    fail_msg: >-
+      {{ capacity_nodes | join(', ') }}: their pods request {{ '%.1f' % (capacity_room.moving / 1073741824) }} GiB
+      of memory and the other nodes have {{ '%.1f' % (capacity_room.free / 1073741824) }} GiB free, so some
+      would wait, down, until they're back. Nothing drained. Add a worker, or set
+      reboot_allow_pending: true to accept that.
+    quiet: true
+  when: capacity_nodes | length > 0

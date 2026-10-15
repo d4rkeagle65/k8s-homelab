@@ -1,0 +1,120 @@
+# Upgrades Kubernetes on the Talos cluster with talosctl upgrade-k8s, which
+# updates the control-plane components node by node, then every kubelet,
+# checking the cluster as it goes. Every node Ready and every database cluster
+# whole first; the same, waited for, afterwards.
+#
+# The target is kubernetes_version in tofu/proxmox/talos-config.tf, the one
+# place it's set. Order matters: change it there in a commit, run this, then
+# the OpenTofu job, which then finds every machine config already on the new
+# version and changes nothing. The OpenTofu job first would push the new
+# version to every control plane at once.
+#
+# Variables (Semaphore): the Kubernetes variable group (k8s_api_url,
+# k8s_ca_b64, k8s_token) and talosconfig_b64, an os:admin talosconfig
+# (ansible/README.md).
+#
+# In check mode (--check) it runs upgrade-k8s with --dry-run, which reports
+# what it would change, and changes nothing.
+
+- name: Upgrade Kubernetes
+  hosts: localhost
+  gather_facts: false
+  vars:
+    talos_common: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../talos/patches/common.yaml') }}"
+    talos_version: "{{ talos_common | regex_search('image: factory\\.talos\\.dev/[^\\s]+:(v[0-9.]+)', '\\1') | first }}"
+    tofu_talos: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../tofu/proxmox/talos-config.tf') }}"
+    k8s_target: "{{ tofu_talos | regex_search('kubernetes_version\\s*=\\s*\"([0-9.]+)\"', '\\1') | first }}"
+  tasks:
+    - name: Check, upgrade and wait, cleaning up whatever happens
+      block:
+        - name: Decode the Kubernetes CA certificate
+          ansible.builtin.set_fact:
+            k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+        - name: The CA certificate is one
+          ansible.builtin.assert:
+            that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+            fail_msg: >-
+              k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
+              token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+            quiet: true
+
+        - name: Write the Kubernetes CA certificate for the API checks
+          ansible.builtin.copy:
+            content: "{{ k8s_ca_pem }}"
+            dest: "{{ playbook_dir }}/.k8s-ca.pem"
+            mode: "0600"
+          check_mode: false
+
+        - name: Every Kubernetes node is Ready
+          ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+
+        - name: Set up kubectl
+          ansible.builtin.include_tasks: tasks/kubectl-local.yml
+
+        - name: Every database cluster is healthy
+          ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+
+        - name: Set up talosctl {{ talos_version }}
+          ansible.builtin.include_tasks: tasks/talosctl-local.yml
+
+        - name: Read the nodes
+          ansible.builtin.command: "{{ kubectl_cmd }} get nodes -o json"
+          register: k8s_nodes_json
+          changed_when: false
+          check_mode: false
+
+        - name: Work out the versions and the control planes' addresses
+          ansible.builtin.set_fact:
+            k8s_now: "{{ (k8s_nodes_json.stdout | from_json)['items'] | map(attribute='status.nodeInfo.kubeletVersion') | unique | list }}"
+            k8s_control_planes: >-
+              {% set out = [] %}{% for n in (k8s_nodes_json.stdout | from_json)['items']
+                 if 'node-role.kubernetes.io/control-plane' in n.metadata.labels %}{%
+                set _ = out.append((n.status.addresses | selectattr('type', 'equalto', 'InternalIP') | first).address) %}{%
+              endfor %}{{ out | sort }}
+
+        - name: Report the plan
+          ansible.builtin.debug:
+            msg: >-
+              Kubernetes now {{ k8s_now | join(', ') }}, target v{{ k8s_target }}:
+              {{ 'nothing to do' if k8s_now == ['v' ~ k8s_target] else 'upgrading' }}
+              (control planes {{ k8s_control_planes | length }}).
+
+        - name: Upgrade (a dry run in check mode)
+          ansible.builtin.command: >-
+            {{ talosctl_cmd }} --nodes {{ k8s_control_planes | first }}
+            --endpoints {{ k8s_control_planes | join(',') }}
+            upgrade-k8s --to {{ k8s_target }}{{ ' --dry-run' if ansible_check_mode else '' }}
+          register: k8s_upgrade
+          changed_when: not ansible_check_mode
+          check_mode: false
+          when: k8s_now != ['v' ~ k8s_target]
+
+        - name: Show what upgrade-k8s did
+          ansible.builtin.debug:
+            msg: "{{ k8s_upgrade.stdout_lines[-25:] }}"
+          when: k8s_upgrade is not skipped
+
+        - name: Wait for every Kubernetes node to be Ready
+          ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+          vars:
+            k8s_wait: true
+          when: k8s_upgrade is not skipped and not ansible_check_mode
+
+        - name: Wait for every database cluster to be whole
+          ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+          vars:
+            cnpg_wait: true
+          when: k8s_upgrade is not skipped and not ansible_check_mode
+
+      always:
+        - name: Remove the CA certificate, and kubectl and talosctl with their configs
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ playbook_dir }}/.k8s-ca.pem"
+            - "{{ kubectl_dir | default('') }}"
+            - "{{ talos_dir | default('') }}"
+          when: item | length > 0
+          check_mode: false
