@@ -18,7 +18,9 @@ builds the cluster's VMs and will read NetBox to do it.
 ## First deploy
 
 1. **The secrets**, each in Vaultwarden first, then in the stack's environment in Dockhand
-   (`compose.yaml` lists the variables): `NETBOX_DB_PASSWORD`, `NETBOX_SECRET_KEY` and
+   (`compose.yaml` says what each is; `.env` lists them blank for Dockhand's **Populate**). Mark
+   every one **secret**, even the plain settings: Dockhand passes those to compose directly,
+   and they override the blank file. Never put a value in `.env`. They are: `NETBOX_DB_PASSWORD`, `NETBOX_SECRET_KEY` and
    `NETBOX_API_TOKEN_PEPPER` (each `head -c 48 /dev/urandom | base64`), `OIDC_CLIENT_SECRET`
    (the Vaultwarden field `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, which Authentik's blueprint
    reads too), and `DATABASUS_DB_PASSWORD` (the same as the other stacks').
@@ -26,8 +28,10 @@ builds the cluster's VMs and will read NetBox to do it.
    webhook enabled with `DOCKHAND_WEBHOOK_SECRET` (`docker/CLAUDE.md`).
 3. **The first start** migrates an empty database; give it a few minutes before the health
    check passes. Then log in through Authentik.
-4. **Backups:** add the `netbox` database to Databasus (host `netbox-postgres` on the stack's
-   network, user `databasus`), as for the other stacks' databases.
+4. **Backups:** once this stack is up, its network exists: add it to the Databasus stack as
+   `NETBOX_NETWORK`, as `SEMAPHORE_NETWORK` and `KEA_NETWORK` are (before then, Databasus's
+   redeploy would fail on the missing network). Then add the `netbox` database in Databasus
+   (host `netbox-postgres`, user `databasus`).
 
 ## Upgrades
 
