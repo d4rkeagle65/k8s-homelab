@@ -1,12 +1,10 @@
-# Seerr, Jellyseerr's successor (Jellyseerr stopped at 2.7.3): requests for
-# the *arr apps. The release, its claim and its hostname keep Jellyseerr's
-# names, so Homepage, Organizr and bookmarks still find it. Seerr migrated
-# Jellyseerr's settings.json and database on its first start, one way; the
-# copy from before is jellyseerr-2.7.3-backup.tgz on the config claim.
+# Seerr, Jellyseerr's successor: requests for the *arr apps. It migrated
+# Jellyseerr's settings.json and database on its first start, one way; the copy
+# from before is jellyseerr-2.7.3-backup.tgz on the config claim.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: jellyseerr
+  name: seerr
 spec:
   commonMetadata:
     labels:
@@ -89,18 +87,18 @@ spec:
           cert-manager.io/cluster-issuer: cloudflare-letsencrypt
           traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
         hosts:
-          - host: jellyseerr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+          - host: seerr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             paths:
               - path: /
                 service:
                   identifier: main
                   port: http
         tls:
-          - secretName: jellyseerr-tls
+          - secretName: seerr-tls
             hosts:
-              - jellyseerr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+              - seerr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
     persistence:
       config:
-        existingClaim: jellyseerr-config
+        existingClaim: seerr-config
         globalMounts:
           - path: /app/config

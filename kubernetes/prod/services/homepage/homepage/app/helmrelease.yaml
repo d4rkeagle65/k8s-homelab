@@ -768,16 +768,16 @@ spec:
                     namespace: homepage
                     app: homepage
             - Watch:
-                - Jellyseerr:
-                    icon: jellyseerr.png
-                    href: https://jellyseerr.${BASE_DOMAIN}
+                - Seerr:
+                    icon: seerr.png
+                    href: https://seerr.${BASE_DOMAIN}
                     description: Requests
                     namespace: media
-                    app: jellyseerr
+                    app: seerr
                     widget:
                       type: seerr
-                      url: http://jellyseerr.media.svc.${CLUSTER_DOMAIN}:5055
-                      key: "{{ "{{HOMEPAGE_VAR_JELLYSEERR_KEY}}" }}"
+                      url: http://seerr.media.svc.${CLUSTER_DOMAIN}:5055
+                      key: "{{ "{{HOMEPAGE_VAR_SEERR_KEY}}" }}"
                 - Emby:
                     icon: emby.png
                     href: https://emby.${BASE_DOMAIN}

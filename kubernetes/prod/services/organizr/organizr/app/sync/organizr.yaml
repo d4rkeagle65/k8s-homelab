@@ -78,7 +78,7 @@ tabs:
   # queues from the settings above; the tab it opens on.
   - {name: Homepage, type: 0, category_id: 0, group_id: 4, enabled: 1, default: 1, url: api/v2/page/homepage, image: "fontawesome::home"}
   - {name: Emby, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://emby.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png"}
-  - {name: Jellyseerr, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://jellyseerr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/jellyseerr.png"}
+  - {name: Seerr, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://seerr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/seerr.png"}
   - {name: Immich, category: Media, type: 2, group_id: 4, enabled: 1, url: "https://immich.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/immich.png"}
   - {name: Sonarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://sonarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/sonarr.png"}
   - {name: Radarr, category: Downloads, type: 1, group_id: 1, enabled: 1, url: "https://radarr.${BASE_DOMAIN}", image: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/radarr.png"}

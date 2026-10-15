@@ -12,7 +12,7 @@ resources:
 - ../prod/apps/media/sabnzbd/ks.yaml
 - ../prod/apps/media/qbittorrent/ks.yaml
 - ../prod/apps/media/lidarr/ks.yaml
-- ../prod/apps/media/jellyseerr/ks.yaml
+- ../prod/apps/media/seerr/ks.yaml
 - ../prod/apps/media/whisparr/ks.yaml
 - ../prod/apps/media/tdarr/ks.yaml
 patches:
@@ -96,11 +96,11 @@ patches:
 - target:
     group: kustomize.toolkit.fluxcd.io
     kind: Kustomization
-    name: jellyseerr
+    name: seerr
   patch: |-
     - op: replace
       path: /metadata/name
-      value: jellyseerr-test
+      value: seerr-test
 - target:
     group: kustomize.toolkit.fluxcd.io
     kind: Kustomization
