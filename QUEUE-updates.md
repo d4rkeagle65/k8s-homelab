@@ -52,9 +52,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       so it stays unset. `AUTHENTIK_WEB__BASE_URL` seeds the Base URL setting 2026.11 requires.
       Both outposts run in the cluster and follow the server's version. The chart's defaults
       didn't change. Checked with a backup first, then one forward-auth and one OIDC login.
-- [ ] **app-template 3.7.3 -> 5.3.0** (16 hand-written releases, and Jackett in the test
-      overlay): in progress in [QUEUE-app-template.md](QUEUE-app-template.md). Every
-      Deployment must be recreated (an immutable selector label changed).
+- [x] **app-template 3.7.3 -> 5.3.0** (2026-10-15): every release, each Deployment recreated
+      for the changed selector label; `old-queues/QUEUE-app-template.md`.
 - [ ] **PostgreSQL 18 on Debian trixie, by a new cluster per database** (the owner,
       2026-10-15). Every cluster but Immich's runs the plain `postgresql:15`/`:16`/`:17.11`
       tags, which are Debian 11 (bullseye) `system` images: those tags are deprecated and no
