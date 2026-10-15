@@ -1,12 +1,21 @@
-# The Proxmox cluster reports quorum (pvecm status: "Quorate: Yes").
+# The Proxmox cluster reports quorum (pvecm status: "Quorate: Yes"). With
+# quorate_wait set it keeps asking for up to 10 minutes, for straight after a
+# reboot, when SSH answers before corosync and pve-cluster are up and pvecm
+# fails outright.
 - name: Read the Proxmox cluster status
   ansible.builtin.command: pvecm status
   register: pvecm
   changed_when: false
   check_mode: false
+  failed_when: false
+  until: pvecm.rc == 0 and pvecm.stdout is search('Quorate:\s+Yes')
+  retries: "{{ 60 if quorate_wait | default(false) else 0 }}"
+  delay: 10
 
 - name: The Proxmox cluster is quorate
   ansible.builtin.assert:
-    that: pvecm.stdout is search('Quorate:\s+Yes')
-    fail_msg: "The Proxmox cluster has no quorum ({{ inventory_hostname }}); stopping before the next host."
+    that: pvecm.rc == 0 and pvecm.stdout is search('Quorate:\s+Yes')
+    fail_msg: >-
+      The Proxmox cluster has no quorum ({{ inventory_hostname }}{{ ': pvecm failed, ' ~ pvecm.stderr
+      if pvecm.rc != 0 else '' }}); stopping before the next host.
     quiet: true

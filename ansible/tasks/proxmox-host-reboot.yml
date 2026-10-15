@@ -117,83 +117,100 @@
     quiet: true
   when: reboot_k8s_here | length > 0
 
-- name: Take each Kubernetes node here out of service
-  ansible.builtin.include_tasks: k8s-node-drain.yml
-  loop: "{{ reboot_k8s_here }}"
-  loop_control:
-    loop_var: k8s_node
+- name: Drain, reboot and bring back, saying what's left cordoned if it fails
+  block:
+    - name: Take each Kubernetes node here out of service
+      ansible.builtin.include_tasks: k8s-node-drain.yml
+      loop: "{{ reboot_k8s_here }}"
+      loop_control:
+        loop_var: k8s_node
 
-- name: The other DNS servers answer, just before the reboot
-  ansible.builtin.include_tasks: dns-answers.yml
-  vars:
-    dns_check: "{{ dns_elsewhere }}"
-    dns_wait: true
-  when: dns_here | default([]) | length > 0 and dns_elsewhere | default([]) | length > 0
+    - name: The other DNS servers answer, just before the reboot
+      ansible.builtin.include_tasks: dns-answers.yml
+      vars:
+        dns_check: "{{ dns_elsewhere }}"
+        dns_wait: true
+      when: dns_here | default([]) | length > 0 and dns_elsewhere | default([]) | length > 0
 
-- name: Move the VMs off
-  ansible.builtin.include_tasks: migrate.yml
-  loop: "{{ evacuate_plan }}"
-  loop_control:
-    loop_var: planned
-    label: "{{ planned.name }}"
-  vars:
-    mig: "{{ planned | combine({'from_node': pve_node, 'node': planned.to_node}) }}"
+    - name: Move the VMs off
+      ansible.builtin.include_tasks: migrate.yml
+      loop: "{{ evacuate_plan }}"
+      loop_control:
+        loop_var: planned
+        label: "{{ planned.name }}"
+      vars:
+        mig: "{{ planned | combine({'from_node': pve_node, 'node': planned.to_node}) }}"
 
-- name: Reboot
-  ansible.builtin.reboot:
-    reboot_timeout: 900
-    msg: "{{ reboot_reason | default('Rebooting the host (Semaphore)') }}"
+    - name: Reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 900
+        msg: "{{ reboot_reason | default('Rebooting the host (Semaphore)') }}"
 
-- name: The Proxmox cluster has quorum again
-  ansible.builtin.include_tasks: proxmox-quorate.yml
+    - name: The Proxmox cluster has quorum again
+      ansible.builtin.include_tasks: proxmox-quorate.yml
+      vars:
+        quorate_wait: true
 
-- name: Wait for every Kubernetes node to be Ready
-  ansible.builtin.include_tasks: kubernetes-healthy.yml
-  args:
-    apply:
-      delegate_to: localhost
-  vars:
-    k8s_wait: true
+    - name: Wait for every Kubernetes node to be Ready
+      ansible.builtin.include_tasks: kubernetes-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+      vars:
+        k8s_wait: true
 
-- name: Uncordon this host's Kubernetes nodes
-  ansible.builtin.command: "{{ kubectl_cmd }} uncordon {{ item }}"
-  delegate_to: "{{ kubectl_host }}"
-  loop: "{{ reboot_k8s_here }}"
-  changed_when: true
+    - name: Uncordon this host's Kubernetes nodes
+      ansible.builtin.command: "{{ kubectl_cmd }} uncordon {{ item }}"
+      delegate_to: "{{ kubectl_host }}"
+      loop: "{{ reboot_k8s_here }}"
+      changed_when: true
 
-- name: Read them back
-  ansible.builtin.command: "{{ kubectl_cmd }} get node {{ item }} -o jsonpath={.spec.unschedulable}"
-  delegate_to: "{{ kubectl_host }}"
-  loop: "{{ reboot_k8s_here }}"
-  register: reboot_uncordoned
-  failed_when: reboot_uncordoned.stdout | trim == 'true'
-  changed_when: false
-  when: not ansible_check_mode
+    - name: Read them back
+      ansible.builtin.command: "{{ kubectl_cmd }} get node {{ item }} -o jsonpath={.spec.unschedulable}"
+      delegate_to: "{{ kubectl_host }}"
+      loop: "{{ reboot_k8s_here }}"
+      register: reboot_uncordoned
+      failed_when: reboot_uncordoned.stdout | trim == 'true'
+      changed_when: false
+      when: not ansible_check_mode
 
-- name: Close the database maintenance windows
-  ansible.builtin.include_tasks: cnpg-maintenance-end.yml
-  vars:
-    cnpg_maintenance: "{{ cnpg_maintenance_all }}"
-  when: cnpg_maintenance_all | length > 0
+    - name: Close the database maintenance windows
+      ansible.builtin.include_tasks: cnpg-maintenance-end.yml
+      vars:
+        cnpg_maintenance: "{{ cnpg_maintenance_all }}"
+      when: cnpg_maintenance_all | length > 0
 
-- name: Wait for every database cluster to be whole again
-  ansible.builtin.include_tasks: cnpg-healthy.yml
-  vars:
-    cnpg_wait: true
+    - name: Wait for every database cluster to be whole again
+      ansible.builtin.include_tasks: cnpg-healthy.yml
+      vars:
+        cnpg_wait: true
 
-- name: Wait for this host's DNS servers to answer again
-  ansible.builtin.include_tasks: dns-answers.yml
-  vars:
-    dns_check: "{{ dns_here }}"
-    dns_wait: true
-  when: dns_here | default([]) | length > 0
+    - name: Wait for this host's DNS servers to answer again
+      ansible.builtin.include_tasks: dns-answers.yml
+      vars:
+        dns_check: "{{ dns_here }}"
+        dns_wait: true
+      when: dns_here | default([]) | length > 0
 
-- name: Move the VMs back
-  ansible.builtin.include_tasks: migrate.yml
-  loop: "{{ evacuate_plan }}"
-  loop_control:
-    loop_var: planned
-    label: "{{ planned.name }}"
-  vars:
-    mig: "{{ planned | combine({'from_node': planned.to_node, 'node': pve_node}) }}"
-  when: evacuate_return | default(true) | bool
+    - name: Move the VMs back
+      ansible.builtin.include_tasks: migrate.yml
+      loop: "{{ evacuate_plan }}"
+      loop_control:
+        loop_var: planned
+        label: "{{ planned.name }}"
+      vars:
+        mig: "{{ planned | combine({'from_node': planned.to_node, 'node': pve_node}) }}"
+      when: evacuate_return | default(true) | bool
+
+  rescue:
+    - name: Say what this host's failure left behind
+      ansible.builtin.debug:
+        msg:
+          - "{{ inventory_hostname }} stopped at: {{ ansible_failed_task.name | default('?') }}"
+          - "Its Kubernetes nodes may still be cordoned: {{ reboot_k8s_here or ['none'] }}"
+          - "Once they're Ready: kubectl uncordon {{ reboot_k8s_here | join(' ') }}"
+          - "VMs it may have moved off (back to {{ pve_node }} by hand if wanted): {{ evacuate_plan | map(attribute='name') | list or ['none'] }}"
+
+    - name: Stop the run
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('A step failed') }} ({{ inventory_hostname }}); see the message above."
