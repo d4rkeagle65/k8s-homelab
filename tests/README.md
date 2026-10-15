@@ -1,6 +1,6 @@
 # Tests
 
-**7 suites.** Static and fake-based: they touch no external system, need no credentials, and
+**8 suites.** Static and fake-based: they touch no external system, need no credentials, and
 change nothing. The pre-commit hook runs every suite except the environment ones.
 
 ```sh
@@ -28,6 +28,7 @@ real system is outside what a static suite can see; prove that with a real run.
 | `test-harness.py` | The harness itself: `check` compares as strings, the runner's verdict believes the worst of sign-off, FAIL lines and exit code, `import_script` refuses a script that acts when imported, the probe answers in each Python, and every suite follows the conventions below. Also rejects a `test_config.toml` key the harness does not know. |
 | `test-script-health.py` | What every script keeps whatever it does: it compiles in each target Python, which has every standard-library module, name and keyword it uses; it runs nothing when imported; it has a docstring and argparse help - and the ratchets on a failed read becoming an answer (`except: pass`, `except: return False`, a bare `except:`, `suppress(Exception)`) and on text opened with no encoding. |
 | `test-repo-hygiene.py` | Bytes nobody can see: UTF-16 files, stray control characters, CRLF where the repo is LF, conflict markers. |
+| `test-docker-stacks.py` | Each Docker stack whose `compose.yaml` uses variables has a `.env` naming exactly those variables, every value blank, for Dockhand's Populate; the real values live only in Dockhand. |
 | `test-doc-style.py` | Docs say what is true now; `CLAUDE.md` stays rules within budget and says each thing once; suites named in a `CLAUDE.md` exist; this table lists every suite; `QUEUE.md`'s contents match its sections. |
 | `test-scripts-pytest.py` | The generator's own pytest suite (`scripts/tests`: the repo's structure and secret-hygiene checks and the generator's unit tests) passes, with each failing test named; a pytest that cannot run or collects nothing is red, never a pass. |
 | `test-import-preflight.py` | **Environment, opt-in.** Every module the scripts import is installed and imports, with every name they take from it and every keyword they pass, in each target Python. |
