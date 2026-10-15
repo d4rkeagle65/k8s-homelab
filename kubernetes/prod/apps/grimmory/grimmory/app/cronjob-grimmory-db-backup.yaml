@@ -18,7 +18,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: dump
-              image: mariadb:11.4.9
+              image: mariadb:11.8.9
               env:
                 - name: MYSQL_PWD
                   valueFrom:

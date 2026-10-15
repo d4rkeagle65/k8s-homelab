@@ -100,7 +100,12 @@ spec:
           app:
             image:
               repository: mariadb
-              tag: 11.4.9
+              tag: 11.8.9
+            # innodb_snapshot_isolation off (11.8's default is on): with it on, an
+            # update of rows another transaction changed since this one's snapshot
+            # fails ("Record has changed since last read"), and Grimmory's library
+            # scans write beside the web app without retrying.
+            args: [--innodb-snapshot-isolation=OFF]
             env:
               MARIADB_DATABASE: grimmory
               MARIADB_USER: grimmory
