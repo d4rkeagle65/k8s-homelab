@@ -11,6 +11,8 @@ metadata:
   name: dockhand-cadvisor
 spec:
   type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
   address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/9/webhook
   secretRef:
     name: dockhand-webhook
@@ -37,6 +39,8 @@ metadata:
   name: dockhand-databasus
 spec:
   type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
   address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/8/webhook
   secretRef:
     name: dockhand-webhook
@@ -63,6 +67,8 @@ metadata:
   name: dockhand-garage
 spec:
   type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
   address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/7/webhook
   secretRef:
     name: dockhand-webhook
@@ -89,6 +95,8 @@ metadata:
   name: dockhand-kea
 spec:
   type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
   address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/4/webhook
   secretRef:
     name: dockhand-webhook
@@ -115,6 +123,8 @@ metadata:
   name: dockhand-semaphore
 spec:
   type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
   address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/6/webhook
   secretRef:
     name: dockhand-webhook
@@ -141,6 +151,8 @@ metadata:
   name: dockhand-tailscale
 spec:
   type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
   address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/3/webhook
   secretRef:
     name: dockhand-webhook
@@ -167,6 +179,8 @@ metadata:
   name: dockhand-vaultwarden
 spec:
   type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
   address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/2/webhook
   secretRef:
     name: dockhand-webhook
