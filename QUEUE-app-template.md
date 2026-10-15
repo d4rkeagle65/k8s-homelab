@@ -42,7 +42,8 @@ object by object. For every release:
 
 ## Checklist
 
-- [ ] Bookshelf (the pilot)
+- [x] Bookshelf (the pilot, 2026-10-15): failed on the selector as expected, recreated in
+      about 15 seconds; `/ping` 200 directly and through the ingress.
 - [ ] The other media apps: Lidarr, Prowlarr, qBittorrent, Radarr, SABnzbd, Seerr, Sonarr,
       Tdarr, Whisparr
 - [ ] Linkwarden, mesh-mini, Organizr, n8n (n8n: its metrics' job label)
