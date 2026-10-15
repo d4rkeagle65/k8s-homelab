@@ -66,6 +66,17 @@
       ],
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "siderolabs/talos"
+    },
+    {
+      "customType": "regex",
+      "description": "A version Renovate can't otherwise read (a Dockerfile ARG, or a chart value naming its image as registry), marked by a '# renovate: datasource=<d> depName=<name>' comment on the line above.",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/",
+        "/^kubernetes/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*(?:ARG\\s+\\w+=|[\\w.-]+:\\s*)[\"']?(?<currentValue>[^\\s\"'#]+)"
+      ]
     }
   ],
   "packageRules": [
@@ -177,6 +188,32 @@
         "required_version"
       ],
       "enabled": false
+    },
+    {
+      "description": "The tools in docker/'s images are pinned without the v their GitHub tags carry.",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDatasources": [
+        "github-releases",
+        "github-tags"
+      ],
+      "matchFileNames": [
+        "docker/**"
+      ],
+      "extractVersion": "^v(?<version>.+)$"
+    },
+    {
+      "description": "Kea and Stork install from package sources named for their minor series (docker/kea/Dockerfile: kea-3-2), so a new minor is a migration, listed on the Dependency Dashboard, not a version bump.",
+      "matchPackageNames": [
+        "docker.cloudsmith.io/isc/docker/kea-dhcp4",
+        "isc-projects/stork"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "dependencyDashboardApproval": true
     }
   ]
 }

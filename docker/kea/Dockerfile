@@ -10,7 +10,9 @@
 # repository (stork) once 2.6 is out.
 FROM docker.cloudsmith.io/isc/docker/kea-dhcp4:3.2.1
 
+# renovate: datasource=github-tags depName=isc-projects/stork
 ARG STORK_VERSION=2.5.1
+# renovate: datasource=docker depName=docker.cloudsmith.io/isc/docker/kea-dhcp4
 ARG KEA_VERSION=3.2.1
 
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]

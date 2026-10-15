@@ -26,6 +26,7 @@ dns:
   clusterDomainSuffix: ${CLUSTER_DOMAIN}
 extraSecretName: obsidian-couchdb
 image:
+  repository: couchdb
   tag: 3.5.2
 ingress:
   annotations:
