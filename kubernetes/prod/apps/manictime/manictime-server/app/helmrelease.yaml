@@ -55,10 +55,10 @@ spec:
     settings:
       database:
         coreDatabase: ManicTimeCore
-        host: manictime-pg-rw
+        host: manictime-postgres-rw
         passwordSecret:
           key: password
-          name: manictime-pg-app
+          name: manictime-postgres-app
         port: 5432
         reportsDatabase: ManicTimeReports
         sslMode: Prefer
