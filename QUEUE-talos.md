@@ -61,17 +61,18 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 | H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
 | H5 | 8 (i7-7700) | 63 GB | Talos control plane (VM 110) | in the cluster since 2026-10-12; its root is on the NX-512 (Phase 0) |
 
-**Target layout** (adjust once H5 is in and measured):
+**The layout** (as built, 2026-10-14):
 
 | | Talos control plane (2 vCPU, 4 GiB) | Talos worker |
 |---|---|---|
 | H1 | yes | 4 vCPU, 16 GiB (2026-10-14: memory was what kept a worker from draining) |
 | H2 | no | 3 vCPU, 16 GiB |
 | H3 | no (small, worn disk) | 4 vCPU, 10 GiB (the owner, 2026-10-14: with local-db, worn disk or not) |
-| H4 | yes | 2 vCPU, 8 GiB |
+| H4 | yes | none (the owner, 2026-10-15: it carries the HA VMs and a Pi-hole; a worker only if needed) |
 | H5 | yes | 6 vCPU, 20 GiB |
 
-66 GiB of workers in all; losing the largest (H5) leaves 46 GiB, above the requests with room.
+62 GiB of workers in all; losing the largest (H5) leaves 42 GiB, above the pods' requests
+(about 27 GiB) with room.
 Control planes on H1, H4, H5 (the owner, 2026-10-13: the first Talos one was built on H5): losing
 any one keeps etcd's quorum.
 
@@ -169,8 +170,10 @@ goes once the retired guests are destroyed.
       2026-10-13 (every built node applies with `no_reboot`). Until the
       workers are Talos, `k8s-upgrade.yml` can't run (no kubeadm control plane); Kubernetes
       upgrades are `ansible/talos-k8s-upgrade.yml` since 2026-10-15
-- [ ] Phase 3: the iSCSI storage driver; Talos workers on all five hosts; the databases and the
-      single-instance stateful apps moved; the LXC workers removed. The first worker,
+- [x] Phase 3: the iSCSI storage driver; Talos workers on four hosts (the owner, 2026-10-15:
+      none on H4, which carries the HA VMs, a control plane and a Pi-hole; a fifth only if it
+      becomes needed); the databases and the single-instance stateful apps moved; the LXC
+      workers retired. The first worker,
       `[redacted]k8sw04a` (VM 114, H5, 6 vCPU, 20 GiB), in `talos_nodes` since 2026-10-13: a second
       disk (scsi1) as the Talos user volume `local-db` at `/var/mnt/local-db`
       (`talos/patches/worker-local-db.yaml`), local-path's local-db class pointed there for it
