@@ -83,8 +83,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       throughout (release, Flux Kustomization, claim `seerr-config`, hostname, Homepage,
       Organizr, `SEERR_API_KEY`); the config was copied to the new claim with Seerr stopped.
 - [ ] **Clear away Jellyseerr's leftovers** once Seerr runs on `seerr-config` at its new
-      address. The owner: the Vaultwarden field `JELLYSEERR_API_KEY` (after its mapping in
-      `kubernetes/secrets/cluster-secrets.yaml` is removed and pushed), the claim
+      address. The owner: the Vaultwarden field `JELLYSEERR_API_KEY` (nothing maps it any
+      more), the claim
       `jellyseerr-config` in `media` (compare it with `seerr-config` first), the Pi-hole
       record `jellyseerr`, and the Organizr tab `Jellyseerr` (the sync adds tabs by name and
       never deletes one). Left, they are a stale second copy of the config and a dead link.
