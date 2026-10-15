@@ -96,4 +96,5 @@ MarkdownFiles  = 3
 CommentFiles   = 201
 ClaudeFiles    = 2
 Suites         = 3
+DockerStacks   = 4   # docker/*/compose.yaml (test-docker-stacks)
 PytestTests    = 59  # tests scripts/tests ran (test-scripts-pytest)

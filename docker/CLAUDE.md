@@ -13,6 +13,8 @@ stacks whose folder changed. `claude-code` has none: it redeploys on a weekly sc
 a redeploy restarts the session running in it. A new stack gets its webhook turned on in
 Dockhand (its secret is the Vaultwarden field `DOCKHAND_WEBHOOK_SECRET`) and a Provider and Alert in that folder. A service
 built here (`build:`) carries `pull_policy: build` and a `local` tag, or a redeploy tries to pull it.
+A stack whose compose file uses variables has a `.env` naming each one, blank, for Dockhand's
+**Populate** (`tests/test-docker-stacks.py`); the values are set in Dockhand, marked secret.
 
 - **A stack's real values are `${VARIABLE}`s set in Dockhand, and its data lives on the
   host.** Credentials are marked secret there. Data stays in bind mounts on the host, never
