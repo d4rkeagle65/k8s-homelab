@@ -111,7 +111,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       throughout (release, Flux Kustomization, claim `seerr-config`, hostname, Homepage,
       Organizr, `SEERR_API_KEY`); the config was copied to the new claim with Seerr stopped.
 
-- [ ] **Renovate watches every version it can** (the owner, 2026-10-15). Inventoried
+- [x] **Renovate watches every version it can** (the owner, 2026-10-15; the 20:34 run detected
+      every gap below, 431 dependencies from 411). Inventoried
       2026-10-15 against the Dependency Dashboard's detected list (issue #3; the run logs only
       totals at `LOG_LEVEL=info`): images in HelmReleases' inline values were already read. The
       gaps, closed the same day: a chart value with a tag but no `repository` (Immich's server,
@@ -122,9 +123,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       Kea and Stork minors wait for approval (their package sources are per minor). Stable
       releases only (`ignoreUnstable`, a rule refusing tags naming a pre-release), and images
       pin full versions: a tag pinned to a minor (`valkey/valkey:9.0-alpine`) let Renovate
-      offer `9.2-alpine` while it was `9.2.0-rc1`. **Done when** the next run's dashboard lists
-      each of these (`docker/claude-code/Dockerfile` with four, `docker/kea/Dockerfile` with
-      three, democratic-csi's helmrelease with three, Immich's server image). Left, each on
+      offer `9.2-alpine` while it was `9.2.0-rc1`. Kea's minors are ISC's
+      development series when odd (3.3): approve only an even one. Left, each on
       purpose: `homelab/claude-code` and `homelab/kea-tools`, local builds whose tags only
       name what was built (and `homelab/claude-code`'s now trails its Dockerfile); `debian:trixie-slim`
       and `buildpack-deps:trixie-curl`, Debian codename tags with no version to compare;
