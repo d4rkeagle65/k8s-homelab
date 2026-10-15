@@ -20,8 +20,9 @@ object by object. For every release:
 - **A ServiceAccount per release, named after it, and no API token in the pods** (common 5.0).
   Only Homepage reads the Kubernetes API; it names its account and mounts the token.
 - **ServiceMonitors' `jobLabel` becomes `app.kubernetes.io/name`** (Grimmory's and n8n's): the
-  Services carry no label by the old name, so Prometheus named the job after the Service, which
-  is the same word. Check `up{job=...}` after each.
+  Services carry no label by the old name, so Prometheus named the job after the Service. n8n's
+  Service is `n8n`, so its job stays `n8n`; Grimmory's MariaDB job goes from
+  `grimmory-mariadb` to `grimmory`. Nothing in the repo selects either job by name.
 - **Nothing else**: no object is renamed or removed (common 4.0's naming change gives the
   same names here), and no release uses `rawResources`, NetworkPolicies, static tokens or
   PodMonitors, the other things 4.0 and 5.0 changed.
@@ -32,8 +33,10 @@ object by object. For every release:
 
 - **Per release: the version in its `helmrelease.yaml`, pushed; then delete the old workload and
   reconcile.** Once Flux reports `UpgradeFailed` on the selector, `kubectl delete deployment
-  <name> -n <ns>` (and `statefulset` for Grimmory's MariaDB), then `flux reconcile hr <name> -n
-  <ns> --reset`; the upgrade then creates them anew. Whether a release is done is read from
+  <name> -n <ns> --cascade=foreground` (and `statefulset` for Grimmory's MariaDB), then `flux reconcile hr <name> -n
+  <ns> --reset`; the upgrade then creates them anew. Foreground, so the old pods are gone
+  before the new one starts: a plain delete returns at once and the two overlap on the same
+  claim (mesh-mini's old pod was still terminating beside its new one). Whether a release is done is read from
   its Deployment's selector (`app.kubernetes.io/controller`), never from the HelmRelease's
   history, which records the failed 5.3.0 attempt too. Tested
   2026-10-15 on a throwaway release: `spec.upgrade.force: true` doesn't help (Flux's Helm
@@ -50,7 +53,7 @@ object by object. For every release:
       about 15 seconds; `/ping` 200 directly and through the ingress.
 - [x] The other media apps: Lidarr, Prowlarr, qBittorrent, Radarr, SABnzbd, Seerr, Sonarr,
       Tdarr, Whisparr (2026-10-15): each about 20 seconds down, Lidarr about a minute.
-- [ ] Linkwarden, mesh-mini, Organizr, n8n (n8n: its metrics' job label)
+- [x] Linkwarden, mesh-mini, Organizr, n8n (2026-10-15); n8n's metrics kept job `n8n`.
 - [ ] Homepage: `serviceAccount: {homepage: {}}`, `controllers.main.serviceAccount.identifier:
       homepage`, `controllers.main.pod.automountServiceAccountToken: true`, the binding's
       subject `homepage`. Rendered 2026-10-15: same account name, binding and role as now.

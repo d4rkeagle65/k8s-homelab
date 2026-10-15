@@ -204,7 +204,7 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 90%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-netbox.md](QUEUE-netbox.md) (about 5%): NetBox on the Docker VM as the source of Semaphore's hosts, then documenting the homelab, owning DNS and new guests' addresses.
 - [QUEUE-organizr.md](QUEUE-organizr.md) (about 25%): Organizr configured from git; its remaining checks.
-- [QUEUE-app-template.md](QUEUE-app-template.md) (about 60%): the app-template chart to 5.3.0 on every release that uses it, recreating each Deployment.
+- [QUEUE-app-template.md](QUEUE-app-template.md) (about 80%): the app-template chart to 5.3.0 on every release that uses it, recreating each Deployment.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 55%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 
