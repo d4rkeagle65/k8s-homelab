@@ -7,6 +7,13 @@ paths there: it can't bind-mount a file from this folder, so a small config goes
 (`configs:` with `content:`, as `garage/compose.yaml` does). Dockhand's own compose file isn't here: it lives
 on the host, so Dockhand never manages itself.
 
+When `main` moves, Flux calls each stack's webhook in Dockhand
+(`kubernetes/prod/system/external-services/dockhand-webhooks/`), and Dockhand redeploys the
+stacks whose folder changed. `claude-code` has none: it redeploys on a weekly schedule, since
+a redeploy restarts the session running in it. A new stack gets its webhook turned on in
+Dockhand (its secret is the Vaultwarden field `DOCKHAND_WEBHOOK_SECRET`) and a Provider and Alert in that folder. A service
+built here (`build:`) carries `pull_policy: build` and a `local` tag, or a redeploy tries to pull it.
+
 - **A stack's real values are `${VARIABLE}`s set in Dockhand, and its data lives on the
   host.** Credentials are marked secret there. Data stays in bind mounts on the host, never
   in git, and so does config that's mostly addresses (Kea's subnets and reservations; see
