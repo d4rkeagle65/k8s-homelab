@@ -125,8 +125,8 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       pin full versions: a tag pinned to a minor (`valkey/valkey:9.0-alpine`) let Renovate
       offer `9.2-alpine` while it was `9.2.0-rc1`. Kea's minors are ISC's
       development series when odd (3.3): approve only an even one. Left, each on
-      purpose: `homelab/claude-code` and `homelab/kea-tools`, local builds whose tags only
-      name what was built (and `homelab/claude-code`'s now trails its Dockerfile); `debian:trixie-slim`
+      purpose: `homelab/claude-code` and `homelab/kea-tools`, built on the host from their
+      Dockerfiles (`pull_policy: build`, tag `local`; Renovate skips `homelab/**`); `debian:trixie-slim`
       and `buildpack-deps:trixie-curl`, Debian codename tags with no version to compare;
       BabyBuddy MCP's `>=` requirements in its ConfigMap (below); OpenTofu's
       `required_version` (matches Semaphore's, a hand update), `values-all.yaml` and the
