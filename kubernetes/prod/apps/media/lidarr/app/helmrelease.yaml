@@ -34,7 +34,7 @@ spec:
               - name: TZ
                 value: ${TIMEZONE}
               - name: LIDARR__POSTGRES__HOST
-                value: lidarr-postgres-rw
+                value: lidarr-db-rw
               - name: LIDARR__POSTGRES__PORT
                 value: "5432"
               - name: LIDARR__POSTGRES__USER
@@ -42,7 +42,7 @@ spec:
               - name: LIDARR__POSTGRES__PASSWORD
                 valueFrom:
                   secretKeyRef:
-                    name: lidarr-postgres-app
+                    name: lidarr-db-app
                     key: password
               - name: LIDARR__POSTGRES__MAINDB
                 value: lidarr-main
