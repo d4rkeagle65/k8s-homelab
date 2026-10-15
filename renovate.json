@@ -221,6 +221,28 @@
         "homelab/**"
       ],
       "enabled": false
+    },
+    {
+      "description": "NetBox's image and its plugins (docker/netbox/) move together: the image is built from both, and a plugin release often follows a NetBox one.",
+      "matchFileNames": [
+        "docker/netbox/**"
+      ],
+      "matchManagers": [
+        "dockerfile",
+        "pip_requirements"
+      ],
+      "groupName": "NetBox and its plugins"
+    },
+    {
+      "description": "A NetBox minor or major release waits until every plugin supports it (docker/netbox/README.md): listed on the Dependency Dashboard, opened only when ticked there.",
+      "matchPackageNames": [
+        "ghcr.io/netbox-community/netbox"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "dependencyDashboardApproval": true
     }
   ]
 }

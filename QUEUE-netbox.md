@@ -30,6 +30,21 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
   does NetBox at runtime. Renovate bumps the base and each plugin. **A NetBox minor upgrade
   waits for every plugin to support it** (floorplan, reorder-rack and topology-views each pin
   one minor per release); Renovate groups NetBox with its plugins.
+- **On the Docker VM, NetBox logs in by OIDC with Authentik** (the owner, 2026-10-15), as
+  Authentik documents for NetBox (`social_core`'s OpenIdConnectAuth, a pipeline mapping the
+  `groups` claim to NetBox groups, `authentik Admins` superusers). Its port is reachable from
+  the whole management network there, so the header login the cluster uses (remote user,
+  safe only behind a NetworkPolicy that admits Traefik alone) would let anyone send
+  `X-authentik-username`. Traefik still serves it, now without forward auth; the API takes
+  tokens as before.
+- **A fresh NetBox, not a moved database** (2026-10-15): it held two users, its groups, one
+  API token (Homepage's) and a dashboard. Users and groups come back at the first OIDC login;
+  Homepage's token is made again into `NETBOX_HOMEPAGE_TOKEN`.
+- **The image is proved before the stack** (2026-10-15): NetBox v4.7.2 (Python 3.14) with the
+  fourteen plugins at the versions in `plugin_requirements.txt` installs with `uv`, passes
+  `manage.py check` and migrates an empty PostgreSQL 18, in a throwaway pod. Config Diff
+  refuses to start without `USERNAME` and `PASSWORD` in its PLUGINS_CONFIG (the devices'
+  login), so they're stack variables.
 - **Proxmox to NetBox by a playbook, not ProxBox:** ProxBox (`netbox-proxbox`) supports 4.7 but
   is pre-1.0, changes weekly and needs its own `proxbox-api` backend service. A Semaphore
   playbook with the `netbox.netbox` collection, reading Proxmox's API and the cluster, does
@@ -55,8 +70,9 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
    restore and the media copied (NetBox is still empty, so both are small); served through
    Traefik as an external service with Authentik's forward auth and the token-only API route
    as now; backed up by Databasus with the Docker VM's other databases; the in-cluster release
-   removed once the new one is checked. The Kea plugin reaches Kea's API on the same host
-   through `127.0.0.1` (`docker/CLAUDE.md`).
+   removed once the new one is checked. The Kea plugin reaches Kea's control agent over the
+   Docker network (the stack joined to Kea's): inside a container `127.0.0.1` is the
+   container itself, not the host.
 2. **Semaphore's inventories from NetBox (the primary goal):**
    - **The data, imported once:** a one-off script reads Semaphore's static inventories
      through its API and creates in NetBox the Proxmox hosts (devices), the Pi-holes, the
@@ -131,10 +147,15 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 - [x] Owner's choices (2026-10-15): every "yes" plugin, Attachments not Documents, the custom
       ExternalDNS webhook for the Ingress records, NetBox moved first and the inventories next
-- [ ] Phase 1: `docker/netbox/` (the image with the fourteen plugins, the stack, `plugins.py`,
-      Renovate rules), Dockhand variables from the owner; the move (dump and restore, media,
-      Traefik and Authentik, Databasus); each plugin's page checked; the in-cluster release
-      removed
+- [ ] Phase 1: `docker/netbox/` written (2026-10-15): the image, proved in a throwaway pod
+      from the stack's own files (all fourteen plugins load, 540 migrations, the OIDC settings
+      and the group mapping); Renovate groups NetBox with its plugins and holds its minors.
+      Next: the secrets in Vaultwarden and the stack in Dockhand (README.md, First deploy);
+      then the cutover commit: Authentik's NetBox blueprint to OIDC with its client secret, NetBox
+      off the forward-auth outpost (`mesh-mini.yaml`), a Service and Ingress in
+      `external-services` to the Docker VM's port 8085, the stack's webhook Provider, Homepage's
+      tile, Homepage's token made again; then each plugin's page checked and the in-cluster
+      release removed
 - [ ] Phase 2: owner makes the prefixes and a read-only and a write token; the import script
       run (a dry run first); `ansible/inventory/netbox.yml`, the collection and Semaphore's
       Python; each template switched after its host list matched; the static inventories

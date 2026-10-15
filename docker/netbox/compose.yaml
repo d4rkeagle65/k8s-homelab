@@ -1,0 +1,158 @@
+# NetBox on the Docker host, deployed by Dockhand from this folder (a Git
+# stack): the homelab's documentation, and the source of Semaphore's hosts
+# (QUEUE-netbox.md). Its image is built here (Dockerfile) with the plugins in
+# plugin_requirements.txt. The web UI is published on the host's management
+# address only, and served at netbox.<domain> through Traefik (kubernetes
+# external-services), private networks only. Logins go through Authentik
+# (OIDC, config/sso.py); scripts use API tokens. See README.md.
+#
+# Variables (set in the stack's environment in Dockhand):
+#   NETBOX_BIND_ADDRESS     the host's management address (the web UI, 8085)
+#   NETBOX_HOST             netbox.<domain>, the name it answers to
+#   NETBOX_DB_PASSWORD      secret: the netbox database role's
+#   NETBOX_SECRET_KEY       secret: signs sessions and the like (50+ random characters)
+#   NETBOX_API_TOKEN_PEPPER secret: hashes API tokens (50+ random characters);
+#                           changing it invalidates every token
+#   OIDC_ENDPOINT           https://auth.<domain>/application/o/netbox/
+#   OIDC_CLIENT_SECRET      secret: the same one Authentik's blueprint reads
+#                           (AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET)
+#   CONFIG_DIFF_USERNAME, CONFIG_DIFF_PASSWORD  secret: the switches' and APs' login,
+#                           for the Config Diff plugin; empty until it's used
+#   DATABASUS_DB_PASSWORD   secret: the databasus role's (read-only, for backups)
+#   TZ                      e.g. America/New_York
+x-netbox: &netbox
+  image: homelab/netbox:local
+  restart: unless-stopped
+  user: "netbox:root"
+  environment: &netbox-env
+    DB_HOST: netbox-postgres
+    DB_NAME: netbox
+    DB_USER: netbox
+    DB_PASSWORD: ${NETBOX_DB_PASSWORD}
+    # One Valkey: database 0 holds the task queue, 1 the cache.
+    REDIS_HOST: netbox-valkey
+    REDIS_DATABASE: "0"
+    REDIS_CACHE_HOST: netbox-valkey
+    REDIS_CACHE_DATABASE: "1"
+    SECRET_KEY: ${NETBOX_SECRET_KEY}
+    API_TOKEN_PEPPER_1: ${NETBOX_API_TOKEN_PEPPER}
+    ALLOWED_HOSTS: ${NETBOX_HOST}
+    CSRF_TRUSTED_ORIGINS: https://${NETBOX_HOST}
+    LOGIN_REQUIRED: "true"
+    TIME_ZONE: ${TZ:-UTC}
+    SKIP_SUPERUSER: "true"
+    GRANIAN_WORKERS: "2"
+    OIDC_ENDPOINT: ${OIDC_ENDPOINT}
+    OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+    CONFIG_DIFF_USERNAME: ${CONFIG_DIFF_USERNAME:-}
+    CONFIG_DIFF_PASSWORD: ${CONFIG_DIFF_PASSWORD:-}
+  volumes:
+  - /opt/netbox/media:/opt/netbox/netbox/media
+  - /opt/netbox/reports:/opt/netbox/netbox/reports
+  - /opt/netbox/scripts:/opt/netbox/netbox/scripts
+
+services:
+  netbox-postgres:
+    image: postgres:18.6-alpine
+    container_name: netbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: netbox
+      POSTGRES_PASSWORD: ${NETBOX_DB_PASSWORD}
+      POSTGRES_DB: netbox
+    # PostgreSQL 18's image keeps its data in a version folder under here.
+    volumes:
+    - /opt/netbox/postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netbox"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # The task queue survives a restart (append-only file); the cache needn't.
+  netbox-valkey:
+    image: valkey/valkey:9.1.2-alpine
+    container_name: netbox-valkey
+    restart: unless-stopped
+    command: [valkey-server, --appendonly, "yes"]
+    volumes:
+    - /opt/netbox/valkey:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # The read-only role Databasus backs this database up as (docker/databasus/):
+  # created when missing, password set from DATABASUS_DB_PASSWORD, and
+  # pg_read_all_data, on every deploy, then exits.
+  databasus-role-init:
+    image: postgres:18.6-alpine
+    restart: "no"
+    depends_on:
+      netbox-postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: netbox-postgres
+      PGUSER: netbox
+      PGDATABASE: netbox
+      PGPASSWORD: ${NETBOX_DB_PASSWORD}
+      DATABASUS_DB_PASSWORD: ${DATABASUS_DB_PASSWORD}
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      [ -n "$$DATABASUS_DB_PASSWORD" ] || { echo "DATABASUS_DB_PASSWORD is empty"; exit 1; }
+      psql -v ON_ERROR_STOP=1 -v pw="$$DATABASUS_DB_PASSWORD" <<'SQL'
+      SELECT 'CREATE ROLE databasus LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'databasus')\gexec
+      ALTER ROLE databasus PASSWORD :'pw';
+      GRANT pg_read_all_data TO databasus;
+      SQL
+      psql -tA -c "SELECT 'databasus role: login ' || rolcanlogin || ', reads all data ' || pg_has_role('databasus', 'pg_read_all_data', 'MEMBER') FROM pg_roles WHERE rolname = 'databasus'"
+
+  # The host folders NetBox writes (uploads, reports, scripts) belong to its
+  # user, which runs without root: owned on every deploy, then exits.
+  netbox-files-init:
+    <<: *netbox
+    user: root
+    restart: "no"
+    pull_policy: never
+    command: [chown, -R, "netbox:root", /opt/netbox/netbox/media, /opt/netbox/netbox/reports, /opt/netbox/netbox/scripts]
+
+  netbox:
+    <<: *netbox
+    # Built here from the Dockerfile, which holds the versions; never pulled,
+    # since no registry has it.
+    build: .
+    pull_policy: build
+    container_name: netbox
+    depends_on:
+      netbox-postgres:
+        condition: service_healthy
+      netbox-valkey:
+        condition: service_healthy
+      netbox-files-init:
+        condition: service_completed_successfully
+    ports:
+    - ${NETBOX_BIND_ADDRESS}:8085:8080
+    healthcheck:
+      test: /opt/netbox/health.sh
+      start_period: 300s
+      timeout: 3s
+      interval: 15s
+
+  # Background jobs, housekeeping among them (NetBox schedules it itself).
+  netbox-worker:
+    <<: *netbox
+    pull_policy: never
+    container_name: netbox-worker
+    depends_on:
+      netbox:
+        condition: service_healthy
+    command: [/opt/netbox/venv/bin/python, /opt/netbox/netbox/manage.py, rqworker]
+    healthcheck:
+      test: ["CMD-SHELL", "ps -aux | grep -v grep | grep -q rqworker"]
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
