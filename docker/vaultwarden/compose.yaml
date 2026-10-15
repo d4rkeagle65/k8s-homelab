@@ -63,7 +63,7 @@ services:
       LOG_LEVEL: info
 
   vaultwarden-backup:
-    image: ttionya/vaultwarden-backup:1.27.1
+    image: ttionya/vaultwarden-backup:1.27.2
     container_name: vaultwarden-backup
     restart: unless-stopped
     volumes:
