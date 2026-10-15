@@ -1,0 +1,18 @@
+# The plugins built into this stack's NetBox image (Dockerfile), each pinned. A NetBox
+# minor upgrade waits until every one supports it: Floorplan, Reorder Rack and
+# Topology Views each support one NetBox minor per release. The modules they
+# add are listed in config/plugins.py.
+netbox-plugin-dns==1.7.3
+netbox-attachments==12.0.0
+netbox-plugin-prometheus-sd==2.2.0
+netbox-floorplan-plugin==0.10.0
+netbox-data-flows==1.5.4
+netbox-kea==2.0.1
+netbox-plugin-dhcp==0.2.0
+netbox-config-diff==2.16.0
+netbox-topology-views==4.7.0
+netbox-security==1.6.8
+netboxlabs-netbox-custom-objects==0.7.0
+netbox-routing==0.5.0
+netbox-inventory==2.7.1
+netbox-reorder-rack==1.1.5
