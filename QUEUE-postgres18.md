@@ -26,6 +26,12 @@ major upgrade needs the same Debian on both sides. Once on trixie, later majors 
   0; no connection left on the old databases; then per database `kubectl exec <old primary> --
   pg_dump -Fc -d <db> | kubectl exec -i <new primary> -- pg_restore -d <db> --no-owner
   --role=<owner> --exit-on-error`, then `ANALYZE`. As `postgres` on each side: no password moves.
+- **An idle database's backup can end exactly on a segment boundary**, leaving its `endWal`
+  empty and never archived: `CHECKPOINT`, then `pg_switch_wal()`, before waiting on it
+  (Mealie's and n8n's).
+- **A Django app (BabyBuddy, NetBox) holds no connection while idle**, so "connections on
+  the new cluster" reads zero: prove it by `inet_server_addr()` from the app's own shell, or by
+  the new database's `xact_commit` rising across requests while the old one's doesn't.
 - **Applied means:** every table's exact row count, every table and index, and every sequence's
   position identical old against new, all owned by the app's role; after the cutover, the app's
   connections all on the new cluster and none on the old, and the app answering.
@@ -43,11 +49,11 @@ Smallest risk first; Authentik last, since every forward-auth login waits on it.
 | 3 | `media/radarr-postgres` | 79 MB | env in its HelmRelease: **done 2026-10-15**, `radarr-db`, 64 s down |
 | 4 | `media/sonarr-postgres` | 105 MB | env in its HelmRelease: **done 2026-10-15**, `sonarr-db`, 65 s down |
 | 5 | `media/lidarr-postgres` | 142 MB | env in its HelmRelease: **done 2026-10-15**, `lidarr-db`, 63 s down |
-| 6 | `mealie/mealie-postgres` | 37 MB | env in `deployment.yaml` |
-| 7 | `linkwarden/linkwarden-postgres` | 34 MB | env in its HelmRelease |
-| 8 | `n8n/n8n-postgres` | 38 MB | env in its HelmRelease |
-| 9 | `babybuddy/babybuddy-postgres` | 35 MB | `configmap-babybuddy-env.yaml` and its Deployment |
-| 10 | `netbox/netbox-postgres` | 49 MB | its HelmRelease |
+| 6 | `mealie/mealie-postgres` | 37 MB | env in `deployment.yaml`: **done 2026-10-15**, `mealie-db`, 75 s down |
+| 7 | `linkwarden/linkwarden-postgres` | 34 MB | env in its HelmRelease: **done 2026-10-15**, `linkwarden-db`, 67 s down |
+| 8 | `n8n/n8n-postgres` | 38 MB | env in its HelmRelease: **done 2026-10-15**, `n8n-db`, 101 s down |
+| 9 | `babybuddy/babybuddy-postgres` | 35 MB | `configmap-babybuddy-env.yaml` and its Deployment: **done 2026-10-15**, `babybuddy-db`, 81 s down |
+| 10 | `netbox/netbox-postgres` | 49 MB | its HelmRelease: **done 2026-10-15**, `netbox-db`, 130 s down |
 | 11 | `authentik/authentik-postgres` | 175 MB | `values.yaml` (captured release; `generate`) |
 | 12 | `immich/immich-postgres` | | vectorchord `16-1.1.1`, already bookworm: Immich's own upgrade notes decide when |
 
@@ -61,7 +67,11 @@ From about 2026-10-17, once each app has run a day on 18: remove `postgres.yaml`
 (`media-backup/app/`); the owner then deletes the Cluster (kept from pruning) and its claims
 `<app>-postgres-1`/`-2`.
 
-- [ ] Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr (moved 2026-10-15) The retirements from ManicTime and
+- [ ] Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr (moved 2026-10-15)
+- [ ] Mealie, Linkwarden, n8n (`n8n/app/`), NetBox (`netbox/app/`): `postgres.yaml` and
+      `scheduledbackup.yaml` with their lines in `app/kustomization.yaml` (moved 2026-10-15)
+- [ ] BabyBuddy: `cluster-babybuddy-postgres.yaml` (`.promote`; `generate` after) and
+      `scheduledbackup-babybuddy-postgres.yaml` (`babybuddy-backup/`) (moved 2026-10-15) The retirements from ManicTime and
 Whisparr are in `QUEUE-updates.md`.
 
 ## Resuming
