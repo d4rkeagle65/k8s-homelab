@@ -11,5 +11,6 @@ resources:
 - scheduledbackup-radarr-postgres.yaml
 - scheduledbackup-radarr-db.yaml
 - scheduledbackup-sonarr-postgres.yaml
+- scheduledbackup-sonarr-db.yaml
 - scheduledbackup-whisparr-postgres.yaml
 - scheduledbackup-whisparr-db.yaml
