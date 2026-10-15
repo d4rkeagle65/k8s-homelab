@@ -45,9 +45,13 @@
       END { print f }')
     echo "pci=$pci"
     [ -n "$pci" ] || exit 0
+    # The ttyS whose device is under the PCI device: since Linux 6.5 it hangs
+    # off a serial port device below it (<pci>/<pci>:0/<pci>:0.0), not <pci>/tty.
     tty=
-    for t in "/sys/bus/pci/devices/$pci/tty/"*; do
-      [ -e "$t" ] && { tty=${t##*/}; break; }
+    for t in /sys/class/tty/ttyS*; do
+      case "$(readlink -f "$t/device" 2>/dev/null)" in
+        */"$pci"/*|*/"$pci") tty=${t##*/}; break ;;
+      esac
     done
     echo "tty=$tty"
     [ -n "$tty" ] || exit 0
