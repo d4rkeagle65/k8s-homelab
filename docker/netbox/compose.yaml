@@ -18,6 +18,8 @@
 #                           (AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET)
 #   CONFIG_DIFF_USERNAME, CONFIG_DIFF_PASSWORD  secret: the switches' and APs' login,
 #                           for the Config Diff plugin; empty until it's used
+#   KEA_NETWORK             the kea stack's Docker network, as `docker network ls`
+#                           names it: the Kea plugin calls http://kea-dhcp4:8000 on it
 #   DATABASUS_DB_PASSWORD   secret: the databasus role's (read-only, for backups); this
 #                           stack's own, the Vaultwarden field NETBOX_DATABASUS_DB_PASSWORD
 #   TZ                      e.g. America/New_York
@@ -47,6 +49,7 @@ x-netbox: &netbox
     OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
     CONFIG_DIFF_USERNAME: ${CONFIG_DIFF_USERNAME:-}
     CONFIG_DIFF_PASSWORD: ${CONFIG_DIFF_PASSWORD:-}
+  networks: [default, kea]
   volumes:
   - /opt/netbox/media:/opt/netbox/netbox/media
   - /opt/netbox/reports:/opt/netbox/netbox/reports
@@ -165,3 +168,9 @@ services:
       start_period: 20s
       timeout: 3s
       interval: 15s
+
+networks:
+  # Kea's control API (the Kea plugin), on the kea stack's network.
+  kea:
+    external: true
+    name: ${KEA_NETWORK}
