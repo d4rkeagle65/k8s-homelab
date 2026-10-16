@@ -99,6 +99,17 @@ spec:
         pass: ""
       memcached:
         enabled: true
+      # No privileged init container: the chart's volume-permissions one exists
+      # only to chmod the temporary folder (an emptyDir is world-writable without
+      # the sticky bit, which Ruby refuses). A memory-backed one (tmpfs) has the
+      # sticky bit, so the namespace can enforce Pod Security's baseline.
+      initContainers:
+        volumePermissions:
+          enabled: false
+      tmpDirVolume:
+        emptyDir:
+          medium: Memory
+          sizeLimit: 100Mi
       # Requests and limits by QUEUE-resource-limits.md's rules, as a first
       # estimate: re-measured once a week of use exists.
       nginx:
