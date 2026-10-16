@@ -547,6 +547,11 @@ spec:
                           label: Version
                         - field: rq-workers-running
                           label: Workers
+                - Zammad:
+                    icon: zammad.png
+                    href: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Helpdesk, alerts as tickets
+                    siteMonitor: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             - Health:
                 - Kubernetes:
                     icon: kubernetes.png
