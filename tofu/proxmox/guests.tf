@@ -36,11 +36,9 @@ locals {
 
   # Plain Debian containers, by VMID: their size and networks here, their host,
   # name and address in NetBox, entered there first (status Planned) so the
-  # apply that builds one finds them; the nightly sync marks it active.
-  # 199: the test guest for that workflow.
-  containers = {
-    "199" = { cores = 1, memory = 512, disk_gb = 4, bridges = ["vmbr7"], tags = ["test"] }
-  }
+  # apply that builds one finds them; the nightly sync marks it active. An
+  # entry: "<vmid>" = { cores = 1, memory = 512, disk_gb = 4, bridges = ["vmbr7"], tags = [] }
+  containers = {}
 
   guests = merge(
     { for id, _ in local.piholes : id => "pihole" },
