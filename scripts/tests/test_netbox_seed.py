@@ -22,12 +22,12 @@ def load():
 m = load()
 
 
-def test_disk_sums_disks_and_leaves_out_cdroms_and_state():
+def test_disks_by_key_in_netbox_mb_leaving_out_cdroms_and_state():
     cfg = {"scsi0": "local-lvm:vm-1-disk-0,size=32G", "scsi1": "nas:vm-1-disk-1,size=512M",
            "ide2": "none,media=cdrom", "efidisk0": "local:vm-1-disk-2,size=4M", "rootfs": "x:sub,size=8G",
            "mp0": "data:sub,size=1T"}
-    # 32 + 0.5 + 8 + 1024: the CD drive and the EFI disk are left out; 1064.5 rounds to even.
-    assert m.disk_gb(cfg) == 1064
+    # A G is NetBox's 1000 MB, so 32 GB entered in NetBox as 32000 reads back whole.
+    assert m.disk_sizes(cfg) == {"scsi0": 32000, "scsi1": 500, "rootfs": 8000, "mp0": 1024000}
 
 
 def test_static_ips_reads_containers_and_skips_dhcp():
@@ -70,6 +70,9 @@ def test_same_compares_nested_choices_and_tags():
     assert m.same([{"slug": "b"}, {"slug": "a"}], [{"slug": "a"}, {"slug": "b"}])
     assert not m.same([{"slug": "a"}], [{"slug": "a"}, {"slug": "b"}])
     assert m.same(1024.0, 1024)
+    # Custom fields: NetBox returns every one; only those written are compared.
+    assert m.same({"vmid": 110, "talos_apply_mode": "no_reboot", "proxmox_tags": None}, {"vmid": 110})
+    assert not m.same({"vmid": 110, "talos_apply_mode": None}, {"vmid": 110, "talos_apply_mode": "auto"})
 
 
 def test_slug():

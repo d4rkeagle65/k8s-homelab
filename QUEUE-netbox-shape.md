@@ -54,11 +54,14 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 
 ## Checklist
 
-- [ ] NetBox: the three VM roles, the custom fields `talos_apply_mode` and `proxmox_tags`, and
-      the seed writing each guest's virtual disks from Proxmox
-- [ ] Today's shapes entered in NetBox (each Talos VM's role, sizes, disks, apply mode) and
-      checked equal to `talos_nodes`
+- [ ] NetBox: the three VM roles (`vm_roles` in `netbox_seed.yaml`), the custom fields
+      `talos_apply_mode` (choice set "Talos apply modes") and `proxmox_tags`, and the seed
+      writing each guest's virtual disks from Proxmox (MB, a Proxmox G as 1000): in the seed,
+      to be proved by the sync's next run
+- [ ] Today's shapes entered in NetBox: the seed's one-time `adopt` table gives the 7 Talos VMs
+      their role and apply mode; checked equal to `talos_nodes`, then `adopt` removed
 - [ ] The seed leaves the owned fields alone for VMs with those roles, reporting differences
+      (`differ` in `netbox_seed.py`): written, proved once a role is set
 - [ ] `scripts/netbox_guests.py` with tests: the file generated from NetBox equals today's maps
 - [ ] `tofu/proxmox/` reads the file; the hand-written maps out; a plan unchanged
 - [ ] `--pr`: the branch, the pull request opened or updated by GitHub's API, the token never

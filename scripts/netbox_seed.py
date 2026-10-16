@@ -4,12 +4,16 @@ Reads the networks from Kea (subnets and pools) and from Proxmox (each bridge's
 addresses), and the hosts and guests from Proxmox, then makes NetBox match: the
 site, VLANs, prefixes and DHCP ranges; the Proxmox cluster with its hosts as
 devices (ports, VLAN subinterfaces and bridges) and its guests as virtual
-machines (each NIC with its MAC, VLAN and address).
+machines (each NIC with its MAC, VLAN and address, each disk a virtual disk).
 
 It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
 access points). A primary address NetBox already has is kept while the host
-still has it.
+still has it. A VM whose role is one of netbox_seed.yaml's vm_roles has its shape
+owned by NetBox (QUEUE-netbox-shape.md): its vCPUs, memory, disk sizes and the
+custom fields talos_apply_mode and proxmox_tags are never written, and where
+Proxmox differs it's reported, since a resize made in NetBox reaches Proxmox
+only when its pull request is merged and applied.
 
 Names come from netbox_seed.yaml; no address is in this repo. A dry run (the
 default) reports what it would create or change; --apply writes it. Safe to
@@ -75,10 +79,11 @@ def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-def disk_gb(config: dict) -> int:
-    """A Proxmox guest's disks in GB, summed: rootfs, mp*, scsi*, virtio*, sata*, ide*
-    (CD drives and EFI or TPM state left out)."""
-    total = 0.0
+def disk_sizes(config: dict) -> dict[str, int]:
+    """A Proxmox guest's disks by key (rootfs, mp*, scsi*, virtio*, sata*, ide*; CD
+    drives and EFI or TPM state left out), each in NetBox's MB: Proxmox's G is
+    1000 of them, so a size entered in NetBox as GB x 1000 reads back whole."""
+    sizes = {}
     for key, value in config.items():
         if not re.match(r"^(rootfs|mp\d+|scsi\d+|virtio\d+|sata\d+|ide\d+)$", key):
             continue
@@ -86,8 +91,8 @@ def disk_gb(config: dict) -> int:
             continue
         m = re.search(r"size=(\d+(?:\.\d+)?)([KMGT])", str(value))
         if m:
-            total += float(m.group(1)) * {"K": 1 / 2**20, "M": 1 / 1024, "G": 1, "T": 1024}[m.group(2)]
-    return round(total)
+            sizes[key] = round(float(m.group(1)) * {"K": 1000 / 2**20, "M": 1000 / 1024, "G": 1000, "T": 1024000}[m.group(2)])
+    return sizes
 
 
 def static_ips(config: dict) -> dict[str, list[str]]:
@@ -200,6 +205,9 @@ def same(have, want) -> bool:
         def key(x):
             return x.get("slug", x.get("id")) if isinstance(x, dict) else x
         return sorted(map(str, map(key, have))) == sorted(map(str, map(key, want)))
+    # Custom fields: only the ones we write are compared; NetBox returns them all.
+    if isinstance(have, dict) and isinstance(want, dict):
+        return all(same(have.get(k), v) for k, v in want.items())
     if isinstance(have, float) or isinstance(want, float):
         return have is not None and want is not None and float(have) == float(want)
     return have == want
@@ -358,6 +366,23 @@ def main() -> None:
               {"type": "integer", "object_types": ["virtualization.virtualmachine"], "label": "VMID",
                "description": "The Proxmox VMID (netbox_seed.py)", "unique": True}, "custom field vmid")
 
+    # The shape NetBox owns for the vm_roles' VMs, beyond vCPUs, memory and disks.
+    modes = nb.ensure("extras/custom-field-choice-sets", {"name": "Talos apply modes"},
+                      {"extra_choices": [["auto", "auto"], ["no_reboot", "no_reboot"]],
+                       "description": "How OpenTofu applies a Talos node's config (tofu/proxmox)"}, "choice set Talos apply modes")
+    nb.ensure("extras/custom-fields", {"name": "talos_apply_mode"},
+              {"type": "select", "choice_set": modes["id"], "object_types": ["virtualization.virtualmachine"],
+               "label": "Talos apply mode", "description": "auto, or no_reboot (QUEUE-netbox-shape.md)"},
+              "custom field talos_apply_mode")
+    nb.ensure("extras/custom-fields", {"name": "proxmox_tags"},
+              {"type": "text", "object_types": ["virtualization.virtualmachine"], "label": "Proxmox tags",
+               "description": "A plain container's Proxmox tags, separated by ; (QUEUE-netbox-shape.md)"},
+              "custom field proxmox_tags")
+    vm_roles = {key: nb.ensure("dcim/device-roles", {"slug": slug(name)}, {"name": name, "vm_role": True}, name)
+                for key, name in cfg["vm_roles"].items()}
+    owned_roles = {r["id"] for r in vm_roles.values()}
+    adopt = {int(k): v for k, v in (cfg.get("adopt") or {}).items()}
+
     def primary_of(obj: dict) -> str | None:
         """The address of NetBox's primary IPv4 for obj, without its length."""
         p = obj.get("primary_ip4")
@@ -407,6 +432,13 @@ def main() -> None:
         if primary:
             nb.set_ref("dcim/devices", dev, "primary_ip4", primary, name)
 
+    def differ(name: str, pairs: dict):
+        """Report where Proxmox differs from a shape NetBox owns; nothing is written."""
+        for field, (netbox, proxmox) in pairs.items():
+            if not same(netbox, proxmox):
+                print(f"  NetBox owns {name} {field}: NetBox {netbox}, Proxmox {proxmox} (left as NetBox has it)")
+                nb._note("differ owned/shape")
+
     print("virtual machines:")
     skip = set(cfg.get("skip_vmids") or [])
     for g in sorted(guests, key=lambda g: g["name"]):
@@ -414,13 +446,31 @@ def main() -> None:
             print(f"  skip {g['type']} {g['vmid']} (skip_vmids)")
             continue
         cfg_g = g["config"]
-        vcpus = int(cfg_g.get("cores", 1)) * int(cfg_g.get("sockets", 1))
-        vm = nb.ensure("virtualization/virtual-machines", {"name": g["name"]},
-                       {"cluster": cluster["id"], "status": "active" if g.get("status") == "running" else "offline",
-                        "site": site["id"], "vcpus": vcpus, "memory": int(cfg_g.get("memory", 0)), "disk": disk_gb(cfg_g) * 1000,
-                        "device": node_devs[g["node"]]["id"], "custom_fields": {"vmid": int(g["vmid"])},
-                        "description": f"Proxmox {g['type']} {g['vmid']}"},
-                       g["name"])
+        shape = {"vcpus": int(cfg_g.get("cores", 1)) * int(cfg_g.get("sockets", 1)),
+                 "memory": int(cfg_g.get("memory", 0))}
+        fields = {"cluster": cluster["id"], "status": "active" if g.get("status") == "running" else "offline",
+                  "site": site["id"], "device": node_devs[g["node"]]["id"], "custom_fields": {"vmid": int(g["vmid"])},
+                  "description": f"Proxmox {g['type']} {g['vmid']}"}
+        before = nb.find("virtualization/virtual-machines", name=g["name"])
+        role = ((before or {}).get("role") or {}).get("id")
+        owned = role in owned_roles
+        if owned:
+            differ(g["name"], {k: (before.get(k), v) for k, v in shape.items()})
+        else:
+            fields.update(shape)
+        if role is None and int(g["vmid"]) in adopt:
+            # Once: today's guests take their role and shape fields from adopt.
+            a = adopt[int(g["vmid"])]
+            fields["role"] = vm_roles[a["role"]]["id"]
+            fields["custom_fields"].update({k: v for k, v in a.items() if k != "role"})
+        vm = nb.ensure("virtualization/virtual-machines", {"name": g["name"]}, fields, g["name"])
+        for key, mb in sorted(disk_sizes(cfg_g).items()):
+            have = nb.find("virtualization/virtual-disks", virtual_machine_id=vm["id"], name=key) if vm["id"] > 0 else None
+            if have and owned:
+                differ(g["name"], {f"disk {key} (MB)": (have.get("size"), mb)})
+                continue
+            nb.ensure("virtualization/virtual-disks", {"virtual_machine_id": vm["id"], "name": key},
+                      {"virtual_machine": vm["id"], "size": mb}, f"{g['name']} {key}")
         wanted = primary_of(vm)
         primary = None
         for key in sorted(g["nets"]):
