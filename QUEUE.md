@@ -205,7 +205,7 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 - [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 50%): Prometheus, Loki and Grafana, in eight phases.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 45%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 90%): the nodes onto Talos VMs, surviving the loss of any host.
-- [QUEUE-netbox.md](QUEUE-netbox.md) (about 5%): NetBox on the Docker VM as the source of Semaphore's hosts, then documenting the homelab, owning DNS and new guests' addresses.
+- [QUEUE-netbox.md](QUEUE-netbox.md) (about 20%): NetBox on the Docker VM as the source of Semaphore's hosts, then documenting the homelab, owning DNS and new guests' addresses.
 - [QUEUE-organizr.md](QUEUE-organizr.md) (about 25%): Organizr configured from git; its remaining checks.
 - [QUEUE-postgres18.md](QUEUE-postgres18.md) (about 85%): every database onto PostgreSQL 18 on Debian trixie, a new cluster each.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 55%): version updates that change behaviour (Mealie, MetalLB,

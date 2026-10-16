@@ -155,10 +155,12 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       the other clients'; NetBox off the forward-auth outpost; `external-services/netbox.yaml` to
       port 8085; the in-cluster release and its chart's HelmRepository out of git; Homepage's
       tile). Left:
-  - [ ] Log in through Authentik; check each plugin's pages load
-  - [ ] Homepage's token made again in NetBox (read-only), into `NETBOX_HOMEPAGE_TOKEN`
-  - [ ] Backups: `NETBOX_NETWORK` on the Databasus stack, then the `netbox` database in
-        Databasus (user `databasus`, password `NETBOX_DATABASUS_DB_PASSWORD`)
+  - [x] Login through Authentik works (2026-10-16); every plugin's API answers through a
+        read-only token (all fourteen listed at `/api/plugins/`). Each plugin's UI pages: a look
+        in the browser when they're first used
+  - [x] Homepage's token made again (2026-10-16); its tile reads NetBox's status
+  - [x] Backups (2026-10-16): Databasus joins NetBox's network (`NETBOX_NETWORK`) and backs
+        `netbox` up daily; the first backup taken
   - [ ] The owner deletes the `netbox` namespace (its two database clusters, claims and
         Secrets are kept from pruning); then `NETBOX_SECRET_KEY`'s, `NETBOX_API_TOKEN_PEPPERS`'s
         mappings out of `cluster-secrets` (nothing else reads them)
