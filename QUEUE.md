@@ -27,6 +27,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **The Pi-holes answer every network from Production** (found 2026-10-16, Run Command task
+  784): from their management, DMZ and other addresses, replies leave by `eth0`, Production's
+  default route, so a client on another subnet reaching one of those addresses through the
+  firewall gets no answer (the asymmetric routing that hid the new Docker VM's SSH). They're
+  containers whose networks Proxmox configures, so `tasks/management-routing.yml` only
+  reports them: give each address its own table and rule (as the Docker VMs have), through
+  the containers' network config, and check DMZ clients' DNS before and after.
 - **Docker on the Docker VM was upgraded by "Node: Docker Update" (task 749, 2026-10-16), against
   its hold:** `docker-vm-update.yml` read the installed packages through the command module,
   which expanded `${Package}` as an environment variable, so its list to hold was empty and it
