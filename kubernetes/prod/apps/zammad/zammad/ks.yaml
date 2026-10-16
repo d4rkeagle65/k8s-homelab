@@ -17,10 +17,12 @@ spec:
     kind: GitRepository
     name: flux-system
   targetNamespace: zammad
-  # zammad-db is a CloudNativePG Cluster, backed up through the Barman plugin.
+  # zammad-db is a CloudNativePG Cluster, backed up through the Barman plugin;
+  # its Elasticsearch is run by the ECK operator.
   dependsOn:
   - name: cnpg
   - name: plugin-barman-cloud
+  - name: eck-operator
   postBuild:
     substituteFrom:
     - kind: ConfigMap

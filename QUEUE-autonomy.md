@@ -36,9 +36,10 @@ netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, e
       "Alerts"; its URL is `ZAMMAD_ALERT_WEBHOOK_URL` in Vaultwarden): severities `warning` and
       `critical` only (never `Watchdog`, `InfoInhibitor` or `info`), a ticket per alert, a note on
       repeats, closed with a note on recovery. A small translator in the cluster, with tests
-- [ ] **elasticsearch:** the ECK operator and one Elasticsearch node (1 GiB heap, about 2 GiB
-      requested, data on `nas-iscsi`) for Zammad's search; 7.5 GiB of headroom with the largest
-      worker lost (2026-10-16), about 5 GiB after it
+- [ ] **elasticsearch** (pushed 2026-10-16): the ECK operator 3.5.0 and the chart's one node
+      (512 MiB heap in 1 GiB, the chart's sizes rather than the 1 GiB heap first planned, which
+      Zammad's handful of tickets doesn't need; 5 GiB on `nas-iscsi`); checked in
+      `QUEUE-zammad.md`
 
 ## Batches I can do on my own
 

@@ -17,8 +17,8 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
   authentik Admins. The first admin and the OIDC settings come from the chart's auto wizard
   (`autoWizard` in `helmrelease.yaml`), applied once at the first visit; the admin's email is the owner's
   Authentik email (`ZAMMAD_ADMIN_EMAIL`), so the first Authentik login links to it.
-- **No Elasticsearch yet:** the chart's needs Elastic's ECK operator; Zammad runs without it,
-  searching with the database, which is weaker.
+- **Search is Elasticsearch,** the chart's bundled node (`eck-elasticsearch`), run by Elastic's
+  ECK operator (`prod/system/elastic-system/eck-operator`, managing only this namespace).
 
 ## Checklist
 
@@ -42,8 +42,8 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       them with node and address. Done when a real one has fired and its ticket shows the list
 - [ ] Mail: Zammad's outgoing mail through `smtp-oauth-relay` (notifications), and an incoming
       channel if tickets by email are wanted (the owner's call)
-- [ ] Elasticsearch through the ECK operator, if search proves weak: the operator, then
-      `zammadConfig.elasticsearch.enabled`, about 1-2 GiB more memory
+- [ ] Elasticsearch through the ECK operator (2026-10-16, pushed): one 9.5 node, 512 MiB heap
+      in 1 GiB, 5 GiB on `nas-iscsi`; done when it's green and a search in Zammad finds a ticket
 - [ ] Resources re-measured after a week (`QUEUE-resource-limits.md`'s rules); its database
       added to the restore tests' method
 

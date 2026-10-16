@@ -8,6 +8,7 @@ resources:
 - cluster-access
 - cluster-policy
 - democratic-csi
+- elastic-system
 - external-dns
 - external-secrets
 - external-services
