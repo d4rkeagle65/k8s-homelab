@@ -210,10 +210,12 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
         changes. 101-106 stay in the state until an apply with a change writes the refresh
   - [ ] Then the owner trims `TF_VAR_site`: `guests` out of the Vaultwarden note and
         Semaphore's copy (ignored meanwhile)
-  - [ ] A new guest from then on: made in NetBox first (VMID, node, name, address, status
-        Planned), then OpenTofu builds it, and the nightly sync adds its MACs and marks it
-        active; the sync has to leave a Planned VM's fields alone until Proxmox has it
-  - [ ] A host picked from free memory for new guests
+  - [ ] The NetBox-first workflow (tofu/README.md), proved with a test guest: VMID 199
+        (`containers` in `guests.tf`, a plain Debian container), Planned in NetBox on the host
+        with the most free memory, an address outside Kea's pool. Left: the owner's apply
+        builds it; the sync marks it active (it touches only guests Proxmox has, so a Planned
+        one waits untouched); then 199 out of `containers`, an apply destroys it, and it's
+        deleted in NetBox by hand (the sync never deletes)
 
 ## Resuming
 
