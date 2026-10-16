@@ -113,6 +113,11 @@ worker:
       secretKeyRef:
         key: client-secret
         name: authentik-linkwarden-oidc
+  - name: NETBOX_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-netbox-oidc
   - name: ORGANIZR_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:

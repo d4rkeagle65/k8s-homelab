@@ -1,0 +1,40 @@
+# NetBox, in Docker on the Docker host (docker/netbox/), port 8085 on its
+# management address, the same host as Dockhand (DOCKHAND_ADDRESS). It logs in
+# through Authentik's OIDC and trusts no header, so no forward auth here; its
+# API takes tokens on the same route (scripts, Semaphore, Homepage).
+apiVersion: v1
+kind: Service
+metadata:
+  name: netbox
+spec:
+  type: ExternalName
+  externalName: ${DOCKHAND_ADDRESS}
+  ports:
+  - name: http
+    port: 8085
+    protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netbox
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: netbox
+            port:
+              number: 8085
+  tls:
+  - hosts:
+    - netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    secretName: netbox-tls

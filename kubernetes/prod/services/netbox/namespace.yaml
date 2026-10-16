@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    homelab.local/category: services
-    homelab.local/data: database
-    homelab.local/exposure: lan
-    homelab.local/login: authentik-proxy
-  name: netbox

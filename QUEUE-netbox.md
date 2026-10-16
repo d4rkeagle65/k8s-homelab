@@ -147,15 +147,21 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 - [x] Owner's choices (2026-10-15): every "yes" plugin, Attachments not Documents, the custom
       ExternalDNS webhook for the Ingress records, NetBox moved first and the inventories next
-- [ ] Phase 1: `docker/netbox/` written (2026-10-15): the image, proved in a throwaway pod
-      from the stack's own files (all fourteen plugins load, 540 migrations, the OIDC settings
-      and the group mapping); Renovate groups NetBox with its plugins and holds its minors.
-      Next: the secrets in Vaultwarden and the stack in Dockhand (README.md, First deploy);
-      then the cutover commit: Authentik's NetBox blueprint to OIDC with its client secret, NetBox
-      off the forward-auth outpost (`mesh-mini.yaml`), a Service and Ingress in
-      `external-services` to the Docker VM's port 8085, the stack's webhook Provider, Homepage's
-      tile, Homepage's token made again; then each plugin's page checked and the in-cluster
-      release removed
+- [ ] Phase 1. Done 2026-10-15/16: `docker/netbox/` (the image proved in a throwaway pod from
+      the stack's own files: all fourteen plugins load, 540 migrations, the OIDC settings and the
+      group mapping); the stack running on the Docker host (Dockhand stack 10, its webhook
+      Provider); the cutover commit (Authentik's NetBox blueprint to OIDC with
+      `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, base64 in Vaultwarden and decoded in Dockhand like
+      the other clients'; NetBox off the forward-auth outpost; `external-services/netbox.yaml` to
+      port 8085; the in-cluster release and its chart's HelmRepository out of git; Homepage's
+      tile). Left:
+  - [ ] Log in through Authentik; check each plugin's pages load
+  - [ ] Homepage's token made again in NetBox (read-only), into `NETBOX_HOMEPAGE_TOKEN`
+  - [ ] Backups: `NETBOX_NETWORK` on the Databasus stack, then the `netbox` database in
+        Databasus (user `databasus`, password `NETBOX_DATABASUS_DB_PASSWORD`)
+  - [ ] The owner deletes the `netbox` namespace (its two database clusters, claims and
+        Secrets are kept from pruning); then `NETBOX_SECRET_KEY`'s, `NETBOX_API_TOKEN_PEPPERS`'s
+        mappings out of `cluster-secrets` (nothing else reads them)
 - [ ] Phase 2: owner makes the prefixes and a read-only and a write token; the import script
       run (a dry run first); `ansible/inventory/netbox.yml`, the collection and Semaphore's
       Python; each template switched after its host list matched; the static inventories

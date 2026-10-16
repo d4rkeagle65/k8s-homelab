@@ -531,12 +531,10 @@ spec:
                     icon: netbox.png
                     href: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                     description: Hosts, addresses and networks
-                    namespace: netbox
-                    app: netbox
-                    podSelector: app.kubernetes.io/component=netbox
-                    # Through Traefik's token route (/api): only Traefik reaches
-                    # NetBox's pod. A read-only API token of NetBox's own; its
-                    # field holds the whole header value as NetBox shows it
+                    siteMonitor: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/login/
+                    # NetBox runs on the Docker host (docker/netbox/), through
+                    # Traefik. A read-only API token of NetBox's own; its field
+                    # holds the whole header value as NetBox shows it
                     # ("Bearer nbt_<key>.<token>").
                     widget:
                       type: customapi
