@@ -6,6 +6,9 @@
     nopasswd: "{{ admin_sudo_nopasswd | default(false) | bool }}"
     password_hash: "{{ admin_password_hash | default('') }}"
     sudoers_file: "/etc/sudoers.d/90-{{ admin_user | default('admin') }}"
+    # Keys kept when the file already has them, by their comment: Semaphore's,
+    # which some hosts give this account rather than root (a new Docker VM).
+    kept_comments: "{{ admin_kept_key_comments | default(['semaphore-shared']) }}"
 
 - name: The variables are set and look right
   ansible.builtin.assert:
@@ -83,11 +86,26 @@
     mode: "0700"
   when: not ansible_check_mode
 
-# The whole file: a key removed from admin_ssh_keys is removed here too.
-- name: Its authorized_keys holds exactly the given keys
+- name: Read its authorized_keys
+  ansible.builtin.slurp:
+    path: "~{{ admin_user }}/.ssh/authorized_keys"
+  register: keys_before
+  failed_when: keys_before is failed and 'not found' not in (keys_before.msg | default(''))
+  check_mode: false
+
+# The whole file: a key removed from admin_ssh_keys is removed here too, except
+# one already there whose comment is in kept_comments (Semaphore's).
+- name: Settle the keys the file holds
+  ansible.builtin.set_fact:
+    wanted_keys: >-
+      {{ (admin_ssh_keys + ((keys_before.content | default('') | b64decode).splitlines()
+          | select('match', '^\\S+ \\S+ (' ~ kept_comments | map('regex_escape') | join('|') ~ ')\\s*$')
+          | list)) | unique }}
+
+- name: Its authorized_keys holds the given keys, and Semaphore's where it was
   ansible.builtin.copy:
     dest: "~{{ admin_user }}/.ssh/authorized_keys"
-    content: "{{ admin_ssh_keys | join('\n') }}\n"
+    content: "{{ wanted_keys | join('\n') }}\n"
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
     mode: "0600"
@@ -162,10 +180,10 @@
   register: keys_back
   when: not ansible_check_mode
 
-- name: authorized_keys holds the given keys and nothing else
+- name: authorized_keys holds the given keys, the kept ones, and nothing else
   ansible.builtin.assert:
-    that: (keys_back.content | b64decode).splitlines() | reject('equalto', '') | list == admin_ssh_keys
-    fail_msg: "{{ inventory_hostname }}: {{ admin_user }}'s authorized_keys doesn't match admin_ssh_keys."
+    that: (keys_back.content | b64decode).splitlines() | reject('equalto', '') | list == wanted_keys
+    fail_msg: "{{ inventory_hostname }}: {{ admin_user }}'s authorized_keys doesn't match admin_ssh_keys and the kept keys."
     quiet: true
   when: not ansible_check_mode
 
