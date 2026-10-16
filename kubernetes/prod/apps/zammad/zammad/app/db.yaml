@@ -1,0 +1,35 @@
+# Zammad's database. Zammad builds its connection URL from the password without
+# escaping it, so the password must need no URL-encoding: CloudNativePG's
+# generated one (zammad-db-app) is letters and digits only, checked at creation.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: zammad-db
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  instances: 2
+  affinity:
+    podAntiAffinityType: preferred
+  enablePDB: true
+  resources:
+    requests:
+      cpu: 20m
+      memory: 192Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  enableSuperuserAccess: false
+  bootstrap:
+    initdb:
+      database: zammad_production
+      owner: zammad
+  storage:
+    size: 8Gi
+    storageClass: local-db
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage

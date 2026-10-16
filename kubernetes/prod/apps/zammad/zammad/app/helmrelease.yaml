@@ -1,0 +1,152 @@
+# Zammad, the helpdesk: alerts become tickets here (QUEUE-zammad.md). Zammad's
+# own chart, with its database on CloudNativePG (db.yaml) instead of the
+# chart's PostgreSQL, and the chart's own Redis and Memcached. No Elasticsearch
+# yet: it needs Elastic's ECK operator, and Zammad runs without it, searching
+# with the database instead (QUEUE-zammad.md).
+#
+# Login: through Authentik (OIDC, the zammad blueprint), set up with the first
+# admin by the auto wizard (autoWizard below) at the first visit.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: zammad
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: zammad
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  releaseName: zammad
+  chart:
+    spec:
+      chart: zammad
+      version: 19.1.5
+      sourceRef:
+        kind: HelmRepository
+        name: zammad
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  # The init Job migrates the database on install and upgrade.
+  timeout: 15m
+  values:
+    secrets:
+      postgresql:
+        useExisting: true
+        secretName: zammad-db-app
+        secretKey: password
+      redis:
+        useExisting: true
+        secretName: zammad-redis
+        secretKey: redis-password
+    # Zammad's first setup, applied once by its auto wizard at the first visit to
+    # the web UI (the chart makes the Secret from it): the owner's admin account,
+    # with the same email as in Authentik so the first login through Authentik
+    # links to it; the system's address; and the login through Authentik (OIDC,
+    # a public client with PKCE: no client secret). Later changes are made in
+    # Zammad's settings; this isn't read again.
+    autoWizard:
+      enabled: true
+      config: |
+        {
+          "TextModuleLocale": {"Locale": "en-us"},
+          "Users": [
+            {
+              "login": "${ZAMMAD_ADMIN_EMAIL}",
+              "firstname": "Admin",
+              "lastname": "Zammad",
+              "email": "${ZAMMAD_ADMIN_EMAIL}",
+              "password": "${ZAMMAD_ADMIN_PASSWORD}"
+            }
+          ],
+          "Settings": [
+            {"name": "product_name", "value": "Homelab"},
+            {"name": "fqdn", "value": "zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}"},
+            {"name": "http_type", "value": "https"},
+            {"name": "system_online_service", "value": false},
+            {"name": "user_create_account", "value": false},
+            {"name": "auth_third_party_auto_link_at_inital_login", "value": true},
+            {"name": "auth_openid_connect", "value": true},
+            {"name": "auth_openid_connect_credentials", "value": {
+              "display_name": "Authentik",
+              "identifier": "zammad",
+              "issuer": "https://auth.${BASE_DOMAIN}/application/o/zammad/",
+              "uid_field": "sub",
+              "scope": "openid email profile",
+              "pkce": true
+            }}
+          ]
+        }
+
+    zammadConfig:
+      elasticsearch:
+        enabled: false
+        initialisation: false
+      postgresql:
+        enabled: false
+        host: zammad-db-rw
+        user: zammad
+        db: zammad_production
+        pass: ""
+      redis:
+        enabled: true
+        pass: ""
+      memcached:
+        enabled: true
+      # Requests and limits by QUEUE-resource-limits.md's rules, as a first
+      # estimate: re-measured once a week of use exists.
+      nginx:
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {memory: 128Mi}
+      railsserver:
+        resources:
+          requests: {cpu: 100m, memory: 768Mi}
+          limits: {cpu: 1000m, memory: 1536Mi}
+      scheduler:
+        resources:
+          requests: {cpu: 50m, memory: 512Mi}
+          limits: {cpu: 1000m, memory: 1Gi}
+      websocket:
+        resources:
+          requests: {cpu: 20m, memory: 256Mi}
+          limits: {memory: 512Mi}
+
+    # Sessions and the live-update channel only: losing them on a restart means
+    # logging in again, so no volume.
+    redis:
+      auth:
+        existingSecret: zammad-redis
+        existingSecretPasswordKey: redis-password
+      persistence:
+        enabled: false
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {memory: 256Mi}
+    memcached:
+      resources:
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {memory: 128Mi}
+
+    ingress:
+      enabled: true
+      className: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+      hosts:
+      - host: zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        paths:
+        - path: /
+          pathType: Prefix
+      tls:
+      - secretName: zammad-tls
+        hosts:
+        - zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
