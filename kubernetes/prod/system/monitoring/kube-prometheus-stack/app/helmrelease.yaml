@@ -168,6 +168,46 @@ spec:
         scrapeConfigSelectorNilUsesHelmValues: false
 
     alertmanager:
+      # The chart's default config (its inhibit rules, Watchdog to nowhere) plus
+      # one route: warning and critical alerts to Zammad through zammad-bridge
+      # (QUEUE-zammad.md), each alert on its own (group_by '...') so a ticket
+      # opens, gets a note every repeat_interval while it fires, and closes on
+      # recovery. Setting this replaces the chart's default whole, so its parts
+      # are repeated here.
+      config:
+        global:
+          resolve_timeout: 5m
+        inhibit_rules:
+        - source_matchers: [severity = critical]
+          target_matchers: [severity =~ warning|info]
+          equal: [namespace, alertname]
+        - source_matchers: [severity = warning]
+          target_matchers: [severity = info]
+          equal: [namespace, alertname]
+        - source_matchers: [alertname = InfoInhibitor]
+          target_matchers: [severity = info]
+          equal: [namespace]
+        - target_matchers: [alertname = InfoInhibitor]
+        route:
+          group_by: [namespace]
+          group_wait: 30s
+          group_interval: 5m
+          repeat_interval: 12h
+          receiver: "null"
+          routes:
+          - receiver: "null"
+            matchers: [alertname = "Watchdog"]
+          - receiver: zammad
+            matchers: [severity =~ "warning|critical", alertname != "InfoInhibitor"]
+            group_by: ["..."]
+        receivers:
+        - name: "null"
+        - name: zammad
+          webhook_configs:
+          - url: http://zammad-bridge.monitoring.svc.${CLUSTER_DOMAIN}:8080/alertmanager
+            send_resolved: true
+        templates:
+        - /etc/alertmanager/config/*.tmpl
       alertmanagerSpec:
         # Two, clustered, on different workers.
         replicas: 2
