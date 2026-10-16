@@ -210,12 +210,11 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
         changes. 101-106 stay in the state until an apply with a change writes the refresh
   - [ ] Then the owner trims `TF_VAR_site`: `guests` out of the Vaultwarden note and
         Semaphore's copy (ignored meanwhile)
-  - [ ] The NetBox-first workflow (tofu/README.md), proved with a test guest: VMID 199
-        (`containers` in `guests.tf`, a plain Debian container), Planned in NetBox on the host
-        with the most free memory, an address outside Kea's pool. Left: the owner's apply
-        builds it; the sync marks it active (it touches only guests Proxmox has, so a Planned
-        one waits untouched); then 199 out of `containers`, an apply destroys it, and it's
-        deleted in NetBox by hand (the sync never deletes)
+  - [ ] The NetBox-first workflow (tofu/README.md) worked with a test guest, 2026-10-16:
+        Planned in NetBox, built by an apply (task 725), marked active by the sync, which
+        reused the hand-entered interface and address. Left: the owner's apply destroying 199
+        (out of `containers`), then `[redacted]test01a` deleted in NetBox by hand (the sync never
+        deletes)
 
 ## Resuming
 
