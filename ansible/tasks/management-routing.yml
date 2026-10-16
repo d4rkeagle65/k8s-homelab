@@ -97,5 +97,5 @@
       {{ inventory_hostname }}: {{
       ('answers from ' ~ ansible_host ~ ' leave by ' ~ out_if ~ (', its management interface' if out_if == mgmt_if
         else ', not its management interface ' ~ mgmt_if ~ ' (set management_gateway to fix it where netplan runs)'))
-      if mgmt_if is defined else
-      ("can't tell: " ~ ansible_host ~ ", its inventory address, isn't one of its own (an override?)") }}
+      if mgmt_if is defined and not mgmt_if is match('^(br-|docker)') else
+      ("can't tell: " ~ ansible_host ~ ", its inventory address, isn't a network of its own (an override, or a Docker bridge Semaphore uses on its own host)") }}
