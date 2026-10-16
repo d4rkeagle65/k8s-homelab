@@ -180,10 +180,10 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       VLAN or prefix: the owner names them there if they're in use.
       `ansible/inventory/netbox.yml` (hosts tagged `ansible`, grouped by their group tag)
       gives the same hosts, addresses and variables as Semaphore's four static inventories;
-      the Docker VM's address comes from `ansible_host_override` in its local context. Next:
-      the owner sets `NETBOX_API` and `NETBOX_TOKEN` (a token with writes off, marked secret)
-      on Dockhand's semaphore stack, which forwards them to every task; then the collection and `pytz` (the plugin needs it) in Semaphore's container, checked first;
-      each template switched after its host list matched; the static inventories deleted
+      the Docker VM's address comes from `ansible_host_override` in its local context. Semaphore's
+      container has the collection and both variables (set on Dockhand's semaphore stack,
+      forwarded to every task); `pytz` comes from the stack's inline `requirements.txt`,
+      installed at start. Next: after that deploy, confirm `pytz` imports there; each template switched after its host list matched; the static inventories deleted
       last, and "All Debian Hosts"' stale `k8s_workers` group with them
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
       second run changing nothing
