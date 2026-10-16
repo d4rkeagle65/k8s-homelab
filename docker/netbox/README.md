@@ -43,6 +43,7 @@ latest backup is the way back.
 
 ## The Kea plugin
 
-Its Kea servers are set in NetBox's UI. NetBox reaches Kea's control agent over the Docker
-network, not through the host's `127.0.0.1`, which inside a container is the container
-itself: join this stack to the Kea stack's network when the first server is added.
+Its Kea servers are set in NetBox's UI: the DHCPv4 server URL is `http://kea-dhcp4:8000` (Kea
+3 serves its control API from the DHCP server itself), with the user and password from Kea's
+`api-credentials`. NetBox reaches it over the kea stack's network, which this stack joins as
+`KEA_NETWORK`: inside a container, `127.0.0.1` is the container itself, not the host.
