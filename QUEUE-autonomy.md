@@ -93,7 +93,8 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [x] **ssh-keys** (2026-10-16): `ansible/retire-ssh-keys.yml` and `proxmox-host.yml`'s
       retired-interfaces play, built and checked; their runs are the owner's (below)
-- [ ] **kea-ha:** Kea's reservations onto CloudNativePG, then the standby partner (decision 5)
+- [ ] **kea-ha:** `QUEUE-kea-ha.md` (planned 2026-10-16); its first step waits on three
+      variables from the owner (below)
 
 ## Waiting on the owner
 
@@ -114,6 +115,8 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       `kubernetes/prod/system/cluster-policy/`, owning both (batch **cluster-policy** below)
 - [ ] A Semaphore template for `ansible/retire-ssh-keys.yml` (inventory NetBox), its dry run,
       then your run; and your run of "Setting: Proxmox Host" for VLAN 9 (dry run task 743 clean)
+- [ ] Kea's three variables in Vaultwarden: `KEA_DB_PASSWORD` (Dockhand's value),
+      `KEA_DB_ADDRESS` (a free MetalLB address), `KEA_DB_CLIENTS` (`QUEUE-kea-ha.md`)
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
 - [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address
       (2026-10-16, through the bitwarden-cli pod; checked in Grimmory's sync Secret)
@@ -127,7 +130,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
 resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
 small-cleanups. released-volumes waits on the owner's command. Next in order:
-kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
+kea-ha (waits on variables), postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
 Each push: the commit hook's suite passed; `main` pushed alone
 (`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
 plans rejected, read-only Run Command via `run_command_b64` for braces; no applies or host

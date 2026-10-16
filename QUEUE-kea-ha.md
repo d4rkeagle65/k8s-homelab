@@ -1,0 +1,78 @@
+# Kea in two places: its reservations on CloudNativePG, then a hot-standby partner
+
+**The ask (decision 5, the owner, 2026-10-16: (b)):** DHCP survives the Docker VM's host
+going down. Kea's reservations move from PostgreSQL on the Docker VM (`kea-postgres` in
+`docker/kea/`) to a CloudNativePG cluster, reached through a LoadBalancer address, so a second
+Kea can read them while the Docker VM is down; then that second Kea runs on the second
+Pi-hole's host as a hot-standby partner, the firewall relays to both, and lease names reach DNS.
+`QUEUE.md`'s "Kea phase 3"; `docker/kea/README.md` has phases 1 and 2.
+
+## Settled
+
+- **Only Kea's reservations move.** Stork's own database stays in `kea-postgres` on the Docker
+  VM: Stork is a UI, and losing it with that host costs nothing DHCP needs.
+- **One database, `kea`, owner `kea`, on CloudNativePG** (PostgreSQL 18, two instances on
+  `local-db`, archived to Garage like every cluster), in a namespace `kea` (category
+  `services`). Its schema is made by `kea-admin` (Kea's version), never by hand: the
+  `kea-db-init` service in `docker/kea/compose.yaml` already does that on each deploy, and is
+  pointed at the new address.
+- **Reached by a LoadBalancer address on the main network, TLS required.** CloudNativePG's
+  `managed.services.additional` adds a `LoadBalancer` Service on the primary (`rw`) with a fixed
+  MetalLB address; `pg_hba` accepts only `hostssl` for `kea`, and the Service only the two Kea
+  hosts' addresses (`loadBalancerSourceRanges`). Kea 3.1+ connects over TLS (`ssl-mode`,
+  `trust-anchor`: CloudNativePG's CA, from the `kea-db-ca` Secret, copied to the host).
+- **The same `kea` password as today**, so the site file changes only the host and TLS.
+- **`serve-retry-continue` stays:** a database that's unreachable never stops DHCP; leases and
+  reservations already handed out keep working.
+
+## Rules
+
+- **No address, password or MAC in git.** The LoadBalancer address, the clients' ranges and
+  the password are `cluster-secrets` variables; the site file is on each Kea host.
+- **The cutover never leaves DHCP without its reservations:** the copy is made with Kea's
+  `host_cmds` writes paused (Stork closed, no API changes), and checked row for row before the
+  site file points at the new database. The old database stays until the new one has run a week.
+- **Each step proves itself:** archiving (`pg_stat_archiver`), a TLS login from the Docker VM,
+  `reservation-get-all` per subnet equal before and after.
+
+## Where things live
+
+- **In git:** `kubernetes/prod/services/kea/kea/` (hand-written: the Cluster, ObjectStore,
+  ScheduledBackup, the password Secret); `docker/kea/` (the site file's shape in the README).
+- **Variables the owner adds first** (Vaultwarden, then `cluster-secrets`):
+  `KEA_DB_PASSWORD` (the same value as Dockhand's), `KEA_DB_ADDRESS` (a free address in
+  MetalLB's pool), `KEA_DB_CLIENTS` (the Docker VM's and the partner's addresses, as `/32`s,
+  comma-separated).
+- **On the hosts:** `/opt/kea/site/site.json` (`hosts-databases`), `/opt/kea/site/kea-db-ca.crt`.
+
+## Checklist
+
+- [ ] The owner adds the three variables (above)
+- [ ] The cluster: `kea-db` with its ObjectStore, ScheduledBackup, the LoadBalancer Service and
+      `pg_hba`; archiving proved; a TLS login from the Docker VM (Run Command, read-only)
+- [ ] The copy: Kea's schema made by `kea-admin` on the new database, the reservations copied
+      (`pg_dump --data-only` of the host tables, run on the Docker VM), counted equal per table
+- [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
+      TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
+- [ ] The partner: a plain container on the second Pi-hole's host (NetBox's shape, its pull
+      request, an apply), Kea with the HA hook (`hot-standby`, the Docker VM's Kea primary),
+      both reading `kea-db`
+- [ ] The firewall's relay pointed at both Keas (the owner, in its UI)
+- [ ] The failover proved: the primary stopped, a client renews from the standby
+- [ ] Lease names into DNS (Kea's DDNS to the Pi-holes, or a sync): its own decision when here
+- [ ] A week on the new database: `kea` dropped from `kea-postgres`
+
+## Resuming
+
+The first unticked box is next; until the cutover, the Docker VM's database is the live one
+and the new cluster is a copy nothing reads.
+
+## Done when
+
+Stopping the Docker VM's Kea leaves every VLAN getting addresses from the partner, with the
+same reservations; then this file moves to `old-queues/`.
+
+## Checked and negative
+
+- Kea's TLS to PostgreSQL: supported since Kea 3.1 (`ssl-mode`, `trust-anchor`, `cert-file`);
+  this stack runs 3.2.1.
