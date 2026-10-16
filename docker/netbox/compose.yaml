@@ -140,9 +140,13 @@ services:
         condition: service_completed_successfully
     ports:
     - ${NETBOX_BIND_ADDRESS}:8085:8080
+    # The first start migrates an empty database with every plugin (about 15
+    # minutes in testing); the worker waits for healthy, so a shorter grace marks
+    # NetBox unhealthy mid-migration and the worker never starts. A passing check
+    # ends the grace early.
     healthcheck:
       test: /opt/netbox/health.sh
-      start_period: 300s
+      start_period: 30m
       timeout: 3s
       interval: 15s
 
