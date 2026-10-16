@@ -381,7 +381,6 @@ def main() -> None:
     vm_roles = {key: nb.ensure("dcim/device-roles", {"slug": slug(name)}, {"name": name, "vm_role": True}, name)
                 for key, name in cfg["vm_roles"].items()}
     owned_roles = {r["id"] for r in vm_roles.values()}
-    adopt = {int(k): v for k, v in (cfg.get("adopt") or {}).items()}
 
     def primary_of(obj: dict) -> str | None:
         """The address of NetBox's primary IPv4 for obj, without its length."""
@@ -458,11 +457,6 @@ def main() -> None:
             differ(g["name"], {k: (before.get(k), v) for k, v in shape.items()})
         else:
             fields.update(shape)
-        if role is None and int(g["vmid"]) in adopt:
-            # Once: today's guests take their role and shape fields from adopt.
-            a = adopt[int(g["vmid"])]
-            fields["role"] = vm_roles[a["role"]]["id"]
-            fields["custom_fields"].update({k: v for k, v in a.items() if k != "role"})
         vm = nb.ensure("virtualization/virtual-machines", {"name": g["name"]}, fields, g["name"])
         for key, mb in sorted(disk_sizes(cfg_g).items()):
             have = nb.find("virtualization/virtual-disks", virtual_machine_id=vm["id"], name=key) if vm["id"] > 0 else None

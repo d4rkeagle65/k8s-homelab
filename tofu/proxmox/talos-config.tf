@@ -23,9 +23,11 @@ locals {
   # that order).
   kubernetes_version = "1.36.5"
 
-  # The Talos nodes, by VMID: their role and size here, their host, name and
-  # last octet in NetBox (netbox.tf), as for the other guests. A node is
-  # added by a commit of its own, so an apply builds one node (tofu/CLAUDE.md).
+  # The Talos nodes, by VMID: their role and size from NetBox, through the
+  # generated netbox-guests.json (scripts/netbox_guests.py, a pull request from
+  # Semaphore); their host, name and last octet from NetBox at plan time
+  # (netbox.tf), as for the other guests. A node is added by a pull request of
+  # its own, so an apply builds one node (tofu/CLAUDE.md).
   # apply_mode: "auto" while a node is being created (its first config installs
   # Talos and reboots once), then "no_reboot", so a later change that would
   # need a reboot fails the apply instead of rebooting a running node; that
@@ -36,15 +38,7 @@ locals {
   # EPHEMERAL partition at the next boot (proxmox-reboot.yml drains first).
   # data_gb: a worker's second disk, its local-db volume
   # (talos/patches/worker-local-db.yaml); 0 for none.
-  talos_nodes = {
-    "110" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
-    "112" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
-    "113" = { role = "controlplane", cores = 2, memory = 4096, disk_gb = 32, data_gb = 0, apply_mode = "no_reboot" }
-    "114" = { role = "worker", cores = 6, memory = 20480, disk_gb = 80, data_gb = 128, apply_mode = "no_reboot" }
-    "115" = { role = "worker", cores = 4, memory = 10240, disk_gb = 80, data_gb = 128, apply_mode = "no_reboot" }
-    "116" = { role = "worker", cores = 3, memory = 16384, disk_gb = 80, data_gb = 128, apply_mode = "no_reboot" }
-    "117" = { role = "worker", cores = 4, memory = 16384, disk_gb = 80, data_gb = 128, apply_mode = "no_reboot" }
-  }
+  talos_nodes = local.netbox_guests.talos_nodes
 
   # Each node's address on the main network, the one its kubelet and etcd use.
   talos_net     = var.site.networks["vmbr7"]
