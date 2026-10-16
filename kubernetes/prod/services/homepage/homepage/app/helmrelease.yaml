@@ -182,16 +182,16 @@ spec:
                 - Dockhand:
                     - icon: dockhand.png
                       href: https://dockhand.${BASE_DOMAIN}
-                - Proxmox:
-                    - icon: proxmox.png
-                      href: https://proxmox.${BASE_DOMAIN}
+                - Zammad:
+                    - icon: zammad.png
+                      href: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                 - Grafana:
                     - icon: grafana.png
                       href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                 - Organizr:
                     - icon: organizr.png
                       href: https://organizr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
-                - Home Assistant:
+                - HASS:
                     - icon: home-assistant.png
                       href: https://homeassistant.${BASE_DOMAIN}
                 - Authentik:
