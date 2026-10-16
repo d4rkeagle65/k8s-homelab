@@ -38,7 +38,7 @@ spec:
     # The webhook script's checksum (its first 12 hex digits), so a change to it
     # rolls the pod; test_netbox_dns_webhook.py checks it matches.
     podAnnotations:
-      homelab.local/webhook-sha256: "e16df4f1aecc"
+      homelab.local/webhook-sha256: "38c6dd38ada9"
     provider:
       name: webhook
       webhook:

@@ -118,12 +118,14 @@ def endpoints(records: list[dict], zones_by_id: dict) -> list[dict]:
 def plan(changes: dict, records: list[dict], zones: list[dict]) -> tuple[list, list, list]:
     """What to create and delete in NetBox for ExternalDNS's changes, and what was
     skipped and why: (creates, deletes by id, skipped messages)."""
+    # ExternalDNS names the lists Create or create (camelCase from 0.2x): either.
+    changes = {k.lower(): v for k, v in (changes or {}).items()}
     zones_by_id = {z["id"]: z for z in zones}
     current: dict[tuple, list] = {}
     for r in records:
         current.setdefault((fqdn_of(r, zones_by_id).lower(), r["type"]), []).append(r)
     creates, deletes, skipped = [], [], []
-    wanted = list(changes.get("Create") or []) + list(changes.get("UpdateNew") or [])
+    wanted = list(changes.get("create") or []) + list(changes.get("updatenew") or [])
     for ep in wanted:
         name, rtype = ep["dnsName"].rstrip(".").lower(), ep.get("recordType", "A")
         if rtype not in TYPES:
@@ -144,7 +146,7 @@ def plan(changes: dict, records: list[dict], zones: list[dict]) -> tuple[list, l
         for value in sorted(targets - {r["value"] for r in have}):
             creates.append({"zone": zone["id"], "name": relative(name, zone["name"]), "type": rtype, "value": value,
                             "ttl": ep.get("recordTTL") or None, "status": "active", "description": OWNER_MARK})
-    for ep in changes.get("Delete") or []:
+    for ep in changes.get("delete") or []:
         name, rtype = ep["dnsName"].rstrip(".").lower(), ep.get("recordType", "A")
         deletes += [r["id"] for r in current.get((name, rtype), []) if r.get("description") == OWNER_MARK]
     return creates, sorted(set(deletes)), skipped
@@ -198,6 +200,8 @@ class Handler(BaseHTTPRequestHandler):
             zones = self.netbox.all("zones/")
             records = self.netbox.all("records/")
             creates, deletes, skipped = plan(changes, records, zones)
+            sizes = {k: len(v or []) for k, v in changes.items() if isinstance(v, list)}
+            log(f"changes asked: {sizes or 'none'}")
             for msg in skipped:
                 log(f"skipped {msg}")
             for rid in deletes:
