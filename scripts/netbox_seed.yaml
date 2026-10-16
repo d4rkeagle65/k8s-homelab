@@ -14,27 +14,7 @@ networks:
 - {bridge: vmbr6, name: IoT, vlan: 6}
 - {bridge: vmbr7, name: Production, vlan: 7}
 - {bridge: vmbr8, name: DMZ, vlan: 8}
-
-# Semaphore's static inventories, each its group's NetBox tag: the tag marks the
-# hosts, and the group's variables become a config context on that tag.
-inventories:
-  Proxmox Hosts: proxmox
-  Pi-Hole: pihole
-  Docker VM: docker_vm
-  OpenWRT Devices: openwrt_aps
-
-# The tag every one of those hosts also carries, which ansible/inventory/netbox.yml
-# selects by (NetBox's tag filter needs every tag it's given, so not the group tags).
-managed_tag: ansible
-
-# Groups made of those groups, each a tag on every host of its members: a play
-# that targets one of these never reaches the other hosts the inventory holds.
-groups:
-  debian: [proxmox, pihole, docker_vm]
-
-# Hosts in those inventories that Proxmox doesn't run, made as devices.
-devices:
-  openwrt_aps: {role: Access point, type: OpenWrt access point}
+- {bridge: vmbr1, name: 2.5G}
 
 # Proxmox guests to leave out, by VMID: the retired LXC Kubernetes nodes,
 # stopped and due for deletion (tofu/proxmox's k8s_retired).

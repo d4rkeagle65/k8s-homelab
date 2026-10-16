@@ -171,8 +171,9 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       `netbox_seed.yaml`; the write token `~/.netbox-token` in the claude-code container, saved
       with `save-secret .netbox-token`, a path relative to home): the site, VLANs, prefixes,
       DHCP ranges, the Proxmox nodes' interfaces, every guest's NICs with MAC, VLAN and
-      address, and the inventory groups as tags with their variables as config contexts; a
-      second run changes nothing. Every Ansible template in Semaphore runs on the File
+      address; a second run changes nothing. Ansible's groups (tags) and their variables
+      (config contexts) were imported once from Semaphore's static inventories: NetBox owns
+      them now, and the seed leaves tags, contexts and the access points' devices alone. Every Ansible template in Semaphore runs on the File
       inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
       checked against its last static run; the static inventories and the per-group keys
       `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
@@ -181,8 +182,9 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
         once reached). Each still lets in whoever holds its private half, which no longer
         exists anywhere Semaphore keeps it; remove them, keeping `semaphore-shared`'s, after
         checking every host still answers a run on it
-  - VLANs 4 and 9 and vmbr1's network have no name in `netbox_seed.yaml`, so no VLAN or
-    prefix: the owner names them there if they're in use
+  - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) is probably unused: the owner
+        decides whether to take it out of Proxmox. VLAN 4 (`vmbr4`) is for later; it gets a
+        name in `netbox_seed.yaml` once it's in use, which makes its VLAN and prefix
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
       second run changing nothing
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);

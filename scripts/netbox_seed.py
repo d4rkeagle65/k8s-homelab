@@ -1,13 +1,15 @@
-"""Seed NetBox from the homelab's live sources: QUEUE-netbox.md, phase 2.
+"""Seed NetBox from the homelab's live sources: QUEUE-netbox.md.
 
 Reads the networks from Kea (subnets and pools) and from Proxmox (each bridge's
-addresses), the hosts and guests from Proxmox, and Semaphore's static
-inventories, then makes NetBox match: the site, VLANs, prefixes and DHCP
-ranges; the Proxmox cluster with its hosts as devices and its guests as
-virtual machines, their interfaces and addresses; the inventories' other hosts
-as devices; and each inventory group as a tag on its hosts, with the group's
-variables as a config context on that tag, so Ansible's NetBox inventory can
-rebuild the groups.
+addresses), and the hosts and guests from Proxmox, then makes NetBox match: the
+site, VLANs, prefixes and DHCP ranges; the Proxmox cluster with its hosts as
+devices (ports, VLAN subinterfaces and bridges) and its guests as virtual
+machines (each NIC with its MAC, VLAN and address).
+
+It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
+variables), each host's local context, and the devices Proxmox doesn't run (the
+access points). A primary address NetBox already has is kept while the host
+still has it.
 
 Names come from netbox_seed.yaml; no address is in this repo. A dry run (the
 default) reports what it would create or change; --apply writes it. Safe to
@@ -16,7 +18,7 @@ differs, and never deletes anything.
 
 Credentials are files in the home folder, never arguments: ~/.netbox-token (a
 write-enabled NetBox token, "Bearer nbt_..."), ~/.proxmox-token (the full
-"PVEAPIToken=..." header), ~/.kea-api ("user:password"), ~/.semaphore-token.
+"PVEAPIToken=..." header), ~/.kea-api ("user:password").
 """
 from __future__ import annotations
 
@@ -29,7 +31,6 @@ import ssl
 import sys
 import urllib.error
 import urllib.request
-from io import StringIO
 from pathlib import Path
 
 from ruamel.yaml import YAML
@@ -245,25 +246,6 @@ def proxmox_state(url: str, token: str):
     return cluster, nodes, guests
 
 
-def semaphore_inventories(url: str, token: str, wanted: dict):
-    """{tag: {"hosts": {name: ansible_host}, "vars": {...}}} from the named static YAML
-    inventories."""
-    inv = http("GET", url.rstrip("/") + "/api/project/1/inventory", {"Authorization": "Bearer " + token})
-    out = {}
-    for i in inv:
-        tag = wanted.get(i["name"])
-        if not tag:
-            continue
-        doc = YAML(typ="safe").load(StringIO(i["inventory"])) or {}
-        for group in doc.values():
-            hosts = {h: str((v or {}).get("ansible_host", h)) for h, v in ((group or {}).get("hosts") or {}).items()}
-            out[tag] = {"hosts": hosts, "vars": dict((group or {}).get("vars") or {})}
-    missing = sorted(set(wanted.values()) - set(out))
-    if missing:
-        raise SystemExit(f"FAIL: Semaphore has no inventory for {missing}")
-    return out
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -271,7 +253,6 @@ def main() -> None:
     ap.add_argument("--netbox-url", required=True, help="https://netbox.<domain>")
     ap.add_argument("--proxmox-url", required=True, help="https://<a Proxmox host>:8006")
     ap.add_argument("--kea-url", required=True, help="Kea's control agent, e.g. http://127.0.0.1:8000/")
-    ap.add_argument("--semaphore-url", required=True, help="https://semaphore.<domain>")
     ap.add_argument("--apply", action="store_true", help="write to NetBox (default: report only)")
     args = ap.parse_args()
 
@@ -279,9 +260,7 @@ def main() -> None:
     nb = NetBox(args.netbox_url, read_secret(".netbox-token"), args.apply)
     kea_subnets, kea_pools = kea_networks(args.kea_url, read_secret(".kea-api"))
     cluster_name, nodes, guests = proxmox_state(args.proxmox_url, read_secret(".proxmox-token"))
-    inventories = semaphore_inventories(args.semaphore_url, read_secret(".semaphore-token"), cfg["inventories"])
-    print(f"read: {len(kea_subnets)} Kea subnets, {len(nodes)} Proxmox nodes, {len(guests)} guests, "
-          f"{sum(len(i['hosts']) for i in inventories.values())} inventory hosts")
+    print(f"read: {len(kea_subnets)} Kea subnets, {len(nodes)} Proxmox nodes, {len(guests)} guests")
     print("dry run: nothing is written" if not args.apply else "applying")
 
     site = nb.ensure("dcim/sites", {"slug": slug(cfg["site"])}, {"name": cfg["site"], "status": "active"}, cfg["site"])
@@ -330,41 +309,12 @@ def main() -> None:
                 return f"{ip}/{subnet.split('/')[1]}"
         return addr if "/" in addr else f"{ip}/32"
 
-    print("tags and their variables:")
-    tags = {}
-    for tag, inv in inventories.items():
-        tags[tag] = nb.ensure("extras/tags", {"slug": tag}, {"name": tag}, tag)
-        nb.ensure("extras/config-contexts", {"name": f"ansible: {tag}"},
-                  {"weight": 1000, "data": inv["vars"], "tags": [tag], "description": f"Semaphore's {tag} group variables"},
-                  f"ansible: {tag}")
-    # One tag on every host Ansible manages, besides its group's: NetBox's tag filter
-    # matches all the tags given, so the inventory selects hosts by this one.
-    managed = cfg.get("managed_tag", "ansible")
-    nb.ensure("extras/tags", {"slug": managed}, {"name": managed}, managed)
-    host_tags: dict[str, list[str]] = {}
-    host_addr: dict[str, str] = {}
-    for tag, inv in inventories.items():
-        for host, addr in inv["hosts"].items():
-            short = host.split(".")[0]
-            host_tags.setdefault(short, [managed]).append(tag)
-            host_addr[short] = addr
-    for group, members in (cfg.get("groups") or {}).items():
-        unknown = sorted(set(members) - set(inventories))
-        if unknown:
-            raise SystemExit(f"FAIL: group {group} names {unknown}, which no inventory in netbox_seed.yaml makes")
-        nb.ensure("extras/tags", {"slug": group}, {"name": group}, group)
-        for tags in host_tags.values():
-            if set(tags) & set(members):
-                tags.append(group)
-
     print("kinds:")
     maker = nb.ensure("dcim/manufacturers", {"slug": "generic"}, {"name": "Generic"}, "Generic")
-    kinds = {}
-    for spec in [cfg["hypervisor"], *cfg["devices"].values()]:
-        role = nb.ensure("dcim/device-roles", {"slug": slug(spec["role"])}, {"name": spec["role"]}, spec["role"])
-        dtype = nb.ensure("dcim/device-types", {"slug": slug(spec["type"])},
-                          {"model": spec["type"], "manufacturer": maker["id"]}, spec["type"])
-        kinds[spec["role"]] = (role, dtype)
+    spec = cfg["hypervisor"]
+    role = nb.ensure("dcim/device-roles", {"slug": slug(spec["role"])}, {"name": spec["role"]}, spec["role"])
+    dtype = nb.ensure("dcim/device-types", {"slug": slug(spec["type"])},
+                      {"model": spec["type"], "manufacturer": maker["id"]}, spec["type"])
     ctype = nb.ensure("virtualization/cluster-types", {"slug": slug(cfg["cluster_type"])}, {"name": cfg["cluster_type"]}, cfg["cluster_type"])
     cluster = nb.ensure("virtualization/clusters", {"name": cluster_name},
                         {"type": ctype["id"], "scope_type": "dcim.site", "scope_id": site["id"], "status": "active"}, "the Proxmox cluster")
@@ -374,26 +324,16 @@ def main() -> None:
                          {"status": "active", "assigned_object_type": assigned_type, "assigned_object_id": assigned_id},
                          label)
 
-    def override(nb, path, obj, name, primary):
-        """Where Semaphore reaches a host by another address than its primary one (the
-        Docker VM, by its Docker network's gateway, since Semaphore runs on it), keep that
-        address as ansible_host_override in the host's own config context, which
-        ansible/inventory/netbox.yml prefers."""
-        static = host_addr.get(name)
-        if not static:
-            return
-        primary_addr = (primary or {}).get("address", "").split("/")[0]
-        local = dict(obj.get("local_context_data") or {})
-        if static != primary_addr:
-            local["ansible_host_override"] = static
-        else:
-            local.pop("ansible_host_override", None)
-        nb.ensure(path, {"name": name}, {"local_context_data": local or None}, f"{name} local context")
+    def primary_of(obj: dict) -> str | None:
+        """The address of NetBox's primary IPv4 for obj, without its length."""
+        p = obj.get("primary_ip4")
+        return p["address"].split("/")[0] if isinstance(p, dict) and p.get("address") else None
 
     def node_interfaces(dev: dict, name: str, ifaces: list[dict], wanted: str | None):
         """A Proxmox node's bridges, ports and VLAN subinterfaces as Proxmox has them:
         each port in its bridge, each VLAN under its port, each address on its bridge.
-        The primary address is Semaphore's one, else the management bridge's."""
+        The primary address stays the one NetBox has while the node still has it, else
+        it's the management bridge's."""
         made: dict[str, dict] = {}
         primary = fallback = None
         # Bridges first, then the ports in them, then the VLANs on those ports.
@@ -414,8 +354,6 @@ def main() -> None:
                     fields.update(mode="access", untagged_vlan=vlan_by_vid[int(vid)]["id"])
             made[iname] = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": iname}, fields, f"{name} {iname}")
             addr = i.get("cidr")
-            if iname == "vmbr0" and wanted:
-                addr = wanted
             if addr:
                 ip = address(addr, "dcim.interface", made[iname]["id"], f"{name} {iname}")
                 if wanted and addr.split("/")[0] == wanted:
@@ -425,29 +363,13 @@ def main() -> None:
         return primary or fallback
 
     print("devices:")
-    role, dtype = kinds[cfg["hypervisor"]["role"]]
-    hosts = [(name, role, dtype, cluster["id"], None) for name in sorted(nodes)]
-    for tag, spec in cfg["devices"].items():
-        r, t = kinds[spec["role"]]
-        hosts += [(h.split(".")[0], r, t, None, {"management": a}) for h, a in sorted(inventories[tag]["hosts"].items())]
-    for name, r, t, cl, ifaces in hosts:
-        fields = {"role": r["id"], "device_type": t["id"], "site": site["id"], "status": "active",
-                  "tags": [{"slug": t} for t in host_tags.get(name, [])]}
-        if cl:
-            fields["cluster"] = cl
-        dev = nb.ensure("dcim/devices", {"name": name}, fields, name)
-        primary = None
-        if ifaces is None:
-            primary = node_interfaces(dev, name, nodes[name]["ifaces"], host_addr.get(name))
-        for iname, addr in (ifaces or {}).items():
-            if not addr:
-                continue
-            itf = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": iname},
-                            {"device": dev["id"], "type": "virtual"}, f"{name} {iname}")
-            primary = address(addr, "dcim.interface", itf["id"], f"{name} {iname}")
+    for name in sorted(nodes):
+        dev = nb.ensure("dcim/devices", {"name": name},
+                        {"role": role["id"], "device_type": dtype["id"], "site": site["id"], "status": "active",
+                         "cluster": cluster["id"]}, name)
+        primary = node_interfaces(dev, name, nodes[name]["ifaces"], primary_of(dev))
         if primary:
             nb.set_ref("dcim/devices", dev, "primary_ip4", primary, name)
-        override(nb, "dcim/devices", dev, name, primary)
 
     print("virtual machines:")
     skip = set(cfg.get("skip_vmids") or [])
@@ -460,10 +382,9 @@ def main() -> None:
         vm = nb.ensure("virtualization/virtual-machines", {"name": g["name"]},
                        {"cluster": cluster["id"], "status": "active" if g.get("status") == "running" else "offline",
                         "site": site["id"], "vcpus": vcpus, "memory": int(cfg_g.get("memory", 0)), "disk": disk_gb(cfg_g) * 1000,
-                        "tags": [{"slug": t} for t in host_tags.get(g["name"], [])],
                         "description": f"Proxmox {g['type']} {g['vmid']}"},
                        g["name"])
-        wanted = host_addr.get(g["name"])
+        wanted = primary_of(vm)
         primary = None
         for key in sorted(g["nets"]):
             bridge = g["nets"][key]
@@ -484,7 +405,6 @@ def main() -> None:
                     primary = ip
         if primary:
             nb.set_ref("virtualization/virtual-machines", vm, "primary_ip4", primary, g["name"])
-        override(nb, "virtualization/virtual-machines", vm, g["name"], primary)
 
     print("summary:", ", ".join(f"{k.split()[0]} {v} {k.split()[1].split('/')[-1]}" for k, v in sorted(nb.counts.items()))
           or "nothing to change")
