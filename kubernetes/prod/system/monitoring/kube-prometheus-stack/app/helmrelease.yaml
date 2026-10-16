@@ -140,9 +140,8 @@ spec:
         # nas-iscsi: each replica's own LUN on the NAS, so the constant writes
         # miss the hosts' SSDs and the volume follows its pod to any Talos node.
         # A block device, not NFS, which Prometheus's docs rule out for its
-        # database. Only Talos nodes mount nas-iscsi, hence the affinity; it's
-        # preferred, not required, while a replica keeps its claim from the
-        # template before (nas-block, on an LXC worker) until that worker goes.
+        # database. Only Talos nodes mount nas-iscsi, hence the affinity, which
+        # every node meets now that the LXC nodes are gone.
         affinity:
           nodeAffinity:
             preferredDuringSchedulingIgnoredDuringExecution:
