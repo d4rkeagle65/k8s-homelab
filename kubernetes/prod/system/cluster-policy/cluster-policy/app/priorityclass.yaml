@@ -1,0 +1,12 @@
+# For what the rest of the cluster leans on: the databases, Authentik, Traefik
+# and monitoring. When a node is lost and the others are short of room, these
+# are scheduled first and may evict ordinary pods to fit. Far below the
+# built-in system-* classes (2 billion), which stay above it.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-critical
+value: 1000000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: Databases, Authentik, Traefik and monitoring; scheduled before ordinary pods.

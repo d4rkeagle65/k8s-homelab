@@ -80,14 +80,14 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       a volume at each deploy (checked on the NAS); the Docker live-restore and upgrade
       switches in `docker-vm-update.yml` (off until the owner sets them); and found on the way,
       Run Command's `run_command_b64` for commands holding braces
-- [ ] **cluster-policy** (approved 2026-10-16, next): the layout needs a namespace folder, so
-      `kubernetes/prod/system/cluster-policy/` (a `namespace.yaml` labelled `system`, the
-      namespace otherwise empty) with a `.handwritten` release `cluster-policy/` whose `ks.yaml`
-      has no `targetNamespace` (each LimitRange names its own namespace). It holds the
-      PriorityClass `homelab-critical` and a LimitRange per app and service namespace (defaults
-      only: request 10m/64Mi, limit 500m/512Mi; never overrides a container's own). Then
-      `priorityClassName: homelab-critical` on the databases (each CloudNativePG Cluster's
-      `spec.priorityClassName`), Authentik, Traefik and monitoring, one workload at a time
+- [ ] **cluster-policy** (approved 2026-10-16, next): the release is in,
+      `kubernetes/prod/system/cluster-policy/cluster-policy/` (the PriorityClass
+      `homelab-critical` and a `container-defaults` LimitRange per apps and services namespace;
+      `test_every_app_and_service_namespace_has_its_limitrange` keeps that list whole). Every
+      container the defaults reach peaked well inside them over 7 days (the Barman sidecars
+      164Mi). Left: `priorityClassName: homelab-critical` on the databases (each CloudNativePG
+      Cluster's `spec.priorityClassName`), Authentik, Traefik and monitoring, one workload at a
+      time, each checked Running before the next
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [ ] **ssh-keys:** a playbook removing the four deleted Semaphore keys from `authorized_keys`,
