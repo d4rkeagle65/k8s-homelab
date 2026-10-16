@@ -6,6 +6,7 @@ is blank, since the real ones live only in Dockhand (docker/CLAUDE.md).
   missing .env        Populate lists nothing, and a variable is easy to forget in Dockhand
   missing or extra    the list drifted from compose.yaml
   a value             a real value one commit away from a public repo
+  no mem_limit        a long-running service that can take the whole host's memory with it
 """
 
 import os
@@ -14,6 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _testcommon as t
+from ruamel.yaml import YAML
 
 stacks = t.tracked_files("docker/*/compose.yaml")
 t.scanned("DockerStacks", len(stacks), "Docker stacks' compose files")
@@ -49,6 +51,14 @@ def env_entries(text):
     return entries, bad
 
 
+def unlimited_services(text):
+    """The services that keep running (restart isn't "no") without a mem_limit. Without
+    one, a single runaway container can push the whole host into its OOM killer."""
+    services = (YAML(typ="safe").load(text) or {}).get("services") or {}
+    return sorted(name for name, svc in services.items()
+                  if str((svc or {}).get("restart", "no")) != "no" and "mem_limit" not in (svc or {}))
+
+
 t.section("the scanners, proven against sample text")
 t.check("SELF-TEST: ${NAME} is a variable", compose_variables("a: ${HOST}"), {"HOST"})
 t.check("  so is ${NAME:-default}", compose_variables("a: ${TZ:-UTC}"), {"TZ"})
@@ -58,6 +68,12 @@ t.check("  a comment line names none", compose_variables("# set ${HOST} in Dockh
 t.check("SELF-TEST: a blank entry", env_entries("# x\nA=\n\nB=\n"), ({"A": "", "B": ""}, []))
 t.check("  a value is read as one", env_entries("A=secret\n")[0], {"A": "secret"})
 t.check("  a line that's neither is reported", env_entries("A\n")[1], ["A"])
+t.check("SELF-TEST: a running service without mem_limit is CAUGHT",
+        unlimited_services("services:\n  a:\n    restart: always\n"), ["a"])
+t.check("  one with mem_limit passes", unlimited_services("services:\n  a:\n    restart: always\n    mem_limit: 1g\n"), [])
+t.check("  a one-shot step needs none", unlimited_services("services:\n  a:\n    restart: \"no\"\n"), [])
+t.check("  a limit inherited through an anchor counts",
+        unlimited_services("x: &d\n  mem_limit: 1g\nservices:\n  a:\n    <<: *d\n    restart: always\n"), [])
 
 t.section("every stack's .env")
 for compose in stacks:
@@ -75,5 +91,10 @@ for compose in stacks:
     t.check("  it lists every variable compose.yaml uses", sorted(used - set(entries)), [])
     t.check("  and none that compose.yaml doesn't", sorted(set(entries) - used), [])
     t.check("  every value is blank", sorted(n for n, v in entries.items() if v.strip()), [])
+
+t.section("every long-running service has a memory limit")
+for compose in stacks:
+    t.check("%s: every running service has mem_limit" % os.path.dirname(t.rel(compose)),
+            unlimited_services(t.source(compose)), [])
 
 t.complete()

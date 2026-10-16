@@ -18,6 +18,7 @@
 #   REPO_URL   the repo it clones on the first start; this repo by default
 services:
   claude-code:
+    mem_limit: 4g
     # Built here from the Dockerfile, which holds the versions; never pulled,
     # since no registry has it.
     build: .

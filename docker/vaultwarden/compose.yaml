@@ -25,6 +25,7 @@
 #   BACKUP_ZIP_PASSWORD the archive's password
 services:
   vaultwarden:
+    mem_limit: 768m
     image: vaultwarden/server:1.37.4
     container_name: vaultwarden
     restart: unless-stopped
@@ -63,6 +64,7 @@ services:
       LOG_LEVEL: info
 
   vaultwarden-backup:
+    mem_limit: 512m
     image: ttionya/vaultwarden-backup:1.27.2
     container_name: vaultwarden-backup
     restart: unless-stopped

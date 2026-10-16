@@ -26,6 +26,7 @@
 #                             reads (AUTHENTIK_STORK_OIDC_CLIENT_SECRET)
 services:
   kea-postgres:
+    mem_limit: 512m
     image: postgres:17.11-alpine
     container_name: kea-postgres
     restart: unless-stopped
@@ -99,6 +100,7 @@ services:
       fi
 
   kea-dhcp4:
+    mem_limit: 256m
     image: docker.cloudsmith.io/isc/docker/kea-dhcp4:3.2.1
     container_name: kea-dhcp4
     restart: unless-stopped
@@ -131,6 +133,7 @@ services:
   # reaches it as kea-dhcp4:8080. It registers itself on start; approve it
   # once in Stork (Services > Machines).
   stork-agent:
+    mem_limit: 256m
     build: .
     image: homelab/kea-tools:local
     pull_policy: build
@@ -152,6 +155,7 @@ services:
     - /opt/kea/stork-agent:/var/lib/stork-agent
 
   stork-server:
+    mem_limit: 256m
     build: .
     image: homelab/kea-tools:local
     pull_policy: build

@@ -22,6 +22,7 @@
 #                         (the same two as the cluster-secrets fields of those names)
 services:
   garage:
+    mem_limit: 2g  # unmeasured: Garage's use isn't scraped yet
     image: dxflrs/garage:v2.4.1
     container_name: garage
     restart: unless-stopped

@@ -92,6 +92,13 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring
 - [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
       (with monitoring phase 5)
+- [x] The Docker VM's containers (2026-10-16): a `mem_limit` on every long-running service in
+      `docker/` (the VM has no swap, so it's a hard ceiling), about two to three times its
+      cAdvisor peak over the day and a half of history there was; `tests/test-docker-stacks.py`
+      fails a running service without one. Garage's (on the NAS, 2g) is unmeasured: nothing
+      scrapes its memory yet.
+- [ ] Re-measure the Docker VM's containers with the cluster's, from a week of cAdvisor data, and
+      give Garage a figure once its memory is scraped
 - [ ] Re-measure at seven days (2026-10-18): requests from the new peaks, limits by the rules
       above. Immich's server was throttled in 66% of periods over the first two days, mostly
       while it crash-looped on 2026-10-11; if it stays above 10% it needs a judgement against

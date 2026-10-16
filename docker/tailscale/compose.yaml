@@ -27,6 +27,7 @@
 # management-address rules after Tailscale's own; see README.md.
 services:
   tailscale:
+    mem_limit: 512m
     image: tailscale/tailscale:v1.102.5
     container_name: tailscale
     restart: unless-stopped

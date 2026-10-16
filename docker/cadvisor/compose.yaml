@@ -7,6 +7,7 @@
 #   CADVISOR_ADDRESS   the host's management address
 services:
   cadvisor:
+    mem_limit: 768m
     image: ghcr.io/google/cadvisor:v0.60.6
     container_name: cadvisor
     restart: unless-stopped
