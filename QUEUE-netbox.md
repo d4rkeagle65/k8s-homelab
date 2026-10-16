@@ -161,9 +161,12 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [x] Homepage's token made again (2026-10-16); its tile reads NetBox's status
   - [x] Backups (2026-10-16): Databasus joins NetBox's network (`NETBOX_NETWORK`) and backs
         `netbox` up daily; the first backup taken
-  - [ ] The owner deletes the `netbox` namespace (its two database clusters, claims and
-        Secrets are kept from pruning); then `NETBOX_SECRET_KEY`'s, `NETBOX_API_TOKEN_PEPPERS`'s
-        mappings out of `cluster-secrets` (nothing else reads them)
+  - [ ] The old `netbox` namespace: deleted by the owner 2026-10-16; its mappings
+        (`NETBOX_SECRET_KEY`, `NETBOX_API_TOKEN_PEPPERS`) out of `cluster-secrets` the same day.
+        The Vaultwarden field `NETBOX_SECRET_KEY` stays (the stack's `NETBOX_SECRET_KEY` is that
+        value); `NETBOX_API_TOKEN_PEPPERS` can go. Left: its seven volumes once Released (four
+        claims' and two older ones', all old, nearly empty NetBox databases, and the media
+        claim's, empty), deleted by the owner
 - [ ] Phase 2: owner makes the prefixes and a read-only and a write token; the import script
       run (a dry run first); `ansible/inventory/netbox.yml`, the collection and Semaphore's
       Python; each template switched after its host list matched; the static inventories
