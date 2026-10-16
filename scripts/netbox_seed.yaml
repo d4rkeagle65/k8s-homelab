@@ -1,0 +1,35 @@
+# What scripts/netbox_seed.py puts in NetBox that the live sources can't tell
+# it: names. Nothing here is an address; each network's subnet is read from
+# Kea and from the Proxmox hosts' and guests' addresses on its bridge.
+site: Condo
+
+# The Proxmox cluster's type in NetBox; the cluster's own name comes from Proxmox.
+cluster_type: Proxmox
+
+# Each network by the Proxmox bridge that carries it (the same on every host),
+# with its VLAN when it's tagged. A bridge not listed here is left out.
+networks:
+- {bridge: vmbr0, name: Management}
+- {bridge: vmbr2, name: Work laptop, vlan: 3}
+- {bridge: vmbr6, name: IoT, vlan: 6}
+- {bridge: vmbr7, name: Production, vlan: 7}
+- {bridge: vmbr8, name: DMZ, vlan: 8}
+
+# Semaphore's static inventories, each its group's NetBox tag: the tag marks the
+# hosts, and the group's variables become a config context on that tag.
+inventories:
+  Proxmox Hosts: proxmox
+  Pi-Hole: pihole
+  Docker VM: docker_vm
+  OpenWRT Devices: openwrt_aps
+
+# Hosts in those inventories that Proxmox doesn't run, made as devices.
+devices:
+  openwrt_aps: {role: Access point, type: OpenWrt access point}
+
+# Proxmox guests to leave out, by VMID: the retired LXC Kubernetes nodes,
+# stopped and due for deletion (tofu/proxmox's k8s_retired).
+skip_vmids: [101, 102, 103, 104, 105, 106]
+
+# The Proxmox nodes, as devices.
+hypervisor: {role: Hypervisor, type: Proxmox host}

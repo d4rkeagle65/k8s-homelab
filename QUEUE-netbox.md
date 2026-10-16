@@ -167,8 +167,14 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
         value); `NETBOX_API_TOKEN_PEPPERS` can go. Left: its seven volumes once Released (four
         claims' and two older ones', all old, nearly empty NetBox databases, and the media
         claim's, empty), deleted by the owner
-- [ ] Phase 2: owner makes the prefixes and a read-only and a write token; the import script
-      run (a dry run first); `ansible/inventory/netbox.yml`, the collection and Semaphore's
+- [ ] Phase 2: the import is `scripts/netbox_seed.py` with `netbox_seed.yaml` (names only: the
+      site Condo; Management on vmbr0, Work laptop VLAN 3 on vmbr2, IoT VLAN 6 on vmbr6,
+      Production VLAN 7 on vmbr7, DMZ VLAN 8 on vmbr8; each subnet read from Kea and the
+      bridges' addresses; the retired LXC nodes 101-106 skipped). The write token is
+      `~/.netbox-token` in the claude-code container (`save-secret .netbox-token`, a path
+      relative to home). VLANs 4 and 9 and vmbr1 (eth6) carry no addresses yet, so they
+      aren't placed. Run as a dry run 2026-10-16; then `--apply`; then a read-only token
+      for Semaphore; `ansible/inventory/netbox.yml`, the collection and Semaphore's
       Python; each template switched after its host list matched; the static inventories
       deleted last
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
