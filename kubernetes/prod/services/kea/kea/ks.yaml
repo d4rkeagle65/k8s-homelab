@@ -1,0 +1,23 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kea
+  namespace: flux-system
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: kea
+      homelab.local/category: services
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  path: ./kubernetes/prod/services/kea/kea/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: kea
+  # kea-db is a CloudNativePG Cluster, backed up through the Barman plugin.
+  dependsOn:
+  - name: cnpg
+  - name: plugin-barman-cloud

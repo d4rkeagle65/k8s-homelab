@@ -88,12 +88,17 @@ def test_no_secret_manifests_captured(all_yaml_files, load_yaml, repo_root):
 
     A promoted Secret (promote.templated_secret) is the other: every value
     is exactly one ${VAR} placeholder (or empty), the real value living only
-    in Vaultwarden. One literal value anywhere and it's an offender.
+    in Vaultwarden. One literal value anywhere and it's an offender, except a
+    kubernetes.io/basic-auth Secret's username, which names a role and is no
+    credential (the owner, 2026-10-16: kea's).
     """
     placeholder = re.compile(r"^\$\{[_A-Za-z][_A-Za-z0-9]*\}$")
 
     def only_placeholders(doc):
-        values = [*(doc.get("data") or {}).values(), *(doc.get("stringData") or {}).values()]
+        fields = {**(doc.get("data") or {}), **(doc.get("stringData") or {})}
+        if doc.get("type") == "kubernetes.io/basic-auth" and "username" in doc.get("stringData", {}):
+            fields.pop("username")
+        values = list(fields.values())
         return all(v in ("", None) or (isinstance(v, str) and placeholder.match(v)) for v in values)
 
     allowed_path = repo_root / "kubernetes" / ".local" / "cluster-substitutions-secret.yaml"

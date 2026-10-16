@@ -45,17 +45,19 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
 
 - **In git:** `kubernetes/prod/services/kea/kea/` (hand-written: the Cluster, ObjectStore,
   ScheduledBackup, the password Secret); `docker/kea/` (the site file's shape in the README).
-- **Variables the owner adds first** (Vaultwarden, then `cluster-secrets`):
-  `KEA_DB_PASSWORD` (the same value as Dockhand's), `KEA_DB_ADDRESS` (a free address in
-  MetalLB's pool), `KEA_DB_CLIENTS` (the Docker VM's and the partner's addresses, as `/32`s,
-  comma-separated).
+- **Variables** (Vaultwarden, then `cluster-secrets`; set 2026-10-16): `KEA_DB_PASSWORD` (the
+  same value as Dockhand's), `KEA_DB_ADDRESS` (a free address in MetalLB's pool),
+  `KEA_DB_CLIENTS` (one CIDR holding exactly both Keas' Production addresses, a `/31` for `.40`
+  and `.41`, since the Service and `pg_hba` each take a single range). The role's name, `kea`,
+  is in git (the owner).
 - **On the hosts:** `/opt/kea/site/site.json` (`hosts-databases`), `/opt/kea/site/kea-db-ca.crt`.
 
 ## Checklist
 
-- [ ] The owner adds the three variables (above)
-- [ ] The cluster: `kea-db` with its ObjectStore, ScheduledBackup, the LoadBalancer Service and
-      `pg_hba`; archiving proved; a TLS login from the Docker VM (Run Command, read-only)
+- [x] The owner adds the three variables (above), 2026-10-16
+- [ ] The cluster: `kea-db` with its ObjectStore, ScheduledBackup, the LoadBalancer Service
+      (`kea-db-lan`) and `pg_hba` (pushed 2026-10-16); archiving proved; a TLS login from the
+      Docker VM (Run Command, read-only)
 - [ ] The copy: Kea's schema made by `kea-admin` on the new database, the reservations copied
       (`pg_dump --data-only` of the host tables, run on the Docker VM), counted equal per table
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
