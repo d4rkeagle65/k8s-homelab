@@ -301,7 +301,8 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 
 - **Template** "Tool: Run Command" on the NetBox inventory, with a survey: `run_command`
   (required), `run_hosts` (required: hosts or groups, separated by commas or spaces) and
-  `run_timeout` (optional, seconds). Each host's output and exit code land in the task's log,
+  `run_timeout` (optional, seconds). A command holding `{{ ... }}` (docker's `--format`) goes
+  base64-encoded as `run_command_b64` instead, through the API: Ansible would expand the braces. Each host's output and exit code land in the task's log,
   so a command asked for in a session is answered by the task's ID rather than a paste.
 - A Dry Run lists the hosts and runs nothing.
 
