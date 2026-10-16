@@ -102,8 +102,8 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [x] `claude-code` made a Task Runner in Semaphore (2026-10-16, checked by `/api/project/1/role`)
 - [x] Decision 10, the test folders: both kept, the split explained in each `CLAUDE.md` (2026-10-16)
 - [x] A fine-grained GitHub token for this repository, in Semaphore's "Netbox Sync" group
-- [ ] Template 24 "NetBox: Guests to git" exists (task 744 wrote the file) but its arguments
-      are empty: set `["--pr"]`; then a resize in NetBox to prove it end to end.
+- [ ] Pull request #15 (VM 115's memory, from template 24's task 753): merge it for the
+      end-to-end plan, or close it and put NetBox back.
       `coprlxctest01a` stays as Decommissioning, the generator's skip case once it has the role
       "Plain container"
 - [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)
