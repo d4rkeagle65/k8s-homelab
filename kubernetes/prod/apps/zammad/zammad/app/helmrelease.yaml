@@ -1,8 +1,8 @@
 # Zammad, the helpdesk: alerts become tickets here (QUEUE-zammad.md). Zammad's
 # own chart, with its database on CloudNativePG (db.yaml) instead of the
-# chart's PostgreSQL, and the chart's own Redis and Memcached. No Elasticsearch
-# yet: it needs Elastic's ECK operator, and Zammad runs without it, searching
-# with the database instead (QUEUE-zammad.md).
+# chart's PostgreSQL, and the chart's own Redis and Memcached. Search is the
+# chart's Elasticsearch (one node), run by the ECK operator
+# (prod/system/elastic-system/eck-operator).
 #
 # Login: through Authentik (OIDC, the zammad blueprint), set up with the first
 # admin by the auto wizard (autoWizard below) at the first visit.
@@ -85,9 +85,13 @@ spec:
         }
 
     zammadConfig:
+      # The chart's bundled Elasticsearch (elasticsearch below); its address and
+      # the elastic user's password are found by the chart. reindex builds the
+      # index from the database on each zammad-init run, which is quick at this size.
       elasticsearch:
-        enabled: false
-        initialisation: false
+        enabled: true
+        initialisation: true
+        reindex: true
       postgresql:
         enabled: false
         host: zammad-db-rw
@@ -161,3 +165,40 @@ spec:
       - secretName: zammad-tls
         hosts:
         - zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+
+    # The eck-elasticsearch subchart: one node, its data on nas-iscsi (single-copy
+    # and constantly written; only nodes with Talos's iSCSI tools mount it). The
+    # chart's sizes: 512 MiB heap in 1 GiB, Elastic's half-and-half rule.
+    elasticsearch:
+      nodeSets:
+      - name: default
+        count: 1
+        config:
+          # No vm.max_map_count change on the nodes: mmap off instead.
+          node.store.allow_mmap: false
+        volumeClaimTemplates:
+        - metadata:
+            name: elasticsearch-data
+          spec:
+            accessModes: [ReadWriteOnce]
+            storageClassName: nas-iscsi
+            resources:
+              requests:
+                storage: 5Gi
+        podTemplate:
+          spec:
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: extensions.talos.dev/iscsi-tools
+                      operator: Exists
+            containers:
+            - name: elasticsearch
+              env:
+              - name: ES_JAVA_OPTS
+                value: "-Xms512m -Xmx512m"
+              resources:
+                requests: {cpu: 100m, memory: 1Gi}
+                limits: {cpu: 1000m, memory: 1Gi}

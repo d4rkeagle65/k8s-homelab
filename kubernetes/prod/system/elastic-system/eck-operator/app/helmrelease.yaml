@@ -1,0 +1,38 @@
+# Elastic Cloud on Kubernetes: runs the Elasticsearch that Zammad's chart
+# declares (its eck-elasticsearch subchart), for Zammad's search
+# (QUEUE-zammad.md). It manages only the zammad namespace.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: eck-operator
+  namespace: elastic-system
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: elastic-system
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: eck-operator
+      version: 3.5.0
+      sourceRef:
+        kind: HelmRepository
+        name: elastic
+        namespace: flux-system
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    managedNamespaces: [zammad]
+    # Requests and limits by QUEUE-resource-limits.md's rules, in place of the
+    # chart's 1 CPU and 1 GiB; re-measured after a week.
+    resources:
+      requests: {cpu: 10m, memory: 160Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+    # No usage data gathered for Kibana's telemetry (there's no Kibana).
+    telemetry:
+      disabled: true
