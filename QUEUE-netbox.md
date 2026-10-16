@@ -183,7 +183,15 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       the Docker VM's address comes from `ansible_host_override` in its local context. Semaphore's
       container has the collection and both variables (set on Dockhand's semaphore stack,
       forwarded to every task); `pytz` comes from the stack's inline `requirements.txt`,
-      installed at start. Next: after that deploy, confirm `pytz` imports there; each template switched after its host list matched; the static inventories deleted
+      installed at start. Semaphore's inventory "NetBox" (a File
+      inventory on that path) carries the key `semaphore-shared`: an inventory has one key,
+      and that one reaches every group (the APs and, through "All Debian Hosts", the Debian
+      hosts). Every run on it warns that `serial` and `tags` are reserved names: the plugin
+      adds a host's NetBox fields as variables under their own names, and 3.23.1 can't
+      prefix or drop them; harmless. Switched, recap matching the static run's: "Setting:
+      OpenWRT APs". Next: "Setting: Debian Baseline" and "Config: Admin SSH Key and Settings"
+      run on `hosts: all`, which on NetBox includes the APs: a `debian` group (tag) first,
+      and both playbooks moved to it in the change that switches them; each other template switched after its host list matched; the static inventories deleted
       last, and "All Debian Hosts"' stale `k8s_workers` group with them
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
       second run changing nothing
