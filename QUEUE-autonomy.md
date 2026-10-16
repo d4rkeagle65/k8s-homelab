@@ -113,8 +113,16 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] Your real run of "Retire: Old SSH Keys" (its dry run, task 745, was clean). VLAN 9 is out
       of Proxmox (task 748); delete its `vmbr9` and `eth5.9` interfaces in NetBox
 - [x] Kea's three variables in Vaultwarden (2026-10-16)
-- [ ] netbox-dns: the sidecar is settled (2026-10-16); a NetBox write token for it, as
-      `NETBOX_DNS_TOKEN` in Vaultwarden, before the sidecar is deployed
+- [ ] netbox-dns: the sidecar is deployed and works (it was asked for 37 records and skipped
+      each: NetBox DNS has no zone). Create the zone(s) in NetBox DNS (the domain the Ingresses
+      use, with its SOA nameserver); the records follow within a minute
+- [ ] Dockhand's environment for the second Docker VM: Hawser answers it HTTP 429 (rate limit);
+      retest once, Standard mode, `172.16.250.41:2376`, the token the agent was started with
+- [ ] `NETBOX_READ_TOKEN` in Vaultwarden without its "Bearer " prefix (its users accept either),
+      so Prometheus can discover the Docker VMs from NetBox's Prometheus SD plugin (it adds its
+      own "Bearer "); then node-exporter's targets come from the `docker_vm` tag
+- [ ] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answer every network from
+      Production
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
 - [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address
       (2026-10-16, through the bitwarden-cli pod; checked in Grimmory's sync Secret)
@@ -123,15 +131,15 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 
 ## Resuming
 
-**Where the run stands (2026-10-16, before a context compaction):** done and pushed:
-zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
-resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
-small-cleanups, released-volumes, cluster-policy, netbox-shape, ssh-keys, elasticsearch. Next in order:
-kea-ha, postgres-retire (from 2026-10-17), netbox-dns (code first; deploying waits on its token).
-Each push: the commit hook's suite passed; `main` pushed alone
-(`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
-plans rejected, read-only Run Command via `run_command_b64` for braces; no applies or host
-changes unasked; never a Proxmox host reboot without the owner).
+**Where the run stands (2026-10-16, late, the owner away):** done and pushed today beyond the
+batches above: Docker VMs from NetBox (VM 120 built, Docker and Hawser on it), kea-db with the
+reservations copied (the cutover and partner wait for the owner), Zammad's search, the Ansible
+task counter, the baseline's management routing, the NetBox DNS sidecar (waiting on zones), the
+Talos queue's hostnames gone and the hook's word list extended. Next in order: kea-ha's partner
+(with the owner: Dockhand's environment first), postgres-retire (from 2026-10-17), the owner's
+list below. Each push: the commit hook's suite passed; `main` pushed alone
+(`git push origin queue-renovate-coverage:main`). Semaphore: dry runs and plans in `params`;
+the owner runs anything that installs or changes hosts; never a Proxmox host reboot unasked.
 
 
 Read this file first, then `QUEUE.md`. An approved batch is named in the conversation or in a
