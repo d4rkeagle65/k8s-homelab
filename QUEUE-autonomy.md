@@ -111,6 +111,9 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [x] Where the PriorityClass and LimitRanges live (2026-10-16): a hand-written release,
       `kubernetes/prod/system/cluster-policy/`, owning both (batch **cluster-policy** below)
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
+- [ ] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address, as the
+      account already is (2026-10-16): the sync job uses it only when building Grimmory from
+      scratch, where your own address would again block your Authentik login's account
 - [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), VT-x in the third
       host's BIOS, the second Pi-hole on the DMZ's static clients, the TerraMaster SNMP bug
       reported
