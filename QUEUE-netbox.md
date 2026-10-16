@@ -182,9 +182,11 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         once reached). Each still lets in whoever holds its private half, which no longer
         exists anywhere Semaphore keeps it; remove them, keeping `semaphore-shared`'s, after
         checking every host still answers a run on it
-  - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) is probably unused: the owner
-        decides whether to take it out of Proxmox. VLAN 4 (`vmbr4`) is for later; it gets a
-        name in `netbox_seed.yaml` once it's in use, which makes its VLAN and prefix
+  - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) comes out of Proxmox (the owner,
+        2026-10-16): first proving no guest uses it, then by `proxmox-host.yml` on every node,
+        then its interfaces deleted in NetBox (the sync never deletes). VLAN 4 (`vmbr4`) is for
+        later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
+        prefix
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
       template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
       Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL` =
@@ -208,8 +210,8 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [x] Live 2026-10-16: `TF_VAR_netbox_url` and `TF_VAR_netbox_token` in Semaphore's
         "OpenTofu: Proxmox and Talos" group; its plan (task 724) read NetBox and found no
         changes. 101-106 stay in the state until an apply with a change writes the refresh
-  - [ ] `guests` out of `TF_VAR_site`: Semaphore's copy trimmed by the owner (2026-10-16);
-        left: the same in the Vaultwarden note "OpenTofu site (Proxmox)"
+  - [x] `guests` out of `TF_VAR_site`, in Semaphore's copy and the Vaultwarden note "OpenTofu
+        site (Proxmox)" (the owner, 2026-10-16)
   - [ ] The NetBox-first workflow (tofu/README.md) worked with a test guest, 2026-10-16:
         Planned in NetBox, built by an apply (task 725), marked active by the sync, which
         reused the hand-entered interface and address, then destroyed by an apply. Left:

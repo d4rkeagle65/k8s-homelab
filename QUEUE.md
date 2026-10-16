@@ -14,18 +14,12 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
+assigned (items below refer to them); 1 to 6, 8 and 9 are done.
 
 - **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
-5. **Kea's standby partner:** Kea's reservations live in PostgreSQL on the Docker VM, so a
-   partner elsewhere can't read them while that VM is down, which is when it's needed. Options:
-   (a) the partner keeps a copy of the reservations in its own config (two places to change);
-   (b) the reservations move to a database that survives the Docker VM (a CloudNativePG
-   cluster, reached through a LoadBalancer address); (c) leave HA for leases only. Recommended:
-   (b), with the partner on the second Pi-hole's host.
 7. **Docker's live-restore on the Docker VM, then Docker upgrades from Semaphore.** Agreed
    2026-10-06; to build in `docker-vm-update.yml`, both parts off until set:
    - `docker_live_restore: true` merges `"live-restore": true` into `/etc/docker/daemon.json`
@@ -123,8 +117,11 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   (`journalctl -b -u ssh`; is the drop-in on both Pi-holes, and is
   `systemd-networkd-wait-online` or its equivalent enabled in the container?), then have
   `baseline.yml` own the fix on every host whose sshd sets `ListenAddress`.
-- **Kea phase 3** (decision 5): a second Kea on another host as a hot-standby partner
-  (the firewall's relay can point at both), and lease names into DNS.
+- **Kea phase 3** (decision 5, the owner 2026-10-16: (b)): Kea's reservations move from
+  PostgreSQL on the Docker VM to a CloudNativePG cluster reached through a LoadBalancer
+  address, so a partner can read them while the Docker VM is down; then a second Kea on the
+  second Pi-hole's host as a hot-standby partner (the firewall's relay can point at both), and
+  lease names into DNS.
 - **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
   static clients still list only `172.16.228.3` and lose DNS while Pi-hole 1's host
   reboots. Add `172.16.228.4` on each by hand.
