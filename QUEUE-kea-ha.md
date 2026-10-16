@@ -64,9 +64,8 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       reservation changed in Stork before the cutover means copying again (drop and re-run)
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
       TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
-- [ ] The second Docker VM: in NetBox first (VMID 120, on the 62 GiB host, 4 vCPU and 8 GiB,
-      `.41` on management and Production; the seed's `NETBOX_PLANNED`, set once in Semaphore's
-      "Netbox Sync" group and cleared after), then
+- [ ] The second Docker VM: in NetBox (done 2026-10-16 through the API: VMID 120, Planned, on the
+      62 GiB host, 4 vCPU and 8 GiB, `net0` management and `net1` Production at `.41`), then
       `tofu/proxmox/` builds it (a plan, the owner's apply), `baseline.yml`, Docker, Dockhand's
       Hawser agent
 - [ ] The partner: `docker/kea/` deployed there in a partner mode, Kea with the HA hook

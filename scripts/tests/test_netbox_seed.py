@@ -100,26 +100,3 @@ def test_unexpected_arguments_are_named_never_shown():
     msg = m.unexpected(["NETBOX_WRITE_TOKEN=" + value, "PROXMOX_TOKEN=prefix=" + value, value])
     assert "NETBOX_WRITE_TOKEN" in msg and "PROXMOX_TOKEN" in msg
     assert value not in msg and "prefix" not in msg
-
-
-def test_a_planned_guests_address_is_its_networks_prefix_with_its_octet():
-    assert m.host_in("192.0.2.0/24", 41) == "192.0.2.41/24"
-    for bad in (0, 255, 300):
-        try:
-            m.host_in("192.0.2.0/24", bad)
-        except ValueError:
-            continue
-        raise AssertionError(f"octet {bad} was accepted")
-
-
-def test_planned_guests_come_from_the_environment_whole_or_not_at_all():
-    assert m.planned_guests("") == []
-    one = '[{"name": "g", "vmid": 120, "device": "h", "vcpus": 4, "memory": 8192, "octet": 41, "bridges": ["vmbr0"]}]'
-    assert m.planned_guests(one)[0]["vmid"] == 120
-    for bad in ("{", '{"name": "g"}', '[{"name": "g"}]'):
-        try:
-            m.planned_guests(bad)
-        except SystemExit as e:
-            assert "nothing done" in str(e)
-            continue
-        raise AssertionError(f"accepted {bad}")
