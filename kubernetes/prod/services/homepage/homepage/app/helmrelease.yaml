@@ -184,7 +184,7 @@ spec:
                       href: https://dockhand.${BASE_DOMAIN}
                 - Proxmox:
                     - icon: proxmox.png
-                      href: https://${PVE_API_HOST}:8006
+                      href: https://proxmox.${BASE_DOMAIN}
                 - Grafana:
                     - icon: grafana.png
                       href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
@@ -212,11 +212,11 @@ spec:
             - Hosts:
                 - Proxmox:
                     icon: proxmox.png
-                    href: https://${PVE_API_HOST}:8006
+                    href: https://proxmox.${BASE_DOMAIN}
                     description: Virtualisation cluster
                     widget:
                       type: proxmox
-                      url: https://${PVE_API_HOST}:8006
+                      url: https://proxmox.${BASE_DOMAIN}
                       username: prometheus@pve!exporter
                       password: "{{ "{{HOMEPAGE_VAR_PVE_TOKEN}}" }}"
                 - Proxmox hosts:
