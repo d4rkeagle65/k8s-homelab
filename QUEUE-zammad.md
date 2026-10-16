@@ -22,9 +22,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
 
 ## Checklist
 
-- [ ] Deployed (2026-10-16): the variables first, then the app; every pod Ready, the init
-      Job's migrations done, `zammad-db`'s password letters and digits only, its first
-      backup archived
+- [x] Deployed (2026-10-16): the variables first, then the app; every pod Ready (the Rails
+      server, scheduler and websocket restarted two or three times while the database and
+      migrations came up), the init Job's migrations done, `zammad-db`'s password 64 letters
+      and digits, its first backup completed, the web UI 200 with its certificate
 - [ ] The first visit runs the auto wizard: the admin exists, `fqdn` and `http_type` set, OIDC
       on; the owner logs in through Authentik and lands on the admin account (not a new
       customer)
