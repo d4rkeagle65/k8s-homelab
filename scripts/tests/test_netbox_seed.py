@@ -75,3 +75,18 @@ def test_same_compares_nested_choices_and_tags():
 def test_slug():
     assert m.slug("OpenWrt access point") == "openwrt-access-point"
     assert m.slug("Work laptop") == "work-laptop"
+
+
+def test_read_secret_prefers_the_environment_then_the_home_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(m.Path, "home", lambda: tmp_path)
+    (tmp_path / ".kea-api").write_text("from-file\n", encoding="utf-8")
+    monkeypatch.setenv("KEA_API", " from-env ")
+    assert m.read_secret(".kea-api", "KEA_API") == "from-env"
+    monkeypatch.delenv("KEA_API")
+    assert m.read_secret(".kea-api", "KEA_API") == "from-file"
+    try:
+        m.read_secret(".absent", "ABSENT_VAR")
+    except SystemExit as e:
+        assert "ABSENT_VAR" in str(e)
+    else:
+        raise AssertionError("a missing credential must stop the run")

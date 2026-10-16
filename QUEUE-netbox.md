@@ -186,18 +186,23 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
         decides whether to take it out of Proxmox. VLAN 4 (`vmbr4`) is for later; it gets a
         name in `netbox_seed.yaml` once it's in use, which makes its VLAN and prefix
 - [ ] Phase 3: `scripts/netbox_seed.py` nightly in Semaphore (not a new playbook: the seed
-      already reads Proxmox and Kea, changes only what differs and deletes nothing).
-  - [ ] The seed reads its credentials from the environment as well as the home-folder
-        files: a write-enabled NetBox token (not the inventory's read-only one), a new
-        read-only Proxmox token (PVEAuditor; not OpenTofu's), Kea's API login. The owner makes
-        both tokens; they go in a Semaphore variable group, marked secret
-  - [ ] Semaphore reaches Kea: the stack joins Kea's network (`KEA_NETWORK`, as NetBox and
-        Databasus do) and the seed's `--kea-url` is `http://kea-dhcp4:8000`
-  - [ ] `ruamel.yaml` in the stack's inline `requirements.txt`, beside `pytz`
-  - [ ] The seed records what OpenTofu will read: each VM's Proxmox node (the VM's device)
-        and its VMID (a custom field `vmid`, not parsed from the description)
-  - [ ] The template (a Python app running the seed with `--apply`) and a nightly schedule;
-        a dry run, a run, then a second run changing nothing
+      already reads Proxmox and Kea, changes only what differs and deletes nothing). Done
+      2026-10-16: the seed takes its credentials and URLs from the environment
+      (`NETBOX_WRITE_TOKEN`, `PROXMOX_TOKEN`, `KEA_API`; `NETBOX_API`, `PROXMOX_URL`,
+      `KEA_URL`; the docstring), else the home-folder files; it records each VM's node (its
+      device) and VMID (custom field `vmid`); the semaphore stack joins Kea's network
+      (`KEA_NETWORK`) and installs `ruamel.yaml`. Left:
+  - [ ] The owner sets `KEA_NETWORK` on Dockhand's semaphore stack (the same value as the
+        netbox stack's) before that change reaches `main`: without it the deploy fails and
+        the old container keeps running
+  - [ ] The owner makes a NetBox token with writes on and a read-only Proxmox token
+        (PVEAuditor at `/`), and a Semaphore variable group "NetBox sync": secrets
+        `NETBOX_WRITE_TOKEN`, `PROXMOX_TOKEN` (the whole `PVEAPIToken=user@realm!name=secret`),
+        `KEA_API` (`admin:` and Kea's API password); variables `PROXMOX_URL` (a Proxmox
+        host's `https://…:8006`), `KEA_URL` = `http://kea-dhcp4:8000/`
+  - [ ] The template "NetBox: Sync from Proxmox and Kea": app Python, script
+        `scripts/netbox_seed.py`, that variable group; first a run without arguments (the dry
+        run), then `--apply`, then a schedule (nightly) with `--apply`
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
       octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
       to answer the same names before and after

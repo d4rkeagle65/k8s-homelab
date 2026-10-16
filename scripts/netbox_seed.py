@@ -16,9 +16,13 @@ default) reports what it would create or change; --apply writes it. Safe to
 run again: it finds each object by name (or address) and changes only what
 differs, and never deletes anything.
 
-Credentials are files in the home folder, never arguments: ~/.netbox-token (a
-write-enabled NetBox token, "Bearer nbt_..."), ~/.proxmox-token (the full
-"PVEAPIToken=..." header), ~/.kea-api ("user:password").
+Credentials are never arguments. Each comes from an environment variable when it's
+set (Semaphore's variable group), else from a file in the home folder:
+NETBOX_WRITE_TOKEN or ~/.netbox-token (a write-enabled NetBox token, "nbt_...";
+never NETBOX_TOKEN, the inventory's read-only one), PROXMOX_TOKEN or
+~/.proxmox-token (the full "PVEAPIToken=..." header; read-only is enough),
+KEA_API or ~/.kea-api ("user:password"). The URLs default to NETBOX_API,
+PROXMOX_URL and KEA_URL.
 """
 from __future__ import annotations
 
@@ -26,6 +30,7 @@ import argparse
 import base64
 import ipaddress
 import json
+import os
 import re
 import ssl
 import sys
@@ -36,9 +41,16 @@ from pathlib import Path
 from ruamel.yaml import YAML
 
 
-def read_secret(name: str) -> str:
-    """One credential file from the home folder, stripped."""
-    return (Path.home() / name).read_text(encoding="utf-8").strip()
+def read_secret(name: str, env: str) -> str:
+    """One credential: the environment variable env when set, else the file name in the
+    home folder, stripped."""
+    value = os.environ.get(env, "").strip()
+    if value:
+        return value
+    path = Path.home() / name
+    if not path.is_file():
+        raise SystemExit(f"FAIL: no credential: set {env}, or put it in ~/{name}")
+    return path.read_text(encoding="utf-8").strip()
 
 
 def http(method: str, url: str, headers: dict, body=None, insecure: bool = False):
@@ -250,16 +262,19 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(Path(__file__).with_suffix(".yaml")), help="the names (netbox_seed.yaml)")
-    ap.add_argument("--netbox-url", required=True, help="https://netbox.<domain>")
-    ap.add_argument("--proxmox-url", required=True, help="https://<a Proxmox host>:8006")
-    ap.add_argument("--kea-url", required=True, help="Kea's control agent, e.g. http://127.0.0.1:8000/")
+    def url(name: str, env: str, example: str):
+        ap.add_argument(name, default=os.environ.get(env) or None, required=not os.environ.get(env),
+                        help=f"{example} (default: ${env})")
+    url("--netbox-url", "NETBOX_API", "https://netbox.<domain>")
+    url("--proxmox-url", "PROXMOX_URL", "https://<a Proxmox host>:8006")
+    url("--kea-url", "KEA_URL", "Kea's control agent, e.g. http://127.0.0.1:8000/")
     ap.add_argument("--apply", action="store_true", help="write to NetBox (default: report only)")
     args = ap.parse_args()
 
     cfg = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))
-    nb = NetBox(args.netbox_url, read_secret(".netbox-token"), args.apply)
-    kea_subnets, kea_pools = kea_networks(args.kea_url, read_secret(".kea-api"))
-    cluster_name, nodes, guests = proxmox_state(args.proxmox_url, read_secret(".proxmox-token"))
+    nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_WRITE_TOKEN"), args.apply)
+    kea_subnets, kea_pools = kea_networks(args.kea_url, read_secret(".kea-api", "KEA_API"))
+    cluster_name, nodes, guests = proxmox_state(args.proxmox_url, read_secret(".proxmox-token", "PROXMOX_TOKEN"))
     print(f"read: {len(kea_subnets)} Kea subnets, {len(nodes)} Proxmox nodes, {len(guests)} guests")
     print("dry run: nothing is written" if not args.apply else "applying")
 
@@ -324,6 +339,11 @@ def main() -> None:
                          {"status": "active", "assigned_object_type": assigned_type, "assigned_object_id": assigned_id},
                          label)
 
+    # Each VM's VMID, which OpenTofu finds it by (tofu/proxmox).
+    nb.ensure("extras/custom-fields", {"name": "vmid"},
+              {"type": "integer", "object_types": ["virtualization.virtualmachine"], "label": "VMID",
+               "description": "The Proxmox VMID (netbox_seed.py)", "unique": True}, "custom field vmid")
+
     def primary_of(obj: dict) -> str | None:
         """The address of NetBox's primary IPv4 for obj, without its length."""
         p = obj.get("primary_ip4")
@@ -363,10 +383,12 @@ def main() -> None:
         return primary or fallback
 
     print("devices:")
+    node_devs = {}
     for name in sorted(nodes):
         dev = nb.ensure("dcim/devices", {"name": name},
                         {"role": role["id"], "device_type": dtype["id"], "site": site["id"], "status": "active",
                          "cluster": cluster["id"]}, name)
+        node_devs[name] = dev
         primary = node_interfaces(dev, name, nodes[name]["ifaces"], primary_of(dev))
         if primary:
             nb.set_ref("dcim/devices", dev, "primary_ip4", primary, name)
@@ -382,6 +404,7 @@ def main() -> None:
         vm = nb.ensure("virtualization/virtual-machines", {"name": g["name"]},
                        {"cluster": cluster["id"], "status": "active" if g.get("status") == "running" else "offline",
                         "site": site["id"], "vcpus": vcpus, "memory": int(cfg_g.get("memory", 0)), "disk": disk_gb(cfg_g) * 1000,
+                        "device": node_devs[g["node"]]["id"], "custom_fields": {"vmid": int(g["vmid"])},
                         "description": f"Proxmox {g['type']} {g['vmid']}"},
                        g["name"])
         wanted = primary_of(vm)
