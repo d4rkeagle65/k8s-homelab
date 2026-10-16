@@ -76,8 +76,10 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       privileged init container gone first); probes for n8n's runners and External Secrets'
       controller. Left with the owner: node-loss timing (a Talos control-plane change, `QUEUE.md`),
       as for etcd scraping; `restricted` for 13 namespaces once their Job templates are checked
-- [ ] **small-cleanups:** Lidarr's `migrations/` folder; Garage's config off the inline
-      compose file; the Docker live-restore playbook (decision 7, agreed), off until set
+- [x] **small-cleanups** (2026-10-16): Lidarr's `migrations/` out; Garage's config written into
+      a volume at each deploy (checked on the NAS); the Docker live-restore and upgrade
+      switches in `docker-vm-update.yml` (off until the owner sets them); and found on the way,
+      Run Command's `run_command_b64` for commands holding braces
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [ ] **ssh-keys:** a playbook removing the four deleted Semaphore keys from `authorized_keys`,
@@ -93,6 +95,13 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)
 - [ ] Delete task 713 in Semaphore (it holds two replaced tokens)
 - [ ] Delete `coprlxctest01a` in NetBox
+- [ ] Set `docker_live_restore: true` on "Node: Docker Update" and run it; later
+      `upgrade_docker: true` (`QUEUE.md`, decision 7)
+- [ ] Two Talos control-plane changes, rolled node by node with `talosctl` and then an
+      OpenTofu apply you confirm: etcd's metrics, and a 60-second node-loss timing
+- [ ] `nas-block` off the hosts and the NAS, together (`QUEUE-talos.md`)
+- [ ] Where the PriorityClass and LimitRanges live: `kubernetes/cluster/` (a generator
+      change, as capture owns it) or a hand-written cross-namespace release
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
 - [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), VT-x in the third
       host's BIOS, the second Pi-hole on the DMZ's static clients, the TerraMaster SNMP bug

@@ -14,23 +14,16 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
+assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a setting.
 
 - **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
-7. **Docker's live-restore on the Docker VM, then Docker upgrades from Semaphore.** Agreed
-   2026-10-06; to build in `docker-vm-update.yml`, both parts off until set:
-   - `docker_live_restore: true` merges `"live-restore": true` into `/etc/docker/daemon.json`
-     (keeping whatever else is there), runs `systemctl reload docker` (live-restore is a
-     reloadable setting, so nothing restarts), and reads `docker info` back
-     (`LiveRestoreEnabled`).
-   - `upgrade_docker: true` unholds, upgrades and re-holds Docker's packages, only when
-     `docker info` says live-restore is on and the new `docker-ce` is the same major version
-     (Docker supports live-restore across minor and patch upgrades, not major ones; a major
-     upgrade is reported for a run by hand). Before and after, it reads the running containers
-     and stops if any that ran before is gone.
+7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
+   `ansible/docker-vm-update.yml`, both off until set (its header says what each does). The
+   owner sets `docker_live_restore: true` on "Node: Docker Update" and runs it; then
+   `upgrade_docker: true` once the live-restore run has read back on.
 
 ## Next
 
