@@ -84,8 +84,8 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
      list, say) are local config contexts on that host.
    - **The inventory:** `ansible/inventory/netbox.yml` with the `netbox.netbox.nb_inventory`
      plugin: hosts by tag into those groups, `ansible_host` from the primary IP, config
-     contexts as variables. NetBox's URL and a read-only token come from Semaphore's variable
-     group (environment), never git. The collection (`ansible/collections/requirements.yml`,
+     contexts as variables. NetBox's URL and a read-only token are the semaphore stack's
+     variables in Dockhand (a template takes one variable group, and they differ), never git. The collection (`ansible/collections/requirements.yml`,
      which Semaphore installs) and whatever Python it needs in Semaphore's container: check
      first, as `docker/semaphore/` runs the upstream image.
    - **The switch, template by template:** each Semaphore template moves to a File inventory
@@ -181,8 +181,8 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       `ansible/inventory/netbox.yml` (hosts tagged `ansible`, grouped by their group tag)
       gives the same hosts, addresses and variables as Semaphore's four static inventories;
       the Docker VM's address comes from `ansible_host_override` in its local context. Next:
-      a read-only token for Semaphore; `NETBOX_API` and `NETBOX_TOKEN` in its variable group;
-      the collection and `pytz` (the plugin needs it) in Semaphore's container, checked first;
+      the owner sets `NETBOX_API` and `NETBOX_TOKEN` (a token with writes off, marked secret)
+      on Dockhand's semaphore stack, which forwards them to every task; then the collection and `pytz` (the plugin needs it) in Semaphore's container, checked first;
       each template switched after its host list matched; the static inventories deleted
       last, and "All Debian Hosts"' stale `k8s_workers` group with them
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a

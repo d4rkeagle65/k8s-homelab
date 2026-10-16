@@ -23,6 +23,8 @@
 #   TFSTATE_DB_PASSWORD      secret: the tfstate role's (OpenTofu's state database)
 #   DATABASUS_DB_PASSWORD    secret: the databasus role's (read-only, for backups)
 #   TZ                       the timezone schedules run in, e.g. America/New_York
+#   NETBOX_API               https://netbox.<domain>, for ansible/inventory/netbox.yml
+#   NETBOX_TOKEN             secret: a NetBox token with writes off, for the same
 services:
   semaphore-postgres:
     mem_limit: 512m
@@ -124,6 +126,11 @@ services:
       SEMAPHORE_COOKIE_HASH: ${SEMAPHORE_COOKIE_HASH}
       SEMAPHORE_COOKIE_ENCRYPTION: ${SEMAPHORE_COOKIE_ENCRYPTION}
       SEMAPHORE_SCHEDULE_TIMEZONE: ${TZ:-UTC}
+      # Semaphore gives a task only the environment it's told to forward; the NetBox
+      # inventory reads these two.
+      NETBOX_API: ${NETBOX_API}
+      NETBOX_TOKEN: ${NETBOX_TOKEN}
+      SEMAPHORE_FORWARDED_ENV_VARS: '["NETBOX_API", "NETBOX_TOKEN"]'
       # The image turns SSH host-key checking off for every host; this file pins
       # the hosts' keys instead (README.md says how to fill it).
       SEMAPHORE_SSH_KNOWN_HOSTS_FILE: /etc/semaphore/known_hosts
