@@ -167,34 +167,22 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
         value); `NETBOX_API_TOKEN_PEPPERS` can go. Left: its seven volumes once Released (four
         claims' and two older ones', all old, nearly empty NetBox databases, and the media
         claim's, empty), deleted by the owner
-- [ ] Phase 2: the import is `scripts/netbox_seed.py` with `netbox_seed.yaml` (names only: the
-      site Condo; Management on vmbr0, Work laptop VLAN 3 on vmbr2, IoT VLAN 6 on vmbr6,
-      Production VLAN 7 on vmbr7, DMZ VLAN 8 on vmbr8; each subnet read from Kea and the
-      bridges' addresses; the retired LXC nodes 101-106 skipped). The write token is
-      `~/.netbox-token` in the claude-code container (`save-secret .netbox-token`, a path
-      relative to home). Applied 2026-10-16 and a second run changes nothing: 5 prefixes,
-      4 VLANs, 4 DHCP ranges, 8 devices (each Proxmox node's ports, VLAN subinterfaces and
-      bridges as Proxmox has them), 11 VMs (every NIC with its MAC, bridge, VLAN and
-      address; all 11 with a primary address), 42 addresses, 5 tags with their config
-      contexts. VLANs 4 and 9 and vmbr1's network have no name in `netbox_seed.yaml`, so no
-      VLAN or prefix: the owner names them there if they're in use.
-      `ansible/inventory/netbox.yml` (hosts tagged `ansible`, grouped by their group tag)
-      gives the same hosts, addresses and variables as Semaphore's four static inventories;
-      the Docker VM's address comes from `ansible_host_override` in its local context. Semaphore's
-      container has the collection and both variables (set on Dockhand's semaphore stack,
-      forwarded to every task); `pytz` comes from the stack's inline `requirements.txt`,
-      installed at start. Semaphore's inventory "NetBox" (a File
-      inventory on that path) carries the key `semaphore-shared`: an inventory has one key,
-      and that one reaches every group (the APs and, through "All Debian Hosts", the Debian
-      hosts). Every run on it warns that `serial` and `tags` are reserved names: the plugin
-      adds a host's NetBox fields as variables under their own names, and 3.23.1 can't
-      prefix or drop them; harmless. Every Ansible template runs on it, each
-      checked against its last static run (2026-10-16, tasks 688-699): the same hosts and
-      results. `baseline.yml` and `admin-users.yml` target the `debian` group (tag;
-      `groups:` in `netbox_seed.yaml`), so they never reach the APs; Admin SSH Key now
-      covers every Debian host, not the Proxmox hosts alone. Next: the static inventories
-      (Proxmox Hosts, Docker VM, Pi-Hole, OpenWRT Devices, All Debian Hosts, with its stale
-      `k8s_workers` group) and the per-group SSH keys only they use deleted in Semaphore
+- [ ] Phase 2. Done 2026-10-16: NetBox seeded by `scripts/netbox_seed.py` (names in
+      `netbox_seed.yaml`; the write token `~/.netbox-token` in the claude-code container, saved
+      with `save-secret .netbox-token`, a path relative to home): the site, VLANs, prefixes,
+      DHCP ranges, the Proxmox nodes' interfaces, every guest's NICs with MAC, VLAN and
+      address, and the inventory groups as tags with their variables as config contexts; a
+      second run changes nothing. Every Ansible template in Semaphore runs on the File
+      inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
+      checked against its last static run; the static inventories and the per-group keys
+      `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
+  - [ ] The deleted keys' public halves are still in the hosts' `authorized_keys` (root's on
+        the Proxmox hosts, the Pi-holes and the Docker VM; `semaphore-to-k8s` on whatever it
+        once reached). Each still lets in whoever holds its private half, which no longer
+        exists anywhere Semaphore keeps it; remove them, keeping `semaphore-shared`'s, after
+        checking every host still answers a run on it
+  - VLANs 4 and 9 and vmbr1's network have no name in `netbox_seed.yaml`, so no VLAN or
+    prefix: the owner names them there if they're in use
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
       second run changing nothing
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
