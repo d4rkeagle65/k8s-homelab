@@ -182,7 +182,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-netbox.md](QUEUE-netbox.md) (about 65%): NetBox on the Docker VM as the source of Semaphore's hosts and OpenTofu's guests, then owning DNS.
 - [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (0%): each guest's shape edited in NetBox, into git by a pull request.
-- [QUEUE-zammad.md](QUEUE-zammad.md) (about 15%): Zammad, the helpdesk, with alerts becoming tickets.
+- [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-organizr.md](QUEUE-organizr.md) (about 50%): Organizr configured from git; its remaining checks.
 - [QUEUE-postgres18.md](QUEUE-postgres18.md) (about 85%): every database onto PostgreSQL 18 on Debian trixie, a new cluster each.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
