@@ -52,9 +52,8 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       off); search on again (`enabled` and `initialisation` together). Left: the first node's empty Released
       `nas-iscsi` volume: deleting its PV record leaves its LUN on the NAS (Retain), to remove
       there too
-- [ ] `zammad-cronjob-reindex` (suspended; run by hand with `kubectl create job --from`) has no
-      limits of its own, so it gets 512 MiB: give it the init steps' resources in
-      `zammadConfig.cronJob.reindex.podSpec` before running it
+- [x] `zammad-cronjob-reindex` has room (checked 2026-10-16): its container takes the init job's
+      database step's settings, so its 1.5 GiB (live: 1536Mi)
 - [ ] Resources re-measured after a week (`QUEUE-resource-limits.md`'s rules); its database
       added to the restore tests' method
 
