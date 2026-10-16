@@ -286,7 +286,9 @@ def main() -> None:
         if net.get("vlan"):
             vlan = nb.ensure("ipam/vlans", {"vid": net["vlan"], "site_id": site["id"]},
                              {"name": net["name"], "site": site["id"], "status": "active"}, f"VLAN {net['vlan']} {net['name']}")
-        fields = {"site": site["id"], "status": "active", "description": net["name"], "vlan": vlan["id"] if vlan else None}
+        # NetBox 4.2+ ties a prefix to its site through a scope; a site field is ignored.
+        fields = {"scope_type": "dcim.site", "scope_id": site["id"], "status": "active",
+                  "description": net["name"], "vlan": vlan["id"] if vlan else None}
         prefixes[subnet] = nb.ensure("ipam/prefixes", {"prefix": subnet}, fields, net["name"])
         for first, last in kea_pools.get(subnet, []):
             plen = subnet.split("/")[1]

@@ -173,8 +173,10 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       bridges' addresses; the retired LXC nodes 101-106 skipped). The write token is
       `~/.netbox-token` in the claude-code container (`save-secret .netbox-token`, a path
       relative to home). VLANs 4 and 9 and vmbr1 (eth6) carry no addresses yet, so they
-      aren't placed. Run as a dry run 2026-10-16; then `--apply`; then a read-only token
-      for Semaphore; `ansible/inventory/netbox.yml`, the collection and Semaphore's
+      aren't placed. Applied 2026-10-16 (5 prefixes, 4 VLANs, 4 DHCP ranges, 8 devices,
+      11 VMs, 23 addresses, 4 tags with their config contexts); a second run changes nothing, and
+      every inventory host is there by tag with its primary address and group variables. Next: a
+      read-only token for Semaphore; `ansible/inventory/netbox.yml`, the collection and Semaphore's
       Python; each template switched after its host list matched; the static inventories
       deleted last
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
