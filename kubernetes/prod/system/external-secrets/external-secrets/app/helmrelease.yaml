@@ -36,6 +36,12 @@ spec:
     resources:
       requests: {cpu: 10m, memory: 96Mi}
       limits: {cpu: 500m, memory: 512Mi}
+    # The controller's health server (port 8082), off in the chart by default:
+    # a controller that stops reconciling is restarted, and isn't counted ready.
+    livenessProbe:
+      enabled: true
+    readinessProbe:
+      enabled: true
     webhook:
       resources:
         requests: {cpu: 50m, memory: 96Mi}
