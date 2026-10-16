@@ -1,0 +1,39 @@
+# Semaphore's hosts from NetBox (QUEUE-netbox.md, phase 2). NetBox is the
+# source: scripts/netbox_seed.py put every host there with its primary address,
+# tagged with its Ansible group, and the group's variables as a config context
+# on that tag. This file rebuilds the groups from those tags.
+#
+# NETBOX_API (https://netbox.<domain>) and NETBOX_TOKEN (a read-only NetBox
+# token, "Bearer nbt_...") come from the template's environment in Semaphore,
+# never from git. The file's name must end in netbox.yml for the plugin.
+plugin: netbox.netbox.nb_inventory
+validate_certs: true
+# NetBox 4.7's tokens are sent as "Bearer nbt_..." (the plugin's default header is
+# the old "Token ..."); NETBOX_TOKEN may hold the value with or without "Bearer ".
+token:
+  type: Bearer
+  value: "{{ lookup('ansible.builtin.env', 'NETBOX_TOKEN') | regex_replace('^Bearer ', '') }}"
+# Only the hosts Ansible manages: scripts/netbox_seed.py tags each one `ansible`
+# besides its group (NetBox's tag filter needs every tag given, so one tag selects).
+query_filters:
+- tag: ansible
+# Each tag a group, named as the playbooks' hosts: lines name it.
+group_by: [tags]
+group_names_raw: true
+# The group variables, from each tag's config context, as plain host variables.
+config_context: true
+flatten_config_context: true
+# A host Semaphore reaches by another address than its primary one (the Docker VM,
+# through its Docker network's gateway: Semaphore runs on it) carries that address
+# as ansible_host_override in its own config context. compose reads NetBox's object,
+# not the host's variables; on every other host the expression is undefined, and
+# with strict off, ansible_host stays the primary address.
+compose:
+  ansible_host: local_context_data.ansible_host_override
+interfaces: false
+services: false
+# Answer from the last listing for four hours if NetBox doesn't answer.
+cache: true
+cache_plugin: ansible.builtin.jsonfile
+cache_connection: /tmp/ansible-netbox-inventory
+cache_timeout: 14400

@@ -76,14 +76,28 @@ def disk_gb(config: dict) -> int:
 
 
 def static_ips(config: dict) -> dict[str, list[str]]:
-    """{netN: [address/prefix]} from a container's ip= settings (dhcp left out)."""
+    """{netN: [address/prefix]} from a guest's fixed addresses: a container's netN ip=,
+    a VM's cloud-init ipconfigN ip= (dhcp left out)."""
     out = {}
     for key, value in config.items():
-        if re.match(r"^net\d+$", key):
-            m = re.search(r"\bip=(\d+\.\d+\.\d+\.\d+/\d+)", str(value))
-            if m:
-                out[key] = [m.group(1)]
+        m = re.match(r"^(?:net|ipconfig)(\d+)$", key)
+        if m:
+            a = re.search(r"\bip=(\d+\.\d+\.\d+\.\d+/\d+)", str(value))
+            if a:
+                out.setdefault("net" + m.group(1), []).append(a.group(1))
     return out
+
+
+def mac_of(value: str) -> str | None:
+    """A guest NIC's MAC address (netN's model=MAC or hwaddr=MAC), upper case as NetBox keeps it."""
+    m = re.search(r"=([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\b", value)
+    return m.group(1).upper() if m else None
+
+
+def agent_on(value: str) -> bool:
+    """Whether a VM's agent setting turns the guest agent on: "1,..." or "enabled=1,..."."""
+    first = str(value or "").split(",")[0]
+    return first in ("1", "enabled=1")
 
 
 def bridge_of(value: str) -> str | None:
@@ -125,15 +139,17 @@ class NetBox:
             raise SystemExit(f"FAIL: more than one {path} matches {params}")
         return res[0] if res else None
 
-    def set_primary(self, path: str, obj: dict, ip: dict, label: str):
-        """Make ip the object's primary IPv4 address."""
-        current = (obj.get("primary_ip4") or {}).get("id") if isinstance(obj.get("primary_ip4"), dict) else obj.get("primary_ip4")
-        if current == ip["id"] and ip["id"] > 0:
+    def set_ref(self, path: str, obj: dict, field: str, target: dict, label: str):
+        """Point obj's field (primary_ip4, primary_mac_address) at target, which has to
+        exist first, since NetBox checks it's assigned to obj."""
+        current = obj.get(field)
+        current = current.get("id") if isinstance(current, dict) else current
+        if current == target["id"] and target["id"] > 0:
             return
-        print(f"  set primary address: {label}")
-        self._note("set primary_ip4/" + path)
-        if self.apply and obj["id"] > 0 and ip["id"] > 0:
-            http("PATCH", f"{self.base}{path}/{obj['id']}/", self.headers, {"primary_ip4": ip["id"]})
+        print(f"  set {field}: {label}")
+        self._note(f"set {field}/{path}")
+        if self.apply and obj["id"] > 0 and target["id"] > 0:
+            http("PATCH", f"{self.base}{path}/{obj['id']}/", self.headers, {field: target["id"]})
 
     def ensure(self, path: str, lookup: dict, fields: dict, label: str):
         """The object matching lookup, made or updated to carry fields. In a dry run an
@@ -199,26 +215,33 @@ def proxmox_state(url: str, token: str):
     cluster = next((c["name"] for c in get("/cluster/status") if c.get("type") == "cluster"), None)
     nodes = {}
     for n in get("/nodes"):
-        bridges = {i["iface"]: i.get("cidr") for i in get(f"/nodes/{n['node']}/network") if i["type"] == "bridge"}
-        nodes[n["node"]] = {"bridges": bridges, "maxcpu": n.get("maxcpu"), "status": n.get("status")}
+        # Only interfaces that are up: a node's unused ports (a USB Wi-Fi adapter) stay out.
+        ifaces = [i for i in get(f"/nodes/{n['node']}/network") if i.get("active")]
+        bridges = {i["iface"]: i.get("cidr") for i in ifaces if i["type"] == "bridge"}
+        nodes[n["node"]] = {"bridges": bridges, "ifaces": ifaces, "maxcpu": n.get("maxcpu"), "status": n.get("status")}
     guests = []
     for r in get("/cluster/resources?type=vm"):
         cfg = get(f"/nodes/{r['node']}/{r['type']}/{r['vmid']}/config")
-        ips = static_ips(cfg) if r["type"] == "lxc" else {}
-        if r["type"] == "qemu" and r.get("status") == "running" and cfg.get("agent", "").startswith("1"):
+        ips = static_ips(cfg)
+        if r["type"] == "qemu" and r.get("status") == "running" and agent_on(cfg.get("agent")):
             try:
                 ifaces = get(f"/nodes/{r['node']}/qemu/{r['vmid']}/agent/network-get-interfaces")["result"]
             except SystemExit:
                 ifaces = []
-            macs = {re.search(r"=([0-9A-Fa-f:]{17})", str(v)).group(1).lower(): k
-                    for k, v in cfg.items() if re.match(r"^net\d+$", k) and re.search(r"=([0-9A-Fa-f:]{17})", str(v))}
+            macs = {mac_of(str(v)): k for k, v in cfg.items() if re.match(r"^net\d+$", k) and mac_of(str(v))}
+            configured = set(ips)
             for i in ifaces:
-                key = macs.get((i.get("hardware-address") or "").lower())
+                key = macs.get((i.get("hardware-address") or "").upper())
+                # A NIC with a configured address keeps only that: what the agent adds
+                # there is a floating address (Talos's API VIP), held by whichever node has it.
+                if not key or key in configured:
+                    continue
                 for a in i.get("ip-addresses", []):
-                    if key and a.get("ip-address-type") == "ipv4" and not a["ip-address"].startswith("127."):
+                    if a.get("ip-address-type") == "ipv4" and not a["ip-address"].startswith("127."):
                         ips.setdefault(key, []).append(f"{a['ip-address']}/{a['prefix']}")
         guests.append({**r, "config": cfg, "ips": ips,
-                       "nets": {k: bridge_of(str(v)) for k, v in cfg.items() if re.match(r"^net\d+$", k)}})
+                       "nets": {k: bridge_of(str(v)) for k, v in cfg.items() if re.match(r"^net\d+$", k)},
+                       "macs": {k: mac_of(str(v)) for k, v in cfg.items() if re.match(r"^net\d+$", k)}})
     return cluster, nodes, guests
 
 
@@ -277,6 +300,8 @@ def main() -> None:
             if br:
                 bridge_addrs.setdefault(br, []).extend(addrs)
     prefixes = {}
+    vlans: dict[str, dict] = {}  # by bridge
+    vlan_by_vid: dict[int, dict] = {}
     for net in cfg["networks"]:
         subnet = network_for(bridge_addrs.get(net["bridge"], []), kea_subnets)
         if not subnet:
@@ -286,6 +311,7 @@ def main() -> None:
         if net.get("vlan"):
             vlan = nb.ensure("ipam/vlans", {"vid": net["vlan"], "site_id": site["id"]},
                              {"name": net["name"], "site": site["id"], "status": "active"}, f"VLAN {net['vlan']} {net['name']}")
+            vlans[net["bridge"]] = vlan_by_vid[net["vlan"]] = vlan
         # NetBox 4.2+ ties a prefix to its site through a scope; a site field is ignored.
         fields = {"scope_type": "dcim.site", "scope_id": site["id"], "status": "active",
                   "description": net["name"], "vlan": vlan["id"] if vlan else None}
@@ -311,12 +337,16 @@ def main() -> None:
         nb.ensure("extras/config-contexts", {"name": f"ansible: {tag}"},
                   {"weight": 1000, "data": inv["vars"], "tags": [tag], "description": f"Semaphore's {tag} group variables"},
                   f"ansible: {tag}")
+    # One tag on every host Ansible manages, besides its group's: NetBox's tag filter
+    # matches all the tags given, so the inventory selects hosts by this one.
+    managed = cfg.get("managed_tag", "ansible")
+    nb.ensure("extras/tags", {"slug": managed}, {"name": managed}, managed)
     host_tags: dict[str, list[str]] = {}
     host_addr: dict[str, str] = {}
     for tag, inv in inventories.items():
         for host, addr in inv["hosts"].items():
             short = host.split(".")[0]
-            host_tags.setdefault(short, []).append(tag)
+            host_tags.setdefault(short, [managed]).append(tag)
             host_addr[short] = addr
 
     print("kinds:")
@@ -336,10 +366,59 @@ def main() -> None:
                          {"status": "active", "assigned_object_type": assigned_type, "assigned_object_id": assigned_id},
                          label)
 
+    def override(nb, path, obj, name, primary):
+        """Where Semaphore reaches a host by another address than its primary one (the
+        Docker VM, by its Docker network's gateway, since Semaphore runs on it), keep that
+        address as ansible_host_override in the host's own config context, which
+        ansible/inventory/netbox.yml prefers."""
+        static = host_addr.get(name)
+        if not static:
+            return
+        primary_addr = (primary or {}).get("address", "").split("/")[0]
+        local = dict(obj.get("local_context_data") or {})
+        if static != primary_addr:
+            local["ansible_host_override"] = static
+        else:
+            local.pop("ansible_host_override", None)
+        nb.ensure(path, {"name": name}, {"local_context_data": local or None}, f"{name} local context")
+
+    def node_interfaces(dev: dict, name: str, ifaces: list[dict], wanted: str | None):
+        """A Proxmox node's bridges, ports and VLAN subinterfaces as Proxmox has them:
+        each port in its bridge, each VLAN under its port, each address on its bridge.
+        The primary address is Semaphore's one, else the management bridge's."""
+        made: dict[str, dict] = {}
+        primary = fallback = None
+        # Bridges first, then the ports in them, then the VLANs on those ports.
+        order = {"bridge": 0, "eth": 1, "bond": 1, "vlan": 2}
+        members = {p: i["iface"] for i in ifaces for p in str(i.get("bridge_ports") or "").split() if i["type"] == "bridge"}
+        for i in sorted(ifaces, key=lambda i: (order.get(i["type"], 3), i["iface"])):
+            iname = i["iface"]
+            fields = {"device": dev["id"], "type": {"bridge": "bridge", "eth": "other", "bond": "lag"}.get(i["type"], "virtual"),
+                      "description": i.get("comments", "").strip()}
+            if iname in members and members[iname] in made:
+                fields["bridge"] = made[members[iname]]["id"]
+            if i["type"] == "vlan":
+                port, _, vid = iname.partition(".")
+                if port in made:
+                    fields["parent"] = made[port]["id"]
+                fields["description"] = fields["description"] or f"VLAN {vid}"
+                if int(vid) in vlan_by_vid:
+                    fields.update(mode="access", untagged_vlan=vlan_by_vid[int(vid)]["id"])
+            made[iname] = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": iname}, fields, f"{name} {iname}")
+            addr = i.get("cidr")
+            if iname == "vmbr0" and wanted:
+                addr = wanted
+            if addr:
+                ip = address(addr, "dcim.interface", made[iname]["id"], f"{name} {iname}")
+                if wanted and addr.split("/")[0] == wanted:
+                    primary = ip
+                elif iname == "vmbr0":
+                    fallback = ip
+        return primary or fallback
+
     print("devices:")
     role, dtype = kinds[cfg["hypervisor"]["role"]]
-    hosts = [(name, role, dtype, cluster["id"], {"vmbr0": host_addr.get(name) or (nodes[name]["bridges"].get("vmbr0") or "")})
-             for name in sorted(nodes)]
+    hosts = [(name, role, dtype, cluster["id"], None) for name in sorted(nodes)]
     for tag, spec in cfg["devices"].items():
         r, t = kinds[spec["role"]]
         hosts += [(h.split(".")[0], r, t, None, {"management": a}) for h, a in sorted(inventories[tag]["hosts"].items())]
@@ -350,14 +429,17 @@ def main() -> None:
             fields["cluster"] = cl
         dev = nb.ensure("dcim/devices", {"name": name}, fields, name)
         primary = None
-        for iname, addr in ifaces.items():
+        if ifaces is None:
+            primary = node_interfaces(dev, name, nodes[name]["ifaces"], host_addr.get(name))
+        for iname, addr in (ifaces or {}).items():
             if not addr:
                 continue
             itf = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": iname},
                             {"device": dev["id"], "type": "virtual"}, f"{name} {iname}")
             primary = address(addr, "dcim.interface", itf["id"], f"{name} {iname}")
         if primary:
-            nb.set_primary("dcim/devices", dev, primary, name)
+            nb.set_ref("dcim/devices", dev, "primary_ip4", primary, name)
+        override(nb, "dcim/devices", dev, name, primary)
 
     print("virtual machines:")
     skip = set(cfg.get("skip_vmids") or [])
@@ -369,21 +451,32 @@ def main() -> None:
         vcpus = int(cfg_g.get("cores", 1)) * int(cfg_g.get("sockets", 1))
         vm = nb.ensure("virtualization/virtual-machines", {"name": g["name"]},
                        {"cluster": cluster["id"], "status": "active" if g.get("status") == "running" else "offline",
-                        "vcpus": vcpus, "memory": int(cfg_g.get("memory", 0)), "disk": disk_gb(cfg_g) * 1000,
+                        "site": site["id"], "vcpus": vcpus, "memory": int(cfg_g.get("memory", 0)), "disk": disk_gb(cfg_g) * 1000,
                         "tags": [{"slug": t} for t in host_tags.get(g["name"], [])],
                         "description": f"Proxmox {g['type']} {g['vmid']}"},
                        g["name"])
         wanted = host_addr.get(g["name"])
         primary = None
         for key in sorted(g["nets"]):
+            bridge = g["nets"][key]
+            vlan = vlans.get(bridge)
+            # The VLAN is the bridge's: Proxmox tags on the host, so the guest's NIC is untagged.
             itf = nb.ensure("virtualization/interfaces", {"virtual_machine_id": vm["id"], "name": key},
-                            {"virtual_machine": vm["id"]}, f"{g['name']} {key}")
+                            {"virtual_machine": vm["id"], "description": f"Proxmox bridge {bridge}",
+                             "mode": "access" if vlan else None, "untagged_vlan": vlan["id"] if vlan else None},
+                            f"{g['name']} {key}")
+            if g["macs"].get(key):
+                mac = nb.ensure("dcim/mac-addresses", {"mac_address": g["macs"][key]},
+                                {"assigned_object_type": "virtualization.vminterface", "assigned_object_id": itf["id"]},
+                                f"{g['name']} {key} MAC")
+                nb.set_ref("virtualization/interfaces", itf, "primary_mac_address", mac, f"{g['name']} {key}")
             for addr in g["ips"].get(key, []):
                 ip = address(addr, "virtualization.vminterface", itf["id"], f"{g['name']} {key}")
                 if primary is None or (wanted and addr.split("/")[0] == wanted):
                     primary = ip
         if primary:
-            nb.set_primary("virtualization/virtual-machines", vm, primary, g["name"])
+            nb.set_ref("virtualization/virtual-machines", vm, "primary_ip4", primary, g["name"])
+        override(nb, "virtualization/virtual-machines", vm, g["name"], primary)
 
     print("summary:", ", ".join(f"{k.split()[0]} {v} {k.split()[1].split('/')[-1]}" for k, v in sorted(nb.counts.items()))
           or "nothing to change")
