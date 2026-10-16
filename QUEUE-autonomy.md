@@ -102,11 +102,12 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [x] `claude-code` made a Task Runner in Semaphore (2026-10-16, checked by `/api/project/1/role`)
 - [x] Decision 10, the test folders: both kept, the split explained in each `CLAUDE.md` (2026-10-16)
 - [x] A fine-grained GitHub token for this repository, in Semaphore's "Netbox Sync" group
-- [ ] Semaphore's template "NetBox: Guests to git" (`QUEUE-netbox-shape.md` has its settings),
-      then a resize in NetBox to prove it end to end
+- [ ] Template 24 "NetBox: Guests to git" exists (task 744 wrote the file) but its arguments
+      are empty: set `["--pr"]`; then a resize in NetBox to prove it end to end.
+      `coprlxctest01a` stays as Decommissioning, the generator's skip case once it has the role
+      "Plain container"
 - [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)
 - [ ] Delete task 713 in Semaphore (it holds two replaced tokens)
-- [ ] Delete `coprlxctest01a` in NetBox
 - [ ] Set `docker_live_restore: true` on "Node: Docker Update" and run it; later
       `upgrade_docker: true` (`QUEUE.md`, decision 7)
 - [ ] Two Talos control-plane changes, rolled node by node with `talosctl` and then an
@@ -114,13 +115,12 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] `nas-block` off the hosts and the NAS, together (`QUEUE-talos.md`)
 - [x] Where the PriorityClass and LimitRanges live (2026-10-16): a hand-written release,
       `kubernetes/prod/system/cluster-policy/`, owning both (batch **cluster-policy** below)
-- [ ] A Semaphore template for `ansible/retire-ssh-keys.yml` (inventory NetBox), its dry run,
-      then your run; and your run of "Setting: Proxmox Host" for VLAN 9 (dry run task 743 clean)
+- [ ] Your real run of "Retire: Old SSH Keys" (its dry run, task 745, was clean). VLAN 9 is out
+      of Proxmox (task 748); delete its `vmbr9` and `eth5.9` interfaces in NetBox
 - [ ] Kea's three variables in Vaultwarden: `KEA_DB_PASSWORD` (Dockhand's value),
       `KEA_DB_ADDRESS` (a free MetalLB address), `KEA_DB_CLIENTS` (`QUEUE-kea-ha.md`)
-- [ ] netbox-dns: the ExternalDNS provider as a sidecar in ExternalDNS's pod rather than in the
-      NetBox stack (`QUEUE-netbox.md` phase 4, "Proposed 2026-10-16"), and if so a NetBox token
-      for it as `NETBOX_DNS_TOKEN` in Vaultwarden
+- [ ] netbox-dns: the sidecar is settled (2026-10-16); a NetBox write token for it, as
+      `NETBOX_DNS_TOKEN` in Vaultwarden, before the sidecar is deployed
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
 - [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address
       (2026-10-16, through the bitwarden-cli pod; checked in Grimmory's sync Secret)
@@ -134,7 +134,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
 resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
 small-cleanups. released-volumes waits on the owner's command. Next in order:
-kea-ha (waits on variables), postgres-retire (from 2026-10-17), netbox-dns (waits on the owner's choice), elasticsearch.
+kea-ha (waits on variables), postgres-retire (from 2026-10-17), netbox-dns (code first; deploying waits on its token), elasticsearch.
 Each push: the commit hook's suite passed; `main` pushed alone
 (`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
 plans rejected, read-only Run Command via `run_command_b64` for braces; no applies or host

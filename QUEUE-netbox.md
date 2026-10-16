@@ -106,7 +106,7 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
      API has no authentication of its own, so the provider listens only where ExternalDNS
      can reach it and nothing else can (to settle with the stack: a token in front, or a
      listener on one address that the Docker VM's firewall limits to the cluster).
-     **Proposed 2026-10-16, for the owner:** a sidecar in ExternalDNS's pod instead, its script
+     **Settled 2026-10-16 (the owner):** a sidecar in ExternalDNS's pod instead, its script
      from a ConfigMap on `python:alpine` as `zammad-bridge` and `proxmox-endpoints` run, so
      still no registry; it listens on `127.0.0.1` only, which settles the authentication
      question, and reaches NetBox's API with a DNS-only write token (`NETBOX_DNS_TOKEN`).
@@ -185,15 +185,15 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         commented `semaphore`, one on the Proxmox hosts (their shared file), one on both
         Pi-holes, one on the Docker VM; none elsewhere (Run Command task 739, every host). Semaphore
         holds only `semaphore-shared`, and each old key's last login was 2026-10-15, the day the
-        NetBox inventory took over (task 740). `ansible/retire-ssh-keys.yml` removes them: it needs
-        a Semaphore template (the owner), a dry run, then the owner's run. Left in place, each
+        NetBox inventory took over (task 740). `ansible/retire-ssh-keys.yml` removes them: template
+        "Retire: Old SSH Keys", its dry run (task 745) found one on each file; left: the owner's run. Left in place, each
         lets in whoever still holds its private half
   - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) comes out of Proxmox (the owner,
         2026-10-16): no guest, SDN or firewall rule names it (Run Command task 741, all 5
         nodes' configs); `proxmox-host.yml`'s second play removes both, one host at a time
-        (`retired_interfaces`); its dry run (task 743) passed every check on all 5 and removes
-        just those stanzas. Left: the owner's run of "Setting: Proxmox Host", then the
-        interfaces deleted in NetBox (the sync never deletes). VLAN 4 (`vmbr4`) is for
+        (`retired_interfaces`). Done 2026-10-16: the owner's run (task 748) removed both on all
+        5, each read back gone with its default route kept. Left: the interfaces deleted in
+        NetBox (the sync never deletes) VLAN 4 (`vmbr4`) is for
         later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
         prefix
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
