@@ -3,8 +3,8 @@
 **The ask (decision 5, the owner, 2026-10-16: (b)):** DHCP survives the Docker VM's host
 going down. Kea's reservations move from PostgreSQL on the Docker VM (`kea-postgres` in
 `docker/kea/`) to a CloudNativePG cluster, reached through a LoadBalancer address, so a second
-Kea can read them while the Docker VM is down; then that second Kea runs on the second
-Pi-hole's host as a hot-standby partner, the firewall relays to both, and lease names reach DNS.
+Kea can read them while the Docker VM is down; then that second Kea runs on a second
+Docker VM, on another host, as a hot-standby partner, the firewall relays to both, and lease names reach DNS.
 `QUEUE.md`'s "Kea phase 3"; `docker/kea/README.md` has phases 1 and 2.
 
 ## Settled
@@ -22,6 +22,12 @@ Pi-hole's host as a hot-standby partner, the firewall relays to both, and lease 
   hosts' addresses (`loadBalancerSourceRanges`). Kea 3.1+ connects over TLS (`ssl-mode`,
   `trust-anchor`: CloudNativePG's CA, from the `kea-db-ca` Secret, copied to the host).
 - **The same `kea` password as today**, so the site file changes only the host and TLS.
+- **The partner runs on a second Docker VM** (the owner, 2026-10-16), not a plain container: the
+  same model as the first (Docker, Dockhand through a Hawser agent, `baseline.yml`), so the
+  partner is a second deployment of `docker/kea/`, and the VM can take more stacks off the first
+  one (a second Tailscale subnet router first). 2 vCPU, 3 GiB, 32 GB, the same five bridges;
+  hand-written in `tofu/proxmox/` like the first, never on the first one's host (deprox01 has
+  the most room, ~23 GiB at peak; not the host without VT-x).
 - **`serve-retry-continue` stays:** a database that's unreachable never stops DHCP; leases and
   reservations already handed out keep working.
 
@@ -54,9 +60,11 @@ Pi-hole's host as a hot-standby partner, the firewall relays to both, and lease 
       (`pg_dump --data-only` of the host tables, run on the Docker VM), counted equal per table
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
       TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
-- [ ] The partner: a plain container on the second Pi-hole's host (NetBox's shape, its pull
-      request, an apply), Kea with the HA hook (`hot-standby`, the Docker VM's Kea primary),
-      both reading `kea-db`
+- [ ] The second Docker VM: in NetBox first (the owner: host, name, addresses), then
+      `tofu/proxmox/` builds it (a plan, the owner's apply), `baseline.yml`, Docker, Dockhand's
+      Hawser agent
+- [ ] The partner: `docker/kea/` deployed there in a partner mode, Kea with the HA hook
+      (`hot-standby`, the first Docker VM's Kea primary), both reading `kea-db`
 - [ ] The firewall's relay pointed at both Keas (the owner, in its UI)
 - [ ] The failover proved: the primary stopped, a client renews from the standby
 - [ ] Lease names into DNS (Kea's DDNS to the Pi-holes, or a sync): its own decision when here
