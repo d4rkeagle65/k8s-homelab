@@ -29,7 +29,7 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
 - [ ] The first visit runs the auto wizard: the admin exists, `fqdn` and `http_type` set, OIDC
       on; the owner logs in through Authentik and lands on the admin account (not a new
       customer)
-- [ ] Homepage's tile and Organizr's tab
+- [x] Homepage's tile (Tools, with a site monitor) and Organizr's tab (Infrastructure, admins), 2026-10-16
 - [ ] Alerts into tickets: no ready-made bridge from Alertmanager. Zammad's Checkmk endpoint
       opens a ticket, adds a note on repeats and closes it on recovery; a small translator from
       Alertmanager's webhook to that format, in the cluster, with tests
