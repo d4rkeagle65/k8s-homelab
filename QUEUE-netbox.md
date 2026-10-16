@@ -106,6 +106,10 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
      API has no authentication of its own, so the provider listens only where ExternalDNS
      can reach it and nothing else can (to settle with the stack: a token in front, or a
      listener on one address that the Docker VM's firewall limits to the cluster).
+     **Proposed 2026-10-16, for the owner:** a sidecar in ExternalDNS's pod instead, its script
+     from a ConfigMap on `python:alpine` as `zammad-bridge` and `proxmox-endpoints` run, so
+     still no registry; it listens on `127.0.0.1` only, which settles the authentication
+     question, and reaches NetBox's API with a DNS-only write token (`NETBOX_DNS_TOKEN`).
    - NetBox to Pi-hole 1 by octoDNS: `octodns-netbox-dns` as the source, `octodns-pihole`
      (the roosnic1 fork on PyPI, Pi-hole v6 through `pihole6api`; local A, AAAA and CNAME
      records only, no TTLs) as the target; nebula-sync copies Pi-hole 2 as now.
