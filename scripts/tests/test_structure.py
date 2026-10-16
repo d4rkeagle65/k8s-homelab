@@ -296,6 +296,8 @@ def test_ks_yaml_matches_its_release(repo_root, load_yaml):
                 "Kustomization under kubernetes/prod/"
             )
         assert doc["spec"]["prune"] is True
+        # Without it every ${VAR} reaches the cluster as literal text.
+        _assert_wires_substitutions(doc)
 
 
 def test_every_app_and_service_namespace_has_its_limitrange(repo_root, load_yaml):
