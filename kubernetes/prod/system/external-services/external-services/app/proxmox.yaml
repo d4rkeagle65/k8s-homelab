@@ -1,0 +1,174 @@
+# The Proxmox web UI and API at one name for the whole cluster, served by
+# whichever hosts answer. The hosts come from NetBox (devices with the role
+# Hypervisor), not git: proxmox-endpoints (proxmox-endpoints.py) checks each
+# one's API every 15 seconds and keeps this Service's EndpointSlice to the
+# ones that answer, so Flux owns the Service but never the EndpointSlice.
+#
+# A browser sticks to one host (a cookie), so a console stays on the host it
+# opened on. Each host's certificate names that host, and Traefik reaches the
+# hosts by address, so this backend alone skips the certificate check
+# (ServersTransport proxmox); the traffic stays TLS on the management network.
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxmox
+  annotations:
+    traefik.ingress.kubernetes.io/service.serversscheme: https
+    traefik.ingress.kubernetes.io/service.serverstransport: external-services-proxmox@kubernetescrd
+    traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.name: proxmox_host
+    traefik.ingress.kubernetes.io/service.sticky.cookie.secure: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.httponly: "true"
+spec:
+  type: ClusterIP
+  ports:
+  - name: https
+    port: 8006
+    targetPort: 8006
+    protocol: TCP
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: proxmox
+spec:
+  insecureSkipVerify: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: proxmox
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: proxmox.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: proxmox
+            port:
+              number: 8006
+  tls:
+  - hosts:
+    - proxmox.${BASE_DOMAIN}
+    secretName: proxmox-tls
+---
+# NetBox's read-only token, for proxmox-endpoints.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: proxmox-endpoints-netbox
+type: Opaque
+stringData:
+  token: "${NETBOX_READ_TOKEN}"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: proxmox-endpoints
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: proxmox-endpoints
+rules:
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
+  resourceNames: [proxmox]
+  verbs: [get, patch, update]
+# Server-side apply makes the EndpointSlice the first time; create can't be
+# limited by name.
+- apiGroups: [discovery.k8s.io]
+  resources: [endpointslices]
+  verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: proxmox-endpoints
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: proxmox-endpoints
+subjects:
+- kind: ServiceAccount
+  name: proxmox-endpoints
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxmox-endpoints
+  labels:
+    app.kubernetes.io/name: proxmox-endpoints
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: proxmox-endpoints
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: proxmox-endpoints
+    spec:
+      serviceAccountName: proxmox-endpoints
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: proxmox-endpoints
+        image: python:3.14.8-alpine
+        command: [python, -u, /app/proxmox-endpoints.py]
+        env:
+        # Straight to NetBox's port on the Docker host (the netbox Service),
+        # not through Traefik.
+        - name: NETBOX_URL
+          value: http://netbox.external-services.svc.${CLUSTER_DOMAIN}:8085
+        - name: NETBOX_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: proxmox-endpoints-netbox
+              key: token
+        - name: NETBOX_ROLE
+          value: hypervisor
+        - name: SERVICE
+          value: proxmox
+        - name: PORT
+          value: "8006"
+        - name: INTERVAL
+          value: "15"
+        - name: HEARTBEAT
+          value: /tmp/alive
+        # A pass that stalls (a hung call) stops touching the heartbeat.
+        livenessProbe:
+          exec:
+            command: [sh, -c, 'test $(( $(date +%s) - $(stat -c %Y /tmp/alive) )) -lt 120']
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {memory: 64Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - {name: app, mountPath: /app, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: app
+        configMap:
+          name: proxmox-endpoints
+      - name: tmp
+        emptyDir: {}

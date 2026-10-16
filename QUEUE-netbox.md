@@ -198,8 +198,9 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [ ] The owner makes a NetBox token with writes on and a read-only Proxmox token
         (PVEAuditor at `/`), and a Semaphore variable group "NetBox sync": secrets
         `NETBOX_WRITE_TOKEN`, `PROXMOX_TOKEN` (the whole `PVEAPIToken=user@realm!name=secret`),
-        `KEA_API` (`admin:` and Kea's API password); variables `PROXMOX_URL` (a Proxmox
-        host's `https://…:8006`), `KEA_URL` = `http://kea-dhcp4:8000/`
+        `KEA_API` (`admin:` and Kea's API password); variables `PROXMOX_URL` =
+        `https://proxmox.<domain>` (any answering host, `external-services/proxmox.yaml`),
+        `KEA_URL` = `http://kea-dhcp4:8000/`
   - [ ] The template "NetBox: Sync from Proxmox and Kea": app Python, script
         `scripts/netbox_seed.py`, that variable group; first a run without arguments (the dry
         run), then `--apply`, then a schedule (nightly) with `--apply`
