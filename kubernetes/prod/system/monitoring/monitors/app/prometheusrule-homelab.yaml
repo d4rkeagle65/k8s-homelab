@@ -1,0 +1,87 @@
+# The homelab's own alerts, beside the chart's: what the chart has no rule for.
+# warning and critical alerts become Zammad tickets (zammad-bridge), so each says
+# what to look at. The chart's KubePodCrashLooping and CPUThrottlingHigh already
+# cover the cluster's restart loops and throttling.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: homelab
+spec:
+  groups:
+  - name: homelab.containers
+    rules:
+    - alert: ContainerMemoryNearLimit
+      expr: |
+        max by (namespace, pod, container) (
+          container_memory_working_set_bytes{job="kubelet", container!=""}
+            / (container_spec_memory_limit_bytes{job="kubelet", container!=""} > 0)
+        ) > 0.9
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: A container is using over 90% of its memory limit.
+        description: >-
+          {{ $labels.namespace }}/{{ $labels.pod }} {{ $labels.container }} is at
+          {{ $value | humanizePercentage }} of its memory limit: raise the limit
+          (QUEUE-resource-limits.md's rules) before it's OOM-killed.
+    - alert: DockerContainerRestarting
+      expr: changes(container_start_time_seconds{job="docker-vm", name!=""}[30m]) >= 3
+      labels:
+        severity: warning
+      annotations:
+        summary: A container on the Docker VM is restarting in a loop.
+        description: >-
+          {{ $labels.name }} started {{ $value }} times in 30 minutes: read its log
+          in Dockhand.
+  - name: homelab.drives
+    rules:
+    - alert: DriveWearHigh
+      expr: nvme_percentage_used_ratio > 0.8
+      labels:
+        severity: warning
+      annotations:
+        summary: An NVMe drive has used over 80% of its rated endurance.
+        description: >-
+          {{ $labels.instance }} {{ $labels.device }} is at {{ $value | humanizePercentage }}
+          of its rated wear: plan its replacement (QUEUE.md).
+    - alert: DriveWearCritical
+      expr: nvme_percentage_used_ratio > 0.9
+      labels:
+        severity: critical
+      annotations:
+        summary: An NVMe drive has used over 90% of its rated endurance.
+        description: >-
+          {{ $labels.instance }} {{ $labels.device }} is at {{ $value | humanizePercentage }}
+          of its rated wear: replace it, or move what it carries off it.
+    - alert: DriveSpareLow
+      expr: nvme_available_spare_ratio < 2 * nvme_available_spare_threshold_ratio
+      labels:
+        severity: warning
+      annotations:
+        summary: An NVMe drive's spare capacity is near its threshold.
+        description: >-
+          {{ $labels.instance }} {{ $labels.device }} has {{ $value | humanizePercentage }}
+          spare left, under twice its threshold; at the threshold it reports failure.
+    - alert: DriveCriticalWarning
+      expr: nvme_critical_warning > 0
+      labels:
+        severity: critical
+      annotations:
+        summary: An NVMe drive reports a critical warning.
+        description: >-
+          {{ $labels.instance }} {{ $labels.device }} set its critical-warning flags
+          ({{ $value }}): read `nvme smart-log` on the host.
+  - name: homelab.nas
+    rules:
+    - alert: TerraMasterSNMPDown
+      expr: max(up{job=~".*snmp.*", nas="terramaster"}) == 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: The TerraMaster's SNMP agent stopped answering.
+        description: >-
+          Its community is a hand edit to /etc/snmp/snmpd.conf that TOS can rewrite
+          (an update, a reboot, saving SNMP in its UI): check line 33
+          (QUEUE-monitoring.md).
