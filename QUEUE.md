@@ -79,12 +79,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
   matrix) and the add-ons' ranges: Calico 3.33 is the one that covers 1.37 (3.33.0 tested on
   1.35-1.37). Bump the claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
-- **Three Proxmox hosts' node-exporters stopped answering** (port 9100: the `proxmox-hosts`
-  job, 3 of 5 down; found 2026-10-16): down 26 to 33 hours, since the hosts' upgrade and
-  reboot runs on 2026-10-15, so likely not started at boot. Their NVMe wear and disk metrics
-  are missing meanwhile. Check `prometheus-node-exporter`'s status on those hosts (Semaphore's
-  "Tool: Run Command" on `proxmox`), fix the cause, and have `host-exporters.yml` enable it.
-
 ## Cleanup
 
 - **`prod/apps/media/lidarr/migrations/`**: six Jobs from Lidarr's move off SQLite (`01-rename-tables-job.yaml`
