@@ -28,6 +28,7 @@ spec:
       configMaps:
       - authentik-blueprints
     global:
+      priorityClassName: homelab-critical
       env:
       - name: AUTHENTIK_POSTGRESQL__USER
         valueFrom:
