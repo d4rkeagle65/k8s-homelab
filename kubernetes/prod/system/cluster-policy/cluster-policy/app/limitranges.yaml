@@ -1,0 +1,235 @@
+# Defaults for a container that sets no requests or limits of its own, in every
+# apps and services namespace (QUEUE-resource-limits.md's floor and ceiling).
+# Only defaults: a container's own values always win, and nothing is capped.
+# Applied when a pod is created, so a running pod changes only at its restart.
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: authentik
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: babybuddy
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: cnpg-system
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: emby
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: grimmory
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: homeassistant
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: homepage
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: immich
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: linkwarden
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: manictime
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: mealie
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: media
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: mesh-mini
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: mqtt
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: n8n
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: obsidian
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: organizr
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: redis-ha
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: renovate
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: smtp-relay
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
+  namespace: zammad
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
