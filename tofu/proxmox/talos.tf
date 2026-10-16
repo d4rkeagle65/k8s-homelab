@@ -6,7 +6,7 @@
 # The image, once, on the NAS's shared storage, which every host reads; the
 # Image Factory serves it as qcow2, which Proxmox imports as a disk.
 resource "proxmox_download_file" "talos_nocloud" {
-  node_name    = var.site.guests[keys(local.talos_nodes)[0]].node
+  node_name    = local.guest[keys(local.talos_nodes)[0]].node
   datastore_id = "syn-nfs"
   content_type = "import"
   url          = "https://factory.talos.dev/image/${local.talos_schematic}/${local.talos_version}/nocloud-amd64.qcow2"
@@ -17,9 +17,9 @@ resource "proxmox_download_file" "talos_nocloud" {
 resource "proxmox_virtual_environment_vm" "talos" {
   for_each = local.talos_nodes
 
-  node_name = var.site.guests[each.key].node
+  node_name = local.guest[each.key].node
   vm_id     = tonumber(each.key)
-  name      = var.site.guests[each.key].hostname
+  name      = local.guest[each.key].name
   on_boot   = true
   tags      = ["k8s", "talos", each.value.role == "controlplane" ? "k8s-control" : "k8s-worker"]
 
@@ -97,7 +97,7 @@ resource "proxmox_virtual_environment_vm" "talos" {
       for_each = local.k8s_bridges
       content {
         ipv4 {
-          address = "${var.site.networks[ip_config.value].prefix}.${var.site.guests[each.key].host}/${var.site.networks[ip_config.value].prefix_length}"
+          address = "${var.site.networks[ip_config.value].prefix}.${local.guest[each.key].host}/${var.site.networks[ip_config.value].prefix_length}"
           gateway = var.site.networks[ip_config.value].gateway
         }
       }
@@ -111,8 +111,11 @@ resource "proxmox_virtual_environment_vm" "talos" {
     type = "l26"
   }
 
+  # The host is NetBox's (netbox.tf), and HA or a migration can move a node
+  # before the nightly sync records it: a move is never a change here.
   lifecycle {
     prevent_destroy = true
+    ignore_changes  = [node_name]
   }
 }
 

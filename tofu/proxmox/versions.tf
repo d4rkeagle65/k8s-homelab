@@ -18,6 +18,11 @@ terraform {
       source  = "hashicorp/tls"
       version = "4.4.1"
     }
+    # Each guest's host, name and addresses, from NetBox's GraphQL (netbox.tf).
+    http = {
+      source  = "hashicorp/http"
+      version = "3.6.2"
+    }
   }
 
   # State in Semaphore's PostgreSQL (database tfstate, tfstate-db-init in

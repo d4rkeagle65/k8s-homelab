@@ -195,29 +195,28 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
       octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
       to answer the same names before and after
-- [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` (a secret JSON in
-      Semaphore, master copy a Vaultwarden note) stops carrying a second, hand-kept copy of
-      it. One owner per value: NetBox for each guest's VMID, node, hostname, address per
-      bridge and MACs; `TF_VAR_site` keeps only the stable facts (each network's prefix and
-      gateway, the nodes' DNS servers and search domain, the Talos cluster values). Not a
-      script that rewrites `TF_VAR_site` from NetBox: two copies that drift, and secrets
-      written by a script.
-  - [ ] The provider `e-breuninger/netbox` 5.8.0 in `tofu/proxmox` (v2 `nbt_` tokens
-        detected; NetBox 4.7 is past its tested list, which only warns), in Renovate's view.
-        `NETBOX_SERVER_URL` and `NETBOX_API_TOKEN` (the provider's names) from the semaphore
-        stack, forwarded like `NETBOX_API` and `NETBOX_TOKEN`; the read-only token is enough
-  - [ ] `var.site.guests` replaced by data sources: VMs by the `vmid` custom field, their
-        device (node) and name, each interface's address (last octet) and MAC. The existing
-        validations kept: every VMID in `guests.tf` has a NetBox VM with a node and an
-        address on each bridge it needs
-  - [ ] Gate: `tofu plan` shows no change before and after the switch; then the owner trims
-        `TF_VAR_site` in Semaphore and the Vaultwarden note
+- [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` stops carrying a
+      second, hand-kept copy of it. One owner per value: NetBox for each guest's VMID, node,
+      name, addresses and MACs; `TF_VAR_site` keeps the stable facts (each network's prefix
+      and gateway, the nodes' DNS servers and search domain, the Talos cluster values).
+      Written 2026-10-16 (`tofu/proxmox/netbox.tf`: one GraphQL query through NetBox's route
+      by the `http` provider, a read-only token; `local.guest` replaces `var.site.guests`;
+      the Docker VM and the Talos VMs ignore `node_name`, so an HA move is never a change;
+      the retired LXC nodes out). Checked before pushing: for all ten guests, NetBox's node,
+      name, last octet and the Docker VM's MACs equal the "OpenTofu site (Proxmox)" note's.
+      Left:
+  - [ ] The owner sets, in Semaphore's "OpenTofu: Proxmox and Talos" variable group, the
+        environment variable `TF_VAR_netbox_url` = `https://netbox.<domain>` and the secret
+        environment variable `TF_VAR_netbox_token` (Vaultwarden's `NETBOX_READ_TOKEN`), before
+        the change reaches `main`
+  - [ ] Gate: a plan-only run of "OpenTofu: Proxmox and Talos" shows no change to any guest
+        (101-106 found gone and dropped from the state); rejected, not applied
+  - [ ] Then the owner trims `TF_VAR_site`: `guests` out of the Vaultwarden note and
+        Semaphore's copy (ignored meanwhile)
   - [ ] A new guest from then on: made in NetBox first (VMID, node, name, address, status
-        Planned), then OpenTofu builds it, and the nightly seed adds its MACs and marks it
-        active. The seed has to leave a Planned VM's fields alone until Proxmox has it
-  - [ ] `ignore_changes = [node_name]` on the HA and Talos VMs (no change in the plan), so
-        an HA move or migration never needs NetBox edited first; a host picked from free
-        memory for new guests
+        Planned), then OpenTofu builds it, and the nightly sync adds its MACs and marks it
+        active; the sync has to leave a Planned VM's fields alone until Proxmox has it
+  - [ ] A host picked from free memory for new guests
 
 ## Resuming
 

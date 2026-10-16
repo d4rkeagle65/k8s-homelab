@@ -6,27 +6,29 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
 
 | Module | Owns |
 |---|---|
-| `proxmox/` | The Proxmox guests: the Kubernetes node containers, the Talos VMs replacing them (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes and the Docker VM (not the Windows DC). |
+| `proxmox/` | The Proxmox guests: the Talos VMs (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes and the Docker VM (not the Windows DC). |
 | `cloudflare/` | The hand-made DNS records in both Cloudflare zones (not the tunnel controller's records, the tunnel's public hostnames, or cert-manager's challenges: each has its own owner). |
 
 ## What lives where
 
 - **The shape** (VMIDs, roles, sizes, bridges, tags) is in git, and nothing else: no names,
   addresses or numbers from the site.
-- **What's specific to the site** is one JSON value, `TF_VAR_site`: each bridge's network
-  prefix and gateway, the nodes' DNS settings, and per guest its Proxmox host, host name and
-  last octet (the Docker VM: its MACs instead). `variables.tf` describes it and checks it
-  before anything is read.
+- **Each guest's Proxmox host, name, addresses and MACs are NetBox's** (`netbox.tf`): one
+  GraphQL query at every plan, by the VMID custom field, with a read-only token. NetBox's
+  nightly sync (`scripts/netbox_seed.py`) keeps them in step with Proxmox. A plan stops when
+  NetBox doesn't answer, and warns when a guest lacks a node, name or main-network address.
+  The Docker VM and the Talos VMs ignore their host (`node_name`): HA or a migration moves
+  them before the sync records it.
+- **What's specific to the site and NetBox doesn't hold** is one JSON value, `TF_VAR_site`:
+  each bridge's network prefix and gateway, the nodes' DNS settings, and the Talos cluster's
+  values. `variables.tf` describes it and checks it before anything is read.
   - Its **master copy is a Vaultwarden note** ("OpenTofu site (Proxmox)"). Semaphore hides a
     secret once saved, so a change is made in the note and the whole note pasted into the
     `TF_VAR_site` secret, then checked with a plan.
-  - It changes only when a guest is added, moved, renamed or re-addressed. A plan that wants
-    to replace a guest usually means it moved and the note didn't: `prevent_destroy` stops
-    the apply, and the fix is the note, then Semaphore's copy, then a fresh plan.
 - **The state** is in Semaphore's PostgreSQL, database `tfstate`, schema per module
   (`backend "pg"`); it holds the same site values, so it never goes in git.
-- **What an API token can't set** (the raw `lxc.*` lines, container features other than
-  nesting) is set at creation and ignored afterwards; Ansible owns it.
+- **What an API token can't set** (container features other than nesting) is set at
+  creation and ignored afterwards; Ansible owns it.
 
 ## Semaphore setup (once per module)
 
@@ -59,7 +61,9 @@ OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-
    - secrets: `PROXMOX_VE_API_TOKEN` = `tofu@pve!semaphore=<secret>`,
      `PG_CONN_STR` = `postgres://tfstate:<TFSTATE_DB_PASSWORD>@semaphore-postgres:5432/tfstate?sslmode=disable`,
      `TF_VAR_site` = the JSON value, `TF_VAR_talos_secrets` = the Talos secrets (`TALOS_SECRETS`
-     in Vaultwarden: the base64 of a `secrets.yaml`). The state then holds the Talos secrets and
+     in Vaultwarden: the base64 of a `secrets.yaml`), `TF_VAR_netbox_token` = a read-only
+     NetBox token (Vaultwarden's `NETBOX_READ_TOKEN`); variable `TF_VAR_netbox_url` =
+     `https://netbox.<domain>`. The state then holds the Talos secrets and
      an admin certificate for every Talos node's API, so it's as secret as they are.
 3. **A template**, type OpenTofu, repository this one, subdirectory `tofu/proxmox`, that
    environment. Each run plans first and waits for a confirmation before it applies; reject it

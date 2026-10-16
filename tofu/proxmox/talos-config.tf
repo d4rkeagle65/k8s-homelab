@@ -24,7 +24,7 @@ locals {
   kubernetes_version = "1.36.5"
 
   # The Talos nodes, by VMID: their role and size here, their host, name and
-  # last octet in TF_VAR_site, as for the other guests (README.md). A node is
+  # last octet in NetBox (netbox.tf), as for the other guests. A node is
   # added by a commit of its own, so an apply builds one node (tofu/CLAUDE.md).
   # apply_mode: "auto" while a node is being created (its first config installs
   # Talos and reboots once), then "no_reboot", so a later change that would
@@ -49,7 +49,7 @@ locals {
   # Each node's address on the main network, the one its kubelet and etcd use.
   talos_net     = var.site.networks["vmbr7"]
   talos_subnet  = "${local.talos_net.prefix}.0/${local.talos_net.prefix_length}"
-  talos_address = { for id, _ in local.talos_nodes : id => "${local.talos_net.prefix}.${var.site.guests[id].host}" }
+  talos_address = { for id, _ in local.talos_nodes : id => "${local.talos_net.prefix}.${local.guest[id].host}" }
 
   # secrets.yaml's shape, as the provider names it; the certificates stay in
   # the same base64-wrapped PEM.
