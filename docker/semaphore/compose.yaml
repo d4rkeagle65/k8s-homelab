@@ -149,7 +149,19 @@ services:
         "scopes": ["openid", "profile", "email"],
         "username_claim": "email",
         "name_claim": "name"}}
+    # At every start the image pip-installs /etc/semaphore/requirements.txt into the
+    # Python that Ansible runs in.
+    configs:
+    - source: python_requirements
+      target: /etc/semaphore/requirements.txt
     volumes:
     - /opt/semaphore/config:/etc/semaphore
     - /opt/semaphore/data:/var/lib/semaphore
     - /opt/semaphore/tmp:/tmp/semaphore
+
+configs:
+  # What the playbooks and inventories need beyond the image's Python packages:
+  # pytz for the NetBox inventory (ansible/inventory/netbox.yml).
+  python_requirements:
+    content: |
+      pytz
