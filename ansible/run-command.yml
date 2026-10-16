@@ -9,6 +9,10 @@
 #                    commas, spaces or new lines; every name must be in the
 #                    inventory, or nothing runs
 #   run_timeout      optional: seconds before the command is stopped (300)
+#   run_command_b64  optional, in place of run_command: the command base64-encoded.
+#                    Ansible expands {{ ... }} in a variable's value, so a command
+#                    holding braces (docker's --format '{{.Names}}') fails as
+#                    run_command; decoded from base64 it is used exactly as given.
 #
 # It goes through `raw`, which needs no Python on the host (the access points
 # have none), so the output is the terminal's: stdout and stderr together.
@@ -22,17 +26,18 @@
   hosts: localhost
   gather_facts: false
   vars:
+    the_command: "{{ run_command_b64 | b64decode if run_command_b64 | default('') | length > 0 else run_command | default('') }}"
     names: "{{ (run_hosts | default('')) | regex_replace('[,\\s]+', ' ') | trim | split(' ') | reject('equalto', '') | list }}"
     known: "{{ groups['all'] + (groups.keys() | list) }}"
   tasks:
     - name: A command and at least one host were given, all of them known
       ansible.builtin.assert:
         that:
-          - (run_command | default('') | trim) != ''
+          - (the_command | trim) != ''
           - names | length > 0
           - names | difference(known) | length == 0
         fail_msg: >-
-          {{ 'No command given. ' if (run_command | default('') | trim) == '' else '' }}{{
+          {{ 'No command given. ' if (the_command | trim) == '' else '' }}{{
           'No hosts given. ' if names | length == 0 else '' }}{{
           ('Not in the inventory: ' ~ (names | difference(known) | join(', ')) ~ '. ')
           if names | difference(known) else '' }}Nothing was run.
@@ -42,6 +47,7 @@
       ansible.builtin.add_host:
         name: "{{ item }}"
         groups: run_command_targets
+        run_the_command: "{{ the_command }}"
       # Each host named, and every host in each group named.
       loop: >-
         {{ (names | intersect(groups['all'])
@@ -53,7 +59,7 @@
   gather_facts: false
   tasks:
     - name: Run it
-      ansible.builtin.raw: "{{ run_command }}"
+      ansible.builtin.raw: "{{ run_the_command }}"
       register: run_result
       timeout: "{{ run_timeout | default(300) | int }}"
       failed_when: false
