@@ -27,6 +27,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **tigera-operator lands back on a node that's shutting down** (found 2026-10-16): its
+  tolerations are "every NoSchedule and NoExecute taint" (the chart's default), so when a
+  Talos node shuts down each replacement pod is scheduled onto it again and rejected; 92
+  rejected pods piled up when a worker went down (cleared by hand). Narrow `tolerations` in
+  `prod/system/tigera-operator/tigera-operator/app/values.yaml` to the control-plane,
+  `not-ready` and `network-unavailable` taints (it must still start before the CNI is ready);
+  left as is, every node shutdown leaves a pile and the operator is down until it ends.
 - **Containers still without health probes** (2026-10-16): NetBox's worker on the Docker VM
   (no port: an exec probe on the rq worker, in `docker/netbox/compose.yaml`). n8n's task
   runners (the launcher's `/healthz` on 5680) and External Secrets' controller (its chart's
