@@ -205,12 +205,9 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       the retired LXC nodes out). Checked before pushing: for all ten guests, NetBox's node,
       name, last octet and the Docker VM's MACs equal the "OpenTofu site (Proxmox)" note's.
       Left:
-  - [ ] The owner sets, in Semaphore's "OpenTofu: Proxmox and Talos" variable group, the
-        environment variable `TF_VAR_netbox_url` = `https://netbox.<domain>` and the secret
-        environment variable `TF_VAR_netbox_token` (Vaultwarden's `NETBOX_READ_TOKEN`), before
-        the change reaches `main`
-  - [ ] Gate: a plan-only run of "OpenTofu: Proxmox and Talos" shows no change to any guest
-        (101-106 found gone and dropped from the state); rejected, not applied
+  - [x] Live 2026-10-16: `TF_VAR_netbox_url` and `TF_VAR_netbox_token` in Semaphore's
+        "OpenTofu: Proxmox and Talos" group; its plan (task 724) read NetBox and found no
+        changes. 101-106 stay in the state until an apply with a change writes the refresh
   - [ ] Then the owner trims `TF_VAR_site`: `guests` out of the Vaultwarden note and
         Semaphore's copy (ignored meanwhile)
   - [ ] A new guest from then on: made in NetBox first (VMID, node, name, address, status
