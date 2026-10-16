@@ -20,6 +20,8 @@ default) reports what it would create or change; --apply writes it. Safe to
 run again: it finds each object by name (or address) and changes only what
 differs, and never deletes anything.
 
+Guests not yet in Proxmox come from NETBOX_PLANNED (planned_guests says how).
+
 Credentials are never arguments. Each comes from an environment variable when it's
 set (Semaphore's variable group), else from a file in the home folder:
 NETBOX_WRITE_TOKEN or ~/.netbox-token (a write-enabled NetBox token, "nbt_...";
@@ -123,6 +125,40 @@ def agent_on(value: str) -> bool:
 def bridge_of(value: str) -> str | None:
     m = re.search(r"\bbridge=(\w+)", value)
     return m.group(1) if m else None
+
+
+def host_in(subnet: str, octet: int) -> str:
+    """The address with this last octet in a subnet (a guest uses the same one on
+    every network), with the subnet's length; refused when it falls outside it."""
+    net = ipaddress.ip_network(subnet)
+    addr = ipaddress.ip_address(int(net.network_address) + int(octet))
+    if addr not in net or addr in (net.network_address, net.broadcast_address):
+        raise ValueError(f"octet {octet} isn't a host address in {subnet}")
+    return f"{addr}/{net.prefixlen}"
+
+
+PLANNED_KEYS = {"name", "vmid", "device", "vcpus", "memory", "octet", "bridges"}
+
+
+def planned_guests(text: str) -> list[dict]:
+    """NETBOX_PLANNED: a JSON list of guests to enter before Proxmox has them, each
+    {name, vmid, device (its Proxmox host), vcpus, memory (MB), octet (the last one
+    of its address on every network), bridges ([vmbr0, ...], net0 first), and
+    optionally primary (the bridge whose address is primary, vmbr0 by default)}.
+    Names are the site's, so they're in Semaphore's environment, never in git."""
+    if not text.strip():
+        return []
+    try:
+        guests = json.loads(text)
+    except ValueError as e:
+        raise SystemExit(f"FAIL: NETBOX_PLANNED isn't JSON ({e.msg}); nothing done")
+    if not isinstance(guests, list):
+        raise SystemExit("FAIL: NETBOX_PLANNED must be a JSON list; nothing done")
+    for i, g in enumerate(guests):
+        missing = PLANNED_KEYS - set(g) if isinstance(g, dict) else PLANNED_KEYS
+        if missing:
+            raise SystemExit(f"FAIL: NETBOX_PLANNED entry {i} lacks {', '.join(sorted(missing))}; nothing done")
+    return guests
 
 
 def network_for(bridge_addresses: list[str], kea_subnets: list[str]) -> str | None:
@@ -316,6 +352,7 @@ def main() -> None:
             if br:
                 bridge_addrs.setdefault(br, []).extend(addrs)
     prefixes = {}
+    bridge_subnet: dict[str, str] = {}
     vlans: dict[str, dict] = {}  # by bridge
     vlan_by_vid: dict[int, dict] = {}
     for net in cfg["networks"]:
@@ -332,6 +369,7 @@ def main() -> None:
         fields = {"scope_type": "dcim.site", "scope_id": site["id"], "status": "active",
                   "description": net["name"], "vlan": vlan["id"] if vlan else None}
         prefixes[subnet] = nb.ensure("ipam/prefixes", {"prefix": subnet}, fields, net["name"])
+        bridge_subnet[net["bridge"]] = subnet
         for first, last in kea_pools.get(subnet, []):
             plen = subnet.split("/")[1]
             nb.ensure("ipam/ip-ranges", {"start_address": f"{first}/{plen}"},
@@ -486,6 +524,42 @@ def main() -> None:
                     primary = ip
         if primary:
             nb.set_ref("virtualization/virtual-machines", vm, "primary_ip4", primary, g["name"])
+
+    # Guests entered before Proxmox has them (status Planned), so OpenTofu finds
+    # their host, name and addresses: made once, then NetBox's like any other.
+    planned = planned_guests(os.environ.get("NETBOX_PLANNED", ""))
+    if planned:
+        print("planned guests:")
+    for p in planned:
+        if nb.find("virtualization/virtual-machines", name=p["name"]):
+            print(f"  {p['name']}: already in NetBox, left as it is (remove it from planned)")
+            continue
+        addrs = {}
+        for i, bridge in enumerate(p["bridges"]):
+            if bridge not in bridge_subnet:
+                raise SystemExit(f"FAIL: planned {p['name']}: no network known for {bridge}; nothing made for it")
+            addr = host_in(bridge_subnet[bridge], p["octet"])
+            taken = nb.find("ipam/ip-addresses", address=addr)
+            if taken:
+                raise SystemExit(f"FAIL: planned {p['name']}: {bridge}'s address is already in NetBox; nothing made for it")
+            addrs[f"net{i}"] = (bridge, addr)
+        vm = nb.ensure("virtualization/virtual-machines", {"name": p["name"]},
+                       {"cluster": cluster["id"], "status": "planned", "site": site["id"],
+                        "device": node_devs[p["device"]]["id"], "vcpus": p["vcpus"], "memory": p["memory"],
+                        "custom_fields": {"vmid": int(p["vmid"])}, "description": f"Proxmox qemu {p['vmid']} (planned)"},
+                       p["name"])
+        primary = None
+        for key, (bridge, addr) in addrs.items():
+            vlan = vlans.get(bridge)
+            itf = nb.ensure("virtualization/interfaces", {"virtual_machine_id": vm["id"], "name": key},
+                            {"virtual_machine": vm["id"], "description": f"Proxmox bridge {bridge}",
+                             "mode": "access" if vlan else None, "untagged_vlan": vlan["id"] if vlan else None},
+                            f"{p['name']} {key}")
+            ip = address(addr, "virtualization.vminterface", itf["id"], f"{p['name']} {key}")
+            if bridge == p.get("primary", "vmbr0"):
+                primary = ip
+        if primary:
+            nb.set_ref("virtualization/virtual-machines", vm, "primary_ip4", primary, p["name"])
 
     print("summary:", ", ".join(f"{k.split()[0]} {v} {k.split()[1].split('/')[-1]}" for k, v in sorted(nb.counts.items()))
           or "nothing to change")

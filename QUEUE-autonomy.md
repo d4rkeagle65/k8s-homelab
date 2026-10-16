@@ -99,7 +99,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [x] A fine-grained GitHub token for this repository, in Semaphore's "Netbox Sync" group
 - [ ] Pull request #15 (VM 115's memory, from template 24's task 753): merge it for the
       end-to-end plan, or close it and put NetBox back.
-      `coprlxctest01a` stays as Decommissioning, the generator's skip case once it has the role
+      The test container (VMID 199) stays as Decommissioning, the generator's skip case once it has the role
       "Plain container"
 - [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)
 - [ ] Delete task 713 in Semaphore (it holds two replaced tokens)
@@ -118,8 +118,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
 - [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address
       (2026-10-16, through the bitwarden-cli pod; checked in Grimmory's sync Secret)
-- [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), VT-x in the third
-      host's BIOS, the second Pi-hole on the DMZ's static clients, the TerraMaster SNMP bug
+- [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), the second Pi-hole on the DMZ's static clients, the TerraMaster SNMP bug
       reported
 
 ## Resuming

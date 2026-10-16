@@ -26,8 +26,8 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
   same model as the first (Docker, Dockhand through a Hawser agent, `baseline.yml`), so the
   partner is a second deployment of `docker/kea/`, and the VM can take more stacks off the first
   one (a second Tailscale subnet router first). 2 vCPU, 3 GiB, 32 GB, the same five bridges;
-  hand-written in `tofu/proxmox/` like the first, never on the first one's host (deprox01 has
-  the most room, ~23 GiB at peak; not the host without VT-x).
+  hand-written in `tofu/proxmox/` like the first, never on the first one's host (the owner chose
+  the 62 GiB host, ~23 GiB free at peak, for game servers later).
 - **`serve-retry-continue` stays:** a database that's unreachable never stops DHCP; leases and
   reservations already handed out keep working.
 
@@ -58,11 +58,15 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
 - [x] The cluster (2026-10-16): `kea-db` healthy, its LoadBalancer `kea-db-lan` at
       `KEA_DB_ADDRESS`, WAL archived to Garage (5, none failed); from the Docker VM (Run Command
       task 754) `kea` logs in over TLS 1.3 with today's password, and `pg_hba` refuses it without TLS
-- [ ] The copy: Kea's schema made by `kea-admin` on the new database, the reservations copied
-      (`pg_dump --data-only` of the host tables, run on the Docker VM), counted equal per table
+- [x] The copy (2026-10-16, Run Command task 757): `kea-admin` made schema 34.0 (the old one's)
+      over TLS; `hosts` copied (51 rows, the only table with data; `dhcp4_options` and
+      `ipv6_reservations` empty), every row's md5 equal, the id sequence at 51 in both. A
+      reservation changed in Stork before the cutover means copying again (drop and re-run)
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
       TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
-- [ ] The second Docker VM: in NetBox first (the owner: host, name, addresses), then
+- [ ] The second Docker VM: in NetBox first (VMID 120, on the 62 GiB host, 4 vCPU and 8 GiB,
+      `.41` on management and Production; the seed's `NETBOX_PLANNED`, set once in Semaphore's
+      "Netbox Sync" group and cleared after), then
       `tofu/proxmox/` builds it (a plan, the owner's apply), `baseline.yml`, Docker, Dockhand's
       Hawser agent
 - [ ] The partner: `docker/kea/` deployed there in a partner mode, Kea with the HA hook

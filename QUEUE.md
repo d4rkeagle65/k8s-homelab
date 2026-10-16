@@ -27,6 +27,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Hostnames in the public queue files** (found 2026-10-16): `QUEUE-talos.md` names the Talos
+  nodes (its phase 2 and worker entries), against the no-hostnames rule, and `.secret-words`
+  doesn't list them, so the hook let them through. Replace them with VMIDs and roles, and add
+  the naming scheme's prefixes to `.secret-words` so the hook catches the next one; the git
+  history keeps the old text.
 - **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
   check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
   the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
@@ -113,14 +118,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
   static clients still list only `172.16.228.3` and lose DNS while Pi-hole 1's host
   reboots. Add `172.16.228.4` on each by hand.
-- **Switch on VT-x in the third Proxmox host's BIOS** ("Intel Virtualization Technology"): its CPU
-  supports it but the host reports no `vmx` flag, so it can't run any VM, and it's the Docker
-  VM's evacuation target (the most free memory). The 2026-10-08 upgrade's migration there
-  failed; `ansible/tasks/evacuate-check.yml` now stops a run before trying. It can't be set
-  from Linux: the kernel's `hp-bioscfg` reads the settings but this 2016 firmware refuses
-  writes (`hp_bioscfg: Returned error 0x4, "Invalid command type"`), so it's F10 at boot,
-  Advanced → System Options. Until then the Proxmox inventory's `evacuate` points at another
-  host; with the ARC caps (`proxmox-host.yml`) that one has room without a temporary cap.
+- **The Proxmox inventory's `evacuate` can point back at the host with the most free memory:**
+  VT-x is on in every host (Run Command task 755, 2026-10-16: `vmx`, `kvm_intel` and `/dev/kvm`
+  on all five), so the override that steered the Docker VM's evacuation away from the third host
+  is no longer needed. Check the config context in NetBox, then drop it.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Dockhand's own data** (`/opt/dockhand`, SQLite: its environments, Git stacks and their
