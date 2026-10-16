@@ -85,9 +85,11 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       `homelab-critical` and a `container-defaults` LimitRange per apps and services namespace;
       `test_every_app_and_service_namespace_has_its_limitrange` keeps that list whole). Every
       container the defaults reach peaked well inside them over 7 days (the Barman sidecars
-      164Mi). Left: `priorityClassName: homelab-critical` on the databases (each CloudNativePG
-      Cluster's `spec.priorityClassName`), Authentik, Traefik and monitoring, one workload at a
-      time, each checked Running before the next
+      164Mi). The 14 PostgreSQL 18 clusters carry it (the `-postgres` ones retiring
+      2026-10-17 don't); CloudNativePG doesn't roll pods for it, so each pod takes it when next
+      recreated (zammad-db's replica was, and came back with it, streaming). Left:
+      `priorityClassName: homelab-critical` on Authentik, Traefik and monitoring, one workload
+      at a time, each checked Running before the next
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [ ] **ssh-keys:** a playbook removing the four deleted Semaphore keys from `authorized_keys`,

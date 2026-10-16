@@ -9,6 +9,8 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   instances: 2
+  # Scheduled before ordinary pods when nodes are short (cluster-policy).
+  priorityClassName: homelab-critical
   affinity:
     podAntiAffinityType: preferred
   enablePDB: true

@@ -22,6 +22,8 @@ spec:
   failoverDelay: 0
   imageName: ghcr.io/cloudnative-pg/postgresql:15
   instances: 2
+  # Scheduled before ordinary pods when nodes are short (cluster-policy).
+  priorityClassName: homelab-critical
   logLevel: info
   maxSyncReplicas: 0
   minSyncReplicas: 0
