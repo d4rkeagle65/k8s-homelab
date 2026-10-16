@@ -6,4 +6,5 @@ metadata:
     homelab.local/data: files
     homelab.local/exposure: cluster
     homelab.local/login: none
+    pod-security.kubernetes.io/enforce: baseline
   name: renovate

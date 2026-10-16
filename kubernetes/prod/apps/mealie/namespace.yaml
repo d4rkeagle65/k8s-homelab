@@ -6,4 +6,5 @@ metadata:
     homelab.local/data: database
     homelab.local/exposure: lan
     homelab.local/login: authentik-oidc
+    pod-security.kubernetes.io/enforce: baseline
   name: mealie

@@ -8,6 +8,7 @@ metadata:
     homelab.local/data: database
     homelab.local/exposure: internet
     homelab.local/login: authentik-proxy
+    pod-security.kubernetes.io/enforce: baseline
   name: babybuddy
 spec:
   finalizers:
