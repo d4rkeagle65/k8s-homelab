@@ -138,11 +138,19 @@ spec:
                   secretKeyRef:
                     name: n8n
                     key: runners-auth-token
+            # The launcher's health server (/healthz on 5680, on the pod's
+            # address), not the runners' own (5681, off unless enabled).
             probes:
-              liveness:
-                enabled: false
-              readiness:
-                enabled: false
+              liveness: &runnerprobe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 5680
+                  periodSeconds: 30
+                  failureThreshold: 5
+              readiness: *runnerprobe
               startup:
                 enabled: false
             # The task runners run workflows' code, hence the room above

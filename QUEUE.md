@@ -34,15 +34,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
 
 ## Next
 
-- **Containers still without health probes** (2026-10-12 survey; the media apps, Organizr,
-  the exporters and Mosquitto got theirs after Sonarr and Bookshelf hung at start, counted
-  ready, when all the workers rebooted at once). Left: n8n's task runners (they serve
-  `/healthz` once `N8N_RUNNERS_HEALTH_CHECK_SERVER_ENABLED` is set; check the endpoint
-  before adding a liveness probe, or the runners restart in a loop), NetBox's worker (no
-  port: an exec probe on the rq worker), External Secrets' controller and cert-manager's
-  cainjector (their charts' probe settings), and the config-reloader and dashboard
-  sidecars, which are the charts' own. Calico, kube-proxy, Authentik's outposts and the
-  tunnel connector belong to their operators.
+- **Containers still without health probes** (2026-10-16): NetBox's worker on the Docker VM
+  (no port: an exec probe on the rq worker, in `docker/netbox/compose.yaml`). n8n's task
+  runners (the launcher's `/healthz` on 5680) and External Secrets' controller (its chart's
+  probes) got theirs; cert-manager's cainjector has no health endpoint (its 1.21 chart offers
+  no probe); the config-reloader and dashboard sidecars, Calico, kube-proxy, Authentik's
+  outposts and the tunnel connector belong to their charts and operators.
 - **Pod Security: `restricted` where it holds.** Since 2026-10-16 every namespace whose pods
   pass enforces `baseline` (`pod-security.kubernetes.io/enforce` in its `namespace.yaml`; each
   checked by a server-side dry run of the label and its workload templates, CronJobs
