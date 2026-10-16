@@ -1,0 +1,74 @@
+# Runs one shell command on the hosts named, and prints each host's output in
+# the run's log: the owner starts it from Semaphore and passes on the task ID,
+# rather than running the command by hand and pasting what it printed.
+#
+# Inputs (the template's survey):
+#   run_command      the command, run by the remote login shell (sh on the
+#                    OpenWrt access points, so no bash-only syntax there)
+#   run_hosts        one or more inventory hosts or groups, separated by
+#                    commas, spaces or new lines; every name must be in the
+#                    inventory, or nothing runs
+#   run_timeout      optional: seconds before the command is stopped (300)
+#
+# It goes through `raw`, which needs no Python on the host (the access points
+# have none), so the output is the terminal's: stdout and stderr together.
+# A command that exits non-zero fails that host after printing its output.
+# What the command prints lands in Semaphore's log, kept with the task: never
+# run one that prints a secret.
+#
+# In check mode (--check) it lists the hosts it would run on and runs nothing.
+
+- name: The hosts named are in the inventory
+  hosts: localhost
+  gather_facts: false
+  vars:
+    names: "{{ (run_hosts | default('')) | regex_replace('[,\\s]+', ' ') | trim | split(' ') | reject('equalto', '') | list }}"
+    known: "{{ groups['all'] + (groups.keys() | list) }}"
+  tasks:
+    - name: A command and at least one host were given, all of them known
+      ansible.builtin.assert:
+        that:
+          - (run_command | default('') | trim) != ''
+          - names | length > 0
+          - names | difference(known) | length == 0
+        fail_msg: >-
+          {{ 'No command given. ' if (run_command | default('') | trim) == '' else '' }}{{
+          'No hosts given. ' if names | length == 0 else '' }}{{
+          ('Not in the inventory: ' ~ (names | difference(known) | join(', ')) ~ '. ')
+          if names | difference(known) else '' }}Nothing was run.
+        quiet: true
+
+    - name: Gather them into one group
+      ansible.builtin.add_host:
+        name: "{{ item }}"
+        groups: run_command_targets
+      # Each host named, and every host in each group named.
+      loop: >-
+        {{ (names | intersect(groups['all'])
+            + names | intersect(groups.keys() | list) | map('extract', groups) | flatten) | unique }}
+      changed_when: false
+
+- name: Run the command
+  hosts: run_command_targets
+  gather_facts: false
+  tasks:
+    - name: Run it
+      ansible.builtin.raw: "{{ run_command }}"
+      register: run_result
+      timeout: "{{ run_timeout | default(300) | int }}"
+      failed_when: false
+      changed_when: false
+
+    - name: Its output
+      ansible.builtin.debug:
+        msg:
+          rc: "{{ run_result.rc | default('not run') }}"
+          output: "{{ run_result.stdout_lines | default([]) }}"
+      when: not ansible_check_mode
+
+    - name: It exited 0
+      ansible.builtin.assert:
+        that: run_result.rc | default(0) == 0
+        fail_msg: "Exited {{ run_result.rc }} (its output is above)."
+        quiet: true
+      when: not ansible_check_mode
