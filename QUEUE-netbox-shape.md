@@ -68,11 +68,12 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 - [x] `--pr` through GitHub's API: the branch moved to main, the file committed, the pull request
       opened or updated; the token only in a header (tested against a fake GitHub)
 - [x] The owner's GitHub token, in Semaphore's "Netbox Sync" group as `GITHUB_TOKEN`
-- [ ] The template "NetBox: Guests to git" (the owner: a Python app, `scripts/netbox_guests.py`,
-      arguments `["--pr"]`, the "Netbox Sync" variable group, which carries `NETBOX_TOKEN`,
-      `NETBOX_API` and `GITHUB_TOKEN` as environment variables)
-- [ ] Proved end to end: a resize in NetBox, the template's pull request, merged, a plan
-      showing just that change
+- [x] The template "NetBox: Guests to git" (template 24, 2026-10-16: a Python app,
+      `scripts/netbox_guests.py`, its CLI argument `--pr` typed plainly, which Semaphore stores as
+      `["--pr"]`; the "Netbox Sync" group). Task 752: no change, no pull request; task 753, VM 115's
+      memory raised in NetBox: pull request #15, one line in `netbox-guests.json`
+- [ ] Proved end to end: #15 merged (or closed and NetBox put back), a plan showing just that
+      change; an apply takes effect at that worker's next drained reboot
 
 ## Resuming
 
