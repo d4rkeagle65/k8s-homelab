@@ -1,7 +1,11 @@
 #cloud-config
 # Cloud-init's vendor data for a new Docker VM (tofu/proxmox/docker-vms.tf): the
-# QEMU agent, installed and started, so OpenTofu's wait for it ends. The login
-# and addresses are Proxmox's own cloud-init settings.
+# QEMU agent, installed and started, so OpenTofu's wait for it ends; and root
+# taking the same SSH keys as the login user (site.vm_login), as Semaphore logs
+# in as root on every host with semaphore-shared, while baseline.yml keeps the
+# admin user's keys to the owner's alone. The login and addresses are Proxmox's
+# own cloud-init settings.
+disable_root: false
 package_update: true
 packages:
   - qemu-guest-agent
