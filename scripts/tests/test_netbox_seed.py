@@ -90,3 +90,10 @@ def test_read_secret_prefers_the_environment_then_the_home_file(tmp_path, monkey
         assert "ABSENT_VAR" in str(e)
     else:
         raise AssertionError("a missing credential must stop the run")
+
+
+def test_unexpected_arguments_are_named_never_shown():
+    value = "not-a-real-value"
+    msg = m.unexpected(["NETBOX_WRITE_TOKEN=" + value, "PROXMOX_TOKEN=prefix=" + value, value])
+    assert "NETBOX_WRITE_TOKEN" in msg and "PROXMOX_TOKEN" in msg
+    assert value not in msg and "prefix" not in msg

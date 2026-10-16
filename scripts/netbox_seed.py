@@ -258,6 +258,16 @@ def proxmox_state(url: str, token: str):
     return cluster, nodes, guests
 
 
+def unexpected(extras: list[str]) -> str:
+    """The message for arguments the script doesn't take, naming each without its
+    value: an argument can carry a credential (Semaphore passes a variable group's
+    extra variables as NAME=value), and the message lands in a task log."""
+    names = [a.split("=", 1)[0] if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", a) else "(a value)" for a in extras]
+    return (f"FAIL: arguments this script doesn't take: {', '.join(names)} (values not shown). Credentials "
+            "and URLs go in the environment: in Semaphore, the variable group's environment variables, "
+            "not its extra variables.")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -269,7 +279,9 @@ def main() -> None:
     url("--proxmox-url", "PROXMOX_URL", "https://<a Proxmox host>:8006")
     url("--kea-url", "KEA_URL", "Kea's control agent, e.g. http://127.0.0.1:8000/")
     ap.add_argument("--apply", action="store_true", help="write to NetBox (default: report only)")
-    args = ap.parse_args()
+    args, extras = ap.parse_known_args()
+    if extras:
+        raise SystemExit(unexpected(extras))
 
     cfg = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_WRITE_TOKEN"), args.apply)

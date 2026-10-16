@@ -176,4 +176,4 @@ networks:
   # Kea's control API (scripts/netbox_seed.py), on the kea stack's network.
   kea:
     external: true
-    name: ${KEA_NETWORK}
+    name: ${KEA_NETWORK:?set KEA_NETWORK on this stack in Dockhand}
