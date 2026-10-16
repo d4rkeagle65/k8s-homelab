@@ -36,7 +36,7 @@ netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, e
       "Alerts"; its URL is `ZAMMAD_ALERT_WEBHOOK_URL` in Vaultwarden): severities `warning` and
       `critical` only (never `Watchdog`, `InfoInhibitor` or `info`), a ticket per alert, a note on
       repeats, closed with a note on recovery. A small translator in the cluster, with tests
-- [ ] **elasticsearch** (pushed 2026-10-16): the ECK operator 3.5.0 and the chart's one node
+- [x] **elasticsearch** (done 2026-10-16, after cluster-policy's LimitRange OOM-killed its init): the ECK operator 3.5.0 and the chart's one node
       (512 MiB heap in 1 GiB, the chart's sizes rather than the 1 GiB heap first planned, which
       Zammad's handful of tickets doesn't need; 5 GiB on `nas-iscsi`); checked in
       `QUEUE-zammad.md`
@@ -94,7 +94,8 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [x] **ssh-keys** (2026-10-16): `ansible/retire-ssh-keys.yml` and `proxmox-host.yml`'s
       retired-interfaces play, built and checked; their runs are the owner's (below)
-- [ ] **kea-ha:** `QUEUE-kea-ha.md` (planned 2026-10-16); `kea-db` pushed, then its checks
+- [ ] **kea-ha:** `QUEUE-kea-ha.md`: `kea-db` up and proved (2026-10-16); next the copy, then
+      the owner's cutover; the second Docker VM waits on its host and NetBox entry
 
 ## Waiting on the owner
 
@@ -132,7 +133,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
 resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
 small-cleanups. released-volumes waits on the owner's command. Next in order:
-kea-ha, postgres-retire (from 2026-10-17), netbox-dns (code first; deploying waits on its token), elasticsearch.
+kea-ha, postgres-retire (from 2026-10-17), netbox-dns (code first; deploying waits on its token).
 Each push: the commit hook's suite passed; `main` pushed alone
 (`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
 plans rejected, read-only Run Command via `run_command_b64` for braces; no applies or host

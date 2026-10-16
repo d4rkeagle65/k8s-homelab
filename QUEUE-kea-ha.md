@@ -55,9 +55,9 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
 ## Checklist
 
 - [x] The owner adds the three variables (above), 2026-10-16
-- [ ] The cluster: `kea-db` with its ObjectStore, ScheduledBackup, the LoadBalancer Service
-      (`kea-db-lan`) and `pg_hba` (pushed 2026-10-16); archiving proved; a TLS login from the
-      Docker VM (Run Command, read-only)
+- [x] The cluster (2026-10-16): `kea-db` healthy, its LoadBalancer `kea-db-lan` at
+      `KEA_DB_ADDRESS`, WAL archived to Garage (5, none failed); from the Docker VM (Run Command
+      task 754) `kea` logs in over TLS 1.3 with today's password, and `pg_hba` refuses it without TLS
 - [ ] The copy: Kea's schema made by `kea-admin` on the new database, the reservations copied
       (`pg_dump --data-only` of the host tables, run on the Docker VM), counted equal per table
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
