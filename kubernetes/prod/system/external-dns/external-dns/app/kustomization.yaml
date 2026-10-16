@@ -5,3 +5,13 @@ resources:
 - helmrelease-pihole2.yaml
 - secret.yaml
 - secret-pihole2.yaml
+- helmrelease-netbox.yaml
+- secret-netbox.yaml
+configMapGenerator:
+# The NetBox DNS webhook (helmrelease-netbox.yaml names it, so no hash suffix;
+# its checksum annotation there rolls the pod instead).
+- name: netbox-dns-webhook
+  files:
+  - netbox-dns-webhook.py
+  options:
+    disableNameSuffixHash: true

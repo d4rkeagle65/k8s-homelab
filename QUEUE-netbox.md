@@ -203,7 +203,13 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       `PROXMOX_TOKEN` = `PVEAPIToken=netbox-sync@pve!semaphore=…` (PVEAuditor), `KEA_API`). It
       adds and updates, never deletes: a guest gone from Proxmox stays in NetBox until removed
       by hand
-- [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
+- [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS: written 2026-10-16 as a sidecar
+      in a third ExternalDNS release (`prod/system/external-dns/external-dns/app/
+      helmrelease-netbox.yaml`, `netbox-dns-webhook.py`, tests in `scripts/tests/`), owning the
+      records it writes by their description `external-dns`, never touching hand-made ones, and
+      answering 500 rather than an empty list when NetBox doesn't answer. NetBox DNS has no zone
+      yet, so it writes nothing: the zones (and their SOA nameserver) are the owner's to make.
+      Left after them:
       octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
       to answer the same names before and after
 - [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` stops carrying a

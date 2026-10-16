@@ -1,0 +1,87 @@
+# ExternalDNS writing the same Ingress hostnames into NetBox DNS (QUEUE-netbox.md,
+# phase 4), through its own webhook provider (netbox-dns-webhook.py), a sidecar
+# in this pod listening on 127.0.0.1 only. Same sources, filters and policy as
+# helmrelease.yaml, so NetBox gets what the Pi-holes get; until NetBox owns DNS
+# the Pi-hole releases stay as they are.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns-netbox
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: external-dns
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  releaseName: external-dns-netbox
+  chart:
+    spec:
+      chart: external-dns
+      version: 1.23.0
+      sourceRef:
+        kind: HelmRepository
+        name: external-dns
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    # Requests and limits by QUEUE-resource-limits.md's rules.
+    resources:
+      requests: {cpu: 10m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+    # The webhook script's checksum (its first 12 hex digits), so a change to it
+    # rolls the pod; test_netbox_dns_webhook.py checks it matches.
+    podAnnotations:
+      homelab.local/webhook-sha256: "e16df4f1aecc"
+    provider:
+      name: webhook
+      webhook:
+        image:
+          repository: python
+          tag: 3.14.8-alpine
+        args: [python, -u, /app/netbox-dns-webhook.py]
+        env:
+        - name: NETBOX_URL
+          value: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        - name: DOMAIN_FILTER
+          value: ${BASE_DOMAIN}
+        - name: NETBOX_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: external-dns-netbox
+              key: NETBOX_TOKEN
+        extraVolumeMounts:
+        - {name: webhook, mountPath: /app, readOnly: true}
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {cpu: 500m, memory: 128Mi}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+    extraVolumes:
+    - name: webhook
+      configMap:
+        name: netbox-dns-webhook
+    sources:
+    - ingress
+    - service
+    policy: upsert-only
+    serviceMonitor:
+      enabled: true
+    registry: noop
+    domainFilters:
+    - ${BASE_DOMAIN}
+    interval: 1m
+    extraArgs:
+    - --ingress-class=traefik
+    - --ingress-class=traefik-isolated
