@@ -185,14 +185,45 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) is probably unused: the owner
         decides whether to take it out of Proxmox. VLAN 4 (`vmbr4`) is for later; it gets a
         name in `netbox_seed.yaml` once it's in use, which makes its VLAN and prefix
-- [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
-      second run changing nothing
+- [ ] Phase 3: `scripts/netbox_seed.py` nightly in Semaphore (not a new playbook: the seed
+      already reads Proxmox and Kea, changes only what differs and deletes nothing).
+  - [ ] The seed reads its credentials from the environment as well as the home-folder
+        files: a write-enabled NetBox token (not the inventory's read-only one), a new
+        read-only Proxmox token (PVEAuditor; not OpenTofu's), Kea's API login. The owner makes
+        both tokens; they go in a Semaphore variable group, marked secret
+  - [ ] Semaphore reaches Kea: the stack joins Kea's network (`KEA_NETWORK`, as NetBox and
+        Databasus do) and the seed's `--kea-url` is `http://kea-dhcp4:8000`
+  - [ ] `ruamel.yaml` in the stack's inline `requirements.txt`, beside `pytz`
+  - [ ] The seed records what OpenTofu will read: each VM's Proxmox node (the VM's device)
+        and its VMID (a custom field `vmid`, not parsed from the description)
+  - [ ] The template (a Python app running the seed with `--apply`) and a nightly schedule;
+        a dry run, a run, then a second run changing nothing
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
       octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
       to answer the same names before and after
-- [ ] Phase 5: OpenTofu's `ignore_changes = [node_name]` on HA and Talos VMs (no change in the
-      plan) and a host picked from free memory for new guests; then addresses and names from
-      NetBox, and `TF_VAR_site` cut down to the stable facts
+- [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` (a secret JSON in
+      Semaphore, master copy a Vaultwarden note) stops carrying a second, hand-kept copy of
+      it. One owner per value: NetBox for each guest's VMID, node, hostname, address per
+      bridge and MACs; `TF_VAR_site` keeps only the stable facts (each network's prefix and
+      gateway, the nodes' DNS servers and search domain, the Talos cluster values). Not a
+      script that rewrites `TF_VAR_site` from NetBox: two copies that drift, and secrets
+      written by a script.
+  - [ ] The provider `e-breuninger/netbox` 5.8.0 in `tofu/proxmox` (v2 `nbt_` tokens
+        detected; NetBox 4.7 is past its tested list, which only warns), in Renovate's view.
+        `NETBOX_SERVER_URL` and `NETBOX_API_TOKEN` (the provider's names) from the semaphore
+        stack, forwarded like `NETBOX_API` and `NETBOX_TOKEN`; the read-only token is enough
+  - [ ] `var.site.guests` replaced by data sources: VMs by the `vmid` custom field, their
+        device (node) and name, each interface's address (last octet) and MAC. The existing
+        validations kept: every VMID in `guests.tf` has a NetBox VM with a node and an
+        address on each bridge it needs
+  - [ ] Gate: `tofu plan` shows no change before and after the switch; then the owner trims
+        `TF_VAR_site` in Semaphore and the Vaultwarden note
+  - [ ] A new guest from then on: made in NetBox first (VMID, node, name, address, status
+        Planned), then OpenTofu builds it, and the nightly seed adds its MACs and marks it
+        active. The seed has to leave a Planned VM's fields alone until Proxmox has it
+  - [ ] `ignore_changes = [node_name]` on the HA and Talos VMs (no change in the plan), so
+        an HA move or migration never needs NetBox edited first; a host picked from free
+        memory for new guests
 
 ## Resuming
 
