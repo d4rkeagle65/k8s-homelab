@@ -7,9 +7,10 @@ site: Condo
 cluster_type: Proxmox
 
 # Each network by the Proxmox bridge that carries it (the same on every host),
-# with its VLAN when it's tagged. A bridge not listed here is left out.
+# with its VLAN on the switches (Management's, 5, arrives untagged on the hosts'
+# ports). A bridge not listed here is left out.
 networks:
-- {bridge: vmbr0, name: Management}
+- {bridge: vmbr0, name: Management, vlan: 5}
 - {bridge: vmbr2, name: Work laptop, vlan: 3}
 - {bridge: vmbr6, name: IoT, vlan: 6}
 - {bridge: vmbr7, name: Production, vlan: 7}
