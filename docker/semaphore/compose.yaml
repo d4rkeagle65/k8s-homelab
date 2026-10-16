@@ -25,6 +25,7 @@
 #   TZ                       the timezone schedules run in, e.g. America/New_York
 services:
   semaphore-postgres:
+    mem_limit: 512m
     image: postgres:17.11-alpine
     container_name: semaphore-postgres
     restart: unless-stopped
@@ -98,6 +99,7 @@ services:
       psql -tA -c "SELECT 'databasus role: login ' || rolcanlogin || ', reads all data ' || pg_has_role('databasus', 'pg_read_all_data', 'MEMBER') FROM pg_roles WHERE rolname = 'databasus'"
 
   semaphore:
+    mem_limit: 2g
     image: semaphoreui/semaphore:v2.19.16
     container_name: semaphore
     restart: unless-stopped

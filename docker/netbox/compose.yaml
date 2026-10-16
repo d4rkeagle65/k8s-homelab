@@ -54,6 +54,7 @@ x-netbox: &netbox
 
 services:
   netbox-postgres:
+    mem_limit: 512m
     image: postgres:18.6-alpine
     container_name: netbox-postgres
     restart: unless-stopped
@@ -72,6 +73,7 @@ services:
 
   # The task queue survives a restart (append-only file); the cache needn't.
   netbox-valkey:
+    mem_limit: 256m
     image: valkey/valkey:9.1.2-alpine
     container_name: netbox-valkey
     restart: unless-stopped
@@ -122,6 +124,7 @@ services:
     command: [chown, -R, "netbox:root", /opt/netbox/netbox/media, /opt/netbox/netbox/reports, /opt/netbox/netbox/scripts]
 
   netbox:
+    mem_limit: 2g
     <<: *netbox
     # Built here from the Dockerfile, which holds the versions; never pulled,
     # since no registry has it.
@@ -145,6 +148,7 @@ services:
 
   # Background jobs, housekeeping among them (NetBox schedules it itself).
   netbox-worker:
+    mem_limit: 1g
     <<: *netbox
     pull_policy: never
     container_name: netbox-worker

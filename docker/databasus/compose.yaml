@@ -34,6 +34,7 @@
 # memory-only folder, never to disk or the process list.
 services:
   databasus:
+    mem_limit: 1g
     image: databasus/databasus:v3.61.0
     container_name: databasus
     restart: unless-stopped
@@ -57,6 +58,7 @@ services:
       start_period: 120s
 
   databasus-verification-agent:
+    mem_limit: 256m
     image: buildpack-deps:trixie-curl
     container_name: databasus-verification-agent
     restart: unless-stopped
