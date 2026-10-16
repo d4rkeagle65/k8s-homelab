@@ -297,6 +297,14 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 - **Template** with the inventory and the repository; nothing else. The access points need
   their package feeds (the internet) for the first run.
 
+## One command on chosen hosts (`run-command.yml`)
+
+- **Template** "Tool: Run Command" on the NetBox inventory, with a survey: `run_command`
+  (required), `run_hosts` (required: hosts or groups, separated by commas or spaces) and
+  `run_timeout` (optional, seconds). Each host's output and exit code land in the task's log,
+  so a command asked for in a session is answered by the task's ID rather than a paste.
+- A Dry Run lists the hosts and runs nothing.
+
 ## Running a Proxmox upgrade
 
 1. Dry-run **"Proxmox upgrade"** and read the pending upgrades per host.
