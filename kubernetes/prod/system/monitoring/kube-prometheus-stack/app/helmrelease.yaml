@@ -132,6 +132,8 @@ spec:
         # Two replicas, each scraping everything into its own volume on a
         # different worker: losing a host loses neither metrics nor history.
         replicas: 2
+        # Scheduled before ordinary pods when nodes are short (cluster-policy).
+        priorityClassName: homelab-critical
         podAntiAffinity: hard
         # Every 60 seconds (Prometheus's default is 15): plenty for a lab, and
         # a quarter of the writes.
@@ -216,6 +218,8 @@ spec:
       alertmanagerSpec:
         # Two, clustered, on different workers.
         replicas: 2
+        # Scheduled before ordinary pods when nodes are short (cluster-policy).
+        priorityClassName: homelab-critical
         podAntiAffinity: hard
         retention: 120h
         resources:
