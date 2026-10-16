@@ -42,8 +42,12 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       them with node and address. Done when a real one has fired and its ticket shows the list
 - [ ] Mail: Zammad's outgoing mail through `smtp-oauth-relay` (notifications), and an incoming
       channel if tickets by email are wanted (the owner's call)
-- [ ] Elasticsearch through the ECK operator (2026-10-16, pushed): one 9.5 node, 512 MiB heap
-      in 1 GiB, 5 GiB on `nas-iscsi`; done when it's green and a search in Zammad finds a ticket
+- [ ] Elasticsearch through the ECK operator: the operator is in; Zammad's
+      `zammadConfig.elasticsearch.enabled` is back off. Enabling it (2026-10-16) brought the node
+      up (bootstrapped in 3 minutes) but `zammad-init` didn't finish within the HelmRelease's
+      15 minutes, so Flux rolled back, which deleted the node (its volume is Released, the 39th).
+      Next: run the chart's init with Elasticsearch on, outside a Helm upgrade, and read why it
+      stalls (the reindex, or its connection) before enabling it again
 - [ ] Resources re-measured after a week (`QUEUE-resource-limits.md`'s rules); its database
       added to the restore tests' method
 

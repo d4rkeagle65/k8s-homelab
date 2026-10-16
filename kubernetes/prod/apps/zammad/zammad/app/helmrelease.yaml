@@ -85,11 +85,13 @@ spec:
         }
 
     zammadConfig:
+      # Off while its first run is diagnosed: the upgrade that enabled it timed out
+      # in zammad-init after Elasticsearch came up (QUEUE-zammad.md).
       # The chart's bundled Elasticsearch (elasticsearch below); its address and
       # the elastic user's password are found by the chart. reindex builds the
       # index from the database on each zammad-init run, which is quick at this size.
       elasticsearch:
-        enabled: true
+        enabled: false
         initialisation: true
         reindex: true
       postgresql:
