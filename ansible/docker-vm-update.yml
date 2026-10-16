@@ -9,7 +9,8 @@
 # connections (the policy routing there), so address it the way the README
 # says. Optional: docker_packages, the packages kept held (default below).
 #
-# Two switches, both off unless set (QUEUE.md, decision 7):
+# Two switches, both off unless set (QUEUE.md, decision 7), each an extra variable
+# (a survey's target "Variable"): one targeting "Environment" never reaches Ansible.
 #   docker_live_restore: true  merges "live-restore": true into
 #       /etc/docker/daemon.json (keeping the rest) and reloads Docker, which
 #       applies it without restarting anything; read back from `docker info`.
@@ -36,12 +37,20 @@
     held: "{{ docker_packages | default(['docker-ce', 'docker-ce-cli', 'docker-ce-rootless-extras', 'containerd.io', 'docker-buildx-plugin', 'docker-compose-plugin']) }}"
   tasks:
     # dpkg-query exits 1 when any name is unknown, so read every package dpkg
-    # knows and keep the installed ones in the list.
+    # knows and keep the installed ones in the list. Through the shell, single
+    # quoted: the command module expands ${...} in its arguments as environment
+    # variables, which emptied the format and with it the list to hold.
     - name: Read the installed packages
-      ansible.builtin.command: dpkg-query -W -f=${Package}|${db:Status-Status}\n
+      ansible.builtin.shell: dpkg-query -W -f='${Package}|${db:Status-Status}\n'
       register: dpkg_all
       changed_when: false
       check_mode: false
+
+    - name: Docker's packages were read (an empty read holds nothing)
+      ansible.builtin.assert:
+        that: dpkg_all.stdout_lines | select('match', '^docker-ce[|]installed$') | list | length == 1
+        fail_msg: "dpkg-query's list has no installed docker-ce: the read failed, so nothing is upgraded."
+        quiet: true
 
     - name: Hold Docker's installed packages
       ansible.builtin.dpkg_selections:
@@ -50,6 +59,23 @@
       loop: >-
         {{ dpkg_all.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')[|]installed$') |
            map('regex_replace', '[|].*', '') | list }}
+
+    - name: Read the holds back
+      ansible.builtin.command: apt-mark showhold
+      register: holds
+      changed_when: false
+      check_mode: false
+
+    - name: Every installed Docker package is held before anything is upgraded
+      vars:
+        unheld: >-
+          {{ dpkg_all.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')[|]installed$') |
+             map('regex_replace', '[|].*', '') | difference(holds.stdout_lines) | list }}
+      ansible.builtin.assert:
+        that: unheld | length == 0
+        fail_msg: "Not held: {{ unheld | join(', ') }}. Nothing is upgraded: an upgrade now would restart Docker."
+        quiet: true
+      when: not ansible_check_mode
 
     # Refreshing the lists only looks, so it runs in check mode too.
     - name: Refresh the package lists
