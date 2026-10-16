@@ -11,7 +11,9 @@ _ENDPOINT = environ.get("OIDC_ENDPOINT", "")  # https://auth.<domain>/applicatio
 REMOTE_AUTH_ENABLED = True
 REMOTE_AUTH_BACKEND = "social_core.backends.open_id_connect.OpenIdConnectAuth"
 REMOTE_AUTH_AUTO_CREATE_USER = True
-SOCIAL_AUTH_OIDC_ENDPOINT = _ENDPOINT
+# social-core reads a backend's setting as SOCIAL_AUTH_<backend>_<name>: the
+# oidc backend's OIDC_ENDPOINT is SOCIAL_AUTH_OIDC_OIDC_ENDPOINT, OIDC twice.
+SOCIAL_AUTH_OIDC_OIDC_ENDPOINT = _ENDPOINT
 SOCIAL_AUTH_OIDC_KEY = "netbox"
 SOCIAL_AUTH_OIDC_SECRET = environ.get("OIDC_CLIENT_SECRET", "")
 LOGOUT_REDIRECT_URL = _ENDPOINT + "end-session/"
