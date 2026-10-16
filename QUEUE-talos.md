@@ -151,8 +151,8 @@ goes once the retired guests are destroyed.
 - [x] Phase 1: Talos image and machine configs (`talos/`, the secrets as `TALOS_SECRETS`);
       kube-proxy labels; the service-account issuer; the API address (the control planes'
       `Layer2VIPConfig`, Phase 2); Calico's address detection
-- [x] Phase 2 (2026-10-12/13): three Talos control planes, `[redacted]k8sc04a` (VM 110, H5, built by
-      hand), `[redacted]k8sc06a` (113, H4) and `[redacted]k8sc05a` (112, H1), both through OpenTofu;
+- [x] Phase 2 (2026-10-12/13): three Talos control planes, VM 110 (H5, built by
+      hand), VM 113 (H4) and VM 112 (H1), both through OpenTofu;
       the three kubeadm ones drained, `kubeadm reset` (which removed each etcd member) and
       deleted. etcd is the three Talos members. The API address moved from kube-vip to the
       Talos control planes' `Layer2VIPConfig`: kube-vip's manifest moved out on c01a, the
@@ -174,7 +174,7 @@ goes once the retired guests are destroyed.
       none on H4, which carries the HA VMs, a control plane and a Pi-hole; a fifth only if it
       becomes needed); the databases and the single-instance stateful apps moved; the LXC
       workers retired. The first worker,
-      `[redacted]k8sw04a` (VM 114, H5, 6 vCPU, 20 GiB), in `talos_nodes` since 2026-10-13: a second
+      VM 114 (H5, 6 vCPU, 20 GiB), in `talos_nodes` since 2026-10-13: a second
       disk (scsi1) as the Talos user volume `local-db` at `/var/mnt/local-db`
       (`talos/patches/worker-local-db.yaml`), local-path's local-db class pointed there for it
       (`WORKER_NODE_4`), no nas-block (the iSCSI driver comes next). A throwaway claim proved
@@ -192,9 +192,9 @@ goes once the retired guests are destroyed.
       the LXC workers cordoned so a Talos worker is the only place left); drain; the VM ID into
       `k8s_retired`. Left for each: its node object deleted once stopped, and with 101-103
       (~2026-10-20) the container destroyed, then removed from `k8s_nodes` and its
-      local-path entries. The third Talos worker, `[redacted]k8sw06a` (VM 116, H2, 3 vCPU, 16 GiB,
-      local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14. The fourth, `[redacted]k8sw07a`
-      (VM 117, H1, 4 vCPU, 16 GiB, 80G system disk, local-db, `WORKER_NODE_7`), in
+      local-path entries. The third Talos worker, VM 116 (H2, 3 vCPU, 16 GiB,
+      local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14. The fourth, VM 117
+      (H1, 4 vCPU, 16 GiB, 80G system disk, local-db, `WORKER_NODE_7`), in
       `talos_nodes` since 2026-10-14, so any one worker can drain. Every worker's system
       disk is 80G (2026-10-14: grown in place, then a drained host reboot by
       proxmox-reboot.yml, and Talos extends EPHEMERAL to 75.9G at boot); 116's waits for
@@ -202,7 +202,7 @@ goes once the retired guests are destroyed.
       iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only): mount, detach, reattach and a move between Talos workers
-      proven 2026-10-14. The second Talos worker, `[redacted]k8sw05a` (VM 115, H3, 4 vCPU, 10 GiB,
+      proven 2026-10-14. The second Talos worker, VM 115 (H3, 4 vCPU, 10 GiB,
       local-db as the first's, `WORKER_NODE_5`), in `talos_nodes` since 2026-10-14, local-db
       proven there. A Talos VM is created on its `guests` entry's `node`: check it before the
       apply (115 was first made on H5 from a copied entry, then live-migrated).

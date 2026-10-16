@@ -44,11 +44,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `docker_live_restore` was a survey variable targeting "Environment", which Ansible never
   sees. Left: the survey's target set to "Variable", a dry run, then the run; task 749 stopped
   in Semaphore by the owner.
-- **Hostnames in the public queue files** (found 2026-10-16): `QUEUE-talos.md` names the Talos
-  nodes (its phase 2 and worker entries), against the no-hostnames rule, and `.secret-words`
-  doesn't list them, so the hook let them through. Replace them with VMIDs and roles, and add
-  the naming scheme's prefixes to `.secret-words` so the hook catches the next one; the git
-  history keeps the old text.
 - **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
   check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
   the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
