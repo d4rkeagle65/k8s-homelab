@@ -20,6 +20,10 @@ and addresses), the SSH key, and the Kubernetes token.
 | `openwrt-aps.yml` | Prometheus's exporter on the OpenWrt access points (OpenWrt's `prometheus-node-exporter-lua` with its Wi-Fi collectors), listening on one interface's address, then read back from there. Only `raw`, since OpenWrt has no Python. Check mode reports the missing packages and the listening interface. |
 | `retire-ssh-keys.yml` | Removes retired keys (comment `semaphore`, the per-group keys Semaphore no longer holds) from root's `authorized_keys` on the Proxmox hosts (their shared `/etc/pve/priv/authorized_keys`, edited once), the Pi-holes and the Docker VM, after proving each file holds `semaphore-shared`; reads each back. A dry run counts what it would remove. |
 
+Each run's output numbers its tasks, `TASK [17/34 - Name]`, and its plays, `PLAY [Name] (2/3)`:
+`ansible.cfg` at the repo root sets `callback_plugins/homelab_progress.py` as Ansible's output.
+Tasks from `include_tasks` are counted when the include runs, so the total can grow mid-run.
+
 ## Setting up Semaphore (once)
 
 Everything below is in Semaphore's web UI, in one project: create it first from the project
