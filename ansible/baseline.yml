@@ -12,6 +12,10 @@
 # other keys; the first run goes through each older inventory so that the
 # shared one can reach every host afterwards.
 #
+# Management routing (tasks/management-routing.yml): every host reports where
+# answers from its management address leave; one with management_gateway set
+# and netplan gets them sent back out that interface.
+#
 # Prometheus's exporters (tasks/host-exporters.yml): node-exporter, and on the
 # Proxmox hosts the SMART and NVMe collectors, off until host_exporters is true.
 #
@@ -25,7 +29,8 @@
 - name: The baseline on every Debian host
   hosts: debian
   gather_facts: true
-  gather_subset: [min]
+  # network: the interfaces, for the management routing.
+  gather_subset: [min, network]
   vars_files: [vars/baseline.yml]
   vars:
     bashrc_dest: /etc/homelab/bashrc
@@ -137,6 +142,11 @@
 
     - name: The host exporters
       ansible.builtin.include_tasks: tasks/host-exporters.yml
+
+    # --- Management routing ----------------------------------------------------
+
+    - name: Answers on the management address leave through it
+      ansible.builtin.include_tasks: tasks/management-routing.yml
 
     # --- The bash setup --------------------------------------------------------
 

@@ -1,0 +1,98 @@
+# Answers on a host's management address (the one Semaphore logs in on,
+# ansible_host) must leave through the management interface: through the
+# default route on another network, the firewall drops them as strangers (an
+# SSH banner that never comes). Every host is checked and reported; a host with
+# management_gateway set (its NetBox local context) and netplan gets the fix the
+# first Docker VM has by hand: routing table 250 for that address, the gateway
+# its default (/etc/netplan/60-management.yaml), applied and read back. Proxmox
+# hosts and containers are configured otherwise, so they're reported only.
+
+- name: Where answers from the management address leave
+  ansible.builtin.command:
+    argv: [ip, -o, route, get, 192.0.2.1, from, "{{ ansible_host }}"]
+  register: mgmt_out
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Does it use netplan
+  ansible.builtin.stat:
+    path: /etc/netplan
+  register: netplan_dir
+
+- name: The management interface and its network
+  vars:
+    mgmt: "{{ ansible_facts.interfaces | map('regex_replace', '-', '_') | map('extract', ansible_facts)
+              | selectattr('ipv4', 'defined') | selectattr('ipv4.address', 'equalto', ansible_host) | list }}"
+  ansible.builtin.set_fact:
+    mgmt_if: "{{ (mgmt | first).device }}"
+    mgmt_net: "{{ (mgmt | first).ipv4.network }}/{{ (mgmt | first).ipv4.prefix }}"
+  when: mgmt | length == 1
+
+- name: The fix, where management_gateway is set
+  when: management_gateway is defined and netplan_dir.stat.isdir | default(false)
+  block:
+    - name: Ask the host how it reaches the gateway
+      ansible.builtin.command:
+        argv: [ip, -o, route, get, "{{ management_gateway | default('0.0.0.0') }}", from, "{{ ansible_host }}"]
+      register: gw_route
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Its gateway is known and on the management network
+      ansible.builtin.assert:
+        that:
+          - mgmt_if is defined
+          - management_gateway is defined
+          - gw_route.rc == 0 and (' dev ' ~ mgmt_if ~ ' ') in gw_route.stdout and ' via ' not in gw_route.stdout
+        fail_msg: "Set management_gateway (the management network's gateway, directly on {{ mgmt_if | default('the interface holding ' ~ ansible_host) }}) for {{ inventory_hostname }}; nothing was changed."
+        quiet: true
+
+    - name: Answers on the management address leave through it
+      ansible.builtin.copy:
+        dest: /etc/netplan/60-management.yaml
+        mode: "0600"
+        content: |
+          network:
+            version: 2
+            ethernets:
+              {{ mgmt_if }}:
+                routes:
+                  - to: {{ mgmt_net }}
+                    from: {{ ansible_host }}
+                    scope: link
+                    table: 250
+                  - to: default
+                    via: {{ management_gateway }}
+                    table: 250
+                routing-policy:
+                  - from: {{ ansible_host }}
+                    table: 250
+                    priority: 5300
+      register: mgmt_netplan
+
+    - name: Apply it
+      ansible.builtin.command: netplan apply
+      when: mgmt_netplan is changed and not ansible_check_mode
+
+    - name: Read the rule back
+      ansible.builtin.command: ip rule show
+      register: rules
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: The rule is in place
+      ansible.builtin.assert:
+        that: rules.stdout is search('from ' ~ ansible_host ~ ' lookup 250')
+        fail_msg: "netplan applied, but no rule sends {{ ansible_host }}'s answers through table 250."
+        quiet: true
+      when: not ansible_check_mode
+
+- name: Report the management routing
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: answers from {{ ansible_host }} leave
+      {{ (mgmt_out.stdout | regex_search('dev \\S+') | default('?', true)) }}
+      {{ '(on its management interface)' if mgmt_if is defined and (' dev ' ~ mgmt_if ~ ' ') in mgmt_out.stdout
+         else '(NOT its management interface' ~ (': set management_gateway to fix it' if management_gateway is not defined else '') ~ ')' }}
