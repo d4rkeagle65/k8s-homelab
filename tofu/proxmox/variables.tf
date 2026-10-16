@@ -14,8 +14,9 @@ variable "site" {
     # The Kubernetes nodes' resolvers and search domain.
     node_dns_servers   = list(string)
     node_search_domain = string
-    # The cluster's values the Talos configs need (talos-config.tf): the API
-    # address as host:port, without https://, and kubeadm-config's networking.
+    # The cluster's values the Talos configs need (talos-config.tf, and
+    # talos/gen-config.py from the same note): the API address as host:port,
+    # without https://, the DNS domain and the pod and service subnets.
     talos = object({
       cluster_endpoint = string
       dns_domain       = string
