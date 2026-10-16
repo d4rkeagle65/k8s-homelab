@@ -14,7 +14,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 6, 8 and 9 are done.
+assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
 
 - **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
@@ -31,9 +31,6 @@ assigned (items below refer to them); 1 to 6, 8 and 9 are done.
      (Docker supports live-restore across minor and patch upgrades, not major ones; a major
      upgrade is reported for a run by hand). Before and after, it reads the running containers
      and stops if any that ran before is gone.
-10. **The two test folders** (item below): move `scripts/tests` under `tests/` with one runner,
-    or keep both and say why in each folder's CLAUDE.md. Recommended: keep both; the generator's
-    suite needs its own fixtures and runs offline, the gate is repo-wide.
 
 ## Next
 
@@ -176,14 +173,6 @@ assigned (items below refer to them); 1 to 6, 8 and 9 are done.
     through the community `kalebharrison/dockhand` provider (unofficial,
     with known gaps, so a Dockhand update can break it). Dockhand can't set
     itself up: Ansible installs it on the VM, then Terraform configures it.
-
-- **Consolidate the two test folders** (low priority; decision 10). `tests/` is the repo-wide gate
-  (doc-style, harness, hygiene, script-health suites, run by `tests/run-all-tests.py` and the
-  pre-commit hook); `scripts/tests/` is the generator's pytest suite, reached only through
-  `tests/test-scripts-pytest.py`. Either move the generator's tests under `tests/` (say
-  `tests/scripts/`) with one runner, or leave the layout and make the split obvious in
-  `tests/CLAUDE.md` and `scripts/CLAUDE.md`. Left as is, a new test can land in the wrong
-  folder and skip the checks it was meant for.
 
 ## Working queue files
 
