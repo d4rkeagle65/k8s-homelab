@@ -66,6 +66,8 @@ def http(method: str, url: str, headers: dict, body=None, insecure: bool = False
             return json.loads(raw) if raw else None
     except urllib.error.HTTPError as e:
         raise SystemExit(f"FAIL: {method} {url.split('?')[0]} answered {e.code}: {e.read()[:300]!r}")
+    except (urllib.error.URLError, OSError) as e:
+        raise SystemExit(f"FAIL: {method} {url.split('?')[0]}: no answer ({getattr(e, 'reason', e)})")
 
 
 def slug(name: str) -> str:
