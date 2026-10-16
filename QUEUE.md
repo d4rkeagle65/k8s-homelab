@@ -27,6 +27,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Docker on the Docker VM was upgraded by "Node: Docker Update" (task 749, 2026-10-16), against
+  its hold:** `docker-vm-update.yml` read the installed packages through the command module,
+  which expanded `${Package}` as an environment variable, so its list to hold was empty and it
+  upgraded docker-ce to 29.9.1, restarting the daemon and every container on the VM (Kea,
+  Vaultwarden, Semaphore, NetBox, Tailscale; all back within seconds; Semaphore lost the task,
+  which shows "running" forever). Fixed: the read goes through the shell, and the run stops
+  unless every installed Docker package reads back held. Live-restore is still off: the run's
+  `docker_live_restore` was a survey variable targeting "Environment", which Ansible never
+  sees. Left: the survey's target set to "Variable", a dry run, then the run; task 749 stopped
+  in Semaphore by the owner.
 - **Hostnames in the public queue files** (found 2026-10-16): `QUEUE-talos.md` names the Talos
   nodes (its phase 2 and worker entries), against the no-hostnames rule, and `.secret-words`
   doesn't list them, so the hook let them through. Replace them with VMIDs and roles, and add
