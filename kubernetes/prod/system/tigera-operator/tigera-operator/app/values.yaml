@@ -1,8 +1,69 @@
+# Requests and limits by QUEUE-resource-limits.md's rules (batch 6), set on the
+# operator's resources, which pass them to its pods; calico-node's CPU limit is
+# 1000m, as it carries every pod's network.
 apiServer:
   enabled: true
+  apiServerDeployment:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: calico-apiserver
+            resources:
+              requests: {cpu: 10m, memory: 160Mi}
+              limits: {cpu: 500m, memory: 512Mi}
 goldmane:
   enabled: true
+  goldmaneDeployment:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: goldmane
+            resources:
+              requests: {cpu: 60m, memory: 192Mi}
+              limits: {cpu: 500m, memory: 512Mi}
 installation:
+  calicoNodeDaemonSet:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: calico-node
+            resources:
+              requests: {cpu: 80m, memory: 256Mi}
+              limits: {cpu: 1000m, memory: 512Mi}
+  typhaDeployment:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: calico-typha
+            resources:
+              requests: {cpu: 10m, memory: 160Mi}
+              limits: {cpu: 500m, memory: 512Mi}
+  calicoKubeControllersDeployment:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: calico-kube-controllers
+            resources:
+              requests: {cpu: 20m, memory: 160Mi}
+              limits: {cpu: 500m, memory: 512Mi}
+  csiNodeDriverDaemonSet:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: calico-csi
+            resources:
+              requests: {cpu: 10m, memory: 64Mi}
+              limits: {cpu: 500m, memory: 256Mi}
+          - name: csi-node-driver-registrar
+            resources:
+              requests: {cpu: 10m, memory: 64Mi}
+              limits: {cpu: 500m, memory: 256Mi}
   calicoNetwork:
     bgp: Enabled
     hostPorts: Enabled
@@ -51,3 +112,20 @@ installation:
   variant: Calico
 whisker:
   enabled: true
+  whiskerDeployment:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: whisker
+            resources:
+              requests: {cpu: 10m, memory: 64Mi}
+              limits: {cpu: 500m, memory: 256Mi}
+          - name: whisker-backend
+            resources:
+              requests: {cpu: 10m, memory: 64Mi}
+              limits: {cpu: 500m, memory: 256Mi}
+# The operator itself: a few millicores and about 150Mi in use; its starts are busier.
+resources:
+  requests: {cpu: 20m, memory: 192Mi}
+  limits: {cpu: 1000m, memory: 896Mi}

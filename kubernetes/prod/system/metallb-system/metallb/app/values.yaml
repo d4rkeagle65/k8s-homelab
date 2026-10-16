@@ -8,6 +8,14 @@ prometheus:
 # nor FRR mode (deprecated). The speakers run MetalLB's native code alone.
 frrk8s:
   enabled: false
+# Requests and limits by QUEUE-resource-limits.md's rules (batch 6).
+controller:
+  resources:
+    requests: {cpu: 10m, memory: 160Mi}
+    limits: {cpu: 500m, memory: 512Mi}
 speaker:
   frr:
     enabled: false
+  resources:
+    requests: {cpu: 10m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
