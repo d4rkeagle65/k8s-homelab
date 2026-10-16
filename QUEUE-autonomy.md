@@ -80,6 +80,15 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       a volume at each deploy (checked on the NAS); the Docker live-restore and upgrade
       switches in `docker-vm-update.yml` (off until the owner sets them); and found on the way,
       Run Command's `run_command_b64` for commands holding braces
+- [ ] **cluster-policy** (approved 2026-10-16, next): a hand-written release
+      `kubernetes/prod/system/cluster-policy/` (namespace folder `system/cluster-policy/` with
+      its labelled `namespace.yaml`? no: a release folder under an existing system namespace
+      won't do, so a namespace `cluster-policy` holding nothing but the release's objects is
+      acceptable, or a Flux Kustomization without targetNamespace): the PriorityClass
+      `homelab-critical` and a LimitRange per app and service namespace (defaults only:
+      request 10m/64Mi, limit 500m/512Mi; it never overrides a container's own). Then
+      `priorityClassName: homelab-critical` on the databases (each CloudNativePG Cluster's
+      `spec.priorityClassName`), Authentik, Traefik and monitoring, one at a time
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [ ] **ssh-keys:** a playbook removing the four deleted Semaphore keys from `authorized_keys`,
@@ -100,14 +109,25 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] Two Talos control-plane changes, rolled node by node with `talosctl` and then an
       OpenTofu apply you confirm: etcd's metrics, and a 60-second node-loss timing
 - [ ] `nas-block` off the hosts and the NAS, together (`QUEUE-talos.md`)
-- [ ] Where the PriorityClass and LimitRanges live: `kubernetes/cluster/` (a generator
-      change, as capture owns it) or a hand-written cross-namespace release
+- [x] Where the PriorityClass and LimitRanges live (2026-10-16): a hand-written release,
+      `kubernetes/prod/system/cluster-policy/`, owning both (batch **cluster-policy** below)
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
 - [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), VT-x in the third
       host's BIOS, the second Pi-hole on the DMZ's static clients, the TerraMaster SNMP bug
       reported
 
 ## Resuming
+
+**Where the run stands (2026-10-16, before a context compaction):** done and pushed:
+zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
+resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
+small-cleanups. released-volumes waits on the owner's command. Next in order: cluster-policy,
+netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
+Each push: the commit hook's suite passed; `main` pushed alone
+(`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
+plans rejected, read-only Run Command via `run_command_b64` for braces; no applies or host
+changes unasked; never a Proxmox host reboot without the owner).
+
 
 Read this file first, then `QUEUE.md`. An approved batch is named in the conversation or in a
 commit message; without one, work stops at the branch. The first unticked batch the owner has
