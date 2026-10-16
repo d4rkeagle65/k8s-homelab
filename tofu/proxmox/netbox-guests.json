@@ -68,7 +68,7 @@
       "cores": 4,
       "data_gb": 128,
       "disk_gb": 80,
-      "memory": 10240,
+      "memory": 11264,
       "role": "worker"
     },
     "116": {
