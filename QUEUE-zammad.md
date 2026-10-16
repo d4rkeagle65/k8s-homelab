@@ -46,9 +46,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       Enabling it (2026-10-16) brought the node up in 3 minutes, but `zammad-init`'s database step
       was OOM-killed: cluster-policy's LimitRange gave it the namespace's 512 MiB default (its peak
       is 729 MiB), and every upgrade since timed out and rolled back, deleting the node (its empty
-      volume is Released). The init steps now have 1.5 GiB. Next: the release Ready with search
-      off, then search on again (`enabled` and `initialisation` together: its init step runs
-      whenever `initialisation` is true); the empty Released volume deleted
+      volume is Released). The init steps now have 1.5 GiB (zammad-init-7 done in 79 s with search
+      off); search on again (`enabled` and `initialisation` together). Done when the node is
+      green and a search in Zammad finds a ticket; the first node's empty Released volume then
+      deleted
 - [ ] `zammad-cronjob-reindex` (suspended; run by hand with `kubectl create job --from`) has no
       limits of its own, so it gets 512 MiB: give it the init steps' resources in
       `zammadConfig.cronJob.reindex.podSpec` before running it

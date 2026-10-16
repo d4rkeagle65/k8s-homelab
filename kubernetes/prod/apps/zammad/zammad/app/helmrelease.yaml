@@ -85,14 +85,13 @@ spec:
         }
 
     zammadConfig:
-      # Off until zammad-init is proved with its new resources; then enabled again.
       # The chart's bundled Elasticsearch (elasticsearch below); its address and
       # the elastic user's password are found by the chart. reindex builds the
       # index from the database on each zammad-init run, which is quick at this size.
       elasticsearch:
-        enabled: false
-        # Its init step runs whenever this is true, enabled or not.
-        initialisation: false
+        enabled: true
+        # Its init step runs whenever this is true, enabled or not: the two go together.
+        initialisation: true
         reindex: true
       postgresql:
         enabled: false
