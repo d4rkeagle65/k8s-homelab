@@ -155,6 +155,7 @@ def plan(changes: dict, records: list[dict], zones: list[dict]) -> tuple[list, l
 class Handler(BaseHTTPRequestHandler):
     netbox: NetBox
     domains: list[str] = []
+    last_skipped: list[str] = []  # logged in full only when it changes
 
     def log_message(self, *args):
         pass
@@ -200,10 +201,12 @@ class Handler(BaseHTTPRequestHandler):
             zones = self.netbox.all("zones/")
             records = self.netbox.all("records/")
             creates, deletes, skipped = plan(changes, records, zones)
-            sizes = {k: len(v or []) for k, v in changes.items() if isinstance(v, list)}
-            log(f"changes asked: {sizes or 'none'}")
-            for msg in skipped:
-                log(f"skipped {msg}")
+            if skipped != Handler.last_skipped:
+                sizes = {k: len(v or []) for k, v in changes.items() if isinstance(v, list)}
+                log(f"changes asked: {sizes or 'none'}")
+                for msg in skipped:
+                    log(f"skipped {msg}")
+                Handler.last_skipped = skipped
             for rid in deletes:
                 self.netbox.call("DELETE", f"records/{rid}/")
             for rec in creates:
