@@ -89,7 +89,13 @@ spec:
         mountPath: /var/loki
       resources:
         requests: {cpu: 50m, memory: 384Mi}
-        limits: {memory: 1Gi}
+        limits: {cpu: 500m, memory: 1Gi}
+
+    # The rules sidecar (peaks about 89Mi, 30m).
+    sidecar:
+      resources:
+        requests: {cpu: 30m, memory: 128Mi}
+        limits: {cpu: 500m, memory: 256Mi}
 
     # Single binary: none of the scalable mode's components, caches or test
     # helpers (the memcached caches alone would be several GiB of requests).

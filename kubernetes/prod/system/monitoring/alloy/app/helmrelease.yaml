@@ -29,6 +29,11 @@ spec:
       # Every node, the control planes included.
       tolerations:
       - operator: Exists
+    # The config reloader beside Alloy.
+    configReloader:
+      resources:
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 256Mi}
     alloy:
       enableReporting: false
       mounts:
@@ -40,7 +45,7 @@ spec:
             fieldPath: spec.nodeName
       resources:
         requests: {cpu: 20m, memory: 64Mi}
-        limits: {memory: 512Mi}
+        limits: {cpu: 500m, memory: 512Mi}
       configMap:
         content: |
           logging {

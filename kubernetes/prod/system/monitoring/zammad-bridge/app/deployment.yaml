@@ -42,7 +42,7 @@ spec:
           periodSeconds: 60
         resources:
           requests: {cpu: 5m, memory: 24Mi}
-          limits: {memory: 64Mi}
+          limits: {cpu: 500m, memory: 64Mi}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
