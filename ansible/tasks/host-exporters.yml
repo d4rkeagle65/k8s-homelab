@@ -105,11 +105,37 @@
         mode: "0644"
       register: he_args
 
+    # It listens on one address, which a bridge may not carry yet when systemd
+    # starts it at boot ("cannot assign requested address"); systemd's default
+    # gives up after five tries in ten seconds, and three Proxmox hosts' exporters
+    # stayed down that way. Wait for the network, then keep retrying.
+    - name: The exporter's drop-in folder
+      ansible.builtin.file:
+        path: /etc/systemd/system/prometheus-node-exporter.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Start node-exporter once the network is up, retrying until its address is
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/prometheus-node-exporter.service.d/10-wait-for-address.conf
+        content: |
+          [Unit]
+          Wants=network-online.target
+          After=network-online.target
+          StartLimitIntervalSec=0
+
+          [Service]
+          Restart=on-failure
+          RestartSec=10s
+        mode: "0644"
+      register: he_dropin
+
     - name: Run node-exporter
       ansible.builtin.systemd_service:
         name: prometheus-node-exporter
         enabled: true
-        state: "{{ 'restarted' if he_args is changed else 'started' }}"
+        daemon_reload: "{{ he_dropin is changed }}"
+        state: "{{ 'restarted' if he_args is changed or he_dropin is changed else 'started' }}"
       when: not ansible_check_mode
 
     # The packaged collectors write their metrics files on a timer; one run now
