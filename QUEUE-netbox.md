@@ -224,7 +224,8 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [ ] The NetBox-first workflow (tofu/README.md) worked with a test guest, 2026-10-16:
         Planned in NetBox, built by an apply (task 725), marked active by the sync, which
         reused the hand-entered interface and address, then destroyed by an apply. Left:
-        `[redacted]test01a` deleted in NetBox by hand (the sync never deletes)
+        the test container (VMID 199) kept in NetBox as Decommissioning, the guests-to-git
+        generator's skip case (the owner)
 - [ ] Phase 6: each guest's shape (sizes, roles, disks, bridges) edited in NetBox and brought
       into git by a pull request from Semaphore: [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md)
 
