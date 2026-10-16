@@ -60,12 +60,11 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 - [x] Today's shapes entered in NetBox: the 7 Talos VMs took their role and apply mode from a
       one-time table in the seed (task 736), since removed; the generated file equals the
       hand-written `talos_nodes` it replaced
-- [ ] The seed leaves the owned fields alone for VMs with those roles, reporting differences
-      (`differ` in `netbox_seed.py`): proved by the next sync (none should be reported) and by
-      the end-to-end resize below
+- [x] The seed leaves the owned fields alone for VMs with those roles, reporting differences
+      (`differ` in `netbox_seed.py`): sync task 738 found nothing to change and none differing
 - [x] `scripts/netbox_guests.py` with tests (`scripts/tests/test_netbox_guests.py`)
-- [ ] `tofu/proxmox/` reads `netbox-guests.json`; the hand-written maps out (done); a plan
-      unchanged (to run)
+- [x] `tofu/proxmox/` reads `netbox-guests.json`; the hand-written maps out; a plan unchanged
+      (task 737, "No changes")
 - [x] `--pr` through GitHub's API: the branch moved to main, the file committed, the pull request
       opened or updated; the token only in a header (tested against a fake GitHub)
 - [x] The owner's GitHub token, in Semaphore's "Netbox Sync" group as `GITHUB_TOKEN`

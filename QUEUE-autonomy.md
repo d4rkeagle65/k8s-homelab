@@ -88,7 +88,8 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       Prometheus, Alertmanager and zammad-bridge. Authentik's outposts don't carry it: a class
       there goes in the outpost's `config`, owned in Authentik's UI, and a blueprint setting it
       would own all twenty keys
-- [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
+- [x] **netbox-shape** (2026-10-16): built and proved up to the template, which is the
+      owner's (`QUEUE-netbox-shape.md`, its last two boxes)
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [ ] **ssh-keys:** a playbook removing the four deleted Semaphore keys from `authorized_keys`,
       keeping `semaphore-shared`, checked on every host first; VLAN 9 out of Proxmox
@@ -98,8 +99,9 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 
 - [x] `claude-code` made a Task Runner in Semaphore (2026-10-16, checked by `/api/project/1/role`)
 - [x] Decision 10, the test folders: both kept, the split explained in each `CLAUDE.md` (2026-10-16)
-- [ ] A fine-grained GitHub token for this repository (Contents and Pull requests, read and
-      write) for `QUEUE-netbox-shape.md`'s template
+- [x] A fine-grained GitHub token for this repository, in Semaphore's "Netbox Sync" group
+- [ ] Semaphore's template "NetBox: Guests to git" (`QUEUE-netbox-shape.md` has its settings),
+      then a resize in NetBox to prove it end to end
 - [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)
 - [ ] Delete task 713 in Semaphore (it holds two replaced tokens)
 - [ ] Delete `coprlxctest01a` in NetBox
@@ -123,7 +125,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
 resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
 small-cleanups. released-volumes waits on the owner's command. Next in order:
-netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
+ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
 Each push: the commit hook's suite passed; `main` pushed alone
 (`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
 plans rejected, read-only Run Command via `run_command_b64` for braces; no applies or host
