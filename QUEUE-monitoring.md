@@ -158,11 +158,11 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       long the agent took.
 - [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`). Home Assistant's target is
       up (2026-10-16)
-- [ ] Pi-hole 1's exporter (pihole-exporter's `pihole1` container, port 9617) takes 20-28 s
-      to answer since about 2026-10-10 23:00 UTC, past Prometheus's 10 s timeout, so its target
-      is down; Pi-hole 2's answers in 0.2 s, and Homepage's login to Pi-hole 1 is quick. Find
-      which API call is slow (its log at debug, or the calls timed from the pod) before raising
-      the timeout
+- [x] Pi-hole 1's exporter (fixed 2026-10-16): it had hung since Pi-hole 1's restart on
+      2026-10-15, its port open but every scrape timing out; restarted, both answer in under a
+      second, and its liveness probe now fetches `/metrics`, so a hung one restarts itself.
+      The Proxmox hosts' node-exporters, down since their reboots that day, start once the
+      network is up and retry (`ansible/tasks/host-exporters.yml`, run on every Debian host)
 - [ ] Phase 4
 - [ ] Phase 5
 - [x] Phase 6 (in phase 1)

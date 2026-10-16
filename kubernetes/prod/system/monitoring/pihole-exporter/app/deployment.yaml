@@ -24,6 +24,9 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
+      # The liveness probe fetches the metrics: after its Pi-hole restarted
+      # (2026-10-15) an exporter hung on every scrape while its port still
+      # accepted connections, until restarted by hand.
       - name: pihole1
         image: ekofr/pihole-exporter:v1.2.0
         env:
@@ -37,7 +40,7 @@ spec:
         ports:
         - {name: pihole1, containerPort: 9617}
         readinessProbe: {tcpSocket: {port: pihole1}, periodSeconds: 30}
-        livenessProbe: {tcpSocket: {port: pihole1}, periodSeconds: 60, failureThreshold: 5}
+        livenessProbe: {httpGet: {path: /metrics, port: pihole1}, timeoutSeconds: 15, periodSeconds: 60, failureThreshold: 3}
         securityContext: &container
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -59,7 +62,7 @@ spec:
         ports:
         - {name: pihole2, containerPort: 9618}
         readinessProbe: {tcpSocket: {port: pihole2}, periodSeconds: 30}
-        livenessProbe: {tcpSocket: {port: pihole2}, periodSeconds: 60, failureThreshold: 5}
+        livenessProbe: {httpGet: {path: /metrics, port: pihole2}, timeoutSeconds: 15, periodSeconds: 60, failureThreshold: 3}
         securityContext: *container
         resources: *resources
 ---

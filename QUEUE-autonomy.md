@@ -17,6 +17,8 @@ here so a later session, after a compaction, knows where things stand.
 - **Semaphore:** once `claude-code` is a Task Runner, I start dry runs, OpenTofu plans (then
   reject them), read-only "Tool: Run Command" checks and the NetBox sync myself. I never
   confirm an OpenTofu apply or run a template that changes hosts unless asked for that run.
+- **No physical Proxmox host is rebooted without the owner's approval** (2026-10-16), even inside an
+  approved batch: the reboot template, an upgrade that reboots, or a command.
 - **Decisions:** Kea's standby partner is (b), the reservations in a CloudNativePG cluster
   (`QUEUE.md`, Kea phase 3); VLAN 9 comes out of Proxmox (`QUEUE-netbox.md`); Immich's
   PostgreSQL move isn't due (`QUEUE-postgres18.md`); `guests` is out of `TF_VAR_site`.
@@ -62,9 +64,9 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] **resource-limits:** batches 5 (monitoring) and 6 (Calico, MetalLB, Flux), the
       LimitRanges and PriorityClasses, and the 2026-10-18 re-measure
       (`QUEUE-resource-limits.md`)
-- [ ] **monitoring-fixes:** Pi-hole 1's slow exporter; the three Proxmox hosts' node-exporters
-      down since 2026-10-15 (`QUEUE.md`; a Run Command check, then `host-exporters.yml`);
-      Whisparr's exportarr; etcd scraping (one control plane at a time)
+- [ ] **monitoring-fixes:** done 2026-10-16: the Proxmox hosts' node-exporters (a boot race,
+      fixed in `host-exporters.yml` and run), Pi-hole 1's hung exporter (restarted, probed by
+      `/metrics`). Left: Whisparr's exportarr; etcd scraping (one control plane at a time)
 - [ ] **alerts:** monitoring's phase 5: memory near its limit, CPU throttling, a container
       restarting in a loop, drive wear and spare capacity, the TerraMaster's SNMP target down
 - [ ] **hardening:** health probes for the containers still without (`QUEUE.md`), Pod Security
