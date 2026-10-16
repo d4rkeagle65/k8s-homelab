@@ -50,14 +50,9 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       `QUEUE-postgres18.md`, ManicTime's and Whisparr's in `QUEUE-updates.md`) out of git, each
       app checked a day on 18; then the Clusters and their claims deleted, each new cluster's
       data checked first
-- [ ] **released-volumes:** checked 2026-10-16, deletion left to the owner (this session's
-      permissions refuse a bulk PV delete): the 38 Released PVs (29 `local-db` and 4
-      `nas-block` on the destroyed LXC nodes, their data gone with them and every app's live
-      copy healthy; 4 `local-db` and 1 NFS from the old in-cluster NetBox, whose data was
-      never moved). Retain: deleting a PV removes only its record. `kubectl delete pv $(kubectl
-      get pv -o jsonpath='{range .items[?(@.status.phase=="Released")]}{.metadata.name}{" "}{end}')`.
-      Left after: the old NetBox media folder on the NAS, and its database files on four
-      Talos workers' local-db disks (unreferenced)
+- [x] **released-volumes** (2026-10-16): the owner deleted the 38 checked PVs. Left on disk,
+      unreferenced: the old NetBox media folder on the NAS and its database files on four Talos
+      workers' local-db disks
 - [x] **talos-cleanup** (2026-10-16): `gen-config.py` reads `TF_VAR_site`, `kubeadm-config`
       deleted, the LXC workers out of local-path, `nas-block`'s class gone. Left with the
       owner: `nas-block` off the hosts and the NAS (`QUEUE-talos.md`)
@@ -132,7 +127,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 **Where the run stands (2026-10-16, before a context compaction):** done and pushed:
 zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
 resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
-small-cleanups. released-volumes waits on the owner's command. Next in order:
+small-cleanups, released-volumes, cluster-policy, netbox-shape, ssh-keys, elasticsearch. Next in order:
 kea-ha, postgres-retire (from 2026-10-17), netbox-dns (code first; deploying waits on its token).
 Each push: the commit hook's suite passed; `main` pushed alone
 (`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
