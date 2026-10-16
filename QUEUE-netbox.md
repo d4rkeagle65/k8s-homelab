@@ -182,13 +182,6 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
         once reached). Each still lets in whoever holds its private half, which no longer
         exists anywhere Semaphore keeps it; remove them, keeping `semaphore-shared`'s, after
         checking every host still answers a run on it
-  - [ ] The NASes are NetBox devices in the `nas` group (tags `ansible`, `nas`; entered by
-        hand, 2026-10-16), each on its management address. The Synology answers Semaphore
-        (`synadmin`, the key `semaphore-shared`, its host key pinned). The TerraMaster's SSH
-        doesn't answer (port 22 times out from the Docker VM): the owner turns SSH on in TOS
-        and names the login user; then that user in its local context
-        (`ansible_user`), the shared key in its `authorized_keys`, and its host key in
-        Semaphore's `known_hosts`, as for the Synology. Until then a run on `nas` fails there
   - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) is probably unused: the owner
         decides whether to take it out of Proxmox. VLAN 4 (`vmbr4`) is for later; it gets a
         name in `netbox_seed.yaml` once it's in use, which makes its VLAN and prefix
