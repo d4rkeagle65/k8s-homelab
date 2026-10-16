@@ -55,15 +55,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
   plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. The control
   planes are all Talos since 2026-10-13, so etcd's metrics endpoint is set in one place, the
   Talos config (`talos/patches/`): add it there, then turn `kubeEtcd` on.
-- **The garage stack's config is an inline compose config** (`docker/garage/compose.yaml`,
-  `configs: content`), the same mechanism that left `vaultwarden-backup` without its rclone
-  file after a recreation on 2026-10-10 (that container restarted about 600 times and made
-  no backup until it was moved to environment variables). Garage still has its file, through
-  Hawser on the NAS; if a recreation ever drops it, Garage starts without its config. Move it
-  to a form that doesn't depend on the copy (environment variables, or a file written at
-  start), and have Prometheus alert on a container restarting in a loop (cAdvisor's
-  `container_start_time_seconds` changing).
-
 - **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
   rated wear** (`nvme_percentage_used_ratio`, 2026-10-10: 62 TB written over 4.1 years). It's
   written at about 108 GB a day now (a week of `nvme_data_units_written_total`, 2026-10-13),

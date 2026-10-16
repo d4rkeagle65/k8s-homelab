@@ -1,9 +1,12 @@
 # Garage, S3-compatible object storage for CloudNativePG's backups, on the NAS
 # (not the Docker host): deployed by Dockhand through the NAS's Hawser agent.
 # Docker runs on the NAS, so the host path below is a path on the NAS. The
-# config is inline (configs: content), which Compose copies into the container
-# through Docker's API, so nothing has to be placed on the NAS by hand. Only the
-# S3 API is published; manage Garage with `docker exec garage /garage ...`.
+# config is in this file, as garage-config's environment: at every deploy that
+# service writes it into the garage-config volume, and Garage starts only once it
+# has, so a recreated container never starts without it (a compose `configs:`
+# file, copied in once through Docker's API, can be lost that way). Nothing is
+# placed on the NAS by hand. Only the S3 API is published; manage Garage with
+# `docker exec garage /garage ...`.
 #
 # At every start Garage sets itself up, doing only what is missing: the
 # single-node layout (sized to the data folder's disk), the access key from
@@ -21,12 +24,61 @@
 #   CNPG_BACKUP_S3_SECRET_ACCESS_KEY  secret: openssl rand -hex 32
 #                         (the same two as the cluster-secrets fields of those names)
 services:
+  # Writes garage.toml (below) into the garage-config volume, then exits.
+  garage-config:
+    image: busybox:1.38.0
+    restart: "no"
+    environment:
+      GARAGE_TOML: |
+        # One node, one copy: Garage calls that a test setup, and here the NAS's own
+        # disk redundancy covers the drives, and what's stored is itself the second
+        # copy of the databases.
+        replication_factor = 1
+
+        metadata_dir = "/var/lib/garage/meta"
+        data_dir = "/var/lib/garage/data"
+        db_engine = "lmdb"
+        # LMDB reserves its maximum size as address space up front; Garage's 64-bit
+        # default (1T) is more than the NAS's ARM kernel gives a process (39-bit
+        # addressing), so it fails to open. The metadata here is megabytes.
+        lmdb_map_size = "32G"
+        # Snapshots of the metadata database, to recover from if it's ever corrupted.
+        metadata_auto_snapshot_interval = "6h"
+
+        # The NAS has 1 GB of memory: keep Garage's block buffer small.
+        block_ram_buffer_max = "64MiB"
+        compression_level = 1
+
+        rpc_bind_addr = "[::]:3901"
+        rpc_public_addr = "127.0.0.1:3901"
+
+        [s3_api]
+        s3_region = "garage"
+        api_bind_addr = "[::]:3900"
+
+        [admin]
+        api_bind_addr = "[::]:3903"
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      [ -n "$$GARAGE_TOML" ] || { echo "GARAGE_TOML is empty"; exit 1; }
+      printf '%s' "$$GARAGE_TOML" > /config/garage.toml
+      grep -q '^replication_factor' /config/garage.toml
+      echo "garage.toml written: $$(wc -c < /config/garage.toml) bytes"
+    volumes:
+    - garage-config:/config
+
   garage:
     mem_limit: 2g  # unmeasured: Garage's use isn't scraped yet
     image: dxflrs/garage:v2.4.1
     container_name: garage
     restart: unless-stopped
-    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    command: ["/garage", "-c", "/etc/garage/garage.toml", "server", "--single-node", "--default-bucket"]
+    depends_on:
+      garage-config:
+        condition: service_completed_successfully
     ports:
     - ${GARAGE_BIND_ADDRESS}:3900:3900
     # The admin API, for Prometheus's scrape of /metrics (with the metrics
@@ -39,42 +91,10 @@ services:
       GARAGE_DEFAULT_ACCESS_KEY: ${CNPG_BACKUP_S3_ACCESS_KEY_ID}
       GARAGE_DEFAULT_SECRET_KEY: ${CNPG_BACKUP_S3_SECRET_ACCESS_KEY}
       GARAGE_DEFAULT_BUCKET: cnpg-backups
-    configs:
-    - source: garage_toml
-      target: /etc/garage.toml
     volumes:
+    - garage-config:/etc/garage:ro
     - ${GARAGE_DIR}/meta:/var/lib/garage/meta
     - ${GARAGE_DIR}/data:/var/lib/garage/data
 
-configs:
-  # One Garage node; the secrets come from the environment above.
-  garage_toml:
-    content: |
-      # One node, one copy: Garage calls that a test setup, and here the NAS's own
-      # disk redundancy covers the drives, and what's stored is itself the second
-      # copy of the databases.
-      replication_factor = 1
-
-      metadata_dir = "/var/lib/garage/meta"
-      data_dir = "/var/lib/garage/data"
-      db_engine = "lmdb"
-      # LMDB reserves its maximum size as address space up front; Garage's 64-bit
-      # default (1T) is more than the NAS's ARM kernel gives a process (39-bit
-      # addressing), so it fails to open. The metadata here is megabytes.
-      lmdb_map_size = "32G"
-      # Snapshots of the metadata database, to recover from if it's ever corrupted.
-      metadata_auto_snapshot_interval = "6h"
-
-      # The NAS has 1 GB of memory: keep Garage's block buffer small.
-      block_ram_buffer_max = "64MiB"
-      compression_level = 1
-
-      rpc_bind_addr = "[::]:3901"
-      rpc_public_addr = "127.0.0.1:3901"
-
-      [s3_api]
-      s3_region = "garage"
-      api_bind_addr = "[::]:3900"
-
-      [admin]
-      api_bind_addr = "[::]:3903"
+volumes:
+  garage-config:
