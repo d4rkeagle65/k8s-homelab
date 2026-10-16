@@ -173,4 +173,4 @@ networks:
   # Kea's control API (the Kea plugin), on the kea stack's network.
   kea:
     external: true
-    name: ${KEA_NETWORK}
+    name: ${KEA_NETWORK:?set KEA_NETWORK on this stack in Dockhand}

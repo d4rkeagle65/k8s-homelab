@@ -94,10 +94,10 @@ services:
 networks:
   semaphore:
     external: true
-    name: ${SEMAPHORE_NETWORK}
+    name: ${SEMAPHORE_NETWORK:?set SEMAPHORE_NETWORK on this stack in Dockhand}
   kea:
     external: true
-    name: ${KEA_NETWORK}
+    name: ${KEA_NETWORK:?set KEA_NETWORK on this stack in Dockhand}
   netbox:
     external: true
-    name: ${NETBOX_NETWORK}
+    name: ${NETBOX_NETWORK:?set NETBOX_NETWORK on this stack in Dockhand}
