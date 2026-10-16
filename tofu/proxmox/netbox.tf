@@ -36,6 +36,11 @@ data "http" "netbox_vms" {
 }
 
 locals {
+  # The Talos VMs' and plain containers' shape, which NetBox owns: generated
+  # from it by scripts/netbox_guests.py and merged as a pull request, so a plan
+  # shows only a change someone reviewed. Never edited by hand.
+  netbox_guests = jsondecode(file("${path.module}/netbox-guests.json"))
+
   netbox_vms = {
     for vm in jsondecode(data.http.netbox_vms.response_body).data.virtual_machine_list :
     tostring(vm.custom_fields.vmid) => vm if try(vm.custom_fields.vmid, null) != null

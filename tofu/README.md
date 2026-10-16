@@ -6,13 +6,16 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 
 | Module | Owns |
 |---|---|
-| `proxmox/` | The Proxmox guests: the Talos VMs (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes, the Docker VM and plain Debian containers (`containers` in `guests.tf`) (not the Windows DC). |
+| `proxmox/` | The Proxmox guests: the Talos VMs (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes, the Docker VM and plain Debian containers (`containers` in `guests.tf`, from `netbox-guests.json`) (not the Windows DC). |
 | `cloudflare/` | The hand-made DNS records in both Cloudflare zones (not the tunnel controller's records, the tunnel's public hostnames, or cert-manager's challenges: each has its own owner). |
 
 ## What lives where
 
 - **The shape** (VMIDs, roles, sizes, bridges, tags) is in git, and nothing else: no names,
-  addresses or numbers from the site.
+  addresses or numbers from the site. The Talos VMs' and plain containers' shape is NetBox's
+  (QUEUE-netbox-shape.md): `proxmox/netbox-guests.json` is generated from it by
+  `scripts/netbox_guests.py`, which Semaphore's "NetBox: Guests to git" runs to open a pull
+  request; never edit the file by hand. The Pi-holes and the Docker VM keep theirs in `.tf`.
 - **Each guest's Proxmox host, name, addresses and MACs are NetBox's** (`netbox.tf`): one
   GraphQL query at every plan, by the VMID custom field, with a read-only token. NetBox's
   nightly sync (`scripts/netbox_seed.py`) keeps them in step with Proxmox. A plan stops when
@@ -21,9 +24,11 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
   them before the sync records it.
 - **A new guest starts in NetBox:** a virtual machine there with status Planned, the VMID
   in its `vmid` custom field, its Proxmox host as its device (the one with the most free
-  memory), its name, and an interface `net0` with its address. Then its shape goes in git
-  (a plain container: an entry in `containers`, keyed by that VMID) and an apply builds it;
-  the nightly sync marks it active and adds its MACs.
+  memory), its name, and an interface `net0` with its address. A Talos VM or plain container
+  also gets its shape there: role, vCPUs, memory, virtual disks (`scsi0`, `scsi1`; `rootfs`, in
+  MB, a G as 1000) and `talos_apply_mode` or `proxmox_tags`. Its pull request merged, an apply
+  builds it; the nightly sync marks it active and adds its MACs, and never writes the shape
+  back over NetBox's (it reports where Proxmox differs).
 - **What's specific to the site and NetBox doesn't hold** is one JSON value, `TF_VAR_site`:
   each bridge's network prefix and gateway, the nodes' DNS settings, and the Talos cluster's
   values. `variables.tf` describes it and checks it before anything is read.

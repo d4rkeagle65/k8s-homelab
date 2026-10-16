@@ -54,20 +54,24 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 
 ## Checklist
 
-- [ ] NetBox: the three VM roles (`vm_roles` in `netbox_seed.yaml`), the custom fields
-      `talos_apply_mode` (choice set "Talos apply modes") and `proxmox_tags`, and the seed
-      writing each guest's virtual disks from Proxmox (MB, a Proxmox G as 1000): in the seed,
-      to be proved by the sync's next run
-- [ ] Today's shapes entered in NetBox: the seed's one-time `adopt` table gives the 7 Talos VMs
-      their role and apply mode; checked equal to `talos_nodes`, then `adopt` removed
+- [x] NetBox: the three VM roles (`vm_roles` in `netbox_seed.yaml`), the custom fields
+      `talos_apply_mode` (choice set "Talos apply modes") and `proxmox_tags`, and each guest's
+      virtual disks from Proxmox (MB, a Proxmox G as 1000): sync task 736, 2026-10-16
+- [x] Today's shapes entered in NetBox: the 7 Talos VMs took their role and apply mode from a
+      one-time table in the seed (task 736), since removed; the generated file equals the
+      hand-written `talos_nodes` it replaced
 - [ ] The seed leaves the owned fields alone for VMs with those roles, reporting differences
-      (`differ` in `netbox_seed.py`): written, proved once a role is set
-- [ ] `scripts/netbox_guests.py` with tests: the file generated from NetBox equals today's maps
-- [ ] `tofu/proxmox/` reads the file; the hand-written maps out; a plan unchanged
-- [ ] `--pr`: the branch, the pull request opened or updated by GitHub's API, the token never
-      printed (`scripts/CLAUDE.md`'s rule on arguments, and none in an error)
-- [ ] The owner makes a fine-grained GitHub token for this repository only (Contents and Pull
-      requests: read and write) and the template
+      (`differ` in `netbox_seed.py`): proved by the next sync (none should be reported) and by
+      the end-to-end resize below
+- [x] `scripts/netbox_guests.py` with tests (`scripts/tests/test_netbox_guests.py`)
+- [ ] `tofu/proxmox/` reads `netbox-guests.json`; the hand-written maps out (done); a plan
+      unchanged (to run)
+- [x] `--pr` through GitHub's API: the branch moved to main, the file committed, the pull request
+      opened or updated; the token only in a header (tested against a fake GitHub)
+- [x] The owner's GitHub token, in Semaphore's "Netbox Sync" group as `GITHUB_TOKEN`
+- [ ] The template "NetBox: Guests to git" (the owner: a Python app, `scripts/netbox_guests.py`,
+      arguments `["--pr"]`, the "Netbox Sync" variable group, which carries `NETBOX_TOKEN`,
+      `NETBOX_API` and `GITHUB_TOKEN` as environment variables)
 - [ ] Proved end to end: a resize in NetBox, the template's pull request, merged, a plan
       showing just that change
 

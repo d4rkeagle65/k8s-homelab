@@ -34,11 +34,10 @@ locals {
     ]
   }
 
-  # Plain Debian containers, by VMID: their size and networks here, their host,
-  # name and address in NetBox, entered there first (status Planned) so the
-  # apply that builds one finds them; the nightly sync marks it active. An
-  # entry: "<vmid>" = { cores = 1, memory = 512, disk_gb = 4, bridges = ["vmbr7"], tags = [] }
-  containers = {}
+  # Plain Debian containers, by VMID: their size, networks and tags from NetBox
+  # through netbox-guests.json (role "Plain container"), like the Talos nodes;
+  # an entry: { cores, memory, disk_gb, bridges = ["vmbr7"], tags = [] }.
+  containers = local.netbox_guests.containers
 
   guests = merge(
     { for id, _ in local.piholes : id => "pihole" },
