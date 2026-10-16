@@ -90,7 +90,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       recreated (zammad-db's replica was, and came back with it, streaming). Authentik's server and worker
       carry it (`global.priorityClassName`); its two outposts don't, since a class there goes in
       the outpost's `config`, owned in Authentik's UI, and a blueprint setting it would own all
-      twenty keys. Left: `priorityClassName: homelab-critical` on Traefik and monitoring, one workload
+      twenty keys. Traefik carries it. Left: `priorityClassName: homelab-critical` on monitoring, one workload
       at a time, each checked Running before the next
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)

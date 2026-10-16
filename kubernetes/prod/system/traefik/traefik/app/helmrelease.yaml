@@ -44,6 +44,8 @@ spec:
     # Local, below) and moves it when that copy fails. A drain keeps one.
     deployment:
       replicas: 2
+    # Scheduled before ordinary pods when nodes are short (cluster-policy).
+    priorityClassName: homelab-critical
     affinity:
       podAntiAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
