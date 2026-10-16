@@ -23,9 +23,24 @@ spec:
         enabled: true
     frrk8s:
       enabled: false
+    controller:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 160Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
     speaker:
       frr:
         enabled: false
+      resources:
+        requests:
+          cpu: 10m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
   commonMetadata:
     labels:
       homelab.local/env: prod

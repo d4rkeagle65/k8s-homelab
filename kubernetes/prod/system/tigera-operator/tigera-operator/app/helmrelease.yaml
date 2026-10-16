@@ -18,9 +18,95 @@ spec:
   values:
     apiServer:
       enabled: true
+      apiServerDeployment:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: calico-apiserver
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 160Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
     goldmane:
       enabled: true
+      goldmaneDeployment:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: goldmane
+                resources:
+                  requests:
+                    cpu: 60m
+                    memory: 192Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
     installation:
+      calicoNodeDaemonSet:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: calico-node
+                resources:
+                  requests:
+                    cpu: 80m
+                    memory: 256Mi
+                  limits:
+                    cpu: 1000m
+                    memory: 512Mi
+      typhaDeployment:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: calico-typha
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 160Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+      calicoKubeControllersDeployment:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: calico-kube-controllers
+                resources:
+                  requests:
+                    cpu: 20m
+                    memory: 160Mi
+                  limits:
+                    cpu: 500m
+                    memory: 512Mi
+      csiNodeDriverDaemonSet:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: calico-csi
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                  limits:
+                    cpu: 500m
+                    memory: 256Mi
+              - name: csi-node-driver-registrar
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                  limits:
+                    cpu: 500m
+                    memory: 256Mi
       calicoNetwork:
         bgp: Enabled
         hostPorts: Enabled
@@ -66,6 +152,34 @@ spec:
       variant: Calico
     whisker:
       enabled: true
+      whiskerDeployment:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: whisker
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                  limits:
+                    cpu: 500m
+                    memory: 256Mi
+              - name: whisker-backend
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                  limits:
+                    cpu: 500m
+                    memory: 256Mi
+    resources:
+      requests:
+        cpu: 20m
+        memory: 192Mi
+      limits:
+        cpu: 1000m
+        memory: 896Mi
   commonMetadata:
     labels:
       homelab.local/env: prod

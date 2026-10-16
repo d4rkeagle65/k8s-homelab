@@ -92,7 +92,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       Loki's sidecars, the SNMP exporter's reloader: 64-128Mi requests, 256Mi limits). Requests
       left for the 2026-10-18 re-measure, which recalculates all of them: Prometheus's 768Mi is
       below the rules' 1.8Gi for its 1.5Gi peak
-- [ ] Batch 6: operator-managed: Calico (its Installation), MetalLB, Flux
+- [x] Batch 6 (2026-10-16): operator-managed. Calico through its operator's resources
+      (`Installation`'s calico-node, typha, kube-controllers and CSI driver; `APIServer`,
+      `Goldmane`, `Whisker`; calico-node's CPU limit 1000m, as it carries every pod's network;
+      each node had the room for the per-node pods' requests, the control planes 2.2Gi), the
+      tigera-operator itself (sized from its use: its peak was startup), MetalLB's controller and
+      speakers. Flux's controllers already had theirs
 - [ ] A LimitRange in each app namespace with defaults for a container that sets none
 - [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring
 - [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
