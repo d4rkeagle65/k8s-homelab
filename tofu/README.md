@@ -2,7 +2,7 @@
 
 What's created through APIs, described in code: one root module per target, each with its own
 state. Plans and applies run from Semaphore (`docker/semaphore/`), whose image ships the same
-OpenTofu as `versions.tf` requires. The decisions and what's left are in `QUEUE-terraform.md`.
+OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-queues/QUEUE-terraform.md`; what's left is in `QUEUE.md` and `QUEUE-netbox.md`.
 
 | Module | Owns |
 |---|---|

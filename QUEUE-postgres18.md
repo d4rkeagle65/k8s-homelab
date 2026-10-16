@@ -68,8 +68,9 @@ From about 2026-10-17, once each app has run a day on 18: remove `postgres.yaml`
 `<app>-postgres-1`/`-2`.
 
 - [ ] Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr (moved 2026-10-15)
-- [ ] Mealie, Linkwarden, n8n (`n8n/app/`), NetBox (`netbox/app/`): `postgres.yaml` and
-      `scheduledbackup.yaml` with their lines in `app/kustomization.yaml` (moved 2026-10-15)
+- [ ] Mealie, Linkwarden, n8n (`n8n/app/`): `postgres.yaml` and `scheduledbackup.yaml` with
+      their lines in `app/kustomization.yaml` (moved 2026-10-15). NetBox's went with its
+      namespace when NetBox moved to the Docker VM
 - [ ] Authentik: `cluster-authentik-postgres.yaml` (`authentik-extras`, `.promote`; `generate`
       after) and `scheduledbackup-authentik-postgres.yaml` (`authentik-backup/`) (moved 2026-10-15)
 - [ ] BabyBuddy: `cluster-babybuddy-postgres.yaml` (`.promote`; `generate` after) and

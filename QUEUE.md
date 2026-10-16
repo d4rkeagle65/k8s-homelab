@@ -60,14 +60,9 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   host paths, NET_RAW). The API's warnings on apply list what a level would refuse.
 - **Prometheus doesn't scrape etcd** (`kube-prometheus-stack`'s `kubeEtcd` is off), so there's
   no WAL fsync latency, leader changes or database size history: on 2026-10-13 the Talos control
-  plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. Add it once the
-  control planes are all Talos (QUEUE-talos.md), where etcd's metrics endpoint is set in one
-  place, the Talos config.
-- **NetBox as the source of truth** (`services/netbox/`), each its own change: an Ansible
-  inventory from it (`netbox.netbox` collection, for Semaphore), the OpenTofu provider reading
-  guests and addresses from it, and the Proxmox hosts, guests and Kea's subnets loaded into it
-  to begin with. Each tool gets its own NetBox API token, not the local admin's.
-
+  plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. The control
+  planes are all Talos since 2026-10-13, so etcd's metrics endpoint is set in one place, the
+  Talos config (`talos/patches/`): add it there, then turn `kubeEtcd` on.
 - **The garage stack's config is an inline compose config** (`docker/garage/compose.yaml`,
   `configs: content`), the same mechanism that left `vaultwarden-backup` without its rclone
   file after a recreation on 2026-10-10 (that container restarted about 600 times and made
@@ -87,22 +82,17 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
   (etcd, the workers' databases, images and logs, Proxmox's own files) and cut what can be.
   Alerts on wear and spare capacity are phase 5 of `QUEUE-monitoring.md`.
 
-- **NAS block storage, live (2026-10-10):** `nas-block` (`ansible/tasks/proxmox-nas-block.yml`)
-  is active on all four hosts, 30 GiB each, one path per host, and each worker has a 28 GiB
-  `mp2` on it at `/opt/nas-block` (added live with `pct set`; declared in `tofu/proxmox/`,
-  whose plan should show no change for them). Next: the `nas-block` StorageClass for
-  Prometheus and Alertmanager (`QUEUE-monitoring.md`).
-
 - **Kubernetes 1.37, when its patches settle:** `kubernetes_version` in
   `tofu/proxmox/talos-config.tf` in a commit, then `ansible/talos-k8s-upgrade.yml` (its dry run
   first), then the OpenTofu job. Check first that Talos 1.14 supports 1.37 (its support
   matrix) and the add-ons' ranges: Calico 3.33 is the one that covers 1.37 (3.33.0 tested on
   1.35-1.37). Bump the claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
-- **Proxmox backups of the workers' mount points:** each worker's `mp0` (container images)
-  carries `backup=1` in the Proxmox job, and its database dataset `mp1` doesn't. With every
-  CloudNativePG database backed up to Garage and restore-tested (2026-10-09), `mp1` needn't
-  be, and `mp0` could drop it.
+- **Three Proxmox hosts' node-exporters stopped answering** (port 9100: the `proxmox-hosts`
+  job, 3 of 5 down; found 2026-10-16): down 26 to 33 hours, since the hosts' upgrade and
+  reboot runs on 2026-10-15, so likely not started at boot. Their NVMe wear and disk metrics
+  are missing meanwhile. Check `prometheus-node-exporter`'s status on those hosts (Semaphore's
+  "Tool: Run Command" on `proxmox`), fix the cause, and have `host-exporters.yml` enable it.
 
 ## Cleanup
 
@@ -177,10 +167,9 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
   The inventory and every address stay out of this public repo (a
   gitignored inventory, or values from Vaultwarden).
-- **Terraform (or OpenTofu) for what's created through APIs** (decision 9):
-  - **Proxmox:** the VMs and LXCs (k8s nodes, the Docker VM, Pi-hole), with
-    their disks and network interfaces.
-  - **Cloudflare:** DNS records and the tunnel's public hostnames.
+- **OpenTofu for the rest of what's created through APIs** (decision 9; the Proxmox guests and
+  Cloudflare's DNS records are done, `tofu/`, `old-queues/QUEUE-terraform.md`):
+  - **Cloudflare:** the tunnel's public hostnames.
   - **The *arr settings:** download clients, root folders, auth and
     Prowlarr's app links, through the devopsarr providers. This is the
     alternative to a small in-cluster Job calling the apps' APIs, which
@@ -190,10 +179,6 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     through the community `kalebharrison/dockhand` provider (unofficial,
     with known gaps, so a Dockhand update can break it). Dockhand can't set
     itself up: Ansible installs it on the VM, then Terraform configures it.
-
-  In progress, Proxmox first: [QUEUE-terraform.md](QUEUE-terraform.md) has the
-  decisions (state in Semaphore's PostgreSQL, plans and applies run from
-  Semaphore, existing resources imported first) and the checklist.
 
 - **Consolidate the two test folders** (low priority; decision 10). `tests/` is the repo-wide gate
   (doc-style, harness, hygiene, script-health suites, run by `tests/run-all-tests.py` and the
@@ -205,17 +190,17 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
 
 ## Working queue files
 
-- [QUEUE-terraform.md](QUEUE-terraform.md) (100%): OpenTofu, Proxmox guests first. Every box ticked: due to move to `old-queues/`.
-- [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 50%): Prometheus, Loki and Grafana, in eight phases.
+- [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 55%): Prometheus, Loki and Grafana, in eight phases.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 45%): requests and limits on every container, in batches.
-- [QUEUE-talos.md](QUEUE-talos.md) (about 90%): the nodes onto Talos VMs, surviving the loss of any host.
-- [QUEUE-netbox.md](QUEUE-netbox.md) (about 30%): NetBox on the Docker VM as the source of Semaphore's hosts, then documenting the homelab, owning DNS and new guests' addresses.
-- [QUEUE-organizr.md](QUEUE-organizr.md) (about 25%): Organizr configured from git; its remaining checks.
+- [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
+- [QUEUE-netbox.md](QUEUE-netbox.md) (about 65%): NetBox on the Docker VM as the source of Semaphore's hosts and OpenTofu's guests, then owning DNS.
+- [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (0%): each guest's shape edited in NetBox, into git by a pull request.
+- [QUEUE-organizr.md](QUEUE-organizr.md) (about 50%): Organizr configured from git; its remaining checks.
 - [QUEUE-postgres18.md](QUEUE-postgres18.md) (about 85%): every database onto PostgreSQL 18 on Debian trixie, a new cluster each.
-- [QUEUE-updates.md](QUEUE-updates.md) (about 55%): version updates that change behaviour (Mealie, MetalLB,
+- [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 
-The percentages are estimates as of 2026-10-15, from each file's checklist weighed by the
+The percentages are estimates as of 2026-10-16, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
 the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks

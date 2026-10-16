@@ -23,10 +23,11 @@ automatically, like Homepage.
 - [x] Organizr deployed (`organizr` namespace, NFS volume, private networks only)
 - [x] Sync script and `organizr.yaml`; run from outside the cluster without the OIDC settings:
       17 settings, 4 categories, 22 tabs, read back; a second run changed nothing
-- [ ] The variables reach the cluster (`cluster-secrets`), then the Job, the blueprint and the
+- [x] The variables reach the cluster (`cluster-secrets`), then the Job, the blueprint and the
       worker's env var are pushed; the blueprint re-applied once the worker restarts
       (`kubernetes/CLAUDE.md`)
-- [ ] The Job's first run in the cluster succeeds, OIDC settings included
+- [x] The Job's run in the cluster succeeds, OIDC settings included (2026-10-16: 34
+      settings, 5 categories, 27 tabs verified)
 - [ ] Login through Authentik works, as an Organizr Admin and as an Organizr User
 - [ ] The *arr tabs load inside Organizr (if one refuses framing, make it type 2)
 - [ ] Organizr's homepage shows Sonarr, Radarr, Lidarr and qBittorrent data (qBittorrent may
