@@ -18,7 +18,8 @@
 #                           (AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET)
 #   CONFIG_DIFF_USERNAME, CONFIG_DIFF_PASSWORD  secret: the switches' and APs' login,
 #                           for the Config Diff plugin; empty until it's used
-#   DATABASUS_DB_PASSWORD   secret: the databasus role's (read-only, for backups)
+#   DATABASUS_DB_PASSWORD   secret: the databasus role's (read-only, for backups); this
+#                           stack's own, the Vaultwarden field NETBOX_DATABASUS_DB_PASSWORD
 #   TZ                      e.g. America/New_York
 x-netbox: &netbox
   image: homelab/netbox:local
