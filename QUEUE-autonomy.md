@@ -57,10 +57,9 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       get pv -o jsonpath='{range .items[?(@.status.phase=="Released")]}{.metadata.name}{" "}{end}')`.
       Left after: the old NetBox media folder on the NAS, and its database files on four
       Talos workers' local-db disks (unreferenced)
-- [ ] **talos-cleanup:** `talos/gen-config.py` reading the cluster's settings from
-      `TF_VAR_site` instead of the `kubeadm-config` ConfigMap, then the ConfigMap deleted; the
-      destroyed nodes out of local-path's maps; the `nas-block` storage class and its tasks
-      (the LUNs need a Semaphore run of `proxmox-host.yml`)
+- [x] **talos-cleanup** (2026-10-16): `gen-config.py` reads `TF_VAR_site`, `kubeadm-config`
+      deleted, the LXC workers out of local-path, `nas-block`'s class gone. Left with the
+      owner: `nas-block` off the hosts and the NAS (`QUEUE-talos.md`)
 - [ ] **resource-limits:** batches 5 (monitoring) and 6 (Calico, MetalLB, Flux), the
       LimitRanges and PriorityClasses, and the 2026-10-18 re-measure
       (`QUEUE-resource-limits.md`)
