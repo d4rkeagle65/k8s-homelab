@@ -1,0 +1,65 @@
+# Removes retired keys from root's authorized_keys on the Proxmox hosts, the
+# Pi-holes and the Docker VM: every line whose comment is one of
+# retired_key_comments ("semaphore", the per-group keys Semaphore no longer
+# holds; QUEUE-netbox.md). Each host first proves it still holds the key this
+# run logs in with (semaphore-shared), so removing the others can't lock
+# Semaphore out, and each file is read back afterwards.
+#
+# The Proxmox hosts share one file, /etc/pve/priv/authorized_keys (root's is a
+# link to it), so it's edited once, on the first host.
+#
+# In check mode (--check) it lists what it would remove and changes nothing.
+
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: proxmox
+
+- name: Retired keys out of root's authorized_keys
+  hosts: proxmox[0]:pihole:docker_vm
+  gather_facts: false
+  vars:
+    retired_key_comments: [semaphore]
+    kept_key_comment: semaphore-shared
+    keys_file: "{{ '/etc/pve/priv/authorized_keys' if inventory_hostname in groups['proxmox'] else '/root/.ssh/authorized_keys' }}"
+    # A key line: options are allowed before the type; the comment is the last field.
+    retired_pattern: '^(.*\s)?(ssh-[a-z0-9-]+|ecdsa-[a-z0-9-]+)\s+\S+\s+({{ retired_key_comments | map("regex_escape") | join("|") }})\s*$'
+  tasks:
+    - name: Read the file
+      ansible.builtin.slurp:
+        path: "{{ keys_file }}"
+      register: before
+
+    - name: It holds the key this run logs in with
+      ansible.builtin.assert:
+        that: (before.content | b64decode).splitlines() | select('search', '\s' ~ kept_key_comment ~ '\s*$') | list | length > 0
+        fail_msg: "{{ keys_file }} has no {{ kept_key_comment }} key: nothing is removed from it."
+        quiet: true
+
+    - name: What goes
+      ansible.builtin.debug:
+        msg: >-
+          {{ (before.content | b64decode).splitlines() | select('match', retired_pattern) | list | length }}
+          key(s) commented {{ retired_key_comments | join(' or ') }} in {{ keys_file }}
+
+    - name: Remove the retired keys
+      ansible.builtin.lineinfile:
+        path: "{{ keys_file }}"
+        regexp: "{{ retired_pattern }}"
+        state: absent
+        # /etc/pve is Proxmox's cluster filesystem, where a rename into place may be refused.
+        unsafe_writes: true
+
+    - name: Read it back
+      ansible.builtin.slurp:
+        path: "{{ keys_file }}"
+      register: after
+      when: not ansible_check_mode
+
+    - name: The retired keys are gone and the kept one is there
+      ansible.builtin.assert:
+        that:
+          - (after.content | b64decode).splitlines() | select('match', retired_pattern) | list | length == 0
+          - (after.content | b64decode).splitlines() | select('search', '\s' ~ kept_key_comment ~ '\s*$') | list | length > 0
+        fail_msg: "{{ keys_file }} doesn't read back as intended: check it by hand."
+        quiet: true
+      when: not ansible_check_mode
