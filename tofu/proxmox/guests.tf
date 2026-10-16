@@ -34,10 +34,104 @@ locals {
     ]
   }
 
+  # Plain Debian containers, by VMID: their size and networks here, their host,
+  # name and address in NetBox, entered there first (status Planned) so the
+  # apply that builds one finds them; the nightly sync marks it active.
+  # 199: the test guest for that workflow.
+  containers = {
+    "199" = { cores = 1, memory = 512, disk_gb = 4, bridges = ["vmbr7"], tags = ["test"] }
+  }
+
   guests = merge(
     { for id, _ in local.piholes : id => "pihole" },
+    { for id, _ in local.containers : id => "container" },
     { "107" = "docker-vm" },
   )
+}
+
+# The template the plain containers start from, once, on the NAS's shared
+# storage. Proxmox's own catalogue (pveam) lists it with this checksum.
+resource "proxmox_download_file" "debian_13" {
+  node_name           = local.guest["107"].node
+  datastore_id        = "syn-nfs"
+  content_type        = "vztmpl"
+  url                 = "http://download.proxmox.com/images/system/debian-13-standard_13.6-1_amd64.tar.zst"
+  checksum            = "4c0c27ca6ceab5ef0b84db57825a00f26157ef1854bafe97297813e1cbe8ecb8cc9c453cab6b3b0efe1ba193a50c47ece1e41d950e411b8730b835b71e9e754b"
+  checksum_algorithm  = "sha512"
+  overwrite           = false
+  overwrite_unmanaged = true
+
+  # On shared storage any host serves; the host it was asked of moving (HA)
+  # is no reason to fetch it again.
+  lifecycle {
+    ignore_changes = [node_name]
+  }
+}
+
+resource "proxmox_virtual_environment_container" "container" {
+  for_each = local.containers
+
+  node_name     = local.guest[each.key].node
+  vm_id         = tonumber(each.key)
+  unprivileged  = true
+  start_on_boot = true
+  started       = true
+  tags          = each.value.tags
+
+  cpu {
+    cores = each.value.cores
+  }
+
+  memory {
+    dedicated = each.value.memory
+    swap      = 0
+  }
+
+  disk {
+    datastore_id = "vms"
+    size         = each.value.disk_gb
+  }
+
+  operating_system {
+    template_file_id = proxmox_download_file.debian_13.id
+    type             = "debian"
+  }
+
+  dynamic "network_interface" {
+    for_each = each.value.bridges
+    content {
+      name   = "eth${network_interface.key}"
+      bridge = network_interface.value
+    }
+  }
+
+  initialization {
+    hostname = local.guest[each.key].name
+
+    dns {
+      domain  = var.site.node_search_domain
+      servers = var.site.node_dns_servers
+    }
+
+    dynamic "ip_config" {
+      for_each = each.value.bridges
+      content {
+        ipv4 {
+          address = "${var.site.networks[ip_config.value].prefix}.${local.guest[each.key].host}/${var.site.networks[ip_config.value].prefix_length}"
+          gateway = var.site.networks[ip_config.value].gateway
+        }
+      }
+    }
+  }
+
+  features {
+    nesting = true
+  }
+
+  # A newer template is for the next container, not a reason to rebuild this one.
+  lifecycle {
+    ignore_changes = [operating_system]
+  }
 }
 
 resource "proxmox_virtual_environment_container" "pihole" {

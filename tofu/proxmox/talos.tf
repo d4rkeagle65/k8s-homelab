@@ -12,6 +12,12 @@ resource "proxmox_download_file" "talos_nocloud" {
   url          = "https://factory.talos.dev/image/${local.talos_schematic}/${local.talos_version}/nocloud-amd64.qcow2"
   file_name    = "talos-${substr(local.talos_schematic, 0, 12)}-${local.talos_version}-nocloud-amd64.qcow2"
   overwrite    = false
+
+  # On shared storage any host serves; the host 110 runs on moving (HA, a
+  # migration; NetBox records it) is no reason to fetch it again.
+  lifecycle {
+    ignore_changes = [node_name]
+  }
 }
 
 resource "proxmox_virtual_environment_vm" "talos" {
