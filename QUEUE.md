@@ -27,6 +27,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
+  check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
+  the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
+  defaults, read each Job and CronJob template in the namespaces (and their past peaks in
+  Prometheus), not only the running pods.
 - **tigera-operator lands back on a node that's shutting down** (found 2026-10-16): its
   tolerations are "every NoSchedule and NoExecute taint" (the chart's default), so when a
   Talos node shuts down each replacement pod is scheduled onto it again and rejected; 92

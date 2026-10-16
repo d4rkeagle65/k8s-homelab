@@ -85,14 +85,14 @@ spec:
         }
 
     zammadConfig:
-      # Off while its first run is diagnosed: the upgrade that enabled it timed out
-      # in zammad-init after Elasticsearch came up (QUEUE-zammad.md).
+      # Off until zammad-init is proved with its new resources; then enabled again.
       # The chart's bundled Elasticsearch (elasticsearch below); its address and
       # the elastic user's password are found by the chart. reindex builds the
       # index from the database on each zammad-init run, which is quick at this size.
       elasticsearch:
         enabled: false
-        initialisation: true
+        # Its init step runs whenever this is true, enabled or not.
+        initialisation: false
         reindex: true
       postgresql:
         enabled: false
@@ -112,6 +112,20 @@ spec:
       initContainers:
         volumePermissions:
           enabled: false
+        # zammad-init's steps boot Rails: past the namespace's 512 MiB default
+        # (cluster-policy's LimitRange) the database step was OOM-killed.
+        postgresql:
+          resources:
+            requests: {cpu: 50m, memory: 256Mi}
+            limits: {cpu: 1000m, memory: 1536Mi}
+        zammad:
+          resources:
+            requests: {cpu: 50m, memory: 256Mi}
+            limits: {cpu: 1000m, memory: 1536Mi}
+        elasticsearch:
+          resources:
+            requests: {cpu: 50m, memory: 256Mi}
+            limits: {cpu: 1000m, memory: 1536Mi}
       tmpDirVolume:
         emptyDir:
           medium: Memory

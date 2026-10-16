@@ -42,12 +42,16 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       them with node and address. Done when a real one has fired and its ticket shows the list
 - [ ] Mail: Zammad's outgoing mail through `smtp-oauth-relay` (notifications), and an incoming
       channel if tickets by email are wanted (the owner's call)
-- [ ] Elasticsearch through the ECK operator: the operator is in; Zammad's
-      `zammadConfig.elasticsearch.enabled` is back off. Enabling it (2026-10-16) brought the node
-      up (bootstrapped in 3 minutes) but `zammad-init` didn't finish within the HelmRelease's
-      15 minutes, so Flux rolled back, which deleted the node (its volume is Released, the 39th).
-      Next: run the chart's init with Elasticsearch on, outside a Helm upgrade, and read why it
-      stalls (the reindex, or its connection) before enabling it again
+- [ ] Elasticsearch through the ECK operator: the operator is in; Zammad's search is off again.
+      Enabling it (2026-10-16) brought the node up in 3 minutes, but `zammad-init`'s database step
+      was OOM-killed: cluster-policy's LimitRange gave it the namespace's 512 MiB default (its peak
+      is 729 MiB), and every upgrade since timed out and rolled back, deleting the node (its empty
+      volume is Released). The init steps now have 1.5 GiB. Next: the release Ready with search
+      off, then search on again (`enabled` and `initialisation` together: its init step runs
+      whenever `initialisation` is true); the empty Released volume deleted
+- [ ] `zammad-cronjob-reindex` (suspended; run by hand with `kubectl create job --from`) has no
+      limits of its own, so it gets 512 MiB: give it the init steps' resources in
+      `zammadConfig.cronJob.reindex.podSpec` before running it
 - [ ] Resources re-measured after a week (`QUEUE-resource-limits.md`'s rules); its database
       added to the restore tests' method
 
