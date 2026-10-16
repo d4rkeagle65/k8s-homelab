@@ -49,8 +49,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       labels namespace by namespace (each checked with a server-side dry run), shorter
       node-loss tolerations for the apps that matter
 - [ ] **small-cleanups:** Lidarr's `migrations/` folder; Garage's config off the inline
-      compose file; the test folders' split explained in each `CLAUDE.md` (decision 10, if the
-      owner agrees); the Docker live-restore playbook (decision 7, agreed), off until set
+      compose file; the Docker live-restore playbook (decision 7, agreed), off until set
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [ ] **ssh-keys:** a playbook removing the four deleted Semaphore keys from `authorized_keys`,
@@ -60,7 +59,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 ## Waiting on the owner
 
 - [x] `claude-code` made a Task Runner in Semaphore (2026-10-16, checked by `/api/project/1/role`)
-- [ ] Decision 10, the test folders: keep both, with the split explained (recommended)
+- [x] Decision 10, the test folders: both kept, the split explained in each `CLAUDE.md` (2026-10-16)
 - [ ] A fine-grained GitHub token for this repository (Contents and Pull requests, read and
       write) for `QUEUE-netbox-shape.md`'s template
 - [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)

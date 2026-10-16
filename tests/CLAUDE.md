@@ -1,5 +1,11 @@
 # Writing tests
 
+Two test folders, on purpose: this one is the repo-wide gate the pre-commit hook runs
+(`run-all-tests.py`: style, hygiene, script health, the Docker stacks), and
+`scripts/tests/` is the scripts' pytest suite, one of the gate's suites
+(`test-scripts-pytest.py`). A test of one script's behaviour goes there; a convention
+across the repo goes here.
+
 - **A suite fails when something breaks, not when something is added.** Assert the invariant,
   not a count: "helper called from 2 places" breaks on a legitimate third caller and catches
   nothing; "the logic appears exactly once" is what was meant. Derive the contract from the
