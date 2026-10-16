@@ -87,8 +87,10 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       container the defaults reach peaked well inside them over 7 days (the Barman sidecars
       164Mi). The 14 PostgreSQL 18 clusters carry it (the `-postgres` ones retiring
       2026-10-17 don't); CloudNativePG doesn't roll pods for it, so each pod takes it when next
-      recreated (zammad-db's replica was, and came back with it, streaming). Left:
-      `priorityClassName: homelab-critical` on Authentik, Traefik and monitoring, one workload
+      recreated (zammad-db's replica was, and came back with it, streaming). Authentik's server and worker
+      carry it (`global.priorityClassName`); its two outposts don't, since a class there goes in
+      the outpost's `config`, owned in Authentik's UI, and a blueprint setting it would own all
+      twenty keys. Left: `priorityClassName: homelab-critical` on Traefik and monitoring, one workload
       at a time, each checked Running before the next
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)

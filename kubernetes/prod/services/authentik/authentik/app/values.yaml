@@ -10,6 +10,8 @@ blueprints:
   configMaps:
   - authentik-blueprints
 global:
+  # The server and worker scheduled before ordinary pods (cluster-policy).
+  priorityClassName: homelab-critical
   env:
   - name: AUTHENTIK_POSTGRESQL__USER
     valueFrom:
