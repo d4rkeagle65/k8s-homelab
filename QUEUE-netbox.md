@@ -188,17 +188,13 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       and that one reaches every group (the APs and, through "All Debian Hosts", the Debian
       hosts). Every run on it warns that `serial` and `tags` are reserved names: the plugin
       adds a host's NetBox fields as variables under their own names, and 3.23.1 can't
-      prefix or drop them; harmless. Switched, recap matching the static run's: "Setting:
-      OpenWRT APs", "Setting: Proxmox Host", "Setting: Pi-Hole". Left on the static ones:
-      the upgrade and reboot templates ("Node: Docker Update", "Node: Pi-Hole Update",
-      "Host: Proxmox Upgrade", "Reboot: Proxmox Hosts"), compared by a check-mode run or their
-      next scheduled one. `baseline.yml` and `admin-users.yml` target the
-      `debian` group (tag; `groups:` in `netbox_seed.yaml`), which the static inventories
-      don't have: until "Setting: Debian Baseline" and "Config: Admin SSH Key and Settings"
-      are on NetBox's inventory, their runs stop at the has-hosts check. Admin SSH Key moves
-      from the Proxmox hosts alone to every Debian host. Next: those two switched; the upgrade
-      and reboot templates compared; each other template switched after its host list matched; the static inventories deleted
-      last, and "All Debian Hosts"' stale `k8s_workers` group with them
+      prefix or drop them; harmless. Every Ansible template runs on it, each
+      checked against its last static run (2026-10-16, tasks 688-699): the same hosts and
+      results. `baseline.yml` and `admin-users.yml` target the `debian` group (tag;
+      `groups:` in `netbox_seed.yaml`), so they never reach the APs; Admin SSH Key now
+      covers every Debian host, not the Proxmox hosts alone. Next: the static inventories
+      (Proxmox Hosts, Docker VM, Pi-Hole, OpenWRT Devices, All Debian Hosts, with its stale
+      `k8s_workers` group) and the per-group SSH keys only they use deleted in Semaphore
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
       second run changing nothing
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
