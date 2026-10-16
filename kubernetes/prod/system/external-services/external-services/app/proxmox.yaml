@@ -130,10 +130,11 @@ spec:
         image: python:3.14.8-alpine
         command: [python, -u, /app/proxmox-endpoints.py]
         env:
-        # Straight to NetBox's port on the Docker host (the netbox Service),
-        # not through Traefik.
+        # Through NetBox's route: NetBox answers only to its own name
+        # (ALLOWED_HOSTS), so its port on the Docker host refuses the
+        # cluster-internal one.
         - name: NETBOX_URL
-          value: http://netbox.external-services.svc.${CLUSTER_DOMAIN}:8085
+          value: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
         - name: NETBOX_TOKEN
           valueFrom:
             secretKeyRef:
