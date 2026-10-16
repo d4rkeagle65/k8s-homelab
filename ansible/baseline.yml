@@ -20,10 +20,10 @@
 
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
-    required_group: all
+    required_group: debian
 
 - name: The baseline on every Debian host
-  hosts: all
+  hosts: debian
   gather_facts: true
   gather_subset: [min]
   vars_files: [vars/baseline.yml]

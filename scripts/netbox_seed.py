@@ -348,6 +348,14 @@ def main() -> None:
             short = host.split(".")[0]
             host_tags.setdefault(short, [managed]).append(tag)
             host_addr[short] = addr
+    for group, members in (cfg.get("groups") or {}).items():
+        unknown = sorted(set(members) - set(inventories))
+        if unknown:
+            raise SystemExit(f"FAIL: group {group} names {unknown}, which no inventory in netbox_seed.yaml makes")
+        nb.ensure("extras/tags", {"slug": group}, {"name": group}, group)
+        for tags in host_tags.values():
+            if set(tags) & set(members):
+                tags.append(group)
 
     print("kinds:")
     maker = nb.ensure("dcim/manufacturers", {"slug": "generic"}, {"name": "Generic"}, "Generic")

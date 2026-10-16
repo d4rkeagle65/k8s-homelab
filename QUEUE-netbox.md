@@ -91,8 +91,8 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
    - **The switch, template by template:** each Semaphore template moves to a File inventory
      on that path; its first run in check mode, its host list and variables compared with
      the static inventory's (`ansible-inventory --list` both ways); the static inventories
-     kept until every template has run on NetBox's. The inventory cache (a few hours, on
-     Semaphore's disk) rides out a NetBox restart.
+     kept until every template has run on NetBox's. The inventory cache lasts five minutes
+     (`netbox.yml`): a run while NetBox is down fails rather than act on an old listing.
 3. **Phase A, documentation:** `ansible/netbox-sync.yml`, scheduled in Semaphore, idempotent:
    every VM and container with its host, CPU, memory, disks and interfaces, their addresses,
    and the Kubernetes nodes' roles, read from Proxmox and the cluster. It only adds and
@@ -192,9 +192,12 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       OpenWRT APs", "Setting: Proxmox Host", "Setting: Pi-Hole". Left on the static ones:
       the upgrade and reboot templates ("Node: Docker Update", "Node: Pi-Hole Update",
       "Host: Proxmox Upgrade", "Reboot: Proxmox Hosts"), compared by a check-mode run or their
-      next scheduled one. Next: "Setting: Debian Baseline" and "Config: Admin SSH Key and Settings"
-      run on `hosts: all`, which on NetBox includes the APs: a `debian` group (tag) first,
-      and both playbooks moved to it in the change that switches them; each other template switched after its host list matched; the static inventories deleted
+      next scheduled one. `baseline.yml` and `admin-users.yml` target the
+      `debian` group (tag; `groups:` in `netbox_seed.yaml`), which the static inventories
+      don't have: until "Setting: Debian Baseline" and "Config: Admin SSH Key and Settings"
+      are on NetBox's inventory, their runs stop at the has-hosts check. Admin SSH Key moves
+      from the Proxmox hosts alone to every Debian host. Next: those two switched; the upgrade
+      and reboot templates compared; each other template switched after its host list matched; the static inventories deleted
       last, and "All Debian Hosts"' stale `k8s_workers` group with them
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
       second run changing nothing

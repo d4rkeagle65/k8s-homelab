@@ -32,8 +32,10 @@ compose:
   ansible_host: local_context_data.ansible_host_override
 interfaces: false
 services: false
-# Answer from the last listing for four hours if NetBox doesn't answer.
+# For five minutes after a listing, answer from it without asking NetBox, so a burst
+# of runs shares one listing. The plugin reads a valid cache whether or not NetBox
+# is up, so this is also how stale a NetBox change can be when a run starts.
 cache: true
 cache_plugin: ansible.builtin.jsonfile
 cache_connection: /tmp/ansible-netbox-inventory
-cache_timeout: 14400
+cache_timeout: 300
