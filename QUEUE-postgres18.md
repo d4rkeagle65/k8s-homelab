@@ -55,7 +55,7 @@ Smallest risk first; Authentik last, since every forward-auth login waits on it.
 | 9 | `babybuddy/babybuddy-postgres` | 35 MB | `configmap-babybuddy-env.yaml` and its Deployment: **done 2026-10-15**, `babybuddy-db`, 81 s down |
 | 10 | `netbox/netbox-postgres` | 49 MB | its HelmRelease: **done 2026-10-15**, `netbox-db`, 130 s down |
 | 11 | `authentik/authentik-postgres` | 175 MB | `values.yaml` (captured release; `generate`): **done 2026-10-15**, `authentik-db`, 108 s down |
-| 12 | `immich/immich-postgres` | | vectorchord `16-1.1.1`, already bookworm: Immich's own upgrade notes decide when |
+| 12 | `immich/immich-postgres` | | Not due: its image (vectorchord `16-1.1.1`, Debian 12) is supported, unlike the bullseye ones the others left; it moves when an Immich release's notes call for a newer PostgreSQL |
 
 Each row is ticked with its date, the downtime and anything that differed, and gets a
 "retire `<app>-postgres`" line until its old cluster is gone.
