@@ -64,23 +64,13 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       reservation changed in Stork before the cutover means copying again (drop and re-run)
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
       TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
-- [ ] The second Docker VM: built 2026-10-16 (apply task 770; task 771: Debian 13, cloud-init
-      done, the agent up, both addresses, the default route on Production; NetBox tags `ansible`
-      and `debian`). Semaphore logs in as root with `semaphore-shared`, as on every host (the owner,
-      2026-10-16): cloud-init's `disable_root` had wrapped root's keys in a forced "log in as
-      dhardin" command, which task 789 removed (the original kept as
-      `authorized_keys.cloud-init`); NetBox's local context is `ansible_user: root` and
-      `management_gateway`. The vendor data's `disable_root: false` prevents the wrapping on the
-      next VM Left: the owner's run of
-      "Setting: Debian Baseline" (dry run task 772: 8 changes, all on it), then
-      `ansible/docker-host.yml` (a template: survey variable `docker_host_target`, target
-      "Variable"; `HAWSER_TOKEN` a secret environment variable, from Dockhand's new environment),
-      then the `docker_vm` tag. In NetBox (done 2026-10-16 through the API: VMID 120, Planned, on the
-      62 GiB host, 4 vCPU and 8 GiB, `net0` management and `net1` Production at `.41`, role
-      "Docker VM", one 96 GB disk), then `tofu/proxmox/docker-vms.tf` builds it from Debian's
-      cloud image (it needs `site.vm_login` in the "OpenTofu site (Proxmox)" note; a plan, the
-      owner's apply); then NetBox's local context for its login (`ansible_user`, become) and the
-      `debian` tag, `baseline.yml`, Docker, Dockhand's Hawser agent
+- [x] The second Docker VM (2026-10-16): in NetBox (VMID 120, role "Docker VM", `.41` on
+      management and Production), built by OpenTofu from Debian's cloud image (task 770), the
+      baseline (787) and `docker-host.yml` (794: Docker 29.9.1 held, live-restore on, Hawser
+      running); NetBox tags `ansible`, `debian`, `docker_vm`, local context `ansible_user: root`
+      and `management_gateway` (the management routing, `tasks/management-routing.yml`); the
+      sync (795) made it active with its MACs. Semaphore logs in as root with `semaphore-shared`
+      (cloud-init's `disable_root` wrapping removed, task 789; the vendor data now prevents it)
 - [ ] The partner: `docker/kea/` deployed there in a partner mode, Kea with the HA hook
       (`hot-standby`, the first Docker VM's Kea primary), both reading `kea-db`
 - [ ] The firewall's relay pointed at both Keas (the owner, in its UI)
