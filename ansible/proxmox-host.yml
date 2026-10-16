@@ -35,8 +35,15 @@
 # it; a boot change is flagged for proxmox-upgrade.yml to reboot for, never
 # rebooted here. amt_sol: false reports only.
 #
+# Retired network interfaces (tasks/proxmox-retired-ifaces.yml): each of
+# retired_interfaces' stanzas out of /etc/network/interfaces, then ifreload,
+# one host at a time (the second play), refusing while a guest or a kept
+# bridge still uses one. The list stays once they're gone: there's nothing
+# left to remove, and a rebuilt host's copied config is caught.
+#
 # In check mode (--check) it reports each host's ARC, certificate, NAS block
-# storage, NIC offloads and SOL setup, now and wanted, and changes nothing.
+# storage, NIC offloads, SOL setup and retired interfaces, now and wanted, and
+# changes nothing.
 
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
@@ -160,3 +167,15 @@
 
     - name: Intel AMT Serial-over-LAN
       ansible.builtin.include_tasks: tasks/proxmox-amt-sol.yml
+
+- name: Retired network interfaces, one host at a time
+  hosts: proxmox
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    # VLAN 9 (QUEUE-netbox.md): its bridge, then the VLAN port under it.
+    retired_interfaces: [vmbr9, eth5.9]
+  tasks:
+    - name: Retired interfaces out
+      ansible.builtin.include_tasks: tasks/proxmox-retired-ifaces.yml

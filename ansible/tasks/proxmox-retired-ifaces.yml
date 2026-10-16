@@ -1,0 +1,107 @@
+# Retired network interfaces out of a Proxmox host's /etc/network/interfaces:
+# each of retired_interfaces' stanzas (its auto line and its iface block) is
+# removed, then ifreload applies it and each interface is read back as gone.
+# Run one host at a time (proxmox-host.yml's second play).
+#
+# It refuses, changing nothing, when any guest's config names a retired bridge,
+# when a kept bridge has a retired interface among its ports, or when the host
+# has a pending network change from the web UI (/etc/network/interfaces.new,
+# which a reboot would apply over this).
+
+- name: Guests' configs naming a retired interface
+  ansible.builtin.shell:
+    cmd: >-
+      grep -lwE '{{ retired_interfaces | map("regex_escape") | join("|") }}'
+      /etc/pve/nodes/*/qemu-server/*.conf /etc/pve/nodes/*/lxc/*.conf 2>/dev/null || true
+  register: guests_using
+  changed_when: false
+  check_mode: false
+
+- name: Read the network config
+  ansible.builtin.slurp:
+    path: /etc/network/interfaces
+  register: ifaces_before
+
+- name: Each bridge's ports ("bridge port" lines)
+  ansible.builtin.command:
+    argv: [awk, '/^iface/ { cur = $2 } /^[ \t]+bridge-ports/ { for (i = 2; i <= NF; i++) print cur, $i }', /etc/network/interfaces]
+  register: bridge_ports
+  changed_when: false
+  check_mode: false
+
+- name: Is a network change pending from the web UI
+  ansible.builtin.stat:
+    path: /etc/network/interfaces.new
+  register: pending_change
+
+- name: Nothing still uses them, and nothing is pending
+  vars:
+    # A bridge being kept whose ports include a retired interface.
+    kept_using: >-
+      {{ bridge_ports.stdout_lines | map('split') | rejectattr(0, 'in', retired_interfaces)
+         | selectattr(1, 'in', retired_interfaces) | map('join', ' ') | list }}
+  ansible.builtin.assert:
+    that:
+      - guests_using.stdout_lines | length == 0
+      - kept_using | length == 0
+      - not pending_change.stat.exists
+    fail_msg: >-
+      {{ inventory_hostname }}: not retiring {{ retired_interfaces | join(', ') }}.
+      Guests naming one: {{ guests_using.stdout_lines | map('basename') | join(', ') or 'none' }}.
+      Kept bridges using one: {{ kept_using | join('; ') or 'none' }}.
+      A pending web UI change: {{ pending_change.stat.exists }}.
+    quiet: true
+
+- name: What's there now
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ retired_interfaces
+      | select('in', (ifaces_before.content | b64decode) | regex_findall('(?m)^iface\s+(\S+)')) | list | join(', ')
+      or 'none of them' }} to retire
+
+- name: Each retired interface's iface block
+  ansible.builtin.replace:
+    path: /etc/network/interfaces
+    regexp: '(?m)^iface\s+{{ item | regex_escape }}\s.*\n(?:[ \t]+\S.*\n)*'
+    replace: ""
+    backup: true
+  loop: "{{ retired_interfaces }}"
+  register: removed_blocks
+
+- name: Each retired interface's auto line
+  ansible.builtin.replace:
+    path: /etc/network/interfaces
+    regexp: '(?m)^(auto|allow-hotplug)\s+{{ item | regex_escape }}\s*\n'
+    replace: ""
+  loop: "{{ retired_interfaces }}"
+  register: removed_autos
+
+- name: Apply it
+  ansible.builtin.command:
+    argv: [ifreload, -a]
+  when: (removed_blocks.changed or removed_autos.changed) and not ansible_check_mode
+
+- name: Read the interfaces back
+  ansible.builtin.command:
+    argv: [ip, -o, link, show]
+  register: links_after
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Read the default route back
+  ansible.builtin.command:
+    argv: [ip, route, show, default]
+  register: route_after
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: They're gone, and the host still has its default route
+  ansible.builtin.assert:
+    that:
+      - links_after.stdout_lines | select('search', ':\s(' ~ (retired_interfaces | map('regex_escape') | join('|')) ~ ')[@:]') | list | length == 0
+      - route_after.stdout | trim | length > 0
+    fail_msg: >-
+      {{ inventory_hostname }}: after ifreload, a retired interface is still up or the default route
+      is gone; the config before is the backup beside /etc/network/interfaces.
+    quiet: true
+  when: not ansible_check_mode
