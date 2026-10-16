@@ -82,18 +82,18 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
 
 ## Cleanup
 
-- **`prod/apps/media/lidarr/migrations/`**: six Jobs from Lidarr's move off SQLite (`01-rename-tables-job.yaml`
-  to `06-fix-casing-job.yaml`), listed by no kustomization, so never applied, yet they name
-  `lidarr-postgres-rw` and read as current. Delete the folder.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
 ## Later
 
-- **Faster recovery from a node loss:** every database now fails over in under a minute, but
+- **Faster recovery from a node loss** (with the owner: a Talos control-plane change): every database now fails over in under a minute, but
   the app pods on a lost node wait out the default 5-minute
-  `node.kubernetes.io/unreachable`/`not-ready` tolerations before moving. Shortening those to
-  about 30 seconds on the apps that matter (immich first) closes most of the gap.
+  `node.kubernetes.io/unreachable`/`not-ready` tolerations before moving. One place sets that
+  for every pod: the API server's `--default-not-ready-toleration-seconds` and
+  `--default-unreachable-toleration-seconds` (the DefaultTolerationSeconds admission plugin),
+  in the Talos control planes' config: about 60 seconds, rolled node by node with `talosctl
+  patch mc --mode=no-reboot` (tofu/CLAUDE.md), then the OpenTofu apply the owner confirms.
 - **Proxmox host cleanup.**
   - Once kernel 7.0 has run cleanly for a couple of weeks (from about 2026-10-16), set
     `remove_old_kernels: true` on the Proxmox inventory and run the upgrade template: with the

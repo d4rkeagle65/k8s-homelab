@@ -72,9 +72,10 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       its memory limit, a Docker VM container restarting in a loop, NVMe wear (80% warning, 90%
       critical), spare capacity and critical-warning flags, the TerraMaster's SNMP target down.
       Each ran against live data first; only H3's NVMe (86%) fires, as known
-- [ ] **hardening:** health probes for the containers still without (`QUEUE.md`), Pod Security
-      labels namespace by namespace (each checked with a server-side dry run), shorter
-      node-loss tolerations for the apps that matter
+- [x] **hardening** (2026-10-16): Pod Security's `baseline` enforced on 31 namespaces (Zammad's
+      privileged init container gone first); probes for n8n's runners and External Secrets'
+      controller. Left with the owner: node-loss timing (a Talos control-plane change, `QUEUE.md`),
+      as for etcd scraping; `restricted` for 13 namespaces once their Job templates are checked
 - [ ] **small-cleanups:** Lidarr's `migrations/` folder; Garage's config off the inline
       compose file; the Docker live-restore playbook (decision 7, agreed), off until set
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
