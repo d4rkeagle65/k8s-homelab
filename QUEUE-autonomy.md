@@ -21,6 +21,23 @@ here so a later session, after a compaction, knows where things stand.
   (`QUEUE.md`, Kea phase 3); VLAN 9 comes out of Proxmox (`QUEUE-netbox.md`); Immich's
   PostgreSQL move isn't due (`QUEUE-postgres18.md`); `guests` is out of `TF_VAR_site`.
 
+## Approved (the owner, 2026-10-16)
+
+**Every batch below, and `zammad-bridge` and `elasticsearch`, is approved: "as long as the tests
+pass you can push any of the batches."** Work through them in this order, pushing each piece
+once the commit hook's suite passes, reporting as I go, and stopping only for a real decision
+or a step that needs the owner in person or in a UI: zammad-bridge, released-volumes,
+monitoring-fixes, talos-cleanup, resource-limits, alerts, hardening, small-cleanups,
+netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
+
+- [ ] **zammad-bridge:** Alertmanager to Zammad's Checkmk endpoint (the owner enabled it, group
+      "Alerts"; its URL is `ZAMMAD_ALERT_WEBHOOK_URL` in Vaultwarden): severities `warning` and
+      `critical` only (never `Watchdog`, `InfoInhibitor` or `info`), a ticket per alert, a note on
+      repeats, closed with a note on recovery. A small translator in the cluster, with tests
+- [ ] **elasticsearch:** the ECK operator and one Elasticsearch node (1 GiB heap, about 2 GiB
+      requested, data on `nas-iscsi`) for Zammad's search; 7.5 GiB of headroom with the largest
+      worker lost (2026-10-16), about 5 GiB after it
+
 ## Batches I can do on my own
 
 Each is a name the owner can approve with "push when the tests pass". Where a batch needs a
