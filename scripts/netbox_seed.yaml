@@ -21,3 +21,22 @@ skip_vmids: []
 
 # The Proxmox nodes, as devices.
 hypervisor: {role: Hypervisor, type: Proxmox host}
+
+# The VM roles whose shape NetBox owns (QUEUE-netbox-shape.md), by OpenTofu's name
+# for each: the sync never writes their vCPUs, memory, disks or shape fields.
+vm_roles:
+  controlplane: Talos control plane
+  worker: Talos worker
+  container: Plain container
+
+# Once, for today's guests: the role and shape fields a VM takes the first time the
+# sync finds it with no role, by VMID. Removed once NetBox holds them, after which
+# NetBox is their only owner.
+adopt:
+  110: {role: controlplane, talos_apply_mode: no_reboot}
+  112: {role: controlplane, talos_apply_mode: no_reboot}
+  113: {role: controlplane, talos_apply_mode: no_reboot}
+  114: {role: worker, talos_apply_mode: no_reboot}
+  115: {role: worker, talos_apply_mode: no_reboot}
+  116: {role: worker, talos_apply_mode: no_reboot}
+  117: {role: worker, talos_apply_mode: no_reboot}
