@@ -14,7 +14,7 @@ metadata:
   name: proxmox
   annotations:
     traefik.ingress.kubernetes.io/service.serversscheme: https
-    traefik.ingress.kubernetes.io/service.serverstransport: external-services-proxmox@kubernetescrd
+    traefik.ingress.kubernetes.io/service.serverstransport: external-services_proxmox@kubernetescrd
     traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
     traefik.ingress.kubernetes.io/service.sticky.cookie.name: proxmox_host
     traefik.ingress.kubernetes.io/service.sticky.cookie.secure: "true"
