@@ -1,0 +1,68 @@
+# Kea's host reservations (QUEUE-kea-ha.md), read by both Keas: the Docker VM's
+# and its hot-standby partner, so either serves them while the other's host is
+# down. Kea's own tool makes the schema (kea-admin, from docker/kea/), never
+# this file.
+#
+# Reached from outside the cluster through its own LoadBalancer address
+# (KEA_DB_ADDRESS, on the primary), which only the two Kea hosts may reach
+# (KEA_DB_CLIENTS: one CIDR holding both, as both the Service and pg_hba take
+# one), and only over TLS: Kea checks the server against this cluster's CA
+# (kea-db-ca), copied to each Kea host.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: kea-db
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  instances: 2
+  # DHCP depends on it (cluster-policy).
+  priorityClassName: homelab-critical
+  affinity:
+    podAntiAffinityType: preferred
+  enablePDB: true
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  enableSuperuserAccess: false
+  bootstrap:
+    initdb:
+      database: kea
+      owner: kea
+      secret:
+        name: kea-db-credentials
+  postgresql:
+    # After the operator's own lines (local, and the replicas' certificates):
+    # nothing without TLS, and kea's database only from the two Kea hosts.
+    pg_hba:
+    - hostnossl all all all reject
+    - hostssl kea kea ${KEA_DB_CLIENTS} scram-sha-256
+    - hostssl kea all all reject
+  managed:
+    services:
+      additional:
+      - selectorType: rw
+        serviceTemplate:
+          metadata:
+            name: kea-db-lan
+            annotations:
+              metallb.io/loadBalancerIPs: ${KEA_DB_ADDRESS}
+          spec:
+            type: LoadBalancer
+            # Local keeps the client's own address, which pg_hba checks too.
+            externalTrafficPolicy: Local
+            loadBalancerSourceRanges:
+            - ${KEA_DB_CLIENTS}
+  storage:
+    size: 2Gi
+    storageClass: local-db
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage

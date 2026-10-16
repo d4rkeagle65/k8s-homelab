@@ -94,8 +94,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [x] **ssh-keys** (2026-10-16): `ansible/retire-ssh-keys.yml` and `proxmox-host.yml`'s
       retired-interfaces play, built and checked; their runs are the owner's (below)
-- [ ] **kea-ha:** `QUEUE-kea-ha.md` (planned 2026-10-16); its first step waits on three
-      variables from the owner (below)
+- [ ] **kea-ha:** `QUEUE-kea-ha.md` (planned 2026-10-16); `kea-db` pushed, then its checks
 
 ## Waiting on the owner
 
@@ -117,8 +116,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       `kubernetes/prod/system/cluster-policy/`, owning both (batch **cluster-policy** below)
 - [ ] Your real run of "Retire: Old SSH Keys" (its dry run, task 745, was clean). VLAN 9 is out
       of Proxmox (task 748); delete its `vmbr9` and `eth5.9` interfaces in NetBox
-- [ ] Kea's three variables in Vaultwarden: `KEA_DB_PASSWORD` (Dockhand's value),
-      `KEA_DB_ADDRESS` (a free MetalLB address), `KEA_DB_CLIENTS` (`QUEUE-kea-ha.md`)
+- [x] Kea's three variables in Vaultwarden (2026-10-16)
 - [ ] netbox-dns: the sidecar is settled (2026-10-16); a NetBox write token for it, as
       `NETBOX_DNS_TOKEN` in Vaultwarden, before the sidecar is deployed
 - [ ] Organizr's browser checks (`QUEUE-organizr.md`)
@@ -134,7 +132,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
 resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
 small-cleanups. released-volumes waits on the owner's command. Next in order:
-kea-ha (waits on variables), postgres-retire (from 2026-10-17), netbox-dns (code first; deploying waits on its token), elasticsearch.
+kea-ha, postgres-retire (from 2026-10-17), netbox-dns (code first; deploying waits on its token), elasticsearch.
 Each push: the commit hook's suite passed; `main` pushed alone
 (`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
 plans rejected, read-only Run Command via `run_command_b64` for braces; no applies or host
