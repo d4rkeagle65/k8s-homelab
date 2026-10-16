@@ -1,10 +1,7 @@
-# Node-local volumes: `local-db` for the CloudNativePG databases (each worker
-# LXC's dedicated 128G ZFS dataset at /opt/local-path-provisioner) and
-# `nas-block` for Prometheus (each worker's iSCSI LUN on the NAS at
-# /opt/nas-block). A volume is a directory on the node its pod runs on; the
-# apps' own replication (CNPG, two Prometheus replicas) covers losing a node.
-# (Longhorn can't run in these LXC nodes: ZFS has no file-extent support and
-# the containers have no block-device access.)
+# Node-local volumes: `local-db` for the CloudNativePG databases, each Talos
+# worker's second disk. A volume is a directory on the node its pod runs on;
+# the databases' own replication (two CloudNativePG instances) covers losing a
+# node.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -33,14 +30,11 @@ spec:
     helperImage:
       # Pinned rather than the chart's `latest`.
       tag: 1.37.0
-    # One provisioner, two classes, each a directory per volume on a worker:
-    # local-db on the worker's own ZFS dataset (/opt/local-path-provisioner),
-    # nas-block on its iSCSI LUN on the NAS (/opt/nas-block, a mount point each
-    # worker has; ansible/tasks/proxmox-nas-block.yml), for data that writes
-    # constantly and needn't sit on the hosts' SSDs. Nodes not listed (the
-    # control planes, with 8G root disks) are refused. Node names are
-    # WORKER_NODE_* fields of the cluster-secrets Vaultwarden item. The
-    # provisioner reads a changed class list only when it starts: after an
+    # One class, local-db: a directory per volume on a Talos worker's local-db
+    # user volume (talos/patches/worker-local-db.yaml). Nodes not listed (the
+    # control planes) are refused. Node names are WORKER_NODE_* fields of the
+    # cluster-secrets Vaultwarden item. The provisioner reads a changed class
+    # list only when it starts: after an
     # edit here, `kubectl rollout restart -n local-path-storage
     # deploy/local-path-provisioner`, or new volumes go where they used to.
     nodePathMap: []
@@ -58,17 +52,6 @@ spec:
         nodePathMap:
         - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
           paths: []
-        - node: ${WORKER_NODE_1}
-          paths:
-          - /opt/local-path-provisioner
-        - node: ${WORKER_NODE_2}
-          paths:
-          - /opt/local-path-provisioner
-        - node: ${WORKER_NODE_3}
-          paths:
-          - /opt/local-path-provisioner
-        # The Talos workers: each one's local-db user volume
-        # (talos/patches/worker-local-db.yaml).
         - node: ${WORKER_NODE_4}
           paths:
           - /var/mnt/local-db
@@ -81,22 +64,3 @@ spec:
         - node: ${WORKER_NODE_7}
           paths:
           - /var/mnt/local-db
-      nas-block:
-        storageClass:
-          create: true
-          defaultClass: false
-          defaultVolumeType: hostPath
-          reclaimPolicy: Retain
-          volumeBindingMode: WaitForFirstConsumer
-        nodePathMap:
-        - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
-          paths: []
-        - node: ${WORKER_NODE_1}
-          paths:
-          - /opt/nas-block
-        - node: ${WORKER_NODE_2}
-          paths:
-          - /opt/nas-block
-        - node: ${WORKER_NODE_3}
-          paths:
-          - /opt/nas-block
