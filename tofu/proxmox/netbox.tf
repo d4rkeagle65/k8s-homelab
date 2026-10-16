@@ -85,7 +85,10 @@ check "netbox_has_every_guest" {
   }
 
   assert {
-    condition     = try(length(compact(local.guest["107"].macs)) == length(local.docker_vm_bridges), false)
-    error_message = "NetBox needs one MAC per Docker VM network device (VMID 107, net0 to net${length(local.docker_vm_bridges) - 1})."
+    condition = alltrue([
+      for id in local.docker_vms_hand_built :
+      try(length(compact(local.guest[id].macs)) == length(local.docker_vms[id].bridges), false)
+    ])
+    error_message = "NetBox needs one MAC per network device of each hand-built Docker VM (${join(", ", local.docker_vms_hand_built)}): they were made with those MACs."
   }
 }

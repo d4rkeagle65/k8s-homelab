@@ -28,3 +28,4 @@ vm_roles:
   controlplane: Talos control plane
   worker: Talos worker
   container: Plain container
+  docker_vm: Docker VM

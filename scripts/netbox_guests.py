@@ -5,10 +5,12 @@ QUEUE-netbox-shape.md.
 A VM is in the file when its NetBox role is one of netbox_seed.yaml's vm_roles.
 For each, by VMID: the Talos VMs' role, cores, memory, disk_gb (virtual disk
 scsi0), data_gb (scsi1, else 0) and apply_mode (custom field talos_apply_mode);
-the plain containers' cores, memory, disk_gb (rootfs), bridges (each interface's
-address, by its prefix's network, to that network's bridge in netbox_seed.yaml)
-and tags (custom field proxmox_tags, separated by ;). Never a name or an address:
-OpenTofu reads those from NetBox at plan time.
+the plain containers' cores, memory, disk_gb (rootfs), bridges and tags; the
+Docker VMs' cores, memory, disk_gb (scsi0), data_gb (scsi1, else 0), bridges and
+tags. A NIC's bridge is its description's ("Proxmox bridge vmbr7"), else its
+address's network's (by its prefix, to that network's bridge in netbox_seed.yaml);
+tags are the custom field proxmox_tags, separated by ;. Never a name or an
+address: OpenTofu reads those from NetBox at plan time.
 
 It stops, writing and opening nothing, when NetBox doesn't answer in full, lists
 no Talos node, or a VM with a role lacks a field. The output is sorted, so a run
@@ -43,7 +45,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = "tofu/proxmox/netbox-guests.json"
 BRANCH = "netbox/guests"
 QUERY = ("{ virtual_machine_list { name status role { name } vcpus memory custom_fields"
-         " virtualdisks { name size } interfaces { name ip_addresses { address } } }"
+         " virtualdisks { name size } interfaces { name description ip_addresses { address } } }"
          " prefix_list { prefix description } }")
 
 
@@ -77,13 +79,25 @@ def bridge_of(address: str, prefixes: list[tuple], bridges: dict[str, str]) -> s
     return bridges.get(best[1]) if best else None
 
 
+def interface_bridge(itf: dict, prefixes: list[tuple], bridges: dict[str, str]) -> str | None:
+    """A NIC's bridge: from its description ("Proxmox bridge vmbr7", as the seed and
+    a planned guest's entry write it), else from its address's network. None when
+    neither says, or the addresses disagree."""
+    m = re.fullmatch(r"Proxmox bridge (\S+)", (itf.get("description") or "").strip())
+    if m:
+        return m.group(1)
+    found = {bridge_of(a["address"], prefixes, bridges) for a in itf.get("ip_addresses") or []}
+    found.discard(None)
+    return found.pop() if len(found) == 1 else None
+
+
 def shape(data: dict, cfg: dict) -> dict:
     """The file's content from NetBox's GraphQL answer; Refused when it's incomplete."""
     import ipaddress
     roles = {name: key for key, name in cfg["vm_roles"].items()}
     bridges = {n["name"]: n["bridge"] for n in cfg["networks"]}
     prefixes = [(ipaddress.ip_network(p["prefix"]), p.get("description") or "") for p in data["prefix_list"]]
-    talos, containers, problems = {}, {}, []
+    talos, containers, docker_vms, problems = {}, {}, {}, []
     for vm in data["virtual_machine_list"]:
         role = roles.get((vm.get("role") or {}).get("name"))
         if role is None or str(vm.get("status", "")).lower() == "decommissioning":
@@ -109,24 +123,28 @@ def shape(data: dict, cfg: dict) -> dict:
         else:
             nets = []
             for itf in sorted(vm.get("interfaces") or [], key=lambda i: (len(i["name"]), i["name"])):
-                found = {bridge_of(a["address"], prefixes, bridges) for a in itf.get("ip_addresses") or []}
-                found.discard(None)
-                if len(found) != 1:
-                    problems.append(f"{label}: interface {itf['name']} isn't on exactly one listed network")
+                bridge = interface_bridge(itf, prefixes, bridges)
+                if bridge is None:
+                    problems.append(f"{label}: interface {itf['name']} names no bridge and isn't on one listed network")
                     break
-                nets.append(found.pop())
+                nets.append(bridge)
             else:
-                if "rootfs" not in disks or not nets:
-                    problems.append(f"{label}: needs a virtual disk rootfs and at least one interface with an address")
+                tags = sorted(t.strip() for t in str(cf.get("proxmox_tags") or "").split(";") if t.strip())
+                root = "rootfs" if role == "container" else "scsi0"
+                if root not in disks or not nets:
+                    problems.append(f"{label}: needs a virtual disk {root} and at least one interface")
                     continue
-                tags = [t.strip() for t in str(cf.get("proxmox_tags") or "").split(";") if t.strip()]
-                entry.update(disk_gb=round(disks["rootfs"] / 1000), bridges=nets, tags=sorted(tags))
-                containers[vmid] = entry
+                entry.update(disk_gb=round(disks[root] / 1000), bridges=nets, tags=tags)
+                if role == "container":
+                    containers[vmid] = entry
+                else:
+                    entry["data_gb"] = round(disks.get("scsi1", 0) / 1000)
+                    docker_vms[vmid] = entry
     if problems:
         raise Refused("; ".join(sorted(problems)))
     if not talos:
         raise Refused("NetBox lists no Talos node with a role: refusing to write a file that would drop them all")
-    return {"talos_nodes": talos, "containers": containers}
+    return {"talos_nodes": talos, "containers": containers, "docker_vms": docker_vms}
 
 
 def render(content: dict) -> str:
@@ -136,7 +154,7 @@ def render(content: dict) -> str:
 def changes(old: dict, new: dict) -> list[str]:
     """What a pull request's description lists: each VMID added, removed or changed."""
     lines = []
-    for group in ("talos_nodes", "containers"):
+    for group in ("talos_nodes", "containers", "docker_vms"):
         a, b = old.get(group) or {}, new.get(group) or {}
         for vmid in sorted(set(a) | set(b), key=int):
             if vmid not in a:
@@ -256,7 +274,8 @@ def main() -> None:
         text = render(shape(netbox(url, token), cfg))
         Path(args.output).write_text(text, encoding="utf-8", newline="\n")
         content = json.loads(text)
-        print(f"wrote {args.output}: {len(content['talos_nodes'])} Talos nodes, {len(content['containers'])} containers")
+        print(f"wrote {args.output}: {len(content['talos_nodes'])} Talos nodes, {len(content['containers'])} containers, "
+              f"{len(content['docker_vms'])} Docker VMs")
         if args.pr:
             open_pr(text, os.environ["GITHUB_TOKEN"])
     except (Refused, urllib.error.URLError, OSError) as e:

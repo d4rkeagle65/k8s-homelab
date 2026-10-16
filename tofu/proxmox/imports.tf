@@ -8,7 +8,7 @@ import {
 }
 
 import {
-  to = proxmox_virtual_environment_vm.docker_vm
+  to = proxmox_virtual_environment_vm.docker_vm["107"]
   id = "${local.guest["107"].node}/107"
 }
 

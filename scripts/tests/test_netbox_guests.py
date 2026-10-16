@@ -24,7 +24,8 @@ def load():
 
 m = load()
 
-CFG = {"vm_roles": {"controlplane": "Talos control plane", "worker": "Talos worker", "container": "Plain container"},
+CFG = {"vm_roles": {"controlplane": "Talos control plane", "worker": "Talos worker", "container": "Plain container",
+                    "docker_vm": "Docker VM"},
        "networks": [{"bridge": "vmbr7", "name": "Production", "vlan": 7}, {"bridge": "vmbr6", "name": "IoT", "vlan": 6}]}
 PREFIXES = [{"prefix": "192.0.2.0/24", "description": "Production"},
             {"prefix": "198.51.100.0/24", "description": "IoT"}]
@@ -49,7 +50,7 @@ def test_talos_nodes_take_role_sizes_disks_and_apply_mode():
         "110": {"role": "controlplane", "cores": 2, "memory": 4096, "disk_gb": 32, "data_gb": 0, "apply_mode": "no_reboot"},
         "114": {"role": "worker", "cores": 6, "memory": 20480, "disk_gb": 80, "data_gb": 128, "apply_mode": "no_reboot"},
     }
-    assert out["containers"] == {}
+    assert out["containers"] == {} and out["docker_vms"] == {}
 
 
 def test_a_container_takes_its_bridges_by_prefix_in_nic_order_and_its_tags():
@@ -76,7 +77,7 @@ def test_a_missing_field_refuses_the_whole_file():
     with pytest.raises(m.Refused, match="not whole"):
         m.shape(answer(vm(110, "Talos control plane", vcpus="1.50")), CFG)
     no_net = vm(120, "Plain container", disks=(("rootfs", 4000),), interfaces=[{"name": "net0", "ip_addresses": []}])
-    with pytest.raises(m.Refused, match="exactly one listed network"):
+    with pytest.raises(m.Refused, match="names no bridge"):
         m.shape(answer(vm(110, "Talos control plane"), no_net), CFG)
 
 
@@ -166,3 +167,25 @@ def test_an_open_pull_request_is_updated_and_an_unchanged_file_opens_nothing(mon
     m.open_pr(text, "t")
     put = next(c[2] for c in gh.calls if c[0] == "PUT")
     assert "sha" not in put and "updated pull request #3" in capsys.readouterr().out
+
+
+def test_a_docker_vm_takes_bridges_from_its_nic_descriptions_and_both_disks():
+    d = vm(107, "Docker VM", vcpus="4.00", memory=12288, disks=(("scsi0", 32000), ("scsi1", 64000)), mode=None,
+           cf={"proxmox_tags": "debian13;community-script"},
+           interfaces=[{"name": "net2", "description": "Proxmox bridge vmbr8", "ip_addresses": []},
+                       {"name": "net0", "description": "Proxmox bridge vmbr0", "ip_addresses": []},
+                       {"name": "net1", "description": "Proxmox bridge vmbr7", "ip_addresses": [{"address": "192.0.2.40/24"}]}])
+    planned = vm(120, "Docker VM", memory=8192, disks=(("scsi0", 96000),), mode=None, status="planned",
+                 interfaces=[{"name": "net0", "description": "", "ip_addresses": [{"address": "192.0.2.41/24"}]}])
+    out = m.shape(answer(vm(110, "Talos control plane"), d, planned), CFG)
+    assert out["docker_vms"] == {
+        "107": {"cores": 4, "memory": 12288, "disk_gb": 32, "data_gb": 64,
+                "bridges": ["vmbr0", "vmbr7", "vmbr8"], "tags": ["community-script", "debian13"]},
+        "120": {"cores": 2, "memory": 8192, "disk_gb": 96, "data_gb": 0, "bridges": ["vmbr7"], "tags": []},
+    }
+
+
+def test_a_docker_vm_without_its_system_disk_refuses_the_file():
+    d = vm(107, "Docker VM", disks=(), mode=None, interfaces=[{"name": "net0", "description": "Proxmox bridge vmbr0"}])
+    with pytest.raises(m.Refused, match="VMID 107: needs a virtual disk scsi0"):
+        m.shape(answer(vm(110, "Talos control plane"), d), CFG)

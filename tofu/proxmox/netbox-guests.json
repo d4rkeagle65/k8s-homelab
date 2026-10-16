@@ -1,5 +1,35 @@
 {
   "containers": {},
+  "docker_vms": {
+    "107": {
+      "bridges": [
+        "vmbr0",
+        "vmbr7",
+        "vmbr8"
+      ],
+      "cores": 4,
+      "data_gb": 64,
+      "disk_gb": 32,
+      "memory": 12288,
+      "tags": [
+        "community-script",
+        "debian13"
+      ]
+    },
+    "120": {
+      "bridges": [
+        "vmbr0",
+        "vmbr7"
+      ],
+      "cores": 4,
+      "data_gb": 0,
+      "disk_gb": 96,
+      "memory": 8192,
+      "tags": [
+        "debian13"
+      ]
+    }
+  },
   "talos_nodes": {
     "110": {
       "apply_mode": "no_reboot",
