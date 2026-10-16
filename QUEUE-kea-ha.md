@@ -65,9 +65,11 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
       TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
 - [ ] The second Docker VM: in NetBox (done 2026-10-16 through the API: VMID 120, Planned, on the
-      62 GiB host, 4 vCPU and 8 GiB, `net0` management and `net1` Production at `.41`), then
-      `tofu/proxmox/` builds it (a plan, the owner's apply), `baseline.yml`, Docker, Dockhand's
-      Hawser agent
+      62 GiB host, 4 vCPU and 8 GiB, `net0` management and `net1` Production at `.41`, role
+      "Docker VM", one 96 GB disk), then `tofu/proxmox/docker-vms.tf` builds it from Debian's
+      cloud image (it needs `site.vm_login` in the "OpenTofu site (Proxmox)" note; a plan, the
+      owner's apply); then NetBox's local context for its login (`ansible_user`, become) and the
+      `debian` tag, `baseline.yml`, Docker, Dockhand's Hawser agent
 - [ ] The partner: `docker/kea/` deployed there in a partner mode, Kea with the HA hook
       (`hot-standby`, the first Docker VM's Kea primary), both reading `kea-db`
 - [ ] The firewall's relay pointed at both Keas (the owner, in its UI)

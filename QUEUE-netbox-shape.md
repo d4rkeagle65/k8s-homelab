@@ -6,9 +6,13 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 
 ## Settled (the owner, 2026-10-16)
 
-- **Scope: the plain containers and the Talos VMs** (`containers` in `guests.tf`,
-  `talos_nodes` in `talos-config.tf`). The Pi-holes and the Docker VM keep hand-written shapes:
-  theirs carry settings NetBox has no field for (HA storage, five fixed bridges).
+- **Scope: the plain containers, the Talos VMs and the Docker VMs** (`containers` in
+  `guests.tf`, `talos_nodes` in `talos-config.tf`, `docker_vms` in `docker-vms.tf`; the Docker
+  VMs added 2026-10-16, the owner: "a single source of truth, with corrections made if
+  something strays"). What every VM of a kind shares (firmware, CPU type, datastore) stays in
+  OpenTofu; what varies is NetBox's. A NIC's bridge is its description's ("Proxmox bridge
+  vmbrX"), so a bridge without an address works. The Pi-holes are next: their HA storage as a
+  custom field, the role "Pi-hole".
 - **A Semaphore template that opens a pull request**, never a push to `main`: it writes the
   generated file, and when that differs from `main`, force-pushes the branch `netbox/guests`
   and opens a pull request, or updates the one already open, as Renovate does. Merging it is
@@ -29,7 +33,8 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
   | `disk_gb`, `data_gb` (Talos); `disk_gb` (container) | virtual disks `scsi0`, `scsi1` (Talos); `rootfs` (container), in GB |
   | `apply_mode` (Talos) | custom field `talos_apply_mode` (`auto`, `no_reboot`) |
   | `tags` (container) | custom field `proxmox_tags` |
-  | `bridges` (container) | each interface's address, by its prefix, to the bridge `netbox_seed.yaml`'s networks name |
+  | role "Docker VM" | the VM's role "Docker VM": cores (vCPUs, two sockets when even), memory, disks `scsi0` and `scsi1`, bridges, `proxmox_tags` |
+  | `bridges` (container, Docker VM) | each interface's description ("Proxmox bridge vmbrX"), else its address's prefix to the bridge `netbox_seed.yaml`'s networks name |
 - **The nightly sync never overwrites what NetBox owns.** For a VM with one of the three roles,
   `scripts/netbox_seed.py` leaves vCPUs, memory, disks and those custom fields alone and
   reports where Proxmox differs; it still records the host, interfaces, MACs and status.

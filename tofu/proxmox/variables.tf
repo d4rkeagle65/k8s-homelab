@@ -11,9 +11,15 @@ variable "site" {
       prefix_length = optional(number, 24)
       gateway       = optional(string)
     }))
-    # The Kubernetes nodes' resolvers and search domain.
+    # The Kubernetes nodes' resolvers and search domain (the Docker VMs' too).
     node_dns_servers   = list(string)
     node_search_domain = string
+    # The login cloud-init makes on a new Docker VM: the owner's admin user and
+    # the SSH public keys it accepts (the owner's, and Semaphore's semaphore-shared).
+    vm_login = optional(object({
+      user     = string
+      ssh_keys = list(string)
+    }))
     # The cluster's values the Talos configs need (talos-config.tf, and
     # talos/gen-config.py from the same note): the API address as host:port,
     # without https://, the DNS domain and the pod and service subnets.
