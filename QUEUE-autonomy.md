@@ -47,9 +47,14 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       `QUEUE-postgres18.md`, ManicTime's and Whisparr's in `QUEUE-updates.md`) out of git, each
       app checked a day on 18; then the Clusters and their claims deleted, each new cluster's
       data checked first
-- [ ] **released-volumes:** the 38 Released PVs (7 of the old `netbox` namespace, 29 `local-db`
-      and 4 `nas-block` of the destroyed LXC nodes, 1 `nfs-retain-rwo`), each checked against
-      its live replacement, then deleted; the NFS one's folder on the NAS left to the owner
+- [ ] **released-volumes:** checked 2026-10-16, deletion left to the owner (this session's
+      permissions refuse a bulk PV delete): the 38 Released PVs (29 `local-db` and 4
+      `nas-block` on the destroyed LXC nodes, their data gone with them and every app's live
+      copy healthy; 4 `local-db` and 1 NFS from the old in-cluster NetBox, whose data was
+      never moved). Retain: deleting a PV removes only its record. `kubectl delete pv $(kubectl
+      get pv -o jsonpath='{range .items[?(@.status.phase=="Released")]}{.metadata.name}{" "}{end}')`.
+      Left after: the old NetBox media folder on the NAS, and its database files on four
+      Talos workers' local-db disks (unreferenced)
 - [ ] **talos-cleanup:** `talos/gen-config.py` reading the cluster's settings from
       `TF_VAR_site` instead of the `kubeadm-config` ConfigMap, then the ConfigMap deleted; the
       destroyed nodes out of local-path's maps; the `nas-block` storage class and its tasks
