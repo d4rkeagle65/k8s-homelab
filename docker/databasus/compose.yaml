@@ -19,6 +19,7 @@
 #   SEMAPHORE_NETWORK       the semaphore stack's Docker network, as
 #                           `docker network ls` names it
 #   KEA_NETWORK             the kea stack's Docker network
+#   NETBOX_NETWORK          the netbox stack's Docker network
 #   DATABASUS_AGENT_ID      the verification agent's ID (Settings > Verification
 #                           agents in the UI)
 #   DATABASUS_AGENT_TOKEN   secret: its token, shown once when it's created
@@ -49,6 +50,7 @@ services:
     - default
     - semaphore
     - kea
+    - netbox
     healthcheck:
       test: ["CMD", "databasus", "healthcheck"]
       interval: 30s
@@ -96,3 +98,6 @@ networks:
   kea:
     external: true
     name: ${KEA_NETWORK}
+  netbox:
+    external: true
+    name: ${NETBOX_NETWORK}
