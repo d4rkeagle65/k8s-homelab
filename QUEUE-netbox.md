@@ -177,11 +177,13 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
       checked against its last static run; the static inventories and the per-group keys
       `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
-  - [ ] The deleted keys' public halves are still in the hosts' `authorized_keys` (root's on
-        the Proxmox hosts, the Pi-holes and the Docker VM; `semaphore-to-k8s` on whatever it
-        once reached). Each still lets in whoever holds its private half, which no longer
-        exists anywhere Semaphore keeps it; remove them, keeping `semaphore-shared`'s, after
-        checking every host still answers a run on it
+  - [ ] The deleted keys' public halves are still in root's `authorized_keys`: three keys, all
+        commented `semaphore`, one on the Proxmox hosts (their shared file), one on both
+        Pi-holes, one on the Docker VM; none elsewhere (Run Command task 739, every host). Semaphore
+        holds only `semaphore-shared`, and each old key's last login was 2026-10-15, the day the
+        NetBox inventory took over (task 740). `ansible/retire-ssh-keys.yml` removes them: it needs
+        a Semaphore template (the owner), a dry run, then the owner's run. Left in place, each
+        lets in whoever still holds its private half
   - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) comes out of Proxmox (the owner,
         2026-10-16): first proving no guest uses it, then by `proxmox-host.yml` on every node,
         then its interfaces deleted in NetBox (the sync never deletes). VLAN 4 (`vmbr4`) is for

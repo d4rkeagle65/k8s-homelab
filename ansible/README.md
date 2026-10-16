@@ -17,6 +17,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | `admin-users.yml` | The admin login alone, on every host of the inventory it runs against (`baseline.yml` runs the same steps, `tasks/admin-user.yml`): the account `admin_user` with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. |
 | `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
 | `openwrt-aps.yml` | Prometheus's exporter on the OpenWrt access points (OpenWrt's `prometheus-node-exporter-lua` with its Wi-Fi collectors), listening on one interface's address, then read back from there. Only `raw`, since OpenWrt has no Python. Check mode reports the missing packages and the listening interface. |
+| `retire-ssh-keys.yml` | Removes retired keys (comment `semaphore`, the per-group keys Semaphore no longer holds) from root's `authorized_keys` on the Proxmox hosts (their shared `/etc/pve/priv/authorized_keys`, edited once), the Pi-holes and the Docker VM, after proving each file holds `semaphore-shared`; reads each back. A dry run counts what it would remove. |
 
 ## Setting up Semaphore (once)
 
