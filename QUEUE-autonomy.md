@@ -59,7 +59,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 
 ## Waiting on the owner
 
-- [ ] Make `claude-code` a Task Runner in Semaphore (project → Team)
+- [x] `claude-code` made a Task Runner in Semaphore (2026-10-16, checked by `/api/project/1/role`)
 - [ ] Decision 10, the test folders: keep both, with the split explained (recommended)
 - [ ] A fine-grained GitHub token for this repository (Contents and Pull requests, read and
       write) for `QUEUE-netbox-shape.md`'s template
