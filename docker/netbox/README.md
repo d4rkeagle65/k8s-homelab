@@ -23,7 +23,8 @@ builds the cluster's VMs and will read NetBox to do it.
    and they override the blank file. Never put a value in `.env`. They are: `NETBOX_DB_PASSWORD`, `NETBOX_SECRET_KEY` and
    `NETBOX_API_TOKEN_PEPPER` (each `head -c 48 /dev/urandom | base64`), `OIDC_CLIENT_SECRET`
    (the Vaultwarden field `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, which Authentik's blueprint
-   reads too), and `DATABASUS_DB_PASSWORD` (the same as the other stacks').
+   reads too), and `DATABASUS_DB_PASSWORD` (its own, the Vaultwarden field
+   `NETBOX_DATABASUS_DB_PASSWORD`).
 2. **The stack** in Dockhand from this folder, with "Build images on deploy" on, and its
    webhook enabled with `DOCKHAND_WEBHOOK_SECRET` (`docker/CLAUDE.md`).
 3. **The first start** migrates an empty database; give it a few minutes before the health
@@ -31,7 +32,7 @@ builds the cluster's VMs and will read NetBox to do it.
 4. **Backups:** once this stack is up, its network exists: add it to the Databasus stack as
    `NETBOX_NETWORK`, as `SEMAPHORE_NETWORK` and `KEA_NETWORK` are (before then, Databasus's
    redeploy would fail on the missing network). Then add the `netbox` database in Databasus
-   (host `netbox-postgres`, user `databasus`).
+   (host `netbox-postgres`, user `databasus`, that same password).
 
 ## Upgrades
 
