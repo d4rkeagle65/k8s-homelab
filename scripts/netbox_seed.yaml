@@ -27,6 +27,11 @@ inventories:
 # selects by (NetBox's tag filter needs every tag it's given, so not the group tags).
 managed_tag: ansible
 
+# Groups made of those groups, each a tag on every host of its members: a play
+# that targets one of these never reaches the other hosts the inventory holds.
+groups:
+  debian: [proxmox, pihole, docker_vm]
+
 # Hosts in those inventories that Proxmox doesn't run, made as devices.
 devices:
   openwrt_aps: {role: Access point, type: OpenWrt access point}

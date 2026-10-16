@@ -8,9 +8,9 @@
 # It leaves root's logins and sshd's settings alone: tightening those is a
 # later, separate step, once this account is proven on every machine.
 #
-# It targets every host in the inventory it's given; baseline.yml runs the same
-# steps (tasks/admin-user.yml) as part of the baseline. The values come from
-# a Semaphore variable group (never git):
+# It targets the inventory's debian group (every Debian host, not the OpenWrt
+# APs); baseline.yml runs the same steps (tasks/admin-user.yml) as part of the
+# baseline. The values come from a Semaphore variable group (never git):
 #   admin_user           the account, e.g. dhardin
 #   admin_ssh_keys       a list of its public keys (one line each, ssh-...)
 #   admin_sudo_nopasswd  true: sudo without a password. false (the default):
@@ -25,10 +25,10 @@
 
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
-    required_group: all
+    required_group: debian
 
 - name: A named admin login with sudo
-  hosts: all
+  hosts: debian
   gather_facts: true
   gather_subset: [min]
   tasks:
