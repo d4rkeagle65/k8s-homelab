@@ -30,7 +30,7 @@ or a step that needs the owner in person or in a UI: zammad-bridge, released-vol
 monitoring-fixes, talos-cleanup, resource-limits, alerts, hardening, small-cleanups,
 netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
 
-- [ ] **zammad-bridge:** Alertmanager to Zammad's Checkmk endpoint (the owner enabled it, group
+- [x] **zammad-bridge:** Alertmanager to Zammad's Checkmk endpoint (the owner enabled it, group
       "Alerts"; its URL is `ZAMMAD_ALERT_WEBHOOK_URL` in Vaultwarden): severities `warning` and
       `critical` only (never `Watchdog`, `InfoInhibitor` or `info`), a ticket per alert, a note on
       repeats, closed with a note on recovery. A small translator in the cluster, with tests
