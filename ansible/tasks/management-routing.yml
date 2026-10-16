@@ -90,9 +90,12 @@
       when: not ansible_check_mode
 
 - name: Report the management routing
+  vars:
+    out_if: "{{ mgmt_out.stdout.split(' dev ')[1].split()[0] if ' dev ' in mgmt_out.stdout else '?' }}"
   ansible.builtin.debug:
     msg: >-
-      {{ inventory_hostname }}: answers from {{ ansible_host }} leave
-      {{ (mgmt_out.stdout | regex_search('dev \\S+') | default('?', true)) }}
-      {{ '(on its management interface)' if mgmt_if is defined and (' dev ' ~ mgmt_if ~ ' ') in mgmt_out.stdout
-         else '(NOT its management interface' ~ (': set management_gateway to fix it' if management_gateway is not defined else '') ~ ')' }}
+      {{ inventory_hostname }}: {{
+      ('answers from ' ~ ansible_host ~ ' leave by ' ~ out_if ~ (', its management interface' if out_if == mgmt_if
+        else ', not its management interface ' ~ mgmt_if ~ ' (set management_gateway to fix it where netplan runs)'))
+      if mgmt_if is defined else
+      ("can't tell: " ~ ansible_host ~ ", its inventory address, isn't one of its own (an override?)") }}
