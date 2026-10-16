@@ -125,10 +125,14 @@ assigned (items below refer to them); 1 to 4, 6, 8 and 9 are done.
     Every run already lists what it would remove.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
-- **The Pi-holes' sshd waits for the network by a hand-made drop-in**
-  (`ssh.service.d/20-after-network-online.conf`, 2026-10-10): their sshd listens on the
-  management address only and failed to bind at a boot without it. `baseline.yml` could own
-  that drop-in on any host whose sshd sets `ListenAddress`, so a rebuilt Pi-hole gets it.
+- **Pi-hole 1's sshd still doesn't come back after a container restart**, despite the
+  hand-made drop-in (`ssh.service.d/20-after-network-online.conf`, 2026-10-10) meant to make
+  sshd, which listens on the management address only, wait for the network: after a restart
+  around 12:30 UTC on 2026-10-15 it refused connections until restarted by hand on 10-16,
+  and every Semaphore run on Pi-hole 1 failed meanwhile. Find out why on the next restart
+  (`journalctl -b -u ssh`; is the drop-in on both Pi-holes, and is
+  `systemd-networkd-wait-online` or its equivalent enabled in the container?), then have
+  `baseline.yml` own the fix on every host whose sshd sets `ListenAddress`.
 - **Kea phase 3** (decision 5): a second Kea on another host as a hot-standby partner
   (the firewall's relay can point at both), and lease names into DNS.
 - **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
