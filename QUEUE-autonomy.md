@@ -66,7 +66,9 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       (`QUEUE-resource-limits.md`)
 - [ ] **monitoring-fixes:** done 2026-10-16: the Proxmox hosts' node-exporters (a boot race,
       fixed in `host-exporters.yml` and run), Pi-hole 1's hung exporter (restarted, probed by
-      `/metrics`). Left: Whisparr's exportarr; etcd scraping (one control plane at a time)
+      `/metrics`). Whisparr's exportarr was already up. Left, needing the owner: etcd scraping, a change to every
+      control plane's Talos config, rolled node by node with `talosctl patch mc --mode=no-reboot`
+      (tofu/CLAUDE.md), then an OpenTofu apply the owner confirms
 - [ ] **alerts:** monitoring's phase 5: memory near its limit, CPU throttling, a container
       restarting in a loop, drive wear and spare capacity, the TerraMaster's SNMP target down
 - [ ] **hardening:** health probes for the containers still without (`QUEUE.md`), Pod Security

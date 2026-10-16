@@ -156,8 +156,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       profiles with a 25-second timeout (`synology_ucd_*` in the snmp-exporter's config) and a
       110-second scrape timeout. If it still fails, the scrape duration in Prometheus shows how
       long the agent took.
-- [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`). Home Assistant's target is
-      up (2026-10-16)
+- [x] Phase 3D, the rest: Whisparr's exportarr (sonarr mode, 21 series) and Home Assistant's
+      target, both up (2026-10-16)
 - [x] Pi-hole 1's exporter (fixed 2026-10-16): it had hung since Pi-hole 1's restart on
       2026-10-15, its port open but every scrape timing out; restarted, both answer in under a
       second, and its liveness probe now fetches `/metrics`, so a hung one restarts itself.
