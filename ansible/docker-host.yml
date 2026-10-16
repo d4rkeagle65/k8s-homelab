@@ -15,6 +15,9 @@
 # under Settings > Environments (Hawser, Generate Token); without it the run
 # installs Docker alone and says so. The token is never printed.
 #
+# Run baseline.yml first: it also sets up the management routing
+# (tasks/management-routing.yml).
+#
 # Each step reads its result back: Docker's version and live-restore from
 # `docker info`, the holds from apt-mark, Hawser's container running.
 #
@@ -72,7 +75,14 @@
             "live-restore": true
           }
 
+    # A dry run hasn't really added the repository, so apt can't see Docker yet.
+    - name: What a run would install
+      ansible.builtin.debug:
+        msg: "Would install docker-ce and docker-ce-cli {{ docker_version }} with containerd.io and Docker's plugins, from Docker's repository."
+      when: ansible_check_mode
+
     - name: Docker, at the first host's version
+      when: not ansible_check_mode
       ansible.builtin.apt:
         update_cache: true
         name:
@@ -86,6 +96,7 @@
         DEBIAN_FRONTEND: noninteractive
 
     - name: Hold its packages
+      when: not ansible_check_mode
       ansible.builtin.dpkg_selections:
         name: "{{ item }}"
         selection: hold
