@@ -6,4 +6,5 @@ metadata:
     homelab.local/data: database
     homelab.local/exposure: lan
     homelab.local/login: app
+    pod-security.kubernetes.io/enforce: baseline
   name: n8n

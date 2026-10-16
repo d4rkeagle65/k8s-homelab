@@ -8,6 +8,7 @@ metadata:
     homelab.local/data: files
     homelab.local/exposure: lan
     homelab.local/login: app
+    pod-security.kubernetes.io/enforce: baseline
   name: emby
 spec:
   finalizers:

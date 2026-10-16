@@ -43,12 +43,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done.
   cainjector (their charts' probe settings), and the config-reloader and dashboard
   sidecars, which are the charts' own. Calico, kube-proxy, Authentik's outposts and the
   tunnel connector belong to their operators.
-- **Pod Security, namespace by namespace.** The Talos control planes enforce `privileged`
-  cluster-wide (`talos/patches/controlplane-podsecurity.yaml`), as kubeadm did, and warn and
-  audit `restricted`. Label each namespace with the strictest level its pods pass
-  (`pod-security.kubernetes.io/enforce`): `baseline` for most, `restricted` where possible;
-  monitoring, metallb-system, metrics-server and homeassistant need `privileged` (host network,
-  host paths, NET_RAW). The API's warnings on apply list what a level would refuse.
+- **Pod Security: `restricted` where it holds.** Since 2026-10-16 every namespace whose pods
+  pass enforces `baseline` (`pod-security.kubernetes.io/enforce` in its `namespace.yaml`; each
+  checked by a server-side dry run of the label and its workload templates, CronJobs
+  included). Left unlabelled, and so `privileged` (the control planes' cluster-wide
+  default): calico-system, tigera-operator, monitoring, metallb-system, metrics-server,
+  democratic-csi, homeassistant (host network, host paths, NET_RAW) and local-path-storage
+  (its provisioner's helper pods mount host paths). Next: `restricted` for the 13 that pass it
+  today (cert-manager, cluster-access, cnpg-system, external-dns, external-secrets,
+  external-services, nebula-sync, redis-ha, renovate, smtp-relay, both Traefiks), once their
+  CronJob and Job templates are checked against it too.
 - **Prometheus doesn't scrape etcd** (`kube-prometheus-stack`'s `kubeEtcd` is off), so there's
   no WAL fsync latency, leader changes or database size history: on 2026-10-13 the Talos control
   plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. The control
