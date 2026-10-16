@@ -187,6 +187,7 @@ assigned (items below refer to them); 1 to 6, 8 and 9 are done.
 
 ## Working queue files
 
+- [QUEUE-autonomy.md](QUEUE-autonomy.md): read first: the owner's standing permissions, the batches I can do on my own, and what waits on the owner.
 - [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 55%): Prometheus, Loki and Grafana, in eight phases.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 45%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.

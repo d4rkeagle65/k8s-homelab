@@ -7,7 +7,7 @@ the Flux files. **This repo is public.**
 Read before changing anything:
 
 - `scripts/README.md`: how the tool works, which files it owns, and recipes.
-- `QUEUE.md`: the work list, most important first.
+- `QUEUE.md`: the work list, most important first; `QUEUE-autonomy.md`: what I may do on my own and what waits on the owner.
 - The `CLAUDE.md` in `kubernetes/`, `docker/`, `scripts/` or `tests/` before working there.
 
 ## Layout
