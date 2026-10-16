@@ -66,11 +66,12 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
 - [ ] The second Docker VM: built 2026-10-16 (apply task 770; task 771: Debian 13, cloud-init
       done, the agent up, both addresses, the default route on Production; NetBox tags `ansible`
-      and `debian`). Semaphore logs in as `dhardin` (local context, become); the owner's
-      baseline run (773) removed `semaphore-shared` from that account (task 774: refused), and
-      `admin-user.yml` now keeps a key with that comment (`admin_kept_key_comments`). Left: the key
-      put back once by the owner. The vendor data also sets `disable_root: false` for the next VM,
-      so root takes the same keys plainly, as on the other hosts Left: the owner's run of
+      and `debian`). Semaphore logs in as root with `semaphore-shared`, as on every host (the owner,
+      2026-10-16): cloud-init's `disable_root` had wrapped root's keys in a forced "log in as
+      dhardin" command, which task 789 removed (the original kept as
+      `authorized_keys.cloud-init`); NetBox's local context is `ansible_user: root` and
+      `management_gateway`. The vendor data's `disable_root: false` prevents the wrapping on the
+      next VM Left: the owner's run of
       "Setting: Debian Baseline" (dry run task 772: 8 changes, all on it), then
       `ansible/docker-host.yml` (a template: survey variable `docker_host_target`, target
       "Variable"; `HAWSER_TOKEN` a secret environment variable, from Dockhand's new environment),
