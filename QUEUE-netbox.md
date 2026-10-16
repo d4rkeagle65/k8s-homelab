@@ -185,19 +185,13 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) is probably unused: the owner
         decides whether to take it out of Proxmox. VLAN 4 (`vmbr4`) is for later; it gets a
         name in `netbox_seed.yaml` once it's in use, which makes its VLAN and prefix
-- [ ] Phase 3: `scripts/netbox_seed.py` nightly in Semaphore (not a new playbook: the seed
-      already reads Proxmox and Kea, changes only what differs and deletes nothing). Done
-      2026-10-16: the seed takes its credentials and URLs from the environment
-      (`NETBOX_WRITE_TOKEN`, `PROXMOX_TOKEN`, `KEA_API`; `NETBOX_API`, `PROXMOX_URL`,
-      `KEA_URL`; the docstring), else the home-folder files; it records each VM's node (its
-      device) and VMID (custom field `vmid`); the semaphore stack joins Kea's network
-      (`KEA_NETWORK`) and installs `ruamel.yaml`. Left:
-  - [ ] The template "NetBox: Sync from Proxmox and Kea" (Python, `scripts/netbox_seed.py`,
-        variable group "Netbox Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL`, and
-        the secrets `NETBOX_WRITE_TOKEN`, `PROXMOX_TOKEN` (`PVEAPIToken=netbox-sync@pve!semaphore=…`,
-        PVEAuditor), `KEA_API`, all of type environment variable) ran its dry run clean
-        (2026-10-16, task 721: nothing to change). Left: `--apply` in its arguments, a run, and
-        a nightly schedule
+- [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
+      template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
+      Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL` =
+      `http://kea-dhcp4:8000/`, secrets of type environment variable `NETBOX_WRITE_TOKEN`,
+      `PROXMOX_TOKEN` = `PVEAPIToken=netbox-sync@pve!semaphore=…` (PVEAuditor), `KEA_API`). It
+      adds and updates, never deletes: a guest gone from Proxmox stays in NetBox until removed
+      by hand
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
       octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
       to answer the same names before and after
