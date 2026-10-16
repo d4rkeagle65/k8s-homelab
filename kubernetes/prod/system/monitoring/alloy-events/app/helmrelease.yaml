@@ -27,11 +27,16 @@ spec:
     controller:
       type: deployment
       replicas: 1
+    # The config reloader beside Alloy.
+    configReloader:
+      resources:
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 256Mi}
     alloy:
       enableReporting: false
       resources:
         requests: {cpu: 10m, memory: 48Mi}
-        limits: {memory: 192Mi}
+        limits: {cpu: 500m, memory: 192Mi}
       configMap:
         content: |
           logging {

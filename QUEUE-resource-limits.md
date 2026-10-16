@@ -86,7 +86,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       sized as one of the other databases. metrics-server's chart default (100m, 200Mi) went
       to the rules' 10m and 64Mi. The main Traefik also got a second replica on another node.
       Redis-ha's config-init init container has none; it runs once at start
-- [ ] Batch 5: monitoring (Prometheus, Alertmanager, Grafana, Loki, Alloy, the exporters)
+- [x] Batch 5 (2026-10-16): monitoring. Every container had a memory request and limit except
+      the charts' sidecars; the batch adds the CPU limits (500m; Prometheus 1000m, as a
+      database: compactions) and the sidecars' settings (the config reloaders, Grafana's and
+      Loki's sidecars, the SNMP exporter's reloader: 64-128Mi requests, 256Mi limits). Requests
+      left for the 2026-10-18 re-measure, which recalculates all of them: Prometheus's 768Mi is
+      below the rules' 1.8Gi for its 1.5Gi peak
 - [ ] Batch 6: operator-managed: Calico (its Installation), MetalLB, Flux
 - [ ] A LimitRange in each app namespace with defaults for a container that sets none
 - [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring

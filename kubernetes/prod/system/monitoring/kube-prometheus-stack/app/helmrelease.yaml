@@ -120,7 +120,12 @@ spec:
     prometheusOperator:
       resources:
         requests: {cpu: 20m, memory: 64Mi}
-        limits: {memory: 256Mi}
+        limits: {cpu: 500m, memory: 256Mi}
+      # The config-reloader sidecar in each Prometheus and Alertmanager pod.
+      prometheusConfigReloader:
+        resources:
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
 
     prometheus:
       prometheusSpec:
@@ -134,9 +139,10 @@ spec:
         evaluationInterval: 60s
         retention: 15d
         retentionSize: 18GB
+        # CPU limit as a database's: compactions are its busiest minutes.
         resources:
           requests: {cpu: 100m, memory: 768Mi}
-          limits: {memory: 2Gi}
+          limits: {cpu: 1000m, memory: 2Gi}
         # nas-iscsi: each replica's own LUN on the NAS, so the constant writes
         # miss the hosts' SSDs and the volume follows its pod to any Talos node.
         # A block device, not NFS, which Prometheus's docs rule out for its
@@ -214,7 +220,7 @@ spec:
         retention: 120h
         resources:
           requests: {cpu: 10m, memory: 64Mi}
-          limits: {memory: 128Mi}
+          limits: {cpu: 500m, memory: 128Mi}
         # On nas-iscsi, preferring Talos nodes, for the same reasons as
         # Prometheus's storage above.
         affinity:
@@ -237,7 +243,7 @@ spec:
     kube-state-metrics:
       resources:
         requests: {cpu: 10m, memory: 64Mi}
-        limits: {memory: 256Mi}
+        limits: {cpu: 500m, memory: 256Mi}
       # Each namespace's category (apps, services, system) as
       # kube_namespace_labels{label_homelab_local_category}, for the Resources
       # dashboard's filter.
@@ -615,7 +621,7 @@ spec:
     prometheus-node-exporter:
       resources:
         requests: {cpu: 10m, memory: 32Mi}
-        limits: {memory: 64Mi}
+        limits: {cpu: 500m, memory: 64Mi}
 
     grafana:
       admin:
@@ -632,7 +638,16 @@ spec:
       # About 450 MiB in use from the start.
       resources:
         requests: {cpu: 20m, memory: 384Mi}
-        limits: {memory: 1Gi}
+        limits: {cpu: 500m, memory: 1Gi}
+      # Its init containers (the data folder's owner, the grafana.com dashboards).
+      initChownData:
+        resources:
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+      downloadDashboards:
+        resources:
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
       # Grafana's own latency and size histograms and its feature-flag list
       # (about 2,800 series); no dashboard here reads them.
       serviceMonitor:
@@ -650,6 +665,10 @@ spec:
       # Dashboards in ConfigMaps labelled grafana_dashboard, from any
       # namespace, so a chart can ship its own (CloudNativePG's does).
       sidecar:
+        # The dashboards and data sources sidecars (peaks about 94Mi, 44m).
+        resources:
+          requests: {cpu: 20m, memory: 128Mi}
+          limits: {cpu: 500m, memory: 256Mi}
         dashboards:
           searchNamespace: ALL
           # A ConfigMap's grafana_folder annotation names its folder
