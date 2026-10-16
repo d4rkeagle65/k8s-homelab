@@ -9,6 +9,20 @@
 # connections (the policy routing there), so address it the way the README
 # says. Optional: docker_packages, the packages kept held (default below).
 #
+# Two switches, both off unless set (QUEUE.md, decision 7):
+#   docker_live_restore: true  merges "live-restore": true into
+#       /etc/docker/daemon.json (keeping the rest) and reloads Docker, which
+#       applies it without restarting anything; read back from `docker info`.
+#   upgrade_docker: true       upgrades the held Docker packages, only with
+#       live-restore on (the containers then outlive the daemon's restart) and
+#       only within docker-ce's major version (live-restore isn't supported
+#       across majors: a major upgrade is reported, for a run by hand). The
+#       running containers are read before and after; one that ran before and
+#       isn't running after fails the run. The packages are held again whatever
+#       happens.
+# Docker's own {{.Field}} format syntax would be read as Ansible's, so Docker
+# is read as JSON (--format json).
+#
 # In check mode (--check) it lists the pending upgrades and changes nothing.
 
 - ansible.builtin.import_playbook: require-hosts.yml
@@ -71,6 +85,134 @@
       ansible.builtin.apt:
         autoremove: true
 
+    - name: Docker's live-restore
+      when: docker_live_restore | default(false) | bool
+      block:
+        - name: Read daemon.json
+          ansible.builtin.slurp:
+            src: /etc/docker/daemon.json
+          register: daemon_json
+          failed_when: false
+          check_mode: false
+
+        - name: Settle the merged settings
+          ansible.builtin.set_fact:
+            daemon_settings: >-
+              {{ ((daemon_json.content | b64decode | from_json) if daemon_json.content is defined else {})
+                 | combine({'live-restore': true}) }}
+
+        - name: Write daemon.json with live-restore on
+          ansible.builtin.copy:
+            dest: /etc/docker/daemon.json
+            content: "{{ daemon_settings | to_nice_json }}\n"
+            mode: "0644"
+            backup: true
+          register: daemon_written
+
+        # live-restore is one of the settings Docker reloads (SIGHUP): no restart.
+        - name: Reload Docker
+          ansible.builtin.systemd_service:
+            name: docker
+            state: reloaded
+          when: daemon_written is changed and not ansible_check_mode
+
+        - name: Read Docker's settings back
+          ansible.builtin.command: docker info --format json
+          register: info_after
+          changed_when: false
+          check_mode: false
+
+        - name: Live-restore is on
+          ansible.builtin.assert:
+            that: (info_after.stdout | from_json).LiveRestoreEnabled | bool
+            fail_msg: daemon.json says live-restore, but docker info doesn't; read journalctl -u docker.
+            quiet: true
+          when: not ansible_check_mode
+
+    - name: Docker's upgrade
+      when: upgrade_docker | default(false) | bool
+      block:
+        - name: Read whether live-restore is on
+          ansible.builtin.command: docker info --format json
+          register: info_now
+          changed_when: false
+          check_mode: false
+
+        - name: Read docker-ce's installed and candidate versions
+          ansible.builtin.command: apt-cache policy docker-ce
+          register: ce_policy
+          changed_when: false
+          check_mode: false
+
+        - name: Settle the versions
+          ansible.builtin.set_fact:
+            ce_installed: "{{ ce_policy.stdout | regex_search('Installed: (\\S+)', '\\1') | first | default('') }}"
+            ce_candidate: "{{ ce_policy.stdout | regex_search('Candidate: (\\S+)', '\\1') | first | default('') }}"
+            live_restore_on: "{{ (info_now.stdout | from_json).LiveRestoreEnabled | bool }}"
+
+        # 5:28.3.2-1~debian.13~trixie: the major is what follows the epoch.
+        - name: Settle the majors
+          ansible.builtin.set_fact:
+            ce_major_installed: "{{ ce_installed | regex_replace('^[0-9]+:', '') | regex_replace('[.].*', '') }}"
+            ce_major_candidate: "{{ ce_candidate | regex_replace('^[0-9]+:', '') | regex_replace('[.].*', '') }}"
+
+        - name: Report the Docker upgrade
+          ansible.builtin.debug:
+            msg: >-
+              docker-ce {{ ce_installed }} -> {{ ce_candidate }}:
+              {{ 'nothing to do' if ce_installed == ce_candidate else
+                 ('not upgraded: live-restore is off (set docker_live_restore: true first)' if not live_restore_on else
+                 ('not upgraded: a major upgrade (' ~ ce_major_installed ~ ' to ' ~ ce_major_candidate ~ '), by hand'
+                  if ce_major_installed != ce_major_candidate else 'upgrading')) }}
+
+        - name: Upgrade Docker, its containers kept running
+          when: ce_installed != ce_candidate and live_restore_on and ce_major_installed == ce_major_candidate and not ansible_check_mode
+          block:
+            - name: Read the running containers before
+              ansible.builtin.command: docker ps --format json
+              register: ps_before
+              changed_when: false
+
+            - name: Unhold Docker's packages
+              ansible.builtin.dpkg_selections:
+                name: "{{ item }}"
+                selection: install
+              loop: "{{ dpkg_all.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')[|]installed$') | map('regex_replace', '[|].*', '') | list }}"
+
+            - name: Upgrade them
+              ansible.builtin.apt:
+                name: "{{ dpkg_all.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')[|]installed$') | map('regex_replace', '[|].*', '') | list }}"
+                state: latest
+                only_upgrade: true
+                dpkg_options: force-confold,force-confdef
+              environment:
+                DEBIAN_FRONTEND: noninteractive
+
+            - name: Give the containers a moment to settle
+              ansible.builtin.wait_for:
+                timeout: 20
+
+            - name: Read the running containers after
+              ansible.builtin.command: docker ps --format json
+              register: ps_after
+              changed_when: false
+
+            - name: Every container that ran before still runs
+              ansible.builtin.assert:
+                that: missing | length == 0
+                fail_msg: "Not running after the upgrade: {{ missing | join(', ') }}"
+                success_msg: "{{ before_names | length }} container(s) running before and after"
+              vars:
+                before_names: "{{ ps_before.stdout_lines | map('from_json') | map(attribute='Names') | list }}"
+                after_names: "{{ ps_after.stdout_lines | map('from_json') | map(attribute='Names') | list }}"
+                missing: "{{ before_names | difference(after_names) }}"
+          always:
+            - name: Hold Docker's packages again
+              ansible.builtin.dpkg_selections:
+                name: "{{ item }}"
+                selection: hold
+              loop: "{{ dpkg_all.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')[|]installed$') | map('regex_replace', '[|].*', '') | list }}"
+
     - name: Look for Debian's reboot-required flag
       ansible.builtin.stat:
         path: /run/reboot-required
@@ -80,4 +222,4 @@
       ansible.builtin.debug:
         msg:
           - "Reboot due: {{ 'yes, from Proxmox, when Vaultwarden, Kea, Dockhand and Semaphore can be down' if reboot_flag.stat.exists else 'no' }}"
-          - "Docker upgrade due: {{ 'yes, by hand: apt-mark unhold, upgrade, hold again' if upgradable.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')/') | list else 'no' }}"
+          - "Docker upgrade due: {{ ('yes: set upgrade_docker: true, or by hand: apt-mark unhold, upgrade, hold again') if upgradable.stdout_lines | select('match', '^(' ~ held | map('regex_escape') | join('|') ~ ')/') | list and not (upgrade_docker | default(false) | bool) else 'no' }}"
