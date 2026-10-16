@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Generate the Talos machine configs that join this cluster.
 
-Reads what is particular to the cluster from the live cluster itself (the
-kubeadm-config ConfigMap and the nodes), so nothing internal is kept in git,
-combines it with the owner's secrets.yaml (from Vaultwarden, never git) and the
-patches in talos/patches/, and writes controlplane.yaml, worker.yaml and
-talosconfig next to secrets.yaml, each checked with `talosctl validate`.
+Reads what is particular to the cluster from the same place OpenTofu does,
+TF_VAR_site's talos block (the Vaultwarden note "OpenTofu site (Proxmox)", saved
+as a file: --site), and the rest from the live cluster (its nodes and API
+servers), so nothing internal is kept in git; combines it with the owner's
+secrets.yaml (from Vaultwarden, never git) and the patches in talos/patches/,
+and writes controlplane.yaml, worker.yaml and talosconfig next to
+secrets.yaml, each checked with `talosctl validate`.
 
 Stops, changing nothing, when anything can't be read or doesn't match: the
 talosctl version against the installer image's, the API servers' first
@@ -66,17 +68,25 @@ def image_version():
     return m.group(1)
 
 
-def cluster_settings(context):
-    """controlPlaneEndpoint, dnsDomain, the subnets and the name, from kubeadm-config."""
-    cc = json.loads(kubectl(context, "-n", "kube-system", "get", "configmap", "kubeadm-config", "-o", "json"))
-    text = cc["data"]["ClusterConfiguration"]
-    wanted = {"controlPlaneEndpoint": None, "dnsDomain": None, "podSubnet": None,
-              "serviceSubnet": None, "clusterName": None}
-    for key in wanted:
-        m = re.search(rf"^\s*{key}:\s*(\S+)\s*$", text, re.M)
-        if not m:
-            fail(f"kubeadm-config has no {key}")
-        wanted[key] = m.group(1)
+# The cluster's name, as tofu/proxmox/talos-config.tf gives it.
+CLUSTER_NAME = "kubernetes"
+
+
+def cluster_settings(site_text):
+    """controlPlaneEndpoint, dnsDomain, the subnets and the name, from TF_VAR_site's talos
+    block (the JSON OpenTofu reads; tofu/proxmox/variables.tf describes it)."""
+    try:
+        talos = json.loads(site_text)["talos"]
+    except (ValueError, KeyError, TypeError):
+        fail("--site isn't TF_VAR_site's JSON with a talos block")
+    names = {"controlPlaneEndpoint": "cluster_endpoint", "dnsDomain": "dns_domain",
+             "podSubnet": "pod_subnet", "serviceSubnet": "service_subnet"}
+    wanted = {"clusterName": CLUSTER_NAME}
+    for key, field in names.items():
+        value = str(talos.get(field) or "").strip()
+        if not value:
+            fail(f"TF_VAR_site's talos block has no {field}")
+        wanted[key] = value
     return wanted
 
 
@@ -187,6 +197,8 @@ def main():
                         help="the secrets.yaml from Vaultwarden (talosctl gen secrets --from-kubernetes-pki)")
     parser.add_argument("--out", type=Path,
                         help="folder for the outputs; default: the folder secrets.yaml is in")
+    parser.add_argument("--site", required=True, type=Path,
+                        help="TF_VAR_site's JSON (the Vaultwarden note \"OpenTofu site (Proxmox)\"), saved as a file")
     parser.add_argument("--context", help="kubectl context of the cluster; default: the current one")
     parser.add_argument("--node-prefix", type=int, default=24,
                         help="prefix length of the network all nodes' addresses share (default 24)")
@@ -196,6 +208,8 @@ def main():
 
     if not args.secrets.is_file():
         fail(f"{args.secrets} doesn't exist")
+    if not args.site.is_file():
+        fail(f"{args.site} doesn't exist")
     out = args.out or args.secrets.resolve().parent
     out.mkdir(parents=True, exist_ok=True)
     targets = [out / n for n in ("controlplane.yaml", "worker.yaml", "talosconfig",
@@ -210,7 +224,7 @@ def main():
     if want not in have:
         fail(f"talosctl is '{have}', the installer image is {want}: use the same version")
 
-    settings = cluster_settings(args.context)
+    settings = cluster_settings(args.site.read_text(encoding="utf-8-sig"))
     check_issuer(args.context, settings["controlPlaneEndpoint"])
     node_net, node_count = node_network(args.context, args.node_prefix)
     version = k8s_version(args.context)

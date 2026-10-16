@@ -44,14 +44,17 @@ It boots into maintenance mode with the address from cloud-init and its name as 
 `talosctl -n <address> get disks --insecure` lists `sda`.
 
 **2. The configs, on the workstation** (PowerShell, `talosctl` of the image's version on
-PATH, `kubectl` on the cluster). Copy `TALOS_SECRETS` from Vaultwarden to the clipboard;
-it's too long to paste at a prompt.
+PATH, `kubectl` on the cluster). Copy `TALOS_SECRETS` from Vaultwarden to the clipboard (it's
+too long to paste at a prompt) for the first line, then the note "OpenTofu site (Proxmox)"
+for the second: the cluster's API address, DNS domain and subnets come from its `talos`
+block, the same values OpenTofu uses.
 
 ```powershell
 $dir = "$env:USERPROFILE\talos-work"; New-Item -ItemType Directory -Force $dir | Out-Null
 [IO.File]::WriteAllBytes("$dir\secrets.yaml", [Convert]::FromBase64String((Get-Clipboard -Raw).Trim()))
+Set-Content -Encoding utf8 -NoNewline "$dir\site.json" (Get-Clipboard -Raw)
 Set-Clipboard -Value " "
-py -3 talos\gen-config.py --secrets "$dir\secrets.yaml"
+py -3 talos\gen-config.py --secrets "$dir\secrets.yaml" --site "$dir\site.json"
 ```
 
 **3. Before a control plane joins:** etcd healthy on every member
@@ -72,4 +75,4 @@ kubectl get node <node name> -o wide                         # Ready, its addres
 **5. Delete them.** `talosconfig` is the admin credential for the Talos API, signed by a CA
 in the secrets, so `gen-config.py` makes a working one again whenever it's needed; keep it
 only while working on the node. Then:
-`Remove-Item "$dir\secrets.yaml","$dir\controlplane.yaml","$dir\worker.yaml","$dir\talosconfig","$dir\site-patch*.yaml"`.
+`Remove-Item "$dir\secrets.yaml","$dir\site.json","$dir\controlplane.yaml","$dir\worker.yaml","$dir\talosconfig","$dir\site-patch*.yaml"`.

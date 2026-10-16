@@ -225,10 +225,10 @@ goes once the retired guests are destroyed.
   - [x] The kubeadm playbooks and tasks removed (2026-10-15), with the LXC node rules in
         `kubernetes/CLAUDE.md`, the queue items only they needed, and the drain and database
         tasks' admin.conf default (`kubectl_cmd` is now required)
-  - [ ] `talos/gen-config.py` reads the cluster's settings (API name, DNS domain, subnets)
-        from the `kubeadm-config` ConfigMap kubeadm left in `kube-system`: deleting it breaks
-        gen-config. Read them from `TF_VAR_site`'s `talos` block or a control plane's machine
-        config instead, then the ConfigMap can go
+  - [x] `talos/gen-config.py` reads the cluster's settings (API name, DNS domain, subnets)
+        from `TF_VAR_site`'s `talos` block (`--site`, the note "OpenTofu site (Proxmox)"), the
+        same values OpenTofu uses, instead of kubeadm's leftover `kubeadm-config` ConfigMap;
+        checked equal to the ConfigMap's on 2026-10-16, then the ConfigMap deleted
   - [ ] The retired guests (101-106): destroyed by the owner 2026-10-16 and out of
         `tofu/proxmox` (the next plan finds them gone and drops them from the state). Left:
         out of local-path's maps; `nas-block` (the per-host LUNs, its storage class and
