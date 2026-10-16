@@ -153,3 +153,9 @@ def test_the_release_carries_the_scripts_checksum_so_a_change_rolls_the_pod():
     assert f'homelab.local/webhook-sha256: "{want}"' in release, (
         f"netbox-dns-webhook.py changed: set podAnnotations homelab.local/webhook-sha256 to \"{want}\" "
         "in helmrelease-netbox.yaml, or the pod keeps running the old script")
+
+
+def test_change_lists_are_read_in_either_spelling():
+    creates, _, _ = m.plan({"create": [ep("a.example.net", "192.0.2.1")], "updateNew": [ep("b.example.net", "192.0.2.2")]},
+                           [], ZONES)
+    assert sorted(c["name"] for c in creates) == ["a", "b"]
