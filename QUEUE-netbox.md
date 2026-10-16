@@ -187,8 +187,9 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) comes out of Proxmox (the owner,
         2026-10-16): no guest, SDN or firewall rule names it (Run Command task 741, all 5
         nodes' configs); `proxmox-host.yml`'s second play removes both, one host at a time
-        (`retired_interfaces`); then the owner's run, and its interfaces deleted in NetBox
-        (the sync never deletes). VLAN 4 (`vmbr4`) is for
+        (`retired_interfaces`); its dry run (task 743) passed every check on all 5 and removes
+        just those stanzas. Left: the owner's run of "Setting: Proxmox Host", then the
+        interfaces deleted in NetBox (the sync never deletes). VLAN 4 (`vmbr4`) is for
         later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
         prefix
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
