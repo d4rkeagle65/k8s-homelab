@@ -13,6 +13,7 @@ resources:
 - secret-authentik-grimmory-oidc.yaml
 - secret-authentik-homepage-oidc.yaml
 - secret-authentik-linkwarden-oidc.yaml
+- secret-authentik-netbox-oidc.yaml
 - secret-authentik-organizr-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml
 - secret-authentik-secret-key.yaml

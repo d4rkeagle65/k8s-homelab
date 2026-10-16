@@ -1,9 +1,0 @@
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: netbox
-  namespace: flux-system
-spec:
-  type: oci
-  interval: 2h
-  url: oci://ghcr.io/netbox-community/netbox-chart

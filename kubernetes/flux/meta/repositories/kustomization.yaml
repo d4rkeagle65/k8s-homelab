@@ -18,7 +18,6 @@ resources:
 - local-path-provisioner.yaml
 - metallb.yaml
 - metrics-server.yaml
-- netbox.yaml
 - nfs-subdir.yaml
 - projectcalico.yaml
 - prometheus-community.yaml

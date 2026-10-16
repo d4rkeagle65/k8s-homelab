@@ -12,6 +12,7 @@ kind: Kustomization
 resources:
 - databasus.yaml
 - dockhand.yaml
+- netbox.yaml
 - pihole.yaml
 - semaphore.yaml
 - stork.yaml
