@@ -36,6 +36,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       (`ZAMMAD_ALERT_WEBHOOK_URL`, group "Alerts"): a ticket per alert titled "<alert> <target> is
       <STATE>", a note on each repeat (12 hours), closed on recovery. Proved against Zammad
       before the deploy: open, note, close (ticket 3, "BridgeTest")
+- [ ] A group alert's ticket names its members (owner's ask, 2026-10-16): for `TargetDown`,
+      `AlertmanagerClusterDown` and the Deployment, StatefulSet and DaemonSet alerts the bridge
+      asks Prometheus which are down at that moment (`MEMBERS` in `zammad-bridge.py`) and lists
+      them with node and address. Done when a real one has fired and its ticket shows the list
 - [ ] Mail: Zammad's outgoing mail through `smtp-oauth-relay` (notifications), and an incoming
       channel if tickets by email are wanted (the owner's call)
 - [ ] Elasticsearch through the ECK operator, if search proves weak: the operator, then
