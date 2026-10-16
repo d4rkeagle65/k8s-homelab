@@ -1,0 +1,9 @@
+#cloud-config
+# Cloud-init's vendor data for a new Docker VM (tofu/proxmox/docker-vms.tf): the
+# QEMU agent, installed and started, so OpenTofu's wait for it ends. The login
+# and addresses are Proxmox's own cloud-init settings.
+package_update: true
+packages:
+  - qemu-guest-agent
+runcmd:
+  - systemctl enable --now qemu-guest-agent

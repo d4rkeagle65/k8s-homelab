@@ -7,6 +7,8 @@
 # installs the QEMU agent (the provider waits on it). baseline.yml and Docker
 # follow, as on any Debian host. The first one (107) was built by hand and
 # imported: it has no image and no cloud-init, and keeps its two disks.
+# Before the first build, "Setting: Proxmox Host" puts the vendor-data snippet
+# on syn-nfs (ansible/tasks/proxmox-snippets.yml).
 
 locals {
   docker_vms = local.netbox_guests.docker_vms
@@ -32,29 +34,11 @@ resource "proxmox_download_file" "debian_13_cloud" {
   }
 }
 
-# Cloud-init's vendor data for a new Docker VM: the QEMU agent, installed and
-# started, so the provider's wait for it ends. The login and addresses are
-# Proxmox's own cloud-init settings (initialization below).
-resource "proxmox_virtual_environment_file" "docker_vm_vendor_data" {
-  node_name    = local.guest[keys(local.docker_vms)[0]].node
-  datastore_id = "syn-nfs"
-  content_type = "snippets"
-
-  source_raw {
-    file_name = "docker-vm-vendor-data.yaml"
-    data      = <<-EOT
-      #cloud-config
-      package_update: true
-      packages:
-        - qemu-guest-agent
-      runcmd:
-        - systemctl enable --now qemu-guest-agent
-    EOT
-  }
-
-  lifecycle {
-    ignore_changes = [node_name]
-  }
+# Cloud-init's vendor data for a new Docker VM (the QEMU agent): a snippet on
+# syn-nfs that ansible/proxmox-host.yml writes, from ansible/files/; named here
+# rather than uploaded, as uploading needs Datastore.Allocate on that storage.
+locals {
+  docker_vm_vendor_data = "syn-nfs:snippets/docker-vm-vendor-data.yaml"
 }
 
 moved {
@@ -134,7 +118,7 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
     content {
       datastore_id        = "syn-nfs"
       interface           = "ide2"
-      vendor_data_file_id = proxmox_virtual_environment_file.docker_vm_vendor_data.id
+      vendor_data_file_id = local.docker_vm_vendor_data
 
       user_account {
         username = var.site.vm_login.user

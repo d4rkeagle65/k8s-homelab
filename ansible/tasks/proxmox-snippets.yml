@@ -1,0 +1,25 @@
+# Cloud-init snippets on the shared NFS storage (syn-nfs, mounted at the same
+# path on every host), which OpenTofu's VMs name by id: written here because
+# uploading one through Proxmox's API needs Datastore.Allocate, which would
+# also let OpenTofu's user delete the backups stored there. Written once, from
+# the first host; read back.
+
+- name: The shared storage is mounted
+  ansible.builtin.stat:
+    path: /mnt/pve/syn-nfs/snippets
+  register: snippets_dir
+  run_once: true
+
+- name: The snippets folder exists there
+  ansible.builtin.assert:
+    that: snippets_dir.stat.isdir | default(false)
+    fail_msg: "/mnt/pve/syn-nfs/snippets isn't there: is syn-nfs mounted, with snippets in its content?"
+    quiet: true
+  run_once: true
+
+- name: The Docker VMs' vendor data
+  ansible.builtin.copy:
+    src: files/docker-vm-vendor-data.yaml
+    dest: /mnt/pve/syn-nfs/snippets/docker-vm-vendor-data.yaml
+    mode: "0644"
+  run_once: true
