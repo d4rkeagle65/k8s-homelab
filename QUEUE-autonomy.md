@@ -68,8 +68,10 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       `/metrics`). Whisparr's exportarr was already up. Left, needing the owner: etcd scraping, a change to every
       control plane's Talos config, rolled node by node with `talosctl patch mc --mode=no-reboot`
       (tofu/CLAUDE.md), then an OpenTofu apply the owner confirms
-- [ ] **alerts:** monitoring's phase 5: memory near its limit, CPU throttling, a container
-      restarting in a loop, drive wear and spare capacity, the TerraMaster's SNMP target down
+- [x] **alerts** (2026-10-16): `monitors/app/prometheusrule-homelab.yaml`: a container near
+      its memory limit, a Docker VM container restarting in a loop, NVMe wear (80% warning, 90%
+      critical), spare capacity and critical-warning flags, the TerraMaster's SNMP target down.
+      Each ran against live data first; only H3's NVMe (86%) fires, as known
 - [ ] **hardening:** health probes for the containers still without (`QUEUE.md`), Pod Security
       labels namespace by namespace (each checked with a server-side dry run), shorter
       node-loss tolerations for the apps that matter
