@@ -80,18 +80,14 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
       a volume at each deploy (checked on the NAS); the Docker live-restore and upgrade
       switches in `docker-vm-update.yml` (off until the owner sets them); and found on the way,
       Run Command's `run_command_b64` for commands holding braces
-- [ ] **cluster-policy** (approved 2026-10-16, next): the release is in,
-      `kubernetes/prod/system/cluster-policy/cluster-policy/` (the PriorityClass
-      `homelab-critical` and a `container-defaults` LimitRange per apps and services namespace;
-      `test_every_app_and_service_namespace_has_its_limitrange` keeps that list whole). Every
-      container the defaults reach peaked well inside them over 7 days (the Barman sidecars
-      164Mi). The 14 PostgreSQL 18 clusters carry it (the `-postgres` ones retiring
-      2026-10-17 don't); CloudNativePG doesn't roll pods for it, so each pod takes it when next
-      recreated (zammad-db's replica was, and came back with it, streaming). Authentik's server and worker
-      carry it (`global.priorityClassName`); its two outposts don't, since a class there goes in
-      the outpost's `config`, owned in Authentik's UI, and a blueprint setting it would own all
-      twenty keys. Traefik carries it. Left: `priorityClassName: homelab-critical` on monitoring, one workload
-      at a time, each checked Running before the next
+- [x] **cluster-policy** (2026-10-16): `kubernetes/prod/system/cluster-policy/cluster-policy/`
+      holds the PriorityClass `homelab-critical` and a `container-defaults` LimitRange per apps
+      and services namespace (`test_every_app_and_service_namespace_has_its_limitrange` keeps
+      the list whole). The class is on the 14 PostgreSQL 18 clusters (CloudNativePG applies it
+      at each pod's next recreation, without a roll), Authentik's server and worker, Traefik,
+      Prometheus, Alertmanager and zammad-bridge. Authentik's outposts don't carry it: a class
+      there goes in the outpost's `config`, owned in Authentik's UI, and a blueprint setting it
+      would own all twenty keys
 - [ ] **netbox-shape:** `QUEUE-netbox-shape.md`, all but the GitHub token
 - [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
 - [ ] **ssh-keys:** a playbook removing the four deleted Semaphore keys from `authorized_keys`,
@@ -124,7 +120,7 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 **Where the run stands (2026-10-16, before a context compaction):** done and pushed:
 zammad-bridge, monitoring-fixes (but etcd), talos-cleanup (but nas-block on hosts),
 resource-limits batches 5-6, alerts, hardening (but node-loss timing, restricted),
-small-cleanups. released-volumes waits on the owner's command. Next in order: cluster-policy,
+small-cleanups. released-volumes waits on the owner's command. Next in order:
 netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
 Each push: the commit hook's suite passed; `main` pushed alone
 (`git push origin queue-renovate-coverage:main`). Semaphore: I'm a Task Runner (dry runs,
