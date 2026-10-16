@@ -5,8 +5,8 @@ Semaphore's hosts and host variables (the primary goal)**, in place of the stati
 inventories pasted into Semaphore. After that: document the rest of the homelab in it, make it
 the owner of local DNS (ExternalDNS's records included) synced to the Pi-holes, and have it
 supply new guests' addresses so `TF_VAR_site` needs fewer hand edits; with the plugins the
-owner picked. NetBox is v4.7.2 (the community chart, `prod/services/netbox/`) and
-was empty when this started: no sites, devices, VMs, prefixes or addresses.
+owner picked. NetBox is v4.7.2, a Dockhand stack on the Docker VM (`docker/netbox/`); it was
+empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 ## Settled
 
@@ -208,13 +208,14 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [x] Live 2026-10-16: `TF_VAR_netbox_url` and `TF_VAR_netbox_token` in Semaphore's
         "OpenTofu: Proxmox and Talos" group; its plan (task 724) read NetBox and found no
         changes. 101-106 stay in the state until an apply with a change writes the refresh
-  - [ ] Then the owner trims `TF_VAR_site`: `guests` out of the Vaultwarden note and
-        Semaphore's copy (ignored meanwhile)
+  - [ ] `guests` out of `TF_VAR_site`: Semaphore's copy trimmed by the owner (2026-10-16);
+        left: the same in the Vaultwarden note "OpenTofu site (Proxmox)"
   - [ ] The NetBox-first workflow (tofu/README.md) worked with a test guest, 2026-10-16:
         Planned in NetBox, built by an apply (task 725), marked active by the sync, which
-        reused the hand-entered interface and address. Left: the owner's apply destroying 199
-        (out of `containers`), then `coprlxctest01a` deleted in NetBox by hand (the sync never
-        deletes)
+        reused the hand-entered interface and address, then destroyed by an apply. Left:
+        `coprlxctest01a` deleted in NetBox by hand (the sync never deletes)
+- [ ] Phase 6: each guest's shape (sizes, roles, disks, bridges) edited in NetBox and brought
+      into git by a pull request from Semaphore: [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md)
 
 ## Resuming
 

@@ -56,7 +56,7 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 | | Threads | RAM | Today | Notes |
 |---|---|---|---|---|
 | H1 | 8 | 31 GB | Talos control plane (VM 112), Talos worker (VM 117), Pi-hole 2 | |
-| H2 | 4 | 31 GB | Talos worker (VM 116); control plane 3 and worker 3 retired, their LXCs kept off | VT-x and VT-d on since 2026-10-12 |
+| H2 | 4 | 31 GB | Talos worker (VM 116) | VT-x and VT-d on since 2026-10-12 |
 | H3 | 4 | 15.5 GB | Talos worker (VM 115) | its NVMe is at 86% wear (QUEUE.md) |
 | H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
 | H5 | 8 (i7-7700) | 63 GB | Talos control plane (VM 110) | in the cluster since 2026-10-12; its root is on the NX-512 (Phase 0) |
@@ -213,11 +213,10 @@ goes once the retired guests are destroyed.
       everything comes back on the others. For H4: the Docker VM and the DC VM back on H5
       within about three minutes, then on H4 again once it's up
 - [ ] Phase 4: the kubeadm playbooks, LXC rules and `nas-block` removed. Concretely:
-  - [ ] Semaphore: delete the templates "Node: k8s Update" and "App: k8s Upgrade" and the
-        "k8s LXCs" inventory (their schedules, 10 and 6, disabled 2026-10-15: both failed
-        nightly at "The inventory needs k8s_control_planes", the inventory being empty). The
-        "k8s Bundle Version" variable group went 2026-10-15: the Kubernetes version is
-        `kubernetes_version` in `tofu/proxmox/talos-config.tf`, which Renovate watches
+  - [x] Semaphore: the templates "Node: k8s Update" and "App: k8s Upgrade", the "k8s LXCs"
+        inventory and the "k8s Bundle Version" variable group deleted (by 2026-10-16): the
+        Kubernetes version is `kubernetes_version` in `tofu/proxmox/talos-config.tf`, which
+        Renovate watches
   - [x] Talos replacements: `talos-upgrade.yml` (`talosctl upgrade` node by node, drained
         and capacity-checked first) and `talos-k8s-upgrade.yml` (`talosctl upgrade-k8s`),
         2026-10-15, with Semaphore templates and an os:admin `talosconfig_b64`; check-mode

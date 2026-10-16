@@ -112,12 +112,14 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [ ] Loki's 10 failed reads from Garage at its first start (`loki_s3_request_duration_seconds_count`,
       `S3.GetObject`, status 500), with no log line naming them: if the count grows, read
       Garage's log on the NAS for the same minute. Reads by a test client succeed.
-- [ ] Kubernetes events into Loki: one collector for the cluster (a one-replica Alloy
-      Deployment with `loki.source.kubernetes_events`), not the per-node DaemonSet.
+- [x] Kubernetes events into Loki: one collector for the cluster (`alloy-events`, a
+      one-replica Alloy Deployment with `loki.source.kubernetes_events`), running since
+      2026-10-10.
 - [x] Phase 3A built: monitors for every database instance (one PodMonitor, `monitors/`), Flux,
       Traefik, cert-manager, ExternalDNS, MetalLB, Authentik, immich and n8n; the CloudNativePG
       dashboard; Grafana loads dashboards from any namespace.
-- [ ] Phase 3A live: each new target up
+- [x] Phase 3A live: each new target up (2026-10-16: the only jobs with a target down are
+      `proxmox-hosts` and `pihole-exporter`, below and in `QUEUE.md`)
 - [x] Phase 3B built: the Proxmox API through `prometheus-pve-exporter` 3.10.1 (`pve-exporter/`,
       token `prometheus@pve!exporter`, PVEAuditor, from `PVE_EXPORTER_TOKEN_VALUE`; one host's API,
       `PVE_API_HOST`, with a verified certificate)
@@ -148,13 +150,14 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       to the community limited to the management network, and snmpd restarted. TOS may rewrite
       the file (an update, a reboot, saving SNMP in its UI): the `snmp` target for the TerraMaster
       then goes down. An alert on that is phase 5; report the bug to TerraMaster.
-- [ ] Confirm the Synology's snmp target stays up: its agent can take over 20 seconds to answer
+- [x] Confirm the Synology's snmp target stays up (2026-10-16: every snmp target up for the
+      whole of the last three days): its agent can take over 20 seconds to answer
       the UCD memory and load tables after a while idle, so the Synology uses copies of those
       profiles with a 25-second timeout (`synology_ucd_*` in the snmp-exporter's config) and a
       110-second scrape timeout. If it still fails, the scrape duration in Prometheus shows how
       long the agent took.
-- [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`), Home
-      Assistant (its Prometheus integration and a token)
+- [ ] Phase 3D, the rest: Whisparr (`MEDIA_WHISPARR_API_KEY`). Home Assistant's target is
+      up (2026-10-16)
 - [ ] Pi-hole 1's exporter (pihole-exporter's `pihole1` container, port 9617) takes 20-28 s
       to answer since about 2026-10-10 23:00 UTC, past Prometheus's 10 s timeout, so its target
       is down; Pi-hole 2's answers in 0.2 s, and Homepage's login to Pi-hole 1 is quick. Find
