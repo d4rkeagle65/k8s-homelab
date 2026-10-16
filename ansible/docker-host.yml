@@ -1,0 +1,152 @@
+# Makes a Debian VM a Docker host like the first: Docker CE from Docker's own
+# repository at docker_version (the first host's), its packages held (a Docker
+# upgrade restarts every container: docker-vm-update.yml upgrades them, under
+# live-restore), /etc/docker/daemon.json with the local log driver and
+# live-restore on from the start, then Dockhand's Hawser agent, so Dockhand
+# deploys stacks here (docker/CLAUDE.md).
+#
+# Inventory: a host named by docker_host_target (one host, never a group: this
+# installs and restarts Docker). Run after baseline.yml.
+#
+# Hawser: Dockhand's agent (github.com/Finsys/hawser), in standard mode:
+# Dockhand connects to it on hawser_port with the token, and the stacks it
+# deploys live in /opt/hawser-stacks. It runs only when HAWSER_TOKEN is in the run's
+# environment (a secret environment variable on the template), made in Dockhand
+# under Settings > Environments (Hawser, Generate Token); without it the run
+# installs Docker alone and says so. The token is never printed.
+#
+# Each step reads its result back: Docker's version and live-restore from
+# `docker info`, the holds from apt-mark, Hawser's container running.
+#
+# In check mode (--check) it reports what it would install and changes nothing.
+
+- name: A Docker host
+  hosts: "{{ docker_host_target | default('none') }}"
+  gather_facts: true
+  become: true
+  vars:
+    docker_version: "5:29.9.1-1~debian.13~trixie"
+    held: [docker-ce, docker-ce-cli, docker-ce-rootless-extras, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+    hawser_image: ghcr.io/finsys/hawser:0.2.50
+    hawser_port: 2376
+    hawser_token: "{{ lookup('ansible.builtin.env', 'HAWSER_TOKEN') }}"
+  tasks:
+    - name: One Debian 13 host
+      ansible.builtin.assert:
+        that:
+          - ansible_play_hosts_all | length == 1
+          - ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_major_version'] == '13'
+        fail_msg: "docker_host_target must name one Debian 13 host; nothing was installed."
+        quiet: true
+
+    - name: Docker's signing key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Docker's repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.sources
+        mode: "0644"
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/debian
+          Suites: trixie
+          Components: stable
+          Signed-By: /etc/apt/keyrings/docker.asc
+
+    - name: Docker's settings folder
+      ansible.builtin.file:
+        path: /etc/docker
+        state: directory
+        mode: "0755"
+
+    - name: Docker's settings, before it first starts
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        mode: "0644"
+        content: |
+          {
+            "log-driver": "local",
+            "live-restore": true
+          }
+
+    - name: Docker, at the first host's version
+      ansible.builtin.apt:
+        update_cache: true
+        name:
+          - "docker-ce={{ docker_version }}"
+          - "docker-ce-cli={{ docker_version }}"
+          - docker-ce-rootless-extras
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Hold its packages
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop: "{{ held }}"
+
+    - name: Read the holds back
+      ansible.builtin.command: apt-mark showhold
+      register: holds
+      changed_when: false
+      check_mode: false
+
+    - name: Read Docker's settings back
+      ansible.builtin.command: docker info --format json
+      register: docker_info
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Docker is running at its version, live-restore on, every package held
+      vars:
+        info: "{{ docker_info.stdout | from_json }}"
+      ansible.builtin.assert:
+        that:
+          - info.ServerVersion == docker_version.split(':')[1].split('-')[0]
+          - info.LiveRestoreEnabled
+          - held | difference(holds.stdout_lines) | length == 0
+        fail_msg: >-
+          Docker {{ info.ServerVersion }}, live-restore {{ info.LiveRestoreEnabled }},
+          not held: {{ held | difference(holds.stdout_lines) | join(', ') or 'none' }}.
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Without a token, Hawser waits
+      ansible.builtin.debug:
+        msg: "No HAWSER_TOKEN in the run's environment: Docker is installed; Hawser isn't (make the token in Dockhand, then run again)."
+      when: hawser_token | length == 0
+
+    - name: Hawser, Dockhand's agent
+      when: hawser_token | length > 0
+      block:
+        - name: Run it
+          ansible.builtin.command:
+            argv: [docker, run, -d, --name, hawser, --restart, unless-stopped, -p, "{{ hawser_port }}:2376",
+                   -v, /var/run/docker.sock:/var/run/docker.sock, -v, /opt/hawser-stacks:/opt/hawser-stacks,
+                   -e, STACKS_DIR=/opt/hawser-stacks, -e, TOKEN, "{{ hawser_image }}"]
+          environment:
+            TOKEN: "{{ hawser_token }}"
+          register: hawser_run
+          failed_when: hawser_run.rc != 0 and 'is already in use' not in hawser_run.stderr
+          changed_when: hawser_run.rc == 0
+          no_log: true
+
+        - name: Read it back
+          ansible.builtin.command:
+            argv: [docker, inspect, hawser]
+          register: hawser_inspect
+          changed_when: false
+          when: not ansible_check_mode
+
+        - name: Hawser is running
+          ansible.builtin.assert:
+            that: (hawser_inspect.stdout | from_json)[0].State.Running
+            fail_msg: "Hawser's container isn't running: docker logs hawser on the host says why."
+            quiet: true
+          when: not ansible_check_mode

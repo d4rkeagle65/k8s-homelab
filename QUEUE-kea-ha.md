@@ -64,7 +64,13 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       reservation changed in Stork before the cutover means copying again (drop and re-run)
 - [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
       TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
-- [ ] The second Docker VM: in NetBox (done 2026-10-16 through the API: VMID 120, Planned, on the
+- [ ] The second Docker VM: built 2026-10-16 (apply task 770; task 771: Debian 13, cloud-init
+      done, the agent up, both addresses, the default route on Production; NetBox tags `ansible`
+      and `debian`, local context `ansible_user: dhardin`, become). Left: the owner's run of
+      "Setting: Debian Baseline" (dry run task 772: 8 changes, all on it), then
+      `ansible/docker-host.yml` (a template: survey variable `docker_host_target`, target
+      "Variable"; `HAWSER_TOKEN` a secret environment variable, from Dockhand's new environment),
+      then the `docker_vm` tag. In NetBox (done 2026-10-16 through the API: VMID 120, Planned, on the
       62 GiB host, 4 vCPU and 8 GiB, `net0` management and `net1` Production at `.41`, role
       "Docker VM", one 96 GB disk), then `tofu/proxmox/docker-vms.tf` builds it from Debian's
       cloud image (it needs `site.vm_login` in the "OpenTofu site (Proxmox)" note; a plan, the
