@@ -229,12 +229,17 @@ goes once the retired guests are destroyed.
         from `TF_VAR_site`'s `talos` block (`--site`, the note "OpenTofu site (Proxmox)"), the
         same values OpenTofu uses, instead of kubeadm's leftover `kubeadm-config` ConfigMap;
         checked equal to the ConfigMap's on 2026-10-16, then the ConfigMap deleted
-  - [ ] The retired guests (101-106): destroyed by the owner 2026-10-16 and out of
-        `tofu/proxmox` (the next plan finds them gone and drops them from the state). Left:
-        out of local-path's maps; `nas-block` (the per-host LUNs, its storage class and
-        `tasks/proxmox-nas-block.yml`) removed, nothing having used it since Prometheus and
-        Alertmanager moved to `nas-iscsi`; their 33 Released PVs (29 `local-db`, 4
-        `nas-block`, every one's data gone with its container) deleted by the owner
+  - [x] The retired guests (101-106): destroyed by the owner 2026-10-16, out of
+        `tofu/proxmox`, local-path's maps (`WORKER_NODE_1`-`3`, their mappings out of
+        `cluster-secrets` too; the Vaultwarden fields can go) and the `nas-block` class
+  - [ ] `nas-block` off the hosts and the NAS, nothing using it (2026-10-16), with the owner,
+        in this order: the 38 Released PVs deleted (`QUEUE-autonomy.md`, released-volumes);
+        the Proxmox storage `nas-block` removed (`pvesm remove nas-block`, a cluster-wide
+        setting); on each host, the iSCSI session to its LUN logged out and its node record
+        deleted (`iscsiadm`), and its volume group removed; the LUNs and targets deleted in
+        DSM; then `tasks/proxmox-nas-block.yml`, its include in `proxmox-host.yml`, the
+        `nas_block_*` variables in Semaphore, and the Drives dashboard's "writes to each host's
+        LUN" panel
 
 ## Resuming
 
