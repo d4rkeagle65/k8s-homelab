@@ -189,7 +189,10 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       hosts). Every run on it warns that `serial` and `tags` are reserved names: the plugin
       adds a host's NetBox fields as variables under their own names, and 3.23.1 can't
       prefix or drop them; harmless. Switched, recap matching the static run's: "Setting:
-      OpenWRT APs". Next: "Setting: Debian Baseline" and "Config: Admin SSH Key and Settings"
+      OpenWRT APs", "Setting: Proxmox Host", "Setting: Pi-Hole". Left on the static ones:
+      the upgrade and reboot templates ("Node: Docker Update", "Node: Pi-Hole Update",
+      "Host: Proxmox Upgrade", "Reboot: Proxmox Hosts"), compared by a check-mode run or their
+      next scheduled one. Next: "Setting: Debian Baseline" and "Config: Admin SSH Key and Settings"
       run on `hosts: all`, which on NetBox includes the APs: a `debian` group (tag) first,
       and both playbooks moved to it in the change that switches them; each other template switched after its host list matched; the static inventories deleted
       last, and "All Debian Hosts"' stale `k8s_workers` group with them
