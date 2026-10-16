@@ -192,18 +192,12 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       `KEA_URL`; the docstring), else the home-folder files; it records each VM's node (its
       device) and VMID (custom field `vmid`); the semaphore stack joins Kea's network
       (`KEA_NETWORK`) and installs `ruamel.yaml`. Left:
-  - [ ] The owner sets `KEA_NETWORK` on Dockhand's semaphore stack (the same value as the
-        netbox stack's) before that change reaches `main`: without it the deploy fails and
-        the old container keeps running
-  - [ ] The owner makes a NetBox token with writes on and a read-only Proxmox token
-        (PVEAuditor at `/`), and a Semaphore variable group "NetBox sync": secrets
-        `NETBOX_WRITE_TOKEN`, `PROXMOX_TOKEN` (the whole `PVEAPIToken=user@realm!name=secret`),
-        `KEA_API` (`admin:` and Kea's API password); variables `PROXMOX_URL` =
-        `https://proxmox.<domain>` (any answering host, `external-services/proxmox.yaml`),
-        `KEA_URL` = `http://kea-dhcp4:8000/`
-  - [ ] The template "NetBox: Sync from Proxmox and Kea": app Python, script
-        `scripts/netbox_seed.py`, that variable group; first a run without arguments (the dry
-        run), then `--apply`, then a schedule (nightly) with `--apply`
+  - [ ] The template "NetBox: Sync from Proxmox and Kea" (Python, `scripts/netbox_seed.py`,
+        variable group "Netbox Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL`, and
+        the secrets `NETBOX_WRITE_TOKEN`, `PROXMOX_TOKEN` (`PVEAPIToken=netbox-sync@pve!semaphore=…`,
+        PVEAuditor), `KEA_API`, all of type environment variable) ran its dry run clean
+        (2026-10-16, task 721: nothing to change). Left: `--apply` in its arguments, a run, and
+        a nightly schedule
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);
       octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
       to answer the same names before and after
