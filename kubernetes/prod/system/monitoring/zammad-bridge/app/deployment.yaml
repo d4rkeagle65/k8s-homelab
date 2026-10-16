@@ -16,6 +16,8 @@ spec:
       labels:
         app.kubernetes.io/name: zammad-bridge
     spec:
+      # Alerts reach Zammad through it (cluster-policy).
+      priorityClassName: homelab-critical
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
@@ -32,6 +34,9 @@ spec:
             secretKeyRef:
               name: zammad-bridge
               key: ZAMMAD_URL
+        # Asked which members of a group alert are down (zammad-bridge.py).
+        - name: PROMETHEUS_URL
+          value: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
         ports:
         - {name: http, containerPort: 8080}
         readinessProbe:

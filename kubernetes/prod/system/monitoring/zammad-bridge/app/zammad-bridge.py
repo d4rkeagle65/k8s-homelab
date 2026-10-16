@@ -7,6 +7,11 @@ what it's about (its instance, pod, node, job or namespace), which keeps one
 ticket per alert and a readable title. `warning` and `critical` alerts only;
 Alertmanager's route sends nothing else, and this checks again.
 
+An alert about a group (TargetDown: "40% of the targets are down"; a Deployment
+short of replicas) names the group, not its members. For those, the ticket also
+lists the members down at that moment, asked of Prometheus (PROMETHEUS_URL); when
+Prometheus can't answer, the ticket says so rather than listing none.
+
 A failed call to Zammad answers Alertmanager with 502, so it retries. The
 Zammad URL carries the integration's token: it comes from the environment
 (ZAMMAD_URL) and is never logged. Standard library only.
@@ -15,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -28,6 +34,29 @@ NEVER = {"Watchdog", "InfoInhibitor"}
 TARGET_LABELS = ("instance", "pod", "persistentvolumeclaim", "node", "job", "service")
 # Labels left out of the ticket's text: Prometheus's own bookkeeping.
 QUIET_LABELS = {"prometheus", "alertstate", "endpoint", "container", "uid"}
+# The members behind an alert about a group: the PromQL selecting the ones down,
+# and the alert's labels that narrow it. A workload's pods are matched by name.
+# A target in a pod gets its pod's node; one outside the cluster (a Proxmox host)
+# is kept as it is, by its instance.
+UP_DOWN = ("(up{%(m)s} == 0) * on (namespace, pod) group_left (node)"
+           ' max by (namespace, pod, node) (kube_pod_info{pod!=""}) or on (instance) (up{%(m)s} == 0)',
+           ("job", "namespace", "service"))
+PODS_NOT_READY = ('(kube_pod_status_ready{condition="true",%(m)s} == 0)'
+                  " * on (namespace, pod) group_left (node) max by (namespace, pod, node) (kube_pod_info)",
+                  ("namespace",))
+MEMBERS = {
+    "TargetDown": UP_DOWN,
+    "AlertmanagerClusterDown": UP_DOWN,
+    "KubeDeploymentReplicasMismatch": PODS_NOT_READY,
+    "KubeDeploymentRolloutStuck": PODS_NOT_READY,
+    "KubeStatefulSetReplicasMismatch": PODS_NOT_READY,
+    "KubeStatefulSetUpdateNotRolledOut": PODS_NOT_READY,
+    "KubeDaemonSetRolloutStuck": PODS_NOT_READY,
+    "KubeDaemonSetMisScheduled": PODS_NOT_READY,
+    "KubeDaemonSetNotScheduled": PODS_NOT_READY,
+}
+WORKLOAD_LABELS = ("deployment", "statefulset", "daemonset")
+LISTED = 25
 
 
 def log(msg: str) -> None:
@@ -39,7 +68,63 @@ def wanted(alert: dict) -> bool:
     return labels.get("severity") in SEVERITIES and labels.get("alertname") not in NEVER
 
 
-def to_checkmk(alert: dict) -> dict:
+def members_query(alert: dict) -> str | None:
+    """The PromQL listing the members down behind this alert, or None when it
+    isn't about a group (or names no group to narrow to)."""
+    labels = alert.get("labels") or {}
+    if labels.get("alertname") not in MEMBERS:
+        return None
+    template, keys = MEMBERS[labels["alertname"]]
+    matchers = [f"{k}={json.dumps(labels[k])}" for k in keys if labels.get(k)]
+    if (template, keys) == PODS_NOT_READY:
+        workload = next((labels[k] for k in WORKLOAD_LABELS if labels.get(k)), "")
+        if not re.fullmatch(r"[a-z0-9]([-a-z0-9.]*[a-z0-9])?", workload):
+            return None
+        matchers.append(f'pod=~"{workload}-.*"')
+    if not matchers:
+        return None
+    return template % {"m": ",".join(matchers)}
+
+
+def describe(series: list[dict]) -> list[str]:
+    """One line per member: its pod or instance, its node, and its address."""
+    out = []
+    for item in series:
+        m = item.get("metric") or {}
+        name = m.get("pod") or m.get("instance") or m.get("job") or "?"
+        line = name
+        if m.get("node"):
+            line += f" on {m['node']}"
+        if m.get("instance") and m.get("instance") != name:
+            line += f" ({m['instance']})"
+        out.append(line)
+    return sorted(set(out))
+
+
+def members(alert: dict, prometheus: str) -> list[str]:
+    """Lines for the ticket naming the members down now; empty when the alert
+    isn't about a group. A failed query says so: it isn't "none down"."""
+    query = members_query(alert)
+    if query is None or not prometheus or alert.get("status") == "resolved":
+        return []
+    url = f"{prometheus.rstrip('/')}/api/v1/query?" + urllib.parse.urlencode({"query": query})
+    try:
+        with urllib.request.urlopen(url, timeout=10) as r:
+            body = json.load(r)
+        if body.get("status") != "success":
+            raise ValueError(body.get("error") or "no success")
+        found = describe(body["data"]["result"])
+    except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError) as e:
+        reason = getattr(e, "code", None) or getattr(e, "reason", None) or type(e).__name__
+        return [f"Couldn't list which are down: Prometheus didn't answer ({reason})."]
+    if not found:
+        return ["Down now: none found (recovered since, or what's missing has no pod to list)."]
+    shown = found[:LISTED]
+    more = f", the first {LISTED} listed" if len(found) > LISTED else ""
+    return [f"Down now ({len(found)}{more}):"] + [f"- {line}" for line in shown]
+
+
+def to_checkmk(alert: dict, prometheus: str = "") -> dict:
     """Zammad's Checkmk fields for one Alertmanager alert."""
     labels = alert.get("labels") or {}
     annotations = alert.get("annotations") or {}
@@ -51,6 +136,7 @@ def to_checkmk(alert: dict) -> dict:
     host = f"{name} {target}".strip()[:250]
     state = "OK" if alert.get("status") == "resolved" else labels.get("severity", "warning").upper()
     detail = [annotations.get("summary", ""), annotations.get("description", "")]
+    detail += members(alert, prometheus)
     detail += [f"{k}={v}" for k, v in sorted(labels.items()) if k not in QUIET_LABELS]
     if annotations.get("runbook_url"):
         detail.append(f"runbook: {annotations['runbook_url']}")
@@ -75,6 +161,7 @@ def send(url: str, fields: dict) -> str:
 
 class Handler(BaseHTTPRequestHandler):
     url = ""
+    prometheus = ""
 
     def log_message(self, *args):  # no access log: the path is ours, the target isn't logged
         pass
@@ -98,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
         for alert in body.get("alerts") or []:
             if not wanted(alert):
                 continue
-            fields = to_checkmk(alert)
+            fields = to_checkmk(alert, self.prometheus)
             try:
                 result = send(self.url, fields)
                 log(f"{fields['host']}: {fields['state']}: {result}")
@@ -115,6 +202,9 @@ def main() -> None:
     if not url.startswith("https://"):
         sys.exit("ZAMMAD_URL is missing or not https")
     Handler.url = url
+    Handler.prometheus = os.environ.get("PROMETHEUS_URL", "").strip()
+    if not Handler.prometheus:
+        log("PROMETHEUS_URL unset: tickets won't list the members of a group alert")
     port = int(os.environ.get("PORT", "8080"))
     log(f"listening on {port}")
     ThreadingHTTPServer(("", port), Handler).serve_forever()
