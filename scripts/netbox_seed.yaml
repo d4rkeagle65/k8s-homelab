@@ -16,9 +16,8 @@ networks:
 - {bridge: vmbr8, name: DMZ, vlan: 8}
 - {bridge: vmbr1, name: 2.5G}
 
-# Proxmox guests to leave out, by VMID: the retired LXC Kubernetes nodes,
-# stopped and due for deletion (tofu/proxmox's k8s_retired).
-skip_vmids: [101, 102, 103, 104, 105, 106]
+# Proxmox guests to leave out, by VMID (none now).
+skip_vmids: []
 
 # The Proxmox nodes, as devices.
 hypervisor: {role: Hypervisor, type: Proxmox host}

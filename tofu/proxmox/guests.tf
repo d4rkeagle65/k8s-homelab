@@ -1,51 +1,14 @@
 # The Proxmox guests OpenTofu owns, by VMID. Each was created by hand first and
 # came in through imports.tf; the values here match what they had then.
 #
-# What an API token can't set stays with Ansible (QUEUE.md): the raw lxc.*
-# lines (the k8s nodes run apparmor-unconfined with /proc and /sys writable)
-# and container features other than nesting, so `features` is set at creation
-# and ignored afterwards. The provider has no setting for a container's
-# timezone either.
+# What an API token can't set stays with Ansible (QUEUE.md): container
+# features other than nesting, so `features` is set at creation and ignored
+# afterwards. The provider has no setting for a container's timezone either.
+#
+# Each guest's host, name and addresses come from NetBox (netbox.tf); the
+# networks' prefixes and gateways from TF_VAR_site.
 
 locals {
-  # The Kubernetes nodes: privileged containers on ZFS, eth0 on the main
-  # network (default route), eth1 on the management network.
-  k8s_roles = {
-    control = { memory = 4096, storage_gb = 32, local_db_gb = 0, nas_block_gb = 0, tags = ["k8s", "k8s-control"] }
-    worker  = { memory = 8192, storage_gb = 48, local_db_gb = 128, nas_block_gb = 28, tags = ["k8s", "k8s-worker"] }
-  }
-  k8s_nodes = {
-    "101" = "control"
-    "102" = "control"
-    "103" = "control"
-    "104" = "worker"
-    "105" = "worker"
-    "106" = "worker"
-  }
-  # A worker sized to its host rather than its role (MiB): each leaves its
-  # host at least 4 GiB free at its two-day low. 105's host has 16 GB, and
-  # holds 12 GiB only because the third control-plane container moved off it.
-  # Changing one reboots that node (tofu/CLAUDE.md).
-  k8s_memory = {
-    "104" = 16384
-    "105" = 12288
-    "106" = 16384
-  }
-  # Cores per node where it isn't 2. 104's host has 8, and with a worker
-  # drained 104 carries most of the cluster, which 2 cores can't (its pods
-  # stalled until their health checks failed). Set live with pct set --cores,
-  # which a container takes without a restart; the kubelet counts the new
-  # cores only once it restarts. Live and here must agree before an apply, or
-  # the provider reboots the node to match (tofu/CLAUDE.md).
-  k8s_cores = {
-    "104" = 4
-  }
-  # Retired nodes kept as a fallback: stopped and not started at boot. A
-  # removed block can't drop one for_each instance, so a retired node stays
-  # here until its container is destroyed in Proxmox; then it leaves k8s_nodes,
-  # and the next plan, finding it gone, drops it from the state by itself.
-  k8s_retired = toset(["101", "102", "103", "104", "105", "106"])
-
   # The Pi-holes (community-scripts installs, unprivileged), one interface per
   # network they answer on.
   piholes = {
@@ -54,6 +17,7 @@ locals {
   }
   pihole_bridges = ["vmbr7", "vmbr0", "vmbr2", "vmbr6", "vmbr8"]
 
+  # The Kubernetes nodes' networks (talos.tf): main, then management.
   k8s_bridges       = ["vmbr7", "vmbr0"]
   docker_vm_bridges = ["vmbr0", "vmbr7", "vmbr8"] # management, main, DMZ
 
@@ -62,131 +26,24 @@ locals {
   # A container's address on a bridge: that network's prefix and the
   # container's last octet; the gateway where the network has one.
   addresses = {
-    for id, kind in local.guests : id => [
-      for bridge in(kind == "k8s" ? local.k8s_bridges : local.pihole_bridges) : {
-        address = "${var.site.networks[bridge].prefix}.${var.site.guests[id].host}/${var.site.networks[bridge].prefix_length}"
+    for id, _ in local.piholes : id => [
+      for bridge in local.pihole_bridges : {
+        address = "${var.site.networks[bridge].prefix}.${local.guest[id].host}/${var.site.networks[bridge].prefix_length}"
         gateway = var.site.networks[bridge].gateway
       }
-    ] if kind != "docker-vm"
+    ]
   }
 
   guests = merge(
-    { for id, role in local.k8s_nodes : id => "k8s" },
     { for id, _ in local.piholes : id => "pihole" },
     { "107" = "docker-vm" },
   )
 }
 
-resource "proxmox_virtual_environment_container" "k8s_node" {
-  for_each = local.k8s_nodes
-
-  node_name     = var.site.guests[each.key].node
-  vm_id         = tonumber(each.key)
-  unprivileged  = false
-  start_on_boot = !contains(local.k8s_retired, each.key)
-  started       = !contains(local.k8s_retired, each.key)
-  tags          = local.k8s_roles[each.value].tags
-
-  cpu {
-    cores = lookup(local.k8s_cores, each.key, 2)
-  }
-
-  memory {
-    dedicated = lookup(local.k8s_memory, each.key, local.k8s_roles[each.value].memory)
-    swap      = 0
-  }
-
-  console {
-    enabled   = true
-    type      = "tty"
-    tty_count = 2
-  }
-
-  disk {
-    datastore_id = "vms"
-    size         = 8
-  }
-
-  # CRI-O's image and container storage.
-  mount_point {
-    volume = "vms:subvol-${each.key}-disk-1"
-    path   = "/var/lib/containers/storage/"
-    size   = "${local.k8s_roles[each.value].storage_gb}G"
-    backup = true
-  }
-
-  # Workers: the local-db StorageClass's data (CloudNativePG).
-  dynamic "mount_point" {
-    for_each = local.k8s_roles[each.value].local_db_gb > 0 ? [1] : []
-    content {
-      volume = "vms:subvol-${each.key}-disk-2"
-      path   = "/opt/local-path-provisioner"
-      size   = "${local.k8s_roles[each.value].local_db_gb}G"
-      backup = true
-    }
-  }
-
-  # Workers: the nas-block StorageClass's data (Prometheus), on the host's own
-  # iSCSI LUN on the NAS (ansible/tasks/proxmox-nas-block.yml), so its constant
-  # writes miss the hosts' SSDs. Not backed up: the data is disposable and a
-  # second replica holds it. Added with pct set on the running container: a
-  # change here would make the provider reboot the node without a drain.
-  dynamic "mount_point" {
-    for_each = local.k8s_roles[each.value].nas_block_gb > 0 ? [1] : []
-    content {
-      volume = "nas-block:vm-${each.key}-disk-0"
-      path   = "/opt/nas-block"
-      size   = "${local.k8s_roles[each.value].nas_block_gb}G"
-      backup = false
-    }
-  }
-
-  # MACs stay as Proxmox assigned them (computed); the addresses are static.
-  network_interface {
-    name     = "eth0"
-    bridge   = "vmbr7"
-    firewall = false
-  }
-
-  network_interface {
-    name   = "eth1"
-    bridge = "vmbr0"
-  }
-
-  initialization {
-    hostname = var.site.guests[each.key].hostname
-
-    dns {
-      domain  = var.site.node_search_domain
-      servers = var.site.node_dns_servers
-    }
-
-    dynamic "ip_config" {
-      for_each = local.addresses[each.key]
-      content {
-        ipv4 {
-          address = ip_config.value.address
-          gateway = ip_config.value.gateway
-        }
-      }
-    }
-  }
-
-  features {
-    nesting = true
-    mount   = ["nfs"]
-  }
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes  = [features, operating_system]
-  }
-}
-
 resource "proxmox_virtual_environment_container" "pihole" {
   for_each = local.piholes
 
-  node_name     = var.site.guests[each.key].node
+  node_name     = local.guest[each.key].node
   vm_id         = tonumber(each.key)
   unprivileged  = true
   start_on_boot = true
@@ -222,7 +79,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
   }
 
   initialization {
-    hostname = var.site.guests[each.key].hostname
+    hostname = local.guest[each.key].name
 
     dynamic "ip_config" {
       for_each = local.addresses[each.key]
@@ -249,9 +106,9 @@ resource "proxmox_virtual_environment_container" "pihole" {
 
 # The Docker host: Semaphore, Dockhand, Kea, Tailscale and Vaultwarden.
 resource "proxmox_virtual_environment_vm" "docker_vm" {
-  node_name = var.site.guests["107"].node
+  node_name = local.guest["107"].node
   vm_id     = 107
-  name      = var.site.guests["107"].hostname
+  name      = local.guest["107"].name
   on_boot   = true
   tags      = ["community-script", "debian13"]
 
@@ -318,7 +175,7 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
     for_each = local.docker_vm_bridges
     content {
       bridge      = network_device.value
-      mac_address = var.site.guests["107"].macs[network_device.key]
+      mac_address = local.guest["107"].macs[network_device.key]
     }
   }
 
@@ -328,8 +185,10 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
 
   serial_device {}
 
+  # HA moves it between hosts; the host is NetBox's (netbox.tf), recorded by
+  # the nightly sync, so a move is never a change here.
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [description]
+    ignore_changes  = [description, node_name]
   }
 }

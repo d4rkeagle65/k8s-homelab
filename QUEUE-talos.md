@@ -230,11 +230,12 @@ goes once the retired guests are destroyed.
         from the `kubeadm-config` ConfigMap kubeadm left in `kube-system`: deleting it breaks
         gen-config. Read them from `TF_VAR_site`'s `talos` block or a control plane's machine
         config instead, then the ConfigMap can go
-  - [ ] The retired guests (101-106) destroyed by the owner (~2026-10-20), then out of
-        `k8s_nodes` (a `removed` block can't drop one for_each instance; the plan after the
-        destroy drops each from the state) and local-path's maps, and `nas-block` (the per-host LUNs, its storage
-        class and `tasks/proxmox-nas-block.yml`) removed, nothing having used it since
-        Prometheus and Alertmanager moved to `nas-iscsi`
+  - [ ] The retired guests (101-106): destroyed by the owner 2026-10-16 and out of
+        `tofu/proxmox` (the next plan finds them gone and drops them from the state). Left:
+        out of local-path's maps; `nas-block` (the per-host LUNs, its storage class and
+        `tasks/proxmox-nas-block.yml`) removed, nothing having used it since Prometheus and
+        Alertmanager moved to `nas-iscsi`; their 33 Released PVs (29 `local-db`, 4
+        `nas-block`, every one's data gone with its container) deleted by the owner
 
 ## Resuming
 
