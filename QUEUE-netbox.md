@@ -172,13 +172,19 @@ was empty when this started: no sites, devices, VMs, prefixes or addresses.
       Production VLAN 7 on vmbr7, DMZ VLAN 8 on vmbr8; each subnet read from Kea and the
       bridges' addresses; the retired LXC nodes 101-106 skipped). The write token is
       `~/.netbox-token` in the claude-code container (`save-secret .netbox-token`, a path
-      relative to home). VLANs 4 and 9 and vmbr1 (eth6) carry no addresses yet, so they
-      aren't placed. Applied 2026-10-16 (5 prefixes, 4 VLANs, 4 DHCP ranges, 8 devices,
-      11 VMs, 23 addresses, 4 tags with their config contexts); a second run changes nothing, and
-      every inventory host is there by tag with its primary address and group variables. Next: a
-      read-only token for Semaphore; `ansible/inventory/netbox.yml`, the collection and Semaphore's
-      Python; each template switched after its host list matched; the static inventories
-      deleted last
+      relative to home). Applied 2026-10-16 and a second run changes nothing: 5 prefixes,
+      4 VLANs, 4 DHCP ranges, 8 devices (each Proxmox node's ports, VLAN subinterfaces and
+      bridges as Proxmox has them), 11 VMs (every NIC with its MAC, bridge, VLAN and
+      address; all 11 with a primary address), 42 addresses, 5 tags with their config
+      contexts. VLANs 4 and 9 and vmbr1's network have no name in `netbox_seed.yaml`, so no
+      VLAN or prefix: the owner names them there if they're in use.
+      `ansible/inventory/netbox.yml` (hosts tagged `ansible`, grouped by their group tag)
+      gives the same hosts, addresses and variables as Semaphore's four static inventories;
+      the Docker VM's address comes from `ansible_host_override` in its local context. Next:
+      a read-only token for Semaphore; `NETBOX_API` and `NETBOX_TOKEN` in its variable group;
+      the collection and `pytz` (the plugin needs it) in Semaphore's container, checked first;
+      each template switched after its host list matched; the static inventories deleted
+      last, and "All Debian Hosts"' stale `k8s_workers` group with them
 - [ ] Phase 3: `ansible/netbox-sync.yml`, its template and schedule; a dry run, a run, then a
       second run changing nothing
 - [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS (code, tests, in the stack);

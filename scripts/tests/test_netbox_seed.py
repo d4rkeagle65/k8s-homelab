@@ -36,6 +36,26 @@ def test_static_ips_reads_containers_and_skips_dhcp():
     assert m.static_ips(cfg) == {"net0": ["192.0.2.10/24"]}
 
 
+def test_static_ips_reads_a_vms_cloud_init_addresses_by_its_nic():
+    cfg = {"net0": "virtio=BC:24:11:00:00:01,bridge=vmbr7", "ipconfig0": "gw=192.0.2.254,ip=192.0.2.24/24",
+           "ipconfig1": "ip=198.51.100.24/24", "ipconfig2": "ip=dhcp"}
+    assert m.static_ips(cfg) == {"net0": ["192.0.2.24/24"], "net1": ["198.51.100.24/24"]}
+
+
+def test_mac_of_reads_vm_and_container_nics():
+    assert m.mac_of("virtio=bc:24:11:0a:0b:0c,bridge=vmbr7,firewall=1") == "BC:24:11:0A:0B:0C"
+    assert m.mac_of("name=eth0,bridge=vmbr0,hwaddr=BC:24:11:0A:0B:0D,ip=dhcp") == "BC:24:11:0A:0B:0D"
+    assert m.mac_of("name=eth0,bridge=vmbr0") is None
+
+
+def test_agent_on_reads_both_spellings():
+    assert m.agent_on("1,fstrim_cloned_disks=1")
+    assert m.agent_on("enabled=1,type=virtio")
+    assert not m.agent_on("0")
+    assert not m.agent_on("enabled=0")
+    assert not m.agent_on(None)
+
+
 def test_network_prefers_kea_subnet_then_a_hosts_own_prefix():
     kea = ["192.0.2.0/24", "198.51.100.0/24"]
     assert m.network_for(["198.51.100.7/24"], kea) == "198.51.100.0/24"

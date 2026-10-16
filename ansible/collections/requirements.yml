@@ -1,0 +1,5 @@
+# Collections Semaphore installs before a run (it reads collections/requirements.yml
+# beside the playbooks). Renovate updates each pin.
+collections:
+- name: netbox.netbox
+  version: 3.23.1

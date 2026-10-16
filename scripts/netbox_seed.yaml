@@ -23,6 +23,10 @@ inventories:
   Docker VM: docker_vm
   OpenWRT Devices: openwrt_aps
 
+# The tag every one of those hosts also carries, which ansible/inventory/netbox.yml
+# selects by (NetBox's tag filter needs every tag it's given, so not the group tags).
+managed_tag: ansible
+
 # Hosts in those inventories that Proxmox doesn't run, made as devices.
 devices:
   openwrt_aps: {role: Access point, type: OpenWrt access point}
