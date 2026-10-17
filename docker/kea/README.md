@@ -184,6 +184,11 @@ on its first start (`initdb/`), and `kea-db-init` creates Kea's tables (or
 upgrades them after a Kea update), then exits. Kea restarts once, a few
 seconds without DHCP, which clients ride out.
 
+Every later redeploy of this stack re-runs `kea-db-init`, and `kea-dhcp4`,
+which waits for it to finish, restarts after it: with the standby up, the
+standby serves meanwhile; without it, DHCP stops until the primary's HA
+state reaches partner-down (about a minute and a half).
+
 If Dockhand doesn't build images from a Git stack, build it once on the
 host from Dockhand's clone: `docker compose build` in this folder.
 
