@@ -62,8 +62,22 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       over TLS; `hosts` copied (51 rows, the only table with data; `dhcp4_options` and
       `ipv6_reservations` empty), every row's md5 equal, the id sequence at 51 in both. A
       reservation changed in Stork before the cutover means copying again (drop and re-run)
-- [ ] The cutover (the owner's run): the site file's `hosts-databases` to the new address with
-      TLS, Kea restarted, `reservation-get-all` equal per subnet, a renewal seen in Kea's log
+- [x] The cutover (2026-10-17, the owner's go-ahead, Run Command task 802): the primary's
+      `hosts-databases` on `kea-db` (`ssl-mode: require`), reloaded without a restart, 51
+      reservations served before and after, its connection TLS 1.3 (`pg_stat_ssl`). The previous
+      site file is beside it as `site.json.before-kea-db`
+- [ ] The CA: `ssl-mode` is `require`, not `verify-ca`, because CloudNativePG renews its own CA
+      about every 90 days and a copy on the hosts would go stale. A long-lived CA (cert-manager,
+      `spec.certificates.serverCASecret`) or a job copying the CA to both hosts, then `verify-ca`
+- [ ] `kea-db-init` in `docker/kea/compose.yaml` still upgrades the old `kea-postgres` schema:
+      point it at `kea-db` (with `PGSSLMODE=require`) before the next Kea version
+- [ ] The HA pair (written 2026-10-17): `docker/kea/kea-dhcp4-ha.conf` (today's config plus the
+      HA hook, its settings from each host's `ha.json`), `docker/kea-standby/` (Kea alone; the
+      Stork agent needs its image built on that VM, later), `ansible/kea-ha.yml` (the host
+      files). Steps: a template for `kea-ha.yml` (the owner), its dry run, its run; the standby's
+      stack in Dockhand on the second Docker VM's environment (`KEA_DHCP_ADDRESS`, `KEA_API_ADDRESS`); the primary's
+      compose switched to `kea-dhcp4-ha.conf`; both report `hot-standby`, the standby's leases
+      synced
 - [x] The second Docker VM (2026-10-16): in NetBox (VMID 120, role "Docker VM", `.41` on
       management and Production), built by OpenTofu from Debian's cloud image (task 770), the
       baseline (787) and `docker-host.yml` (794: Docker 29.9.1 held, live-restore on, Hawser
