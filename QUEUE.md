@@ -27,6 +27,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **systemd-resolved caches "no such name" on the Debian hosts** (found 2026-10-17): a hostname
+  asked for before ExternalDNS made its record stays unresolvable there for a while, though the
+  Pi-holes answer it (Dockhand's webhook to the Zammad bridge, `proxmox.<domain>` before it;
+  fixed each time by `resolvectl flush-caches`). `Cache=no-negative` in
+  `/etc/systemd/resolved.conf.d/` through `baseline.yml`, on the hosts that run resolved.
 - **The Pi-holes answer every network from Production** (found 2026-10-16, Run Command task
   784): from their management, DMZ and other addresses, replies leave by `eth0`, Production's
   default route, so a client on another subnet reaching one of those addresses through the
