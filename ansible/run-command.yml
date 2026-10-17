@@ -17,8 +17,10 @@
 # It goes through `raw`, which needs no Python on the host (the access points
 # have none), so the output is the terminal's: stdout and stderr together.
 # A command that exits non-zero fails that host after printing its output.
-# What the command prints lands in Semaphore's log, kept with the task: never
-# run one that prints a secret.
+# The command itself is printed first, its secret-shaped values redacted (the
+# patterns are in that task). What the command prints lands in Semaphore's log,
+# kept with the task: never run one that prints a secret, and remember the
+# command's text is kept in the task's settings unredacted: no secret in it.
 #
 # In check mode (--check) it lists the hosts it would run on and runs nothing.
 
@@ -42,6 +44,21 @@
           ('Not in the inventory: ' ~ (names | difference(known) | join(', ')) ~ '. ')
           if names | difference(known) else '' }}Nothing was run.
         quiet: true
+
+    # What runs, in the log before it runs anywhere; secret-shaped values are
+    # redacted (a value after a password/token/secret/key/credentials name, an
+    # Authorization header's value, a user:password after -u/--user,
+    # NetBox/GitHub/Dockhand tokens, a private key block). No backslashes in these patterns: through YAML and Jinja they
+    # stop matching.
+    - name: The command (secrets redacted)
+      ansible.builtin.debug:
+        msg: "{{ the_command
+          | regex_replace('(?i)((pass(word|wd)?|token|secret|api[_-]?key|credentials?)[a-z_]*[ ]*[=:][ ]*)[^ ;&|\"\n]+', '\\1<redacted>')
+          | regex_replace('(?i)(authorization:[ ]*(bearer|basic|token)[ ]+)[^ \"\n]+', '\\1<redacted>')
+          | regex_replace('((^| )(-u|--user)[ ]+[^ :]+:)[^ ;&|\"\n]+', '\\1<redacted>')
+          | regex_replace('(nbt|ghp|gho|ghs|dh)_[A-Za-z0-9_.]+', '<redacted>')
+          | regex_replace('(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----', '<redacted private key>')
+          | split('\n') }}"
 
     - name: Gather them into one group
       ansible.builtin.add_host:
