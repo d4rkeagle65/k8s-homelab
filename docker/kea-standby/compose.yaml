@@ -1,11 +1,11 @@
 # Kea's hot-standby partner (QUEUE-kea-ha.md), on the second Docker VM, deployed
 # by Dockhand through that VM's Hawser agent. It runs the same configuration as
-# the primary (docker/kea/kea-dhcp4-ha.conf), fetched from this repo's main
+# the primary (docker/kea/kea-dhcp4.conf), fetched from this repo's main
 # branch at every deploy by kea-config into the kea-config volume: a Hawser
 # stack can't bind-mount a file from git. Its site files (subnets, the
 # reservations database, the API credentials, ha.json naming it the standby) are
 # in /opt/kea/site on the VM, written by ansible/kea-ha.yml from the primary's.
-# Redeploy it after a change to kea-dhcp4-ha.conf, which redeploys only the
+# Redeploy it after a change to kea-dhcp4.conf, which redeploys only the
 # primary's stack by itself.
 #
 # Variables (set in the stack's environment in Dockhand):
@@ -22,7 +22,7 @@ services:
     - -c
     - |
       set -e
-      wget -q -O /conf/kea-dhcp4.conf.new https://raw.githubusercontent.com/d4rkeagle65/k8s-homelab/main/docker/kea/kea-dhcp4-ha.conf
+      wget -q -O /conf/kea-dhcp4.conf.new https://raw.githubusercontent.com/d4rkeagle65/k8s-homelab/main/docker/kea/kea-dhcp4.conf
       grep -q '"Dhcp4"' /conf/kea-dhcp4.conf.new
       mv /conf/kea-dhcp4.conf.new /conf/kea-dhcp4.conf
       echo "kea-dhcp4.conf fetched: $(wc -l < /conf/kea-dhcp4.conf) lines"
