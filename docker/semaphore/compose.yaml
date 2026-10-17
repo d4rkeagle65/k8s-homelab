@@ -52,6 +52,9 @@ services:
   tfstate-db-init:
     image: postgres:17.11-alpine
     restart: "no"
+    # Exits once its job is done: no Dockhand notification for that.
+    labels:
+      dockhand.notify: "false"
     depends_on:
       semaphore-postgres:
         condition: service_healthy
@@ -81,6 +84,9 @@ services:
   databasus-role-init:
     image: postgres:17.11-alpine
     restart: "no"
+    # Exits once its job is done: no Dockhand notification for that.
+    labels:
+      dockhand.notify: "false"
     depends_on:
       semaphore-postgres:
         condition: service_healthy

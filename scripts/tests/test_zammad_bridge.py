@@ -168,3 +168,11 @@ def test_the_dockhand_endpoint_wants_its_token_and_is_off_without_one(monkeypatc
 def test_a_dockhand_title_starting_with_dockhand_isnt_doubled():
     f = m.dockhand_to_checkmk({"title": "Dockhand Test Notification", "type": "info"})
     assert f["host"] == "Dockhand Test Notification"
+
+
+def test_a_container_event_is_keyed_by_the_container_its_message_names():
+    die = m.dockhand_to_checkmk({"title": "Container Die", "message": 'Container "kea-dhcp4" die (kea:3.2.1)', "type": "error"})
+    start = m.dockhand_to_checkmk({"title": "Container Start", "message": 'Container "kea-dhcp4" start (kea:3.2.1)', "type": "success"})
+    other = m.dockhand_to_checkmk({"title": "Container Die", "message": 'Container "netbox" die', "type": "error"})
+    assert die["host"] == start["host"] == "Dockhand Container kea-dhcp4" and other["host"] == "Dockhand Container netbox"
+    assert die["state"] == "CRITICAL" and start["state"] == "OK"

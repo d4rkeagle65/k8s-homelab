@@ -95,6 +95,9 @@ services:
   databasus-role-init:
     image: postgres:18.6-alpine
     restart: "no"
+    # Exits once its job is done: no Dockhand notification for that.
+    labels:
+      dockhand.notify: "false"
     depends_on:
       netbox-postgres:
         condition: service_healthy
@@ -123,6 +126,9 @@ services:
     <<: *netbox
     user: root
     restart: "no"
+    # Exits once its job is done: no Dockhand notification for that.
+    labels:
+      dockhand.notify: "false"
     pull_policy: never
     command: [chown, -R, "netbox:root", /opt/netbox/netbox/media, /opt/netbox/netbox/reports, /opt/netbox/netbox/scripts]
 
