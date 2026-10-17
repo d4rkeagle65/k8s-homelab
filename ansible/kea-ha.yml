@@ -142,14 +142,14 @@
     - name: The pair's configuration, as main has it
       ansible.builtin.get_url:
         url: https://raw.githubusercontent.com/d4rkeagle65/k8s-homelab/main/docker/kea/kea-dhcp4-ha.conf
-        dest: /opt/kea/kea-dhcp4-ha.conf.check
+        dest: /tmp/kea-dhcp4-ha.conf.check
         mode: "0644"
         force: true
       check_mode: false
 
     - name: Kea's own test of it, with these files
       ansible.builtin.command:
-        argv: [docker, run, --rm, -v, /opt/kea/site:/etc/kea/site:ro, -v, /opt/kea/kea-dhcp4-ha.conf.check:/etc/kea/kea-dhcp4.conf:ro,
+        argv: [docker, run, --rm, -v, /opt/kea/site:/etc/kea/site:ro, -v, /tmp/kea-dhcp4-ha.conf.check:/etc/kea/kea-dhcp4.conf:ro,
                "{{ image }}", kea-dhcp4, -t, /etc/kea/kea-dhcp4.conf]
       register: kea_test
       changed_when: false
