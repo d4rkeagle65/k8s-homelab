@@ -170,6 +170,7 @@ def dockhand_to_checkmk(note: dict) -> dict | None:
     if not title:
         return None
     key = re.sub(r"\s+([:,|])", r"\1", re.sub(r"\s+", " ", STATE_WORDS.sub("", title))).strip(" :-|") or title
+    key = re.sub(r"^dockhand\b[\s:-]*", "", key, flags=re.IGNORECASE) or key  # its titles often start "Dockhand"
     state = DOCKHAND_STATES.get(str(note.get("type") or "info").lower(), "WARNING")
     return {
         "event_id": "dockhand " + key,
