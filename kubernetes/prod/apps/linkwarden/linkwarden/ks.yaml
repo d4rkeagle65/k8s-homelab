@@ -17,7 +17,7 @@ spec:
     kind: GitRepository
     name: flux-system
   targetNamespace: linkwarden
-  # linkwarden-postgres is a CloudNativePG Cluster.
+  # linkwarden-db is a CloudNativePG Cluster.
   dependsOn:
   - name: cnpg
   - name: plugin-barman-cloud

@@ -67,15 +67,12 @@ From about 2026-10-17, once each app has run a day on 18: remove `postgres.yaml`
 (`media-backup/app/`); the owner then deletes the Cluster (kept from pruning) and its claims
 `<app>-postgres-1`/`-2`.
 
-- [ ] Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr (moved 2026-10-15)
-- [ ] Mealie, Linkwarden, n8n (`n8n/app/`): `postgres.yaml` and `scheduledbackup.yaml` with
-      their lines in `app/kustomization.yaml` (moved 2026-10-15). NetBox's went with its
-      namespace when NetBox moved to the Docker VM
-- [ ] Authentik: `cluster-authentik-postgres.yaml` (`authentik-extras`, `.promote`; `generate`
-      after) and `scheduledbackup-authentik-postgres.yaml` (`authentik-backup/`) (moved 2026-10-15)
-- [ ] BabyBuddy: `cluster-babybuddy-postgres.yaml` (`.promote`; `generate` after) and
-      `scheduledbackup-babybuddy-postgres.yaml` (`babybuddy-backup/`) (moved 2026-10-15) The retirements from ManicTime and
-Whisparr are in `QUEUE-updates.md`.
+- [x] Removed from git 2026-10-17, each checked first: no app connection on the old cluster
+      over a minute (only CloudNativePG's own), the new one healthy with a backup in the last
+      day. Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr, Whisparr, Mealie, Linkwarden, n8n,
+      Authentik, BabyBuddy, and ManicTime's `manictime-pg` (its new cluster is
+      `manictime-postgres`). Each old Cluster then deleted, and with it its claims; their PVs
+      Released (`local-db`, Retain), for the owner's next PV clean-up
 
 ## Resuming
 

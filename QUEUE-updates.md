@@ -74,18 +74,11 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
         only when missing, so changing the release's `settings.database` alone changes
         nothing: replace the file from the Secret too (the old one is kept beside it as
         `.pre-pg18`).
-  - [ ] Retire `manictime-pg` from about 2026-10-17, once ManicTime has run on 18 for a day:
-        remove `cluster-manictime-pg.yaml` (`manictime-extras`) and
-        `scheduledbackup-manictime-pg.yaml` (`manictime-backup`); the owner then deletes the
-        Cluster (it's kept from pruning), its claims `manictime-pg-1`/`-2`, and
-        `ManicTimeServerSettings.json.pre-pg18` on ManicTime's volume (it holds the old
-        password). Until then it's the way back: the `.pre-pg18` file and the old cluster.
+  - [x] `manictime-pg` retired 2026-10-17 (`QUEUE-postgres18.md`)
   - [x] Whisparr (2026-10-15): on `whisparr-db` (18.6, trixie); rows, objects and sequences
         identical before the switch; under two minutes down. New clusters whose
         `<app>-postgres` name is taken are `<app>-db`.
-  - [ ] Retire `whisparr-postgres` from about 2026-10-17: remove `postgres.yaml` (`whisparr/`)
-        and `scheduledbackup-whisparr-postgres.yaml` (`media-backup/`); the owner then deletes
-        the Cluster (kept from pruning) and its claims `whisparr-postgres-1`/`-2`.
+  - [x] `whisparr-postgres` retired 2026-10-17 (`QUEUE-postgres18.md`)
   - [ ] The other eleven, and Immich's: [QUEUE-postgres18.md](QUEUE-postgres18.md).
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
       `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says. Held (2026-10-15)

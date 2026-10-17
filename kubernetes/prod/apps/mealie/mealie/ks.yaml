@@ -17,7 +17,7 @@ spec:
     kind: GitRepository
     name: flux-system
   targetNamespace: mealie
-  # mealie-postgres is a CloudNativePG Cluster.
+  # mealie-db is a CloudNativePG Cluster.
   dependsOn:
   - name: cnpg
   - name: plugin-barman-cloud
