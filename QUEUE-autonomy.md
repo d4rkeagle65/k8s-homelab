@@ -116,8 +116,8 @@ Semaphore run, it needs the Task Runner role, or the owner runs it.
 - [ ] netbox-dns: the sidecar is deployed and works (it was asked for 37 records and skipped
       each: NetBox DNS has no zone). Create the zone(s) in NetBox DNS (the domain the Ingresses
       use, with its SOA nameserver); the records follow within a minute
-- [ ] Dockhand's environment for the second Docker VM: Hawser answers it HTTP 429 (rate limit);
-      retest once, Standard mode, `172.16.250.41:2376`, the token the agent was started with
+- [x] Dockhand's environment for the second Docker VM, connected (2026-10-17: the 429 was
+      Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
 - [ ] `NETBOX_READ_TOKEN` in Vaultwarden without its "Bearer " prefix (its users accept either),
       so Prometheus can discover the Docker VMs from NetBox's Prometheus SD plugin (it adds its
       own "Bearer "); then node-exporter's targets come from the `docker_vm` tag
