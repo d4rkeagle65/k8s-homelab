@@ -9,9 +9,9 @@
 #            in the pair and both peers' API addresses, their NetBox primary IPs)
 #
 # Then on each host it checks the pair's configuration, docker/kea/
-# kea-dhcp4-ha.conf as main has it, with Kea's own config test against the files
-# just written, and reports. It restarts nothing: the primary's stack switches to
-# the HA config by a commit, the standby's starts when Dockhand deploys it.
+# kea-dhcp4.conf as main has it, with Kea's own config test against the files
+# just written, and reports. It restarts nothing: Dockhand redeploys the primary's
+# stack when that file changes, and deploys the standby's.
 #
 # Inputs (the template's survey, target "Variable"): kea_primary and kea_standby,
 # the two hosts' inventory names. Secrets are read and written with no_log.
@@ -141,15 +141,15 @@
 
     - name: The pair's configuration, as main has it
       ansible.builtin.get_url:
-        url: https://raw.githubusercontent.com/d4rkeagle65/k8s-homelab/main/docker/kea/kea-dhcp4-ha.conf
-        dest: /tmp/kea-dhcp4-ha.conf.check
+        url: https://raw.githubusercontent.com/d4rkeagle65/k8s-homelab/main/docker/kea/kea-dhcp4.conf
+        dest: /tmp/kea-dhcp4.conf.check
         mode: "0644"
         force: true
       check_mode: false
 
     - name: Kea's own test of it, with these files
       ansible.builtin.command:
-        argv: [docker, run, --rm, -v, /opt/kea/site:/etc/kea/site:ro, -v, /tmp/kea-dhcp4-ha.conf.check:/etc/kea/kea-dhcp4.conf:ro,
+        argv: [docker, run, --rm, -v, /opt/kea/site:/etc/kea/site:ro, -v, /tmp/kea-dhcp4.conf.check:/etc/kea/kea-dhcp4.conf:ro,
                "{{ image }}", kea-dhcp4, -t, /etc/kea/kea-dhcp4.conf]
       register: kea_test
       changed_when: false

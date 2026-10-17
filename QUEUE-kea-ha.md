@@ -71,13 +71,13 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       `spec.certificates.serverCASecret`) or a job copying the CA to both hosts, then `verify-ca`
 - [ ] `kea-db-init` in `docker/kea/compose.yaml` still upgrades the old `kea-postgres` schema:
       point it at `kea-db` (with `PGSSLMODE=require`) before the next Kea version
-- [ ] The HA pair (written 2026-10-17): `docker/kea/kea-dhcp4-ha.conf` (today's config plus the
-      HA hook, its settings from each host's `ha.json`), `docker/kea-standby/` (Kea alone; the
-      Stork agent needs its image built on that VM, later), `ansible/kea-ha.yml` (the host
-      files). Steps: a template for `kea-ha.yml` (the owner), its dry run, its run; the standby's
-      stack in Dockhand on the second Docker VM's environment (`KEA_DHCP_ADDRESS`, `KEA_API_ADDRESS`); the primary's
-      compose switched to `kea-dhcp4-ha.conf`; both report `hot-standby`, the standby's leases
-      synced
+- [ ] The HA pair (2026-10-17): `docker/kea/kea-dhcp4.conf` now carries the HA hook (its
+      settings from each host's `ha.json`), the one config both Keas run; `docker/kea-standby/`
+      (Kea alone; the Stork agent needs its image built on that VM, later) fetches it from main;
+      `ansible/kea-ha.yml` (template "Setting: Kea HA Config") wrote both hosts' files and Kea's
+      config test passed on both (task 807). Left: the standby's stack in Dockhand on the second
+      Docker VM's environment (`KEA_DHCP_ADDRESS`, `KEA_API_ADDRESS`); both report
+      `hot-standby`, the standby's leases synced
 - [x] The second Docker VM (2026-10-16): in NetBox (VMID 120, role "Docker VM", `.41` on
       management and Production), built by OpenTofu from Debian's cloud image (task 770), the
       baseline (787) and `docker-host.yml` (794: Docker 29.9.1 held, live-restore on, Hawser
