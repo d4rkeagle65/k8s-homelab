@@ -12,6 +12,12 @@ short of replicas) names the group, not its members. For those, the ticket also
 lists the members down at that moment, asked of Prometheus (PROMETHEUS_URL); when
 Prometheus can't answer, the ticket says so rather than listing none.
 
+Dockhand's notifications arrive at /dockhand/<token> (Apprise's json://
+format: title, message, type): failure and warning open a ticket, success and
+info close it. The ticket's key is the title with its state words taken out, so
+"Container unhealthy: x" and "Container healthy: x" are one ticket. The token is
+DOCKHAND_TOKEN; unset, that endpoint answers 404 to everything.
+
 A failed call to Zammad answers Alertmanager with 502, so it retries. The
 Zammad URL carries the integration's token: it comes from the environment
 (ZAMMAD_URL) and is never logged. Standard library only.
@@ -22,6 +28,7 @@ import json
 import os
 import re
 import sys
+import hmac
 import time
 import urllib.error
 import urllib.parse
@@ -149,6 +156,30 @@ def to_checkmk(alert: dict, prometheus: str = "") -> dict:
     }
 
 
+# Words that say a Dockhand event's state rather than what it's about.
+STATE_WORDS = re.compile(r"\b(un)?healthy\b|\b(re)?start(ed|ing)?\b|\bstop(ped|ping)?\b|\bfail(ed|ure)?\b|"
+                         r"\bsucce(ss|eded|ssful)\b|\berror\b|\bwarning\b|\bblocked\b|\bskipped\b|\bcompleted?\b",
+                         re.IGNORECASE)
+DOCKHAND_STATES = {"failure": "CRITICAL", "error": "CRITICAL", "warning": "WARNING", "success": "OK", "info": "OK"}
+
+
+def dockhand_to_checkmk(note: dict) -> dict | None:
+    """Zammad's Checkmk fields for one Dockhand notification (Apprise's JSON), or
+    None when it carries no title to key a ticket by."""
+    title = str(note.get("title") or "").strip()
+    if not title:
+        return None
+    key = re.sub(r"\s+([:,|])", r"\1", re.sub(r"\s+", " ", STATE_WORDS.sub("", title))).strip(" :-|") or title
+    state = DOCKHAND_STATES.get(str(note.get("type") or "info").lower(), "WARNING")
+    return {
+        "event_id": "dockhand " + key,
+        "host": ("Dockhand " + key)[:250],
+        "service": "dockhand",
+        "state": state,
+        "text": "\n".join(x for x in (title, str(note.get("message") or "").strip()) if x),
+    }
+
+
 def send(url: str, fields: dict) -> str:
     """POST the fields to Zammad; its JSON answer's result, or raise."""
     data = urllib.parse.urlencode(fields).encode()
@@ -170,7 +201,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200 if self.path == "/healthz" else 404)
         self.end_headers()
 
+    dockhand_token = ""
+
     def do_POST(self):
+        if self.path.startswith("/dockhand/"):
+            self.dockhand()
+            return
         if self.path != "/alertmanager":
             self.send_response(404)
             self.end_headers()
@@ -197,6 +233,37 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+    def dockhand(self):
+        token = self.path[len("/dockhand/"):].split("?")[0]
+        if not self.dockhand_token or not hmac.compare_digest(token.encode(), self.dockhand_token.encode()):
+            self.send_response(404)
+            self.end_headers()
+            return
+        try:
+            note = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        except (ValueError, json.JSONDecodeError):
+            self.send_response(400)
+            self.end_headers()
+            return
+        fields = dockhand_to_checkmk(note if isinstance(note, dict) else {})
+        if fields is None:
+            log(f"dockhand: a notification with no title (keys {sorted(note)[:8] if isinstance(note, dict) else '?'}); skipped")
+            self.send_response(200)
+            self.end_headers()
+            return
+        try:
+            result = send(self.url, fields)
+            log(f"{fields['host']}: {fields['state']}: {result}")
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            reason = getattr(e, "code", None) or getattr(e, "reason", None) or type(e).__name__
+            log(f"{fields['host']}: {fields['state']}: Zammad didn't take it ({reason})")
+            self.send_response(502)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.end_headers()
+
+
 def main() -> None:
     url = os.environ.get("ZAMMAD_URL", "").strip()
     if not url.startswith("https://"):
@@ -205,6 +272,9 @@ def main() -> None:
     Handler.prometheus = os.environ.get("PROMETHEUS_URL", "").strip()
     if not Handler.prometheus:
         log("PROMETHEUS_URL unset: tickets won't list the members of a group alert")
+    Handler.dockhand_token = os.environ.get("DOCKHAND_TOKEN", "").strip()
+    if not Handler.dockhand_token:
+        log("DOCKHAND_TOKEN unset: /dockhand answers 404")
     port = int(os.environ.get("PORT", "8080"))
     log(f"listening on {port}")
     ThreadingHTTPServer(("", port), Handler).serve_forever()
