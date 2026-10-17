@@ -28,6 +28,9 @@ services:
   garage-config:
     image: busybox:1.38.0
     restart: "no"
+    # Exits once its job is done: no Dockhand notification for that.
+    labels:
+      dockhand.notify: "false"
     environment:
       GARAGE_TOML: |
         # One node, one copy: Garage calls that a test setup, and here the NAS's own

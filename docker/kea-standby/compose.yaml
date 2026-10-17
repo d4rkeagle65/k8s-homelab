@@ -17,6 +17,9 @@ services:
   kea-config:
     image: busybox:1.38.0
     restart: "no"
+    # Exits once its job is done: no Dockhand notification for that.
+    labels:
+      dockhand.notify: "false"
     command:
     - sh
     - -c

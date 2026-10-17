@@ -15,7 +15,10 @@ Prometheus can't answer, the ticket says so rather than listing none.
 Dockhand's notifications arrive at /dockhand/<token> (Apprise's json://
 format: title, message, type): failure and warning open a ticket, success and
 info close it. The ticket's key is the title with its state words taken out, so
-"Container unhealthy: x" and "Container healthy: x" are one ticket. The token is
+"Container unhealthy: x" and "Container healthy: x" are one ticket; a container
+event is keyed by the container its message names. One-shot services carry the
+label dockhand.notify: "false" in their compose files, so Dockhand sends nothing
+when they exit. The token is
 DOCKHAND_TOKEN; unset, that endpoint answers 404 to everything.
 
 A failed call to Zammad answers Alertmanager with 502, so it retries. The
@@ -169,8 +172,14 @@ def dockhand_to_checkmk(note: dict) -> dict | None:
     title = str(note.get("title") or "").strip()
     if not title:
         return None
-    key = re.sub(r"\s+([:,|])", r"\1", re.sub(r"\s+", " ", STATE_WORDS.sub("", title))).strip(" :-|") or title
-    key = re.sub(r"^dockhand\b[\s:-]*", "", key, flags=re.IGNORECASE) or key  # its titles often start "Dockhand"
+    # A container event's message names the container ('Container "kea-dhcp4" die
+    # (image)'; its title is only "Container Die"), so its tickets are keyed by name.
+    named = re.match(r'Container "([^"]+)" ', str(note.get("message") or ""))
+    if named:
+        key = f"Container {named.group(1)}"
+    else:
+        key = re.sub(r"\s+([:,|])", r"\1", re.sub(r"\s+", " ", STATE_WORDS.sub("", title))).strip(" :-|") or title
+        key = re.sub(r"^dockhand\b[\s:-]*", "", key, flags=re.IGNORECASE) or key  # its titles often start "Dockhand"
     state = DOCKHAND_STATES.get(str(note.get("type") or "info").lower(), "WARNING")
     return {
         "event_id": "dockhand " + key,
