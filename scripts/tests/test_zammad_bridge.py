@@ -163,3 +163,8 @@ def test_the_dockhand_endpoint_wants_its_token_and_is_off_without_one(monkeypatc
     monkeypatch.setattr(m.Handler, "dockhand_token", "s3cr3t-token")
     assert dockhand_post("/dockhand/wrong", body) == 404
     assert dockhand_post("/dockhand/s3cr3t-token", body) == 200 and sent[0]["state"] == "CRITICAL"
+
+
+def test_a_dockhand_title_starting_with_dockhand_isnt_doubled():
+    f = m.dockhand_to_checkmk({"title": "Dockhand Test Notification", "type": "info"})
+    assert f["host"] == "Dockhand Test Notification"
