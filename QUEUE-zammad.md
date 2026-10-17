@@ -43,7 +43,9 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
 - [ ] Dockhand's notifications into tickets (the owner, 2026-10-17): the bridge's `/dockhand/<token>`
       endpoint is in (failure/warning open a ticket, success/info close it, keyed by the title
       without its state words), off until `DOCKHAND_TOKEN` is set. The token (`DOCKHAND_ALERT_TOKEN`)
-      and the private-only route (`ingress-dockhand.yaml`, `/dockhand/` only) are in. Left:
+      and the private-only route (`ingress-dockhand.yaml`, `/dockhand/` only) are in, proved 2026-10-17: a wrong token 404,
+      the right one 200 (Zammad: "no open tickets found" for an info note), `/alertmanager` 404
+      from outside. Left:
       Dockhand's channel `jsons://<the bridge's host>/dockhand/<token>`; check the first real
       notifications' titles key their tickets as meant
 - [ ] Mail: Zammad's outgoing mail through `smtp-oauth-relay` (notifications), and an incoming
