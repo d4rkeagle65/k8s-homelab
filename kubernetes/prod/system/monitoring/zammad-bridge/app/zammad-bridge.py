@@ -246,6 +246,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(400)
             self.end_headers()
             return
+        if isinstance(note, dict):
+            msg = str(note.get("message") or "").replace("\n", " | ")
+            log(f"dockhand note: type={note.get('type')!r} title={str(note.get('title'))[:80]!r} message={msg[:160]!r}")
         fields = dockhand_to_checkmk(note if isinstance(note, dict) else {})
         if fields is None:
             log(f"dockhand: a notification with no title (keys {sorted(note)[:8] if isinstance(note, dict) else '?'}); skipped")
