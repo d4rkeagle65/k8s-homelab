@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - secret.yaml
 - deployment.yaml
+- ingress-dockhand.yaml
 configMapGenerator:
 # The bridge itself; the name's hash suffix rolls the pod on every change.
 - name: zammad-bridge
