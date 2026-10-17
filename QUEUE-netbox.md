@@ -234,6 +234,10 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         generator's skip case (the owner)
 - [ ] Phase 6: each guest's shape (sizes, roles, disks, bridges) edited in NetBox and brought
       into git by a pull request from Semaphore: [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md)
+- [ ] The switches' cables: the core switch (TL-SG3428, 24 copper and 4 SFP ports), 02 and 04
+      (TL-SG105E) are in NetBox with their ports and management addresses (role
+      Switch, untagged `ansible`, so no inventory takes them), but no cable. Which port goes to
+      which host and AP is the owner's to say; until then Topology Views has nothing to draw
 
 ## Resuming
 
