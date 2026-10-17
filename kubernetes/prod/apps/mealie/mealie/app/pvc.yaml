@@ -1,5 +1,5 @@
 # mealie's files: recipe images, uploads and its own backups. Its database is
-# mealie-postgres.
+# mealie-db.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
