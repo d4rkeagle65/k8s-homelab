@@ -9,11 +9,15 @@
 # installs and restarts Docker). Run after baseline.yml.
 #
 # Hawser: Dockhand's agent (github.com/Finsys/hawser), in standard mode:
-# Dockhand connects to it on hawser_port with the token, and the stacks it
-# deploys live in /opt/hawser-stacks. It runs only when HAWSER_TOKEN is in the run's
-# environment (a secret environment variable on the template), made in Dockhand
-# under Settings > Environments (Hawser, Generate Token); without it the run
-# installs Docker alone and says so. The token is never printed.
+# Dockhand connects to it on hawser_port, sending the token, and the stacks it
+# deploys live in /opt/hawser-stacks. It runs only when HAWSER_TOKEN is in the
+# run's environment (a secret environment variable on the template): a token
+# you choose, typed into Dockhand's environment (Settings > Environments,
+# Hawser, Standard) as the same value. Dockhand's Generate Token is for Edge
+# mode; a token Dockhand sends that Hawser doesn't match, 10 times in a minute,
+# gets every later request refused with 429 until a minute passes without one.
+# Without HAWSER_TOKEN the run installs Docker alone and says so. The token is
+# never printed.
 #
 # Run baseline.yml first: it also sets up the management routing
 # (tasks/management-routing.yml).
