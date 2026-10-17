@@ -69,8 +69,8 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
 - [ ] The CA: `ssl-mode` is `require`, not `verify-ca`, because CloudNativePG renews its own CA
       about every 90 days and a copy on the hosts would go stale. A long-lived CA (cert-manager,
       `spec.certificates.serverCASecret`) or a job copying the CA to both hosts, then `verify-ca`
-- [ ] `kea-db-init` in `docker/kea/compose.yaml` still upgrades the old `kea-postgres` schema:
-      point it at `kea-db` (with `PGSSLMODE=require`) before the next Kea version
+- [x] `kea-db-init` reads its database from the site file's `hosts-databases` (2026-10-17):
+      `kea-db`, with its `ssl-mode`; checked in its image (task 824, schema 34.0)
 - [ ] The HA pair (2026-10-17): `docker/kea/kea-dhcp4.conf` now carries the HA hook (its
       settings from each host's `ha.json`), the one config both Keas run; `docker/kea-standby/`
       (Kea alone; the Stork agent needs its image built on that VM, later) fetches it from main;
