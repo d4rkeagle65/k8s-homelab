@@ -12,6 +12,9 @@
 # other keys; the first run goes through each older inventory so that the
 # shared one can reach every host afterwards.
 #
+# The resolver's cache (tasks/resolver-cache.yml): where systemd-resolved runs,
+# it caches no "no such name" answers, so a new hostname resolves at once.
+#
 # Management routing (tasks/management-routing.yml): every host reports where
 # answers from its management address leave; one with management_gateway set
 # and netplan gets them sent back out that interface.
@@ -142,6 +145,11 @@
 
     - name: The host exporters
       ansible.builtin.include_tasks: tasks/host-exporters.yml
+
+    # --- The resolver's cache ---------------------------------------------------
+
+    - name: No "no such name" answers cached
+      ansible.builtin.include_tasks: tasks/resolver-cache.yml
 
     # --- Management routing ----------------------------------------------------
 
