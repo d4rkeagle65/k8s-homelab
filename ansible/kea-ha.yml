@@ -1,0 +1,171 @@
+# Kea's high-availability pair (QUEUE-kea-ha.md): the primary on one Docker VM,
+# the hot-standby partner on another (docker/kea-standby/). Writes each host's
+# site files, the part of Kea's configuration that never goes in git:
+#
+#   standby  /opt/kea/site/site.json and api-credentials, copied from the
+#            primary's (the same subnets, reservations database and API login)
+#   both     /opt/kea/site/api-password (the API login's password, which each
+#            peer sends the other) and /opt/kea/site/ha.json (this server's name
+#            in the pair and both peers' API addresses, their NetBox primary IPs)
+#
+# Then on each host it checks the pair's configuration, docker/kea/
+# kea-dhcp4-ha.conf as main has it, with Kea's own config test against the files
+# just written, and reports. It restarts nothing: the primary's stack switches to
+# the HA config by a commit, the standby's starts when Dockhand deploys it.
+#
+# Inputs (the template's survey, target "Variable"): kea_primary and kea_standby,
+# the two hosts' inventory names. Secrets are read and written with no_log.
+#
+# In check mode (--check) it reports what it would write and changes nothing.
+
+- name: The pair is named and the primary's files read
+  hosts: "{{ kea_primary | default('none') }}"
+  gather_facts: false
+  tasks:
+    - name: Two different hosts, both in the inventory
+      ansible.builtin.assert:
+        that:
+          - kea_standby is defined and kea_standby in groups['all']
+          - kea_standby != inventory_hostname
+          - hostvars[kea_standby].primary_ip4 is defined and primary_ip4 is defined
+        fail_msg: "Set kea_primary and kea_standby to two inventory hosts with NetBox primary addresses; nothing was written."
+        quiet: true
+
+    - name: Read the primary's site file
+      ansible.builtin.slurp:
+        path: /opt/kea/site/site.json
+      register: site_json
+
+    - name: Read the primary's API login
+      ansible.builtin.slurp:
+        path: /opt/kea/site/api-credentials
+      register: api_credentials
+      no_log: true
+
+    - name: The login is one user:password line
+      ansible.builtin.assert:
+        that: (api_credentials.content | b64decode | trim).split(':') | length >= 2
+        fail_msg: "/opt/kea/site/api-credentials isn't one user:password line; nothing was written."
+        quiet: true
+      no_log: true
+
+    - name: Settle the pair
+      ansible.builtin.set_fact:
+        kea_pair:
+          primary: "{{ inventory_hostname }}"
+          standby: "{{ kea_standby }}"
+          primary_ip: "{{ primary_ip4 | string | split('/') | first }}"
+          standby_ip: "{{ hostvars[kea_standby].primary_ip4 | string | split('/') | first }}"
+          api_user: "{{ (api_credentials.content | b64decode | trim).split(':', 1)[0] }}"
+          api_password: "{{ (api_credentials.content | b64decode | trim).split(':', 1)[1] }}"
+          site_json: "{{ site_json.content | b64decode }}"
+      no_log: true
+
+- name: Each host's site files
+  hosts: "{{ (kea_primary | default('none')) ~ ',' ~ (kea_standby | default('none')) }}"
+  gather_facts: false
+  vars:
+    pair: "{{ hostvars[kea_primary].kea_pair }}"
+    role: "{{ 'primary' if inventory_hostname == pair.primary else 'standby' }}"
+    image: docker.cloudsmith.io/isc/docker/kea-dhcp4:3.2.1
+  tasks:
+    - name: The folders
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+      loop:
+        - {path: /opt/kea/site, mode: "0700"}
+        - {path: /opt/kea/lib, mode: "0755"}
+
+    - name: The standby's site file, the primary's
+      ansible.builtin.copy:
+        dest: /opt/kea/site/site.json
+        content: "{{ pair.site_json }}"
+        mode: "0644"
+      when: role == 'standby'
+      no_log: true
+
+    - name: The standby's API login, the primary's
+      ansible.builtin.copy:
+        dest: /opt/kea/site/api-credentials
+        content: "{{ pair.api_user }}:{{ pair.api_password }}\n"
+        mode: "0600"
+      when: role == 'standby'
+      no_log: true
+
+    - name: The password each peer sends the other
+      ansible.builtin.copy:
+        dest: /opt/kea/site/api-password
+        content: "{{ pair.api_password }}"
+        mode: "0600"
+      no_log: true
+
+    - name: This server's place in the pair
+      ansible.builtin.copy:
+        dest: /opt/kea/site/ha.json
+        mode: "0644"
+        content: |
+          "high-availability": [
+            {
+              "this-server-name": "{{ role }}",
+              "mode": "hot-standby",
+              "heartbeat-delay": 10000,
+              "max-response-delay": 60000,
+              "max-ack-delay": 5000,
+              "max-unacked-clients": 0,
+              "multi-threading": {
+                "enable-multi-threading": true,
+                "http-dedicated-listener": false
+              },
+              "peers": [
+                {
+                  "name": "primary",
+                  "url": "http://{{ pair.primary_ip }}:8000/",
+                  "role": "primary",
+                  "auto-failover": true,
+                  "basic-auth-user": "{{ pair.api_user }}",
+                  "basic-auth-password-file": "/etc/kea/site/api-password"
+                },
+                {
+                  "name": "standby",
+                  "url": "http://{{ pair.standby_ip }}:8000/",
+                  "role": "standby",
+                  "auto-failover": true,
+                  "basic-auth-user": "{{ pair.api_user }}",
+                  "basic-auth-password-file": "/etc/kea/site/api-password"
+                }
+              ]
+            }
+          ]
+
+    - name: The pair's configuration, as main has it
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/d4rkeagle65/k8s-homelab/main/docker/kea/kea-dhcp4-ha.conf
+        dest: /opt/kea/kea-dhcp4-ha.conf.check
+        mode: "0644"
+        force: true
+      check_mode: false
+
+    - name: Kea's own test of it, with these files
+      ansible.builtin.command:
+        argv: [docker, run, --rm, -v, /opt/kea/site:/etc/kea/site:ro, -v, /opt/kea/kea-dhcp4-ha.conf.check:/etc/kea/kea-dhcp4.conf:ro,
+               "{{ image }}", kea-dhcp4, -t, /etc/kea/kea-dhcp4.conf]
+      register: kea_test
+      changed_when: false
+      failed_when: false
+      when: not ansible_check_mode
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} is the {{ role }}; Kea's config test:
+          {{ ('passed' if kea_test.rc == 0 else 'FAILED: ' ~ (kea_test.stdout ~ kea_test.stderr)[-600:])
+             if kea_test is not skipped else 'not run (check mode)' }}
+
+    - name: The configuration passed
+      ansible.builtin.assert:
+        that: kea_test.rc == 0
+        fail_msg: "Kea's config test failed on {{ inventory_hostname }} (above); its running Kea is unchanged."
+        quiet: true
+      when: not ansible_check_mode
