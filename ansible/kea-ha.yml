@@ -10,8 +10,9 @@
 #
 # Then on each host it checks the pair's configuration, docker/kea/
 # kea-dhcp4.conf as main has it, with Kea's own config test against the files
-# just written, and reports. It restarts nothing: Dockhand redeploys the primary's
-# stack when that file changes, and deploys the standby's.
+# just written, and reports. A Kea whose files changed reloads them through its
+# API (config-reload); none is restarted. Dockhand redeploys the primary's stack
+# when kea-dhcp4.conf changes, and deploys the standby's.
 #
 # Inputs (the template's survey, target "Variable"): kea_primary and kea_standby,
 # the two hosts' inventory names. Secrets are read and written with no_log.
@@ -84,6 +85,7 @@
         content: "{{ pair.site_json }}"
         mode: "0644"
       when: role == 'standby'
+      register: site_written
       no_log: true
 
     - name: The standby's API login, the primary's
@@ -99,6 +101,7 @@
         dest: /opt/kea/site/api-password
         content: "{{ pair.api_password }}"
         mode: "0600"
+      register: password_written
       no_log: true
 
     - name: This server's place in the pair
@@ -138,6 +141,7 @@
               ]
             }
           ]
+      register: ha_written
 
     - name: The pair's configuration, as main has it
       ansible.builtin.get_url:
@@ -169,3 +173,39 @@
         fail_msg: "Kea's config test failed on {{ inventory_hostname }} (above); its running Kea is unchanged."
         quiet: true
       when: not ansible_check_mode
+
+    # A running Kea reads its site files only at start or on config-reload: one
+    # whose files just changed reloads them (through its API on the host), so the
+    # standby never runs an old copy of the primary's subnets.
+    - name: Is this host's Kea running
+      ansible.builtin.command:
+        argv: [docker, inspect, -f, "{{ '{{' }}.State.Running{{ '}}' }}", kea-dhcp4]
+      register: kea_running
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Reload Kea's configuration where its files changed
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8000/
+        method: POST
+        body_format: json
+        body: {command: config-reload}
+        url_username: "{{ pair.api_user }}"
+        url_password: "{{ pair.api_password }}"
+        force_basic_auth: true
+        return_content: true
+      register: reload
+      when:
+        - not ansible_check_mode
+        - kea_running.stdout | default('') == 'true'
+        - site_written is changed or password_written is changed or ha_written is changed
+      changed_when: true
+      no_log: true
+
+    - name: The reload took
+      ansible.builtin.assert:
+        that: (reload.json | first).result == 0
+        fail_msg: "Kea on {{ inventory_hostname }} refused config-reload: {{ (reload.json | first).text | default('?') }}"
+        quiet: true
+      when: reload is not skipped
