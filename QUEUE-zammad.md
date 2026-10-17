@@ -40,6 +40,12 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       `AlertmanagerClusterDown` and the Deployment, StatefulSet and DaemonSet alerts the bridge
       asks Prometheus which are down at that moment (`MEMBERS` in `zammad-bridge.py`) and lists
       them with node and address. Done when a real one has fired and its ticket shows the list
+- [ ] Dockhand's notifications into tickets (the owner, 2026-10-17): the bridge's `/dockhand/<token>`
+      endpoint is in (failure/warning open a ticket, success/info close it, keyed by the title
+      without its state words), off until `DOCKHAND_TOKEN` is set. Left: `DOCKHAND_ALERT_TOKEN` in
+      Vaultwarden (the owner), then its Secret key and a private-only Ingress for the bridge, then
+      Dockhand's channel `jsons://<the bridge's host>/dockhand/<token>`; check the first real
+      notifications' titles key their tickets as meant
 - [ ] Mail: Zammad's outgoing mail through `smtp-oauth-relay` (notifications), and an incoming
       channel if tickets by email are wanted (the owner's call)
 - [x] Elasticsearch through the ECK operator (2026-10-16): zammad-init-8 rebuilt the index in

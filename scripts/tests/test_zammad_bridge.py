@@ -124,3 +124,42 @@ def test_a_recovery_or_no_prometheus_asks_nothing(monkeypatch):
     with_prometheus(monkeypatch, error=AssertionError("asked"))
     assert "Down now" not in m.to_checkmk(alert(status="resolved", job="j", namespace="n"), "http://p")["text"]
     assert "Couldn't" not in m.to_checkmk(alert(job="j", namespace="n"))["text"]
+
+
+def test_a_dockhand_failure_opens_and_its_recovery_closes_the_same_ticket():
+    down = m.dockhand_to_checkmk({"title": "Container unhealthy: kea-dhcp4", "message": "on env 2", "type": "failure"})
+    up = m.dockhand_to_checkmk({"title": "Container healthy: kea-dhcp4", "message": "on env 2", "type": "success"})
+    assert down["state"] == "CRITICAL" and up["state"] == "OK"
+    assert down["host"] == up["host"] == "Dockhand Container: kea-dhcp4" and down["service"] == "dockhand"
+    assert "on env 2" in down["text"]
+    assert m.dockhand_to_checkmk({"title": "Git sync failed: kea", "type": "warning"})["state"] == "WARNING"
+    assert m.dockhand_to_checkmk({"message": "no title"}) is None
+
+
+def dockhand_post(path, body):
+    import io
+
+    class Fake(m.Handler):
+        def __init__(self):
+            self.path, self.headers = path, {"Content-Length": str(len(body))}
+            self.rfile, self.wfile, self.codes = io.BytesIO(body), io.BytesIO(), []
+
+        def send_response(self, code, message=None):
+            self.codes.append(code)
+
+        def end_headers(self):
+            pass
+    h = Fake()
+    h.do_POST()
+    return h.codes[0]
+
+
+def test_the_dockhand_endpoint_wants_its_token_and_is_off_without_one(monkeypatch):
+    sent = []
+    monkeypatch.setattr(m, "send", lambda url, fields: sent.append(fields) or "ok")
+    body = b'{"title": "Container stopped: x", "type": "failure"}'
+    monkeypatch.setattr(m.Handler, "dockhand_token", "")
+    assert dockhand_post("/dockhand/anything", body) == 404
+    monkeypatch.setattr(m.Handler, "dockhand_token", "s3cr3t-token")
+    assert dockhand_post("/dockhand/wrong", body) == 404
+    assert dockhand_post("/dockhand/s3cr3t-token", body) == 200 and sent[0]["state"] == "CRITICAL"
