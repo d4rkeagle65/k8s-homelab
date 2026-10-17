@@ -1,0 +1,58 @@
+# systemd-resolved's cache keeps no "no such name" answers: a hostname asked for
+# before ExternalDNS made its record otherwise stays unresolvable on the host for
+# a while, though the Pi-holes answer it (QUEUE.md, 2026-10-17). Only where
+# resolved runs; every host is reported. Written as a drop-in, the service
+# restarted to read it, then read back from resolved itself.
+
+- name: Is systemd-resolved running
+  ansible.builtin.command:
+    argv: [systemctl, is-active, systemd-resolved]
+  register: resolved_active
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Its settings folder
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: "0755"
+  when: resolved_active.stdout == 'active'
+
+- name: No negative answers cached
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/50-no-negative-cache.conf
+    mode: "0644"
+    content: |
+      # baseline.yml (tasks/resolver-cache.yml): a name that didn't exist a minute
+      # ago is asked again, not remembered as missing.
+      [Resolve]
+      Cache=no-negative
+  register: resolver_conf
+  when: resolved_active.stdout == 'active'
+
+- name: Restart resolved to read it
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
+    state: restarted
+  when: resolver_conf is changed and not ansible_check_mode
+
+- name: Read resolved's cache setting back
+  ansible.builtin.shell: systemd-analyze cat-config systemd/resolved.conf | grep -E '^Cache=' | tail -1
+  register: cache_setting
+  changed_when: false
+  check_mode: false
+  when: resolved_active.stdout == 'active'
+
+- name: Report the resolver cache
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ ('resolved, ' ~ (cache_setting.stdout | default('') or 'Cache= default (yes)'))
+      if resolved_active.stdout == 'active' else 'no systemd-resolved, nothing to set' }}
+
+- name: Negative answers aren't cached
+  ansible.builtin.assert:
+    that: cache_setting.stdout | default('') == 'Cache=no-negative'
+    fail_msg: "{{ inventory_hostname }}: resolved still reads '{{ cache_setting.stdout | default('') }}'."
+    quiet: true
+  when: resolved_active.stdout == 'active' and not ansible_check_mode
