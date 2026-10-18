@@ -159,3 +159,9 @@ def test_change_lists_are_read_in_either_spelling():
     creates, _, _ = m.plan({"create": [ep("a.example.net", "192.0.2.1")], "updateNew": [ep("b.example.net", "192.0.2.2")]},
                            [], ZONES)
     assert sorted(c["name"] for c in creates) == ["a", "b"]
+
+
+def test_the_same_changes_in_another_order_skip_the_same_list():
+    eps = [ep("a.example.org", "192.0.2.1"), ep("b.example.org", "192.0.2.2"), ep("c.example.org", "192.0.2.3")]
+    first = m.plan({"Create": eps}, [], ZONES)[2]
+    assert first == m.plan({"Create": eps[::-1]}, [], ZONES)[2] and len(first) == 3
