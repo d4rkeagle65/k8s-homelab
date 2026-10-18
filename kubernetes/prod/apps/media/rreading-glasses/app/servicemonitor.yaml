@@ -1,0 +1,15 @@
+# rreading-glasses' own metrics, among them Hardcover's rate-limit budget as its
+# responses report it (rg_gql_ratelimit_remaining, by bucket burst and daily),
+# which prometheusrule-homelab.yaml's homelab.bookshelf alerts read.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: rreading-glasses
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rreading-glasses
+  endpoints:
+    - port: http
+      path: /debug/metrics
+      interval: 1m
