@@ -137,13 +137,14 @@ Queries (Prometheus, `kube-prometheus-stack`):
       `homelab-critical`, in the same release)
 - [x] Alerts (2026-10-18): `ContainerWithoutLimits` and `ContainerMemoryNearLimit` (`monitors/`,
       each a ticket). Heavy throttling is the chart's `CPUThrottlingHigh`, severity `info`, which
-      zammad-bridge leaves out (13 firing on 2026-10-18, so a ticket each would be noise until
-      the 10-21 re-measure raises the throttled limits). Zammad's nginx, websocket, Redis and
+      zammad-bridge leaves out (13 firing on 2026-10-18, so a ticket each would be noise: most
+      are at the 1000m cap, the owner's question below). Zammad's nginx, websocket, Redis and
       memcached and `proxmox-endpoints` got the CPU limits they lacked first
 - [x] Authentik's two outposts (LDAP and the proxy) restarted (2026-10-18), so they took
       `authentik`'s LimitRange defaults (500m, 512Mi); Authentik owns their Deployments, not
       Flux. Every running container outside Talos's own now has limits, and
-      `ContainerWithoutLimits` matched none once it was live
+      `ContainerWithoutLimits` matched none once it was live; the Barman sidecars, which it
+      doesn't see, are in the recheck item
 - [x] Risk fixes from the four days there were (2026-10-18), limits only, so nothing
       rescheduled: CPU 1000m where throttled in over 10% of periods (democratic-csi's drivers
       and registrar 33-77%, nebula-sync 45%, the Bitwarden CLI 24%, redis-ha's split-brain check
