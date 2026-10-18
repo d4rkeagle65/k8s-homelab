@@ -104,8 +104,9 @@ Read before changing anything:
   adds its Vaultwarden field, and its entry in `kubernetes/secrets/cluster-secrets.yaml` is a
   pull request of its own, merged before anything that uses it. An empty value is fine.
 - **Every change reaches `main` through a pull request the owner merges; a merge is a
-  deploy.** Flux applies whatever reaches `main`. One branch per change: commit to it, push it
-  and open its pull request. Never merge one, push `main` or turn on auto-merge.
+  deploy.** Flux applies whatever reaches `main`, and the owner's review is what keeps a wrong
+  change from a session working on its own out of the cluster. One branch per change: commit
+  to it, push it and open its pull request. Never merge one, push `main` or turn on auto-merge.
 
 ## In a cloud session
 
