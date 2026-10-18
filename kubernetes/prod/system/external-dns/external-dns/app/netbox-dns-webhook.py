@@ -149,7 +149,8 @@ def plan(changes: dict, records: list[dict], zones: list[dict]) -> tuple[list, l
     for ep in changes.get("delete") or []:
         name, rtype = ep["dnsName"].rstrip(".").lower(), ep.get("recordType", "A")
         deletes += [r["id"] for r in current.get((name, rtype), []) if r.get("description") == OWNER_MARK]
-    return creates, sorted(set(deletes)), skipped
+    # Sorted: ExternalDNS sends the same changes in a different order each loop.
+    return creates, sorted(set(deletes)), sorted(skipped)
 
 
 class Handler(BaseHTTPRequestHandler):
