@@ -50,6 +50,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   lines with `VERBOSE=true`. Left: an author added from now on can come out short the same
   way; a small job that does this repair (or a patched image, or the fix upstream) would end
   it. Already-repaired authors keep their works across refreshes (the snapshot is complete).
+  **Pace any repair to Hardcover's daily budget** (2026-10-18: about 2,000 repair lookups
+  in an afternoon spent the token's whole day, `rg_gql_ratelimit_remaining{bucket="daily"}`
+  0, and every uncached Bookshelf lookup failed for hours): read that metric before and
+  during a batch and stop well short of 0; one work every few seconds, not one a second
+  (rreading-glasses already keeps to the per-second burst budget; its pacing is
+  hard-coded); never a repair while Bookshelf is identifying new files, or several large
+  authors at once. The HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the
+  low and the spent budget. Left from that day: Terry Brooks's last 82 works, and the 17
+  Shannara files (renamed .prc to .mobi, in `Shannara/`) to map, once the budget resets.
 - **systemd-resolved caches "no such name" on the Debian hosts** (found 2026-10-17): a hostname
   asked for before ExternalDNS made its record stayed unresolvable there though the Pi-holes
   answered it. `tasks/resolver-cache.yml` (in `baseline.yml`, 2026-10-17) sets

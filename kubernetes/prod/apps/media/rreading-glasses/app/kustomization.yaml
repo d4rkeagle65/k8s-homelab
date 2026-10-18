@@ -4,3 +4,4 @@ resources:
   - helmrelease.yaml
   - db.yaml
   - secret.yaml
+  - servicemonitor.yaml
