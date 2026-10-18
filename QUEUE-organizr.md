@@ -29,7 +29,19 @@ automatically, like Homepage.
 - [x] The Job's run in the cluster succeeds, OIDC settings included (2026-10-16: 34
       settings, 5 categories, 27 tabs verified)
 - [ ] Login through Authentik works, as an Organizr Admin and as an Organizr User
-- [ ] The *arr tabs load inside Organizr (if one refuses framing, make it type 2)
+- [ ] The *arr tabs load inside Organizr (if one refuses framing, make it type 2). The owner's
+      check, 2026-10-18: Lidarr, Bookshelf, SABnzbd and Tdarr load; Sonarr, Radarr and Prowlarr
+      show a blank page. Everything readable without a login is the same for all five *arr apps
+      (no X-Frame-Options or CSP, Forms login, the same tab row in Organizr, no frame-busting in
+      their UI; each one's login page renders in a frame), so the cause shows only in a browser
+      signed in to the app: read the frame's console and network errors there. If it can't be
+      fixed, those three become type 2.
+- [x] qBittorrent's tab (type 2) answered 401 "Unauthorized": its CSRF check rejects a request
+      whose Referer is another site. Organizr's pages now send `Referrer-Policy: same-origin`
+      (`middleware-referrer-same-origin.yaml`), so its new tabs carry no Referer.
+- [ ] An empty, root-owned `organizr.db` sits in `/config/www/organizr/data/` beside the live
+      `hsnOrganizr.db` (made 2026-10-18 by a read that assumed the first-run setup's name).
+      Organizr never opens it; remove it, with the owner's go-ahead.
 - [ ] Organizr's homepage shows Sonarr, Radarr, Lidarr and qBittorrent data (qBittorrent may
       need its API key, as for Homepage)
 - [ ] Emby, SABnzbd and Seerr (Organizr's overseerr settings) once their keys exist

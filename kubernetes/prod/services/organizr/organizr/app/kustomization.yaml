@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - helmrelease.yaml
 - job-organizr-sync.yaml
+- middleware-referrer-same-origin.yaml
 - pvc.yaml
 - secret-organizr-sync.yaml
 # Organizr's configuration and the script that applies it. The generated name
