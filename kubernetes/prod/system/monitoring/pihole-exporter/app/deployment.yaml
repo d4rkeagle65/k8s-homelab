@@ -47,8 +47,8 @@ spec:
           capabilities:
             drop: [ALL]
         resources: &resources
-          requests: {cpu: 5m, memory: 16Mi}
-          limits: {cpu: 500m, memory: 64Mi}
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
       - name: pihole2
         image: ekofr/pihole-exporter:v1.2.0
         env:

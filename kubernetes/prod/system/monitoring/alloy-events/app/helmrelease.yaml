@@ -35,8 +35,8 @@ spec:
     alloy:
       enableReporting: false
       resources:
-        requests: {cpu: 10m, memory: 48Mi}
-        limits: {cpu: 500m, memory: 192Mi}
+        requests: {cpu: 10m, memory: 128Mi}
+        limits: {cpu: 500m, memory: 512Mi}
       configMap:
         content: |
           logging {
