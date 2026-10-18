@@ -14,7 +14,7 @@ automatically, like Homepage.
   it by hand on 2026-10-10 with the same values, so it's skipped now.
 - **Login:** Authentik's OIDC provider (the `organizr` blueprint); Organizr Admins become Admins,
   Organizr Users Users, nobody else is admitted. Straight to Authentik; `#noredirect` on the
-  address shows the local form for the local admin.
+  address shows the local form (whether any account still signs in there: the checklist).
 - **Tabs:** apps that refuse framing or log in through Authentik open in a new browser tab
   (type 2); the *arr apps open inside Organizr (type 1).
 
@@ -28,7 +28,13 @@ automatically, like Homepage.
       (`kubernetes/CLAUDE.md`)
 - [x] The Job's run in the cluster succeeds, OIDC settings included (2026-10-16: 34
       settings, 5 categories, 27 tabs verified)
-- [ ] Login through Authentik works, as an Organizr Admin and as an Organizr User
+- [x] Login through Authentik works as an Organizr Admin (the owner, 2026-10-18)
+- [ ] Login through Authentik as an Organizr User: Organizr has one user, the owner's Admin, so
+      no one in that group has signed in yet
+- [ ] A way in while Authentik is down. That one user is the first-run local admin, linked to
+      Authentik (`oidcLinkExistingUsers`; its `auth_service` is now `oidc::authentik`), so its
+      password may no longer work on the `#noredirect` form. The owner tries it; if it fails,
+      decide whether a separate local Admin is wanted for that.
 - [x] The *arr tabs load inside Organizr (2026-10-18, checked in the owner's Chrome: Sonarr,
       Radarr, Prowlarr, Lidarr and Bookshelf each load, a lapsed session at the app's own login
       page). They need the pod network in `TrustedNetworks` (`<APP>__SERVER__TRUSTEDNETWORKS`,
@@ -37,11 +43,8 @@ automatically, like Homepage.
 - [x] qBittorrent's tab (type 2) answered 401 "Unauthorized": its CSRF check rejects a request
       whose Referer is another site. Organizr's pages now send `Referrer-Policy: same-origin`
       (`middleware-referrer-same-origin.yaml`), so its new tabs carry no Referer.
-- [ ] An empty, root-owned `organizr.db` sits in `/config/www/organizr/data/` beside the live
-      `hsnOrganizr.db` (made 2026-10-18 by a read that assumed the first-run setup's name).
-      Organizr never opens it; remove it, with the owner's go-ahead.
-- [ ] Organizr's homepage shows Sonarr, Radarr, Lidarr and qBittorrent data (qBittorrent may
-      need its API key, as for Homepage)
+- [x] Organizr's homepage shows Sonarr, Radarr, Lidarr and qBittorrent data (the owner,
+      2026-10-18; Organizr's logs hold no errors for the four)
 - [ ] Emby, SABnzbd and Seerr (Organizr's overseerr settings) once their keys exist
 
 ## Resuming

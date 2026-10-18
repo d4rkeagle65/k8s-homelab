@@ -126,7 +126,9 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
       own "Bearer "); then node-exporter's targets come from the `docker_vm` tag
 - [ ] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answer every network from
       Production
-- [ ] Organizr's browser checks (`QUEUE-organizr.md`)
+- [ ] Organizr's last checks (`QUEUE-organizr.md`): sign in as an Organizr User, and whether the
+      `#noredirect` form still lets anyone in while Authentik is down (tabs, Admin login and the
+      homepage checked 2026-10-18)
 - [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address
       (2026-10-16, through the bitwarden-cli pod; checked in Grimmory's sync Secret)
 - [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), the second Pi-hole on the DMZ's static clients, the TerraMaster SNMP bug
