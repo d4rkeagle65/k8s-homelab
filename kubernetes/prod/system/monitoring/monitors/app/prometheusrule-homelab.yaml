@@ -25,6 +25,31 @@ spec:
           {{ $labels.namespace }}/{{ $labels.pod }} {{ $labels.container }} is at
           {{ $value | humanizePercentage }} of its memory limit: raise the limit
           (QUEUE-resource-limits.md's rules) before it's OOM-killed.
+    # Every running container has CPU and memory limits (QUEUE-resource-limits.md).
+    # The LimitRanges' defaults reach only pods created after them, so a pod older
+    # than its namespace's LimitRange shows here until it restarts. Talos runs the
+    # control plane, kube-proxy and CoreDNS, which the rules leave alone.
+    - alert: ContainerWithoutLimits
+      expr: |
+        max by (namespace, container) (
+          (
+            (kube_pod_container_info unless on (namespace, pod, container) kube_pod_container_resource_limits{resource="memory"})
+            or
+            (kube_pod_container_info unless on (namespace, pod, container) kube_pod_container_resource_limits{resource="cpu"})
+          )
+          and on (namespace, pod) (kube_pod_status_phase{phase="Running"} == 1)
+        )
+        unless on (namespace, container)
+          kube_pod_container_info{namespace="kube-system", container=~"kube-apiserver|kube-controller-manager|kube-scheduler|kube-proxy|coredns"}
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: A container runs without a CPU or memory limit.
+        description: >-
+          {{ $labels.namespace }} {{ $labels.container }} has run for an hour without a CPU
+          or memory limit: set both by QUEUE-resource-limits.md's rules, or restart it if
+          its pod is older than the namespace's LimitRange.
     - alert: DockerContainerRestarting
       expr: changes(container_start_time_seconds{job="docker-vm", name!=""}[30m]) >= 3
       labels:
