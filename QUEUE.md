@@ -104,6 +104,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Later
 
+- **Lidarr back to stable tags** (from 2026-10-18 it runs the nightly channel, pinned, for
+  qBittorrent's API key; Renovate's `linuxserver/lidarr` rule follows nightlies only): once a
+  stable release is past the nightly running, set `tag` in `prod/apps/media/lidarr/app/
+  helmrelease.yaml` to it and remove that rule. Left alone, Lidarr stays on nightly builds.
 - **Faster recovery from a node loss** (with the owner: a Talos control-plane change): every database now fails over in under a minute, but
   the app pods on a lost node wait out the default 5-minute
   `node.kubernetes.io/unreachable`/`not-ready` tolerations before moving. One place sets that
