@@ -1,0 +1,108 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: rreading-glasses
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: media
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 5.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            # rreading-glasses (github.com/blampe/rreading-glasses): Bookshelf's
+            # metadata source, a caching proxy to Hardcover's API with this
+            # cluster's own token, in place of the shared hardcover.bookinfo.pro.
+            # Bookshelf reaches it at http://rreading-glasses.media:8788 (its
+            # Settings > Development > Metadata Provider Source). The hardcover tag
+            # moves and nothing else is published, so the digest pins it.
+            image:
+              repository: blampe/rreading-glasses
+              tag: hardcover@sha256:3f017a51d9007b715303a20f481c822e4df66485fc9e5f57f6fdf1de840dc02f
+            command: ["/main", "serve"]
+            env:
+              - name: HARDCOVER_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: rreading-glasses
+                    key: hardcover-token
+              # Kubernetes expands $(HARDCOVER_TOKEN), defined above; Flux leaves
+              # $(...) alone.
+              - name: HARDCOVER_AUTH
+                value: "Bearer $(HARDCOVER_TOKEN)"
+              - name: POSTGRES_HOST
+                value: rreading-glasses-db-rw
+              - name: POSTGRES_USER
+                value: rreading-glasses
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: rreading-glasses-db-app
+                    key: password
+              - name: POSTGRES_DATABASE
+                value: rreading-glasses
+            # It has no health endpoint; its metrics page answers without
+            # calling Hardcover.
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/debug/metrics", port: 8788}
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/debug/metrics", port: 8788}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/debug/metrics", port: 8788}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+            # It caches in memory up to whatever it's given (its README), so the
+            # limit is its cache size.
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: [ALL]}
+        pod:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile: {type: RuntimeDefault}
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 8788

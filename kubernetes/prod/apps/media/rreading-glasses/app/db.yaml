@@ -1,0 +1,32 @@
+# rreading-glasses' cache of Hardcover's metadata: a key-value store it fills
+# as Bookshelf asks, so losing it costs only slower lookups while it refills.
+# Its own cluster so its growth can never fill Bookshelf's.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: rreading-glasses-db
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  instances: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 5Gi
+    storageClass: local-db
+  # Continuous WAL archiving and base backups to Garage (media-backup/).
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage
+  bootstrap:
+    initdb:
+      database: rreading-glasses
+      owner: rreading-glasses
