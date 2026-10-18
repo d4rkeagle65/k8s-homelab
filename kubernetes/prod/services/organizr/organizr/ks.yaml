@@ -17,7 +17,8 @@ spec:
     kind: GitRepository
     name: flux-system
   targetNamespace: organizr
-  dependsOn: []
+  dependsOn:
+  - name: traefik
   postBuild:
     substituteFrom:
     - kind: ConfigMap
