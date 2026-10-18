@@ -29,14 +29,11 @@ automatically, like Homepage.
 - [x] The Job's run in the cluster succeeds, OIDC settings included (2026-10-16: 34
       settings, 5 categories, 27 tabs verified)
 - [ ] Login through Authentik works, as an Organizr Admin and as an Organizr User
-- [ ] The *arr tabs load inside Organizr (if one refuses framing, make it type 2). Sonarr, Radarr,
-      Prowlarr and Lidarr sent a lapsed session to an `http://` login page: they ignored
-      Traefik's `X-Forwarded-Proto` (their `TrustedNetworks` was empty), and a browser blocks an
-      http navigation inside Organizr's https page, so the frame stayed `about:blank`. Lidarr
-      only looked fine because its session was live; Bookshelf already redirects to https.
-      Each now trusts the pod network (`<APP>__SERVER__TRUSTEDNETWORKS`, Sonarr's HelmRelease
-      says why). Left: after it's deployed, each one's `Location` on `/` reads `https://`, and
-      the four tabs load signed out as well as signed in.
+- [x] The *arr tabs load inside Organizr (2026-10-18, checked in the owner's Chrome: Sonarr,
+      Radarr, Prowlarr, Lidarr and Bookshelf each load, a lapsed session at the app's own login
+      page). They need the pod network in `TrustedNetworks` (`<APP>__SERVER__TRUSTEDNETWORKS`,
+      Sonarr's HelmRelease says why); without it a lapsed session's login redirect is
+      `http://`, which the browser blocks inside Organizr's https page, leaving a blank frame.
 - [x] qBittorrent's tab (type 2) answered 401 "Unauthorized": its CSRF check rejects a request
       whose Referer is another site. Organizr's pages now send `Referrer-Policy: same-origin`
       (`middleware-referrer-same-origin.yaml`), so its new tabs carry no Referer.
