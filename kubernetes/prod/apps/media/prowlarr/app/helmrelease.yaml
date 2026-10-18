@@ -66,6 +66,9 @@ spec:
                 value: master
               - name: PROWLARR__LOG__ANALYTICSENABLED
                 value: "false"
+              # Traefik's forwarded headers trusted, as Sonarr's (sonarr/app/helmrelease.yaml).
+              - name: PROWLARR__SERVER__TRUSTEDNETWORKS
+                value: ${CALICO_POD_CIDR}
             # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml).
             probes:
               startup:
