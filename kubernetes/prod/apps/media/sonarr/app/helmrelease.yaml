@@ -66,6 +66,12 @@ spec:
                 value: main
               - name: SONARR__LOG__ANALYTICSENABLED
                 value: "false"
+              # Traefik reaches it from the pod network: trusting that network lets its
+              # X-Forwarded-Proto through, so the redirect to the login page is https.
+              # An http one is blocked as mixed content in Organizr's frame, which
+              # then stays blank whenever the session has lapsed.
+              - name: SONARR__SERVER__TRUSTEDNETWORKS
+                value: ${CALICO_POD_CIDR}
             # Startup allows ten minutes (database migrations); after that a
             # minute and a half without an answer takes it out of service and
             # two and a half restarts it. Without them, a start that gave up on
