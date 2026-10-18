@@ -39,7 +39,7 @@ spec:
                   ls -l "$f"
               resources:
                 requests: {cpu: 10m, memory: 64Mi}
-                limits: {memory: 256Mi}
+                limits: {cpu: 500m, memory: 256Mi}
               volumeMounts:
                 - {name: backup, mountPath: /backup}
           volumes:

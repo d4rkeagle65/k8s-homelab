@@ -22,6 +22,9 @@ spec:
           command: [pip, install, --quiet, --no-cache-dir, --target, /deps, pyyaml==6.0.3]
           env:
             - {name: HOME, value: /tmp}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
           volumeMounts:
             - {name: deps, mountPath: /deps}
       containers:
@@ -35,8 +38,8 @@ spec:
             - secretRef:
                 name: organizr-sync
           resources:
-            requests: {cpu: 10m, memory: 32Mi}
-            limits: {memory: 128Mi}
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
           volumeMounts:
             - {name: deps, mountPath: /deps}
             - {name: sync, mountPath: /etc/organizr-sync}

@@ -73,7 +73,13 @@ Queries (Prometheus, `kube-prometheus-stack`):
       transcoding; Immich's server gets a core (thumbnails, transcodes) and its machine learning
       a 2 GiB limit (models load far above the idle peak); n8n's task runners keep 1 GiB;
       Grimmory's CPU request stays 100m (its 95th percentile was library scans). Authentik's
-      two outposts are created by Authentik, not this repo: batch 6
+      two outposts are created by Authentik, not this repo: batch 6. Re-measured 2026-10-18
+      from the 4.2 days since 2026-10-14 16:48, raising only: Immich's machine learning 2304Mi
+      and 620m (the import's, a comment says), Linkwarden 960Mi and 100m, Authentik's server
+      992Mi in 2Gi, Zammad's websocket 448Mi in 1Gi and 1000m (throttled 17%) and scheduler
+      672Mi, Elasticsearch 1184Mi in 1536Mi (952Mi resident in 1Gi; the heap stays 512m),
+      Lidarr and Prowlarr 352Mi, Tdarr 320Mi and 256Mi; the sync Jobs got the CPU limits they
+      lacked. Immich's server waits for the import (the last item)
 - [x] Batches 1-3's limits recalculated by the load rules above, after Immich's database was
       OOM-killed. Requests unchanged. Alloy's limit went to 512Mi ahead of batch 5 (it was at
       87%)

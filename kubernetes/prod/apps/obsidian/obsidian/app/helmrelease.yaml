@@ -67,8 +67,8 @@ spec:
       type: ClusterIP
     resources:
       requests:
-        cpu: 10m
-        memory: 128Mi
+        cpu: 30m
+        memory: 160Mi
       limits:
         cpu: 1000m
         memory: 768Mi
