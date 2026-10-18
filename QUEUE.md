@@ -27,6 +27,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **The control planes are short of memory** (found 2026-10-18): each has 4096Mi
+  (`tofu/proxmox/netbox-guests.json`, `talos_nodes`), and since 2026-10-14 their available
+  memory (`node_memory_MemAvailable_bytes`) has fallen to 6%, 9% and 14% at its lowest; the
+  API server alone peaks at 1.5-1.8GiB, with etcd beside it. Talos owns those pods and they
+  have no limits, so a squeeze ends with the kernel's OOM killer taking the API server or
+  etcd. Raise them (6Gi each would leave about a third free) through NetBox's guest shape,
+  its pull request and the OpenTofu apply the owner confirms, one control plane at a time
+  (`tofu/CLAUDE.md`), checking etcd's health between them. The workers' lowest was 18% (the
+  11Gi one) and above.
 - **bitwarden-cli's `bw serve` exits when several forced syncs reach it at once** (found
   2026-10-18): four `vaultwarden-fields.ps1` listings run together, each POSTing
   `/sync?force=true` through `kubectl exec`, restarted the container twice (about three

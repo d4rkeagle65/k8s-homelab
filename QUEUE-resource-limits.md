@@ -180,7 +180,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
         the import's.
       Init containers that run once at start have none: babybuddy's check-db-ready and mealie's
       wait-for-db take their namespace's defaults; the Bitwarden CLI's fetch-cli gets nothing
-      (external-secrets has no LimitRange)
+      (external-secrets has no LimitRange).
+      Nobody holds this: the session that made the 4.2-day pass was closed on 2026-10-18. Its
+      per-container figures are in the batches' pull requests (#57, #58, #60, #62, #63, #64).
+      Where things stood that evening, for comparison: memory requests 77% of the nodes'
+      allocatable and use 52%; one worker (the 9.7GiB one) at 93% requested, so a raise there
+      needs the node-fit check above; CPU requests 34%, use 29%
 - [ ] Immich's server, with the owner (asked in its pull request, the apps batch): its 4.2 days
       are the import (5401Mi peak in the 6Gi limit set for it, p95 992m at the 1000m cap,
       throttled in 26% of periods) against requests of 1376Mi and 30m. Sized once the import is
@@ -190,13 +195,22 @@ Queries (Prometheus, `kube-prometheus-stack`):
       re-measure's restarts took Authentik down for about 3.5 minutes (22:47-22:51 UTC), its
       primary restarted twice (its Cluster's limit, then its `ObjectStore`'s sidecar). Its
       HelmRelease stalled on the upgrade that timed out meanwhile (`RetriesExceeded`); `flux
-      reconcile helmrelease authentik -n authentik --force` clears it, its pods already current
+      reconcile helmrelease authentik -n authentik --force` clears it, its pods already current.
+      Nothing chose `restart`: it's CloudNativePG's default, which the four `.promote` Clusters
+      (Authentik, Baby Buddy, Immich, ManicTime) spell out only because capture writes the live
+      spec; the twelve hand-written ones leave it unset. Switchovers already work here
+      (`ansible/tasks/cnpg-free-node.yml` makes one per primary before draining a node).
+      rreading-glasses-db has one instance, so it restarts in place either way. The lesser
+      alternative is a shorter `smartShutdownTimeout` (180s on every Cluster)
 - [ ] The owner: whether the 1000m CPU cap rises. It was set when two of three workers had 2
       cores; the four workers now have 3, 4, 4 and 6 (the control planes 2). At the cap and
       throttled on 2026-10-18: democratic-csi's drivers 66-79% of periods, Renovate 47%,
       nebula-sync 46%, Immich's server 26% and machine learning 15% (the import), the Bitwarden
       CLI 25%, Organizr 16%, kustomize-controller and pve-exporter 14%, Goldmane and redis-ha's
-      split-brain check 13%
+      split-brain check 13%. Those figures span the time at 500m; in the hour after the raise
+      to 1000m most fell to 0-6%. democratic-csi's driver (27%) and Grafana's dashboard sidecar
+      (32%) stayed throttled while averaging 3-7m: short bursts across cores within one 100ms
+      period, which a higher cap would barely change. Judge the cap on a week at 1000m
 - [ ] Bookshelf, its database and rreading-glasses, once the session working on them is done
       (2026-10-18 data): Bookshelf 700Mi peak for a 224Mi request, p95 499m at its 500m limit
       (throttled 14%; the rules give 864Mi, 500m, 1000m), rreading-glasses 215Mi in 256Mi (64Mi
@@ -205,7 +219,8 @@ Queries (Prometheus, `kube-prometheus-stack`):
 
 ## Resuming
 
-Rerun the queries above; the first unticked batch is next. A batch is one commit.
+Rerun the queries above; the first unticked batch is next. A batch is one branch and pull
+request.
 
 ## Done when
 
