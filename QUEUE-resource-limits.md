@@ -99,7 +99,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       `Goldmane`, `Whisker`; calico-node's CPU limit 1000m, as it carries every pod's network;
       each node had the room for the per-node pods' requests, the control planes 2.2Gi), the
       tigera-operator itself (sized from its use: its peak was startup), MetalLB's controller and
-      speakers. Flux's controllers already had theirs
+      speakers. Flux's controllers already had theirs. Re-measured 2026-10-18 from the 4.2 days
+      since 2026-10-14 16:48, raising only: Flux's memory requests over `flux install`'s 64Mi by a
+      patch in `flux/config/flux-system/` (source 320Mi, kustomize 256Mi and 250m, helm 192Mi,
+      notification 128Mi), the tigera-operator 416Mi (180-230Mi most of the time), typha 192Mi,
+      Goldmane 224Mi. kustomize-controller and Goldmane stay at the 1000m cap, throttled 14% and
+      13%: their work only takes longer
 - [x] A LimitRange in each app namespace with defaults for a container that sets none
       (2026-10-16, `prod/system/cluster-policy/`, one per apps and services namespace)
 - [x] A PriorityClass for the databases, Authentik, Traefik and monitoring (2026-10-16,
