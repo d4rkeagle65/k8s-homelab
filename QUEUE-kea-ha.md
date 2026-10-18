@@ -88,8 +88,12 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       and `management_gateway` (the management routing, `tasks/management-routing.yml`); the
       sync (795) made it active with its MACs. Semaphore logs in as root with `semaphore-shared`
       (cloud-init's `disable_root` wrapping removed, task 789; the vendor data now prevents it)
-- [ ] The firewall's relay pointed at both Keas (the owner, in its UI)
-- [ ] The failover proved: the primary stopped, a client renews from the standby
+- [x] The firewall's relay pointed at both Keas (the owner, 2026-10-18): the standby counted the
+      same relayed packets as the primary, dropped as not in its scope (Run Command task 840)
+- [x] The failover proved (2026-10-18): the primary's Kea stopped at 02:27:57, the standby in
+      partner-down within a minute, then 18 offers and 62 acks from it overnight with no drop;
+      the primary started at 13:48:44, synced 44 leases back and both were hot-standby 30
+      seconds later (tasks 841-869)
 - [ ] Lease names into DNS (Kea's DDNS to the Pi-holes, or a sync): its own decision when here
 - [ ] A week on the new database: `kea` dropped from `kea-postgres`
 
