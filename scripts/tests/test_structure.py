@@ -565,6 +565,66 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     assert not undefined, f"variables used but defined nowhere: {undefined}"
 
 
+_ROUTER_MIDDLEWARES = "traefik.ingress.kubernetes.io/router.middlewares"
+
+
+def _walk(node):
+    """Every dict nested anywhere in a parsed YAML document, the document included."""
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _walk(value)
+
+
+def _middleware_ref_problem(ref: str, defined: set[tuple[str, str]]) -> str | None:
+    """Why Traefik can't resolve one router.middlewares entry, or None when it can. Under
+    safe naming a CRD Middleware is <namespace>_<name>@kubernetescrd."""
+    base, _, provider = ref.partition("@")
+    if provider != "kubernetescrd" or "$" in ref:
+        return None
+    namespace, sep, name = base.partition("_")
+    if not sep:
+        return "not <namespace>_<name>"
+    return None if (namespace, name) in defined else "no such Middleware"
+
+
+def test_traefik_middleware_references_resolve(repo_root):
+    """Traefik drops a router whose middleware it can't resolve, and that app then answers
+    404 for every request. Each router.middlewares entry must name a Middleware defined in
+    git, as <namespace>_<name>@kubernetescrd (Traefik's safe naming here).
+    """
+    defined_fixture = {("traefik", "redirect-https")}
+    assert _middleware_ref_problem("traefik_redirect-https@kubernetescrd", defined_fixture) is None
+    assert _middleware_ref_problem("traefik-redirect-https@kubernetescrd", defined_fixture) == "not <namespace>_<name>"
+    assert _middleware_ref_problem("traefik_redirect-http@kubernetescrd", defined_fixture) == "no such Middleware"
+
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes/*.yaml"], cwd=repo_root,
+                             capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    defined: set[tuple[str, str]] = set()
+    refs: list[tuple[str, str]] = []
+    for rel in filter(None, tracked):
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        if "Middleware" not in text and _ROUTER_MIDDLEWARES not in text:
+            continue
+        parts = Path(rel).parts
+        folder_ns = parts[3] if len(parts) > 3 and parts[1] == "prod" else ""
+        for doc in _yaml.load_all(text):
+            for node in _walk(doc):
+                if node.get("kind") == "Middleware" and str(node.get("apiVersion", "")).startswith("traefik."):
+                    meta = node.get("metadata") or {}
+                    defined.add((meta.get("namespace") or folder_ns, meta.get("name")))
+                value = node.get(_ROUTER_MIDDLEWARES)
+                if isinstance(value, str):
+                    refs += [(rel, r.strip()) for r in value.split(",") if r.strip()]
+    assert defined and refs, "found no Middlewares or no references, so nothing was checked"
+    problems = sorted({f"{rel}: {ref} ({why})" for rel, ref in refs
+                       if (why := _middleware_ref_problem(ref, defined))})
+    assert not problems, "router.middlewares entries Traefik can't resolve:\n" + "\n".join(problems)
+
+
 def test_cluster_secrets_maps_each_variable_once(repo_root, load_yaml):
     """External Secrets' admission webhook rejects an ExternalSecret that names a
     secretKey twice, so the cluster-secrets Kustomization stops applying and no
