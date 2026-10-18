@@ -27,7 +27,7 @@ spec:
       memory: 128Mi
     limits:
       cpu: 1000m
-      memory: 512Mi
+      memory: 896Mi
   imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
   enableSuperuserAccess: false
   bootstrap:
