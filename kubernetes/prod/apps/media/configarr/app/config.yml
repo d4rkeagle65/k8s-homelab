@@ -406,15 +406,27 @@ readarr:
       enableColorImpairedMode: false
       uiLanguage: 1
       theme: "auto"
-    # "None" is built in and stays the app's.
+    # "None" is built in and stays the app's. "Standard" keeps a book with a
+    # popularity (ratings x average stars) of 15 or more.
     metadata_profiles:
       - name: "Standard"
-        min_popularity: 50
+        min_popularity: 15
         skip_missing_date: true
         skip_missing_isbn: false
         skip_parts_and_sets: true
         skip_secondary_series: false
         allowed_languages: ["eng", "null"]
+        min_pages: 0
+        must_not_contain: []
+      # For authors whose books few people rate (the D&D rulebooks: popularity is
+      # ratings x average stars, and most have under five ratings).
+      - name: "Everything"
+        min_popularity: 0
+        skip_missing_date: false
+        skip_missing_isbn: false
+        skip_parts_and_sets: false
+        skip_secondary_series: false
+        allowed_languages: ["eng"]
         min_pages: 0
         must_not_contain: []
     # qBittorrent and SABnzbd, every field as the app had it. A client Configarr
