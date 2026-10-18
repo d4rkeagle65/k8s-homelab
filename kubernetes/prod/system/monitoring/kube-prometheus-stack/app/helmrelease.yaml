@@ -255,7 +255,10 @@ spec:
       - namespaces=[homelab.local/category]
       # Flux's objects as metrics (gotk_resource_info: each Kustomization's,
       # HelmRelease's and source's ready state, revision and suspension), for
-      # Flux's own dashboards (monitoring/dashboards). From
+      # Flux's own dashboards (monitoring/dashboards) and the FluxObjectNotReady
+      # alert (monitors/). Kustomizations and HelmReleases also carry their Ready
+      # condition's reason, so the alert can leave out DependencyNotReady: those
+      # wait on another object, which alerts for itself. From
       # fluxcd/flux2-monitoring-example, without its image-automation kinds
       # (not installed here) and without its collectors: [] and
       # --custom-resource-state-only, which would drop every other metric.
@@ -309,6 +312,11 @@ spec:
                   - conditions
                   - '[type=Ready]'
                   - status
+                  reason:
+                  - status
+                  - conditions
+                  - '[type=Ready]'
+                  - reason
                   suspended:
                   - spec
                   - suspend
@@ -343,6 +351,11 @@ spec:
                   - conditions
                   - '[type=Ready]'
                   - status
+                  reason:
+                  - status
+                  - conditions
+                  - '[type=Ready]'
+                  - reason
                   suspended:
                   - spec
                   - suspend
