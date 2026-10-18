@@ -58,11 +58,15 @@ spec:
         volumeMounts:
           - {name: plugins, mountPath: /headlamp/plugins}
           - {name: init-tmp, mountPath: /tmp}
+    # config: the default plugin folders it makes under its home at start (the
+    # root filesystem is read only).
     volumes:
       - {name: plugins, emptyDir: {}}
       - {name: init-tmp, emptyDir: {}}
+      - {name: config, emptyDir: {}}
     volumeMounts:
       - {name: plugins, mountPath: /headlamp/plugins}
+      - {name: config, mountPath: /home/headlamp/.config}
     podSecurityContext:
       seccompProfile: {type: RuntimeDefault}
     securityContext:
