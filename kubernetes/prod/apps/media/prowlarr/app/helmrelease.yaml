@@ -53,6 +53,19 @@ spec:
                   secretKeyRef:
                     name: prowlarr
                     key: api-key
+              # Start-up settings pinned here rather than in config.xml, which
+              # they override (QUEUE-arr-config.md): Forms login, as set up;
+              # info logs (debug floods Loki); the update channel it runs.
+              - name: PROWLARR__AUTH__METHOD
+                value: Forms
+              - name: PROWLARR__AUTH__REQUIRED
+                value: Enabled
+              - name: PROWLARR__LOG__LEVEL
+                value: info
+              - name: PROWLARR__UPDATE__BRANCH
+                value: master
+              - name: PROWLARR__LOG__ANALYTICSENABLED
+                value: "false"
             # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml).
             probes:
               startup:

@@ -56,6 +56,19 @@ spec:
                   secretKeyRef:
                     name: lidarr
                     key: api-key
+              # Start-up settings pinned here rather than in config.xml, which
+              # they override (QUEUE-arr-config.md): Forms login, as set up;
+              # info logs (debug floods Loki); the update channel it runs.
+              - name: LIDARR__AUTH__METHOD
+                value: Forms
+              - name: LIDARR__AUTH__REQUIRED
+                value: Enabled
+              - name: LIDARR__LOG__LEVEL
+                value: info
+              - name: LIDARR__UPDATE__BRANCH
+                value: nightly
+              - name: LIDARR__LOG__ANALYTICSENABLED
+                value: "false"
             # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml).
             probes:
               startup:
