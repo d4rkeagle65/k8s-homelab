@@ -42,8 +42,8 @@ spec:
                 capabilities:
                   drop: [ALL]
               resources:
-                requests: {cpu: 100m, memory: 384Mi}
-                limits: {cpu: 1000m, memory: 2Gi}
+                requests: {cpu: 540m, memory: 1536Mi}
+                limits: {cpu: 1000m, memory: 3200Mi}
               volumeMounts:
                 - {name: config, mountPath: /config}
                 - {name: data, mountPath: /data}
@@ -59,8 +59,8 @@ spec:
                 capabilities:
                   drop: [ALL]
               resources:
-                requests: {cpu: 10m, memory: 32Mi}
-                limits: {memory: 128Mi}
+                requests: {cpu: 10m, memory: 64Mi}
+                limits: {cpu: 500m, memory: 256Mi}
               volumeMounts:
                 - {name: config, mountPath: /config}
                 - {name: data, mountPath: /data}

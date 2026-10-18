@@ -29,5 +29,5 @@ spec:
     # in every reconcile, so a starved plugin stalls them all. Memory and the
     # limits by the rules (QUEUE-resource-limits.md).
     resources:
-      requests: {cpu: 50m, memory: 64Mi}
-      limits: {cpu: 500m, memory: 256Mi}
+      requests: {cpu: 50m, memory: 96Mi}
+      limits: {cpu: 500m, memory: 512Mi}
