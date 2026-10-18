@@ -98,10 +98,20 @@ Queries (Prometheus, `kube-prometheus-stack`):
       each node had the room for the per-node pods' requests, the control planes 2.2Gi), the
       tigera-operator itself (sized from its use: its peak was startup), MetalLB's controller and
       speakers. Flux's controllers already had theirs
-- [ ] A LimitRange in each app namespace with defaults for a container that sets none
-- [ ] A PriorityClass for the databases, Authentik, Traefik and monitoring
-- [ ] Alerts: a container near its memory limit, heavy CPU throttling, a container without limits
-      (with monitoring phase 5)
+- [x] A LimitRange in each app namespace with defaults for a container that sets none
+      (2026-10-16, `prod/system/cluster-policy/`, one per apps and services namespace)
+- [x] A PriorityClass for the databases, Authentik, Traefik and monitoring (2026-10-16,
+      `homelab-critical`, in the same release)
+- [ ] Alerts: a container without limits. Near its memory limit is `ContainerMemoryNearLimit`
+      (`monitors/`, a ticket); heavy throttling is the chart's `CPUThrottlingHigh`, severity
+      `info`, which zammad-bridge leaves out (13 firing on 2026-10-18, so a ticket each would be
+      noise until the 10-21 re-measure raises the throttled limits)
+- [x] Risk fixes from the four days there were (2026-10-18), limits only, so nothing
+      rescheduled: CPU 1000m where throttled in over 10% of periods (democratic-csi's drivers
+      and registrar 33-77%, nebula-sync 45%, the Bitwarden CLI 24%, redis-ha's split-brain check
+      25%, Organizr 16%, the pve-exporter 14%, Goldmane 13%, node-exporter 11%);
+      kube-state-metrics' memory 512Mi (212Mi peak in 256Mi); Immich's machine learning 3Gi
+      (1865Mi peak in 2Gi during the import), a judgement said in its comment
 - [x] The Docker VM's containers (2026-10-16): a `mem_limit` on every long-running service in
       `docker/` (the VM has no swap, so it's a hard ceiling), about two to three times its
       cAdvisor peak over the day and a half of history there was; `tests/test-docker-stacks.py`
@@ -109,11 +119,24 @@ Queries (Prometheus, `kube-prometheus-stack`):
       scrapes its memory yet.
 - [ ] Re-measure the Docker VM's containers with the cluster's, from a week of cAdvisor data, and
       give Garage a figure once its memory is scraped
-- [ ] Re-measure at seven days (2026-10-18): requests from the new peaks, limits by the rules
-      above. Immich's server was throttled in 66% of periods over the first two days, mostly
-      while it crash-looped on 2026-10-11; if it stays above 10% it needs a judgement against
-      the 1000m cap. Its memory limit is 6Gi while the owner's library import runs (3Gi was
-      OOM-killed within 30 seconds of each start by the import's jobs); size it again once the import is done
+- [ ] Re-measure at seven days, **from 2026-10-21**: Prometheus's history starts 2026-10-14 16:48
+      (its data was reset then), so a week of it exists from the 21st. Requests from the new
+      peaks, limits by the rules above. What four days showed, for that pass:
+      - Memory requests far below peak: Immich's machine learning (384Mi, 1865Mi peak), Immich's
+        server (1376Mi, 5401Mi, the import), Prometheus (768Mi, 1358Mi), Alloy (64Mi per node,
+        297Mi), Flux's controllers (64Mi, up to 262Mi: `flux install`'s defaults in
+        `gotk-components.yaml`, so a change is a patch in `flux/config/flux-system/`),
+        kube-state-metrics (64Mi, 212Mi), Linkwarden (512Mi, 793Mi); most others a little below.
+      - At the 1000m cap and still throttled: Immich's server 22% and machine learning 15%
+        (both during the import), Flux's kustomize-controller 13%, Elasticsearch 10%. Each needs
+        a judgement against the cap, as the rules say.
+      - Elasticsearch at 87% of its 1Gi: its JVM, sized by the chart (`QUEUE-zammad.md`).
+      - Bookshelf (throttled 14%, 224Mi requested for a 700Mi peak) and rreading-glasses (84% of
+        its 256Mi) belong to the session working on them (2026-10-18): leave them to it, or
+        include them only once it's done.
+      - Immich's server memory limit is 6Gi while the owner's library import runs (3Gi was
+        OOM-killed within 30 seconds of each start by the import's jobs); size it again once the
+        import is done.
 
 ## Resuming
 
