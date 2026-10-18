@@ -107,12 +107,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
       zammad-bridge leaves out (13 firing on 2026-10-18, so a ticket each would be noise until
       the 10-21 re-measure raises the throttled limits). Zammad's nginx, websocket, Redis and
       memcached and `proxmox-endpoints` got the CPU limits they lacked first
-- [ ] Authentik's two outposts (LDAP and the proxy) have no limits, so `ContainerWithoutLimits`
-      fires for them an hour after it's deployed: their pods predate `authentik`'s LimitRange,
-      whose defaults (500m, 512Mi) a server-side dry run of their template shows them taking.
-      Restart both (`kubectl -n authentik rollout restart deploy/ak-outpost-ldap
-      deploy/ak-outpost-default-proxy-outpost`; Authentik owns them, not Flux), with the owner:
-      the proxy outpost's forward-auth and the LDAP outpost drop for a few seconds
+- [x] Authentik's two outposts (LDAP and the proxy) restarted (2026-10-18), so they took
+      `authentik`'s LimitRange defaults (500m, 512Mi); Authentik owns their Deployments, not
+      Flux. Every running container outside Talos's own now has limits, and
+      `ContainerWithoutLimits` matched none once it was live
 - [x] Risk fixes from the four days there were (2026-10-18), limits only, so nothing
       rescheduled: CPU 1000m where throttled in over 10% of periods (democratic-csi's drivers
       and registrar 33-77%, nebula-sync 45%, the Bitwarden CLI 24%, redis-ha's split-brain check
