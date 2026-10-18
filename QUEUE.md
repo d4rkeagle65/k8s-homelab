@@ -27,15 +27,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
-- **No alert fires when a Flux object stops reconciling** (found 2026-10-18): `cluster-secrets`
-  failed every apply from PR #34's merge until the fix (PR #34 and PR #35 each mapped
-  `SABNZBD_API_KEY`, and External Secrets' webhook rejects a duplicate `secretKey`), and
-  nothing reported it.
-  Prometheus already has `gotk_resource_info{ready="False"}` for each Kustomization and
-  HelmRelease. Add a rule to `prod/system/monitoring/monitors/app/prometheusrule-homelab.yaml`
-  (not Ready for 15 minutes, suspended ones left out) so zammad-bridge opens a ticket; left as
-  is, a failing Kustomization is found only by looking, and every variable mapped meanwhile
-  stays out of the cluster.
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
   found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches
   them in batches that each start from the pre-refresh snapshot (`getAuthor` serves the

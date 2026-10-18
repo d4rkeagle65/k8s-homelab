@@ -11,6 +11,7 @@ even if kubeconform would happily validate each file in isolation.
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -575,3 +576,55 @@ def test_cluster_secrets_maps_each_variable_once(repo_root, load_yaml):
     assert keys, "cluster-secrets.yaml maps no variables"
     twice = sorted({k for k in keys if keys.count(k) > 1})
     assert not twice, f"mapped more than once in kubernetes/secrets/cluster-secrets.yaml: {twice}"
+
+
+_GOTK_SELECTOR_RE = re.compile(r"gotk_resource_info\s*\{([^}]*)\}")
+_MATCHER_LABEL_RE = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)\s*(?:=~|!~|!=|=)\s*"')
+# On every gotk_resource_info series beside the config's own labels: kube-state-metrics'
+# customresource_* and the scrape target's labels.
+_GOTK_ADDED_LABELS = {"customresource_group", "customresource_kind", "customresource_version",
+                      "job", "instance", "namespace", "pod", "service", "endpoint", "container"}
+
+
+def _gotk_matcher_labels(expr: str) -> set[str]:
+    """The label names an expression's gotk_resource_info selectors match on."""
+    return {label for sel in _GOTK_SELECTOR_RE.findall(expr) for label in _MATCHER_LABEL_RE.findall(sel)}
+
+
+def test_flux_alerts_match_only_labels_gotk_resource_info_carries(repo_root, load_yaml):
+    """A matcher on a label a series doesn't carry still evaluates: reason!="DependencyNotReady"
+    matches every series without a reason label, and ready="False" matches none once ready is
+    renamed. So each label a PrometheusRule matches gotk_resource_info on must be one that
+    kube-state-metrics' customResourceState config (the kube-prometheus-stack release) makes,
+    or one it or the scrape adds.
+    """
+    assert _gotk_matcher_labels('max(gotk_resource_info{ready="False", reason!~"A|B"}) + up{job="x"}') == {"ready", "reason"}
+    assert _gotk_matcher_labels('gotk_resource_info') == set()
+
+    values = load_yaml(repo_root / "kubernetes/prod/system/monitoring/kube-prometheus-stack/app/helmrelease.yaml")["spec"]["values"]
+    made = set(_GOTK_ADDED_LABELS)
+    for resource in values["kube-state-metrics"]["customResourceState"]["config"]["spec"]["resources"]:
+        for metric in resource["metrics"]:
+            made |= set(metric.get("labelsFromPath") or {})
+            made |= set(((metric.get("each") or {}).get("info") or {}).get("labelsFromPath") or {})
+    assert {"ready", "suspended"} <= made, "customResourceState no longer makes ready and suspended"
+
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes/*.yaml"], cwd=repo_root,
+                             capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    unknown: dict[str, set[str]] = {}
+    exprs = 0
+    for rel in filter(None, tracked):
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        if "gotk_resource_info" not in text:
+            continue
+        for doc in _yaml.load_all(text):
+            if not isinstance(doc, dict) or doc.get("kind") != "PrometheusRule":
+                continue
+            for group in doc["spec"]["groups"]:
+                for rule in group["rules"]:
+                    labels = _gotk_matcher_labels(str(rule.get("expr", "")))
+                    exprs += bool(labels)
+                    if labels - made:
+                        unknown.setdefault(f"{rel}: {rule.get('alert') or rule.get('record')}", set()).update(labels - made)
+    assert exprs, "no PrometheusRule matches on gotk_resource_info's labels, so nothing was checked"
+    assert not unknown, f"matched on labels gotk_resource_info doesn't carry: {unknown}"
