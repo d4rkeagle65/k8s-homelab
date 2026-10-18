@@ -133,7 +133,7 @@ services:
     command: [chown, -R, "netbox:root", /opt/netbox/netbox/media, /opt/netbox/netbox/reports, /opt/netbox/netbox/scripts]
 
   netbox:
-    mem_limit: 2g
+    mem_limit: 4g
     <<: *netbox
     # Built here from the Dockerfile, which holds the versions; never pulled,
     # since no registry has it.
