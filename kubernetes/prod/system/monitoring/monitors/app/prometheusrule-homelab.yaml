@@ -34,6 +34,29 @@ spec:
         description: >-
           {{ $labels.name }} started {{ $value }} times in 30 minutes: read its log
           in Dockhand.
+  - name: homelab.flux
+    rules:
+    # One alert per failing object, never per dependent: an object waiting on a
+    # failing one is Ready=False with reason DependencyNotReady, and is left out.
+    # reason is dropped by the max so a change of reason keeps the same alert, and
+    # the 3m window bridges a retry's moment of Ready=Unknown, which would otherwise
+    # restart the 15 minutes and close the ticket only to open another. A longer
+    # window adds its length to every run, and fires on failures that heal alone.
+    - alert: FluxObjectNotReady
+      expr: |
+        max by (customresource_kind, exported_namespace, name) (
+          max_over_time(gotk_resource_info{ready="False", reason!="DependencyNotReady", suspended!="true"}[3m])
+        )
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: A Flux object has failed to reconcile for 15 minutes.
+        description: >-
+          {{ $labels.customresource_kind }} {{ $labels.exported_namespace }}/{{ $labels.name }}
+          is not Ready, so nothing it applies is updated, and the objects that depend
+          on it wait too: read its message with
+          `flux get all -A --status-selector ready=false`.
   - name: homelab.drives
     rules:
     - alert: DriveWearHigh
