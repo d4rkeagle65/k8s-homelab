@@ -1,7 +1,7 @@
 # Organizr's pages send a Referer only to Organizr itself. A tab that opens an app
 # on another host would otherwise carry Organizr's address as its Referer, and
 # qBittorrent's CSRF protection answers any request whose Referer names another
-# site with 401 "Unauthorized". Used as organizr-referrer-same-origin@kubernetescrd.
+# site with 401 "Unauthorized". Used as organizr_referrer-same-origin@kubernetescrd.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
