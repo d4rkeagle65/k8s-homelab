@@ -14,7 +14,9 @@ automatically, like Homepage.
   it by hand on 2026-10-10 with the same values, so it's skipped now.
 - **Login:** Authentik's OIDC provider (the `organizr` blueprint); Organizr Admins become Admins,
   Organizr Users Users, nobody else is admitted. Straight to Authentik; `#noredirect` on the
-  address shows the local form (whether any account still signs in there: the checklist).
+  address shows the local form, where the first-run local admin still signs in with its
+  password though its account is linked to Authentik: the way in while Authentik is down.
+- **The Organizr Users group's sign-in isn't checked** (the owner, 2026-10-18): no one is in it.
 - **Tabs:** apps that refuse framing or log in through Authentik open in a new browser tab
   (type 2); the *arr apps open inside Organizr (type 1).
 
@@ -29,12 +31,9 @@ automatically, like Homepage.
 - [x] The Job's run in the cluster succeeds, OIDC settings included (2026-10-16: 34
       settings, 5 categories, 27 tabs verified)
 - [x] Login through Authentik works as an Organizr Admin (the owner, 2026-10-18)
-- [ ] Login through Authentik as an Organizr User: Organizr has one user, the owner's Admin, so
-      no one in that group has signed in yet
-- [ ] A way in while Authentik is down. That one user is the first-run local admin, linked to
-      Authentik (`oidcLinkExistingUsers`; its `auth_service` is now `oidc::authentik`), so its
-      password may no longer work on the `#noredirect` form. The owner tries it; if it fails,
-      decide whether a separate local Admin is wanted for that.
+- [x] A way in while Authentik is down: the `#noredirect` form signs in the first-run local
+      admin with its password (the owner, 2026-10-18), though that account is linked to
+      Authentik (`oidcLinkExistingUsers`; its `auth_service` is `oidc::authentik`)
 - [x] The *arr tabs load inside Organizr (2026-10-18, checked in the owner's Chrome: Sonarr,
       Radarr, Prowlarr, Lidarr and Bookshelf each load, a lapsed session at the app's own login
       page). They need the pod network in `TrustedNetworks` (`<APP>__SERVER__TRUSTEDNETWORKS`,
@@ -58,3 +57,14 @@ automatically, like Homepage.
 ## Done when
 
 Every box is ticked and this file moves to `old-queues/`.
+
+## Checked and negative
+
+- **Sonarr's, Radarr's and Prowlarr's blank tabs** (2026-10-18) were none of these, all the
+  same for the *arr apps that loaded: X-Frame-Options or CSP headers (none, signed in or out),
+  the apps' authentication settings (Forms, required, on all five), Organizr's tab rows or its
+  iframe sandbox (`allow-same-origin` and `allow-scripts` present), frame-busting code in the
+  apps' UI (none), or the network (each answered Organizr's page in under 50 ms). Each one's
+  login page renders in a frame; the cause was the `http://` login redirect above.
+- **An API key doesn't sign in to the *arr apps' UI**: `X-Api-Key` on `/` still redirects to
+  the login page, so the signed-in page can only be seen in a browser.
