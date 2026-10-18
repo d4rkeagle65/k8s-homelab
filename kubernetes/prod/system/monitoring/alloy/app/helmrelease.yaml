@@ -44,8 +44,8 @@ spec:
           fieldRef:
             fieldPath: spec.nodeName
       resources:
-        requests: {cpu: 20m, memory: 64Mi}
-        limits: {cpu: 500m, memory: 512Mi}
+        requests: {cpu: 30m, memory: 384Mi}
+        limits: {cpu: 500m, memory: 768Mi}
       configMap:
         content: |
           logging {

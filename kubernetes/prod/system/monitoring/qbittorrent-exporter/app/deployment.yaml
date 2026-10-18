@@ -47,8 +47,8 @@ spec:
           capabilities:
             drop: [ALL]
         resources:
-          requests: {cpu: 5m, memory: 24Mi}
-          limits: {cpu: 500m, memory: 96Mi}
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
 ---
 apiVersion: v1
 kind: Service

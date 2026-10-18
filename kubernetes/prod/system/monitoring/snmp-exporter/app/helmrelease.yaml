@@ -142,8 +142,8 @@ spec:
         requests: {cpu: 10m, memory: 64Mi}
         limits: {cpu: 500m, memory: 256Mi}
     resources:
-      requests: {cpu: 10m, memory: 32Mi}
-      limits: {cpu: 500m, memory: 128Mi}
+      requests: {cpu: 10m, memory: 96Mi}
+      limits: {cpu: 500m, memory: 256Mi}
     serviceMonitor:
       enabled: true
       selector: {}
