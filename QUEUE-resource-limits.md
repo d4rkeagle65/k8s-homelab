@@ -74,10 +74,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
       3904Mi: Tdarr freed 1.28 GiB, while SABnzbd, Jellyseerr and Radarr were requesting less
       than they use
 - [x] Batch 2: the CloudNativePG databases (each Cluster's `resources`; a change restarts its
-      instances one at a time, replica first, then a switchover). Peaks 91-332Mi; 4.7 GiB of
-      requests added across 24 instances, where none had any. Sonarr and Radarr were moved off
-      the 8-core worker first, or one of its instances wouldn't have fit. Re-measured 2026-10-18
-      from the 4.2 days since 2026-10-14 16:48, raising only: Immich's 384Mi, ManicTime's,
+      instances one at a time, the primary in place: `kubernetes/CLAUDE.md`). Peaks 91-332Mi;
+      4.7 GiB of requests added across 24 instances, where none had any. Sonarr and Radarr were
+      moved off the 8-core worker first, or one of its instances wouldn't have fit. Re-measured
+      2026-10-18 from the 4.2 days since 2026-10-14 16:48, raising only: Immich's 384Mi, ManicTime's,
       Whisparr's and Zammad's 288Mi, Prowlarr's 160Mi; limits by the PostgreSQL rule from the
       peak connections (Authentik 21: 1408Mi, Zammad 19: 1280Mi, Kea 896Mi); each node had the
       room. The Barman sidecars' resources in five namespaces' `ObjectStore`s (the rest: the
@@ -171,7 +171,9 @@ Queries (Prometheus, `kube-prometheus-stack`):
         keeps (Zammad's Rails server 100m and scheduler 50m, Home Assistant 60m, Loki 50m);
       - sets the Barman sidecar's resources in the other namespaces' `ObjectStore`s (babybuddy,
         linkwarden, mealie, n8n, media; media's also serves the Bookshelf and rreading-glasses
-        databases, so with the session working on those). Their pods predate the LimitRanges,
+        databases, so with the session working on those; each restarts that namespace's
+        instances, the primaries in place, so with the owner: Authentik's takes every login
+        with it). Their pods predate the LimitRanges,
         so they have none until recreated, and `ContainerWithoutLimits` doesn't see them: it
         reads `kube_pod_container_resource_limits`, not the init containers' series;
       - sizes Immich's machine learning again once the import is done: its 2304Mi and 620m are
@@ -183,6 +185,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       are the import (5401Mi peak in the 6Gi limit set for it, p95 992m at the 1000m cap,
       throttled in 26% of periods) against requests of 1376Mi and 30m. Sized once the import is
       done, or now with a limit above 6Gi (3Gi was OOM-killed within 30 seconds of each start)
+- [ ] The owner: `primaryUpdateMethod: switchover` on the Clusters? A change then costs a
+      switchover of a few seconds rather than the primary's smart shutdown: on 2026-10-18 the
+      re-measure's restarts took Authentik down for about 3.5 minutes (22:47-22:51 UTC), its
+      primary restarted twice (its Cluster's limit, then its `ObjectStore`'s sidecar). Its
+      HelmRelease stalled on the upgrade that timed out meanwhile (`RetriesExceeded`); `flux
+      reconcile helmrelease authentik -n authentik --force` clears it, its pods already current
 - [ ] The owner: whether the 1000m CPU cap rises. It was set when two of three workers had 2
       cores; the four workers now have 3, 4, 4 and 6 (the control planes 2). At the cap and
       throttled on 2026-10-18: democratic-csi's drivers 66-79% of periods, Renovate 47%,
