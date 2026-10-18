@@ -51,7 +51,7 @@ spec:
   values:
     # Requests and limits by QUEUE-resource-limits.md's rules.
     resources:
-      requests: {cpu: 10m, memory: 64Mi}
+      requests: {cpu: 10m, memory: 160Mi}
       limits: {cpu: 500m, memory: 512Mi}
     provider:
       name: pihole

@@ -9,7 +9,7 @@ cloudflare:
 # request is above its 95th percentile (2m) and its limit at the 1000m cap, as
 # for Traefik (large uploads through the tunnel).
 resources:
-  requests: {cpu: 10m, memory: 64Mi}
+  requests: {cpu: 10m, memory: 96Mi}
   limits: {cpu: 500m, memory: 512Mi}
 cloudflared:
   resources:

@@ -40,7 +40,7 @@ spec:
     # in, which starves first with none (the main Traefik's outage,
     # 2026-10-12). Memory and the limits by QUEUE-resource-limits.md's rules.
     resources:
-      requests: {cpu: 50m, memory: 64Mi}
+      requests: {cpu: 50m, memory: 160Mi}
       limits: {cpu: 500m, memory: 512Mi}
     providers:
       # Class `traefik-isolated` only.

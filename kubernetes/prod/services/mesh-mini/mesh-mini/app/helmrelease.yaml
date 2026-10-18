@@ -62,7 +62,7 @@ spec:
               allowPrivilegeEscalation: false
               capabilities: {drop: [ALL]}
             resources:
-              requests: {cpu: 10m, memory: 64Mi}
+              requests: {cpu: 10m, memory: 96Mi}
               limits: {cpu: 500m, memory: 512Mi}
             probes:
               liveness: &probe

@@ -11,5 +11,5 @@ monitoring:
 # the chart doesn't expose) and restarted in a loop. Memory and the limits by
 # the rules (QUEUE-resource-limits.md).
 resources:
-  requests: {cpu: 100m, memory: 96Mi}
-  limits: {cpu: 500m, memory: 512Mi}
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 1000m, memory: 512Mi}

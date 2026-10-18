@@ -85,7 +85,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       Traefik and the Cloudflare connector keep a 1000m CPU limit for large uploads; Redis
       sized as one of the other databases. metrics-server's chart default (100m, 200Mi) went
       to the rules' 10m and 64Mi. The main Traefik also got a second replica on another node.
-      Redis-ha's config-init init container has none; it runs once at start
+      Redis-ha's config-init init container has none; it runs once at start. Re-measured
+      2026-10-18 from the 4.2 days since 2026-10-14 16:48, raising only: about 30 memory requests to
+      1.2 x peak (External Secrets' three to 160-192Mi, external-dns 160Mi, democratic-csi's
+      node driver 192Mi, the Bitwarden CLI 256Mi and 30m, both Traefiks), Renovate's run
+      1536Mi and 540m in 3200Mi, `proxmox-endpoints` 1000m (throttled 11%), the CloudNativePG
+      operator 1000m (318m peak)
 - [x] Batch 5 (2026-10-16): monitoring. Every container had a memory request and limit except
       the charts' sidecars; the batch adds the CPU limits (500m; Prometheus 1000m, as a
       database: compactions) and the sidecars' settings (the config reloaders, Grafana's and
