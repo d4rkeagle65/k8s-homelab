@@ -53,13 +53,17 @@ rotated key is one paste into Vaultwarden.
       Prowlarr and Bookshelf on Forms login, required, `info` logs, their update channel,
       analytics off (Bookshelf has none). Bookshelf takes only a name containing "Readarr", so
       it's "Bookshelf (Readarr)"
-- [ ] Phase 2, Configarr in place, owning nothing (`prod/apps/media/configarr/`, 2026-10-18):
-      the CronJob hourly at :17 with `DRY_RUN=true`, a `config.yml` naming each instance only,
-      each app's key from its own Secret. Left: its first run's log reaches every app with an
-      empty diff
-- [ ] Phase 3, download clients: qBittorrent and SABnzbd captured into `config.yml` for Sonarr,
-      Radarr, Lidarr, Bookshelf and Prowlarr, qBittorrent's `api_key` from
-      `QBITTORRENT_API_KEY`; remote path mappings and the global download settings with them
+- [x] Phase 2 (2026-10-18): `prod/apps/media/configarr/`, hourly at :17; its first run reached
+      all five apps and reported no change
+- [ ] Phase 3, download clients: qBittorrent's client in Sonarr, Radarr, Lidarr, Bookshelf and
+      Prowlarr from `config.yml` (2026-10-18), every field as each app had it and its `api_key`
+      from `QBITTORRENT_API_KEY`, with `update_password: true` (the apps never show a key, so it
+      is written on every run and the diff report always lists it); the global download
+      settings likewise. A dry run with the real key changed only the key and the empty
+      password. Left: `DRY_RUN` off, then each app's client tests OK. SABnzbd's clients stay the
+      UI's until `SABNZBD_API_KEY` is in Vaultwarden (an updated client takes the schema's
+      default for a field left out, so a missing key would be blanked); remote path mappings
+      (none today) with them
 - [ ] Phase 4, the rest captured: root folders, delay and release profiles, naming, media
       management, UI; Prowlarr's applications (the apps' links and keys), sync profiles,
       indexer proxies; Lidarr's and Bookshelf's metadata profiles
