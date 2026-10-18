@@ -58,9 +58,9 @@ rotated key is one paste into Vaultwarden.
 - [x] Phase 3 (2026-10-18): Configarr owns each app's qBittorrent client and its key from
       `QBITTORRENT_API_KEY` (`update_password: true`: written on every run, the diff report always
       lists it); its first real run passed every app's download-client test, Lidarr's on the key
-- [ ] SABnzbd's clients: with `SABNZBD_API_KEY` (the owner adds it), captured like
-      qBittorrent's; until then the UI's (an updated client takes the schema's default for a
-      field left out, so a missing key would be blanked)
+- [ ] SABnzbd's clients (2026-10-18, with phase 4's PR): each app's, every field as it had it,
+      its `api_key` from `SABNZBD_API_KEY`; a dry run with the real key changed only the two
+      keys. Left: the merge, then each app's download-client test
 - [ ] Phase 4 (2026-10-18), captured as each app had it: tags (none deleted), root folders and
       the default delay profile (each a complete list: one not named is deleted), naming,
       media management and UI settings in Sonarr, Radarr, Lidarr and Bookshelf; Lidarr's and
