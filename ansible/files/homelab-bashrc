@@ -17,6 +17,9 @@ shopt -s histappend checkwinsize
 alias ll='ls -alF --color=auto'
 alias la='ls -A --color=auto'
 alias grep='grep --color=auto'
+alias showbootlog='journalctl -b0 | egrep -i "error|fail|warn|segfault|bug"'
+
+alias cd..='cd ..'
 
 # Root's prompt is red, everyone else's green, both with the host name.
 if [ "$(id -u)" -eq 0 ]; then
