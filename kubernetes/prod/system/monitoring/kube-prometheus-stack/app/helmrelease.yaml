@@ -247,7 +247,7 @@ spec:
     kube-state-metrics:
       resources:
         requests: {cpu: 10m, memory: 64Mi}
-        limits: {cpu: 500m, memory: 256Mi}
+        limits: {cpu: 500m, memory: 512Mi}
       # Each namespace's category (apps, services, system) as
       # kube_namespace_labels{label_homelab_local_category}, for the Resources
       # dashboard's filter.
@@ -638,7 +638,7 @@ spec:
     prometheus-node-exporter:
       resources:
         requests: {cpu: 10m, memory: 32Mi}
-        limits: {cpu: 500m, memory: 64Mi}
+        limits: {cpu: 1000m, memory: 64Mi}
 
     grafana:
       admin:

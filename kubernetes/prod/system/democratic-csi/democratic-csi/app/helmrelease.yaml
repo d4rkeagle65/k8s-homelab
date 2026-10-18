@@ -86,9 +86,11 @@ spec:
           # Pinned rather than the chart's `latest`.
           # renovate: datasource=docker depName=ghcr.io/democratic-csi/democratic-csi
           tag: v1.9.5
+        # The drivers' and the registrar's 1000m CPU: throttled in a third to
+        # three quarters of periods at 500m (QUEUE-resource-limits.md's rules).
         resources:
           requests: {cpu: 10m, memory: 96Mi}
-          limits: {cpu: 500m, memory: 256Mi}
+          limits: {cpu: 1000m, memory: 256Mi}
       externalAttacher:
         resources: &sidecar
           requests: {cpu: 10m, memory: 32Mi}
@@ -120,9 +122,11 @@ spec:
         iscsiDirHostPathType: ""
         resources:
           requests: {cpu: 10m, memory: 96Mi}
-          limits: {cpu: 500m, memory: 256Mi}
+          limits: {cpu: 1000m, memory: 256Mi}
       driverRegistrar:
-        resources: *sidecar
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {cpu: 1000m, memory: 256Mi}
       cleanup:
         resources: *sidecar
       affinity:
