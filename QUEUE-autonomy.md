@@ -7,16 +7,19 @@ here so a later session, after a compaction, knows where things stand.
 
 ## Settled (the owner, 2026-10-16)
 
-- **Pushes by named batch:** the owner may approve a named piece of work below as "push when
-  the tests pass". Every commit within it then goes to `main` once the commit hook's suite
-  passes. Anything outside the named work, or a change of plan inside it, waits for "push it".
-  Each push says which approval it falls under; `main` is pushed by a command of its own.
+- **Approval by named batch, delivered as pull requests** (2026-10-18): an approved batch below
+  is one I carry through without asking first, but each piece of it ends as its own branch and
+  pull request once the commit hook's suite passes, and the owner merges it. Nothing reaches
+  `main` any other way (`CLAUDE.md`). Anything outside the named work, or a change of plan
+  inside it, waits for the owner's go-ahead.
 - **Deletions:** I delete Released PVs and retired database clusters myself, only after proving
   each one's data exists elsewhere (a healthy live copy, its data checked), and report each with
   its evidence. A prune-protected object goes by hand only once git no longer lists it.
 - **Semaphore:** once `claude-code` is a Task Runner, I start dry runs, OpenTofu plans (then
-  reject them), read-only "Tool: Run Command" checks and the NetBox sync myself. I never
-  confirm an OpenTofu apply or run a template that changes hosts unless asked for that run.
+  reject them), read-only "Tool: Run Command" checks and the NetBox sync myself. A dry run
+  goes in the task's `"params": {"dry_run": true}`: a top-level `dry_run` is ignored and the
+  task runs for real. I never confirm an OpenTofu apply or run a template that changes hosts
+  unless asked for that run.
 - **No physical Proxmox host is rebooted without the owner's approval** (2026-10-16), even inside an
   approved batch: the reboot template, an upgrade that reboots, or a command.
 - **Decisions:** Kea's standby partner is (b), the reservations in a CloudNativePG cluster
@@ -25,9 +28,9 @@ here so a later session, after a compaction, knows where things stand.
 
 ## Approved (the owner, 2026-10-16)
 
-**Every batch below, and `zammad-bridge` and `elasticsearch`, is approved: "as long as the tests
-pass you can push any of the batches."** Work through them in this order, pushing each piece
-once the commit hook's suite passes, reporting as I go, and stopping only for a real decision
+**Every batch below, and `zammad-bridge` and `elasticsearch`, is approved.** Work through them
+in this order, a pull request for each piece once the commit hook's suite passes, reporting
+as I go, and stopping only for a real decision
 or a step that needs the owner in person or in a UI: zammad-bridge, released-volumes,
 monitoring-fixes, talos-cleanup, resource-limits, alerts, hardening, small-cleanups,
 netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
@@ -43,8 +46,8 @@ netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, e
 
 ## Batches I can do on my own
 
-Each is a name the owner can approve with "push when the tests pass". Where a batch needs a
-Semaphore run, it needs the Task Runner role, or the owner runs it.
+Each is a name the owner can approve, to be carried through to its pull requests. Where a
+batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it.
 
 - [ ] **postgres-retire** (from 2026-10-17): the old `<app>-postgres` clusters (ten in
       `QUEUE-postgres18.md`, ManicTime's and Whisparr's in `QUEUE-updates.md`) out of git, each
@@ -137,13 +140,12 @@ reservations copied (the cutover and partner wait for the owner), Zammad's searc
 task counter, the baseline's management routing, the NetBox DNS sidecar (waiting on zones), the
 Talos queue's hostnames gone and the hook's word list extended. Next in order: kea-ha's partner
 (with the owner: Dockhand's environment first), postgres-retire (from 2026-10-17), the owner's
-list below. Each push: the commit hook's suite passed; `main` pushed alone
-(`git push origin queue-renovate-coverage:main`). Semaphore: dry runs and plans in `params`;
-the owner runs anything that installs or changes hosts; never a Proxmox host reboot unasked.
-
+list below. Each piece: its own branch and pull request, opened once the commit hook's suite
+passed; the owner merges. Semaphore: dry runs and plans in `params`; the owner runs anything
+that installs or changes hosts; never a Proxmox host reboot unasked.
 
 Read this file first, then `QUEUE.md`. An approved batch is named in the conversation or in a
-commit message; without one, work stops at the branch. The first unticked batch the owner has
+commit message; without one, ask before starting it. The first unticked batch the owner has
 approved is next.
 
 ## Done when

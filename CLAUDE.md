@@ -100,11 +100,12 @@ Read before changing anything:
   which Flux fills from `cluster-secrets` (built by External Secrets from a Vaultwarden item;
   `kubernetes/secrets/`) and `cluster-settings` (`kubernetes/flux/meta/vars/`). Real values
   live only in Vaultwarden, the gitignored `kubernetes/.local/`, and `.secret-words` for the
-  hook. An undefined variable fails its Flux Kustomization, so only the owner adds one, before
-  anything using it is pushed; an empty value is fine.
-- **Work on a branch, never directly on `main`; a merge is a deploy.** Flux applies whatever
-  reaches `main`. The owner reviews the full diff first, and `main` is pushed only when the
-  owner asks for that push.
+  hook. An undefined variable fails its Flux Kustomization, so a new one lands first: the owner
+  adds its Vaultwarden field, and its entry in `kubernetes/secrets/cluster-secrets.yaml` is a
+  pull request of its own, merged before anything that uses it. An empty value is fine.
+- **Every change reaches `main` through a pull request the owner merges; a merge is a
+  deploy.** Flux applies whatever reaches `main`. One branch per change: commit to it, push it
+  and open its pull request. Never merge one, push `main` or turn on auto-merge.
 
 ## In a cloud session
 
@@ -112,8 +113,7 @@ The cloud has a fresh clone and no cluster access: no `kubectl`, `helm` or `flux
 cluster, and no `kubernetes/.local/`, `docs/` or `kubernetes/raw/`. `generate` and the tests
 work offline; `capture` and `all` read the live cluster, so don't run them there.
 
-- **When you're done, commit to your own branch, push that branch, and end with a summary.**
-  Don't merge, push to `main` or open a PR unless asked; the owner merges locally after
-  checking the change against the live cluster. The summary says what changed, what to check
-  against the live cluster (for example, which Flux Kustomizations would change), and whether
-  `scripts/` changed.
+- **When you're done, push your branch, open its pull request, and end with a summary.** The
+  owner merges after checking the change against the live cluster. The summary says what
+  changed, what to check against the live cluster (for example, which Flux Kustomizations
+  would change), and whether `scripts/` changed.
