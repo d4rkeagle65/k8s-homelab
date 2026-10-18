@@ -1,0 +1,35 @@
+# Headlamp's route: private networks only, behind Authentik's forward-auth
+# (authentik Admins: the blueprint headlamp.yaml). Headlamp itself has no
+# login here: every request acts as its ServiceAccount (helmrelease.yaml).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: headlamp
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_authentik@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: headlamp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /outpost.goauthentik.io
+        pathType: Prefix
+        backend:
+          service:
+            name: authentik-outpost
+            port:
+              number: 9000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: headlamp
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - headlamp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    secretName: headlamp-tls
