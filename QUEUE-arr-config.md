@@ -85,3 +85,8 @@ Every box is ticked or decided against, and this file moves to `old-queues/`.
   (terraform-provider-radarr issue 338, open 2026-10-05).
 - **Buildarr:** no commits since 2024-05.
 - **A generated `config.xml`:** the apps rewrite it; env vars do the same without a fight.
+- **Profilarr** (2026-10-18, v2.2.0): a web app with its own database, for Sonarr and Radarr
+  only, owning quality, custom formats, naming and delay profiles; no download clients. Beside
+  Configarr it would be a second owner of quality. Worth it later only for tuning quality
+  interactively (release-name tests, profile simulation): then it owns quality for those two
+  and Configarr drops that section for them.
