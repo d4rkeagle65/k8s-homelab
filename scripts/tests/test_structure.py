@@ -562,3 +562,16 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     defined = set(settings) | secrets | set(test_vars)
     undefined = {name: sorted(paths)[:3] for name, paths in used.items() if name not in defined}
     assert not undefined, f"variables used but defined nowhere: {undefined}"
+
+
+def test_cluster_secrets_maps_each_variable_once(repo_root, load_yaml):
+    """External Secrets' admission webhook rejects an ExternalSecret that names a
+    secretKey twice, so the cluster-secrets Kustomization stops applying and no
+    variable mapped after that reaches the cluster. Two branches that each map the
+    same variable merge without a conflict into exactly that.
+    """
+    external = load_yaml(repo_root / "kubernetes/secrets/cluster-secrets.yaml")
+    keys = [d["secretKey"] for d in external["spec"]["data"]]
+    assert keys, "cluster-secrets.yaml maps no variables"
+    twice = sorted({k for k in keys if keys.count(k) > 1})
+    assert not twice, f"mapped more than once in kubernetes/secrets/cluster-secrets.yaml: {twice}"
