@@ -46,12 +46,13 @@ machine-learning:
             repository: ghcr.io/immich-app/immich-machine-learning
             tag: v3.3.1
           # Its memory is the face and search models it loads, far above its idle
-          # use: 1865Mi at peak during the library import. 3Gi rather than the
-          # rules' 2.5 x peak (4.6Gi), since more jobs reuse the loaded models.
+          # use: 1918Mi at peak during the library import. 3Gi rather than the
+          # rules' 2.5 x peak (4.7Gi), since more jobs reuse the loaded models.
+          # The requests are the import's: sized again once it's done.
           resources:
             requests:
-              cpu: 10m
-              memory: 384Mi
+              cpu: 620m
+              memory: 2304Mi
             limits:
               cpu: 1000m
               memory: 3Gi
