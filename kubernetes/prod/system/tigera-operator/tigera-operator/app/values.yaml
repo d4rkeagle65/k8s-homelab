@@ -21,7 +21,7 @@ goldmane:
           containers:
           - name: goldmane
             resources:
-              requests: {cpu: 60m, memory: 192Mi}
+              requests: {cpu: 60m, memory: 224Mi}
               limits: {cpu: 1000m, memory: 512Mi}
 installation:
   calicoNodeDaemonSet:
@@ -40,7 +40,7 @@ installation:
           containers:
           - name: calico-typha
             resources:
-              requests: {cpu: 10m, memory: 160Mi}
+              requests: {cpu: 10m, memory: 192Mi}
               limits: {cpu: 500m, memory: 512Mi}
   calicoKubeControllersDeployment:
     spec:
@@ -125,7 +125,7 @@ whisker:
             resources:
               requests: {cpu: 10m, memory: 64Mi}
               limits: {cpu: 500m, memory: 256Mi}
-# The operator itself: a few millicores and about 150Mi in use; its starts are busier.
+# The operator itself.
 resources:
-  requests: {cpu: 20m, memory: 192Mi}
+  requests: {cpu: 20m, memory: 416Mi}
   limits: {cpu: 1000m, memory: 896Mi}
