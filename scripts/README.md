@@ -252,9 +252,11 @@ the next sync. capture reads the live Secret, so from then on it replaces the
 new value.
 
 `scripts/vaultwarden-fields.ps1` does this from PowerShell, through the
-bitwarden-cli pod. With no arguments it lists the field names (never values),
-whether each is base64 (used in a Secret's `data:`), synced, and which Flux
-Kustomizations use it. `./scripts/vaultwarden-fields.ps1 NAME` asks for the
+bitwarden-cli pod. With no arguments it outputs an object per field name (never
+values): whether it's base64 (used in a Secret's `data:`), synced, and which Flux
+Kustomizations use it, shown as a table and filtered like any objects
+(`Get-Help ./scripts/vaultwarden-fields.ps1 -Examples`). Run one at a time: it
+force-syncs the CLI. `./scripts/vaultwarden-fields.ps1 NAME` asks for the
 new value without echoing it, base64-encodes it when needed, writes it,
 force-syncs, waits for the `cluster-secrets` Secret to have it, and prints the
 `flux reconcile` commands to run. `-New` adds a field that doesn't exist yet.
