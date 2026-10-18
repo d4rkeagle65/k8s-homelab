@@ -207,9 +207,10 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       in a third ExternalDNS release (`prod/system/external-dns/external-dns/app/
       helmrelease-netbox.yaml`, `netbox-dns-webhook.py`, tests in `scripts/tests/`), owning the
       records it writes by their description `external-dns`, never touching hand-made ones, and
-      answering 500 rather than an empty list when NetBox doesn't answer. NetBox DNS has no zone
-      yet, so it writes nothing: the zones (and their SOA nameserver) are the owner's to make.
-      Left after them:
+      answering 500 rather than an empty list when NetBox doesn't answer. Live 2026-10-18: the
+      owner made the base domain's zone (zones and their SOA nameserver are made by hand), and
+      the next loop wrote an A record for each of the 38 Ingress hostnames, all at Traefik's
+      addresses. Left:
       octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
       to answer the same names before and after
 - [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` stops carrying a
