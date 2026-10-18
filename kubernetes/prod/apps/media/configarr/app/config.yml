@@ -371,7 +371,9 @@ readarr:
       renameBooks: true
       replaceIllegalCharacters: true
       colonReplacementFormat: 4
-      standardBookFormat: "{Author Name}/{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}"
+      # Under the author folder (authorFolderFormat), so a file lands at
+      # {Author Name}/{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}.
+      standardBookFormat: "{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}"
       authorFolderFormat: "{Author Name}"
       includeAuthorName: false
       includeBookTitle: false
