@@ -163,8 +163,8 @@ spec:
         # By QUEUE-resource-limits.md's rules.
         resources:
           requests:
-            cpu: 20m
-            memory: 192Mi
+            cpu: 30m
+            memory: 256Mi
           limits:
             cpu: 1000m
             memory: 512Mi
