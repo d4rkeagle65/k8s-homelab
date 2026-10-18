@@ -7,6 +7,69 @@ sonarr:
   sonarr:
     base_url: http://sonarr:8989
     api_key: !env SONARR_API_KEY
+    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # Created if missing; unlisted tags are left alone.
+    tags:
+      - "1 - david"
+      - "kids"
+      - "x265-megusta"
+    # The complete list: Configarr deletes a root folder not named here.
+    root_folders:
+      - "/synmedia/media/tv"
+      - "/synmedia/media/youtube"
+    delay_profiles:
+      default:
+        enableUsenet: true
+        enableTorrent: true
+        preferredProtocol: "usenet"
+        usenetDelay: 0
+        torrentDelay: 0
+        bypassIfHighestQuality: true
+        bypassIfAboveCustomFormatScore: false
+        minimumCustomFormatScore: 0
+    media_naming_api:
+      renameEpisodes: true
+      replaceIllegalCharacters: true
+      colonReplacementFormat: 4
+      customColonReplacementFormat: ""
+      multiEpisodeStyle: 5
+      standardEpisodeFormat: "{Series TitleYear} - S{season:00}E{episode:00} - {Episode CleanTitle} [{Custom Formats }{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{[MediaInfo VideoCodec]}{-Release Group}"
+      dailyEpisodeFormat: "{Series TitleYear} - {Air-Date} - {Episode CleanTitle} [{Custom Formats }{Quality Full}]{[MediaInfo VideoDynamicRangeType]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{[MediaInfo VideoCodec]}{-Release Group}"
+      animeEpisodeFormat: "{Series TitleYear} - S{season:00}E{episode:00} - {absolute:000} - {Episode CleanTitle} [{Custom Formats }{Quality Full}]{[MediaInfo VideoDynamicRangeType]}[{MediaInfo VideoBitDepth}bit]{[MediaInfo VideoCodec]}[{Mediainfo AudioCodec} { Mediainfo AudioChannels}]{MediaInfo AudioLanguages}{-Release Group}"
+      seriesFolderFormat: "{Series TitleYear} [imdb-{ImdbId}]"
+      seasonFolderFormat: "{Series CleanTitle} Season {season:00}"
+      specialsFolderFormat: "{Series CleanTitle} Specials"
+    media_management:
+      autoUnmonitorPreviouslyDownloadedEpisodes: true
+      recycleBin: ""
+      recycleBinCleanupDays: 7
+      downloadPropersAndRepacks: "doNotPrefer"
+      createEmptySeriesFolders: false
+      deleteEmptyFolders: true
+      fileDate: "none"
+      rescanAfterRefresh: "always"
+      setPermissionsLinux: false
+      chmodFolder: "755"
+      chownGroup: ""
+      episodeTitleRequired: "always"
+      skipFreeSpaceCheckWhenImporting: false
+      minimumFreeSpaceWhenImporting: 100
+      copyUsingHardlinks: true
+      useScriptImport: false
+      scriptImportPath: ""
+      importExtraFiles: true
+      extraFileExtensions: "sub,nfo"
+      enableMediaInfo: true
+    ui_config:
+      firstDayOfWeek: 0
+      calendarWeekColumnHeader: "ddd M/D"
+      shortDateFormat: "MMM D YYYY"
+      longDateFormat: "dddd, MMMM D YYYY"
+      timeFormat: "h(:mm)a"
+      showRelativeDates: true
+      enableColorImpairedMode: false
+      theme: "auto"
+      uiLanguage: 1
     # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
     # the UI's until its API key is in Vaultwarden: a client Configarr updates
     # takes the schema's default for any field left out, blanking its key.
@@ -42,6 +105,64 @@ radarr:
   radarr:
     base_url: http://radarr:7878
     api_key: !env RADARR_API_KEY
+    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # Created if missing; unlisted tags are left alone.
+    tags:
+      - "1 - david"
+      - "x265-allowed"
+    # The complete list: Configarr deletes a root folder not named here.
+    root_folders:
+      - "/synmedia/media/movies"
+    delay_profiles:
+      default:
+        enableUsenet: true
+        enableTorrent: true
+        preferredProtocol: "usenet"
+        usenetDelay: 0
+        torrentDelay: 0
+        bypassIfHighestQuality: true
+        bypassIfAboveCustomFormatScore: false
+        minimumCustomFormatScore: 0
+    media_naming_api:
+      renameMovies: true
+      replaceIllegalCharacters: true
+      colonReplacementFormat: "delete"
+      standardMovieFormat: "{Movie CleanTitle} {(Release Year)} [imdb-{ImdbId}] - {Edition Tags }{[Custom Formats]}{[Quality Full]}{[MediaInfo 3D]}{[MediaInfo VideoDynamicRangeType]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{[Mediainfo VideoCodec]}{-Release Group}"
+      movieFolderFormat: "{Movie CleanTitle} ({Release Year}) [imdb-{ImdbId}]"
+    media_management:
+      autoUnmonitorPreviouslyDownloadedMovies: false
+      recycleBin: ""
+      recycleBinCleanupDays: 7
+      downloadPropersAndRepacks: "doNotUpgrade"
+      createEmptyMovieFolders: false
+      deleteEmptyFolders: true
+      fileDate: "none"
+      rescanAfterRefresh: "always"
+      autoRenameFolders: false
+      pathsDefaultStatic: false
+      setPermissionsLinux: false
+      chmodFolder: "755"
+      chownGroup: ""
+      skipFreeSpaceCheckWhenImporting: false
+      minimumFreeSpaceWhenImporting: 100
+      copyUsingHardlinks: true
+      useScriptImport: false
+      scriptImportPath: ""
+      importExtraFiles: true
+      extraFileExtensions: "sub,nfo"
+      enableMediaInfo: true
+    ui_config:
+      firstDayOfWeek: 0
+      calendarWeekColumnHeader: "ddd MM/DD"
+      movieRuntimeFormat: "hoursMinutes"
+      shortDateFormat: "YYYY-MM-DD"
+      longDateFormat: "dddd, MMMM D YYYY"
+      timeFormat: "h(:mm)a"
+      showRelativeDates: true
+      enableColorImpairedMode: false
+      movieInfoLanguage: 1
+      uiLanguage: 1
+      theme: "auto"
     # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
     # the UI's until its API key is in Vaultwarden: a client Configarr updates
     # takes the schema's default for any field left out, blanking its key.
@@ -78,6 +199,77 @@ lidarr:
   lidarr:
     base_url: http://lidarr:8686
     api_key: !env LIDARR_API_KEY
+    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # The complete list: Configarr deletes a root folder not named here.
+    root_folders:
+      - path: "/synmedia/media/music"
+        name: "Synmedia Music"
+        quality_profile: "Any"
+        metadata_profile: "Standard"
+        monitor: "all"
+        monitor_new_album: "all"
+    delay_profiles:
+      default:
+        items:
+          - {name: "Usenet", protocol: "UsenetDownloadProtocol", allowed: true, delay: 0}
+          - {name: "Torrent", protocol: "TorrentDownloadProtocol", allowed: true, delay: 0}
+        bypassIfHighestQuality: true
+        bypassIfAboveCustomFormatScore: false
+        minimumCustomFormatScore: 0
+    media_naming_api:
+      renameTracks: false
+      replaceIllegalCharacters: true
+      colonReplacementFormat: 4
+      standardTrackFormat: "{Album Title} ({Release Year})/{Artist Name} - {Album Title} - {track:00} - {Track Title}"
+      multiDiscTrackFormat: "{Album Title} ({Release Year})/{Medium Format} {medium:00}/{Artist Name} - {Album Title} - {track:00} - {Track Title}"
+      artistFolderFormat: "{Artist Name}"
+      includeArtistName: false
+      includeAlbumTitle: false
+      includeQuality: false
+      replaceSpaces: false
+    media_management:
+      autoUnmonitorPreviouslyDownloadedTracks: false
+      recycleBin: ""
+      recycleBinCleanupDays: 7
+      downloadPropersAndRepacks: "preferAndUpgrade"
+      createEmptyArtistFolders: false
+      deleteEmptyFolders: false
+      fileDate: "none"
+      watchLibraryForChanges: true
+      rescanAfterRefresh: "always"
+      allowFingerprinting: "newFiles"
+      setPermissionsLinux: false
+      chmodFolder: "755"
+      chownGroup: ""
+      skipFreeSpaceCheckWhenImporting: false
+      minimumFreeSpaceWhenImporting: 100
+      copyUsingHardlinks: true
+      enableMediaInfo: true
+      useScriptImport: false
+      scriptImportPath: ""
+      importExtraFiles: false
+      extraFileExtensions: "srt"
+    ui_config:
+      firstDayOfWeek: 0
+      calendarWeekColumnHeader: "ddd M/D"
+      shortDateFormat: "MMM D YYYY"
+      longDateFormat: "dddd, MMMM D YYYY"
+      timeFormat: "h(:mm)a"
+      showRelativeDates: true
+      enableColorImpairedMode: false
+      uiLanguage: 1
+      expandAlbumByDefault: false
+      expandSingleByDefault: false
+      expandEPByDefault: false
+      expandBroadcastByDefault: false
+      expandOtherByDefault: false
+      theme: "auto"
+    # "None" is built in (nothing allowed) and stays the app's.
+    metadata_profiles:
+      - name: "Standard"
+        primary_types: ["Album"]
+        secondary_types: ["Studio"]
+        release_statuses: ["Official"]
     # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
     # the UI's until its API key is in Vaultwarden: a client Configarr updates
     # takes the schema's default for any field left out, blanking its key.
@@ -116,6 +308,76 @@ readarr:
   bookshelf:
     base_url: http://bookshelf:8787
     api_key: !env BOOKSHELF_API_KEY
+    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # The complete list: Configarr deletes a root folder not named here.
+    root_folders:
+      - path: "/synmedia/media/books"
+        name: "Synmedia books"
+        quality_profile: "eBook"
+        metadata_profile: "Standard"
+        monitor: "all"
+        monitor_new_items: "all"
+        is_calibre_library: false
+    delay_profiles:
+      default:
+        enableUsenet: true
+        enableTorrent: true
+        preferredProtocol: "usenet"
+        usenetDelay: 0
+        torrentDelay: 0
+        bypassIfHighestQuality: true
+        bypassIfAboveCustomFormatScore: false
+        minimumCustomFormatScore: 0
+    media_naming_api:
+      renameBooks: true
+      replaceIllegalCharacters: true
+      colonReplacementFormat: 4
+      standardBookFormat: "{Author Name}/{Book Title}/{Author Name} - {Book Title}{ (PartNumber)}"
+      authorFolderFormat: "{Author Name}"
+      includeAuthorName: false
+      includeBookTitle: false
+      includeQuality: false
+      replaceSpaces: false
+    media_management:
+      autoUnmonitorPreviouslyDownloadedBooks: false
+      recycleBin: ""
+      recycleBinCleanupDays: 7
+      downloadPropersAndRepacks: "preferAndUpgrade"
+      createEmptyAuthorFolders: false
+      deleteEmptyFolders: true
+      fileDate: "none"
+      watchLibraryForChanges: true
+      rescanAfterRefresh: "always"
+      allowFingerprinting: "newFiles"
+      setPermissionsLinux: false
+      chmodFolder: "755"
+      chownGroup: ""
+      skipFreeSpaceCheckWhenImporting: false
+      minimumFreeSpaceWhenImporting: 100
+      copyUsingHardlinks: true
+      importExtraFiles: true
+      extraFileExtensions: "srt,sub,nfo,mobi"
+    ui_config:
+      firstDayOfWeek: 0
+      calendarWeekColumnHeader: "ddd M/D"
+      shortDateFormat: "MMM D YYYY"
+      longDateFormat: "dddd, MMMM D YYYY"
+      timeFormat: "h(:mm)a"
+      showRelativeDates: true
+      enableColorImpairedMode: false
+      uiLanguage: 1
+      theme: "auto"
+    # "None" is built in and stays the app's.
+    metadata_profiles:
+      - name: "Standard"
+        min_popularity: 50
+        skip_missing_date: true
+        skip_missing_isbn: false
+        skip_parts_and_sets: true
+        skip_secondary_series: false
+        allowed_languages: ["eng", "null"]
+        min_pages: 0
+        must_not_contain: []
     # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
     # the UI's until its API key is in Vaultwarden: a client Configarr updates
     # takes the schema's default for any field left out, blanking its key.
@@ -151,6 +413,59 @@ prowlarr:
   prowlarr:
     base_url: http://prowlarr:9696
     api_key: !env PROWLARR_API_KEY
+    # Phase 4 (QUEUE-arr-config.md): captured from Prowlarr as it was. Its link to
+    # Whisparr stays the UI's (Whisparr is being replaced, and its key isn't in a Secret).
+    applications:
+      data:
+        - name: "Bookshelf"
+          type: Readarr
+          sync_level: fullSync
+          fields:
+            prowlarrUrl: "http://prowlarr:9696"
+            baseUrl: "http://bookshelf:8787"
+            apiKey: !env BOOKSHELF_API_KEY
+            syncCategories: [3030, 7000, 7010, 7020, 7030, 7040, 7050, 7060]
+            syncRejectBlocklistedTorrentHashesWhileGrabbing: false
+          tags: []
+        - name: "Lidarr"
+          type: Lidarr
+          sync_level: fullSync
+          fields:
+            prowlarrUrl: "http://prowlarr:9696"
+            baseUrl: "http://lidarr:8686"
+            apiKey: !env LIDARR_API_KEY
+            syncCategories: [3000, 3010, 3030, 3040, 3050, 3060]
+            syncRejectBlocklistedTorrentHashesWhileGrabbing: false
+          tags: []
+        - name: "Radarr"
+          type: Radarr
+          sync_level: fullSync
+          fields:
+            prowlarrUrl: "http://prowlarr:9696"
+            baseUrl: "http://radarr:7878"
+            apiKey: !env RADARR_API_KEY
+            syncCategories: [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060, 2070, 2080, 2090]
+            syncRejectBlocklistedTorrentHashesWhileGrabbing: false
+          tags: []
+        - name: "Sonarr"
+          type: Sonarr
+          sync_level: fullSync
+          fields:
+            prowlarrUrl: "http://prowlarr:9696"
+            baseUrl: "http://sonarr:8989"
+            apiKey: !env SONARR_API_KEY
+            syncCategories: [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5090]
+            animeSyncCategories: [5070]
+            syncAnimeStandardFormatSearch: true
+            syncRejectBlocklistedTorrentHashesWhileGrabbing: false
+          tags: []
+    sync_profiles:
+      data:
+        - name: "Standard"
+          enable_rss: true
+          enable_automatic_search: true
+          enable_interactive_search: true
+          minimum_seeders: 1
     # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
     # the UI's until its API key is in Vaultwarden: a client Configarr updates
     # takes the schema's default for any field left out, blanking its key.
