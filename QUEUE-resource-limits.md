@@ -14,9 +14,9 @@ it. Right-sizing requests matters as much as adding limits.
 
 ## Rules (every batch sizes the same way)
 
-From Prometheus: the peak and the 95th percentile over the history it has (only one day when this
-started; re-measure at seven days, 2026-10-18, and tighten). CPU uses the 5-minute rate, which
-smooths short bursts, hence the generous CPU limits.
+From Prometheus: the peak and the 95th percentile over the history it has (a week from
+2026-10-21; the 2026-10-18 pass had 4.2 days, so it only raised). CPU uses the 5-minute rate,
+which smooths short bursts, hence the generous CPU limits.
 
 - **Memory request:** 1.2 x peak, at least 64Mi, rounded up to 32Mi.
 - **Memory limit: what the container can allocate under load, not what was sampled.** A scrape
@@ -33,16 +33,16 @@ smooths short bursts, hence the generous CPU limits.
     Radarr, Lidarr, Prowlarr, Whisparr, Bookshelf) at least 1Gi for library scans and imports.
   - **Sidecars and exporters:** 2 x peak, at least 256Mi.
 - **CPU request:** the 95th percentile, at least 10m, rounded up to 10m.
-- **CPU limit:** 3 x peak, rounded up to 100m, between 500m and 1000m (two of the three workers
-  have 2 cores; above 1000m a scan starves the databases beside it). Raise to 1000m when
-  throttled in more than 10% of CFS periods over the window
+- **CPU limit:** 3 x peak, rounded up to 100m, between 500m and 1000m (above 1000m a scan
+  starves the databases beside it; whether that still holds is the owner's question below).
+  Raise to 1000m when throttled in more than 10% of CFS periods over the window
   (`container_cpu_cfs_throttled_periods_total` / `container_cpu_cfs_periods_total`).
   Transcoders (Emby, Tdarr's node) 2000m. Databases 1000m.
 - **Requests set where pods schedule; limits don't.** Raising a limit needs no node-fit check.
 - A value set by hand for a known reason (a comment says why) stays, unless the data shows it's
   too low.
-- **Before adding requests to pods pinned to a node** (a database instance on `local-db`, or
-  anything on `nas-block`), check each node's allocatable memory against its requests plus the
+- **Before adding requests to pods pinned to a node** (a database instance on `local-db`, or a
+  DaemonSet's pod on every node), check each node's allocatable memory against its requests plus the
   increase: a restarted instance that no longer fits stays Pending. Make room by moving a
   stateless pod: cordon the node, restart the pod, uncordon (restarting alone puts it back on
   the 8-core worker, below).
@@ -56,6 +56,16 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - peak CPU: `max_over_time(rate(container_cpu_usage_seconds_total{container!=""}[5m])[7d:5m])`
 - 95th percentile CPU: the same with `quantile_over_time(0.95, ...)`
 - current settings: `kube_pod_container_resource_requests` / `_limits`
+- **Query each Prometheus replica, not the Service.** The two replicas each keep their own
+  history, and `kps-prometheus` sends a query to either, so the same query answers differently
+  from one call to the next. Ask each pod
+  (`/api/v1/namespaces/monitoring/pods/prometheus-kps-0:9090/proxy/api/v1/query`, and `-1`)
+  and take the higher peak, over the window `prometheus_tsdb_lowest_timestamp_seconds` gives.
+- per workload rather than per pod: join on `kube_pod_owner` (a ReplicaSet's name less its hash
+  is the Deployment), so a pod replaced in the window still counts
+- PostgreSQL's limit: `cnpg_pg_settings_setting` and the peak of `cnpg_backends_total` summed
+  per pod; the Barman sidecar is `container="plugin-barman-cloud"`, an init container to
+  `kube_pod_init_container_resource_*`
 
 ## Checklist
 
@@ -145,26 +155,44 @@ Queries (Prometheus, `kube-prometheus-stack`):
       cAdvisor peak over the day and a half of history there was; `tests/test-docker-stacks.py`
       fails a running service without one. Garage's (on the NAS, 2g) is unmeasured: nothing
       scrapes its memory yet.
-- [ ] Re-measure the Docker VM's containers with the cluster's, from a week of cAdvisor data, and
-      give Garage a figure once its memory is scraped
-- [ ] Re-measure at seven days, **from 2026-10-21**: Prometheus's history starts 2026-10-14 16:48
-      (its data was reset then), so a week of it exists from the 21st. Requests from the new
-      peaks, limits by the rules above. What four days showed, for that pass:
-      - Memory requests far below peak: Immich's machine learning (384Mi, 1865Mi peak), Immich's
-        server (1376Mi, 5401Mi, the import), Prometheus (768Mi, 1358Mi), Alloy (64Mi per node,
-        297Mi), Flux's controllers (64Mi, up to 262Mi: `flux install`'s defaults in
-        `gotk-components.yaml`, so a change is a patch in `flux/config/flux-system/`),
-        kube-state-metrics (64Mi, 212Mi), Linkwarden (512Mi, 793Mi); most others a little below.
-      - At the 1000m cap and still throttled: Immich's server 22% and machine learning 15%
-        (both during the import), Flux's kustomize-controller 13%, Elasticsearch 10%. Each needs
-        a judgement against the cap, as the rules say.
-      - Elasticsearch at 87% of its 1Gi: its JVM, sized by the chart (`QUEUE-zammad.md`).
-      - Bookshelf (throttled 14%, 224Mi requested for a 700Mi peak) and rreading-glasses (84% of
-        its 256Mi) belong to the session working on them (2026-10-18): leave them to it, or
-        include them only once it's done.
-      - Immich's server memory limit is 6Gi while the owner's library import runs (3Gi was
-        OOM-killed within 30 seconds of each start by the import's jobs); size it again once the
-        import is done.
+- [ ] The Docker VM's containers, re-measured 2026-10-18 from the 4.2 days of cAdvisor data:
+      NetBox 2g -> 4g (1525Mi, its steady use), Semaphore 2g -> 3g (1311Mi, a task run),
+      cAdvisor 768m -> 1g (421Mi); the rest were at two to seven times their peak. Left: again
+      from a week, with the cluster's; the second Docker VM (`kea-standby`), whose cAdvisor isn't
+      scraped; Garage, whose metrics have no memory figure
+- [ ] Recheck at a full week, **from 2026-10-21 16:48** (Prometheus's history starts 2026-10-14
+      16:48). The 2026-10-18 pass (each batch's "Re-measured" above) had 4.2 days and only
+      raised, so this one:
+      - raises any request a 7-day peak now exceeds, mainly weekly jobs the short window missed;
+      - lowers what's above the rules: SABnzbd (736Mi and 270m for 111Mi and 1m), Seerr (576Mi,
+        222Mi), Sonarr (608Mi and 110m, 282Mi and 18m), authentik-db (416Mi, 247Mi), Elastic's
+        operator (160Mi, 55Mi), and the CPU requests above the 95th percentile that no comment
+        keeps (Zammad's Rails server 100m and scheduler 50m, Home Assistant 60m, Loki 50m);
+      - sets the Barman sidecar's resources in the other namespaces' `ObjectStore`s (babybuddy,
+        linkwarden, mealie, n8n, media; media's also serves the Bookshelf and rreading-glasses
+        databases, so with the session working on those). Their pods predate the LimitRanges,
+        so they have none until recreated, and `ContainerWithoutLimits` doesn't see them: it
+        reads `kube_pod_container_resource_limits`, not the init containers' series;
+      - sizes Immich's machine learning again once the import is done: its 2304Mi and 620m are
+        the import's.
+      Init containers that run once at start have none: babybuddy's check-db-ready and mealie's
+      wait-for-db take their namespace's defaults; the Bitwarden CLI's fetch-cli gets nothing
+      (external-secrets has no LimitRange)
+- [ ] Immich's server, with the owner (asked in its pull request, the apps batch): its 4.2 days
+      are the import (5401Mi peak in the 6Gi limit set for it, p95 992m at the 1000m cap,
+      throttled in 26% of periods) against requests of 1376Mi and 30m. Sized once the import is
+      done, or now with a limit above 6Gi (3Gi was OOM-killed within 30 seconds of each start)
+- [ ] The owner: whether the 1000m CPU cap rises. It was set when two of three workers had 2
+      cores; the four workers now have 3, 4, 4 and 6 (the control planes 2). At the cap and
+      throttled on 2026-10-18: democratic-csi's drivers 66-79% of periods, Renovate 47%,
+      nebula-sync 46%, Immich's server 26% and machine learning 15% (the import), the Bitwarden
+      CLI 25%, Organizr 16%, kustomize-controller and pve-exporter 14%, Goldmane and redis-ha's
+      split-brain check 13%
+- [ ] Bookshelf, its database and rreading-glasses, once the session working on them is done
+      (2026-10-18 data): Bookshelf 700Mi peak for a 224Mi request, p95 499m at its 500m limit
+      (throttled 14%; the rules give 864Mi, 500m, 1000m), rreading-glasses 215Mi in 256Mi (64Mi
+      requested), rreading-glasses-db 305Mi for 128Mi and p95 52m for 10m, bookshelf-db p95 53m
+      for 20m
 
 ## Resuming
 
