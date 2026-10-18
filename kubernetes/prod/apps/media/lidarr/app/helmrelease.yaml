@@ -23,9 +23,12 @@ spec:
       main:
         containers:
           main:
+            # The nightly channel, pinned: its qBittorrent client takes the Web UI
+            # API key like Sonarr's and Radarr's (3.1.3.4968 on); stable has no
+            # release since 3.1.0. Its database is upgraded past stable's.
             image:
               repository: linuxserver/lidarr
-              tag: 3.1.0.4875-ls43
+              tag: nightly-3.1.6.5102-ls220
             env:
               - name: PUID
                 value: "${MEDIA_PUID}"
