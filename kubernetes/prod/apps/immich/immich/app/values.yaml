@@ -45,15 +45,16 @@ machine-learning:
             pullPolicy: IfNotPresent
             repository: ghcr.io/immich-app/immich-machine-learning
             tag: v3.3.1
-          # Loading the face and search models takes far more than its idle
-          # peak, hence the 2 GiB limit.
+          # Its memory is the face and search models it loads, far above its idle
+          # use: 1865Mi at peak during the library import. 3Gi rather than the
+          # rules' 2.5 x peak (4.6Gi), since more jobs reuse the loaded models.
           resources:
             requests:
               cpu: 10m
               memory: 384Mi
             limits:
               cpu: 1000m
-              memory: 2Gi
+              memory: 3Gi
   enabled: true
   persistence:
     cache:

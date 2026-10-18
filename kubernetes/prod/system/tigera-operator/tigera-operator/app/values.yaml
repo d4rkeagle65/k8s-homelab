@@ -22,7 +22,7 @@ goldmane:
           - name: goldmane
             resources:
               requests: {cpu: 60m, memory: 192Mi}
-              limits: {cpu: 500m, memory: 512Mi}
+              limits: {cpu: 1000m, memory: 512Mi}
 installation:
   calicoNodeDaemonSet:
     spec:

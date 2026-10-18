@@ -69,7 +69,7 @@ spec:
                   memory: 384Mi
                 limits:
                   cpu: 1000m
-                  memory: 2Gi
+                  memory: 3Gi
       enabled: true
       persistence:
         cache:

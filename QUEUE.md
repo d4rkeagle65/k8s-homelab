@@ -213,7 +213,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 - [QUEUE-autonomy.md](QUEUE-autonomy.md): read first: the owner's standing permissions, the batches I can do on my own, and what waits on the owner.
 - [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 55%): Prometheus, Loki and Grafana, in eight phases.
-- [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 45%): requests and limits on every container, in batches.
+- [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 75%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-netbox.md](QUEUE-netbox.md) (about 65%): NetBox on the Docker VM as the source of Semaphore's hosts and OpenTofu's guests, then owning DNS.
 - [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (about 80%): each guest's shape edited in NetBox, into git by a pull request.
