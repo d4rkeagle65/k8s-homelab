@@ -136,6 +136,14 @@
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(\\.(?<build>\\d+))?-ls(?<revision>\\d+)$"
     },
     {
+      "description": "Lidarr runs its nightly channel, for qBittorrent's API key (stable has gone without a release since 3.1.0): its pinned tag is nightly-<version>-ls<n>, followed only to later nightlies. Back to stable tags once a stable release passes the nightly pinned (QUEUE.md).",
+      "matchPackageNames": [
+        "linuxserver/lidarr"
+      ],
+      "versioning": "regex:^nightly-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-ls(?<revision>\\d+)$",
+      "allowedVersions": "/^nightly-\\d+\\.\\d+\\.\\d+\\.\\d+-ls\\d+$/"
+    },
+    {
       "description": "qBittorrent's tags add the libtorrent version: <qBittorrent>_v<libtorrent>-ls<n>, kept to the same libtorrent.",
       "matchPackageNames": [
         "linuxserver/qbittorrent"
