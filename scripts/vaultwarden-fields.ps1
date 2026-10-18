@@ -15,11 +15,15 @@ With no -Name, outputs one object per field name (never the values), with:
   UsedBy    the Flux Kustomizations whose files use the variable, as an array
             (empty when unused).
 They show as a table (vaultwarden-fields.format.ps1xml), and filter and sort
-like any other objects.
+like any other objects. A name the item holds more than once is listed once,
+with a warning: External Secrets' JSONPath matches every field of that name,
+so which value reaches the cluster isn't defined.
 
-With -Name, sets that field. The value is asked for without echoing it
-(or taken from -Value, which leaves it in your shell history), base64-encoded
-when the variable is used in a Secret, then written to the item. The script
+With -Name, sets that field, and refuses a name the item holds more than
+once, which would update only one of them. The value is asked for without
+echoing it (or taken from -Value, which leaves it in your shell history),
+base64-encoded when the variable is used in a Secret, then written to the
+item. The script
 then force-syncs the ExternalSecret, waits for the cluster-secrets Secret to
 hold the new value, and prints the Flux reconcile commands to run.
 
@@ -74,7 +78,9 @@ $node = "let s='';process.stdin.on('data',d=>s+=d).on('end',async()=>{try{" +
     "const it=(await (await fetch(u)).json()).data;if(!it){throw new Error('item '+q.id+' not found')}" +
     "const all=it.fields||[];" +
     "if(q.mode==='list'){console.log(JSON.stringify({names:all.filter(x=>x.name).map(x=>x.name)}));return}" +
-    "const old=all.find(x=>x.name===q.name);" +
+    "const same=all.filter(x=>x.name===q.name);" +
+    "if(same.length>1){throw new Error('the item has '+same.length+' fields named '+q.name+': delete all but one in Vaultwarden first')}" +
+    "const old=same[0];" +
     "if(!old&&!q.create){throw new Error('the item has no field named '+q.name+' (use -New to add it)')}" +
     "if(old){old.value=q.value}else{all.push({name:q.name,value:q.value,type:1,linkedId:null})}" +
     "it.fields=all;" +
@@ -142,6 +148,13 @@ function Get-KustomizationName([string]$rel) {
     "(unknown: $rel)"
 }
 
+# Each field name the item holds more than once, with how many times. Names
+# compare with case, as External Secrets' JSONPath does.
+function Get-DuplicateName([string[]]$names) {
+    $names | Group-Object -CaseSensitive | Where-Object Count -gt 1 |
+        ForEach-Object { [pscustomobject]@{ Name = $_.Name; Count = $_.Count } }
+}
+
 $es = kubectl get externalsecret cluster-secrets -n flux-system -o json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'Could not read the cluster-secrets ExternalSecret.' }
 $itemId = @($es.spec.data.remoteRef.key | Select-Object -Unique)
@@ -152,14 +165,18 @@ $usage = Get-VariableUsage
 
 if (-not $Name) {
     Update-FormatData -PrependPath (Join-Path $PSScriptRoot 'vaultwarden-fields.format.ps1xml')
-    $names = (Invoke-BitwardenCli @{ mode = 'list'; id = $itemId }).names
-    $rows = foreach ($n in @($names) + @($mapped | Where-Object { $_ -notin $names })) {
+    $names = @((Invoke-BitwardenCli @{ mode = 'list'; id = $itemId }).names)
+    foreach ($dup in Get-DuplicateName $names) {
+        Write-Warning ("Vaultwarden has $($dup.Count) fields named $($dup.Name). External Secrets' JSONPath " +
+            "matches each of them, so which value reaches the cluster isn't defined: delete all but one in Vaultwarden.")
+    }
+    $rows = foreach ($n in @($names | Select-Object -Unique) + @($mapped | Where-Object { $_ -cnotin $names })) {
         $files = $usage[$n]
         [pscustomobject]@{
             PSTypeName = 'Homelab.VaultwardenField'
             Name       = $n
             Encoding   = if (-not $files) { '' } elseif ($files.Values -contains $true) { 'base64' } else { 'plain' }
-            Synced     = if ($n -notin $names) { 'MISSING IN VAULTWARDEN' } elseif ($n -in $mapped) { 'yes' } else { 'no' }
+            Synced     = if ($n -cnotin $names) { 'MISSING IN VAULTWARDEN' } elseif ($n -cin $mapped) { 'yes' } else { 'no' }
             UsedBy     = [string[]]@(if ($files) { $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique })
         }
     }
