@@ -49,8 +49,9 @@ settings:
   oidcAutoRedirectProvider: authentik
   oidcAutoRedirectLogoutUrl: https://auth.${BASE_DOMAIN}/application/o/organizr/end-session/
 
-  # Organizr's homepage: the media apps' calendars and queues, and the
-  # downloads, from inside the cluster.
+  # Organizr's homepage: the media apps' calendars and queues, the downloads,
+  # Emby's streams and recent additions, and Seerr's requests (Organizr's
+  # overseerr settings; Seerr keeps Overseerr's API), from inside the cluster.
   sonarrURL: http://sonarr.media.svc.${CLUSTER_DOMAIN}:8989
   sonarrToken: env:SONARR_KEY
   homepageSonarrEnabled: "true"
@@ -68,6 +69,17 @@ settings:
   qBittorrentUsername: env:QBITTORRENT_USERNAME
   qBittorrentPassword: env:QBITTORRENT_PASSWORD
   homepageqBittorrentEnabled: "true"
+  sabnzbdURL: http://sabnzbd.media.svc.${CLUSTER_DOMAIN}:8080
+  sabnzbdToken: env:SABNZBD_KEY
+  homepageSabnzbdEnabled: "true"
+  embyURL: http://emby.emby.svc.${CLUSTER_DOMAIN}:8096
+  embyToken: env:EMBY_KEY
+  homepageEmbyEnabled: "true"
+  homepageEmbyStreams: "true"
+  homepageEmbyRecent: "true"
+  overseerrURL: http://seerr.media.svc.${CLUSTER_DOMAIN}:5055
+  overseerrToken: env:SEERR_KEY
+  homepageOverseerrEnabled: "true"
 
 categories:
   # Organizr's own default category (category_id 0), where Homepage and Settings sit.

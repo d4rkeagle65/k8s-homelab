@@ -45,7 +45,10 @@ automatically, like Homepage.
       (`middleware-referrer-same-origin.yaml`), so its new tabs carry no Referer.
 - [x] Organizr's homepage shows Sonarr, Radarr, Lidarr and qBittorrent data (the owner,
       2026-10-18; Organizr's logs hold no errors for the four)
-- [ ] Emby, SABnzbd and Seerr (Organizr's overseerr settings) once their keys exist
+- [ ] Emby, SABnzbd and Seerr on Organizr's homepage (Seerr through Organizr's overseerr
+      settings). Their keys are in Vaultwarden and each app accepted its own (2026-10-18), and
+      `organizr.yaml` now sets all three. Left: the sync Job's read-back, then the three items
+      showing data on the homepage.
 
 ## Resuming
 
