@@ -131,6 +131,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **`test-harness` reads red when the suite is run by hand in a Claude desktop worktree**
+  (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
+  checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
+  worktree's top, but `other_calls_ours("pre-merge-commit")` in `tests/test-harness.py` accepts
+  only a line naming `.githooks/pre-merge-commit`. The commit hook's own run passes. Left, a
+  manual `run-all-tests.py` there fails for a hook that works.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
