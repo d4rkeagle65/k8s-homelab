@@ -66,7 +66,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [x] Batch 2: the CloudNativePG databases (each Cluster's `resources`; a change restarts its
       instances one at a time, replica first, then a switchover). Peaks 91-332Mi; 4.7 GiB of
       requests added across 24 instances, where none had any. Sonarr and Radarr were moved off
-      the 8-core worker first, or one of its instances wouldn't have fit
+      the 8-core worker first, or one of its instances wouldn't have fit. Re-measured 2026-10-18
+      from the 4.2 days since 2026-10-14 16:48, raising only: Immich's 384Mi, ManicTime's,
+      Whisparr's and Zammad's 288Mi, Prowlarr's 160Mi; limits by the PostgreSQL rule from the
+      peak connections (Authentik 21: 1408Mi, Zammad 19: 1280Mi, Kea 896Mi); each node had the
+      room. The Barman sidecars' resources in five namespaces' `ObjectStore`s (the rest: the
+      last item)
 - [x] Batch 3: the other apps: Authentik, Immich, n8n, Mealie, Baby Buddy, ManicTime, Home
       Assistant, Emby, Obsidian, Organizr, Homepage, Grimmory with its MariaDB and exporter.
       Judgement over the rules, each said in a comment: Emby keeps 2 cores and 4 GiB for
