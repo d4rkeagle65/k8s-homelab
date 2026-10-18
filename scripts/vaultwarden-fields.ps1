@@ -4,14 +4,18 @@ Lists or updates the custom fields of the Vaultwarden item that holds the
 cluster-secrets variables, through the bitwarden-cli pod.
 
 .DESCRIPTION
-With no -Name, lists every field name (never the values), with:
+With no -Name, outputs one object per field name (never the values), with:
+  Name      the variable's name.
   Encoding  base64 when the variable is used in a Secret's `data:` (Flux
             substitutes it as is, so the field must hold the base64 form),
-            else plain.
-  Synced    whether the cluster-secrets ExternalSecret maps it. A field it
-            doesn't map never reaches the cluster.
-  UsedBy    the Flux Kustomizations whose files use the variable.
-Names the ExternalSecret maps but the item lacks are listed too.
+            plain when used elsewhere, empty when nothing uses it.
+  Synced    yes when the cluster-secrets ExternalSecret maps it, no when it
+            doesn't (so it never reaches the cluster), and MISSING IN
+            VAULTWARDEN for a name the ExternalSecret maps but the item lacks.
+  UsedBy    the Flux Kustomizations whose files use the variable, as an array
+            (empty when unused).
+They show as a table (vaultwarden-fields.format.ps1xml), and filter and sort
+like any other objects.
 
 With -Name, sets that field. The value is asked for without echoing it
 (or taken from -Value, which leaves it in your shell history), base64-encoded
@@ -25,6 +29,18 @@ the kubernetes/ folder of this checkout. Run `git pull` first.
 .EXAMPLE
 ./scripts/vaultwarden-fields.ps1
 Lists the fields.
+
+.EXAMPLE
+./scripts/vaultwarden-fields.ps1 | Where-Object Synced -ne 'yes'
+The fields that don't reach the cluster, and the names Vaultwarden lacks.
+
+.EXAMPLE
+./scripts/vaultwarden-fields.ps1 | Where-Object UsedBy -contains 'mealie'
+The variables the mealie Kustomization uses.
+
+.EXAMPLE
+./scripts/vaultwarden-fields.ps1 | Where-Object { -not $_.UsedBy }
+The fields nothing under kubernetes/ uses.
 
 .EXAMPLE
 ./scripts/vaultwarden-fields.ps1 IMMICH_POWER_TOOLS_APIKEY_IMMICH_APIKEY
@@ -75,16 +91,21 @@ function Invoke-BitwardenCli($request) {
 
 # Variable name -> the files under kubernetes/ that use it, and whether each
 # is a Secret. `$${X}` is an escape Flux leaves alone, so it doesn't count.
+# Files come from git, tracked or new, so what .gitignore keeps out (capture's
+# local copies in .local/ and raw/, which Flux never applies) is left out too.
 function Get-VariableUsage {
-    $root = (Resolve-Path (Join-Path $PSScriptRoot '..\kubernetes')).Path
+    $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $listed = git -C $repo ls-files -z --cached --others --exclude-standard -- kubernetes/
+    if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed, so the variable usage is unknown.' }
     $usage = @{}
-    foreach ($file in Get-ChildItem $root -Recurse -File -Include *.yaml, *.yml) {
-        $text = Get-Content -Raw $file.FullName
+    foreach ($path in ($listed -join '') -split "`0") {
+        if ($path -notmatch '^kubernetes/(.+\.ya?ml)$') { continue }
+        $rel = $Matches[1]
+        $full = Join-Path $repo $path
+        if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }   # deleted, not yet committed
+        $text = Get-Content -Raw -Encoding UTF8 -LiteralPath $full
         if (-not $text) { continue }
         $isSecret = $text -match '(?m)^kind:\s*Secret\s*$'
-        $rel = $file.FullName.Substring($root.Length + 1) -replace '\\', '/'
-        # capture's gitignored local copies (.local/, raw/) aren't applied by Flux.
-        if ($rel -match '^(\.local|raw)/') { continue }
         # Only a Secret's data: holds base64; its stringData: takes the value as
         # is. So what counts is the top-level key a variable sits under.
         $section = ''
@@ -100,13 +121,17 @@ function Get-VariableUsage {
     $usage
 }
 
-# The Flux Kustomization that applies a file, from its path under kubernetes/.
+# The Flux Kustomization that applies a file, from its path under kubernetes/
+# (CLAUDE.md's layout table).
 function Get-KustomizationName([string]$rel) {
     $parts = $rel -split '/'
     switch ($parts[0]) {
-        'apps' { if ($parts.Count -gt 3) { return $parts[2] } }
+        # prod/<category>/<namespace>/<release>/app/...: the release's own
+        # Kustomization, which ks.yaml names after the folder. Its ks.yaml and
+        # everything above it is applied by `cluster`.
+        'prod' { if ($parts.Count -gt 5) { return $parts[3] } else { return 'cluster' } }
         'cluster' { return 'cluster-resources' }
-        'flux' { if ($parts[1] -eq 'meta') { return 'cluster-meta' } }
+        'flux' { if ($parts[1] -eq 'meta') { return 'cluster-meta' } else { return 'flux-system' } }
         'secrets' { return 'cluster-secrets' }
         'shared' { return 'cluster-shared' }
         'test' { return 'cluster-test' }
@@ -123,17 +148,19 @@ $mapped = @($es.spec.data | Where-Object { $_.remoteRef.property -eq $_.secretKe
 $usage = Get-VariableUsage
 
 if (-not $Name) {
+    Update-FormatData -PrependPath (Join-Path $PSScriptRoot 'vaultwarden-fields.format.ps1xml')
     $names = (Invoke-BitwardenCli @{ mode = 'list'; id = $itemId }).names
     $rows = foreach ($n in @($names) + @($mapped | Where-Object { $_ -notin $names })) {
         $files = $usage[$n]
         [pscustomobject]@{
-            Name     = $n
-            Encoding = if (-not $files) { '' } elseif ($files.Values -contains $true) { 'base64' } else { 'plain' }
-            Synced   = if ($n -notin $names) { 'MISSING IN VAULTWARDEN' } elseif ($n -in $mapped) { 'yes' } else { 'no' }
-            UsedBy   = if ($files) { ($files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique) -join ', ' } else { '(unused)' }
+            PSTypeName = 'Homelab.VaultwardenField'
+            Name       = $n
+            Encoding   = if (-not $files) { '' } elseif ($files.Values -contains $true) { 'base64' } else { 'plain' }
+            Synced     = if ($n -notin $names) { 'MISSING IN VAULTWARDEN' } elseif ($n -in $mapped) { 'yes' } else { 'no' }
+            UsedBy     = [string[]]@(if ($files) { $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique })
         }
     }
-    $rows | Sort-Object Name | Format-Table -AutoSize | Out-String -Width 4096 | Write-Host
+    $rows | Sort-Object Name
     return
 }
 
