@@ -31,7 +31,10 @@ can reach management-only hosts such as dockhand's.
 Every CloudNativePG cluster archives WAL and takes a nightly base backup to Garage through the
 Barman Cloud plugin (an `ObjectStore` named `garage` in its namespace). A restore test is a
 one-instance Cluster recovered from that store in the same namespace, compared table by table
-with the live one; `old-queues/QUEUE-restore-tests.md` has the method.
+with the live one; `old-queues/QUEUE-restore-tests.md` has the method. A change to a Cluster's
+spec restarts its instances, and so, separately, does a change to its `ObjectStore`'s
+`instanceSidecarConfiguration`; with `primaryUpdateMethod: restart` the primary restarts in
+place, so its apps lose the database for its smart shutdown, up to `smartShutdownTimeout` (180s).
 
 - **Create the `ObjectStore` before a Cluster that names it, and prove archiving with
   `pg_stat_archiver`.** A Cluster applied first stays stuck at "Pre-reconcile hook stopped the

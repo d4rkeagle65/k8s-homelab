@@ -110,7 +110,7 @@ services:
       psql -tA -c "SELECT 'databasus role: login ' || rolcanlogin || ', reads all data ' || pg_has_role('databasus', 'pg_read_all_data', 'MEMBER') FROM pg_roles WHERE rolname = 'databasus'"
 
   semaphore:
-    mem_limit: 2g
+    mem_limit: 3g
     image: semaphoreui/semaphore:v2.19.16
     container_name: semaphore
     restart: unless-stopped
