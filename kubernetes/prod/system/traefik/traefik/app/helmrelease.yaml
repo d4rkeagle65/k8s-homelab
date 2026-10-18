@@ -63,7 +63,7 @@ spec:
     # the rules' 500m: TLS for large uploads (Immich) is the work it does.
     # Memory by the rules (QUEUE-resource-limits.md).
     resources:
-      requests: {cpu: 100m, memory: 128Mi}
+      requests: {cpu: 100m, memory: 192Mi}
       limits: {cpu: 1000m, memory: 512Mi}
     providers:
       # Class `traefik` only. Not the cluster default (see ingressClass below),

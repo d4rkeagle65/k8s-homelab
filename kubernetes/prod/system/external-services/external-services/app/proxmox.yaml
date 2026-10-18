@@ -157,8 +157,8 @@ spec:
           initialDelaySeconds: 60
           periodSeconds: 30
         resources:
-          requests: {cpu: 10m, memory: 32Mi}
-          limits: {cpu: 500m, memory: 64Mi}
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 1000m, memory: 256Mi}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
