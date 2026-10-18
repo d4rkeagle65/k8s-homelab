@@ -33,3 +33,28 @@ spec:
   - hosts:
     - headlamp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
     secretName: headlamp-tls
+---
+# Plain http:// to the same host only redirects to https:// (the route above
+# listens on websecure alone, so http:// would answer 404). It reaches no
+# backend, and the Cloudflare tunnel, which arrives on port 80 too, has no
+# route for this host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: headlamp-http-redirect
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: headlamp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: headlamp
+            port:
+              number: 80
