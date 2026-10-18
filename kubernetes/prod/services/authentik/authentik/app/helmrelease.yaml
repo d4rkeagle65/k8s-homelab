@@ -86,10 +86,10 @@ spec:
       resources:
         requests:
           cpu: 80m
-          memory: 864Mi
+          memory: 992Mi
         limits:
           cpu: 500m
-          memory: 1792Mi
+          memory: 2Gi
       service:
         servicePortHttp: 80
         servicePortHttpName: http
@@ -157,7 +157,7 @@ spec:
           memory: 608Mi
         limits:
           cpu: 1000m
-          memory: 1280Mi
+          memory: 1408Mi
       volumeMounts:
       - mountPath: /certs/ldap-authentik
         name: ldap-cert

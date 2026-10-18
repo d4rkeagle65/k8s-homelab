@@ -115,38 +115,37 @@ spec:
         # (cluster-policy's LimitRange) the database step was OOM-killed.
         postgresql:
           resources:
-            requests: {cpu: 50m, memory: 256Mi}
-            limits: {cpu: 1000m, memory: 1536Mi}
+            requests: {cpu: 440m, memory: 896Mi}
+            limits: {cpu: 1000m, memory: 1920Mi}
         zammad:
           resources:
             requests: {cpu: 50m, memory: 256Mi}
             limits: {cpu: 1000m, memory: 1536Mi}
         elasticsearch:
           resources:
-            requests: {cpu: 50m, memory: 256Mi}
+            requests: {cpu: 100m, memory: 256Mi}
             limits: {cpu: 1000m, memory: 1536Mi}
       tmpDirVolume:
         emptyDir:
           medium: Memory
           sizeLimit: 100Mi
-      # Requests and limits by QUEUE-resource-limits.md's rules, as a first
-      # estimate: re-measured once a week of use exists.
+      # Requests and limits by QUEUE-resource-limits.md's rules.
       nginx:
         resources:
-          requests: {cpu: 10m, memory: 32Mi}
-          limits: {cpu: 500m, memory: 128Mi}
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 512Mi}
       railsserver:
         resources:
           requests: {cpu: 100m, memory: 768Mi}
           limits: {cpu: 1000m, memory: 1536Mi}
       scheduler:
         resources:
-          requests: {cpu: 50m, memory: 512Mi}
-          limits: {cpu: 1000m, memory: 1Gi}
+          requests: {cpu: 50m, memory: 672Mi}
+          limits: {cpu: 1000m, memory: 1408Mi}
       websocket:
         resources:
-          requests: {cpu: 20m, memory: 256Mi}
-          limits: {cpu: 500m, memory: 512Mi}
+          requests: {cpu: 20m, memory: 448Mi}
+          limits: {cpu: 1000m, memory: 1Gi}
 
     # Sessions and the live-update channel only: losing them on a restart means
     # logging in again, so no volume.
@@ -157,8 +156,8 @@ spec:
       persistence:
         enabled: false
       resources:
-        requests: {cpu: 10m, memory: 32Mi}
-        limits: {cpu: 500m, memory: 256Mi}
+        requests: {cpu: 20m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 768Mi}
     memcached:
       resources:
         requests: {cpu: 10m, memory: 64Mi}
@@ -214,6 +213,8 @@ spec:
               env:
               - name: ES_JAVA_OPTS
                 value: "-Xms512m -Xmx512m"
+              # The heap, about as much again off it (direct buffers, the JVM's
+              # own): its resident memory reached 952Mi in 1Gi.
               resources:
-                requests: {cpu: 100m, memory: 1Gi}
-                limits: {cpu: 1000m, memory: 1Gi}
+                requests: {cpu: 100m, memory: 1184Mi}
+                limits: {cpu: 1000m, memory: 1536Mi}
