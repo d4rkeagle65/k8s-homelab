@@ -1,0 +1,26 @@
+# Configarr's configuration: the media apps' database-held settings, from git
+# (QUEUE-arr-config.md). Each instance names only where it is and its API key
+# (from the app's own Secret, through the CronJob's env) until a phase captures
+# a section; a section left out is the app's UI's to set. Nothing unmanaged is
+# ever deleted.
+sonarr:
+  sonarr:
+    base_url: http://sonarr:8989
+    api_key: !env SONARR_API_KEY
+radarr:
+  radarr:
+    base_url: http://radarr:7878
+    api_key: !env RADARR_API_KEY
+lidarr:
+  lidarr:
+    base_url: http://lidarr:8686
+    api_key: !env LIDARR_API_KEY
+# Bookshelf is a Readarr fork, and Configarr's Readarr support drives it.
+readarr:
+  bookshelf:
+    base_url: http://bookshelf:8787
+    api_key: !env BOOKSHELF_API_KEY
+prowlarr:
+  prowlarr:
+    base_url: http://prowlarr:9696
+    api_key: !env PROWLARR_API_KEY

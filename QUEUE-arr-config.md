@@ -49,12 +49,14 @@ rotated key is one paste into Vaultwarden.
 
 ## Checklist
 
-- [ ] Phase 1, env vars: `LOG__LEVEL` `info` (every app logs at `debug` now, into Loki),
-      `AUTH__METHOD` `Forms` and `AUTH__REQUIRED` `Enabled` (what all have now), `UPDATE__BRANCH`
-      as each runs, `LOG__ANALYTICSENABLED` `false`, Bookshelf's `APP__INSTANCENAME` (it says
-      "Readarr"); Whisparr v2 left as it is (it's being replaced)
-- [ ] Phase 2, Configarr in place, owning nothing: the CronJob, a `config.yml` naming each
-      instance only, `DRY_RUN=true`; its log shows it reaches each app
+- [x] Phase 1, env vars (2026-10-18, read back through each app's API): Sonarr, Radarr, Lidarr,
+      Prowlarr and Bookshelf on Forms login, required, `info` logs, their update channel,
+      analytics off (Bookshelf has none). Bookshelf takes only a name containing "Readarr", so
+      it's "Bookshelf (Readarr)"
+- [ ] Phase 2, Configarr in place, owning nothing (`prod/apps/media/configarr/`, 2026-10-18):
+      the CronJob hourly at :17 with `DRY_RUN=true`, a `config.yml` naming each instance only,
+      each app's key from its own Secret. Left: its first run's log reaches every app with an
+      empty diff
 - [ ] Phase 3, download clients: qBittorrent and SABnzbd captured into `config.yml` for Sonarr,
       Radarr, Lidarr, Bookshelf and Prowlarr, qBittorrent's `api_key` from
       `QBITTORRENT_API_KEY`; remote path mappings and the global download settings with them
