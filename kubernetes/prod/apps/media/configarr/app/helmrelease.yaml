@@ -60,6 +60,11 @@ spec:
                   secretKeyRef:
                     name: configarr
                     key: qbittorrent-api-key
+              - name: SABNZBD_API_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: configarr
+                    key: sabnzbd-api-key
               # Each app's own API key, from the Secret that pins it there.
               - name: SONARR_API_KEY
                 valueFrom:
