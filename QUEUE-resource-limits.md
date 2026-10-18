@@ -102,10 +102,17 @@ Queries (Prometheus, `kube-prometheus-stack`):
       (2026-10-16, `prod/system/cluster-policy/`, one per apps and services namespace)
 - [x] A PriorityClass for the databases, Authentik, Traefik and monitoring (2026-10-16,
       `homelab-critical`, in the same release)
-- [ ] Alerts: a container without limits. Near its memory limit is `ContainerMemoryNearLimit`
-      (`monitors/`, a ticket); heavy throttling is the chart's `CPUThrottlingHigh`, severity
-      `info`, which zammad-bridge leaves out (13 firing on 2026-10-18, so a ticket each would be
-      noise until the 10-21 re-measure raises the throttled limits)
+- [x] Alerts (2026-10-18): `ContainerWithoutLimits` and `ContainerMemoryNearLimit` (`monitors/`,
+      each a ticket). Heavy throttling is the chart's `CPUThrottlingHigh`, severity `info`, which
+      zammad-bridge leaves out (13 firing on 2026-10-18, so a ticket each would be noise until
+      the 10-21 re-measure raises the throttled limits). Zammad's nginx, websocket, Redis and
+      memcached and `proxmox-endpoints` got the CPU limits they lacked first
+- [ ] Authentik's two outposts (LDAP and the proxy) have no limits, so `ContainerWithoutLimits`
+      fires for them an hour after it's deployed: their pods predate `authentik`'s LimitRange,
+      whose defaults (500m, 512Mi) a server-side dry run of their template shows them taking.
+      Restart both (`kubectl -n authentik rollout restart deploy/ak-outpost-ldap
+      deploy/ak-outpost-default-proxy-outpost`; Authentik owns them, not Flux), with the owner:
+      the proxy outpost's forward-auth and the LDAP outpost drop for a few seconds
 - [x] Risk fixes from the four days there were (2026-10-18), limits only, so nothing
       rescheduled: CPU 1000m where throttled in over 10% of periods (democratic-csi's drivers
       and registrar 33-77%, nebula-sync 45%, the Bitwarden CLI 24%, redis-ha's split-brain check
