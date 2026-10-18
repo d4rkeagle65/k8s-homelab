@@ -89,9 +89,11 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [x] Batch 5 (2026-10-16): monitoring. Every container had a memory request and limit except
       the charts' sidecars; the batch adds the CPU limits (500m; Prometheus 1000m, as a
       database: compactions) and the sidecars' settings (the config reloaders, Grafana's and
-      Loki's sidecars, the SNMP exporter's reloader: 64-128Mi requests, 256Mi limits). Requests
-      left for the 2026-10-18 re-measure, which recalculates all of them: Prometheus's 768Mi is
-      below the rules' 1.8Gi for its 1.5Gi peak
+      Loki's sidecars, the SNMP exporter's reloader: 64-128Mi requests, 256Mi limits).
+      Re-measured 2026-10-18 from the 4.2 days since 2026-10-14 16:48, raising only: Prometheus
+      2432Mi in 5Gi (its 2020Mi peak was 99% of 2Gi), Alloy 384Mi in 768Mi on every node,
+      kube-state-metrics 256Mi in 640Mi, Grafana 640Mi in 1408Mi, the exporters the rules' 64Mi
+      in 256Mi
 - [x] Batch 6 (2026-10-16): operator-managed. Calico through its operator's resources
       (`Installation`'s calico-node, typha, kube-controllers and CSI driver; `APIServer`,
       `Goldmane`, `Whisker`; calico-node's CPU limit 1000m, as it carries every pod's network;

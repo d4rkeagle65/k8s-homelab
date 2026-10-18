@@ -119,8 +119,8 @@ spec:
 
     prometheusOperator:
       resources:
-        requests: {cpu: 20m, memory: 64Mi}
-        limits: {cpu: 500m, memory: 256Mi}
+        requests: {cpu: 20m, memory: 128Mi}
+        limits: {cpu: 500m, memory: 512Mi}
       # The config-reloader sidecar in each Prometheus and Alertmanager pod.
       prometheusConfigReloader:
         resources:
@@ -143,8 +143,8 @@ spec:
         retentionSize: 18GB
         # CPU limit as a database's: compactions are its busiest minutes.
         resources:
-          requests: {cpu: 100m, memory: 768Mi}
-          limits: {cpu: 1000m, memory: 2Gi}
+          requests: {cpu: 100m, memory: 2432Mi}
+          limits: {cpu: 1000m, memory: 5Gi}
         # nas-iscsi: each replica's own LUN on the NAS, so the constant writes
         # miss the hosts' SSDs and the volume follows its pod to any Talos node.
         # A block device, not NFS, which Prometheus's docs rule out for its
@@ -224,7 +224,7 @@ spec:
         retention: 120h
         resources:
           requests: {cpu: 10m, memory: 64Mi}
-          limits: {cpu: 500m, memory: 128Mi}
+          limits: {cpu: 500m, memory: 512Mi}
         # On nas-iscsi, preferring Talos nodes, for the same reasons as
         # Prometheus's storage above.
         affinity:
@@ -246,8 +246,8 @@ spec:
 
     kube-state-metrics:
       resources:
-        requests: {cpu: 10m, memory: 64Mi}
-        limits: {cpu: 500m, memory: 512Mi}
+        requests: {cpu: 10m, memory: 256Mi}
+        limits: {cpu: 500m, memory: 640Mi}
       # Each namespace's category (apps, services, system) as
       # kube_namespace_labels{label_homelab_local_category}, for the Resources
       # dashboard's filter.
@@ -637,8 +637,8 @@ spec:
 
     prometheus-node-exporter:
       resources:
-        requests: {cpu: 10m, memory: 32Mi}
-        limits: {cpu: 1000m, memory: 64Mi}
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {cpu: 1000m, memory: 256Mi}
 
     grafana:
       admin:
@@ -652,10 +652,9 @@ spec:
         existingClaim: grafana-data
       deploymentStrategy:
         type: Recreate
-      # About 450 MiB in use from the start.
       resources:
-        requests: {cpu: 20m, memory: 384Mi}
-        limits: {cpu: 500m, memory: 1Gi}
+        requests: {cpu: 20m, memory: 640Mi}
+        limits: {cpu: 500m, memory: 1408Mi}
       # Its init containers (the data folder's owner, the grafana.com dashboards).
       initChownData:
         resources:

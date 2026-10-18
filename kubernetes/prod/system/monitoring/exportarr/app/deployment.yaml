@@ -51,8 +51,8 @@ spec:
           capabilities:
             drop: [ALL]
         resources: &resources
-          requests: {cpu: 5m, memory: 24Mi}
-          limits: {cpu: 500m, memory: 96Mi}
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
       - name: sonarr
         image: ghcr.io/onedr0p/exportarr:v2.3.0
         args: [sonarr]

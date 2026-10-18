@@ -38,5 +38,5 @@ spec:
             preferred_ip_protocol: ip4
             ip_protocol_fallback: false
     resources:
-      requests: {cpu: 10m, memory: 32Mi}
+      requests: {cpu: 10m, memory: 64Mi}
       limits: {cpu: 500m, memory: 256Mi}
