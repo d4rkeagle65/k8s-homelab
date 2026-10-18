@@ -55,18 +55,22 @@ rotated key is one paste into Vaultwarden.
       it's "Bookshelf (Readarr)"
 - [x] Phase 2 (2026-10-18): `prod/apps/media/configarr/`, hourly at :17; its first run reached
       all five apps and reported no change
-- [ ] Phase 3, download clients: qBittorrent's client in Sonarr, Radarr, Lidarr, Bookshelf and
-      Prowlarr from `config.yml` (2026-10-18), every field as each app had it and its `api_key`
-      from `QBITTORRENT_API_KEY`, with `update_password: true` (the apps never show a key, so it
-      is written on every run and the diff report always lists it); the global download
-      settings likewise. A dry run with the real key changed only the key and the empty
-      password. Left: `DRY_RUN` off, then each app's client tests OK. SABnzbd's clients stay the
-      UI's until `SABNZBD_API_KEY` is in Vaultwarden (an updated client takes the schema's
-      default for a field left out, so a missing key would be blanked); remote path mappings
-      (none today) with them
-- [ ] Phase 4, the rest captured: root folders, delay and release profiles, naming, media
-      management, UI; Prowlarr's applications (the apps' links and keys), sync profiles,
-      indexer proxies; Lidarr's and Bookshelf's metadata profiles
+- [x] Phase 3 (2026-10-18): Configarr owns each app's qBittorrent client and its key from
+      `QBITTORRENT_API_KEY` (`update_password: true`: written on every run, the diff report always
+      lists it); its first real run passed every app's download-client test, Lidarr's on the key
+- [ ] SABnzbd's clients (2026-10-18, with phase 4's PR): each app's, every field as it had it,
+      its `api_key` from `SABNZBD_API_KEY`; a dry run with the real key changed only the two
+      keys. Left: the merge, then each app's download-client test
+- [ ] Phase 4 (2026-10-18), captured as each app had it: tags (none deleted), root folders and
+      the default delay profile (each a complete list: one not named is deleted), naming,
+      media management and UI settings in Sonarr, Radarr, Lidarr and Bookshelf; Lidarr's and
+      Bookshelf's "Standard" metadata profiles ("None" is built in); Prowlarr's links to Sonarr,
+      Radarr, Lidarr and Bookshelf (keys from their Secrets; Whisparr's stays the UI's) and its
+      sync profile. A dry run showed no change but the qBittorrent key; a second, with one
+      change planted in each section, showed every one, so each section is compared. Left: the
+      merge, then a real run's diff the same. Not Configarr's (none of its sections): each
+      app's indexer settings (minimum age, retention, RSS interval), import lists,
+      notifications, Prowlarr's indexers
 - [ ] Phase 5, quality: today's quality definitions, profiles and custom formats captured
       unchanged (Settled)
 - [ ] Whisparr v3 (Settled): its own release and database beside v2, its env vars as phase 1's,
