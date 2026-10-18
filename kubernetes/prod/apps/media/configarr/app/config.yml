@@ -7,20 +7,170 @@ sonarr:
   sonarr:
     base_url: http://sonarr:8989
     api_key: !env SONARR_API_KEY
+    # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
+    # the UI's until its API key is in Vaultwarden: a client Configarr updates
+    # takes the schema's default for any field left out, blanking its key.
+    download_clients:
+      # The key is written on every run: the apps never show it, so it can't
+      # be compared, and the diff report lists it each time.
+      update_password: true
+      data:
+        - name: qBittorrent
+          type: qbittorrent
+          enable: true
+          priority: 1
+          remove_completed_downloads: true
+          remove_failed_downloads: true
+          fields:
+            host: "qbittorrent"
+            port: 8080
+            use_ssl: false
+            api_key: !env QBITTORRENT_API_KEY
+            tv_category: "tv-sonarr"
+            recent_tv_priority: 0
+            older_tv_priority: 0
+            initial_state: 0
+            sequential_order: false
+            first_and_last: false
+            content_layout: 0
+      config:
+        download_client_working_folders: "_UNPACK_|_FAILED_"
+        enable_completed_download_handling: true
+        auto_redownload_failed: true
+        auto_redownload_failed_from_interactive_search: true
 radarr:
   radarr:
     base_url: http://radarr:7878
     api_key: !env RADARR_API_KEY
+    # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
+    # the UI's until its API key is in Vaultwarden: a client Configarr updates
+    # takes the schema's default for any field left out, blanking its key.
+    download_clients:
+      # The key is written on every run: the apps never show it, so it can't
+      # be compared, and the diff report lists it each time.
+      update_password: true
+      data:
+        - name: qBittorrent
+          type: qbittorrent
+          enable: true
+          priority: 1
+          remove_completed_downloads: true
+          remove_failed_downloads: true
+          fields:
+            host: "qbittorrent"
+            port: 8080
+            use_ssl: false
+            api_key: !env QBITTORRENT_API_KEY
+            movie_category: "radarr"
+            recent_movie_priority: 0
+            older_movie_priority: 0
+            initial_state: 0
+            sequential_order: false
+            first_and_last: false
+            content_layout: 0
+      config:
+        download_client_working_folders: "_UNPACK_|_FAILED_"
+        enable_completed_download_handling: true
+        check_for_finished_download_interval: 1
+        auto_redownload_failed: true
+        auto_redownload_failed_from_interactive_search: true
 lidarr:
   lidarr:
     base_url: http://lidarr:8686
     api_key: !env LIDARR_API_KEY
+    # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
+    # the UI's until its API key is in Vaultwarden: a client Configarr updates
+    # takes the schema's default for any field left out, blanking its key.
+    download_clients:
+      # The key is written on every run: the apps never show it, so it can't
+      # be compared, and the diff report lists it each time.
+      update_password: true
+      data:
+        - name: qBittorrent
+          type: qbittorrent
+          enable: true
+          priority: 1
+          remove_completed_downloads: true
+          remove_failed_downloads: true
+          fields:
+            host: "qbittorrent"
+            port: 8080
+            use_ssl: false
+            api_key: !env QBITTORRENT_API_KEY
+            username: ""
+            password: ""
+            music_category: "lidarr"
+            recent_music_priority: 0
+            older_music_priority: 0
+            initial_state: 0
+            sequential_order: false
+            first_and_last: false
+            content_layout: 0
+      config:
+        download_client_working_folders: "_UNPACK_|_FAILED_"
+        enable_completed_download_handling: true
+        auto_redownload_failed: true
+        auto_redownload_failed_from_interactive_search: true
 # Bookshelf is a Readarr fork, and Configarr's Readarr support drives it.
 readarr:
   bookshelf:
     base_url: http://bookshelf:8787
     api_key: !env BOOKSHELF_API_KEY
+    # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
+    # the UI's until its API key is in Vaultwarden: a client Configarr updates
+    # takes the schema's default for any field left out, blanking its key.
+    download_clients:
+      # The key is written on every run: the apps never show it, so it can't
+      # be compared, and the diff report lists it each time.
+      update_password: true
+      data:
+        - name: qBittorrent
+          type: qbittorrent
+          enable: true
+          priority: 1
+          remove_completed_downloads: true
+          remove_failed_downloads: true
+          fields:
+            host: "qBittorrent"
+            port: 8080
+            use_ssl: false
+            api_key: !env QBITTORRENT_API_KEY
+            music_category: "books"
+            recent_tv_priority: 0
+            older_tv_priority: 0
+            initial_state: 0
+            sequential_order: false
+            first_and_last: false
+            content_layout: 0
+      config:
+        download_client_working_folders: "_UNPACK_|_FAILED_"
+        enable_completed_download_handling: true
+        auto_redownload_failed: true
+        auto_redownload_failed_from_interactive_search: true
 prowlarr:
   prowlarr:
     base_url: http://prowlarr:9696
     api_key: !env PROWLARR_API_KEY
+    # qBittorrent only, every field as the app had it (phase 3); SABnzbd stays
+    # the UI's until its API key is in Vaultwarden: a client Configarr updates
+    # takes the schema's default for any field left out, blanking its key.
+    download_clients:
+      # The key is written on every run: the apps never show it, so it can't
+      # be compared, and the diff report lists it each time.
+      update_password: true
+      data:
+        - name: qBittorrent
+          type: qbittorrent
+          enable: true
+          priority: 1
+          fields:
+            host: "qbittorrent"
+            port: 8080
+            use_ssl: false
+            api_key: !env QBITTORRENT_API_KEY
+            category: "prowlarr"
+            priority: 0
+            initial_state: 0
+            sequential_order: false
+            first_and_last: false
+            content_layout: 0
