@@ -27,6 +27,19 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
+  found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches
+  them in batches that each start from the pre-refresh snapshot (`getAuthor` serves the
+  `ra<id>` key while a refresh runs, by design per the declined PR 509), so the last batch
+  overwrites the others and Bookshelf shows a short bibliography (Cassandra Clare: 3 books;
+  six of eleven authors lost most works). Repaired by hand for all eleven: once a refresh has
+  finished, a work fetched on its own attaches to the live record, so the missing works' cache
+  rows (`w<id>` in `rreading-glasses-db`'s `cache` table) were deleted, the pod restarted (it
+  also caches in memory) and each work fetched (`GET /work/<id>`), then RefreshAuthor in
+  Bookshelf. The full list per author comes from its refresh's `ensuring author-work edges`
+  lines with `VERBOSE=true`. Left: an author added from now on can come out short the same
+  way; a small job that does this repair (or a patched image, or the fix upstream) would end
+  it. Already-repaired authors keep their works across refreshes (the snapshot is complete).
 - **systemd-resolved caches "no such name" on the Debian hosts** (found 2026-10-17): a hostname
   asked for before ExternalDNS made its record stayed unresolvable there though the Pi-holes
   answered it. `tasks/resolver-cache.yml` (in `baseline.yml`, 2026-10-17) sets
