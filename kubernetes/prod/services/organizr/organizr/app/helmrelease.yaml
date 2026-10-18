@@ -81,7 +81,7 @@ spec:
           cert-manager.io/cluster-issuer: cloudflare-letsencrypt
           traefik.ingress.kubernetes.io/router.entrypoints: websecure
           # referrer-same-origin is beside this file.
-          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,organizr-referrer-same-origin@kubernetescrd
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,organizr_referrer-same-origin@kubernetescrd
         hosts:
           - host: organizr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             paths:
