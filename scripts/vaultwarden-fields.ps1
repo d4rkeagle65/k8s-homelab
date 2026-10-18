@@ -65,7 +65,10 @@ $OutputEncoding = [Text.UTF8Encoding]::new($false)
 # Runs in the bitwarden-cli pod. Reads a JSON request on stdin and prints one
 # JSON line. Field values are never printed. Single quotes only, so the
 # argument reaches kubectl intact from Windows PowerShell and PowerShell 7.
+# Windows PowerShell under a UTF-8 console code page starts what it pipes with
+# a byte-order mark whatever $OutputEncoding says, and JSON.parse rejects it.
 $node = "let s='';process.stdin.on('data',d=>s+=d).on('end',async()=>{try{" +
+    "if(s.charCodeAt(0)===65279){s=s.slice(1)}" +
     "const q=JSON.parse(s);const b='http://127.0.0.1:8087';const u=b+'/object/item/'+q.id;" +
     "await fetch(b+'/sync?force=true',{method:'POST'});" +
     "const it=(await (await fetch(u)).json()).data;if(!it){throw new Error('item '+q.id+' not found')}" +
