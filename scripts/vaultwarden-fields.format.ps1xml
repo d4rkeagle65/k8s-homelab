@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The default view of vaultwarden-fields.ps1's listing: one table, sized to its
+  contents and wrapped rather than cut at the console's width. UsedBy stays an
+  array on the objects, so it filters with -contains; only this view joins it.
+-->
+<Configuration>
+  <ViewDefinitions>
+    <View>
+      <Name>Homelab.VaultwardenField</Name>
+      <ViewSelectedBy>
+        <TypeName>Homelab.VaultwardenField</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <AutoSize />
+        <TableHeaders>
+          <TableColumnHeader><Label>Name</Label></TableColumnHeader>
+          <TableColumnHeader><Label>Encoding</Label></TableColumnHeader>
+          <TableColumnHeader><Label>Synced</Label></TableColumnHeader>
+          <TableColumnHeader><Label>UsedBy</Label></TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <Wrap />
+            <TableColumnItems>
+              <TableColumnItem><PropertyName>Name</PropertyName></TableColumnItem>
+              <TableColumnItem><PropertyName>Encoding</PropertyName></TableColumnItem>
+              <TableColumnItem><PropertyName>Synced</PropertyName></TableColumnItem>
+              <TableColumnItem>
+                <ScriptBlock>if ($_.UsedBy) { $_.UsedBy -join ', ' } else { '(unused)' }</ScriptBlock>
+              </TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
+  </ViewDefinitions>
+</Configuration>
