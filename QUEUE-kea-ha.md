@@ -71,13 +71,16 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       `spec.certificates.serverCASecret`) or a job copying the CA to both hosts, then `verify-ca`
 - [x] `kea-db-init` reads its database from the site file's `hosts-databases` (2026-10-17):
       `kea-db`, with its `ssl-mode`; checked in its image (task 824, schema 34.0)
-- [ ] The HA pair (2026-10-17): `docker/kea/kea-dhcp4.conf` now carries the HA hook (its
-      settings from each host's `ha.json`), the one config both Keas run; `docker/kea-standby/`
-      (Kea alone; the Stork agent needs its image built on that VM, later) fetches it from main;
-      `ansible/kea-ha.yml` (template "Setting: Kea HA Config") wrote both hosts' files and Kea's
-      config test passed on both (task 807). Left: the standby's stack in Dockhand on the second
-      Docker VM's environment (`KEA_DHCP_ADDRESS`, `KEA_API_ADDRESS`); both report
-      `hot-standby`, the standby's leases synced
+- [x] The HA pair (2026-10-18): `docker/kea/kea-dhcp4.conf` carries the HA hook (its
+      settings from each host's `ha.json`, written by `ansible/kea-ha.yml`, template "Setting:
+      Kea HA Config"), the one config both Keas run; `docker/kea-standby/` fetches it from main
+      and runs in Dockhand on the second Docker VM. Both report `hot-standby`, in touch, lease
+      updates on; the standby synced the primary's 44 leases and serves the 51 reservations
+      from `kea-db` (Run Command tasks 833-834). The standby's `KEA_API_ADDRESS` is its
+      management address: the peers' URLs in `ha.json` are the NetBox primary IPs
+- [ ] The Stork agent on the standby: `docker/kea-standby/` runs Kea alone; the agent's image
+      (`homelab/kea-tools`, built on the host by the primary's stack) has to be built on the
+      second Docker VM first. Until then Stork sees only the primary
 - [x] The second Docker VM (2026-10-16): in NetBox (VMID 120, role "Docker VM", `.41` on
       management and Production), built by OpenTofu from Debian's cloud image (task 770), the
       baseline (787) and `docker-host.yml` (794: Docker 29.9.1 held, live-restore on, Hawser
@@ -85,8 +88,6 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       and `management_gateway` (the management routing, `tasks/management-routing.yml`); the
       sync (795) made it active with its MACs. Semaphore logs in as root with `semaphore-shared`
       (cloud-init's `disable_root` wrapping removed, task 789; the vendor data now prevents it)
-- [ ] The partner: `docker/kea/` deployed there in a partner mode, Kea with the HA hook
-      (`hot-standby`, the first Docker VM's Kea primary), both reading `kea-db`
 - [ ] The firewall's relay pointed at both Keas (the owner, in its UI)
 - [ ] The failover proved: the primary stopped, a client renews from the standby
 - [ ] Lease names into DNS (Kea's DDNS to the Pi-holes, or a sync): its own decision when here
@@ -94,8 +95,9 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
 
 ## Resuming
 
-The first unticked box is next; until the cutover, the Docker VM's database is the live one
-and the new cluster is a copy nothing reads.
+The first unticked box is next. Since the cutover both Keas read `kea-db`; `kea-postgres` on
+the first Docker VM still holds the old copy until the last box. A redeploy of either stack
+restarts its Kea; with the partner up, the other serves meanwhile.
 
 ## Done when
 
