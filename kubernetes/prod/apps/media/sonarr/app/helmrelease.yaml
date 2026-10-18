@@ -53,6 +53,19 @@ spec:
                   secretKeyRef:
                     name: sonarr
                     key: api-key
+              # Start-up settings pinned here rather than in config.xml, which
+              # they override (QUEUE-arr-config.md): Forms login, as set up;
+              # info logs (debug floods Loki); the update channel it runs.
+              - name: SONARR__AUTH__METHOD
+                value: Forms
+              - name: SONARR__AUTH__REQUIRED
+                value: Enabled
+              - name: SONARR__LOG__LEVEL
+                value: info
+              - name: SONARR__UPDATE__BRANCH
+                value: main
+              - name: SONARR__LOG__ANALYTICSENABLED
+                value: "false"
             # Startup allows ten minutes (database migrations); after that a
             # minute and a half without an answer takes it out of service and
             # two and a half restarts it. Without them, a start that gave up on

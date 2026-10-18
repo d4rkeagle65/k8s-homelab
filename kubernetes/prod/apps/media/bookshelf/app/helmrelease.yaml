@@ -61,6 +61,19 @@ spec:
                   secretKeyRef:
                     name: bookshelf
                     key: api-key
+              # Start-up settings pinned here rather than in config.xml, which
+              # they override (QUEUE-arr-config.md): Forms login, as set up;
+              # info logs (debug floods Loki); the update channel it runs.
+              - name: READARR__AUTH__METHOD
+                value: Forms
+              - name: READARR__AUTH__REQUIRED
+                value: Enabled
+              - name: READARR__LOG__LEVEL
+                value: info
+              - name: READARR__UPDATE__BRANCH
+                value: develop
+              - name: READARR__APP__INSTANCENAME
+                value: Bookshelf
             # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml).
             probes:
               startup:
