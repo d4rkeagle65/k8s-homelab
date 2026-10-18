@@ -3,3 +3,21 @@ kind: Kustomization
 resources:
 - gotk-components.yaml
 - gotk-sync.yaml
+# Memory requests from each controller's use, by QUEUE-resource-limits.md's rules, over
+# `flux install`'s 64Mi; kept here so a regenerated gotk-components.yaml doesn't undo them.
+# The limits stay Flux's (1000m, 1Gi): kustomize-controller is throttled at its 1000m, which
+# only slows its builds, and the cap keeps it from starving the databases beside it.
+patches:
+- target: {kind: Deployment, name: source-controller}
+  patch: |
+    - {op: replace, path: /spec/template/spec/containers/0/resources/requests/memory, value: 320Mi}
+- target: {kind: Deployment, name: kustomize-controller}
+  patch: |
+    - {op: replace, path: /spec/template/spec/containers/0/resources/requests/memory, value: 256Mi}
+    - {op: replace, path: /spec/template/spec/containers/0/resources/requests/cpu, value: 250m}
+- target: {kind: Deployment, name: helm-controller}
+  patch: |
+    - {op: replace, path: /spec/template/spec/containers/0/resources/requests/memory, value: 192Mi}
+- target: {kind: Deployment, name: notification-controller}
+  patch: |
+    - {op: replace, path: /spec/template/spec/containers/0/resources/requests/memory, value: 128Mi}
