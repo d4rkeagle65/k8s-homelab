@@ -4,6 +4,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
 - bookshelf/ks.yaml
+- configarr/ks.yaml
 - lidarr/ks.yaml
 - media-backup/ks.yaml
 - namespace.yaml

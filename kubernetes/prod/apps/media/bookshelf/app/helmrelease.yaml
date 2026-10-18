@@ -72,8 +72,10 @@ spec:
                 value: info
               - name: READARR__UPDATE__BRANCH
                 value: develop
+              # A name without "Readarr" in it is ignored (ConfigFileProvider's
+              # InstanceName).
               - name: READARR__APP__INSTANCENAME
-                value: Bookshelf
+                value: Bookshelf (Readarr)
             # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml).
             probes:
               startup:
