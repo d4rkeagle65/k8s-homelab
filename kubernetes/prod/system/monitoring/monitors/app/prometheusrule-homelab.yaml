@@ -82,6 +82,44 @@ spec:
           is not Ready, so nothing it applies is updated, and the objects that depend
           on it wait too: read its message with
           `flux get all -A --status-selector ready=false`.
+  # Bookshelf's metadata comes from Hardcover through rreading-glasses, on one
+  # API token with a daily budget; once it's spent, every lookup rreading-glasses
+  # hasn't cached fails until the budget resets (about midnight UTC).
+  - name: homelab.bookshelf
+    rules:
+    - alert: HardcoverDailyBudgetExhausted
+      # Spent, and lookups failing because of it: a budget read as 0 right after
+      # a restart, before any response has reported it, fails nothing.
+      expr: |
+        max(rg_gql_ratelimit_remaining{bucket="daily"}) == 0
+          and on() sum(increase(rg_http_requests_count{status=~"5.."}[15m])) > 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: Hardcover's daily API budget is spent; Bookshelf can't look up new books.
+        description: >-
+          rreading-glasses reports 0 of the token's daily Hardcover budget left and
+          its lookups are failing. Searches and author refreshes for anything not
+          already cached fail until the budget resets (about midnight UTC). Stop any
+          bulk work (author repairs, mass imports) and let it reset.
+    - alert: HardcoverDailyBudgetLow
+      # Under a tenth of the most it has reported in two days (Hardcover doesn't
+      # publish the size of the budget, so the peak stands in for it).
+      expr: |
+        max(rg_gql_ratelimit_remaining{bucket="daily"}) > 0
+          and max(rg_gql_ratelimit_remaining{bucket="daily"})
+            < 0.1 * max(max_over_time(rg_gql_ratelimit_remaining{bucket="daily"}[2d]))
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: Hardcover's daily API budget is under 10%.
+        description: >-
+          rreading-glasses reports {{ $value }} Hardcover lookups left today, under a
+          tenth of its recent peak. Pause bulk work (author repairs, mass imports)
+          until the budget resets (about midnight UTC), or Bookshelf's searches will
+          start failing.
   - name: homelab.drives
     rules:
     - alert: DriveWearHigh
