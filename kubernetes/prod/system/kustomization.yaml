@@ -12,6 +12,7 @@ resources:
 - external-dns
 - external-secrets
 - external-services
+- headlamp
 - local-path-storage
 - metallb-system
 - metrics-server
