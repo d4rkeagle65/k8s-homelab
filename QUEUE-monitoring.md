@@ -61,6 +61,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 | Phase 2 | a Garage bucket `loki-logs` and its key (`LOKI_S3_ACCESS_KEY_ID`, `LOKI_S3_SECRET_ACCESS_KEY`) | present (2026-10-10) |
 | Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | present (2026-10-10) |
 | Phase 5 | where alerts go (email through the relay, n8n, or both) | a decision |
+| Phase 9 | a read-only Garage key `backup-monitor` (read on `cnpg-backups` and `docker-backups`) as `BACKUP_MONITOR_S3_ACCESS_KEY_ID` and `BACKUP_MONITOR_S3_SECRET_ACCESS_KEY` | asked 2026-10-18 |
+| Phase 9 | how the Synology copies to the TerraMaster (Hyper Backup, rsync, Snapshot Replication, or a pull), its folder there, and whether a Proxmox host or SSH reaches it | asked 2026-10-18 |
 
 ## Phases
 
@@ -95,6 +97,25 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 7. **Convert the three releases to captured** (Settled, above).
 8. **Log search tuning:** labels kept few (namespace, app, node, stream), the rest as
    structured metadata; saved queries and dashboards for the common questions.
+9. **Backups, one dashboard:** each backup's age and last result in one Grafana dashboard
+   (green under 26 hours, red when older or failed; sizes over time, so a shrinking backup
+   shows), and alerts on the same two conditions into Zammad through the bridge. One source
+   each:
+   - **CloudNativePG** (every cluster): already scraped: `cnpg_collector_last_available_backup_timestamp`,
+     `..._last_failed_backup_timestamp`, `cnpg_pg_stat_archiver_seconds_since_last_archival`,
+     `barman_cloud_cloudnative_pg_io_first_recoverability_point`.
+   - **Proxmox** (one job, every guest, nightly to the TerraMaster's `tm-nfs`, snapshot mode,
+     zstd): nothing exports it. A textfile collector on each host, installed by
+     `ansible/tasks/host-exporters.yml`: per guest the newest backup's time and size on the
+     backup storage and its last vzdump task's status.
+   - **Garage's buckets** (Databasus and Vaultwarden's backup in `docker-backups`, the
+     databases' in `cnpg-backups`): a small exporter in the cluster listing them read-only,
+     the newest object's age and size per prefix, so the files are seen to land. Databasus's
+     API takes only a user's session, no API key, and it alerts on its own failures.
+   - **Synology to TerraMaster:** not monitored, and broken (the owner, 2026-10-18): the
+     newest file's age where it lands on the TerraMaster, once the owner says how it runs.
+   - **etcd:** no scheduled snapshot (only by hand before a control-plane change,
+     `talos/README.md`); a nightly `talosctl etcd snapshot` to Garage is its own decision.
 
 ## Checklist
 
@@ -168,6 +189,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [x] Phase 6 (in phase 1)
 - [ ] Phase 7
 - [ ] Phase 8
+- [ ] Phase 9: the dashboard's CloudNativePG section and the Proxmox collector need nothing
+      from the owner; the Garage exporter waits on its key, the Synology copy on its answer
 
 ## Resuming
 
