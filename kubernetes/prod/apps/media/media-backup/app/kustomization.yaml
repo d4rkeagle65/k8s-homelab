@@ -7,5 +7,6 @@ resources:
 - scheduledbackup-lidarr-db.yaml
 - scheduledbackup-prowlarr-db.yaml
 - scheduledbackup-radarr-db.yaml
+- scheduledbackup-rreading-glasses-db.yaml
 - scheduledbackup-sonarr-db.yaml
 - scheduledbackup-whisparr-db.yaml

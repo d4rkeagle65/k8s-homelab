@@ -27,6 +27,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Bookshelf's metadata source** (2026-10-18): its searches went to the shared
+  `hardcover.bookinfo.pro`, which times out or answers 429. `prod/apps/media/rreading-glasses/`
+  runs the same server with this cluster's own Hardcover token (`HARDCOVER_API_TOKEN`). Left,
+  once it's running: Bookshelf's Settings > Development > Metadata Provider Source set to
+  `http://rreading-glasses.media:8788` and read back, then a search checked in its log; until
+  then Bookshelf still uses the shared server.
 - **systemd-resolved caches "no such name" on the Debian hosts** (found 2026-10-17): a hostname
   asked for before ExternalDNS made its record stayed unresolvable there though the Pi-holes
   answered it. `tasks/resolver-cache.yml` (in `baseline.yml`, 2026-10-17) sets
