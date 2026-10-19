@@ -85,12 +85,15 @@ references).
       its Kustomization substituting the vault's URL and tenant from `azure-keyvault-bootstrap`)
       and the test ExternalSecret `cluster-secrets-keyvault-test` (`kubernetes/secrets/`, every
       vault secret by `find`, hourly), written and dry-run server-side 2026-10-19
-- [ ] The bootstrap Secret `azure-keyvault-bootstrap` in `flux-system` (keys
+- [x] The bootstrap Secret `azure-keyvault-bootstrap` in `flux-system` (keys
       `AZURE_KEYVAULT_URL`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`),
-      applied by the owner from `kubernetes/.local/azure-keyvault-sp-external-secrets.json`
-      before the store's pull request merges
-- [ ] Read back after the merge: the store Valid, the test ExternalSecret `SecretSynced`, and
-      its 141 keys equal to `cluster-secrets`' by hash once each name is mapped
+      applied by the owner 2026-10-19 from
+      `kubernetes/.local/azure-keyvault-sp-external-secrets.json`; read back: the four keys
+      match the file, and they sign in and list all 141 secrets. A rebuilt cluster needs it
+      applied again before the `azure-keyvault` Kustomization can build its store.
+- [x] Read back after the merge (#110, 2026-10-19): the store Valid, the test ExternalSecret
+      `SecretSynced`, and all 141 of `cluster-secrets`' variables equal by hash to their Key
+      Vault copies, none missing or extra
 - [ ] The cutover commit (the rules above); `test_every_substituted_variable_is_defined`'s
       "field name must match the variable" check becomes the mapped-name check
 - [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first
