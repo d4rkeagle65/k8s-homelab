@@ -183,13 +183,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   manual `run-all-tests.py` there fails for a hook that works.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
-- **The retired PostgreSQL clusters' last backups** (found 2026-10-18): Backup objects of 12
-  clusters that no longer exist (each `<app>-postgres` retired 2026-10-17, and `manictime-pg`;
-  the newest dated 2026-10-15) are still listed, and their base backups and WAL are presumably
-  still in Garage under each old cluster's archive path (not checked). The owner's call: keep
-  them as a last resort, or delete the Backup objects and the Garage objects, which only makes
-  sense once each new `<app>-db` has a restore-tested backup of its own. Left, they hold
-  Garage space and `kubectl get backups -A` lists clusters that are gone.
+- **Restore-test the PostgreSQL 18 clusters' backups.** Their base backups read `DONE` in Garage
+  (2026-10-18), but none has been restored, and since the retired clusters' backups were
+  deleted (the owner, 2026-10-18) they are the only copies. Recover each `<app>-db`, Kea's,
+  rreading-glasses' and Zammad's into a one-instance copy and compare it table by table, as
+  `old-queues/QUEUE-restore-tests.md` did for the old clusters. Left, a backup that can't be
+  restored is found only when it's needed.
 - **The retired databases' files may still be on the workers' `local-db` disks** (found
   2026-10-18): deleting a Retain PV leaves its folder on the node. The old clusters' PVs are
   gone, but nobody has looked for their folders, nor for NetBox's old database files
