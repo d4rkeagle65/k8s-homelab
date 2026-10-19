@@ -2,8 +2,8 @@
 # claude.ai/code and the Claude app can reach without the PC, and that
 # doesn't go down with the cluster it works on. Deployed by Dockhand from
 # this folder (a Git stack). Claude Code runs in a tmux session inside the
-# container, a pane for each git worktree of the repo (README.md, Worktrees):
-# attach with `docker exec -it claude-code tmux attach -t claude`.
+# container, a window per lane (README.md, Lanes): attach with
+# `docker exec -it claude-code tmux attach -t claude`.
 #
 # Everything it keeps is in /opt/claude-code/home on the host (its home
 # folder): its login, settings and conversations (~/.claude, ~/.claude.json),
@@ -31,6 +31,10 @@ services:
     restart: unless-stopped
     environment:
       REPO_URL: ${REPO_URL:-https://github.com/d4rkeagle65/k8s-homelab.git}
-      REMOTE_CONTROL_NAME: homelab
+      # Each lane's Remote Control name is "<this> - <Lane>": the clone is Main.
+      REMOTE_CONTROL_NAME: k8s-homelab - Docker
+      # The lanes besides Main, space-separated: each a worktree at
+      # .claude/worktrees/<name> with a Claude Code process of its own.
+      CLAUDE_LANES: netbox
     volumes:
     - /opt/claude-code/home:/home/claude
