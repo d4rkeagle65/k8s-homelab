@@ -10,26 +10,24 @@
 
 locals {
   # The Pi-holes (community-scripts installs, unprivileged), one interface per
-  # network they answer on.
-  piholes = {
-    "100" = { memory = 2048 }
-    "109" = { memory = 1024 }
-  }
-  pihole_bridges = ["vmbr7", "vmbr0", "vmbr2", "vmbr6", "vmbr8"]
+  # network they answer on: their size, networks and tags from NetBox through
+  # netbox-guests.json (role "Pi-hole"), like the plain containers.
+  piholes = local.netbox_guests.piholes
 
   # The Kubernetes nodes' networks (talos.tf): main, then management.
   k8s_bridges = ["vmbr7", "vmbr0"]
 
   bridges_with_addresses = toset(concat(
-    local.k8s_bridges, local.pihole_bridges,
+    local.k8s_bridges,
+    flatten([for _, ct in local.piholes : ct.bridges]),
     flatten([for id, vm in local.docker_vms : vm.bridges if !contains(local.docker_vms_hand_built, id)]),
   ))
 
   # A container's address on a bridge: that network's prefix and the
   # container's last octet; the gateway where the network has one.
   addresses = {
-    for id, _ in local.piholes : id => [
-      for bridge in local.pihole_bridges : {
+    for id, ct in local.piholes : id => [
+      for bridge in ct.bridges : {
         address = "${var.site.networks[bridge].prefix}.${local.guest[id].host}/${var.site.networks[bridge].prefix_length}"
         gateway = var.site.networks[bridge].gateway
       }
@@ -141,10 +139,10 @@ resource "proxmox_virtual_environment_container" "pihole" {
   unprivileged  = true
   start_on_boot = true
   protection    = true
-  tags          = ["adblock", "community-script"]
+  tags          = each.value.tags
 
   cpu {
-    cores = 2
+    cores = each.value.cores
   }
 
   memory {
@@ -160,11 +158,11 @@ resource "proxmox_virtual_environment_container" "pihole" {
 
   disk {
     datastore_id = "vms"
-    size         = 8
+    size         = each.value.disk_gb
   }
 
   dynamic "network_interface" {
-    for_each = local.pihole_bridges
+    for_each = each.value.bridges
     content {
       name   = "eth${network_interface.key}"
       bridge = network_interface.value

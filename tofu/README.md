@@ -6,16 +6,16 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 
 | Module | Owns |
 |---|---|
-| `proxmox/` | The Proxmox guests: the Talos VMs (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes, the Docker VMs (`docker-vms.tf`: a new one from Debian's cloud image, its login from `site.vm_login`) and plain Debian containers (`containers` in `guests.tf`); the Talos VMs', containers' and Docker VMs' shape from `netbox-guests.json` (not the Windows DC). |
+| `proxmox/` | The Proxmox guests: the Talos VMs (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes, the Docker VMs (`docker-vms.tf`: a new one from Debian's cloud image, its login from `site.vm_login`) and plain Debian containers (`containers` in `guests.tf`); every guest's shape from `netbox-guests.json` (not the Windows DC). |
 | `cloudflare/` | The hand-made DNS records in both Cloudflare zones (not the tunnel controller's records, the tunnel's public hostnames, or cert-manager's challenges: each has its own owner). |
 
 ## What lives where
 
 - **The shape** (VMIDs, roles, sizes, bridges, tags) is in git, and nothing else: no names,
-  addresses or numbers from the site. The Talos VMs', plain containers' and Docker VMs' shape is NetBox's
+  addresses or numbers from the site. The Talos VMs', plain containers', Docker VMs' and Pi-holes' shape is NetBox's
   (QUEUE-netbox-shape.md): `proxmox/netbox-guests.json` is generated from it by
   `scripts/netbox_guests.py`, which Semaphore's "NetBox: Guests to git" runs to open a pull
-  request; never edit the file by hand. The Pi-holes keep theirs in `.tf` for now.
+  request; never edit the file by hand.
 - **Each guest's Proxmox host, name, addresses and MACs are NetBox's** (`netbox.tf`): one
   GraphQL query at every plan, by the VMID custom field, with a read-only token. NetBox's
   nightly sync (`scripts/netbox_seed.py`) keeps them in step with Proxmox. A plan stops when
