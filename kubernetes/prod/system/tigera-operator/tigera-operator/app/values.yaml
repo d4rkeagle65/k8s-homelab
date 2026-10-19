@@ -129,3 +129,20 @@ whisker:
 resources:
   requests: {cpu: 20m, memory: 416Mi}
   limits: {cpu: 1000m, memory: 896Mi}
+# Where the operator may run: control planes, and a node whose network isn't up yet, since
+# installing that network is its job. Not every taint, the chart's default: a node shutting
+# down is cordoned, and an operator tolerating that was scheduled back onto it and refused,
+# over and over. A node that's gone (unreachable) evicts it after the default 300s.
+tolerations:
+- key: node-role.kubernetes.io/control-plane
+  operator: Exists
+  effect: NoSchedule
+- key: node.kubernetes.io/not-ready
+  operator: Exists
+  effect: NoSchedule
+- key: node.kubernetes.io/not-ready
+  operator: Exists
+  effect: NoExecute
+- key: node.kubernetes.io/network-unavailable
+  operator: Exists
+  effect: NoSchedule
