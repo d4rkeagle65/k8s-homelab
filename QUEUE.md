@@ -57,27 +57,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   NXDOMAIN for anything only the Pi-holes hold (an Ingress hostname, a host's name). Any
   container there that needs a local name fails the same way; check the others and the Docker
   daemon's `dns` setting (`ansible/docker-host.yml`, `ansible/tasks/resolver-cache.yml`).
-- **The control planes are short of memory** (found 2026-10-18): each has 4096Mi
-  (`tofu/proxmox/netbox-guests.json`, `talos_nodes`), and since 2026-10-14 their available
-  memory (`node_memory_MemAvailable_bytes`) has fallen to 6%, 9% and 14% at its lowest; the
-  API server alone peaks at 1.5-1.8GiB, with etcd beside it. Talos owns those pods and they
-  have no limits, so a squeeze ends with the kernel's OOM killer taking the API server or
-  etcd. Raise each to 6144 (about a third free), with the owner. Checked 2026-10-19:
-  - **Room:** each host's free memory at its 5-day peak (`pve_memory_usage_bytes`): VM 110's
-    host 23.4GiB, VM 112's 5.2GiB, VM 113's 3.7GiB (1.7GiB left after the raise: tight, but
-    its ZFS ARC gives way first). Recheck just before, as other guests move.
-  - **No hotplug:** the Talos VMs have no memory hotplug, so a raise on a running VM waits,
-    pending, until Proxmox stops and starts it; `reboot_after_update = false` means the apply
-    itself restarts nothing. A reboot from inside Talos keeps the same QEMU process and
-    doesn't pick it up: reboot through Proxmox (the UI's Reboot, or `qm reboot <VMID>`).
-  - **Steps:** done so far (2026-10-19): the three VMs' memory to 6144 in NetBox, its pull
-    request (#111) merged, and the owner's OpenTofu apply. Left: the reboots, by
-    `ansible/talos-reboot.yml` ("Reboot: Talos VMs") with `reboot_vms` 110,112,113. Dry-run it
-    first: it should show each VM with `memory 4096 -> 6144` pending. The real run does one
-    control plane at a time (etcd whole and caught up before and after, its static pods Ready,
-    nothing left pending, the node's memory before and after in its report); the API's address
-    moves to another control plane meanwhile, seconds without it.
-  The workers' lowest was 18% (the 11Gi one) and above.
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
   found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches
   them in batches that each start from the pre-refresh snapshot (`getAuthor` serves the
