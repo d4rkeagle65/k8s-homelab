@@ -107,10 +107,7 @@ references).
 - [ ] Tooling: `scripts/vaultwarden-fields.ps1` against Key Vault (from the cutover it no
       longer works on `cluster-secrets`: it reads the Vaultwarden item ID from the live
       ExternalSecret, which then names Key Vault secrets); capture's "aren't in Vaultwarden
-      yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`);
-      and `scripts/keyvault_copy.py`'s `request()`, which turns only an HTTP error into an
-      answer: a dropped connection or timeout (once, 2026-10-19) ends in a traceback, and in an
-      `--apply` run skips the read-back report, so it should stop cleanly as a `Stop` does
+      yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`)
 - [ ] An alert on an ExternalSecret that stops syncing (`externalsecret_status_condition`)
 - [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired
 
