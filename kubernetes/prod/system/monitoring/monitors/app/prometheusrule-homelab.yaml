@@ -82,6 +82,27 @@ spec:
           is not Ready, so nothing it applies is updated, and the objects that depend
           on it wait too: read its message with
           `flux get all -A --status-selector ready=false`.
+  - name: homelab.external-secrets
+    rules:
+    # The Ready=False series is 1 while the last sync failed. 30 minutes is two of
+    # cluster-secrets' 15-minute refreshes, so one failed refresh that the next one
+    # heals opens no ticket.
+    - alert: ExternalSecretNotSynced
+      expr: |
+        max by (exported_namespace, name) (
+          externalsecret_status_condition{condition="Ready", status="False"}
+        ) == 1
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: An ExternalSecret has failed to sync for 30 minutes.
+        description: >-
+          {{ $labels.exported_namespace }}/{{ $labels.name }} isn't syncing. Its Secret
+          keeps the last values, so a changed or new variable doesn't arrive: read
+          `kubectl -n {{ $labels.exported_namespace }} describe externalsecret {{ $labels.name }}`.
+          For cluster-secrets, check the azure-keyvault ClusterSecretStore and the
+          azure-keyvault-bootstrap Secret in flux-system (QUEUE-azure-keyvault.md).
   # Bookshelf's metadata comes from Hardcover through rreading-glasses, on one
   # API token with a daily budget; once it's spent, every lookup rreading-glasses
   # hasn't cached fails until the budget resets (about midnight UTC).
