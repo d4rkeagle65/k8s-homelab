@@ -20,6 +20,7 @@ spec:
       labels:
         app: babybuddy
     spec:
+      priorityClassName: homelab-important
       containers:
       - env:
         - name: DB_USER

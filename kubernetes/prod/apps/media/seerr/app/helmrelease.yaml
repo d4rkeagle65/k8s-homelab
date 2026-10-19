@@ -22,6 +22,8 @@ spec:
         name: bjw-s
         namespace: flux-system
   values:
+    defaultPodOptions:
+      priorityClassName: homelab-low
     controllers:
       main:
         # Seerr runs as its image's node user, not root: the config claim's

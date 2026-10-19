@@ -638,6 +638,38 @@ def test_cluster_secrets_maps_each_variable_once(repo_root, load_yaml):
     assert not twice, f"mapped more than once in kubernetes/secrets/cluster-secrets.yaml: {twice}"
 
 
+_PRIORITY_RE = re.compile(r"(?m)^\s*priorityClassName:\s*[\"']?([A-Za-z0-9.-]+)[\"']?\s*(?:#.*)?$")
+
+
+def _priority_names(text: str) -> set[str]:
+    """The non-empty priorityClassName values a YAML file sets."""
+    return set(_PRIORITY_RE.findall(text))
+
+
+def test_every_priority_class_named_exists(repo_root):
+    """The API server rejects a pod whose priorityClassName names no PriorityClass, so
+    a typo, or a class named before its own pull request is live, stops the workload
+    starting. Each name must be a class defined in git or one of Kubernetes' own.
+    """
+    assert _priority_names('a:\n  priorityClassName: homelab-low\nb:\n  priorityClassName: ""\n'
+                           '  priorityClassName: "x-y"  # c\n') == {"homelab-low", "x-y"}
+    builtin = {"system-cluster-critical", "system-node-critical"}
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes/*.yaml"], cwd=repo_root,
+                             capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    defined, used = set(builtin), {}
+    for rel in filter(None, tracked):
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        if "kind: PriorityClass" in text:
+            for doc in _yaml.load_all(text):
+                if isinstance(doc, dict) and doc.get("kind") == "PriorityClass":
+                    defined.add(doc["metadata"]["name"])
+        for name in _priority_names(text):
+            used.setdefault(name, []).append(rel)
+    assert len(defined) > len(builtin), "found no PriorityClass in git, so nothing was checked"
+    unknown = {n: files[:3] for n, files in used.items() if n not in defined}
+    assert not unknown, f"priorityClassName naming no PriorityClass: {unknown}"
+
+
 def test_replicated_databases_switch_over(repo_root):
     """A CloudNativePG Cluster with a replica sets primaryUpdateMethod: switchover. The
     default, restart, restarts the primary in place on any change to the spec, and its apps
