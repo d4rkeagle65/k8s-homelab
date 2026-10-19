@@ -78,6 +78,11 @@ spec:
                   secretKeyRef:
                     name: radarr
                     key: api-key
+              - name: WHISPARR_API_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: whisparr-v3
+                    key: api-key
               - name: LIDARR_API_KEY
                 valueFrom:
                   secretKeyRef:
