@@ -143,7 +143,7 @@ spec:
               Wi-Fi: {tab: Systems, style: row, columns: 3, header: false}
               Storage: {tab: Systems, style: row, columns: 3, header: false}
               Tools: {tab: Systems, style: row, columns: 3, header: false}
-              Health: {tab: Cluster, style: row, columns: 3, header: false}
+              Health: {tab: Cluster, style: row, columns: 4, header: false}
               Observability: {tab: Cluster, style: row, columns: 3, header: false}
               Featured: {tab: Apps, style: row, columns: 4, header: false}
               Everyday: {tab: Apps, style: row, columns: 4, header: false}
@@ -577,6 +577,12 @@ spec:
                         - label: Restarts 24h
                           query: round(sum(increase(kube_pod_container_status_restarts_total[1d])))
                           format: {type: number}
+                - Headlamp:
+                    icon: headlamp.png
+                    href: https://headlamp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Kubernetes web UI, read-only
+                    namespace: headlamp
+                    app: headlamp
                 - Flux:
                     icon: flux-cd.png
                     description: GitOps from the repo
