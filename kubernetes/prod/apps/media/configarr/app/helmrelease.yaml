@@ -62,6 +62,16 @@ spec:
                   secretKeyRef:
                     name: configarr
                     key: qbittorrent-api-key
+              - name: QBITTORRENT_USERNAME
+                valueFrom:
+                  secretKeyRef:
+                    name: configarr
+                    key: qbittorrent-username
+              - name: QBITTORRENT_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: configarr
+                    key: qbittorrent-password
               - name: SABNZBD_API_KEY
                 valueFrom:
                   secretKeyRef:
