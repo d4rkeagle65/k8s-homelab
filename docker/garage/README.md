@@ -55,10 +55,27 @@ allowed to read, write and own it. Nothing to run after the deploy.
 - **It refuses to start** if the key already exists with a different secret, or the layout has
   been changed by hand past its first version (then drop `--single-node` and manage the layout
   with `garage layout`). To change the key's secret, create a new key ID too.
-- **Check it** on the NAS: `docker exec garage /garage status` shows one node with a role in
-  zone `dc1`, and `docker exec garage /garage bucket info cnpg-backups` lists the key with
+- **Check it** on the NAS: `docker exec garage /garage -c /etc/garage/garage.toml status`
+  shows one node with a role in zone `dc1`, and `docker exec garage /garage -c
+  /etc/garage/garage.toml bucket info cnpg-backups` lists the key with
   read, write and owner. From a machine that reaches the NAS, `curl -s http://<NAS address>:3900`
   answers with an S3 error document (`AccessDenied`): the API is up.
+
+## More buckets
+
+Garage makes only `cnpg-backups` and its key by itself. Another bucket is made once on the
+NAS, with a key allowed on it alone (mariadb-operator's backups, `QUEUE-mariadb.md`):
+
+```sh
+g="docker exec garage /garage -c /etc/garage/garage.toml"
+$g bucket create mariadb-backups
+$g key import --yes <key ID> <secret> -n mariadb-backups
+$g bucket allow --read --write --owner mariadb-backups --key mariadb-backups
+```
+
+The key's ID and secret are made as the backup key's are (see the table above), and the
+same two values go into Azure Key Vault for `cluster-secrets`. These buckets aren't
+recreated by Garage's start-up: if its metadata is lost, run them again.
 
 ## Updating
 
