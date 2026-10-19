@@ -130,7 +130,15 @@ spec:
         existingClaim: radarr-config
         globalMounts:
           - path: /config
+      # Only its own folders of the media share, each at the path it had
+      # (QUEUE-media-isolation.md): its library, and the qBittorrent and SABnzbd
+      # category folders its downloads land in.
       synmedia:
         existingClaim: synmedia-nfs
         globalMounts:
-          - path: /synmedia
+          - path: /synmedia/media/movies
+            subPath: media/movies
+          - path: /synmedia/torrents/radarr
+            subPath: torrents/radarr
+          - path: /synmedia/nzbget/movies
+            subPath: nzbget/movies
