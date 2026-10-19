@@ -30,6 +30,40 @@
       ]
     }
   },
+  "piholes": {
+    "100": {
+      "bridges": [
+        "vmbr7",
+        "vmbr0",
+        "vmbr2",
+        "vmbr6",
+        "vmbr8"
+      ],
+      "cores": 2,
+      "disk_gb": 8,
+      "memory": 2048,
+      "tags": [
+        "adblock",
+        "community-script"
+      ]
+    },
+    "109": {
+      "bridges": [
+        "vmbr7",
+        "vmbr0",
+        "vmbr2",
+        "vmbr6",
+        "vmbr8"
+      ],
+      "cores": 2,
+      "disk_gb": 8,
+      "memory": 1024,
+      "tags": [
+        "adblock",
+        "community-script"
+      ]
+    }
+  },
   "talos_nodes": {
     "110": {
       "apply_mode": "no_reboot",

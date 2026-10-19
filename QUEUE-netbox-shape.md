@@ -6,13 +6,14 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 
 ## Settled (the owner, 2026-10-16)
 
-- **Scope: the plain containers, the Talos VMs and the Docker VMs** (`containers` in
-  `guests.tf`, `talos_nodes` in `talos-config.tf`, `docker_vms` in `docker-vms.tf`; the Docker
-  VMs added 2026-10-16, the owner: "a single source of truth, with corrections made if
-  something strays"). What every VM of a kind shares (firmware, CPU type, datastore) stays in
-  OpenTofu; what varies is NetBox's. A NIC's bridge is its description's ("Proxmox bridge
-  vmbrX"), so a bridge without an address works. The Pi-holes are next: their HA storage as a
-  custom field, the role "Pi-hole".
+- **Scope: the plain containers, the Talos VMs, the Docker VMs and the Pi-holes**
+  (`containers` and `piholes` in `guests.tf`, `talos_nodes` in `talos-config.tf`, `docker_vms`
+  in `docker-vms.tf`; the Docker VMs added 2026-10-16, the owner: "a single source of truth,
+  with corrections made if something strays"). What every VM of a kind shares (firmware, CPU
+  type, datastore, a Pi-hole's swap and features) stays in OpenTofu; what varies is NetBox's. A
+  NIC's bridge is its description's ("Proxmox bridge vmbrX"), so a bridge without an address
+  works. The Pi-holes have no HA storage to record: neither is an HA resource or replicated,
+  and both sit on `vms`, each node's own ZFS pool (Run Command task 874, 2026-10-19).
 - **A Semaphore template that opens a pull request**, never a push to `main`: it writes the
   generated file, and when that differs from `main`, force-pushes the branch `netbox/guests`
   and opens a pull request, or updates the one already open, as Renovate does. Merging it is
@@ -33,6 +34,7 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
   | `disk_gb`, `data_gb` (Talos); `disk_gb` (container) | virtual disks `scsi0`, `scsi1` (Talos); `rootfs` (container), in GB |
   | `apply_mode` (Talos) | custom field `talos_apply_mode` (`auto`, `no_reboot`) |
   | `tags` (container) | custom field `proxmox_tags` |
+  | role "Pi-hole" | as a plain container: vCPUs, memory, `rootfs`, bridges, `proxmox_tags` |
   | role "Docker VM" | the VM's role "Docker VM": cores (vCPUs, two sockets when even), memory, disks `scsi0` and `scsi1`, bridges, `proxmox_tags` |
   | `bridges` (container, Docker VM) | each interface's description ("Proxmox bridge vmbrX"), else its address's prefix to the bridge `netbox_seed.yaml`'s networks name |
 - **The nightly sync never overwrites what NetBox owns.** For a VM with one of the three roles,
@@ -77,8 +79,17 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
       `scripts/netbox_guests.py`, its CLI argument `--pr` typed plainly, which Semaphore stores as
       `["--pr"]`; the "Netbox Sync" group). Task 752: no change, no pull request; task 753, VM 115's
       memory raised in NetBox: pull request #15, one line in `netbox-guests.json`
-- [ ] Proved end to end: #15 merged (or closed and NetBox put back), a plan showing just that
-      change; an apply takes effect at that worker's next drained reboot
+- [x] Proved end to end: #15 merged 2026-10-16; plan 762 showed VM 115's memory 10240 -> 11264
+      (beside the Docker VM commit's adds), apply 763 wrote it, and plan 770 had nothing left
+      for 115
+- [ ] VM 115 (worker w05) running on its 11264 MB: Proxmox holds it, the node still has 10240
+      (up since 2026-10-15) until its next drained reboot, the owner's
+- [x] The Pi-holes (2026-10-19): the role "Pi-hole" in NetBox (`vm_roles`), on VMIDs 100 and 109
+      with `proxmox_tags`; `local.piholes` in `guests.tf` replaced by the generated `piholes`,
+      whose values equal the hand-written ones
+- [ ] After that pull request merges: a plan (template 14, `params.plan`) with no change for
+      `proxmox_virtual_environment_container.pihole`; then template 24 run once, finding
+      nothing to change
 
 ## Resuming
 
@@ -87,8 +98,9 @@ file, git's maps rule, and the generator only writes a file and a branch.
 
 ## Done when
 
-A change to a Talos VM's or a plain container's shape is made in NetBox, arrives as a pull
-request from the Semaphore template, and an apply makes Proxmox match; then this file moves to
+A change to a guest's shape is made in NetBox, arrives as a pull request from the Semaphore
+template, and an apply makes Proxmox match (shown with VM 115's memory, once that node has
+rebooted), and the Pi-holes' shape is NetBox's with a plan unchanged; then this file moves to
 `old-queues/`.
 
 ## Checked and negative
