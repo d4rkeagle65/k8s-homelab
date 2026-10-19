@@ -89,13 +89,14 @@ def test_docs_file_exists(repo_root, name):
 def _assert_wires_substitutions(doc) -> None:
     """Both refs, always, and optional so Flux doesn't hard-fail before the
     ConfigMap/Secret exists on the cluster. Never conditional on the local
-    substitutions file: a clone without it must generate the same thing.
+    substitutions file: a clone without it must generate the same thing. The
+    azure-keyvault store alone adds its bootstrap Secret (_BOOTSTRAP_SECRET_NAME).
     """
     substitute_from = doc["spec"].get("postBuild", {}).get("substituteFrom", [])
-    assert [(entry["kind"], entry["name"]) for entry in substitute_from] == [
-        ("ConfigMap", "cluster-settings"),
-        ("Secret", "cluster-secrets"),
-    ]
+    expected = [("ConfigMap", "cluster-settings"), ("Secret", "cluster-secrets")]
+    if doc["metadata"]["name"] == "azure-keyvault":
+        expected.append(("Secret", _BOOTSTRAP_SECRET_NAME))
+    assert [(entry["kind"], entry["name"]) for entry in substitute_from] == expected
     for entry in substitute_from:
         assert entry.get("optional") is True, "substituteFrom entries must be optional so Flux doesn't hard-fail before the ConfigMap/Secret exists on the cluster"
 
@@ -524,6 +525,13 @@ def test_no_namespace_is_defined_twice(repo_root):
 
 _VARIABLE_RE = re.compile(r"(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
+# The azure-keyvault-bootstrap Secret's variables, applied by hand (QUEUE-azure-keyvault.md):
+# the store that builds cluster-secrets can't take its own address from cluster-secrets. Only
+# the azure-keyvault folder may use them, and its Kustomization substitutes from that Secret.
+_BOOTSTRAP_SECRET_NAME = "azure-keyvault-bootstrap"
+_BOOTSTRAP_VARIABLES = {"AZURE_KEYVAULT_URL", "AZURE_TENANT_ID"}
+_BOOTSTRAP_FOLDER = "kubernetes/prod/system/external-secrets/azure-keyvault/"
+
 
 def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     """Flux fails a Kustomization on an undefined ${VAR} (strict substitution,
@@ -531,7 +539,8 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     kubernetes/ must be a key
     of cluster-settings (public, in git) or a field of the cluster-secrets
     ExternalSecret (private, from Vaultwarden). The test overlay's own
-    variables come from cluster-substitutions-test.
+    variables come from cluster-substitutions-test, and the azure-keyvault
+    store's from the bootstrap Secret applied by hand.
     """
     settings = load_yaml(repo_root / "kubernetes/flux/meta/vars/cluster-settings.yaml")["data"]
     test_vars = load_yaml(repo_root / "kubernetes/flux/meta/vars/cluster-substitutions-test.yaml")["data"]
@@ -560,9 +569,18 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
             continue
         for name in _VARIABLE_RE.findall(path.read_text(encoding="utf-8")):
             used.setdefault(name, set()).add(path.relative_to(repo_root).as_posix())
-    defined = set(settings) | secrets | set(test_vars)
+    defined = set(settings) | secrets | set(test_vars) | _BOOTSTRAP_VARIABLES
     undefined = {name: sorted(paths)[:3] for name, paths in used.items() if name not in defined}
     assert not undefined, f"variables used but defined nowhere: {undefined}"
+
+    assert not _BOOTSTRAP_VARIABLES & (set(settings) | secrets), "a bootstrap variable is also a cluster variable"
+    outside = {name: sorted(p for p in paths if not p.startswith(_BOOTSTRAP_FOLDER))
+               for name, paths in used.items() if name in _BOOTSTRAP_VARIABLES}
+    assert not any(outside.values()), f"bootstrap variables used outside {_BOOTSTRAP_FOLDER}: {outside}"
+    if any(name in _BOOTSTRAP_VARIABLES for name in used):
+        ks = load_yaml(repo_root / _BOOTSTRAP_FOLDER / "ks.yaml")
+        sources = {(s.get("kind"), s.get("name")) for s in ks["spec"].get("postBuild", {}).get("substituteFrom", [])}
+        assert ("Secret", _BOOTSTRAP_SECRET_NAME) in sources, f"{_BOOTSTRAP_FOLDER}ks.yaml must substitute from {_BOOTSTRAP_SECRET_NAME}"
 
 
 _ROUTER_MIDDLEWARES = "traefik.ingress.kubernetes.io/router.middlewares"

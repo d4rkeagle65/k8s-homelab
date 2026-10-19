@@ -81,8 +81,16 @@ references).
       reports all 141 "already the same" by hash, and the vault holds exactly the 141 mapped
       names. A variable changed in Vaultwarden before the cutover reaches Key Vault by running
       it again.
-- [ ] A `ClusterSecretStore` `azure-keyvault` (`azurekv` provider, the service principal's
-      Secret) beside the `bitwarden-*` ones, and the test ExternalSecret proving all 141
+- [x] The `azure-keyvault` ClusterSecretStore (`prod/system/external-secrets/azure-keyvault/`,
+      its Kustomization substituting the vault's URL and tenant from `azure-keyvault-bootstrap`)
+      and the test ExternalSecret `cluster-secrets-keyvault-test` (`kubernetes/secrets/`, every
+      vault secret by `find`, hourly), written and dry-run server-side 2026-10-19
+- [ ] The bootstrap Secret `azure-keyvault-bootstrap` in `flux-system` (keys
+      `AZURE_KEYVAULT_URL`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`),
+      applied by the owner from `kubernetes/.local/azure-keyvault-sp-external-secrets.json`
+      before the store's pull request merges
+- [ ] Read back after the merge: the store Valid, the test ExternalSecret `SecretSynced`, and
+      its 141 keys equal to `cluster-secrets`' by hash once each name is mapped
 - [ ] The cutover commit (the rules above); `test_every_substituted_variable_is_defined`'s
       "field name must match the variable" check becomes the mapped-name check
 - [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first
