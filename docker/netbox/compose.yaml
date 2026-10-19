@@ -39,7 +39,9 @@ x-netbox: &netbox
     REDIS_CACHE_DATABASE: "1"
     SECRET_KEY: ${NETBOX_SECRET_KEY}
     API_TOKEN_PEPPER_1: ${NETBOX_API_TOKEN_PEPPER}
-    ALLOWED_HOSTS: ${NETBOX_HOST}
+    # Space-separated: the public name, and the service's own name, which only
+    # this stack's network reaches (netbox-dns-sync calls http://netbox:8080).
+    ALLOWED_HOSTS: ${NETBOX_HOST} netbox
     CSRF_TRUSTED_ORIGINS: https://${NETBOX_HOST}
     LOGIN_REQUIRED: "true"
     TIME_ZONE: ${TZ:-UTC}
