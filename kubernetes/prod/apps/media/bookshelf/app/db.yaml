@@ -1,5 +1,5 @@
 # Bookshelf's databases on PostgreSQL 18 (Debian trixie), taking over from
-# bookshelf-postgres (Debian bullseye; QUEUE-postgres18.md). Created empty; the data is
+# bookshelf-postgres (Debian bullseye; old-queues/QUEUE-postgres18.md). Created empty; the data is
 # copied in with pg_dump and pg_restore while the app is stopped.
 # Bookshelf (a Readarr fork) keeps three databases: main, log, and a cache of
 # book metadata.
