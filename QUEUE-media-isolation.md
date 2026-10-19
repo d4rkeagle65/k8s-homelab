@@ -26,6 +26,9 @@ share's own top level) is reachable from it.
 - **Before an app's mounts narrow, nothing it still needs lies outside them:** its download
   queue has no item whose output path is outside the new mounts (move such torrents with
   qBittorrent's automatic management first), and its root folders are all inside.
+- **Every folder an app will mount exists first, owned like its neighbours** (`chown
+  --reference`): the kubelet creates a missing `subPath` as root, and the apps, running as
+  the media user, can't write to it.
 - **After the merge:** the app starts, its health page has no new issue, its download
   clients test OK, and a file listing shows only its folders under `/synmedia`.
 
@@ -33,8 +36,8 @@ share's own top level) is reachable from it.
 
 | App | Folders under `/synmedia` | State |
 |---|---|---|
-| Bookshelf | media/books, torrents/books, nzbget/books | PR (2026-10-19); its 9 torrents moved to torrents/books first |
-| Sonarr | media/tv, media/youtube, torrents/tv-sonarr, nzbget/tv | |
+| Bookshelf | media/books, torrents/books, nzbget/books | live and checked (2026-10-19) |
+| Sonarr | media/tv, media/youtube, torrents/tv-sonarr, nzbget/tv | PR (2026-10-19) |
 | Radarr | media/movies, torrents/radarr, nzbget/movies | |
 | Lidarr | media/music, torrents/lidarr, nzbget/music | |
 | Whisparr | media/xxx, torrents/xxx, nzbget/xxx | |
