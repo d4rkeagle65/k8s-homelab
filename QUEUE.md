@@ -65,9 +65,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   during a batch and stop well short of 0; one work every few seconds, not one a second
   (rreading-glasses already keeps to the per-second burst budget; its pacing is
   hard-coded); never a repair while Bookshelf is identifying new files, or several large
-  authors at once. The HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the
-  low and the spent budget. Left from that day: Terry Brooks's last 82 works, and the 17
-  Shannara files (renamed .prc to .mobi, in `Shannara/`) to map, once the budget resets.
+  authors at once. The budget (Hardcover's response headers, 2026-10-19): 5,000 lookups a
+  day, reset at 00:00 UTC, and 60 a minute with bursts of 10; a re-fetched work costs about
+  one, so keep a day's repairs to about 1,000 and leave the rest to Bookshelf. The
+  HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
 - **systemd-resolved caches "no such name" on the Debian hosts** (found 2026-10-17): a hostname
   asked for before ExternalDNS made its record stayed unresolvable there though the Pi-holes
   answered it. `tasks/resolver-cache.yml` (in `baseline.yml`, 2026-10-17) sets
