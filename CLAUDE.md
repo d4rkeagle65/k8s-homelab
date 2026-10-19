@@ -100,7 +100,7 @@ Read before changing anything:
   which Flux fills from `cluster-secrets` (built by External Secrets from a Vaultwarden item;
   `kubernetes/secrets/`) and `cluster-settings` (`kubernetes/flux/meta/vars/`). Real values
   live only in Vaultwarden, the gitignored `kubernetes/.local/`, and `.secret-words` for the
-  hook. An undefined variable fails its Flux Kustomization, so a new one lands first: the owner
+  hook; `tests/test-identifying-data.py` checks every tracked file for them at each commit. An undefined variable fails its Flux Kustomization, so a new one lands first: the owner
   adds its Vaultwarden field, and its entry in `kubernetes/secrets/cluster-secrets.yaml` is a
   pull request of its own, merged before anything that uses it. An empty value is fine.
 - **Every change reaches `main` through a pull request the owner merges; a merge is a

@@ -77,7 +77,7 @@ def test_a_failed_chart_search_is_unknown_not_absent(monkeypatch):
 
 def test_the_ip_inventory_names_a_manifest_it_couldnt_parse(tmp_path):
     (tmp_path / "kubernetes").mkdir()
-    (tmp_path / "kubernetes/good.yaml").write_text("spec:\n  ip: 10.0.0.1\n", encoding="utf-8")
+    (tmp_path / "kubernetes/good.yaml").write_text("spec:\n  ip: 192.0.2.1\n", encoding="utf-8")
     (tmp_path / "kubernetes/bad.yaml").write_text("a: [unclosed\n", encoding="utf-8")
     warnings = []
     rows = capture._collect_ip_inventory(tmp_path, {}, warnings)

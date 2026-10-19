@@ -300,7 +300,7 @@ def test_shared_address_space_is_private():
     """RFC 6598 space (carrier-grade NAT, Tailscale's tailnet) isn't routed
     on the internet, so allowing it (Traefik's private-networks) is fine."""
     assert ss.classify_ip("100.64.0.0") == "private"
-    assert ss.classify_ip("100.127.255.254") == "private"
+    assert ss.classify_ip("100.127.255.254") == "private"  # identifying-data: allow (the range's edge)
     assert ss.classify_ip("100.128.0.1") == "public"
     assert ss.classify_ip("100.63.255.255") == "public"
 
