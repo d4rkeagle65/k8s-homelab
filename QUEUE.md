@@ -33,6 +33,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **The Docker VMs' cloud-init snippet on `syn-nfs` is one commit behind** (found 2026-10-19,
+  dry run task 884 of "Setting: Proxmox Host"): `332c5d1` (root takes the login's keys) merged
+  after that template's last real run, so a Docker VM built now would miss it. The owner's next
+  real run of template 15 writes it (`ansible/tasks/proxmox-snippets.yml`).
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
@@ -294,7 +298,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-netbox.md](QUEUE-netbox.md) (about 65%): NetBox on the Docker VM as the source of Semaphore's hosts and OpenTofu's guests, then owning DNS.
 - [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (about 97%): each guest's shape edited in NetBox, into git by a pull request.
-- [QUEUE-netbox-dns.md](QUEUE-netbox-dns.md) (about 65%): every local DNS record in NetBox, synced to both Pi-holes; a record for each device's and VM's address.
+- [QUEUE-netbox-dns.md](QUEUE-netbox-dns.md) (about 90%): every local DNS record in NetBox, synced to both Pi-holes; a record for each device's and VM's address.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,

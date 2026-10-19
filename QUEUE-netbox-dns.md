@@ -79,13 +79,12 @@ phase 4.
       on both Pi-holes before and after: none lost an address; all 145 now answer as NetBox
       says, except Pi-hole 2's own name asked over its management address, which Pi-hole
       answers with that interface's address (its own hostname, not a record)
-- [ ] The switch, written 2026-10-19: the `external-dns` and `external-dns-pihole2` releases and
-      their Secrets out, leaving `external-dns-netbox`, now `policy: sync` (checked first: its 40
-      records are exactly today's 40 sources, so it deletes nothing); nebula-sync's
-      `SYNC_CONFIG_DNS_EXCLUDE: hosts,cnameRecords`; `ansible/tasks/proxmox-acme.yml`'s Pi-hole
-      write gone (its records are NetBox's, imported). Left once merged: both Pi-hole releases
-      gone from the cluster; the next nebula-sync run leaves Pi-hole 2's records alone; a dry run
-      of "Setting: Proxmox Host" (template 15); the Pi-holes still answering all 145 names
+- [x] The switch (#93, 2026-10-19): ExternalDNS's two Pi-hole releases and their Secrets gone,
+      `external-dns-netbox` on `policy: sync` (its 40 records were exactly its 40 sources; its
+      loops since report everything up to date); nebula-sync excludes `hosts` and
+      `cnameRecords` (two runs since, Pi-hole 2's records untouched); `proxmox-acme.yml` only
+      looks its names up (dry run, task 884: all 5 hosts' names resolve). Both Pi-holes looked up
+      again for all 145 NetBox names: every one as NetBox has it, bar Pi-hole 2's own hostname
 - [ ] Deletes on; a record removed in NetBox gone from both Pi-holes within a minute
 
 ## Resuming
