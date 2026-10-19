@@ -150,9 +150,10 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [ ] The old `netbox` namespace: deleted by the owner 2026-10-16; its mappings
         (`NETBOX_SECRET_KEY`, `NETBOX_API_TOKEN_PEPPERS`) out of `cluster-secrets` the same day.
         The Vaultwarden field `NETBOX_SECRET_KEY` stays (the stack's `NETBOX_SECRET_KEY` is that
-        value); `NETBOX_API_TOKEN_PEPPERS` can go. Left: its seven volumes once Released (four
-        claims' and two older ones', all old, nearly empty NetBox databases, and the media
-        claim's, empty), deleted by the owner
+        value); `NETBOX_API_TOKEN_PEPPERS` deleted (2026-10-19). Its seven PersistentVolumes are
+        gone (2026-10-19, no PV names `netbox`). Left: both classes it used (`local-db`,
+        `nfs-retain-rwo`) are `Retain`, so their data may still be on the workers' local-db
+        disks and the NFS share; unchecked. Find and remove it per the volume rule
 - [ ] Phase 2. Done 2026-10-16: NetBox seeded by `scripts/netbox_seed.py` (names in
       `netbox_seed.yaml`; the write token `~/.netbox-token` in the claude-code container, saved
       with `save-secret .netbox-token`, a path relative to home): the site, VLANs, prefixes,
