@@ -97,29 +97,9 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
    every VM and container with its host, CPU, memory, disks and interfaces, their addresses,
    and the Kubernetes nodes' roles, read from Proxmox and the cluster. It only adds and
    updates what phase 2 entered by hand; HA moves and failovers show up by the next run.
-4. **DNS owned by NetBox** (NetBox DNS), synced to the Pi-holes:
-   - Ingress hostnames into NetBox by the custom ExternalDNS webhook provider (Settled), in
-     place of ExternalDNS's Pi-hole provider. No ExternalDNS provider for NetBox exists
-     (checked 2026-10-15), so it's written here, code and tests in this repo, and runs in the
-     NetBox stack, built by Dockhand like NetBox's image, with ExternalDNS calling it by URL
-     (`--webhook-provider-url`) rather than as a sidecar: no registry. ExternalDNS's webhook
-     API has no authentication of its own, so the provider listens only where ExternalDNS
-     can reach it and nothing else can (to settle with the stack: a token in front, or a
-     listener on one address that the Docker VM's firewall limits to the cluster).
-     **Settled 2026-10-16 (the owner):** a sidecar in ExternalDNS's pod instead, its script
-     from a ConfigMap on `python:alpine` as `zammad-bridge` and `proxmox-endpoints` run, so
-     still no registry; it listens on `127.0.0.1` only, which settles the authentication
-     question, and reaches NetBox's API with a DNS-only write token (`NETBOX_DNS_TOKEN`).
-   - **Superseded 2026-10-19 by `QUEUE-netbox-dns.md`** (a sync script in this repo; the
-    Pi-hole plugin below can't read Pi-hole's names): NetBox to Pi-hole 1 by octoDNS:
-    `octodns-netbox-dns` as the source, `octodns-pihole`
-     (the roosnic1 fork on PyPI, Pi-hole v6 through `pihole6api`; local A, AAAA and CNAME
-     records only, no TTLs) as the target; nebula-sync copies Pi-hole 2 as now.
-   - **One owner:** NetBox holds every local record (hand-made ones, the hosts' that
-     `proxmox-host.yml` writes today, the Ingresses'), and the Pi-holes become copies. Until
-     the switch, the writers stay as they are: ExternalDNS (`upsert-only`), `proxmox-host.yml`
-     (whose `pihole-FTL` write replaces the whole list), and the owner by hand.
-   - NetBox DNS's IPAM sync can then make A and PTR records for documented addresses.
+4. **DNS owned by NetBox** (NetBox DNS), synced to the Pi-holes: done 2026-10-19, as
+   `old-queues/QUEUE-netbox-dns.md` records (its settled decisions and checked negatives, octoDNS
+   among them).
 5. **Phase B, OpenTofu from NetBox:** new guests' addresses from `netbox_available_ip_address`
    in a prefix, and their names and intended hosts from their NetBox records, so `TF_VAR_site`
    keeps only the stable site facts. Underneath (independent of NetBox, can come first):
@@ -205,16 +185,11 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       `PROXMOX_TOKEN` = `PVEAPIToken=netbox-sync@pve!semaphore=…` (PVEAuditor), `KEA_API`). It
       adds and updates, never deletes: a guest gone from Proxmox stays in NetBox until removed
       by hand
-- [ ] Phase 4: the ExternalDNS webhook provider for NetBox DNS: written 2026-10-16 as a sidecar
-      in a third ExternalDNS release (`prod/system/external-dns/external-dns/app/
-      helmrelease-netbox.yaml`, `netbox-dns-webhook.py`, tests in `scripts/tests/`), owning the
-      records it writes by their description `external-dns`, never touching hand-made ones, and
-      answering 500 rather than an empty list when NetBox doesn't answer. Live 2026-10-18: the
-      owner made the base domain's zone (zones and their SOA nameserver are made by hand), and
-      the next loop wrote an A record for each of the 38 Ingress hostnames, all at Traefik's
-      addresses. Left: every Pi-hole record into NetBox, per-address records, and a sync from
-      NetBox to both Pi-holes (not octoDNS), in
-      [QUEUE-netbox-dns.md](QUEUE-netbox-dns.md)
+- [x] Phase 4 (2026-10-19): NetBox owns every local record. ExternalDNS writes its Ingress
+      records into NetBox only (`external-dns-netbox`, policy sync); the seed names each device's
+      and VM's addresses in their prefix's zone; the rest were imported from Pi-hole and are kept
+      by hand; `netbox-dns-sync` keeps both Pi-holes exactly matching, deletes included
+      ([old-queues/QUEUE-netbox-dns.md](old-queues/QUEUE-netbox-dns.md))
 - [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` stops carrying a
       second, hand-kept copy of it. One owner per value: NetBox for each guest's VMID, node,
       name, addresses and MACs; `TF_VAR_site` keeps the stable facts (each network's prefix

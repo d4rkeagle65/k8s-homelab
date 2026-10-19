@@ -85,7 +85,9 @@ phase 4.
       `cnameRecords` (two runs since, Pi-hole 2's records untouched); `proxmox-acme.yml` only
       looks its names up (dry run, task 884: all 5 hosts' names resolve). Both Pi-holes looked up
       again for all 145 NetBox names: every one as NetBox has it, bar Pi-hole 2's own hostname
-- [ ] Deletes on; a record removed in NetBox gone from both Pi-holes within a minute
+- [x] Deletes on (`SYNC_DELETE=true`, 2026-10-19; its rounds then removed nothing, task 885). A
+      test record made in NetBox reached both Pi-holes in 40 s, and deleted there, left both
+      in 60 s
 
 ## Resuming
 
