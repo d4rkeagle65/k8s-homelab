@@ -80,7 +80,10 @@ rotated key is one paste into Vaultwarden.
       `enabled` flip (config.yml's header says why)
 - [ ] Whisparr v3 (Settled): its own release and database beside v2, its env vars as phase 1's,
       the library added, its download clients and quality from Configarr; then v2 retired
-      (its database kept a day, as the PostgreSQL 18 moves did)
+      (its database kept a day, as the PostgreSQL 18 moves did). 2026-10-19: `WHISPARR_API_KEY`
+      mapped; `prod/apps/media/whisparr-v3/` in PR (v3-3.1.0.2116, `whisparr3` hostname, v2's
+      folders). Next: its nightly backup (`media-backup/`, held back so the immediate one
+      doesn't run before the database exists) and its Configarr instance
 - [ ] Outside Configarr, each its own decision: Bookshelf's metadata source (`/api/v1/config/
       development`), qBittorrent's preferences and categories, SABnzbd's categories and folders,
       Seerr's links to Radarr and Sonarr (`settings.json`)
