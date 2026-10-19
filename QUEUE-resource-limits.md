@@ -215,9 +215,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       Grimmory's MariaDB too, `homelab-critical`. `test_every_priority_class_named_exists`
       keeps every name pointing at a class
 - [ ] The workers' kubelet evicting before the kernel's OOM killer acts, so the tiers decide
-      what goes: a soft threshold (memory.available under 1Gi for a minute) and a hard one
-      above the default 100Mi, a worker-only patch in `talos/patches/`, applied node by node by
-      the owner (`tofu/CLAUDE.md`)
+      what goes: `talos/patches/worker-kubelet-eviction.yaml` (soft under 1Gi for a minute,
+      hard under 256Mi), in both `tofu/proxmox/talos-config.tf` and `talos/gen-config.py`.
+      Left: the owner's OpenTofu apply, one worker at a time
+      (`talos_machine_configuration_apply.node[...]`; in `no_reboot` mode it restarts the
+      kubelet, not the pods). Read back on each: capacity minus allocatable memory goes from
+      484Mi to 640Mi (the hard threshold's 156Mi more)
 
 ## Resuming
 
