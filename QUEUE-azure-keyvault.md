@@ -98,14 +98,19 @@ references).
       store, each entry reading its mapped name; the test ExternalSecret gone; the variable
       test checks the store and every mapped name; `CLAUDE.md`, `kubernetes/CLAUDE.md`,
       `docker/CLAUDE.md` and `scripts/README.md` say Key Vault. The owner merges it.
-- [ ] Read back after the cutover merges: `cluster-secrets` `SecretSynced` from
-      `azure-keyvault`; every key's hash unchanged from before; every Flux Kustomization
-      Ready; `scripts/keyvault_copy.py`'s dry run "141 already the same"
+- [x] Read back after the cutover (#112, 2026-10-19): `cluster-secrets` `SecretSynced` from
+      `azure-keyvault` for its new spec; all 142 keys (141 variables and the template's one)
+      equal by hash to a fingerprint taken before; every Kustomization and HelmRelease Ready;
+      External Secrets' calls now `GetSecret` on Azure Key Vault, its `bitwarden-cli` request
+      count flat; `scripts/keyvault_copy.py`'s dry run "141 already the same"
 - [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first
 - [ ] Tooling: `scripts/vaultwarden-fields.ps1` against Key Vault (from the cutover it no
       longer works on `cluster-secrets`: it reads the Vaultwarden item ID from the live
       ExternalSecret, which then names Key Vault secrets); capture's "aren't in Vaultwarden
-      yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`)
+      yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`);
+      and `scripts/keyvault_copy.py`'s `request()`, which turns only an HTTP error into an
+      answer: a dropped connection or timeout (once, 2026-10-19) ends in a traceback, and in an
+      `--apply` run skips the read-back report, so it should stop cleanly as a `Stop` does
 - [ ] An alert on an ExternalSecret that stops syncing (`externalsecret_status_condition`)
 - [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired
 
