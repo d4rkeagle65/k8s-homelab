@@ -157,8 +157,12 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
       checked against its last static run; the static inventories and the per-group keys
       `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
-  - [ ] VLAN 4 (`vmbr4`) is for later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
-        prefix
+  - [ ] VLAN 4 (`vmbr4` on `eth5.4`, on every Proxmox node) comes out too (the owner,
+        2026-10-19), as VLAN 9 did: in `proxmox-host.yml`'s `retired_interfaces`, whose run
+        refuses while a guest or kept bridge names one. NetBox has no VLAN or prefix for it,
+        only the ten interfaces. Left: the owner's dry run and run of "Setting: Proxmox
+        Host", then those interfaces deleted in NetBox (the sync never deletes), `eth5.4`
+        first, by the owner: the session's permissions refuse my delete
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
       template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
       Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL` =

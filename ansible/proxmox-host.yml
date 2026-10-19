@@ -180,8 +180,8 @@
   serial: 1
   any_errors_fatal: true
   vars:
-    # VLAN 9 (QUEUE-netbox.md): its bridge, then the VLAN port under it.
-    retired_interfaces: [vmbr9, eth5.9]
+    # VLANs 9 and 4 (QUEUE-netbox.md): each bridge, then the VLAN port under it.
+    retired_interfaces: [vmbr9, eth5.9, vmbr4, eth5.4]
   tasks:
     - name: Retired interfaces out
       ansible.builtin.include_tasks: tasks/proxmox-retired-ifaces.yml
