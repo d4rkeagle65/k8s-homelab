@@ -1,0 +1,188 @@
+# Reboots Talos VMs one at a time through Proxmox, which stops each VM and starts it again, so
+# a change Proxmox holds pending (memory, cores, a disk) takes effect; a reboot from inside
+# Talos keeps the same VM process and doesn't. For each VM, in the order given: every node
+# Ready, every database cluster whole and etcd whole and caught up first, its pods checked to
+# fit elsewhere; then out of service (database primaries switched over, cordon, drain), the
+# Proxmox reboot, the node back Ready on a new boot with nothing left pending, uncordoned,
+# every database cluster whole, and for a control plane its static pods Ready and etcd caught
+# up again, before the next (tasks/talos-vm-reboot.yml). A failed step stops the run and says
+# what it left cordoned.
+#
+# Which VMs: reboot_vms (required), VM IDs or names, separated by commas or spaces, rebooted
+# in that order; ALL (any case) for every Talos VM, control planes first. Each must be a
+# Proxmox VM whose name is a Talos node's.
+#
+# Inventory: the proxmox group (its first host makes the pvesh calls, for the whole Proxmox
+# cluster). Variables: the Kubernetes variable group (k8s_api_url, k8s_ca_b64, k8s_token) and
+# talosconfig_b64, as for talos-upgrade.yml. Optional: reboot_allow_pending, as for
+# proxmox-reboot.yml; reboot_shutdown_timeout, the seconds Proxmox waits for the guest to shut
+# down before failing the reboot (default 300).
+#
+# In check mode (--check) it reports each VM's node, host, HA state and pending changes, runs
+# the checks (etcd's included) and lists what it would drain, and changes nothing.
+
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: proxmox
+
+- name: Reboot Talos VMs through Proxmox, one at a time
+  hosts: localhost
+  gather_facts: false
+  vars:
+    talos_common: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../talos/patches/common.yaml') }}"
+    talos_image: "{{ talos_common | regex_search('image: (factory\\.talos\\.dev/[^\\s]+:v[0-9.]+)', '\\1') | first }}"
+    talos_version: "{{ talos_image.split(':') | last }}"
+    pve_api_host: "{{ groups['proxmox'] | first }}"
+  tasks:
+    - name: Check, plan and reboot, cleaning up whatever happens
+      block:
+        - name: reboot_vms names the VMs to reboot
+          ansible.builtin.assert:
+            that: reboot_vms | default('') | string | trim | length > 0
+            fail_msg: >-
+              reboot_vms is unset: the VM IDs or names to reboot, separated by commas or
+              spaces, or ALL for every Talos VM. Nothing was run.
+            quiet: true
+
+        - name: Decode the Kubernetes CA certificate
+          ansible.builtin.set_fact:
+            k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+        - name: The CA certificate is one
+          ansible.builtin.assert:
+            that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+            fail_msg: >-
+              k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
+              token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+            quiet: true
+
+        - name: Write the Kubernetes CA certificate for the API checks
+          ansible.builtin.copy:
+            content: "{{ k8s_ca_pem }}"
+            dest: "{{ playbook_dir }}/.k8s-ca.pem"
+            mode: "0600"
+          check_mode: false
+
+        - name: Set up kubectl
+          ansible.builtin.include_tasks: tasks/kubectl-local.yml
+
+        - name: Set up talosctl {{ talos_version }}
+          ansible.builtin.include_tasks: tasks/talosctl-local.yml
+
+        - name: Read the nodes
+          ansible.builtin.command: "{{ kubectl_cmd }} get nodes -o json"
+          register: reboot_nodes_json
+          changed_when: false
+          check_mode: false
+
+        - name: Read the Proxmox cluster's guests
+          ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
+          delegate_to: "{{ pve_api_host }}"
+          register: reboot_guests_json
+          changed_when: false
+          check_mode: false
+
+        - name: Read Proxmox HA's resources
+          ansible.builtin.command: pvesh get /cluster/ha/resources --output-format json
+          delegate_to: "{{ pve_api_host }}"
+          register: reboot_ha_json
+          changed_when: false
+          check_mode: false
+
+        - name: Keep the Talos nodes, the VMs and HA's
+          ansible.builtin.set_fact:
+            talos_by_name: >-
+              {% set out = {} %}{% for n in (reboot_nodes_json.stdout | from_json)['items']
+                 if n.status.nodeInfo.osImage is search('^Talos') %}{%
+                set _ = out.update({n.metadata.name: {'name': n.metadata.name,
+                  'address': (n.status.addresses | selectattr('type', 'equalto', 'InternalIP') | first).address,
+                  'control_plane': 'node-role.kubernetes.io/control-plane' in n.metadata.labels}}) %}{%
+              endfor %}{{ out }}
+            reboot_qemu: "{{ reboot_guests_json.stdout | from_json | selectattr('type', 'equalto', 'qemu') | list }}"
+            reboot_ha_sids: "{{ reboot_ha_json.stdout | from_json | map(attribute='sid') | list }}"
+
+        - name: Keep the control planes' addresses, for etcd
+          ansible.builtin.set_fact:
+            talos_cp_addresses: >-
+              {{ talos_by_name.values() | selectattr('control_plane') | map(attribute='address') | sort | list }}
+
+        - name: Read reboot_vms
+          ansible.builtin.set_fact:
+            reboot_tokens: >-
+              {% if reboot_vms | string | trim | lower == 'all' %}{{
+                reboot_qemu | selectattr('name', 'in', talos_by_name.keys() | list) | map(attribute='name')
+                | map('extract', talos_by_name) | sort(attribute='name')
+                | sort(attribute='control_plane', reverse=true) | map(attribute='name') | list }}{%
+              else %}{{ reboot_vms | string | regex_replace('[,\s]+', ' ') | trim | split(' ') }}{% endif %}
+
+        - name: Match each to its VM and Talos node
+          ansible.builtin.set_fact:
+            reboot_plan: >-
+              {% set out = [] %}{% for t in reboot_tokens %}{%
+                set g = reboot_qemu | selectattr('vmid', 'equalto', t | int) | list if t is match('^[0-9]+$')
+                        else reboot_qemu | selectattr('name', 'equalto', t) | list %}{%
+                if g | length == 1 and g[0].name in talos_by_name %}{%
+                  set _ = out.append(talos_by_name[g[0].name] | combine({'vmid': g[0].vmid,
+                    'host': g[0].node, 'ha': ('vm:' ~ g[0].vmid) in reboot_ha_sids})) %}{%
+                endif %}{% endfor %}{{ out }}
+            reboot_unknown: >-
+              {% set out = [] %}{% for t in reboot_tokens %}{%
+                set g = reboot_qemu | selectattr('vmid', 'equalto', t | int) | list if t is match('^[0-9]+$')
+                        else reboot_qemu | selectattr('name', 'equalto', t) | list %}{%
+                if not (g | length == 1 and g[0].name in talos_by_name) %}{% set _ = out.append(t) %}{% endif %}{%
+              endfor %}{{ out }}
+
+        - name: Every VM named is a Talos node's, and none twice
+          ansible.builtin.assert:
+            that:
+              - reboot_unknown | length == 0
+              - reboot_plan | length > 0
+              - reboot_plan | map(attribute='vmid') | unique | list | length == reboot_plan | length
+            fail_msg: >-
+              reboot_vms ({{ reboot_vms }}): {{ ('not the VM of a Talos node: ' ~ reboot_unknown | join(', '))
+              if reboot_unknown else 'a VM named twice, or none' }}. Nothing was rebooted.
+            quiet: true
+
+        - name: Read what Proxmox holds pending for each
+          ansible.builtin.command: >-
+            pvesh get /nodes/{{ vm.host }}/qemu/{{ vm.vmid }}/pending --output-format json
+          delegate_to: "{{ pve_api_host }}"
+          register: reboot_pending
+          changed_when: false
+          check_mode: false
+          loop: "{{ reboot_plan }}"
+          loop_control:
+            loop_var: vm
+            label: "{{ vm.vmid }}"
+
+        - name: Report the plan
+          ansible.builtin.debug:
+            msg: >-
+              {% set out = [] %}{% for r in reboot_pending.results %}{% set p = [] %}{%
+                for i in r.stdout | from_json if i.pending is defined or i.delete is defined %}{%
+                  set _ = p.append(i.key ~ (' removed' if i.delete is defined
+                    else ' ' ~ i.value | default('unset') ~ ' -> ' ~ i.pending)) %}{%
+                endfor %}{%
+                set _ = out.append('VM ' ~ r.vm.vmid ~ ' ' ~ r.vm.name ~ ' ('
+                  ~ ('control plane' if r.vm.control_plane else 'worker') ~ ') on ' ~ r.vm.host
+                  ~ ', HA ' ~ ('yes' if r.vm.ha else 'no') ~ ', pending: ' ~ (p | join(', ') or 'nothing')) %}{%
+              endfor %}{{ out }}
+
+        - name: Reboot each, one at a time
+          ansible.builtin.include_tasks: tasks/talos-vm-reboot.yml
+          loop: "{{ reboot_plan }}"
+          loop_control:
+            loop_var: talos_vm
+            label: "{{ talos_vm.vmid }} {{ talos_vm.name }}"
+
+      always:
+        - name: Remove the CA certificate, and kubectl and talosctl with their configs
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ playbook_dir }}/.k8s-ca.pem"
+            - "{{ kubectl_dir | default('') }}"
+            - "{{ talos_dir | default('') }}"
+          when: item | length > 0
+          check_mode: false
