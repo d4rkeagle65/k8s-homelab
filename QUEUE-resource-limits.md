@@ -216,6 +216,16 @@ Queries (Prometheus, `kube-prometheus-stack`):
       (throttled 14%; the rules give 864Mi, 500m, 1000m), rreading-glasses 215Mi in 256Mi (64Mi
       requested), rreading-glasses-db 305Mi for 128Mi and p95 52m for 10m, bookshelf-db p95 53m
       for 20m
+- [ ] Priority tiers (the owner, 2026-10-18), so a node short of memory sheds the media apps
+      first. The classes `homelab-important` (100000) and `homelab-low` (-1000, never preempts)
+      are in `cluster-policy` beside `homelab-critical`. Left, in this order:
+      - once both classes are live (a pod naming a class that doesn't exist is rejected),
+        `homelab-important` on Home Assistant, Immich (server, machine learning, power tools),
+        Obsidian, Mealie, Baby Buddy, Linkwarden and n8n, and `homelab-low` on the media apps;
+        their databases stay `homelab-critical`. Each pod restarts once to take its class;
+      - the workers' kubelet evicting before the kernel's OOM killer acts: a soft threshold
+        (memory.available under 1Gi for a minute) and a hard one above the default 100Mi, a
+        worker-only patch in `talos/patches/`, applied node by node by the owner (`tofu/CLAUDE.md`)
 
 ## Resuming
 
