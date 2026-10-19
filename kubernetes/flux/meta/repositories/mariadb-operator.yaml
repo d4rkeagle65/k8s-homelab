@@ -1,0 +1,12 @@
+# mariadb-operator's Helm charts (mariadb-operator and mariadb-operator-crds),
+# published as OCI artifacts only. Kept by generate: a hand-written release
+# (prod/services/mariadb-system/mariadb-operator) uses it.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: mariadb-operator
+  namespace: flux-system
+spec:
+  type: oci
+  interval: 1h
+  url: oci://ghcr.io/mariadb-operator/charts
