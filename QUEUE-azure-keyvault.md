@@ -28,9 +28,11 @@ references).
 
 ## Waiting on the owner
 
-1. **Where the vault lives:** subscription, resource group, region, vault name (a cluster
-   variable, not in git). Recommended: created by OpenTofu (`tofu/`, beside Cloudflare's) with
-   RBAC authorization, Standard tier, soft delete and purge protection on.
+1. **The vault's settings:** it exists already (the owner, 2026-10-19, made outside git). Still
+   to know, none of it written to git: its name (so its URL), the tenant, its permission
+   model (Azure RBAC or access policies), whether its firewall admits the cluster's and the
+   Docker VM's outbound address, and whether soft delete and purge protection are on. The
+   Azure CLI isn't on the workstation, so these come from the portal or the owner.
 2. **How the cluster signs in:** recommended, a service principal with a client secret and
    only "Key Vault Secrets User" on this vault, its credential kept like `bitwarden-cli`'s
    login today (`kubernetes/.local/`, a Secret applied by hand). Workload identity federation
@@ -52,6 +54,11 @@ references).
   until the last box.
 - **A new variable afterwards:** its Key Vault secret first, then its entry in
   `cluster-secrets.yaml` (`CLAUDE.md`'s rule, with Key Vault in place of Vaultwarden).
+- **The vault's address and sign-in come from a bootstrap Secret, never from `cluster-secrets`**,
+  which the vault itself builds: a rebuilt cluster would wait on itself. The vault URL, tenant
+  and the service principal's ID and secret go in one Secret applied by hand (kept in
+  `kubernetes/.local/`), which the `ClusterSecretStore` and the `cluster-secrets` Flux
+  Kustomization's substitution read.
 - **The cluster then needs the internet to build `cluster-secrets`**: a rebuild with no route to
   Azure has no `INGRESS_IP` and so no Traefik. Today's Secret survives an outage (External
   Secrets keeps the last values); only changes wait.
@@ -59,8 +66,9 @@ references).
 ## Checklist
 
 - [ ] The owner's four answers above
-- [ ] The vault, by OpenTofu (or by hand), with the cluster's and Dockhand's identities and the
-      owner's write access ("Key Vault Secrets Officer")
+- [x] The vault (the owner, by hand, before 2026-10-19)
+- [ ] The cluster's and Dockhand's identities on it, read-only ("Key Vault Secrets User" or an
+      access policy allowing get and list), and the owner's write access
 - [ ] A copy script (`scripts/`): every `cluster-secrets` field from Vaultwarden into Key Vault
       under its mapped name, then compared by hash; the owner runs it
 - [ ] A `ClusterSecretStore` `azure-keyvault` (`azurekv` provider, the service principal's
