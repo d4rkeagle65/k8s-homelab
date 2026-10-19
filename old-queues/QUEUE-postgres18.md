@@ -53,9 +53,9 @@ Smallest risk first; Authentik last, since every forward-auth login waits on it.
 | 7 | `linkwarden/linkwarden-postgres` | 34 MB | env in its HelmRelease: **done 2026-10-15**, `linkwarden-db`, 67 s down |
 | 8 | `n8n/n8n-postgres` | 38 MB | env in its HelmRelease: **done 2026-10-15**, `n8n-db`, 101 s down |
 | 9 | `babybuddy/babybuddy-postgres` | 35 MB | `configmap-babybuddy-env.yaml` and its Deployment: **done 2026-10-15**, `babybuddy-db`, 81 s down |
-| 10 | `netbox/netbox-postgres` | 49 MB | its HelmRelease: **done 2026-10-15**, `netbox-db`, 130 s down |
+| 10 | `netbox/netbox-postgres` | 49 MB | its HelmRelease: **done 2026-10-15**, `netbox-db`, 130 s down; on 2026-10-16 NetBox moved to the Docker VM (`QUEUE-netbox.md`) and left the cluster, `netbox-db` with it |
 | 11 | `authentik/authentik-postgres` | 175 MB | `values.yaml` (captured release; `generate`): **done 2026-10-15**, `authentik-db`, 108 s down |
-| 12 | `immich/immich-postgres` | | Not due: its image (vectorchord `16-1.1.1`, Debian 12) is supported, unlike the bullseye ones the others left; it moves when an Immich release's notes call for a newer PostgreSQL |
+| 12 | `immich/immich-postgres` | | Not due: its image (vectorchord `16-1.1.1`, Debian 12) is supported, unlike the bullseye ones the others left; it moves when an Immich release's notes call for a newer PostgreSQL. Moved out of this job on 2026-10-18 to its own item in `QUEUE-updates.md` |
 
 Each row is ticked with its date, the downtime and anything that differed, and gets a
 "retire `<app>-postgres`" line until its old cluster is gone.
@@ -71,8 +71,12 @@ From about 2026-10-17, once each app has run a day on 18: remove `postgres.yaml`
       over a minute (only CloudNativePG's own), the new one healthy with a backup in the last
       day. Prowlarr, Bookshelf, Radarr, Sonarr, Lidarr, Whisparr, Mealie, Linkwarden, n8n,
       Authentik, BabyBuddy, and ManicTime's `manictime-pg` (its new cluster is
-      `manictime-postgres`). Each old Cluster then deleted, and with it its claims; their PVs
-      Released (`local-db`, Retain), for the owner's next PV clean-up
+      `manictime-postgres`). Each old Cluster then deleted, and with it its claims; their PVs,
+      Released (`local-db`, Retain), were gone by 2026-10-18 (none Released). Left in
+      `QUEUE.md`: the old clusters' final backups in Garage, and whether their data folders are
+      still on the workers' `local-db` disks
+- [x] 2026-10-18: all 15 clusters on 18.6 trixie healthy, continuous archiving on, each with a
+      completed backup in the last day; no `-rt` copy left
 
 ## Resuming
 
@@ -84,4 +88,4 @@ and a new cluster can be emptied with `pg_restore --clean --if-exists` and copie
 ## Done when
 
 Every row is ticked, every old cluster retired, and `QUEUE-updates.md`'s item ticked; then this
-file moves to `old-queues/`.
+file moves to `old-queues/`. Done 2026-10-18, with Immich's row handed to `QUEUE-updates.md`.

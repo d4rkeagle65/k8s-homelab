@@ -54,9 +54,10 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       didn't change. Checked with a backup first, then one forward-auth and one OIDC login.
 - [x] **app-template 3.7.3 -> 5.3.0** (2026-10-15): every release, each Deployment recreated
       for the changed selector label; `old-queues/QUEUE-app-template.md`.
-- [ ] **PostgreSQL 18 on Debian trixie, by a new cluster per database** (the owner,
-      2026-10-15). Every cluster but Immich's runs the plain `postgresql:15`/`:16`/`:17.11`
-      tags, which are Debian 11 (bullseye) `system` images: those tags are deprecated and no
+- [x] **PostgreSQL 18 on Debian trixie, by a new cluster per database** (the owner,
+      2026-10-15; done 2026-10-18, `old-queues/QUEUE-postgres18.md`). Every cluster but
+      Immich's ran the plain `postgresql:15`/`:16`/`:17.11` tags, which are Debian 11
+      (bullseye) `system` images: those tags are deprecated and no
       longer built, so they get no patch releases, and Debian 11's LTS ended 2026-08.
       CloudNativePG's in-place major upgrade can't change the Debian release, so each
       database moves to a new `<app>-postgres` cluster on `18.x-standard-trixie`: created
@@ -74,12 +75,19 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
         only when missing, so changing the release's `settings.database` alone changes
         nothing: replace the file from the Secret too (the old one is kept beside it as
         `.pre-pg18`).
-  - [x] `manictime-pg` retired 2026-10-17 (`QUEUE-postgres18.md`)
+  - [x] `manictime-pg` retired 2026-10-17 (`old-queues/QUEUE-postgres18.md`)
   - [x] Whisparr (2026-10-15): on `whisparr-db` (18.6, trixie); rows, objects and sequences
         identical before the switch; under two minutes down. New clusters whose
         `<app>-postgres` name is taken are `<app>-db`.
-  - [x] `whisparr-postgres` retired 2026-10-17 (`QUEUE-postgres18.md`)
-  - [ ] The other eleven, and Immich's: [QUEUE-postgres18.md](QUEUE-postgres18.md).
+  - [x] `whisparr-postgres` retired 2026-10-17 (`old-queues/QUEUE-postgres18.md`)
+  - [x] The other eleven (2026-10-15, each old cluster retired 2026-10-17):
+        [old-queues/QUEUE-postgres18.md](old-queues/QUEUE-postgres18.md).
+- [ ] **Immich's PostgreSQL, when an Immich release calls for it.** `immich-postgres` runs
+      `cloudnative-vectorchord:16-1.1.1` (Debian 12), which is supported, so it isn't due: it
+      moves when an Immich release's notes ask for a newer PostgreSQL or VectorChord. Then as
+      the others did (`old-queues/QUEUE-postgres18.md`'s rules: a new cluster beside it, the
+      data copied with the app stopped, rows, objects and sequences compared, the old one
+      retired a day later), on a VectorChord image of the new major, since Immich needs it.
 - [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
       `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says. Held (2026-10-15)
       until these list 1.37 as supported: Flux (2.9.6 says 1.34-1.36; its unreleased main

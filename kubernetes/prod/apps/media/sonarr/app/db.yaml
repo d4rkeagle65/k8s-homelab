@@ -1,5 +1,5 @@
 # Sonarr's databases on PostgreSQL 18 (Debian trixie), taking over from
-# sonarr-postgres (Debian bullseye; QUEUE-postgres18.md). Created empty; the data is
+# sonarr-postgres (Debian bullseye; old-queues/QUEUE-postgres18.md). Created empty; the data is
 # copied in with pg_dump and pg_restore while the app is stopped.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster

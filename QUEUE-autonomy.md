@@ -24,7 +24,7 @@ here so a later session, after a compaction, knows where things stand.
   approved batch: the reboot template, an upgrade that reboots, or a command.
 - **Decisions:** Kea's standby partner is (b), the reservations in a CloudNativePG cluster
   (`QUEUE.md`, Kea phase 3); VLAN 9 comes out of Proxmox (`QUEUE-netbox.md`); Immich's
-  PostgreSQL move isn't due (`QUEUE-postgres18.md`); `guests` is out of `TF_VAR_site`.
+  PostgreSQL move isn't due (`QUEUE-updates.md`); `guests` is out of `TF_VAR_site`.
 
 ## Approved (the owner, 2026-10-16)
 
@@ -49,10 +49,10 @@ netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, e
 Each is a name the owner can approve, to be carried through to its pull requests. Where a
 batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it.
 
-- [ ] **postgres-retire** (from 2026-10-17): the old `<app>-postgres` clusters (ten in
-      `QUEUE-postgres18.md`, ManicTime's and Whisparr's in `QUEUE-updates.md`) out of git, each
-      app checked a day on 18; then the Clusters and their claims deleted, each new cluster's
-      data checked first
+- [x] **postgres-retire** (2026-10-17): the old `<app>-postgres` clusters and `manictime-pg`
+      out of git, each app checked a day on 18, then the Clusters and their claims deleted
+      (`old-queues/QUEUE-postgres18.md`). Left in `QUEUE.md`'s Cleanup: their last backups in
+      Garage, and their files on the workers' `local-db` disks
 - [x] **released-volumes** (2026-10-16): the owner deleted the 38 checked PVs. Left on disk,
       unreferenced: the old NetBox media folder on the NAS and its database files on four Talos
       workers' local-db disks

@@ -1,5 +1,5 @@
 # Authentik's database on PostgreSQL 18 (Debian trixie), taking over from
-# authentik-postgres (Debian bullseye; QUEUE-postgres18.md). Created empty; the
+# authentik-postgres (Debian bullseye; old-queues/QUEUE-postgres18.md). Created empty; the
 # data is copied in with pg_dump and pg_restore while Authentik is stopped.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
