@@ -112,10 +112,10 @@ references).
       and `scripts/keyvault_copy.py`'s `request()`, which turns only an HTTP error into an
       answer: a dropped connection or timeout (once, 2026-10-19) ends in a traceback, and in an
       `--apply` run skips the read-back report, so it should stop cleanly as a `Stop` does
-- [ ] An alert on an ExternalSecret that stops syncing (`externalsecret_status_condition`)
-- [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired,
-      with `scripts/vaultwarden-fields.ps1` and its format file (it reads the Vaultwarden item
-      ID from the live ExternalSecret, which now names Key Vault secrets, so it no longer works)
+- [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`
+      (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket),
+      written 2026-10-19; left: that it shows loaded and inactive in Prometheus once merged
+- [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired
 
 ## Resuming
 
