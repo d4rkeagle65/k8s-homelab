@@ -70,7 +70,7 @@
       "cores": 2,
       "data_gb": 0,
       "disk_gb": 32,
-      "memory": 4096,
+      "memory": 6144,
       "role": "controlplane"
     },
     "112": {
@@ -78,7 +78,7 @@
       "cores": 2,
       "data_gb": 0,
       "disk_gb": 32,
-      "memory": 4096,
+      "memory": 6144,
       "role": "controlplane"
     },
     "113": {
@@ -86,7 +86,7 @@
       "cores": 2,
       "data_gb": 0,
       "disk_gb": 32,
-      "memory": 4096,
+      "memory": 6144,
       "role": "controlplane"
     },
     "114": {
