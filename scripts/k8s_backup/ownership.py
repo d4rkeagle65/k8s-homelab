@@ -120,8 +120,9 @@ def handwritten_protected_paths(root: Path) -> set[str]:
     release needs them: every file in the release folder, its namespace's
     namespace.yaml (capture only writes that for namespaces with a live
     Helm release, so it would otherwise vanish before the first deploy),
-    and each Helm repository file its helmrelease.yaml's sourceRef names
-    (capture only writes repositories from the local `helm repo list`).
+    and each Helm repository file a HelmRelease there names in its sourceRef,
+    from app/helmrelease.yaml or any app/helmrelease-<name>.yaml (capture only
+    writes repositories from the local `helm repo list`).
     """
     protected: set[str] = set()
     source_names: set[str] = set()
@@ -129,8 +130,7 @@ def handwritten_protected_paths(root: Path) -> set[str]:
         protected.update(p.relative_to(root).as_posix() for p in release_dir.rglob("*") if p.is_file())
         namespace_yaml = release_dir.parent / "namespace.yaml"
         protected.add(namespace_yaml.relative_to(root).as_posix())
-        hr_path = release_dir / "app" / "helmrelease.yaml"
-        if hr_path.is_file():
+        for hr_path in sorted((release_dir / "app").glob("helmrelease*.yaml")):
             hr = yamlio.read_yaml_file(hr_path) or {}
             source_ref = hr.get("spec", {}).get("chart", {}).get("spec", {}).get("sourceRef", {})
             if source_ref.get("name"):

@@ -1,10 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- helmrelease.yaml
-- helmrelease-pihole2.yaml
-- secret.yaml
-- secret-pihole2.yaml
 - helmrelease-netbox.yaml
 - secret-netbox.yaml
 configMapGenerator:

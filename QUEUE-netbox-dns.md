@@ -52,9 +52,9 @@ phase 4.
   `netbox-dns-sync` service of the `docker/netbox/` stack (Dockhand builds from the stack's own
   folder); tests in `scripts/tests/`. Its credentials are the stack's Dockhand variables: a read-only
   NetBox token, and each Pi-hole's URL and app password.
-- **What goes:** the `external-dns` and `external-dns-pihole2` releases' Pi-hole writes;
-  nebula-sync's copy of `dns.hosts` and `dns.cnameRecords` (its other DNS settings stay); the
-  Pi-hole write in `ansible/tasks/proxmox-acme.yml` (its record becomes a NetBox one).
+- **Nothing else writes the Pi-holes' records:** ExternalDNS writes NetBox only, nebula-sync
+  copies the Pi-holes' other DNS settings but not `hosts` or `cnameRecords`, and
+  `ansible/tasks/proxmox-acme.yml` only looks its names up.
 
 ## Checklist
 
@@ -79,9 +79,13 @@ phase 4.
       on both Pi-holes before and after: none lost an address; all 145 now answer as NetBox
       says, except Pi-hole 2's own name asked over its management address, which Pi-hole
       answers with that interface's address (its own hostname, not a record)
-- [ ] The switch: ExternalDNS's Pi-hole releases out, nebula-sync's hosts and CNAME copy off,
-      `proxmox-acme.yml`'s record from NetBox; the Pi-holes checked to answer the same names
-      before and after
+- [ ] The switch, written 2026-10-19: the `external-dns` and `external-dns-pihole2` releases and
+      their Secrets out, leaving `external-dns-netbox`, now `policy: sync` (checked first: its 40
+      records are exactly today's 40 sources, so it deletes nothing); nebula-sync's
+      `SYNC_CONFIG_DNS_EXCLUDE: hosts,cnameRecords`; `ansible/tasks/proxmox-acme.yml`'s Pi-hole
+      write gone (its records are NetBox's, imported). Left once merged: both Pi-hole releases
+      gone from the cluster; the next nebula-sync run leaves Pi-hole 2's records alone; a dry run
+      of "Setting: Proxmox Host" (template 15); the Pi-holes still answering all 145 names
 - [ ] Deletes on; a record removed in NetBox gone from both Pi-holes within a minute
 
 ## Resuming

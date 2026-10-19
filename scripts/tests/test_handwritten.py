@@ -56,6 +56,19 @@ def test_owners_exclude_handwritten_dependencies(tmp_path):
     assert capture_owns("kubernetes/prod/apps/obsidian/obsidian/release.yaml")
 
 
+def test_a_repository_named_only_by_a_second_helmrelease_file_is_protected(tmp_path):
+    # A folder whose one HelmRelease is helmrelease-<name>.yaml, not helmrelease.yaml.
+    _build_tree(tmp_path)
+    folder = tmp_path / "kubernetes/prod/system/dns/dns"
+    (folder / "app").mkdir(parents=True)
+    (folder / ".handwritten").write_text("", encoding="utf-8")
+    (folder / "app/helmrelease-other.yaml").write_text(
+        "kind: HelmRelease\nmetadata:\n  name: dns-other\n"
+        "spec:\n  chart:\n    spec:\n      sourceRef:\n        kind: HelmRepository\n        name: unused\n",
+        encoding="utf-8")
+    assert not capture_owner(tmp_path)(UNRELATED_REPO)
+
+
 def test_generate_leaves_handwritten_release_untouched(tmp_path):
     _build_tree(tmp_path)
     generate.run(tmp_path, dry_run=False, verbose=False)
