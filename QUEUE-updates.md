@@ -100,24 +100,13 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       pull request for it is ready to merge once they do. Rechecked 2026-10-19: Flux,
       cert-manager and CloudNativePG have no newer release; External Secrets 2.13.0
       (2026-10-16) is unread.
-- [ ] **Renovate never offers an image from outside Docker Hub** (found 2026-10-19).
-      `renovate.json`'s `minimumReleaseAge` meets Renovate 42's default
-      `minimumReleaseAgeBehaviour: timestamp-required`, which holds a release with no timestamp
-      for good, and the docker datasource gets timestamps only from Docker Hub. So every
-      ghcr.io, lscr.io, quay.io, public.ecr.aws and Cloudsmith image stays under the dashboard's
-      "Pending Status Checks" (Immich 3.3.3, released 2026-10-14, still there 2026-10-19), and a
-      group of a chart and its image opens with the chart alone: Authentik's chart 2026.8.4
-      without `ghcr.io/goauthentik/server` 2026.8.4, the mismatch its group rule is there to
-      stop. The fix is the owner's call, since it drops the wait for those images: a
-      packageRule with `matchDatasources: ["docker"]` and `minimumReleaseAgeBehaviour:
-      "timestamp-optional"` (Docker Hub releases keep their timestamps, so their wait stays).
-      Then Authentik's chart pull request gains its image and can merge.
-- [ ] **Renovate offers OpenTofu for the claude-code image** (found 2026-10-19).
-      `docker/claude-code/Dockerfile`'s `TOFU_VERSION` carries a `# renovate:` comment, so
-      Renovate opened 1.13.1; but `tofu/*/versions.tf` requires exactly `1.11.0` (Semaphore's),
-      so that image's `tofu` would refuse both configurations. A packageRule turning
-      `opentofu/opentofu` off, saying it moves by hand with Semaphore's image and
-      `required_version`, then close the 1.13.1 pull request.
+- [ ] **Read back `renovate.json`'s `minimumReleaseAgeBehaviour` and `opentofu/opentofu`
+      rules on Renovate's first run after they merge.** Expected: the Authentik pull request
+      gains `ghcr.io/goauthentik/server` 2026.8.4 beside its chart; the images from outside
+      Docker Hub (Immich 3.3.3, Home Assistant, Homepage, Mealie and the rest) leave the
+      dashboard's "Pending Status Checks" for open pull requests or "Rate-Limited"; the OpenTofu
+      1.13.1 pull request closes as "autoclosed" (close it by hand if it doesn't). Left, a rule
+      that didn't take leaves the chart-only Authentik pull request looking ready to merge.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
