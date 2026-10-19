@@ -6,7 +6,8 @@
 # has, so a recreated container never starts without it (a compose `configs:`
 # file, copied in once through Docker's API, can be lost that way). Nothing is
 # placed on the NAS by hand. Only the S3 API is published; manage Garage with
-# `docker exec garage /garage ...`.
+# `docker exec garage /garage -c /etc/garage/garage.toml ...` (the CLI
+# looks in /etc/garage.toml otherwise).
 #
 # At every start Garage sets itself up, doing only what is missing: the
 # single-node layout (sized to the data folder's disk), the access key from
