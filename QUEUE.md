@@ -70,13 +70,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
     pending, until Proxmox stops and starts it; `reboot_after_update = false` means the apply
     itself restarts nothing. A reboot from inside Talos keeps the same QEMU process and
     doesn't pick it up: reboot through Proxmox (the UI's Reboot, or `qm reboot <VMID>`).
-  - **Steps:** the three VMs' memory to 6144 in NetBox; "NetBox: Guests to git" opens the pull
-    request; merge it; one OpenTofu apply (all three go pending, nothing restarts; the plan
-    should change only their memory). Then one control plane at a time: check the API
-    server's `/readyz?verbose` shows `etcd ok` and every control-plane pod is Ready; reboot
-    the VM through Proxmox; wait for its node Ready, its three static pods Ready and etcd ok
-    again (the API's address moves to another control plane meanwhile, seconds without it);
-    read back its memory (`kubectl get node` capacity about 6GiB) before the next.
+  - **Steps:** done so far (2026-10-19): the three VMs' memory to 6144 in NetBox, its pull
+    request (#111) merged, and the owner's OpenTofu apply. Left: the reboots, by
+    `ansible/talos-reboot.yml` ("Reboot: Talos VMs") with `reboot_vms` 110,112,113. Dry-run it
+    first: it should show each VM with `memory 4096 -> 6144` pending. The real run does one
+    control plane at a time (etcd whole and caught up before and after, its static pods Ready,
+    nothing left pending, the node's memory before and after in its report); the API's address
+    moves to another control plane meanwhile, seconds without it.
   The workers' lowest was 18% (the 11Gi one) and above.
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
   found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches

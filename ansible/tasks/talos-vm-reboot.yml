@@ -1,0 +1,182 @@
+# Reboots one Talos VM (talos_vm: vmid, name, address, control_plane) through Proxmox: every
+# node Ready, every database cluster whole and etcd whole and caught up first, its pods
+# checked to fit elsewhere (k8s-capacity-check.yml), then out of service (k8s-node-drain.yml:
+# primaries switched over, cordon, drain), Proxmox's reboot, which stops the VM and starts it
+# again and so applies anything pending, the node Ready on a new boot ID with nothing left
+# pending, uncordoned, every database cluster whole, and for a control plane its three static
+# pods Ready and etcd caught up again. A control plane goes alone, so etcd keeps its quorum.
+# For talos-reboot.yml; needs kubectl-local.yml, talosctl-local.yml, pve_api_host and
+# talos_cp_addresses.
+
+- name: Every Kubernetes node is Ready first
+  ansible.builtin.include_tasks: kubernetes-healthy.yml
+
+- name: Every database cluster is healthy first
+  ansible.builtin.include_tasks: cnpg-healthy.yml
+
+- name: etcd is whole and caught up first
+  ansible.builtin.include_tasks: talos-etcd-healthy.yml
+
+- name: Its pods fit on the other nodes
+  ansible.builtin.include_tasks: k8s-capacity-check.yml
+  vars:
+    capacity_nodes: ["{{ talos_vm.name }}"]
+    capacity_allow_pending: "{{ reboot_allow_pending | default(false) }}"
+
+- name: Find the host it runs on now (guests move)
+  ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
+  delegate_to: "{{ pve_api_host }}"
+  register: talos_vm_resources
+  changed_when: false
+  check_mode: false
+
+- name: Keep its host
+  ansible.builtin.set_fact:
+    talos_vm_host: >-
+      {{ talos_vm_resources.stdout | from_json | selectattr('vmid', 'equalto', talos_vm.vmid)
+         | map(attribute='node') | first }}
+
+- name: Read its node before (boot ID and memory, to compare after)
+  ansible.builtin.command: "{{ kubectl_cmd }} get node {{ talos_vm.name }} -o json"
+  delegate_to: "{{ kubectl_host }}"
+  register: talos_vm_before
+  changed_when: false
+  check_mode: false
+
+- name: Reboot it, saying what's left cordoned if it fails
+  block:
+    - name: Take it out of service
+      ansible.builtin.include_tasks: k8s-node-drain.yml
+      vars:
+        k8s_node: "{{ talos_vm.name }}"
+
+    - name: Reboot it through Proxmox (shut down, then start)
+      ansible.builtin.command: >-
+        pvesh create /nodes/{{ talos_vm_host }}/qemu/{{ talos_vm.vmid }}/status/reboot
+        --timeout {{ reboot_shutdown_timeout | default(300) }} --output-format json
+      delegate_to: "{{ pve_api_host }}"
+      register: talos_vm_reboot
+      changed_when: true
+      when: not ansible_check_mode
+
+    - name: Wait for Proxmox's reboot task to finish
+      ansible.builtin.command: >-
+        pvesh get /nodes/{{ talos_vm_host }}/tasks/{{ talos_vm_reboot.stdout | from_json }}/status
+        --output-format json
+      delegate_to: "{{ pve_api_host }}"
+      register: talos_vm_task
+      changed_when: false
+      until: talos_vm_task.rc == 0 and (talos_vm_task.stdout | from_json).status == 'stopped'
+      retries: 60
+      delay: 10
+      when: not ansible_check_mode
+
+    - name: Proxmox's reboot task ended OK
+      ansible.builtin.assert:
+        that: (talos_vm_task.stdout | from_json).exitstatus == 'OK'
+        fail_msg: >-
+          Proxmox's reboot of VM {{ talos_vm.vmid }} ended with
+          {{ (talos_vm_task.stdout | from_json).exitstatus }}: its task log on {{ talos_vm_host }}
+          says why.
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Wait for the node to be Ready on a new boot
+      ansible.builtin.command: "{{ kubectl_cmd }} get node {{ talos_vm.name }} -o json"
+      delegate_to: "{{ kubectl_host }}"
+      register: talos_vm_after
+      changed_when: false
+      until: >-
+        talos_vm_after.rc == 0
+        and (talos_vm_after.stdout | from_json).status.nodeInfo.bootID
+            != (talos_vm_before.stdout | from_json).status.nodeInfo.bootID
+        and (talos_vm_after.stdout | from_json).status.conditions | selectattr('type', 'equalto', 'Ready')
+            | selectattr('status', 'equalto', 'True') | list | length == 1
+      retries: 60
+      delay: 10
+      when: not ansible_check_mode
+
+    - name: Read what Proxmox still holds pending for it
+      ansible.builtin.command: >-
+        pvesh get /nodes/{{ talos_vm_host }}/qemu/{{ talos_vm.vmid }}/pending --output-format json
+      delegate_to: "{{ pve_api_host }}"
+      register: talos_vm_pending
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Nothing is left pending (the reboot applied it)
+      ansible.builtin.assert:
+        that: >-
+          talos_vm_pending.stdout | from_json | selectattr('pending', 'defined') | list | length == 0
+          and talos_vm_pending.stdout | from_json | selectattr('delete', 'defined') | list | length == 0
+        fail_msg: >-
+          VM {{ talos_vm.vmid }} still has changes pending after its reboot:
+          {{ talos_vm_pending.stdout | from_json | selectattr('pending', 'defined') | map(attribute='key') | list }}
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: Uncordon the node
+      ansible.builtin.command: "{{ kubectl_cmd }} uncordon {{ talos_vm.name }}"
+      delegate_to: "{{ kubectl_host }}"
+      changed_when: true
+
+    - name: Close the database maintenance windows
+      ansible.builtin.include_tasks: cnpg-maintenance-end.yml
+      when: cnpg_maintenance | default([]) | length > 0
+
+    - name: Wait for every database cluster to be whole again
+      ansible.builtin.include_tasks: cnpg-healthy.yml
+      vars:
+        cnpg_wait: true
+
+    - name: Wait for its static pods (API server, controller manager, scheduler) to be Ready
+      ansible.builtin.command: "{{ kubectl_cmd }} -n kube-system get pods -o json"
+      delegate_to: "{{ kubectl_host }}"
+      register: talos_vm_static
+      changed_when: false
+      until: >-
+        talos_vm_static.rc == 0
+        and (talos_vm_static.stdout | from_json)['items']
+            | selectattr('metadata.name', 'in', talos_vm_static_names)
+            | map(attribute='status.conditions') | map('selectattr', 'type', 'equalto', 'Ready')
+            | map('selectattr', 'status', 'equalto', 'True') | map('list') | select | list | length == 3
+      retries: 60
+      delay: 10
+      vars:
+        talos_vm_static_names:
+          - kube-apiserver-{{ talos_vm.name }}
+          - kube-controller-manager-{{ talos_vm.name }}
+          - kube-scheduler-{{ talos_vm.name }}
+      when: talos_vm.control_plane and not ansible_check_mode
+
+    - name: Wait for etcd to be whole and caught up again
+      ansible.builtin.include_tasks: talos-etcd-healthy.yml
+      vars:
+        etcd_wait: true
+      when: talos_vm.control_plane
+
+    - name: Wait for every node to be Ready
+      ansible.builtin.include_tasks: kubernetes-healthy.yml
+      vars:
+        k8s_wait: true
+
+    - name: Report it
+      ansible.builtin.debug:
+        msg: >-
+          VM {{ talos_vm.vmid }} {{ talos_vm.name }} rebooted on {{ talos_vm_host }}: Ready on a new boot,
+          nothing pending, memory {{ (talos_vm_before.stdout | from_json).status.capacity.memory }} ->
+          {{ (talos_vm_after.stdout | from_json).status.capacity.memory }}{{
+          ', its static pods Ready and etcd caught up' if talos_vm.control_plane else '' }}.
+      when: not ansible_check_mode
+
+  rescue:
+    - name: Say what this VM's failure left behind
+      ansible.builtin.debug:
+        msg:
+          - "VM {{ talos_vm.vmid }} ({{ talos_vm.name }}) stopped at: {{ ansible_failed_task.name | default('?') }}"
+          - "Its node may still be cordoned. Once it's Ready: kubectl uncordon {{ talos_vm.name }}"
+          - "Its state in Proxmox: pvesh get /nodes/{{ talos_vm_host | default('<host>') }}/qemu/{{ talos_vm.vmid }}/status/current"
+
+    - name: Stop the run
+      ansible.builtin.fail:
+        msg: "{{ ansible_failed_result.msg | default('A step failed') }} (VM {{ talos_vm.vmid }}); see the message above."
