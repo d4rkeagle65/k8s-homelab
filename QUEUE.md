@@ -29,10 +29,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
-- **The Docker VMs' cloud-init snippet on `syn-nfs` is one commit behind** (found 2026-10-19,
-  dry run task 884 of "Setting: Proxmox Host"): `332c5d1` (root takes the login's keys) merged
-  after that template's last real run, so a Docker VM built now would miss it. The owner's next
-  real run of template 15 writes it (`ansible/tasks/proxmox-snippets.yml`).
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading

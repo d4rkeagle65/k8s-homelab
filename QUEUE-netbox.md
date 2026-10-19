@@ -160,9 +160,10 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [ ] VLAN 4 (`vmbr4` on `eth5.4`, on every Proxmox node) comes out too (the owner,
         2026-10-19), as VLAN 9 did: in `proxmox-host.yml`'s `retired_interfaces`, whose run
         refuses while a guest or kept bridge names one. NetBox has no VLAN or prefix for it,
-        only the ten interfaces. Left: the owner's dry run and run of "Setting: Proxmox
-        Host", then those interfaces deleted in NetBox (the sync never deletes), `eth5.4`
-        first, by the owner: the session's permissions refuse my delete
+        only the ten interfaces. Done 2026-10-19: the owner's run (task 905) removed
+        both on all 5, each read back gone with its default route kept. Left: the ten
+        interfaces deleted in NetBox (the sync, task 902, brought them back before the run;
+        it never deletes), `eth5.4` first, by the owner: my delete is refused
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
       template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
       Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL` =
