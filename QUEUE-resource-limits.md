@@ -221,13 +221,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       6 minutes, longer than "seconds": Lidarr, Radarr, n8n and Baby Buddy's apps stayed
       ready; Bookshelf's and Mealie's went unready for a while; Linkwarden's restarted three
       times (it exits when its database goes, as Authentik does)
-- [ ] The workers' kubelet evicting before the kernel's OOM killer acts, so the tiers decide
+- [x] The workers' kubelet evicting before the kernel's OOM killer acts, so the tiers decide
       what goes: `talos/patches/worker-kubelet-eviction.yaml` (soft under 1Gi for a minute,
-      hard under 256Mi), in both `tofu/proxmox/talos-config.tf` and `talos/gen-config.py`.
-      Left: the owner's OpenTofu apply, one worker at a time
-      (`talos_machine_configuration_apply.node[...]`; in `no_reboot` mode it restarts the
-      kubelet, not the pods). Read back on each: capacity minus allocatable memory goes from
-      484Mi to 640Mi (the hard threshold's 156Mi more)
+      hard under 256Mi), applied by the owner on 2026-10-19, one worker at a time
+      (`-target=talos_machine_configuration_apply.node["<VMID>"]`). Read back on all four:
+      capacity minus allocatable memory 640Mi (484Mi before); each kubelet restarted, no node
+      rebooted or went NotReady
 
 ## Resuming
 
