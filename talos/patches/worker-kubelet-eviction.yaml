@@ -1,0 +1,26 @@
+# Workers only: the kubelet evicts while memory is still left, so the pods' priority
+# classes (prod/system/cluster-policy/) decide what goes, rather than the kernel's OOM
+# killer, which ignores them. It evicts first among the pods using more than they
+# requested, lowest priority first.
+#
+# Soft: under 1Gi available for a minute, giving each pod up to 60s to stop. Hard:
+# under 256Mi, at once; a hard threshold also comes off the node's allocatable memory,
+# so it stays small. Each eviction frees at least 256Mi more than the threshold, so one
+# shortage doesn't evict a pod at a time. The hard map restates the kubelet's other
+# defaults, since a map given here replaces the default one whole.
+apiVersion: v1alpha1
+kind: KubeletConfig
+config:
+  evictionSoft:
+    memory.available: 1Gi
+  evictionSoftGracePeriod:
+    memory.available: 1m
+  evictionMaxPodGracePeriod: 60
+  evictionHard:
+    memory.available: 256Mi
+    nodefs.available: 10%
+    nodefs.inodesFree: 5%
+    imagefs.available: 15%
+    imagefs.inodesFree: 5%
+  evictionMinimumReclaim:
+    memory.available: 256Mi
