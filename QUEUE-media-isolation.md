@@ -37,8 +37,8 @@ share's own top level) is reachable from it.
 | App | Folders under `/synmedia` | State |
 |---|---|---|
 | Bookshelf | media/books, torrents/books, nzbget/books | live and checked (2026-10-19) |
-| Sonarr | media/tv, media/youtube, torrents/tv-sonarr, nzbget/tv | PR (2026-10-19) |
-| Radarr | media/movies, torrents/radarr, nzbget/movies | |
+| Sonarr | media/tv, media/youtube, torrents/tv-sonarr, nzbget/tv | live and checked (2026-10-19) |
+| Radarr | media/movies, torrents/radarr, nzbget/movies | PR (2026-10-19) |
 | Lidarr | media/music, torrents/lidarr, nzbget/music | |
 | Whisparr | media/xxx, torrents/xxx, nzbget/xxx | |
 | qBittorrent | torrents | |
