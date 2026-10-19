@@ -1,0 +1,56 @@
+# Pi-hole 2's web interface (the replica nebula-sync copies Pi-hole 1 to), at
+# PIHOLE2_MGMT_ADDRESS port 80, as pihole.yaml serves Pi-hole 1. The nodes
+# reach the management network on eth1, so Traefik can too.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pihole2
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: pihole2
+  labels:
+    kubernetes.io/service-name: pihole2
+addressType: IPv4
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+endpoints:
+- addresses:
+  - ${PIHOLE2_MGMT_ADDRESS}
+  conditions:
+    ready: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pihole2
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: pihole2.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pihole2
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - pihole2.${BASE_DOMAIN}
+    secretName: pihole2-tls

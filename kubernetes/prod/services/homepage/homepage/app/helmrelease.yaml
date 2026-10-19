@@ -272,6 +272,7 @@ spec:
                       key: "{{ "{{HOMEPAGE_VAR_PIHOLE1_PASSWORD}}" }}"
                 - Pi-hole 2:
                     icon: pi-hole.png
+                    href: https://pihole2.${BASE_DOMAIN}/admin
                     description: DNS and ad blocking (replica)
                     widget:
                       type: pihole
