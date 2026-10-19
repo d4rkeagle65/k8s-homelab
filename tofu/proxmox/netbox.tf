@@ -36,7 +36,7 @@ data "http" "netbox_vms" {
 }
 
 locals {
-  # The Talos VMs' and plain containers' shape, which NetBox owns: generated
+  # The guests' shape (Talos VMs, plain containers, Docker VMs, Pi-holes), which NetBox owns: generated
   # from it by scripts/netbox_guests.py and merged as a pull request, so a plan
   # shows only a change someone reviewed. Never edited by hand.
   netbox_guests = jsondecode(file("${path.module}/netbox-guests.json"))

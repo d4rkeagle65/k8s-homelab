@@ -25,7 +25,7 @@ def load():
 m = load()
 
 CFG = {"vm_roles": {"controlplane": "Talos control plane", "worker": "Talos worker", "container": "Plain container",
-                    "docker_vm": "Docker VM"},
+                    "docker_vm": "Docker VM", "pihole": "Pi-hole"},
        "networks": [{"bridge": "vmbr7", "name": "Production", "vlan": 7}, {"bridge": "vmbr6", "name": "IoT", "vlan": 6}]}
 PREFIXES = [{"prefix": "192.0.2.0/24", "description": "Production"},
             {"prefix": "198.51.100.0/24", "description": "IoT"}]
@@ -189,3 +189,18 @@ def test_a_docker_vm_without_its_system_disk_refuses_the_file():
     d = vm(107, "Docker VM", disks=(), mode=None, interfaces=[{"name": "net0", "description": "Proxmox bridge vmbr0"}])
     with pytest.raises(m.Refused, match="VMID 107: needs a virtual disk scsi0"):
         m.shape(answer(vm(110, "Talos control plane"), d), CFG)
+
+
+def test_a_pihole_takes_its_rootfs_its_bridges_in_nic_order_and_its_tags_in_a_group_of_its_own():
+    nics = [{"name": f"net{n}", "description": f"Proxmox bridge {b}", "ip_addresses": []}
+            for n, b in reversed(list(enumerate(["vmbr7", "vmbr0", "vmbr2", "vmbr6", "vmbr8"])))]
+    p = vm(100, "Pi-hole", memory=2048, disks=(("rootfs", 8000),), mode=None,
+           cf={"proxmox_tags": "community-script;adblock"}, interfaces=nics)
+    out = m.shape(answer(vm(110, "Talos control plane"), p), CFG)
+    assert out["piholes"] == {"100": {"cores": 2, "memory": 2048, "disk_gb": 8,
+                                      "bridges": ["vmbr7", "vmbr0", "vmbr2", "vmbr6", "vmbr8"],
+                                      "tags": ["adblock", "community-script"]}}
+    assert out["containers"] == {}
+    with pytest.raises(m.Refused, match="VMID 109: needs a virtual disk rootfs"):
+        m.shape(answer(vm(110, "Talos control plane"), vm(109, "Pi-hole", disks=(("scsi0", 8000),), mode=None,
+                                                          interfaces=nics)), CFG)
