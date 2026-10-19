@@ -147,12 +147,6 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [x] Homepage's token made again (2026-10-16); its tile reads NetBox's status
   - [x] Backups (2026-10-16): Databasus joins NetBox's network (`NETBOX_NETWORK`) and backs
         `netbox` up daily; the first backup taken
-  - [ ] The old `netbox` namespace: deleted by the owner 2026-10-16; its mappings
-        (`NETBOX_SECRET_KEY`, `NETBOX_API_TOKEN_PEPPERS`) out of `cluster-secrets` the same day.
-        The Vaultwarden field `NETBOX_SECRET_KEY` stays (the stack's `NETBOX_SECRET_KEY` is that
-        value); `NETBOX_API_TOKEN_PEPPERS` can go. Left: its seven volumes once Released (four
-        claims' and two older ones', all old, nearly empty NetBox databases, and the media
-        claim's, empty), deleted by the owner
 - [ ] Phase 2. Done 2026-10-16: NetBox seeded by `scripts/netbox_seed.py` (names in
       `netbox_seed.yaml`; the write token `~/.netbox-token` in the claude-code container, saved
       with `save-secret .netbox-token`, a path relative to home): the site, VLANs, prefixes,
@@ -163,21 +157,12 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
       checked against its last static run; the static inventories and the per-group keys
       `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
-  - [ ] The deleted keys' public halves are still in root's `authorized_keys`: three keys, all
-        commented `semaphore`, one on the Proxmox hosts (their shared file), one on both
-        Pi-holes, one on the Docker VM; none elsewhere (Run Command task 739, every host). Semaphore
-        holds only `semaphore-shared`, and each old key's last login was 2026-10-15, the day the
-        NetBox inventory took over (task 740). `ansible/retire-ssh-keys.yml` removes them: template
-        "Retire: Old SSH Keys", its dry run (task 745) found one on each file; left: the owner's run. Left in place, each
-        lets in whoever still holds its private half
-  - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) comes out of Proxmox (the owner,
-        2026-10-16): no guest, SDN or firewall rule names it (Run Command task 741, all 5
-        nodes' configs); `proxmox-host.yml`'s second play removes both, one host at a time
-        (`retired_interfaces`). Done 2026-10-16: the owner's run (task 748) removed both on all
-        5, each read back gone with its default route kept. Left: the interfaces deleted in
-        NetBox (the sync never deletes) VLAN 4 (`vmbr4`) is for
-        later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
-        prefix
+  - [ ] VLAN 4 (`vmbr4` on `eth5.4`, on every Proxmox node) comes out too (the owner,
+        2026-10-19), as VLAN 9 did: in `proxmox-host.yml`'s `retired_interfaces`, whose run
+        refuses while a guest or kept bridge names one. NetBox has no VLAN or prefix for it,
+        only the ten interfaces. Left: the owner's dry run and run of "Setting: Proxmox
+        Host", then those interfaces deleted in NetBox (the sync never deletes), `eth5.4`
+        first, by the owner: the session's permissions refuse my delete
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
       template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
       Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL` =

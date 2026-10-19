@@ -29,11 +29,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
-- **One local record has a domain written backwards** (found 2026-10-19 importing Pi-hole 1's
-  records into NetBox): its name sits under the production zone's name written in reverse, a
-  zone of its own in NetBox (made so nothing was lost), where every other production name is in
-  the production zone. Owner's call: rename it into the production zone, or delete it and its zone in NetBox;
-  the sync carries either to both Pi-holes.
 - **The Docker VMs' cloud-init snippet on `syn-nfs` is one commit behind** (found 2026-10-19,
   dry run task 884 of "Setting: Proxmox Host"): `332c5d1` (root takes the login's keys) merged
   after that template's last real run, so a Docker VM built now would miss it. The owner's next
