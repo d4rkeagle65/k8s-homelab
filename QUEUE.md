@@ -33,6 +33,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Containers on the first Docker VM can't resolve local names** (found 2026-10-19): the
+  claude-code container's resolver isn't a Pi-hole and forwards to public DNS, which answers
+  NXDOMAIN for anything only the Pi-holes hold (an Ingress hostname, a host's name). Any
+  container there that needs a local name fails the same way; check the others and the Docker
+  daemon's `dns` setting (`ansible/docker-host.yml`, `ansible/tasks/resolver-cache.yml`).
 - **The control planes are short of memory** (found 2026-10-18): each has 4096Mi
   (`tofu/proxmox/netbox-guests.json`, `talos_nodes`), and since 2026-10-14 their available
   memory (`node_memory_MemAvailable_bytes`) has fallen to 6%, 9% and 14% at its lowest; the
@@ -269,7 +274,8 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-netbox.md](QUEUE-netbox.md) (about 65%): NetBox on the Docker VM as the source of Semaphore's hosts and OpenTofu's guests, then owning DNS.
-- [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (about 95%): each guest's shape edited in NetBox, into git by a pull request.
+- [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (about 97%): each guest's shape edited in NetBox, into git by a pull request.
+- [QUEUE-netbox-dns.md](QUEUE-netbox-dns.md) (about 15%): every local DNS record in NetBox, synced to both Pi-holes; a record for each device's and VM's address.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
