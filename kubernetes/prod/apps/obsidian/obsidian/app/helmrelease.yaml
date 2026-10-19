@@ -61,6 +61,7 @@ spec:
     persistentVolume:
       enabled: true
       size: 10Gi
+    priorityClassName: homelab-important
     service:
       enabled: true
       port: 5984

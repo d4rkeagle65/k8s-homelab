@@ -19,6 +19,8 @@ spec:
         name: bjw-s
         namespace: flux-system
   values:
+    defaultPodOptions:
+      priorityClassName: homelab-low
     controllers:
       main:
         type: cronjob

@@ -25,6 +25,7 @@ spec:
         name: headlamp
         namespace: flux-system
   values:
+    priorityClassName: homelab-important
     fullnameOverride: headlamp
     config:
       inCluster: true
