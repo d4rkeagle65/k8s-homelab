@@ -33,8 +33,10 @@ Barman Cloud plugin (an `ObjectStore` named `garage` in its namespace). A restor
 one-instance Cluster recovered from that store in the same namespace, compared table by table
 with the live one; `old-queues/QUEUE-restore-tests.md` has the method. A change to a Cluster's
 spec restarts its instances, and so, separately, does a change to its `ObjectStore`'s
-`instanceSidecarConfiguration`; with `primaryUpdateMethod: restart` the primary restarts in
-place, so its apps lose the database for its smart shutdown, up to `smartShutdownTimeout` (180s).
+`instanceSidecarConfiguration`. A Cluster with a replica sets `primaryUpdateMethod: switchover`
+(a test holds every one to it): the replica restarts first, then takes over as primary, a few
+seconds without a writable database. A one-instance Cluster restarts in place, and its apps
+lose the database for its smart shutdown, up to `smartShutdownTimeout` (180s).
 
 - **Create the `ObjectStore` before a Cluster that names it, and prove archiving with
   `pg_stat_archiver`.** A Cluster applied first stays stuck at "Pre-reconcile hook stopped the

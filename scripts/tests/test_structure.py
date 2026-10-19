@@ -638,6 +638,33 @@ def test_cluster_secrets_maps_each_variable_once(repo_root, load_yaml):
     assert not twice, f"mapped more than once in kubernetes/secrets/cluster-secrets.yaml: {twice}"
 
 
+def test_replicated_databases_switch_over(repo_root):
+    """A CloudNativePG Cluster with a replica sets primaryUpdateMethod: switchover. The
+    default, restart, restarts the primary in place on any change to the spec, and its apps
+    lose the database for the smart shutdown (up to three minutes); a switchover costs
+    seconds. One instance has nothing to switch to, so it restarts either way.
+    """
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes/*.yaml"], cwd=repo_root,
+                             capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    clusters, wrong = 0, []
+    for rel in filter(None, tracked):
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        if "postgresql.cnpg.io/" not in text:
+            continue
+        for doc in _yaml.load_all(text):
+            if not isinstance(doc, dict) or doc.get("kind") != "Cluster" \
+                    or not str(doc.get("apiVersion", "")).startswith("postgresql.cnpg.io/"):
+                continue
+            spec = doc.get("spec") or {}
+            if int(spec.get("instances", 1)) < 2:
+                continue
+            clusters += 1
+            if spec.get("primaryUpdateMethod") != "switchover":
+                wrong.append(f"{rel} ({spec.get('primaryUpdateMethod', 'unset: restart')})")
+    assert clusters, "found no replicated CloudNativePG Cluster, so nothing was checked"
+    assert not wrong, f"replicated Clusters that restart their primary in place: {wrong}"
+
+
 _GOTK_SELECTOR_RE = re.compile(r"gotk_resource_info\s*\{([^}]*)\}")
 _MATCHER_LABEL_RE = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)\s*(?:=~|!~|!=|=)\s*"')
 # On every gotk_resource_info series beside the config's own labels: kube-state-metrics'

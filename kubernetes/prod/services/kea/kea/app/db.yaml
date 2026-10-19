@@ -16,6 +16,7 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   instances: 2
+  primaryUpdateMethod: switchover
   # DHCP depends on it (cluster-policy).
   priorityClassName: homelab-critical
   affinity:
