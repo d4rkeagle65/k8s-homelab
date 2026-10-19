@@ -25,23 +25,22 @@ references).
   (from #103) has the rate from then on.
 - **I never write a secret value**: the copy into Key Vault is a script the owner runs, which
   prints names and match/no-match only.
+- **Who reaches the vault** (the owner, 2026-10-19; each role scoped to this vault, each service
+  principal proved to sign in and list over REST): the owner, "Key Vault Secrets Officer";
+  `k8s-homelab-external-secrets`, the cluster's, "Key Vault Secrets User" (read only);
+  `k8s-homelab-claude-code`, the Docker VM's Claude Code, "Key Vault Secrets Officer" (read and
+  write); and Dockhand's own principal, "Key Vault Secrets Officer". The two new principals'
+  credentials are in `kubernetes/.local/azure-keyvault-sp-external-secrets.json` and
+  `azure-keyvault-sp-claude-code.json` (fields `appId`, `password`, `tenant`), with two-year
+  client secrets, to about 2028-10.
 
 ## Waiting on the owner
 
-1. **The owner's own access to the secrets:** the vault uses Azure RBAC, where the owner's
-   inherited Owner role manages the vault but reads none of its secrets (listing is refused,
-   "readMetadata", no assignment). The owner gives themselves "Key Vault Secrets Officer" on
-   the vault before the copy script can run.
-2. **How the cluster signs in:** recommended, a new service principal with a client secret and
-   only "Key Vault Secrets User" on this vault, its credential kept like `bitwarden-cli`'s
-   login today (`kubernetes/.local/`, the bootstrap Secret below). The owner creates it and
-   its secret; workload identity federation would need the cluster's service-account issuer
-   published on the internet.
-3. **Dockhand's identity, and how a bulk pull names its variables** (does `MEDIA-SONARR-API-KEY`
-   arrive as `MEDIA_SONARR_API_KEY`?): from Dockhand's manual or UI. Its service principal
-   exists and holds "Key Vault Secrets Officer" (read and write); if Dockhand only reads,
-   "Key Vault Secrets User" is enough. Its client secret expires 2028-10-05.
-4. **Vaultwarden afterwards:** stays the password manager for people; it stops being the
+1. **How a Dockhand bulk pull names its variables** (does `MEDIA-SONARR-API-KEY` arrive as
+   `MEDIA_SONARR_API_KEY`?): from Dockhand's manual or UI. Its principal holds "Key Vault
+   Secrets Officer" (read and write); if Dockhand only reads, "Key Vault Secrets User" is
+   enough. Its client secret expires 2028-10-05.
+2. **Vaultwarden afterwards:** stays the password manager for people; it stops being the
    cluster's store once the cutover has run a week.
 
 ## Rules
@@ -65,13 +64,16 @@ references).
 
 ## Checklist
 
-- [ ] The owner's four answers above
+- [ ] The owner's two answers above
 - [x] The vault (the owner, by hand, before 2026-10-19), read 2026-10-19 with the Azure CLI:
       Standard, East US, Azure RBAC, soft delete (90 days) and purge protection on, public
       network access with no firewall rules (sign-in required, so the cluster and the Docker
       VM reach it as they are), no secrets readable to the owner yet
-- [ ] The cluster's and Dockhand's identities on it, read-only ("Key Vault Secrets User" or an
-      access policy allowing get and list), and the owner's write access
+- [x] The owner's, the cluster's and Claude Code's access (2026-10-19, "Who reaches the vault"
+      above), read back: each role at the vault, both credential files complete, each new
+      principal signing in and listing (HTTP 200, the vault still empty)
+- [ ] The Docker VM's Claude Code given its credential through Dockhand (a secret stack
+      variable), then checked from inside the container
 - [ ] A copy script (`scripts/`): every `cluster-secrets` field from Vaultwarden into Key Vault
       under its mapped name, then compared by hash; the owner runs it
 - [ ] A `ClusterSecretStore` `azure-keyvault` (`azurekv` provider, the service principal's
