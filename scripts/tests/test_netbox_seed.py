@@ -100,3 +100,31 @@ def test_unexpected_arguments_are_named_never_shown():
     msg = m.unexpected(["NETBOX_WRITE_TOKEN=" + value, "PROXMOX_TOKEN=prefix=" + value, value])
     assert "NETBOX_WRITE_TOKEN" in msg and "PROXMOX_TOKEN" in msg
     assert value not in msg and "prefix" not in msg
+
+
+def test_dns_label_keeps_letters_digits_and_hyphens():
+    assert m.dns_label("HostA01") == "hosta01"
+    assert m.dns_label("Core switch (Model X-1)") == "core-switch-model-x-1"
+
+
+def _addr(id, address, kind="virtualization.vminterface", name="guest1", dns=""):
+    owner = {"virtual_machine" if kind == "virtualization.vminterface" else "device": {"name": name}} if kind else {}
+    return {"id": id, "address": address, "assigned_object_type": kind, "assigned_object": owner, "dns_name": dns}
+
+
+PREFIXES = [{"prefix": "192.0.2.0/24", "custom_fields": {"dns_zone": {"id": 1, "name": "mgmt.example"}}},
+            {"prefix": "192.0.2.128/25", "custom_fields": {"dns_zone": {"id": 2, "name": "inner.example"}}},
+            {"prefix": "198.51.100.0/24", "custom_fields": {"dns_zone": None}}]
+
+
+def test_every_device_and_vm_address_is_named_in_its_most_specific_prefixes_zone():
+    got = m.wanted_dns_names([_addr(1, "192.0.2.10/24"), _addr(2, "192.0.2.200/24", name="guest1"),
+                              _addr(3, "192.0.2.11/24", kind="dcim.interface", name="Switch 02")], PREFIXES)
+    assert got == {1: "guest1.mgmt.example", 2: "guest1.inner.example", 3: "switch-02.mgmt.example"}
+
+
+def test_an_address_without_a_zone_or_an_owner_is_left_alone():
+    got = m.wanted_dns_names([_addr(1, "198.51.100.5/24"), _addr(2, "203.0.113.5/24"),
+                              _addr(3, "192.0.2.12/24", kind=None), _addr(4, "192.0.2.13/24", kind="ipam.fhrpgroup")],
+                             PREFIXES)
+    assert got == {}

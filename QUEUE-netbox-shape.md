@@ -87,9 +87,10 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 - [x] The Pi-holes (2026-10-19): the role "Pi-hole" in NetBox (`vm_roles`), on VMIDs 100 and 109
       with `proxmox_tags`; `local.piholes` in `guests.tf` replaced by the generated `piholes`,
       whose values equal the hand-written ones
-- [ ] After that pull request merges: a plan (template 14, `params.plan`) with no change for
-      `proxmox_virtual_environment_container.pihole`; then template 24 run once, finding
-      nothing to change
+- [x] After that pull request (#82) merged: plan 875 had no change for
+      `proxmox_virtual_environment_container.pihole` (its four changes are the workers' kubelet
+      eviction, `QUEUE-resource-limits.md`), and the generator run against NetBox wrote main's
+      file unchanged, so template 24 has nothing to open
 
 ## Resuming
 

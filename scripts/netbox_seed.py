@@ -15,6 +15,11 @@ custom fields talos_apply_mode and proxmox_tags are never written, and where
 Proxmox differs it's reported, since a resize made in NetBox reaches Proxmox
 only when its pull request is merged and applied.
 
+Each address on a device's or VM's interface whose prefix names a zone (the
+prefix's custom field dns_zone) gets the DNS name <object name>.<zone>, from
+which NetBox DNS makes its record (QUEUE-netbox-dns.md); every other address's
+DNS name is left as it is.
+
 Names come from netbox_seed.yaml; no address is in this repo. A dry run (the
 default) reports what it would create or change; --apply writes it. Safe to
 run again: it finds each object by name (or address) and changes only what
@@ -159,6 +164,16 @@ class NetBox:
             raise SystemExit(f"FAIL: more than one {path} matches {params}")
         return res[0] if res else None
 
+    def all(self, path: str, **params) -> list[dict]:
+        """Every object of a kind, page by page."""
+        q = "&".join(f"{k}={urllib.request.quote(str(v))}" for k, v in params.items())
+        url, out = f"{self.base}{path}/?{q}&limit=500", []
+        while url:
+            page = http("GET", url, self.headers)
+            out += page["results"]
+            url = page.get("next")
+        return out
+
     def set_ref(self, path: str, obj: dict, field: str, target: dict, label: str):
         """Point obj's field (primary_ip4, primary_mac_address) at target, which has to
         exist first, since NetBox checks it's assigned to obj."""
@@ -211,6 +226,35 @@ def same(have, want) -> bool:
     if isinstance(have, float) or isinstance(want, float):
         return have is not None and want is not None and float(have) == float(want)
     return have == want
+
+
+def dns_label(name: str) -> str:
+    """An object's name as a DNS label: lower case, anything but letters, digits and
+    hyphens turned into hyphens."""
+    return re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")
+
+
+def wanted_dns_names(addresses: list[dict], prefixes: list[dict]) -> dict[int, str]:
+    """By address id, the DNS name each device's or VM's address should carry: its
+    object's name in the zone of the most specific prefix holding it that names one."""
+    import ipaddress
+    zones = []
+    for p in prefixes:
+        zone = (p.get("custom_fields") or {}).get("dns_zone")
+        if isinstance(zone, dict) and zone.get("name"):
+            zones.append((ipaddress.ip_network(p["prefix"]), zone["name"]))
+    out = {}
+    for a in addresses:
+        owner = a.get("assigned_object") or {}
+        obj = owner.get("device") or owner.get("virtual_machine")
+        if a.get("assigned_object_type") not in ("dcim.interface", "virtualization.vminterface") or not obj:
+            continue
+        ip = ipaddress.ip_interface(a["address"]).ip
+        held = [(net, z) for net, z in zones if ip in net]
+        if held and dns_label(obj["name"]):
+            zone = max(held, key=lambda h: h[0].prefixlen)[1]
+            out[a["id"]] = f"{dns_label(obj['name'])}.{zone}"
+    return out
 
 
 def kea_networks(url: str, cred: str):
@@ -486,6 +530,16 @@ def main() -> None:
                     primary = ip
         if primary:
             nb.set_ref("virtualization/virtual-machines", vm, "primary_ip4", primary, g["name"])
+
+    # Each device's and VM's addresses named in their prefix's zone; NetBox DNS's
+    # DNSsync turns each name into the zone's record.
+    print("dns names:")
+    addresses = nb.all("ipam/ip-addresses")
+    wanted = wanted_dns_names(addresses, nb.all("ipam/prefixes"))
+    for a in sorted(addresses, key=lambda a: a["address"]):
+        name = wanted.get(a["id"])
+        if name is not None and (a.get("dns_name") or "") != name:
+            nb.ensure("ipam/ip-addresses", {"id": a["id"]}, {"dns_name": name}, f"{a['address']} dns_name")
 
     print("summary:", ", ".join(f"{k.split()[0]} {v} {k.split()[1].split('/')[-1]}" for k, v in sorted(nb.counts.items()))
           or "nothing to change")

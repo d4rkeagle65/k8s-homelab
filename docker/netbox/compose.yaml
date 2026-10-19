@@ -175,6 +175,39 @@ services:
       timeout: 3s
       interval: 15s
 
+  # NetBox DNS's records to every Pi-hole, each minute (dns-sync/,
+  # QUEUE-netbox-dns.md). Report-only until SYNC_APPLY is true; a record
+  # NetBox lacks is removed only once SYNC_DELETE is true too.
+  netbox-dns-sync:
+    mem_limit: 64m
+    build: ./dns-sync
+    image: homelab/netbox-dns-sync:local
+    pull_policy: build
+    container_name: netbox-dns-sync
+    restart: unless-stopped
+    depends_on:
+      netbox:
+        condition: service_healthy
+    environment:
+      NETBOX_API: http://netbox:8080
+      # A read-only NetBox token.
+      NETBOX_TOKEN: ${NETBOX_DNS_SYNC_TOKEN}
+      # Each Pi-hole's web address (scheme, no path) and an app password.
+      PIHOLE_1_URL: ${PIHOLE_1_URL}
+      PIHOLE_1_PASSWORD: ${PIHOLE_1_PASSWORD}
+      PIHOLE_2_URL: ${PIHOLE_2_URL}
+      PIHOLE_2_PASSWORD: ${PIHOLE_2_PASSWORD}
+      PIHOLE_TLS_VERIFY: ${PIHOLE_TLS_VERIFY:-true}
+      SYNC_APPLY: ${SYNC_APPLY:-false}
+      SYNC_DELETE: ${SYNC_DELETE:-false}
+    command: [--every, "60", --health, /tmp/healthy]
+    # Healthy while a round has finished cleanly in the last five minutes.
+    healthcheck:
+      test: ["CMD-SHELL", "find /tmp/healthy -mmin -5 | grep -q ."]
+      start_period: 3m
+      timeout: 3s
+      interval: 60s
+
 networks:
   # Kea's control API (the Kea plugin), on the kea stack's network.
   kea:
