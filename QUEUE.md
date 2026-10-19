@@ -196,9 +196,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   address, so a partner can read them while the Docker VM is down; then a second Kea on the
   second Pi-hole's host as a hot-standby partner (the firewall's relay can point at both), and
   lease names into DNS.
+- **Both Pi-holes' DMZ addresses are in git history** (found 2026-10-19): QUEUE.md held them
+  from `a0fc448` (2026-10-08) until `tests/test-identifying-data.py` caught them. The tree is
+  clean; every clone and GitHub's history still have them. Private addresses, so low risk;
+  rewriting history (as was done before) is the owner's call, and a no keeps them there.
 - **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
-  static clients still list only `172.16.228.3` and lose DNS while Pi-hole 1's host
-  reboots. Add `172.16.228.4` on each by hand.
+  static clients still list only Pi-hole 1's DMZ address and lose DNS while Pi-hole 1's host
+  reboots. Add Pi-hole 2's DMZ address (NetBox has both) on each by hand.
 - **The Proxmox inventory's `evacuate` can point back at the host with the most free memory:**
   VT-x is on in every host (Run Command task 755, 2026-10-16: `vmx`, `kvm_intel` and `/dev/kvm`
   on all five), so the override that steered the Docker VM's evacuation away from the third host

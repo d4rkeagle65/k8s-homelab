@@ -259,7 +259,7 @@ _FIELD_PATH_HINTS = [
 
 def _ip_in_metallb_range(ip: str, addr_spec: str) -> bool:
     """MetalLB IPAddressPool spec.addresses entries are either a CIDR
-    ("192.168.1.0/24") or a hyphenated range ("192.168.1.50-192.168.1.70")."""
+    ("192.0.2.0/24") or a hyphenated range ("192.0.2.50-192.0.2.70")."""
     try:
         target = ipaddress.ip_address(ip)
     except ValueError:
