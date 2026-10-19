@@ -9,9 +9,9 @@ here so a later session, after a compaction, knows where things stand.
 
 - **Approval by named batch, delivered as pull requests** (2026-10-18): an approved batch below
   is one I carry through without asking first, but each piece of it ends as its own branch and
-  pull request once the commit hook's suite passes, and the owner merges it. Nothing reaches
-  `main` any other way (`CLAUDE.md`). Anything outside the named work, or a change of plan
-  inside it, waits for the owner's go-ahead.
+  pull request once the commit hook's suite passes, and the owner merges it; only a commit to
+  the queue files alone goes straight to `main` (`CLAUDE.md`). Anything outside the named
+  work, or a change of plan inside it, waits for the owner's go-ahead.
 - **Deletions:** I delete Released PVs and retired database clusters myself, only after proving
   each one's data exists elsewhere (a healthy live copy, its data checked), and report each with
   its evidence. A prune-protected object goes by hand only once git no longer lists it.
