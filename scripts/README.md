@@ -255,11 +255,15 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 it up after the next sync. capture reads the live Secret, so from then on it
 replaces the new value.
 
-`scripts/vaultwarden-fields.ps1` lists and sets the fields of the Vaultwarden
-item through the bitwarden-cli pod; `cluster-secrets` no longer reads them, so a
-value set there doesn't reach the cluster (`QUEUE-azure-keyvault.md` has its
-Key Vault counterpart to come). `scripts/keyvault_copy.py` copies every
-`cluster-secrets` variable into Key Vault and compares by hash.
+`scripts/keyvault-secrets.ps1` lists the `cluster-secrets` variables with their
+Key Vault secrets (never the values), and with a variable's name sets its
+value: base64-encoded when a Secret's `data:` uses it, read back by hash, then
+force-synced into the cluster. It signs in as your `az login` account; its
+help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
+`scripts/vaultwarden-fields.ps1` did the same for the Vaultwarden item, which
+`cluster-secrets` no longer reads, so it no longer works on it.
+`scripts/keyvault_copy.py` copies every `cluster-secrets` variable into Key
+Vault and compares by hash.
 
 capture finds some private values on its own (an ACME email, a non-IP NFS
 hostname, your main Ingress domain) and every promoted Secret's value. Anything
