@@ -16,4 +16,5 @@ resources:
 - seerr/ks.yaml
 - sonarr/ks.yaml
 - tdarr/ks.yaml
+- whisparr-v3/ks.yaml
 - whisparr/ks.yaml
