@@ -67,10 +67,22 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   memory (`node_memory_MemAvailable_bytes`) has fallen to 6%, 9% and 14% at its lowest; the
   API server alone peaks at 1.5-1.8GiB, with etcd beside it. Talos owns those pods and they
   have no limits, so a squeeze ends with the kernel's OOM killer taking the API server or
-  etcd. Raise them (6Gi each would leave about a third free) through NetBox's guest shape,
-  its pull request and the OpenTofu apply the owner confirms, one control plane at a time
-  (`tofu/CLAUDE.md`), checking etcd's health between them. The workers' lowest was 18% (the
-  11Gi one) and above.
+  etcd. Raise each to 6144 (about a third free), with the owner. Checked 2026-10-19:
+  - **Room:** each host's free memory at its 5-day peak (`pve_memory_usage_bytes`): VM 110's
+    host 23.4GiB, VM 112's 5.2GiB, VM 113's 3.7GiB (1.7GiB left after the raise: tight, but
+    its ZFS ARC gives way first). Recheck just before, as other guests move.
+  - **No hotplug:** the Talos VMs have no memory hotplug, so a raise on a running VM waits,
+    pending, until Proxmox stops and starts it; `reboot_after_update = false` means the apply
+    itself restarts nothing. A reboot from inside Talos keeps the same QEMU process and
+    doesn't pick it up: reboot through Proxmox (the UI's Reboot, or `qm reboot <VMID>`).
+  - **Steps:** the three VMs' memory to 6144 in NetBox; "NetBox: Guests to git" opens the pull
+    request; merge it; one OpenTofu apply (all three go pending, nothing restarts; the plan
+    should change only their memory). Then one control plane at a time: check the API
+    server's `/readyz?verbose` shows `etcd ok` and every control-plane pod is Ready; reboot
+    the VM through Proxmox; wait for its node Ready, its three static pods Ready and etcd ok
+    again (the API's address moves to another control plane meanwhile, seconds without it);
+    read back its memory (`kubectl get node` capacity about 6GiB) before the next.
+  The workers' lowest was 18% (the 11Gi one) and above.
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
   found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches
   them in batches that each start from the pre-refresh snapshot (`getAuthor` serves the
