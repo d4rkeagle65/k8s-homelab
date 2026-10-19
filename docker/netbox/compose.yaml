@@ -178,7 +178,7 @@ services:
       interval: 15s
 
   # NetBox DNS's records to every Pi-hole, each minute (dns-sync/,
-  # QUEUE-netbox-dns.md). Report-only until SYNC_APPLY is true; a record
+  # old-queues/QUEUE-netbox-dns.md). Report-only until SYNC_APPLY is true; a record
   # NetBox lacks is removed only once SYNC_DELETE is true too.
   netbox-dns-sync:
     mem_limit: 64m

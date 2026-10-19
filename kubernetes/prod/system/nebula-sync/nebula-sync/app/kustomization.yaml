@@ -2,7 +2,7 @@
 # copies Pi-hole 1's lists, groups, clients and DNS settings to Pi-hole 2
 # through their v6 APIs. Pi-hole 1 is the one to edit; changes made on Pi-hole 2
 # are overwritten. Not the local records and CNAMEs: those are NetBox's, written
-# to both by netbox-dns-sync (QUEUE-netbox-dns.md).
+# to both by netbox-dns-sync (old-queues/QUEUE-netbox-dns.md).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
