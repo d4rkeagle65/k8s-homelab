@@ -154,6 +154,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   worktree's top, but `other_calls_ours("pre-merge-commit")` in `tests/test-harness.py` accepts
   only a line naming `.githooks/pre-merge-commit`. The commit hook's own run passes. Left, a
   manual `run-all-tests.py` there fails for a hook that works.
+- **`docker/claude-code/README.md`'s "Updating" says to change the image tag in `compose.yaml`**
+  with the Dockerfile's versions, but the tag is always `homelab/claude-code:local` (built on
+  the host, skipped by Renovate). Say instead what makes Dockhand rebuild after a Dockerfile
+  change, once that's read on the host. Left, a version bump merged by Renovate may never
+  reach the running image, and the README points at an edit that shouldn't be made.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 - **Restore-test the PostgreSQL 18 clusters' backups.** Their base backups read `DONE` in Garage
