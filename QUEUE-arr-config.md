@@ -81,11 +81,13 @@ rotated key is one paste into Vaultwarden.
 - [ ] Whisparr v3 (Settled): its own release and database beside v2, its env vars as phase 1's,
       the library added, its download clients and quality from Configarr; then v2 retired
       (its database kept a day, as the PostgreSQL 18 moves did). 2026-10-19: `whisparr-v3`
-      live (v3-3.1.0.2116, `whisparr3` hostname, v2's folders; WAL archiving proven); its
-      nightly backup, Configarr instance (v2's root folders; qBittorrent and SABnzbd on `xxx`,
-      qBittorrent by the Web UI login, `QBITTORRENT_USERNAME`/`_PASSWORD`, since this build's
-      client takes no API key) and Prowlarr link in PR. Then: the library added, its quality
-      captured, v2 retired
+      live (v3-3.1.0.2116, `whisparr3` hostname, v2's folders; WAL archiving proven), its
+      nightly backup completing, Configarr owning its root folders and both download clients
+      (qBittorrent by the Web UI login, since this build's client takes no API key; both test
+      OK), Prowlarr syncing its indexers into it; health clean. Next: the library added (v2
+      holds 4 sites, none monitored, one file each under `media/xxx/scenes/`; v3 imports a
+      file only against a scene it already lists, so each is looked up and added first), its
+      quality captured, v2 retired
 - [ ] Outside Configarr, each its own decision: Bookshelf's metadata source (`/api/v1/config/
       development`), qBittorrent's preferences and categories, SABnzbd's categories and folders,
       Seerr's links to Radarr and Sonarr (`settings.json`)
