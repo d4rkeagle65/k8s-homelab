@@ -88,6 +88,13 @@
       "allowedVersions": "!/(^|[.\\-_])(alpha|beta|rc|pre|preview|dev|nightly|snapshot|canary|edge|next|unstable)([.\\-_]?\\d*)($|[.\\-_])/i"
     },
     {
+      "description": "The docker datasource dates only Docker Hub's tags, and minimumReleaseAge holds a release it can't date for good (timestamp-required, the default), so no image or OCI chart from another registry (ghcr.io, lscr.io, quay.io, ECR, Cloudsmith) would ever be offered, and a group of a chart and its image would open with the chart alone. Docker Hub's tags keep their dates and so the wait; the others are offered on release, and the wait for them is the owner's, at merge.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
       "description": "A captured release is updated through its generated files; regenerate so release.yaml, values.yaml and the generated files agree (scripts/renovate_post_upgrade.py).",
       "matchFileNames": [
         "kubernetes/**"
@@ -198,6 +205,13 @@
     {
       "matchDepTypes": [
         "required_version"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "OpenTofu itself (docker/claude-code/Dockerfile's TOFU_VERSION) must equal tofu/*/versions.tf's required_version, which is Semaphore's OpenTofu and left alone above: the three move by hand together, once Semaphore's image ships a newer one.",
+      "matchPackageNames": [
+        "opentofu/opentofu"
       ],
       "enabled": false
     },
