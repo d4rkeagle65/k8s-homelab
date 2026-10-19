@@ -41,8 +41,8 @@ share's own top level) is reachable from it.
 | Radarr | media/movies, torrents/radarr, nzbget/movies | live and checked (2026-10-19) |
 | Lidarr | media/music, torrents/lidarr, nzbget/music | live and checked (2026-10-19) |
 | Whisparr | media/xxx, torrents/xxx, nzbget/xxx | live and checked (2026-10-19), v2; v3 takes the same mounts. Its qBittorrent client fails to authenticate (it was before too): v2 isn't Configarr's, so its key predates the rotation; the owner pastes the current one in its UI |
-| qBittorrent | torrents | PR (2026-10-19) |
-| SABnzbd | nzbget | |
+| qBittorrent | torrents | live and checked (2026-10-19) |
+| SABnzbd | nzbget | PR (2026-10-19) |
 | Tdarr | media/tv, media/movies | last: it writes into the library |
 
 ## Resuming
