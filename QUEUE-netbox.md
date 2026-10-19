@@ -147,16 +147,6 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [x] Homepage's token made again (2026-10-16); its tile reads NetBox's status
   - [x] Backups (2026-10-16): Databasus joins NetBox's network (`NETBOX_NETWORK`) and backs
         `netbox` up daily; the first backup taken
-  - [ ] The old `netbox` namespace: deleted by the owner 2026-10-16; its mappings
-        (`NETBOX_SECRET_KEY`, `NETBOX_API_TOKEN_PEPPERS`) out of `cluster-secrets` the same day.
-        The Vaultwarden field `NETBOX_SECRET_KEY` stays (the stack's `NETBOX_SECRET_KEY` is that
-        value); `NETBOX_API_TOKEN_PEPPERS` deleted (2026-10-19). Its seven PersistentVolumes are
-        gone (2026-10-19, no PV names `netbox`). Left: their data, still on disk (2026-10-19,
-        read-only pods): four `*_netbox_netbox-postgres-*`/`*_netbox_netbox-db-*` folders, one
-        on each worker's `/var/mnt/local-db` (259-675M), and on the NFS share
-        `archived-netbox-netbox-postgres-rt-1-*` (179M) and `netbox-netbox-media-*` (empty).
-        Nothing in them is needed: the new NetBox started fresh by choice (Settled), and it is
-        live. Each folder removed by the owner
 - [ ] Phase 2. Done 2026-10-16: NetBox seeded by `scripts/netbox_seed.py` (names in
       `netbox_seed.yaml`; the write token `~/.netbox-token` in the claude-code container, saved
       with `save-secret .netbox-token`, a path relative to home): the site, VLANs, prefixes,
@@ -167,15 +157,7 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
       checked against its last static run; the static inventories and the per-group keys
       `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
-  - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) comes out of Proxmox (the owner,
-        2026-10-16): no guest, SDN or firewall rule names it (Run Command task 741, all 5
-        nodes' configs); `proxmox-host.yml`'s second play removes both, one host at a time
-        (`retired_interfaces`). Done 2026-10-16: the owner's run (task 748) removed both on all
-        5, each read back gone with its default route kept. Left: the ten interfaces deleted in
-        NetBox (the sync never deletes): `eth5.9` then `vmbr9` on each node, no addresses or
-        other interfaces on them (2026-10-19); the session's permissions refused my delete, so
-        the owner's. VLAN 4 (`vmbr4`) is for
-        later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
+  - [ ] VLAN 4 (`vmbr4`) is for later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
         prefix
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
       template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
