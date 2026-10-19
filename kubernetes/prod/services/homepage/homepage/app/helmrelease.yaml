@@ -27,6 +27,8 @@ spec:
         name: bjw-s
         namespace: flux-system
   values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
     controllers:
       main:
         # Its own account, with the API token mounted: the kubernetes widget

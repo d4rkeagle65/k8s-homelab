@@ -25,6 +25,7 @@ spec:
         namespace: flux-system
   values:
     defaultPodOptions:
+      priorityClassName: homelab-important
       securityContext:
         # n8n and the runners run as the image's node user.
         fsGroup: 1000

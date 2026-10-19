@@ -51,6 +51,8 @@ spec:
         library:
           existingClaim: immich-data
     machine-learning:
+      defaultPodOptions:
+        priorityClassName: homelab-important
       controllers:
         main:
           containers:
@@ -78,6 +80,8 @@ spec:
           size: 10Gi
           type: emptyDir
     server:
+      defaultPodOptions:
+        priorityClassName: homelab-important
       controllers:
         main:
           containers:

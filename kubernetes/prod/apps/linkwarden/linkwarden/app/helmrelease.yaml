@@ -34,6 +34,8 @@ spec:
         name: bjw-s
         namespace: flux-system
   values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
     controllers:
       linkwarden:
         strategy: Recreate

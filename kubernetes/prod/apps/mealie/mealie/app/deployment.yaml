@@ -18,6 +18,7 @@ spec:
       labels:
         app: mealie
     spec:
+      priorityClassName: homelab-important
       initContainers:
       # mealie exits if its database isn't up when it starts.
       - name: wait-for-db
