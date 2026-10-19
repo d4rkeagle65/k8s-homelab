@@ -20,10 +20,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
-- **Whisparr's qBittorrent client fails to authenticate** (found 2026-10-19): Whisparr v2
-  isn't Configarr's (`QUEUE-arr-config.md`), so its key predates the qBittorrent key's
-  rotation; its torrent grabs fail until the current key is pasted in its UI (Settings,
-  Download Clients). Whisparr v3, when it replaces v2, takes the key from Configarr.
 - **Sonarr: "Ms Rachel (2025)" was removed from TheTVDB** (its health page, 2026-10-19):
   re-point it to the new entry or remove it, or it stays an error and gets no updates.
 7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
@@ -180,6 +176,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **Whisparr v2's leftovers** (retired 2026-10-19; its final base backup
+  `whisparr-db-final-202610191449` completed, its WAL archived through its end): from
+  2026-10-20, delete the `whisparr-db` Cluster in `media` (kept from pruning by its
+  annotation) and the released PV of `whisparr-config`, after reading that the backup is
+  still listed in Garage. Then a pull request drops `MEDIA_WHISPARR_API_KEY` from
+  `kubernetes/secrets/cluster-secrets.yaml` (nothing else uses it), and the owner deletes
+  its Vaultwarden field.
 - **`test-harness` reads red when the suite is run by hand in a Claude desktop worktree**
   (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
   checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
