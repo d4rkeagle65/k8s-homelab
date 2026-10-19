@@ -1,12 +1,14 @@
 #!/bin/bash
 # The container's start-up: clone the repo on the first start, then run
-# Claude Code with Remote Control on, in a tmux session named "claude", and
-# keep the container up while it runs. When Claude Code exits, so does the
-# container, and Docker starts it again (restart: unless-stopped).
+# Claude Code with Remote Control on in each of the repo's git worktrees (the
+# clone itself first), one tmux pane each, in a tmux session named "claude",
+# and keep the container up while any of them runs. When the last one exits,
+# so does the container, and Docker starts it again (restart: unless-stopped).
 #
 # Attach with: docker exec -it claude-code tmux attach -t claude
-# Detach with Ctrl-b then d. Leaving Claude Code (/exit) restarts the
-# container.
+# Move between panes with Ctrl-b then an arrow key; detach with Ctrl-b then d.
+# Leaving Claude Code (/exit) closes its pane; leaving the last one restarts
+# the container.
 set -euo pipefail
 
 repo="${REPO_DIR:-$HOME/k8s-homelab}"
@@ -18,17 +20,51 @@ fi
 # The repo's pre-commit hook (runs scripts/tests before each commit).
 git -C "$repo" config core.hooksPath .githooks
 
-# Claude Code keeps each folder's conversations in ~/.claude/projects/, in a
-# folder named after the path with every character other than a letter or
-# digit turned into "-". If there are any (a restart, or one copied in from
-# another machine), continue the newest; otherwise start a new one.
-project="$HOME/.claude/projects/$(printf '%s' "$repo" | sed 's/[^A-Za-z0-9]/-/g')"
-args=(--remote-control "$name")
-if compgen -G "$project/*.jsonl" >/dev/null; then
-    args=(--continue "${args[@]}")
-fi
+# Every worktree of the repo, one path per line, the main one first (git
+# lists it first). A worktree whose folder is gone (git marks it prunable)
+# is left out.
+worktrees() {
+    git -C "$repo" worktree list --porcelain | awk '
+        /^worktree / { if (path != "" && !gone) print path; path = substr($0, 10); gone = 0 }
+        /^prunable/  { gone = 1 }
+        END          { if (path != "" && !gone) print path }'
+}
 
-tmux new-session -d -s claude -c "$repo" claude "${args[@]}"
+# Start Claude Code in a folder, under a Remote Control name: the session's
+# first pane, or a new pane beside the others. Claude Code keeps each
+# folder's conversations in ~/.claude/projects/, in a folder named after the
+# path with every character other than a letter or digit turned into "-". If
+# there are any (a restart, or one copied in from another machine), continue
+# the newest; otherwise start a new one.
+start_claude() {
+    local dir="$1" rc_name="$2" project
+    local args=(--remote-control "$rc_name")
+    project="$HOME/.claude/projects/$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
+    if compgen -G "$project/*.jsonl" >/dev/null; then
+        args=(--continue "${args[@]}")
+    fi
+    if tmux has-session -t claude 2>/dev/null; then
+        tmux split-window -t claude -c "$dir" claude "${args[@]}"
+        tmux select-layout -t claude tiled
+    else
+        # Sized for many panes: a detached session is 80x24 until a client
+        # attaches, too small to split often. Attaching resizes it.
+        tmux new-session -d -s claude -x 240 -y 60 -c "$dir" claude "${args[@]}"
+    fi
+}
+
+# The main worktree is "$name"; each other one is "$name-<its folder's name>",
+# so each session is told apart at claude.ai/code and in the Claude app.
+first=1
+while IFS= read -r dir; do
+    [ -d "$dir" ] || continue
+    if [ "$first" = 1 ]; then
+        start_claude "$dir" "$name"
+        first=0
+    else
+        start_claude "$dir" "$name-$(basename "$dir" | sed 's/[^A-Za-z0-9-]/-/g')"
+    fi
+done < <(worktrees)
 
 # On docker stop, end the session cleanly instead of waiting to be killed.
 trap 'tmux kill-server 2>/dev/null || true; exit 0' TERM INT

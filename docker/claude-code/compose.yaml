@@ -2,7 +2,8 @@
 # claude.ai/code and the Claude app can reach without the PC, and that
 # doesn't go down with the cluster it works on. Deployed by Dockhand from
 # this folder (a Git stack). Claude Code runs in a tmux session inside the
-# container: attach with `docker exec -it claude-code tmux attach -t claude`.
+# container, a pane for each git worktree of the repo (README.md, Worktrees):
+# attach with `docker exec -it claude-code tmux attach -t claude`.
 #
 # Everything it keeps is in /opt/claude-code/home on the host (its home
 # folder): its login, settings and conversations (~/.claude, ~/.claude.json),
