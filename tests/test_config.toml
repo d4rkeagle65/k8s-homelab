@@ -65,6 +65,7 @@ Tools = [
     { Name = "kubectl", Arguments = ["version", "--client"], Minimum = "1.32" },
     { Name = "flux", Arguments = ["--version"], Minimum = "2.9" },
     { Name = "helm", Arguments = ["version", "--short"], Minimum = "4.0" },
+    { Name = "az", Arguments = ["version"], Minimum = "2.60", TimeoutSeconds = 60 },
 ]
 
 # Ceilings: may fall, never rise. install-test-framework.py --calibrate sets them from a run.
