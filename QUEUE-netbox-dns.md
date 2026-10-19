@@ -70,13 +70,15 @@ phase 4.
       name and address pairs, 40 were NetBox's already (ExternalDNS's), 20 are the seed's to
       make, and the other 70 went in, each into its zone and described "imported from Pi-hole 1,
       2026-10-19"; no name clashed with another address
-- [ ] The sync, `docker/netbox/dns-sync/netbox_pihole_sync.py` (tests in `scripts/tests/`),
-      as the stack's `netbox-dns-sync` service, report-only until `SYNC_APPLY` and with
-      `SYNC_DELETE` off. Left: the owner's Dockhand variables (`docker/netbox/README.md`: a
-      read-only NetBox token, each Pi-hole's URL and app password, which Vaultwarden has as
-      `PIHOLE_URL`, `PIHOLE_PASSWORD`, `PIHOLE2_URL`, `PIHOLE2_PASSWORD`); its first rounds'
-      report read (expected: the 20 seed records, and the 5 two-name lines split); then
-      `SYNC_APPLY=true`
+- [x] The sync, `docker/netbox/dns-sync/netbox_pihole_sync.py` (tests in `scripts/tests/`), as
+      the stack's `netbox-dns-sync` service (#88; #91 let it reach NetBox by its service name).
+      Its report-only round (Run Command task 881): on each Pi-hole the 5 two-name lines out,
+      their 10 names back one per line, and the 19 records the seed made added, nothing else.
+      With `SYNC_APPLY=true` (task 882, 2026-10-19) both went from 125 lines to 149, each read
+      back as matching NetBox, and the next round had nothing to do. Every NetBox name looked up
+      on both Pi-holes before and after: none lost an address; all 145 now answer as NetBox
+      says, except Pi-hole 2's own name asked over its management address, which Pi-hole
+      answers with that interface's address (its own hostname, not a record)
 - [ ] The switch: ExternalDNS's Pi-hole releases out, nebula-sync's hosts and CNAME copy off,
       `proxmox-acme.yml`'s record from NetBox; the Pi-holes checked to answer the same names
       before and after
