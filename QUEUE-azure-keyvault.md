@@ -77,8 +77,10 @@ references).
 - [x] The copy script, `scripts/keyvault_copy.py`: the 141 mapped variables from the live
       `cluster-secrets` Secret into Key Vault under their mapped names, read back by hash; a dry
       run by default (2026-10-19: 141 missing, nothing written)
-- [ ] The owner's run of it with `--apply` (`python scripts/keyvault_copy.py --vault <name>
-      --apply`, signed in with `az login`), ending "read back: 141 of 141 match"
+- [x] The owner's run of it with `--apply` (2026-10-19). Read back afterwards: a dry run
+      reports all 141 "already the same" by hash, and the vault holds exactly the 141 mapped
+      names. A variable changed in Vaultwarden before the cutover reaches Key Vault by running
+      it again.
 - [ ] A `ClusterSecretStore` `azure-keyvault` (`azurekv` provider, the service principal's
       Secret) beside the `bitwarden-*` ones, and the test ExternalSecret proving all 141
 - [ ] The cutover commit (the rules above); `test_every_substituted_variable_is_defined`'s
