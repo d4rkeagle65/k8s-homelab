@@ -58,17 +58,17 @@ rotated key is one paste into Vaultwarden.
 - [x] Phase 3 (2026-10-18): Configarr owns each app's qBittorrent client and its key from
       `QBITTORRENT_API_KEY` (`update_password: true`: written on every run, the diff report always
       lists it); its first real run passed every app's download-client test, Lidarr's on the key
-- [ ] SABnzbd's clients (2026-10-18, with phase 4's PR): each app's, every field as it had it,
-      its `api_key` from `SABNZBD_API_KEY`; a dry run with the real key changed only the two
-      keys. Left: the merge, then each app's download-client test
-- [ ] Phase 4 (2026-10-18), captured as each app had it: tags (none deleted), root folders and
+- [x] SABnzbd's clients (2026-10-18): each app's, every field as it had it, its `api_key` from
+      `SABNZBD_API_KEY`; every app's download-client test passed (2026-10-19)
+- [x] Phase 4 (2026-10-18), captured as each app had it: tags (none deleted), root folders and
       the default delay profile (each a complete list: one not named is deleted), naming,
       media management and UI settings in Sonarr, Radarr, Lidarr and Bookshelf; Lidarr's and
       Bookshelf's "Standard" metadata profiles ("None" is built in); Prowlarr's links to Sonarr,
       Radarr, Lidarr and Bookshelf (keys from their Secrets; Whisparr's stays the UI's) and its
       sync profile. A dry run showed no change but the qBittorrent key; a second, with one
-      change planted in each section, showed every one, so each section is compared. Left: the
-      merge, then a real run's diff the same. Not Configarr's (none of its sections): each
+      change planted in each section, showed every one, so each section is compared. A real run
+      (2026-10-19) changed only the two download-client keys it writes every run; Prowlarr's
+      applications unchanged. Not Configarr's (none of its sections): each
       app's indexer settings (minimum age, retention, RSS interval), import lists,
       notifications, Prowlarr's indexers
 - [ ] Phase 5, quality: today's quality definitions, profiles and custom formats captured
