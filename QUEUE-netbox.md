@@ -151,9 +151,12 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         (`NETBOX_SECRET_KEY`, `NETBOX_API_TOKEN_PEPPERS`) out of `cluster-secrets` the same day.
         The Vaultwarden field `NETBOX_SECRET_KEY` stays (the stack's `NETBOX_SECRET_KEY` is that
         value); `NETBOX_API_TOKEN_PEPPERS` deleted (2026-10-19). Its seven PersistentVolumes are
-        gone (2026-10-19, no PV names `netbox`). Left: both classes it used (`local-db`,
-        `nfs-retain-rwo`) are `Retain`, so their data may still be on the workers' local-db
-        disks and the NFS share; unchecked. Find and remove it per the volume rule
+        gone (2026-10-19, no PV names `netbox`). Left: their data, still on disk (2026-10-19,
+        read-only pods): four `*_netbox_netbox-postgres-*`/`*_netbox_netbox-db-*` folders, one
+        on each worker's `/var/mnt/local-db` (259-675M), and on the NFS share
+        `archived-netbox-netbox-postgres-rt-1-*` (179M) and `netbox-netbox-media-*` (empty).
+        Nothing in them is needed: the new NetBox started fresh by choice (Settled), and it is
+        live. Each folder removed by the owner
 - [ ] Phase 2. Done 2026-10-16: NetBox seeded by `scripts/netbox_seed.py` (names in
       `netbox_seed.yaml`; the write token `~/.netbox-token` in the claude-code container, saved
       with `save-secret .netbox-token`, a path relative to home): the site, VLANs, prefixes,
@@ -168,8 +171,10 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         2026-10-16): no guest, SDN or firewall rule names it (Run Command task 741, all 5
         nodes' configs); `proxmox-host.yml`'s second play removes both, one host at a time
         (`retired_interfaces`). Done 2026-10-16: the owner's run (task 748) removed both on all
-        5, each read back gone with its default route kept. Left: the interfaces deleted in
-        NetBox (the sync never deletes) VLAN 4 (`vmbr4`) is for
+        5, each read back gone with its default route kept. Left: the ten interfaces deleted in
+        NetBox (the sync never deletes): `eth5.9` then `vmbr9` on each node, no addresses or
+        other interfaces on them (2026-10-19); the session's permissions refused my delete, so
+        the owner's. VLAN 4 (`vmbr4`) is for
         later; it gets a name in `netbox_seed.yaml` once it's in use, which makes its VLAN and
         prefix
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
