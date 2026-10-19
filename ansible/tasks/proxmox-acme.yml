@@ -10,15 +10,10 @@
 # ordered when the host has none from the CA for its name, or it expires
 # within acme_renew_days (default 30). Every run reports the certificate.
 #
-# Each host's name also gets a local record in the primary Pi-hole, with the
-# shared name proxmox-hosts.<acme_domain> on the same line (acme_group_alias;
-# empty leaves it off), so that name answers with every host (the
-# container tagged dns_guest_tag with the lowest VMID, or pihole_primary_vmid),
-# pointing at its inventory address: written inside that container with
-# pihole-FTL's own CLI through `pct exec` on the host carrying it, so no Pi-hole
-# credential is needed. nebula-sync copies it to the other Pi-holes. Other
-# records stay as they are; the CLI replaces the whole list in one write, so a
-# record ExternalDNS adds in that same moment is lost until its next pass.
+# Each host's name, and the shared name proxmox-hosts.<acme_domain> that answers
+# with every host, are records in NetBox DNS, kept there by hand like any other
+# (QUEUE-netbox-dns.md); its sync copies them to the Pi-holes. This only looks
+# each name up at the end and reports where it leads.
 #
 # Needs proxmox-guests.yml (pve_node, pve_guests) before it.
 
@@ -79,115 +74,6 @@
           With acme_domain set, acme_email, acme_cf_token and acme_cf_zone_id (32 hex characters)
           are needed too, and {{ acme_fqdn_wanted }} must be a valid name.
         quiet: true
-
-    # The Pi-hole records: once, for every host in the run.
-    - name: Find the primary Pi-hole
-      ansible.builtin.set_fact:
-        acme_pihole: >-
-          {{ (pve_guests | selectattr('type', 'equalto', 'lxc')
-              | selectattr('vmid', 'equalto', pihole_primary_vmid | int) | list
-              if pihole_primary_vmid is defined else
-              pve_guests | selectattr('type', 'equalto', 'lxc') | selectattr('tags', 'defined')
-              | selectattr('tags', 'search', '(^|;)' ~ dns_guest_tag | default('') ~ '(;|$)')
-              | sort(attribute='vmid') | list) | first | default({}) }}
-        # Each line also carries the shared name (acme_group_alias, default
-        # proxmox-hosts.<acme_domain>), which so answers with every host:
-        # Prometheus finds the hosts' exporters through it.
-        acme_records_wanted: >-
-          {{ ansible_play_hosts | map('extract', hostvars) | map(attribute='ansible_host')
-             | zip(ansible_play_hosts | map('extract', hostvars) | map(attribute='acme_fqdn_wanted'))
-             | map('join', ' ') | map('regex_replace', '$', (' ' ~ acme_group_alias_fqdn) if acme_group_alias_fqdn else '')
-             | list }}
-      vars:
-        acme_group_alias_fqdn: >-
-          {{ '' if (acme_group_alias | default('proxmox-hosts')) in ['', none]
-             else (acme_group_alias | default('proxmox-hosts')) ~ '.' ~ acme_domain }}
-      run_once: true
-
-    - name: There is a primary Pi-hole, and every host has an IPv4 address
-      ansible.builtin.assert:
-        that:
-          - acme_pihole.vmid is defined
-          - acme_pihole_host | length == 1
-          - acme_records_wanted | reject('match', '^\d{1,3}(\.\d{1,3}){3}( \S+)+$') | list | length == 0
-        fail_msg: >-
-          {{ "No Pi-hole container found: set dns_guest_tag (as for proxmox-upgrade.yml) or
-          pihole_primary_vmid" if acme_pihole.vmid is not defined else
-          ("Pi-hole " ~ acme_pihole.vmid ~ " runs on " ~ acme_pihole.node ~ ", which isn't in this run"
-          if acme_pihole_host | length != 1 else
-          "Each host's ansible_host must be its IPv4 address: " ~ acme_records_wanted | join(', ')) }}
-        quiet: true
-      vars:
-        acme_pihole_host: >-
-          {{ ansible_play_hosts | select('in', ansible_play_hosts | map('extract', hostvars)
-             | selectattr('pve_node', 'equalto', acme_pihole.node | default('')) | map(attribute='inventory_hostname') | list) | list }}
-      run_once: true
-
-    - name: Note which host carries the primary Pi-hole
-      ansible.builtin.set_fact:
-        acme_pihole_via: >-
-          {{ (ansible_play_hosts | map('extract', hostvars)
-              | selectattr('pve_node', 'equalto', acme_pihole.node) | first).inventory_hostname }}
-      run_once: true
-
-    - name: Read the Pi-hole's local records
-      ansible.builtin.command:
-        argv: [pct, exec, "{{ acme_pihole.vmid }}", --, pihole-FTL, --config, dns.hosts]
-      register: acme_hosts_now
-      delegate_to: "{{ acme_pihole_via }}"
-      changed_when: false
-      check_mode: false
-      run_once: true
-
-    # pihole-FTL prints a list as `[ a, b ]`, unquoted (`[]` when empty);
-    # each record is `<address> <name> [<name>...]`. A line naming any of the
-    # wanted names (a host's own or the shared one) is replaced, so an older
-    # line without the shared name isn't left behind as a duplicate.
-    - name: Work out the records
-      ansible.builtin.set_fact:
-        acme_hosts_current: "{{ current }}"
-        acme_hosts_new: >-
-          {{ current | reject('search', '\s(' ~ (acme_records_wanted | map('split')
-             | map('reject', 'match', '^\d') | flatten | unique
-             | map('regex_escape') | join('|')) ~ ')(\s|$)') | list + acme_records_wanted }}
-      vars:
-        raw: >-
-          {{ acme_hosts_now.stdout | trim | regex_replace('^\[\s*', '') | regex_replace('\s*\]$', '') }}
-        current: >-
-          {{ raw.split(', ') | map('trim') | select | list if raw | length > 0 else [] }}
-      run_once: true
-
-    - name: Report the Pi-hole records
-      ansible.builtin.debug:
-        msg: >-
-          Pi-hole {{ acme_pihole.vmid }} on {{ acme_pihole.node }}:
-          {{ 'the host records are in place' if acme_hosts_new | sort == acme_hosts_current | sort
-             else 'adds or corrects ' ~ (acme_records_wanted | reject('in', acme_hosts_current) | join(', ')) }}.
-      run_once: true
-
-    - name: Write the Pi-hole's local records
-      ansible.builtin.command:
-        argv: [pct, exec, "{{ acme_pihole.vmid }}", --, pihole-FTL, --config, dns.hosts, "{{ acme_hosts_new | to_json }}"]
-      delegate_to: "{{ acme_pihole_via }}"
-      run_once: true
-      when: acme_hosts_new | sort != acme_hosts_current | sort
-
-    - name: Read them back
-      ansible.builtin.command:
-        argv: [pct, exec, "{{ acme_pihole.vmid }}", --, pihole-FTL, --config, dns.hosts]
-      register: acme_hosts_after
-      delegate_to: "{{ acme_pihole_via }}"
-      changed_when: false
-      run_once: true
-      when: not ansible_check_mode
-
-    - name: Every host's record is there
-      ansible.builtin.assert:
-        that: acme_records_wanted | reject('in', acme_hosts_after.stdout) | list | length == 0
-        fail_msg: "The Pi-hole's records still lack: {{ acme_records_wanted | reject('in', acme_hosts_after.stdout) | join(', ') }}"
-        quiet: true
-      run_once: true
-      when: not ansible_check_mode
 
     # Cluster-wide: once, from the first host.
     - name: Read the ACME accounts
@@ -346,8 +232,8 @@
               or [{}]) | first }}
       when: not ansible_check_mode
 
-    # The name has to lead to this host for anything to use it; Pi-hole's
-    # records are kept by hand there, so this only reports.
+    # The name has to lead to this host for anything to use it; its record is
+    # NetBox's, kept by hand there, so this only reports.
     - name: Look the name up
       ansible.builtin.command:
         argv: [getent, ahostsv4, "{{ acme_fqdn_wanted }}"]
@@ -361,4 +247,4 @@
         msg: >-
           {{ inventory_hostname }}: {{ acme_fqdn_wanted }}
           {{ ('resolves to ' ~ (acme_lookup.stdout_lines | map('split') | map('first') | unique | join(', ')))
-             if acme_lookup.rc == 0 else "doesn't resolve: add a Pi-hole record for it" }}.
+             if acme_lookup.rc == 0 else "doesn't resolve: add its record in NetBox DNS" }}.

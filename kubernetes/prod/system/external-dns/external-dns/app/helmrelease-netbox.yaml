@@ -1,8 +1,18 @@
-# ExternalDNS writing the same Ingress hostnames into NetBox DNS (QUEUE-netbox.md,
-# phase 4), through its own webhook provider (netbox-dns-webhook.py), a sidecar
-# in this pod listening on 127.0.0.1 only. Same sources, filters and policy as
-# helmrelease.yaml, so NetBox gets what the Pi-holes get; until NetBox owns DNS
-# the Pi-hole releases stay as they are.
+# ExternalDNS: an A record in NetBox DNS for each hostname of a `traefik` or
+# `traefik-isolated` Ingress, at the address that controller publishes in the
+# Ingress's status. Cloudflare tunnel Ingresses are left out; the tunnel
+# controller handles public DNS. Also each name in the
+# external-dns.kubernetes.io/hostname annotation of a Service, at its address:
+# only Traefik's has one (smtp-relay, which has no Ingress). (v0.23 reads only
+# the external-dns.kubernetes.io/ prefix, not external-dns.alpha.kubernetes.io/.)
+#
+# NetBox owns local DNS, and netbox-dns-sync copies it to the Pi-holes
+# (QUEUE-netbox-dns.md). ExternalDNS writes through its own webhook provider
+# (netbox-dns-webhook.py), a sidecar in this pod listening on 127.0.0.1 only.
+# The webhook lists and changes only the records it marked (description
+# external-dns), which is the ownership the noop registry leaves to it: so
+# with policy sync a hostname leaving an Ingress loses its record, and a
+# hand-made record of the same name is never taken over.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -75,7 +85,7 @@ spec:
     sources:
     - ingress
     - service
-    policy: upsert-only
+    policy: sync
     serviceMonitor:
       enabled: true
     registry: noop

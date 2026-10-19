@@ -57,6 +57,11 @@ spec:
           value: "false"
         - name: SYNC_CONFIG_DNS
           value: "true"
+        # The local records are NetBox's, which netbox-dns-sync writes to both
+        # Pi-holes (QUEUE-netbox-dns.md); a copy from Pi-hole 1 would be a
+        # second writer.
+        - name: SYNC_CONFIG_DNS_EXCLUDE
+          value: hosts,cnameRecords
         - name: SYNC_CONFIG_RESOLVER
           value: "true"
         - name: SYNC_CONFIG_MISC
