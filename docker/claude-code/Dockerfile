@@ -16,7 +16,7 @@ ARG FLUX_VERSION=2.9.6
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=4.3.0
 # renovate: datasource=github-releases depName=opentofu/opentofu
-ARG TOFU_VERSION=1.11.0
+ARG TOFU_VERSION=1.13.1
 # Claude Code's release channel: stable (about a week old) or latest.
 ARG CLAUDE_CODE_CHANNEL=stable
 # The owner of /opt/claude-code/home on the host.
