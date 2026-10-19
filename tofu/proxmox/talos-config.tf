@@ -131,7 +131,12 @@ locals {
       file("${local.talos_patches_dir}/controlplane-podsecurity.yaml"),
       local.talos_etcd_patch,
     ], local.talos_vip_patch)
-    worker = [local.talos_common, local.talos_site_patch, file("${local.talos_patches_dir}/worker-local-db.yaml")]
+    worker = [
+      local.talos_common,
+      local.talos_site_patch,
+      file("${local.talos_patches_dir}/worker-local-db.yaml"),
+      file("${local.talos_patches_dir}/worker-kubelet-eviction.yaml"),
+    ]
   }
 }
 
