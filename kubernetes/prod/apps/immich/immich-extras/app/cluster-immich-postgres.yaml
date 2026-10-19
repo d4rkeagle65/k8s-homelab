@@ -72,7 +72,7 @@ spec:
     - vchord.so
     syncReplicaElectionConstraint:
       enabled: false
-  primaryUpdateMethod: restart
+  primaryUpdateMethod: switchover
   primaryUpdateStrategy: unsupervised
   probes:
     liveness:

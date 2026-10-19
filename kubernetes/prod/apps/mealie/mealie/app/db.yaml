@@ -9,6 +9,7 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   instances: 2
+  primaryUpdateMethod: switchover
   # Scheduled before ordinary pods when nodes are short (cluster-policy).
   priorityClassName: homelab-critical
   resources:
