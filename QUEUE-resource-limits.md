@@ -178,6 +178,9 @@ Queries (Prometheus, `kube-prometheus-stack`):
         reads `kube_pod_container_resource_limits`, not the init containers' series;
       - sizes Immich's machine learning again once the import is done: its 2304Mi and 620m are
         the import's.
+      - reads the control planes' memory: 6Gi each since 2026-10-19 (VMs rebooted by
+        `talos-reboot.yml`), 2.2-3.1GiB available just after; their lowest over the week says
+        whether that's enough.
       Init containers that run once at start have none: babybuddy's check-db-ready and mealie's
       wait-for-db take their namespace's defaults; the Bitwarden CLI's fetch-cli gets nothing
       (external-secrets has no LimitRange).
