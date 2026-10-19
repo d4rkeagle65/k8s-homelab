@@ -17,7 +17,7 @@ Read before changing anything:
 | `cluster` | `kubernetes/prod/` | generate |
 | `cluster-resources` | `kubernetes/cluster/` (cluster-scoped objects) | generate |
 | `cluster-meta` | `kubernetes/flux/meta/` (chart sources, vars) | hand |
-| `cluster-secrets` | `kubernetes/secrets/` (the Vaultwarden ExternalSecret) | hand |
+| `cluster-secrets` | `kubernetes/secrets/` (the Azure Key Vault ExternalSecret) | hand |
 | `cluster-shared` | `kubernetes/shared/` (media base) | hand |
 | `cluster-test` | `kubernetes/test/` (overlay, suspended) | hand |
 
@@ -97,12 +97,12 @@ Read before changing anything:
 
 - **No real values in git, and a new variable reaches the cluster before what uses it.** No
   domains, IPs, hostnames or secrets in files, commit messages or PR text: use `${VARIABLE}`s,
-  which Flux fills from `cluster-secrets` (built by External Secrets from a Vaultwarden item;
-  `kubernetes/secrets/`) and `cluster-settings` (`kubernetes/flux/meta/vars/`). Real values
-  live only in Vaultwarden, the gitignored `kubernetes/.local/`, and `.secret-words` for the
-  hook; `tests/test-identifying-data.py` checks every tracked file for them at each commit. An undefined variable fails its Flux Kustomization, so a new one lands first: the owner
-  adds its Vaultwarden field, and its entry in `kubernetes/secrets/cluster-secrets.yaml` is a
-  pull request of its own, merged before anything that uses it. An empty value is fine.
+  from `cluster-secrets` (Azure Key Vault, a secret per variable, `_` as `-`; `kubernetes/secrets/`)
+  or `cluster-settings` (`kubernetes/flux/meta/vars/`). Real values live only in Key Vault,
+  Vaultwarden, the gitignored `kubernetes/.local/` and `.secret-words`; `tests/test-identifying-data.py`
+  checks every tracked file for them. An undefined variable fails its Kustomization, so the owner
+  adds the Key Vault secret, then its `cluster-secrets.yaml` entry lands in a pull request of its
+  own, merged before anything uses it. An empty value is fine.
 - **Every change reaches `main` through a pull request the owner merges; a merge is a
   deploy.** Flux applies whatever reaches `main`, and the owner's review is what keeps a wrong
   change from a session working on its own out of the cluster. One branch per change: commit

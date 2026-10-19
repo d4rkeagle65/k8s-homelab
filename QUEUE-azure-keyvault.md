@@ -94,12 +94,18 @@ references).
 - [x] Read back after the merge (#110, 2026-10-19): the store Valid, the test ExternalSecret
       `SecretSynced`, and all 141 of `cluster-secrets`' variables equal by hash to their Key
       Vault copies, none missing or extra
-- [ ] The cutover commit (the rules above); `test_every_substituted_variable_is_defined`'s
-      "field name must match the variable" check becomes the mapped-name check
+- [x] The cutover commit, written 2026-10-19: `cluster-secrets.yaml` on the `azure-keyvault`
+      store, each entry reading its mapped name; the test ExternalSecret gone; the variable
+      test checks the store and every mapped name; `CLAUDE.md`, `kubernetes/CLAUDE.md`,
+      `docker/CLAUDE.md` and `scripts/README.md` say Key Vault. The owner merges it.
+- [ ] Read back after the cutover merges: `cluster-secrets` `SecretSynced` from
+      `azure-keyvault`; every key's hash unchanged from before; every Flux Kustomization
+      Ready; `scripts/keyvault_copy.py`'s dry run "141 already the same"
 - [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first
-- [ ] Tooling: `scripts/vaultwarden-fields.ps1`'s list and set against Key Vault; the
-      substitution-variable recipe in `scripts/README.md`; `CLAUDE.md`'s and
-      `kubernetes/CLAUDE.md`'s Vaultwarden and `bitwarden-cli` rules
+- [ ] Tooling: `scripts/vaultwarden-fields.ps1` against Key Vault (from the cutover it no
+      longer works on `cluster-secrets`: it reads the Vaultwarden item ID from the live
+      ExternalSecret, which then names Key Vault secrets); capture's "aren't in Vaultwarden
+      yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`)
 - [ ] An alert on an ExternalSecret that stops syncing (`externalsecret_status_condition`)
 - [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired
 

@@ -219,7 +219,7 @@ runs generate before it commits. Step 3 is still the review.
    - If the namespace has Secrets you manage, their values are listed in
      `kubernetes/.local/vaultwarden-pending.yaml` and their manifests are
      **held back** ("not written yet").
-3. If Secrets were held back, add each pending value to Vaultwarden (see
+3. If Secrets were held back, add each pending value to Key Vault (see
    [Add or change a substitution variable](#add-or-change-a-substitution-variable)).
 4. `python scripts/backup.py all`
 5. Check that every `secret-*.yaml` holds only `${...}` values, run the tests,
@@ -232,14 +232,18 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 
 | Source | Holds | Where you change it |
 |---|---|---|
-| `cluster-secrets` Secret | Private values: the domain, IPs, hostnames, promoted Secrets' values. capture replaces each one wherever it appears in captured files. | A hidden custom field of the `cluster-secrets` item in Vaultwarden (field name = `NAME`). External Secrets copies it into the Secret (`kubernetes/secrets/cluster-secrets.yaml`, every 15 minutes). |
+| `cluster-secrets` Secret | Private values: the domain, IPs, hostnames, promoted Secrets' values. capture replaces each one wherever it appears in captured files. | A secret in Azure Key Vault named after `NAME` with `_` as `-` (`MEDIA_SONARR_API_KEY` is `MEDIA-SONARR-API-KEY`). External Secrets copies it into the Secret (`kubernetes/secrets/cluster-secrets.yaml`, every 15 minutes). |
 | `cluster-settings` ConfigMap | Plain settings that are fine in git, such as a UID like `1027`. Never searched for. | `kubernetes/flux/meta/vars/cluster-settings.yaml` |
 
 **A new private value:**
-1. Add the field to the Vaultwarden item.
-2. Add an entry for it to `kubernetes/secrets/cluster-secrets.yaml`, and push
-   that first. The tests fail if any `${NAME}` in `kubernetes/` is defined in
-   neither source.
+1. Add its secret to Key Vault, in the portal or with `az keyvault secret set
+   --vault-name <vault> --name <NAME with - for _> --file <file>` (so the value
+   isn't on the command line). A value used in a Secret's `data:` goes in as
+   its base64.
+2. Add an entry for it to `kubernetes/secrets/cluster-secrets.yaml`
+   (`secretKey: NAME`, `remoteRef: {key: NAME-WITH-DASHES}`), and push that
+   first. The tests fail if any `${NAME}` in `kubernetes/` is defined in
+   neither source, or if an entry reads any other Key Vault name.
 3. Check it synced: `kubectl get externalsecret cluster-secrets -n flux-system`
    should show `SecretSynced`. To sync now rather than within 15 minutes:
    `kubectl annotate externalsecret cluster-secrets -n flux-system force-sync=$(Get-Date -UFormat %s) --overwrite`
@@ -247,31 +251,28 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
    Flux Kustomization that uses it (strict substitution, on by default since
    kustomize-controller v1.9), so that app stops updating until it exists.
 
-**Changing a value:** edit the field in Vaultwarden. Flux picks it up after
-the next sync. capture reads the live Secret, so from then on it replaces the
-new value.
+**Changing a value:** set a new version of its secret in Key Vault. Flux picks
+it up after the next sync. capture reads the live Secret, so from then on it
+replaces the new value.
 
-`scripts/vaultwarden-fields.ps1` does this from PowerShell, through the
-bitwarden-cli pod. With no arguments it outputs an object per field name (never
-values): whether it's base64 (used in a Secret's `data:`), synced, and which Flux
-Kustomizations use it, shown as a table and filtered like any objects
-(`Get-Help ./scripts/vaultwarden-fields.ps1 -Examples`). Run one at a time: each
-run asks the CLI to sync, beside its own sync loop. `./scripts/vaultwarden-fields.ps1 NAME` asks for the
-new value without echoing it, base64-encodes it when needed, writes it,
-force-syncs, waits for the `cluster-secrets` Secret to have it, and prints the
-`flux reconcile` commands to run. `-New` adds a field that doesn't exist yet.
+`scripts/vaultwarden-fields.ps1` lists and sets the fields of the Vaultwarden
+item through the bitwarden-cli pod; `cluster-secrets` no longer reads them, so a
+value set there doesn't reach the cluster (`QUEUE-azure-keyvault.md` has its
+Key Vault counterpart to come). `scripts/keyvault_copy.py` copies every
+`cluster-secrets` variable into Key Vault and compares by hash.
 
 capture finds some private values on its own (an ACME email, a non-IP NFS
 hostname, your main Ingress domain) and every promoted Secret's value. Anything
-not in Vaultwarden yet is replaced in that run's output anyway, and listed with
-its value in `kubernetes/.local/vaultwarden-pending.yaml` for you to add.
+`cluster-secrets` doesn't hold yet is replaced in that run's output anyway, and
+listed with its value in `kubernetes/.local/vaultwarden-pending.yaml` for you to
+add to Key Vault.
 
 ### Rotate a promoted Secret's value
 
 1. Change the Secret in the cluster.
 2. Run `capture`. It holds the manifest, so Flux won't revert your change, and
    lists the new value in `kubernetes/.local/vaultwarden-pending.yaml`.
-3. Update the field in Vaultwarden and let it sync.
+3. Set a new version of its secret in Key Vault and let it sync.
 4. Run `all` again.
 
 ### Bring the test environment up, and take it down
@@ -330,20 +331,23 @@ before the switchover.
 | File | What it is |
 |---|---|
 | `substitutions-cache.yaml` | Every value capture replaced last run, read from the cluster. Written by capture; the pre-commit leak check reads it. Don't edit. |
-| `vaultwarden-pending.yaml` | Private values found that Vaultwarden doesn't hold yet, with their values. Only there while some are pending. |
-| `bitwarden-cli.env` | The Bitwarden CLI pod's Vaultwarden login, for recreating its Secret. |
+| `vaultwarden-pending.yaml` | Private values found that `cluster-secrets` doesn't hold yet, with their values, to add to Key Vault. Only there while some are pending. |
+| `azure-keyvault-sp-external-secrets.json` | The cluster's Key Vault service principal (read only): the `azure-keyvault-bootstrap` Secret in `flux-system` is built from it, by hand. |
+| `azure-keyvault-sp-claude-code.json` | The Docker VM's Claude Code service principal (read and write), for its stack in Dockhand. |
+| `bitwarden-cli.env` | The Bitwarden CLI pod's Vaultwarden login, for recreating its Secret until the pod is retired. |
 | `variable-substitutions.yaml` | Legacy: where the values lived before Vaultwarden. Only read if `cluster-secrets` is missing from the cluster. |
 | `cluster/` | Full backup of built-in and operator-owned cluster objects, not committed. |
 
-Vaultwarden holds the private values. Keep this folder backed up anyway: it
-holds the CLI login, and `cluster/` is the only copy of those objects.
+Key Vault holds the private values. Keep this folder backed up anyway: it holds
+the service principals' credentials and the CLI login, and `cluster/` is the
+only copy of those objects.
 
 ## Warnings and what to do
 
 | Warning contains | Meaning | Do this |
 |---|---|---|
-| `not written yet -- the live 'cluster-secrets' Secret ... doesn't hold its values` | A promoted Secret is held back | Add its values to Vaultwarden, let it sync, then run `all` |
-| `private value(s) aren't in Vaultwarden yet` | capture found values Vaultwarden doesn't hold | Add each from `vaultwarden-pending.yaml` to Vaultwarden and `kubernetes/secrets/cluster-secrets.yaml` |
+| `not written yet -- the live 'cluster-secrets' Secret ... doesn't hold its values` | A promoted Secret is held back | Add its values to Key Vault, let it sync, then run `all` |
+| `private value(s) aren't in Vaultwarden yet` | capture found values `cluster-secrets` doesn't hold | Add each from `vaultwarden-pending.yaml` to Key Vault and `kubernetes/secrets/cluster-secrets.yaml` |
 | `the cluster-secrets Secret isn't in flux-system` | External Secrets hasn't produced it | Check `kubectl describe externalsecret cluster-secrets -n flux-system` |
 | `StorageClass '...' doesn't exist` | A promoted PVC or database asks for a missing class | Fine while bound; migrate it before any rebuild |
 | `PVC is Lost` | Its volume is gone | Delete the PVC if nothing needs it |
