@@ -8,7 +8,10 @@ holds what isn't secret:
   (Talos version and Image Factory schematic); `encryption-order.txt` is the order of the
   control planes' encryption providers for Secrets at rest, and says why it changes in stages;
   the `controlplane-podsecurity*` pair sets Pod Security admission (privileged enforced, as
-  under kubeadm); `worker-local-db.yaml` makes a worker's second disk its local-db volume.
+  under kubeadm); `worker-local-db.yaml` makes a worker's second disk its local-db volume;
+  `worker-kubelet-eviction.yaml` has the workers' kubelet evict by priority before memory
+  runs out (a `KubeletConfig` document: Talos 1.14 rejects kubelet settings under
+  `machine.kubelet` beside it).
 - `gen-config.py`: builds the machine configs from the owner's `secrets.yaml`, the patches,
   and what it reads from the live cluster (API name, DNS domain, subnets, the nodes'
   network), so nothing internal is kept here. It checks before it writes: `talosctl`'s

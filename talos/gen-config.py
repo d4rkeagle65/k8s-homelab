@@ -33,8 +33,9 @@ COMMON = PATCHES / "common.yaml"
 # (built from the secrets and encryption-order.txt) goes in.
 ENCRYPTION_DELETE = PATCHES / "controlplane-encryption-delete.yaml"
 ENCRYPTION_ORDER = PATCHES / "encryption-order.txt"
-# Workers only: the local-db volume on the VM's second disk.
-WORKER_ONLY = [PATCHES / "worker-local-db.yaml"]
+# Workers only: the local-db volume on the VM's second disk, and the kubelet's
+# memory eviction thresholds.
+WORKER_ONLY = [PATCHES / "worker-local-db.yaml", PATCHES / "worker-kubelet-eviction.yaml"]
 # Control planes only, in this order: Talos's PodSecurity config out, ours in.
 PODSECURITY = [PATCHES / "controlplane-podsecurity-delete.yaml", PATCHES / "controlplane-podsecurity.yaml"]
 

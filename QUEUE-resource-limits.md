@@ -214,10 +214,20 @@ Queries (Prometheus, `kube-prometheus-stack`):
       Headlamp; `homelab-low` (-1000, never preempts) on the twelve media apps; the databases,
       Grimmory's MariaDB too, `homelab-critical`. `test_every_priority_class_named_exists`
       keeps every name pointing at a class
+- [ ] Eight database clusters' instances still run at priority 0 (read 2026-10-18): Baby
+      Buddy's, Linkwarden's, Mealie's, n8n's, Bookshelf's, Lidarr's, Radarr's and Sonarr's.
+      Their Clusters name `homelab-critical`, but CloudNativePG gives a pod its class only when
+      it recreates it, and these predate the class; until then the first four rank below their
+      own apps (100000). A rolling restart of each applies it (replica first, then a
+      switchover of seconds, now that they switch over), with the owner. rreading-glasses-db's
+      spec names no class at all (the session working on it)
 - [ ] The workers' kubelet evicting before the kernel's OOM killer acts, so the tiers decide
-      what goes: a soft threshold (memory.available under 1Gi for a minute) and a hard one
-      above the default 100Mi, a worker-only patch in `talos/patches/`, applied node by node by
-      the owner (`tofu/CLAUDE.md`)
+      what goes: `talos/patches/worker-kubelet-eviction.yaml` (soft under 1Gi for a minute,
+      hard under 256Mi), in both `tofu/proxmox/talos-config.tf` and `talos/gen-config.py`.
+      Left: the owner's OpenTofu apply, one worker at a time
+      (`talos_machine_configuration_apply.node[...]`; in `no_reboot` mode it restarts the
+      kubelet, not the pods). Read back on each: capacity minus allocatable memory goes from
+      484Mi to 640Mi (the hard threshold's 156Mi more)
 
 ## Resuming
 
