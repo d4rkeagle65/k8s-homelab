@@ -2511,12 +2511,12 @@ whisparr:
     base_url: http://whisparr-v3:6969
     api_key: !env WHISPARR_API_KEY
     # Whisparr v3 (QUEUE-arr-config.md), Configarr's experimental support. Started
-    # empty (2026-10-19), so these are set rather than captured: v2's root
-    # folders and download category. This build's qBittorrent client takes no
-    # API key, so it logs in with the Web UI username and password.
+    # empty (2026-10-19), so these are set rather than captured: one root folder,
+    # since v3's folder formats start with movies/ or scenes/ themselves, and v2's
+    # download category. This build's qBittorrent client takes no API key, so it
+    # logs in with the Web UI username and password.
     root_folders:
-      - "/synmedia/media/xxx/movies"
-      - "/synmedia/media/xxx/scenes"
+      - "/synmedia/media/xxx"
     download_clients:
       # The key is written on every run: the apps never show it, so it can't
       # be compared, and the diff report lists it each time.
