@@ -231,7 +231,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `baseline.yml` own the fix on every host whose sshd sets `ListenAddress`.
 - **Nothing owns the Pi-holes' timezone** (found 2026-10-19, Run Command task 874): CT 100
   and CT 109 differed until the owner set CT 109 to match by hand (`pct set`, both
-  `America/Detroit` since, task 887). Proxmox writes the zone into each container at start,
+  the `TIMEZONE` value since, task 887). Proxmox writes the zone into each container at start,
   but neither OpenTofu (the provider can't, `guests.tf`) nor a playbook sets it, so a rebuilt
   Pi-hole comes back with whatever its template had: `baseline.yml` or `pihole-config.yml`
   should own one zone for both.
