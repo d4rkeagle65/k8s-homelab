@@ -11,15 +11,16 @@ admin:
   email: env:GRIMMORY_ADMIN_EMAIL
   name: Grimmory admin
 
-# The books Bookshelf collects. A folder can hold several books (a series),
-# so each file is a book, with one title's formats grouped.
+# The books Bookshelf collects. Bookshelf gives each book its own folder
+# ({Author Name}/{Book Title}/), so a folder is one book and its files are
+# that book's formats; BOOK_PER_FILE would make each format a book of its own.
 libraries:
   - name: Books
     paths: [/books]
     watch: true
     icon: library
     iconType: LUCIDE
-    organizationMode: BOOK_PER_FILE
+    organizationMode: BOOK_PER_FOLDER
     metadataSource: PREFER_EMBEDDED
 
 settings:
