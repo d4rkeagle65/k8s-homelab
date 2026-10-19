@@ -16,6 +16,9 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a setting.
 
+- **`RECOMMENDATIONS.md` (2026-10-19): decide which items to take on.** CI for pull requests
+  and auto-deleted branches first; the Docker stacks' secrets from Vaultwarden (its item 7) is
+  a sync job a session can build once it's approved. Accepted items become entries here.
 - **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
