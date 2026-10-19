@@ -107,13 +107,17 @@
       }
     },
     {
-      "description": "A database's major version is a migration (QUEUE-updates.md), not a version bump: listed on the Dependency Dashboard, opened only when ticked there. Likewise Whisparr's v3, a different app.",
+      "description": "A database's major version is a migration (QUEUE-updates.md), not a version bump: listed on the Dependency Dashboard, opened only when ticked there. Likewise Whisparr's v3, a different app. mariadb-operator's charts too: a major version (yearly, 26 to 27) is read before it's taken.",
       "matchPackageNames": [
         "ghcr.io/cloudnative-pg/postgresql",
         "ghcr.io/tensorchord/cloudnative-vectorchord",
         "mariadb",
         "postgres",
-        "ghcr.io/hotio/whisparr"
+        "ghcr.io/hotio/whisparr",
+        "ghcr.io/mariadb-operator/charts/mariadb-operator",
+        "ghcr.io/mariadb-operator/charts/mariadb-operator-crds",
+        "mariadb-operator",
+        "mariadb-operator-crds"
       ],
       "matchUpdateTypes": [
         "major"

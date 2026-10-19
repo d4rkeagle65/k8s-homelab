@@ -18,6 +18,7 @@ resources:
 - immich.yaml
 - jetstack.yaml
 - local-path-provisioner.yaml
+- mariadb-operator.yaml
 - metallb.yaml
 - metrics-server.yaml
 - nfs-subdir.yaml

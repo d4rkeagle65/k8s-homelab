@@ -1,0 +1,48 @@
+# mariadb-operator (QUEUE-mariadb.md): runs MariaDB as CloudNativePG runs
+# Postgres. Each app's MariaDB, Database, User, Grant and PhysicalBackup are
+# resources in the app's own folder; this release is the operator, its webhook
+# and its cert-controller (the webhook's certificates, no cert-manager).
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: mariadb-operator
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: mariadb-system
+      homelab.local/category: services
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  dependsOn:
+    - name: mariadb-operator-crds
+  chart:
+    spec:
+      chart: mariadb-operator
+      version: 26.10.1
+      sourceRef:
+        kind: HelmRepository
+        name: mariadb-operator
+        namespace: flux-system
+  values:
+    # The CRDs are mariadb-operator-crds' (helmrelease-crds.yaml).
+    crds:
+      enabled: false
+    # The cluster's DNS domain, which the operator writes into the addresses
+    # it gives each MariaDB's Services; its default is cluster.local.
+    clusterName: ${CLUSTER_DOMAIN}
+    metrics:
+      enabled: true
+    # Requests and limits by the rules (QUEUE-resource-limits.md); measure
+    # after a week and tighten.
+    resources:
+      requests: {cpu: 10m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+    webhook:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {cpu: 200m, memory: 128Mi}
+    certController:
+      resources:
+        requests: {cpu: 10m, memory: 32Mi}
+        limits: {cpu: 200m, memory: 128Mi}

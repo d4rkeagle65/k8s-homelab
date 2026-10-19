@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    homelab.local/category: services
+    homelab.local/data: stateless
+    homelab.local/exposure: cluster
+    homelab.local/login: none
+    pod-security.kubernetes.io/enforce: baseline
+  name: mariadb-system
+spec:
+  finalizers:
+  - kubernetes
