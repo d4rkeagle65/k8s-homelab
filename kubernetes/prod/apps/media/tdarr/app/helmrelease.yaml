@@ -160,7 +160,7 @@ spec:
             node:
               - path: /temp
       # Only the libraries it transcodes, each at the path it had
-      # (QUEUE-media-isolation.md); the server and the node see the same paths.
+      # (kubernetes/shared/media/synmedia-pvc.yaml); the server and the node see the same paths.
       synmedia:
         existingClaim: synmedia-nfs
         advancedMounts:
