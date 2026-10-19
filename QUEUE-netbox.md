@@ -110,7 +110,9 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
      from a ConfigMap on `python:alpine` as `zammad-bridge` and `proxmox-endpoints` run, so
      still no registry; it listens on `127.0.0.1` only, which settles the authentication
      question, and reaches NetBox's API with a DNS-only write token (`NETBOX_DNS_TOKEN`).
-   - NetBox to Pi-hole 1 by octoDNS: `octodns-netbox-dns` as the source, `octodns-pihole`
+   - **Superseded 2026-10-19 by `QUEUE-netbox-dns.md`** (a sync script in this repo; the
+    Pi-hole plugin below can't read Pi-hole's names): NetBox to Pi-hole 1 by octoDNS:
+    `octodns-netbox-dns` as the source, `octodns-pihole`
      (the roosnic1 fork on PyPI, Pi-hole v6 through `pihole6api`; local A, AAAA and CNAME
      records only, no TTLs) as the target; nebula-sync copies Pi-hole 2 as now.
    - **One owner:** NetBox holds every local record (hand-made ones, the hosts' that
@@ -210,9 +212,9 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       answering 500 rather than an empty list when NetBox doesn't answer. Live 2026-10-18: the
       owner made the base domain's zone (zones and their SOA nameserver are made by hand), and
       the next loop wrote an A record for each of the 38 Ingress hostnames, all at Traefik's
-      addresses. Left:
-      octoDNS from NetBox to Pi-hole 1; the record owners switched over, the Pi-holes checked
-      to answer the same names before and after
+      addresses. Left: every Pi-hole record into NetBox, per-address records, and a sync from
+      NetBox to both Pi-holes (not octoDNS), in
+      [QUEUE-netbox-dns.md](QUEUE-netbox-dns.md)
 - [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` stops carrying a
       second, hand-kept copy of it. One owner per value: NetBox for each guest's VMID, node,
       name, addresses and MACs; `TF_VAR_site` keeps the stable facts (each network's prefix

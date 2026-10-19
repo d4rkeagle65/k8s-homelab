@@ -214,13 +214,13 @@ Queries (Prometheus, `kube-prometheus-stack`):
       Headlamp; `homelab-low` (-1000, never preempts) on the twelve media apps; the databases,
       Grimmory's MariaDB too, `homelab-critical`. `test_every_priority_class_named_exists`
       keeps every name pointing at a class
-- [ ] Eight database clusters' instances still run at priority 0 (read 2026-10-18): Baby
-      Buddy's, Linkwarden's, Mealie's, n8n's, Bookshelf's, Lidarr's, Radarr's and Sonarr's.
-      Their Clusters name `homelab-critical`, but CloudNativePG gives a pod its class only when
-      it recreates it, and these predate the class; until then the first four rank below their
-      own apps (100000). A rolling restart of each applies it (replica first, then a
-      switchover of seconds, now that they switch over), with the owner. rreading-glasses-db's
-      spec names no class at all (the session working on it)
+- [x] The eight database clusters still at priority 0 (their pods predated the class)
+      restarted one at a time on 2026-10-19 with the owner's go-ahead: each switched over to
+      its replica, every instance recreated at `homelab-critical`. 15 of 16 clusters now are;
+      rreading-glasses-db's spec names no class (the session working on it). Each took 70s to
+      6 minutes, longer than "seconds": Lidarr, Radarr, n8n and Baby Buddy's apps stayed
+      ready; Bookshelf's and Mealie's went unready for a while; Linkwarden's restarted three
+      times (it exits when its database goes, as Authentik does)
 - [ ] The workers' kubelet evicting before the kernel's OOM killer acts, so the tiers decide
       what goes: `talos/patches/worker-kubelet-eviction.yaml` (soft under 1Gi for a minute,
       hard under 256Mi), in both `tofu/proxmox/talos-config.tf` and `talos/gen-config.py`.
