@@ -29,6 +29,8 @@ spec:
         name: bjw-s
         namespace: flux-system
   values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
     controllers:
       grimmory:
         strategy: Recreate
@@ -96,6 +98,9 @@ spec:
                   failureThreshold: 3
       mariadb:
         type: statefulset
+        # A database, as the CloudNativePG ones are (cluster-policy).
+        pod:
+          priorityClassName: homelab-critical
         containers:
           app:
             image:

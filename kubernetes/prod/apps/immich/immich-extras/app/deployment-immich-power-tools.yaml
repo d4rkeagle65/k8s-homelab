@@ -22,6 +22,7 @@ spec:
       labels:
         app: immich-power-tools
     spec:
+      priorityClassName: homelab-important
       containers:
       - env:
         - name: IMMICH_API_KEY

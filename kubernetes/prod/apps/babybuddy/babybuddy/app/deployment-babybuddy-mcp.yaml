@@ -24,6 +24,7 @@ spec:
       labels:
         app: babybuddy-mcp
     spec:
+      priorityClassName: homelab-important
       containers:
       - args:
         - pip install --no-cache-dir -r /app/requirements.txt && exec python /app/server.py

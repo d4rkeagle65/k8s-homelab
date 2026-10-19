@@ -17,6 +17,7 @@ spec:
       labels:
         app: homeassistant
     spec:
+      priorityClassName: homelab-important
       containers:
       - env:
         - name: TZ
