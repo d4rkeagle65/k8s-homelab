@@ -118,7 +118,7 @@ spec:
         globalMounts:
           - path: /config
       # Only its own folders of the media share, each at the path it had
-      # (QUEUE-media-isolation.md): its library, and the qBittorrent and SABnzbd
+      # (kubernetes/shared/media/synmedia-pvc.yaml): its library, and the qBittorrent and SABnzbd
       # category folders its downloads land in.
       synmedia:
         existingClaim: synmedia-nfs
