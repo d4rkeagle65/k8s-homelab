@@ -107,6 +107,8 @@ Read before changing anything:
   deploy.** Flux applies whatever reaches `main`, and the owner's review is what keeps a wrong
   change from a session working on its own out of the cluster. One branch per change: commit
   to it, push it and open its pull request. Never merge one, push `main` or turn on auto-merge.
+  The one exception: a commit that changes only queue files (`QUEUE*.md`, `old-queues/`) is
+  pushed straight to `main` once the hook passes, as they deploy nothing.
 
 ## In a cloud session
 
