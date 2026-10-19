@@ -315,6 +315,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (about 97%): each guest's shape edited in NetBox, into git by a pull request.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (0%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
+- [QUEUE-mariadb.md](QUEUE-mariadb.md) (0%): MariaDB through mariadb-operator, Grimmory moved onto it (no more dump script), then Youtarr.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
