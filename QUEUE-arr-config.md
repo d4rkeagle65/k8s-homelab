@@ -78,18 +78,14 @@ rotated key is one paste into Vaultwarden.
       upgrades off, so it's unused), the second nothing; every score, quality and setting read
       back as before. A dry run with a change planted in each section showed every one but an
       `enabled` flip (config.yml's header says why)
-- [ ] Whisparr v3 (Settled): its own release and database beside v2, its env vars as phase 1's,
-      the library added, its download clients and quality from Configarr; then v2 retired
-      (its database kept a day, as the PostgreSQL 18 moves did). 2026-10-19: `whisparr-v3`
-      live (v3-3.1.0.2116, `whisparr3` hostname, v2's folders; WAL archiving proven), its
-      nightly backup completing, Configarr owning its root folders and both download clients
-      (qBittorrent by the Web UI login, since this build's client takes no API key; both test
-      OK), Prowlarr syncing its indexers into it; health clean. One root folder,
-      `/synmedia/media/xxx` (v3's folder formats start with `scenes/` or `movies/`). The library
-      is in: v2's 4 files went through v3's `import/` folder (Scenes > Import Scenes) and are 4
-      scenes in v3's layout. Its 7 quality profiles captured (PR; language isn't Configarr's for
-      Whisparr). Next: v2 retired (Prowlarr's link to it, its release, its database a day
-      later), then v3 onto the `whisparr` hostname
+- [x] Whisparr v3 (2026-10-19): `whisparr-v3` on v3-3.1.0.2116 beside v2 with its own
+      database (nightly backup) and phase 1's settings; Configarr owns its root folder
+      (`/synmedia/media/xxx`: v3's folder formats start with `scenes/` or `movies/`), both
+      download clients (qBittorrent by the Web UI login, since this build's client takes no API
+      key) and its 7 quality profiles (language isn't Configarr's for Whisparr); Prowlarr syncs
+      its indexers into it. v2's 4 files went through v3's `import/` folder into its layout.
+      v2 retired: Prowlarr's link to it deleted, its release removed, v3 on the `whisparr`
+      hostname; its database's removal is in QUEUE.md's Cleanup
 - [ ] Outside Configarr, each its own decision: Bookshelf's metadata source (`/api/v1/config/
       development`), qBittorrent's preferences and categories, SABnzbd's categories and folders,
       Seerr's links to Radarr and Sonarr (`settings.json`)
