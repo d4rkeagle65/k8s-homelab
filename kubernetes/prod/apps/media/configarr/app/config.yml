@@ -2512,8 +2512,8 @@ whisparr:
     api_key: !env WHISPARR_API_KEY
     # Whisparr v3 (QUEUE-arr-config.md), Configarr's experimental support. Started
     # empty (2026-10-19), so these are set rather than captured: v2's root
-    # folders and download category. Its qBittorrent client waits: this build
-    # takes only a Web UI username and password, not the API key.
+    # folders and download category. This build's qBittorrent client takes no
+    # API key, so it logs in with the Web UI username and password.
     root_folders:
       - "/synmedia/media/xxx/movies"
       - "/synmedia/media/xxx/scenes"
@@ -2522,6 +2522,25 @@ whisparr:
       # be compared, and the diff report lists it each time.
       update_password: true
       data:
+        - name: qBittorrent
+          type: qbittorrent
+          enable: true
+          priority: 1
+          remove_completed_downloads: true
+          remove_failed_downloads: true
+          fields:
+            host: "qbittorrent"
+            port: 8080
+            use_ssl: false
+            username: !env QBITTORRENT_USERNAME
+            password: !env QBITTORRENT_PASSWORD
+            movie_category: "xxx"
+            recent_movie_priority: 0
+            older_movie_priority: 0
+            initial_state: 0
+            sequential_order: false
+            first_and_last: false
+            content_layout: 0
         - name: SABnzbd
           type: sabnzbd
           enable: true

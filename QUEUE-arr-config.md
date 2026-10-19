@@ -82,11 +82,10 @@ rotated key is one paste into Vaultwarden.
       the library added, its download clients and quality from Configarr; then v2 retired
       (its database kept a day, as the PostgreSQL 18 moves did). 2026-10-19: `whisparr-v3`
       live (v3-3.1.0.2116, `whisparr3` hostname, v2's folders; WAL archiving proven); its
-      nightly backup, Configarr instance (v2's root folders, SABnzbd on `xxx`) and Prowlarr
-      link in PR. Waiting on the owner: its qBittorrent client. This build takes only a Web UI
-      username and password, not the API key, and neither is a cluster variable; the owner
-      adds both to Vaultwarden (`QBITTORRENT_USERNAME`, `QBITTORRENT_PASSWORD`), mapped by a PR
-      of their own. Then: the library added, its quality captured, v2 retired
+      nightly backup, Configarr instance (v2's root folders; qBittorrent and SABnzbd on `xxx`,
+      qBittorrent by the Web UI login, `QBITTORRENT_USERNAME`/`_PASSWORD`, since this build's
+      client takes no API key) and Prowlarr link in PR. Then: the library added, its quality
+      captured, v2 retired
 - [ ] Outside Configarr, each its own decision: Bookshelf's metadata source (`/api/v1/config/
       development`), qBittorrent's preferences and categories, SABnzbd's categories and folders,
       Seerr's links to Radarr and Sonarr (`settings.json`)
