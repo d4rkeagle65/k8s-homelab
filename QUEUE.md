@@ -191,6 +191,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   (`journalctl -b -u ssh`; is the drop-in on both Pi-holes, and is
   `systemd-networkd-wait-online` or its equivalent enabled in the container?), then have
   `baseline.yml` own the fix on every host whose sshd sets `ListenAddress`.
+- **The two Pi-holes' containers have different timezones** (found 2026-10-19, Run Command
+  task 874): CT 100 is `America/Detroit`, CT 109 `America/New_York`. The same clock today,
+  but query-log times and anything scheduled by local time diverge if either zone's rules
+  change. Neither OpenTofu nor any playbook sets it (`guests.tf` notes the provider can't):
+  `baseline.yml` or `pihole-config.yml` should own one zone for both.
 - **Kea phase 3** (`QUEUE-kea-ha.md`; decision 5, the owner 2026-10-16: (b)): Kea's reservations move from
   PostgreSQL on the Docker VM to a CloudNativePG cluster reached through a LoadBalancer
   address, so a partner can read them while the Docker VM is down; then a second Kea on the
@@ -258,7 +263,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-netbox.md](QUEUE-netbox.md) (about 65%): NetBox on the Docker VM as the source of Semaphore's hosts and OpenTofu's guests, then owning DNS.
-- [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (about 80%): each guest's shape edited in NetBox, into git by a pull request.
+- [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md) (about 95%): each guest's shape edited in NetBox, into git by a pull request.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,

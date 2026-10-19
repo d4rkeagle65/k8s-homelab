@@ -30,3 +30,4 @@ vm_roles:
   worker: Talos worker
   container: Plain container
   docker_vm: Docker VM
+  pihole: Pi-hole

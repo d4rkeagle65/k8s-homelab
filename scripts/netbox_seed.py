@@ -376,7 +376,7 @@ def main() -> None:
               "custom field talos_apply_mode")
     nb.ensure("extras/custom-fields", {"name": "proxmox_tags"},
               {"type": "text", "object_types": ["virtualization.virtualmachine"], "label": "Proxmox tags",
-               "description": "A plain container's Proxmox tags, separated by ; (QUEUE-netbox-shape.md)"},
+               "description": "A guest's Proxmox tags, separated by ; (QUEUE-netbox-shape.md)"},
               "custom field proxmox_tags")
     vm_roles = {key: nb.ensure("dcim/device-roles", {"slug": slug(name)}, {"name": name, "vm_role": True}, name)
                 for key, name in cfg["vm_roles"].items()}
