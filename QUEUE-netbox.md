@@ -164,13 +164,6 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
       checked against its last static run; the static inventories and the per-group keys
       `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
-  - [ ] The deleted keys' public halves are still in root's `authorized_keys`: three keys, all
-        commented `semaphore`, one on the Proxmox hosts (their shared file), one on both
-        Pi-holes, one on the Docker VM; none elsewhere (Run Command task 739, every host). Semaphore
-        holds only `semaphore-shared`, and each old key's last login was 2026-10-15, the day the
-        NetBox inventory took over (task 740). `ansible/retire-ssh-keys.yml` removes them: template
-        "Retire: Old SSH Keys", its dry run (task 745) found one on each file; left: the owner's run. Left in place, each
-        lets in whoever still holds its private half
   - [ ] VLAN 9 (`vmbr9` on `eth5.9`, on every Proxmox node) comes out of Proxmox (the owner,
         2026-10-16): no guest, SDN or firewall rule names it (Run Command task 741, all 5
         nodes' configs); `proxmox-host.yml`'s second play removes both, one host at a time
