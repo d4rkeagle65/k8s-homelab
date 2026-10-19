@@ -48,8 +48,9 @@ phase 4.
 - **NetBox:** zones and records (NetBox DNS, the `_default_` view, its SOA naming both
   Pi-holes); the prefixes' `dns_zone`; the view's prefixes (DNSsync only acts on a prefix linked
   to a view).
-- **The sync:** `scripts/netbox_pihole_sync.py`, tests in `scripts/tests/`; a service in the
-  `docker/netbox/` stack. Its credentials are the stack's Dockhand variables: a read-only
+- **The sync:** `docker/netbox/dns-sync/netbox_pihole_sync.py`, built into the
+  `netbox-dns-sync` service of the `docker/netbox/` stack (Dockhand builds from the stack's own
+  folder); tests in `scripts/tests/`. Its credentials are the stack's Dockhand variables: a read-only
   NetBox token, and each Pi-hole's URL and app password.
 - **What goes:** the `external-dns` and `external-dns-pihole2` releases' Pi-hole writes;
   nebula-sync's copy of `dns.hosts` and `dns.cnameRecords` (its other DNS settings stay); the
@@ -62,15 +63,20 @@ phase 4.
       one name under a reversed domain, kept as found for the owner to fix or drop;
       the WAN prefix; the custom field `dns_zone` on prefixes, set on those four; and the four
       prefixes linked to the `_default_` view
-- [ ] The seed's DNS-name pass (`wanted_dns_names` in `netbox_seed.py`, tests). Previewed
-      against NetBox: 39 of its 50 addresses named (24 management, 13 production, 2 IoT), none
-      already carrying another name, none clashing with a Pi-hole record; 20 already on Pi-hole 1
-      as they'll be generated. Left: once merged, one sync run (template 23), the records
-      DNSsync makes read back
-- [ ] Pi-hole 1's records not yet in NetBox imported, each into its zone; a record whose name
-      NetBox already holds with another address is reported, not imported
-- [ ] `scripts/netbox_pihole_sync.py` with tests; the stack's service, deletes off; its first
-      runs report no difference from Pi-hole 1 beyond what the import explains
+- [x] The seed's DNS-name pass (`wanted_dns_names` in `netbox_seed.py`, #86): sync task 877
+      named 39 of NetBox's 50 addresses (24 management, 13 production, 2 IoT), and DNSsync made
+      all 39 records, read back
+- [x] Pi-hole 1's records imported (2026-10-19, through NetBox's API, read back): of its 130
+      name and address pairs, 40 were NetBox's already (ExternalDNS's), 20 are the seed's to
+      make, and the other 70 went in, each into its zone and described "imported from Pi-hole 1,
+      2026-10-19"; no name clashed with another address
+- [ ] The sync, `docker/netbox/dns-sync/netbox_pihole_sync.py` (tests in `scripts/tests/`),
+      as the stack's `netbox-dns-sync` service, report-only until `SYNC_APPLY` and with
+      `SYNC_DELETE` off. Left: the owner's Dockhand variables (`docker/netbox/README.md`: a
+      read-only NetBox token, each Pi-hole's URL and app password, which Vaultwarden has as
+      `PIHOLE_URL`, `PIHOLE_PASSWORD`, `PIHOLE2_URL`, `PIHOLE2_PASSWORD`); its first rounds'
+      report read (expected: the 20 seed records, and the 5 two-name lines split); then
+      `SYNC_APPLY=true`
 - [ ] The switch: ExternalDNS's Pi-hole releases out, nebula-sync's hosts and CNAME copy off,
       `proxmox-acme.yml`'s record from NetBox; the Pi-holes checked to answer the same names
       before and after
