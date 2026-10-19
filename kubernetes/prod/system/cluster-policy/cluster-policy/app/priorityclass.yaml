@@ -18,7 +18,8 @@ preemptionPolicy: PreemptLowerPriority
 description: Databases, Authentik, Traefik and monitoring; scheduled before ordinary pods.
 ---
 # For the apps used most: Home Assistant, Immich, Obsidian, Mealie, Baby Buddy,
-# Linkwarden and n8n (their databases are homelab-critical).
+# Linkwarden, n8n, Grimmory, Homepage and Headlamp (their databases are
+# homelab-critical).
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:

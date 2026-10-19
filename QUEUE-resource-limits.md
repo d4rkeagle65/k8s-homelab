@@ -221,7 +221,8 @@ Queries (Prometheus, `kube-prometheus-stack`):
       are in `cluster-policy` beside `homelab-critical`. Left, in this order:
       - once both classes are live (a pod naming a class that doesn't exist is rejected),
         `homelab-important` on Home Assistant, Immich (server, machine learning, power tools),
-        Obsidian, Mealie, Baby Buddy, Linkwarden and n8n, and `homelab-low` on the media apps;
+        Obsidian, Mealie, Baby Buddy, Linkwarden, n8n, Grimmory, Homepage and Headlamp, and
+        `homelab-low` on the media apps;
         their databases stay `homelab-critical`. Each pod restarts once to take its class;
       - the workers' kubelet evicting before the kernel's OOM killer acts: a soft threshold
         (memory.available under 1Gi for a minute) and a hard one above the default 100Mi, a
