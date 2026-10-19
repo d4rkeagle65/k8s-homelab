@@ -137,7 +137,17 @@ spec:
         existingClaim: sonarr-config
         globalMounts:
           - path: /config
+      # Only its own folders of the media share, each at the path it had
+      # (QUEUE-media-isolation.md): its libraries, and the qBittorrent and SABnzbd
+      # category folders its downloads land in.
       synmedia:
         existingClaim: synmedia-nfs
         globalMounts:
-          - path: /synmedia
+          - path: /synmedia/media/tv
+            subPath: media/tv
+          - path: /synmedia/media/youtube
+            subPath: media/youtube
+          - path: /synmedia/torrents/tv-sonarr
+            subPath: torrents/tv-sonarr
+          - path: /synmedia/nzbget/tv
+            subPath: nzbget/tv
