@@ -74,7 +74,7 @@ $OutputEncoding = [Text.UTF8Encoding]::new($false)
 $node = "let s='';process.stdin.on('data',d=>s+=d).on('end',async()=>{try{" +
     "if(s.charCodeAt(0)===65279){s=s.slice(1)}" +
     "const q=JSON.parse(s);const b='http://127.0.0.1:8087';const u=b+'/object/item/'+q.id;" +
-    "await fetch(b+'/sync?force=true',{method:'POST'});" +
+    "await fetch(b+'/sync',{method:'POST'});" +
     "const it=(await (await fetch(u)).json()).data;if(!it){throw new Error('item '+q.id+' not found')}" +
     "const all=it.fields||[];" +
     "if(q.mode==='list'){console.log(JSON.stringify({names:all.filter(x=>x.name).map(x=>x.name)}));return}" +
