@@ -1,10 +1,10 @@
 """Copy the cluster-secrets variables into Azure Key Vault: QUEUE-azure-keyvault.md.
 
 Reads the variables the cluster-secrets ExternalSecret maps (its spec.data, never the ones its
-template builds) and their values from the Secret it keeps in flux-system, which External
-Secrets builds from Vaultwarden. Each becomes one Key Vault secret named after its variable
-with "_" replaced by "-" (MEDIA_SONARR_API_KEY is MEDIA-SONARR-API-KEY), holding exactly the
-value the Secret holds: a field that is base64 in Vaultwarden stays base64.
+template builds) and their values from the Secret it keeps in flux-system. Each becomes one
+Key Vault secret named after its variable with "_" replaced by "-" (MEDIA_SONARR_API_KEY is
+MEDIA-SONARR-API-KEY), holding exactly the value the Secret holds: a value held as base64
+stays base64. Once cluster-secrets reads Key Vault, a dry run is a check that the two agree.
 
 A dry run (the default) reports, for each name, whether Key Vault lacks it, holds the same
 value or holds a different one. --apply writes the missing and different ones, then reads
