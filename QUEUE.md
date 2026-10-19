@@ -33,6 +33,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
+  library scan matches files by path, so a renamed or moved file is a deleted book and a new
+  one; the old one's locked metadata (titles, authors, series), shelf entries and reading
+  progress go with it. Its folder watching (`watch: true` in `sync/grimmory.yaml`) sees only
+  changes made from its own pod, since the share is NFS, so it catches up at the nightly
+  `SYNC_LIBRARY_FILES` task. On 2026-10-19 titles, authors and series were copied from
+  Bookshelf into Grimmory and locked by a one-off script, not kept; after a Bookshelf rename
+  pass the moved books lose that and need it again (Grimmory's metadata API, `PUT
+  /books/{id}/metadata?replaceMode=REPLACE_WHEN_PROVIDED`), and re-shelving.
 - **A failed Proxmox backup restarted a Talos worker** (found 2026-10-19): the backup job
   that ran 21:00-21:51 local on 2026-10-18 failed at 67% on VM 116 (a worker), and the
   host's task log then shows "VM 116 - Start": the VM's QEMU process had ended and Proxmox
