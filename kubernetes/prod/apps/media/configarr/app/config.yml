@@ -2517,6 +2517,493 @@ whisparr:
     # logs in with the Web UI username and password.
     root_folders:
       - "/synmedia/media/xxx"
+    # Quality profiles captured from the app as it was (its defaults, 2026-10-19);
+    # Configarr doesn't manage Whisparr's quality sizes or profile language, and it
+    # has no custom formats.
+    quality_profiles:
+      - name: "Any"
+        min_format_score: 0
+        upgrade:
+          allowed: false
+          until_quality: "Bluray-480p"
+        quality_sort: "top"
+        qualities:
+          - name: "VR"
+            enabled: false
+          - name: "WEBDL-4320p"
+            enabled: false
+          - name: "WEBDL-3384p"
+            enabled: false
+          - name: "WEBDL-3160p"
+            enabled: false
+          - name: "WEBDL-2880p"
+            enabled: false
+          - name: "Raw-HD"
+            enabled: false
+          - name: "BR-DISK"
+            enabled: true
+          - name: "Remux-2160p"
+            enabled: true
+          - name: "Bluray-2160p"
+            enabled: true
+          - name: "WEB 2160p"
+            enabled: true
+            qualities:
+              - "WEBRip-2160p"
+              - "WEBDL-2160p"
+          - name: "HDTV-2160p"
+            enabled: true
+          - name: "Remux-1080p"
+            enabled: true
+          - name: "Bluray-1080p"
+            enabled: true
+          - name: "WEB 1080p"
+            enabled: true
+            qualities:
+              - "WEBRip-1080p"
+              - "WEBDL-1080p"
+          - name: "HDTV-1080p"
+            enabled: true
+          - name: "Bluray-720p"
+            enabled: true
+          - name: "WEB 720p"
+            enabled: true
+            qualities:
+              - "WEBRip-720p"
+              - "WEBDL-720p"
+          - name: "HDTV-720p"
+            enabled: true
+          - name: "Bluray-576p"
+            enabled: true
+          - name: "Bluray-480p"
+            enabled: true
+          - name: "WEB 480p"
+            enabled: true
+            qualities:
+              - "WEBRip-480p"
+              - "WEBDL-480p"
+          - name: "DVD-R"
+            enabled: true
+          - name: "DVD"
+            enabled: true
+          - name: "SDTV"
+            enabled: true
+          - name: "Unknown"
+            enabled: false
+      - name: "SD"
+        min_format_score: 0
+        upgrade:
+          allowed: false
+          until_quality: "Bluray-480p"
+        quality_sort: "top"
+        qualities:
+          - name: "VR"
+            enabled: false
+          - name: "WEBDL-4320p"
+            enabled: false
+          - name: "WEBDL-3384p"
+            enabled: false
+          - name: "WEBDL-3160p"
+            enabled: false
+          - name: "WEBDL-2880p"
+            enabled: false
+          - name: "Raw-HD"
+            enabled: false
+          - name: "BR-DISK"
+            enabled: false
+          - name: "Remux-2160p"
+            enabled: false
+          - name: "Bluray-2160p"
+            enabled: false
+          - name: "WEB 2160p"
+            enabled: false
+            qualities:
+              - "WEBRip-2160p"
+              - "WEBDL-2160p"
+          - name: "HDTV-2160p"
+            enabled: false
+          - name: "Remux-1080p"
+            enabled: false
+          - name: "Bluray-1080p"
+            enabled: false
+          - name: "WEB 1080p"
+            enabled: false
+            qualities:
+              - "WEBRip-1080p"
+              - "WEBDL-1080p"
+          - name: "HDTV-1080p"
+            enabled: false
+          - name: "Bluray-720p"
+            enabled: false
+          - name: "WEB 720p"
+            enabled: false
+            qualities:
+              - "WEBRip-720p"
+              - "WEBDL-720p"
+          - name: "HDTV-720p"
+            enabled: false
+          - name: "Bluray-576p"
+            enabled: true
+          - name: "Bluray-480p"
+            enabled: true
+          - name: "WEB 480p"
+            enabled: true
+            qualities:
+              - "WEBRip-480p"
+              - "WEBDL-480p"
+          - name: "DVD-R"
+            enabled: false
+          - name: "DVD"
+            enabled: true
+          - name: "SDTV"
+            enabled: true
+          - name: "Unknown"
+            enabled: false
+      - name: "HD-720p"
+        min_format_score: 0
+        upgrade:
+          allowed: false
+          until_quality: "Bluray-720p"
+        quality_sort: "top"
+        qualities:
+          - name: "VR"
+            enabled: false
+          - name: "WEBDL-4320p"
+            enabled: false
+          - name: "WEBDL-3384p"
+            enabled: false
+          - name: "WEBDL-3160p"
+            enabled: false
+          - name: "WEBDL-2880p"
+            enabled: false
+          - name: "Raw-HD"
+            enabled: false
+          - name: "BR-DISK"
+            enabled: false
+          - name: "Remux-2160p"
+            enabled: false
+          - name: "Bluray-2160p"
+            enabled: false
+          - name: "WEB 2160p"
+            enabled: false
+            qualities:
+              - "WEBRip-2160p"
+              - "WEBDL-2160p"
+          - name: "HDTV-2160p"
+            enabled: false
+          - name: "Remux-1080p"
+            enabled: false
+          - name: "Bluray-1080p"
+            enabled: false
+          - name: "WEB 1080p"
+            enabled: false
+            qualities:
+              - "WEBRip-1080p"
+              - "WEBDL-1080p"
+          - name: "HDTV-1080p"
+            enabled: false
+          - name: "Bluray-720p"
+            enabled: true
+          - name: "WEB 720p"
+            enabled: true
+            qualities:
+              - "WEBRip-720p"
+              - "WEBDL-720p"
+          - name: "HDTV-720p"
+            enabled: true
+          - name: "Bluray-576p"
+            enabled: false
+          - name: "Bluray-480p"
+            enabled: false
+          - name: "WEB 480p"
+            enabled: false
+            qualities:
+              - "WEBRip-480p"
+              - "WEBDL-480p"
+          - name: "DVD-R"
+            enabled: false
+          - name: "DVD"
+            enabled: false
+          - name: "SDTV"
+            enabled: false
+          - name: "Unknown"
+            enabled: false
+      - name: "HD-1080p"
+        min_format_score: 0
+        upgrade:
+          allowed: false
+          until_quality: "Bluray-1080p"
+        quality_sort: "top"
+        qualities:
+          - name: "VR"
+            enabled: false
+          - name: "WEBDL-4320p"
+            enabled: false
+          - name: "WEBDL-3384p"
+            enabled: false
+          - name: "WEBDL-3160p"
+            enabled: false
+          - name: "WEBDL-2880p"
+            enabled: false
+          - name: "Raw-HD"
+            enabled: false
+          - name: "BR-DISK"
+            enabled: false
+          - name: "Remux-2160p"
+            enabled: false
+          - name: "Bluray-2160p"
+            enabled: false
+          - name: "WEB 2160p"
+            enabled: false
+            qualities:
+              - "WEBRip-2160p"
+              - "WEBDL-2160p"
+          - name: "HDTV-2160p"
+            enabled: false
+          - name: "Remux-1080p"
+            enabled: true
+          - name: "Bluray-1080p"
+            enabled: true
+          - name: "WEB 1080p"
+            enabled: true
+            qualities:
+              - "WEBRip-1080p"
+              - "WEBDL-1080p"
+          - name: "HDTV-1080p"
+            enabled: true
+          - name: "Bluray-720p"
+            enabled: false
+          - name: "WEB 720p"
+            enabled: false
+            qualities:
+              - "WEBRip-720p"
+              - "WEBDL-720p"
+          - name: "HDTV-720p"
+            enabled: false
+          - name: "Bluray-576p"
+            enabled: false
+          - name: "Bluray-480p"
+            enabled: false
+          - name: "WEB 480p"
+            enabled: false
+            qualities:
+              - "WEBRip-480p"
+              - "WEBDL-480p"
+          - name: "DVD-R"
+            enabled: false
+          - name: "DVD"
+            enabled: false
+          - name: "SDTV"
+            enabled: false
+          - name: "Unknown"
+            enabled: false
+      - name: "Ultra-HD"
+        min_format_score: 0
+        upgrade:
+          allowed: false
+          until_quality: "Remux-2160p"
+        quality_sort: "top"
+        qualities:
+          - name: "VR"
+            enabled: false
+          - name: "WEBDL-4320p"
+            enabled: true
+          - name: "WEBDL-3384p"
+            enabled: false
+          - name: "WEBDL-3160p"
+            enabled: true
+          - name: "WEBDL-2880p"
+            enabled: true
+          - name: "Raw-HD"
+            enabled: false
+          - name: "BR-DISK"
+            enabled: false
+          - name: "Remux-2160p"
+            enabled: true
+          - name: "Bluray-2160p"
+            enabled: true
+          - name: "WEB 2160p"
+            enabled: true
+            qualities:
+              - "WEBRip-2160p"
+              - "WEBDL-2160p"
+          - name: "HDTV-2160p"
+            enabled: true
+          - name: "Remux-1080p"
+            enabled: false
+          - name: "Bluray-1080p"
+            enabled: false
+          - name: "WEB 1080p"
+            enabled: false
+            qualities:
+              - "WEBRip-1080p"
+              - "WEBDL-1080p"
+          - name: "HDTV-1080p"
+            enabled: false
+          - name: "Bluray-720p"
+            enabled: false
+          - name: "WEB 720p"
+            enabled: false
+            qualities:
+              - "WEBRip-720p"
+              - "WEBDL-720p"
+          - name: "HDTV-720p"
+            enabled: false
+          - name: "Bluray-576p"
+            enabled: false
+          - name: "Bluray-480p"
+            enabled: false
+          - name: "WEB 480p"
+            enabled: false
+            qualities:
+              - "WEBRip-480p"
+              - "WEBDL-480p"
+          - name: "DVD-R"
+            enabled: false
+          - name: "DVD"
+            enabled: false
+          - name: "SDTV"
+            enabled: false
+          - name: "Unknown"
+            enabled: false
+      - name: "HD - 720p/1080p"
+        min_format_score: 0
+        upgrade:
+          allowed: false
+          until_quality: "Bluray-720p"
+        quality_sort: "top"
+        qualities:
+          - name: "VR"
+            enabled: false
+          - name: "WEBDL-4320p"
+            enabled: false
+          - name: "WEBDL-3384p"
+            enabled: false
+          - name: "WEBDL-3160p"
+            enabled: false
+          - name: "WEBDL-2880p"
+            enabled: false
+          - name: "Raw-HD"
+            enabled: false
+          - name: "BR-DISK"
+            enabled: false
+          - name: "Remux-2160p"
+            enabled: false
+          - name: "Bluray-2160p"
+            enabled: false
+          - name: "WEB 2160p"
+            enabled: false
+            qualities:
+              - "WEBRip-2160p"
+              - "WEBDL-2160p"
+          - name: "HDTV-2160p"
+            enabled: false
+          - name: "Remux-1080p"
+            enabled: true
+          - name: "Bluray-1080p"
+            enabled: true
+          - name: "WEB 1080p"
+            enabled: true
+            qualities:
+              - "WEBRip-1080p"
+              - "WEBDL-1080p"
+          - name: "HDTV-1080p"
+            enabled: true
+          - name: "Bluray-720p"
+            enabled: true
+          - name: "WEB 720p"
+            enabled: true
+            qualities:
+              - "WEBRip-720p"
+              - "WEBDL-720p"
+          - name: "HDTV-720p"
+            enabled: true
+          - name: "Bluray-576p"
+            enabled: false
+          - name: "Bluray-480p"
+            enabled: false
+          - name: "WEB 480p"
+            enabled: false
+            qualities:
+              - "WEBRip-480p"
+              - "WEBDL-480p"
+          - name: "DVD-R"
+            enabled: false
+          - name: "DVD"
+            enabled: false
+          - name: "SDTV"
+            enabled: false
+          - name: "Unknown"
+            enabled: false
+      - name: "VR"
+        min_format_score: 0
+        upgrade:
+          allowed: false
+          until_quality: "VR"
+        quality_sort: "top"
+        qualities:
+          - name: "VR"
+            enabled: true
+          - name: "WEBDL-4320p"
+            enabled: false
+          - name: "WEBDL-3384p"
+            enabled: false
+          - name: "WEBDL-3160p"
+            enabled: false
+          - name: "WEBDL-2880p"
+            enabled: false
+          - name: "Raw-HD"
+            enabled: false
+          - name: "BR-DISK"
+            enabled: false
+          - name: "Remux-2160p"
+            enabled: false
+          - name: "Bluray-2160p"
+            enabled: false
+          - name: "WEB 2160p"
+            enabled: false
+            qualities:
+              - "WEBRip-2160p"
+              - "WEBDL-2160p"
+          - name: "HDTV-2160p"
+            enabled: false
+          - name: "Remux-1080p"
+            enabled: false
+          - name: "Bluray-1080p"
+            enabled: false
+          - name: "WEB 1080p"
+            enabled: false
+            qualities:
+              - "WEBRip-1080p"
+              - "WEBDL-1080p"
+          - name: "HDTV-1080p"
+            enabled: false
+          - name: "Bluray-720p"
+            enabled: false
+          - name: "WEB 720p"
+            enabled: false
+            qualities:
+              - "WEBRip-720p"
+              - "WEBDL-720p"
+          - name: "HDTV-720p"
+            enabled: false
+          - name: "Bluray-576p"
+            enabled: false
+          - name: "Bluray-480p"
+            enabled: false
+          - name: "WEB 480p"
+            enabled: false
+            qualities:
+              - "WEBRip-480p"
+              - "WEBDL-480p"
+          - name: "DVD-R"
+            enabled: false
+          - name: "DVD"
+            enabled: false
+          - name: "SDTV"
+            enabled: false
+          - name: "Unknown"
+            enabled: false
     download_clients:
       # The key is written on every run: the apps never show it, so it can't
       # be compared, and the diff report lists it each time.
