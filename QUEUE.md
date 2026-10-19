@@ -33,6 +33,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **A failed Proxmox backup restarted a Talos worker** (found 2026-10-19): the backup job
+  that ran 21:00-21:51 local on 2026-10-18 failed at 67% on VM 116 (a worker), and the
+  host's task log then shows "VM 116 - Start": the VM's QEMU process had ended and Proxmox
+  started it again. The node was NotReady about a minute (01:50-01:51:55 UTC, a new boot
+  ID) and its pods came back by 01:55. Not memory: no host recorded an OOM kill. Find why
+  the backup failed and the VM stopped in that host's journal (QEMU's exit, vzdump's error)
+  around 21:50-21:52; left alone, each night's backup can take a worker down, and with it
+  any database instance on its local-db disk. Whether the Talos workers need a VM backup
+  at all is part of it: their system disk is rebuilt from config, and the databases on
+  local-db already go to Garage.
 - **Containers on the first Docker VM can't resolve local names** (found 2026-10-19): the
   claude-code container's resolver isn't a Pi-hole and forwards to public DNS, which answers
   NXDOMAIN for anything only the Pi-holes hold (an Ingress hostname, a host's name). Any
