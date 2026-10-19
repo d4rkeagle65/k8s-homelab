@@ -10,6 +10,7 @@ metadata:
 spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
   instances: 2
+  primaryUpdateMethod: switchover
   # Scheduled before ordinary pods when nodes are short (cluster-policy).
   priorityClassName: homelab-critical
   resources:

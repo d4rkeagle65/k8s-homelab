@@ -72,7 +72,7 @@ spec:
       wal_sender_timeout: 5s
     syncReplicaElectionConstraint:
       enabled: false
-  primaryUpdateMethod: restart
+  primaryUpdateMethod: switchover
   primaryUpdateStrategy: unsupervised
   probes:
     liveness:
