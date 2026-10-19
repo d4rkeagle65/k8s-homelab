@@ -1,7 +1,13 @@
-# For what the rest of the cluster leans on: the databases, Authentik, Traefik
-# and monitoring. When a node is lost and the others are short of room, these
-# are scheduled first and may evict ordinary pods to fit. Far below the
-# built-in system-* classes (2 billion), which stay above it.
+# Three tiers above and below the default (0), which every pod without a class gets.
+# Far below the built-in system-* classes (2 billion), which stay above them all.
+#
+# Priority decides two things. When a pod doesn't fit by its requests, the scheduler
+# may evict lower-priority pods to make room. When a node runs short of memory, the
+# kubelet evicts first among the pods using more than they requested, lowest priority
+# first. The kernel's OOM killer, if it acts before the kubelet, ignores priority.
+#
+# For what the rest of the cluster leans on: the databases, Authentik, Traefik and
+# monitoring.
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
@@ -10,3 +16,26 @@ value: 1000000
 globalDefault: false
 preemptionPolicy: PreemptLowerPriority
 description: Databases, Authentik, Traefik and monitoring; scheduled before ordinary pods.
+---
+# For the apps used most: Home Assistant, Immich, Obsidian, Mealie, Baby Buddy,
+# Linkwarden, n8n, Grimmory, Homepage and Headlamp (their databases are
+# homelab-critical).
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-important
+value: 100000
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+description: The most-used apps; scheduled before ordinary pods, evicted after them.
+---
+# For the media apps: first to go when a node runs short. They never evict anything
+# themselves to fit (preemptionPolicy Never), and wait for room instead.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-low
+value: -1000
+globalDefault: false
+preemptionPolicy: Never
+description: Media apps; evicted first under pressure, never evict others.
