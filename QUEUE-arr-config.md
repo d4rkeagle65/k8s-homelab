@@ -71,13 +71,13 @@ rotated key is one paste into Vaultwarden.
       applications unchanged. Not Configarr's (none of its sections): each
       app's indexer settings (minimum age, retention, RSS interval), import lists,
       notifications, Prowlarr's indexers
-- [ ] Phase 5, quality (2026-10-19, PR): Sonarr's and Radarr's 60 and 75 custom formats (in
+- [x] Phase 5, quality (2026-10-19): Sonarr's and Radarr's 60 and 75 custom formats (in
       `customFormatDefinitions`, each by its own `<app>-<name>` id), their scores, quality sizes
       and 8 profiles each; Lidarr's 3 and Bookshelf's 2 profiles (Configarr doesn't manage their
-      sizes). A dry run showed only every profile's cutoff score going to 1 (all 21 have
-      upgrades off, so it's unused); a second, with a change planted in each section, showed
-      every one but an `enabled` flip (config.yml's header says why). Left: the merge, then a
-      real run's diff the same
+      sizes). The first real run changed only each profile's cutoff score to 1 (all 21 have
+      upgrades off, so it's unused), the second nothing; every score, quality and setting read
+      back as before. A dry run with a change planted in each section showed every one but an
+      `enabled` flip (config.yml's header says why)
 - [ ] Whisparr v3 (Settled): its own release and database beside v2, its env vars as phase 1's,
       the library added, its download clients and quality from Configarr; then v2 retired
       (its database kept a day, as the PostgreSQL 18 moves did)
