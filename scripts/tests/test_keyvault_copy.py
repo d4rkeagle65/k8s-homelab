@@ -8,6 +8,8 @@ from __future__ import annotations
 import base64
 import importlib.util
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -36,16 +38,21 @@ def secret(values, extra=None):
 
 
 class FakeVault:
-    """Key Vault's secrets API in memory: GET, PUT; a name can be set to refuse reads or writes."""
+    """Key Vault's secrets API in memory: GET, PUT; a name can be set to refuse reads or writes,
+    or to get no answer (raising the script's Stop, as its request() does)."""
 
-    def __init__(self, held=None, refuse_read=(), refuse_write=(), corrupt=()):
+    def __init__(self, held=None, refuse_read=(), refuse_write=(), corrupt=(), no_answer=()):
         self.held = dict(held or {})
         self.refuse_read, self.refuse_write, self.corrupt = set(refuse_read), set(refuse_write), set(corrupt)
+        self.no_answer = set(no_answer)
         self.puts = []
+        self.Stop = Exception
 
     def __call__(self, method, url, token, body=None):
         assert token == "tok"
         name = url.split("/secrets/")[1].split("?")[0]
+        if (method, name) in self.no_answer:
+            raise self.Stop(f"{name}: no answer from Key Vault to a {method} (timed out)")
         if method == "GET":
             if name in self.refuse_read:
                 return 403, {"error": {"code": "Forbidden"}}
@@ -73,6 +80,7 @@ def run(capsys):
 
         m.kubectl_json = fake_kubectl
         m.access_token = lambda: "tok"
+        vault.Stop = m.Stop
         m.request = vault
         code = m.main(argv)
         out = capsys.readouterr()
@@ -159,3 +167,31 @@ def test_a_bad_vault_name_stops_before_reading_anything(run):
     vault = FakeVault()
     code, text, calls = run(["--vault", "https://x.vault.azure.net"], vault, external_secret(VALUES), secret(VALUES))
     assert code == 2 and calls == [] and vault.puts == []
+
+
+@pytest.mark.parametrize("failure", [urllib.error.URLError("timed out"), TimeoutError("timed out"),
+                                     ConnectionResetError("reset by peer")])
+def test_no_answer_from_key_vault_is_a_stop_naming_the_secret_not_the_vault(monkeypatch, failure):
+    def fail(*args, **kwargs):
+        raise failure
+
+    monkeypatch.setattr(urllib.request, "urlopen", fail)
+    with pytest.raises(m.Stop) as stopped:
+        m.request("GET", "https://kv-test-01.vault.azure.net/secrets/INGRESS-IP?api-version=7.4", "tok")
+    assert "INGRESS-IP: no answer from Key Vault to a GET" in str(stopped.value)
+    assert "kv-test-01" not in str(stopped.value)
+
+
+def test_a_dry_run_whose_read_gets_no_answer_stops_without_writing(run):
+    vault = FakeVault(no_answer={("GET", "INGRESS-IP")})
+    code, text, _ = run(["--vault", "kv-test-01"], vault, external_secret(VALUES), secret(VALUES))
+    assert code == 2 and vault.puts == [] and "nothing written" in text and "no answer" in text
+
+
+def test_a_write_that_gets_no_answer_stops_writing_but_still_reads_back(run):
+    vault = FakeVault(no_answer={("PUT", "MEDIA-SONARR-HOST")})
+    code, text, _ = run(["--vault", "kv-test-01", "--apply"], vault, external_secret(VALUES), secret(VALUES))
+    assert code == 1
+    assert vault.puts == []  # the first write got no answer, and none followed
+    assert "NOT WRITTEN MEDIA-SONARR-HOST" in text and "no further writes" in text
+    assert "read back: 0 of 3 match" in text

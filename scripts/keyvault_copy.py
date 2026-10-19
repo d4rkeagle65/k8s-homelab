@@ -13,7 +13,8 @@ written to disk or passed as arguments, and travel only in memory and HTTPS requ
 
 Nothing is written when the script can't answer: the ExternalSecret isn't Ready, a mapped
 variable is missing from the Secret or isn't text, two variables become one Key Vault name
-(Key Vault ignores case), a name isn't valid there, or Key Vault refuses a read.
+(Key Vault ignores case), a name isn't valid there, or Key Vault refuses or doesn't answer a
+read. A write that gets no answer stops the writing; every name is still read back.
 
 --vault names the vault (its URL is https://<name>.vault.azure.net; the name isn't in this
 repo). It signs in as the Azure CLI's current account (az login), which needs "Key Vault
@@ -116,10 +117,13 @@ def access_token() -> str:
 
 
 def request(method: str, url: str, token: str, body: dict | None = None) -> tuple[int, dict]:
-    """One Key Vault REST call: its HTTP status and JSON body (an error's body too)."""
+    """One Key Vault REST call: its HTTP status and JSON body (an error's body too). No answer
+    at all (a dropped connection, a timeout, a name that won't resolve) is a Stop: it says
+    nothing about the secret."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, method=method,
                                  headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+    name = url.split("/secrets/")[-1].split("?")[0]
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             return response.status, json.loads(response.read() or b"{}")
@@ -129,6 +133,8 @@ def request(method: str, url: str, token: str, body: dict | None = None) -> tupl
             return error.code, json.loads(raw)
         except ValueError:
             return error.code, {"error": {"code": "unreadable error body"}}
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+        raise Stop(f"{name}: no answer from Key Vault to a {method} ({getattr(error, 'reason', error)})") from error
 
 
 def error_code(body: dict) -> str:
@@ -195,7 +201,12 @@ def main(argv: list[str] | None = None) -> int:
     for variable, action in state.items():
         if action == "same":
             continue
-        why = write(vault_url, names[variable], values[variable], token)
+        try:
+            why = write(vault_url, names[variable], values[variable], token)
+        except Stop as stop:
+            failed += 1
+            print(f"  NOT WRITTEN {names[variable]}: {stop}; no further writes")
+            break
         if why:
             failed += 1
             print(f"  NOT WRITTEN {names[variable]}: {why}")
