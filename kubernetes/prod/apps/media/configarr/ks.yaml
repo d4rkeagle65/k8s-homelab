@@ -21,6 +21,7 @@ spec:
   - name: lidarr
   - name: bookshelf
   - name: prowlarr
+  - name: whisparr-v3
   sourceRef:
     kind: GitRepository
     name: flux-system

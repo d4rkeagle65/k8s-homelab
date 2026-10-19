@@ -80,10 +80,13 @@ rotated key is one paste into Vaultwarden.
       `enabled` flip (config.yml's header says why)
 - [ ] Whisparr v3 (Settled): its own release and database beside v2, its env vars as phase 1's,
       the library added, its download clients and quality from Configarr; then v2 retired
-      (its database kept a day, as the PostgreSQL 18 moves did). 2026-10-19: `WHISPARR_API_KEY`
-      mapped; `prod/apps/media/whisparr-v3/` in PR (v3-3.1.0.2116, `whisparr3` hostname, v2's
-      folders). Next: its nightly backup (`media-backup/`, held back so the immediate one
-      doesn't run before the database exists) and its Configarr instance
+      (its database kept a day, as the PostgreSQL 18 moves did). 2026-10-19: `whisparr-v3`
+      live (v3-3.1.0.2116, `whisparr3` hostname, v2's folders; WAL archiving proven); its
+      nightly backup, Configarr instance (v2's root folders, SABnzbd on `xxx`) and Prowlarr
+      link in PR. Waiting on the owner: its qBittorrent client. This build takes only a Web UI
+      username and password, not the API key, and neither is a cluster variable; the owner
+      adds both to Vaultwarden (`QBITTORRENT_USERNAME`, `QBITTORRENT_PASSWORD`), mapped by a PR
+      of their own. Then: the library added, its quality captured, v2 retired
 - [ ] Outside Configarr, each its own decision: Bookshelf's metadata source (`/api/v1/config/
       development`), qBittorrent's preferences and categories, SABnzbd's categories and folders,
       Seerr's links to Radarr and Sonarr (`settings.json`)
