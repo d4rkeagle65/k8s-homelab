@@ -255,8 +255,8 @@ new value.
 bitwarden-cli pod. With no arguments it outputs an object per field name (never
 values): whether it's base64 (used in a Secret's `data:`), synced, and which Flux
 Kustomizations use it, shown as a table and filtered like any objects
-(`Get-Help ./scripts/vaultwarden-fields.ps1 -Examples`). Run one at a time: it
-force-syncs the CLI. `./scripts/vaultwarden-fields.ps1 NAME` asks for the
+(`Get-Help ./scripts/vaultwarden-fields.ps1 -Examples`). Run one at a time: each
+run asks the CLI to sync, beside its own sync loop. `./scripts/vaultwarden-fields.ps1 NAME` asks for the
 new value without echoing it, base64-encodes it when needed, writes it,
 force-syncs, waits for the `cluster-secrets` Secret to have it, and prints the
 `flux reconcile` commands to run. `-New` adds a field that doesn't exist yet.

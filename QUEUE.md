@@ -78,16 +78,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
     again (the API's address moves to another control plane meanwhile, seconds without it);
     read back its memory (`kubectl get node` capacity about 6GiB) before the next.
   The workers' lowest was 18% (the 11Gi one) and above.
-- **bitwarden-cli's `bw serve` exits when several forced syncs reach it at once** (found
-  2026-10-18): four `vaultwarden-fields.ps1` listings run together, each POSTing
-  `/sync?force=true` through `kubectl exec`, restarted the container twice (about three
-  minutes without the CLI; `bitwarden-notes` went `InvalidProviderConfig` and came back on its
-  own). Not memory: 142 of 512 MiB and no OOM event; the process exited with an error.
-  External Secrets, the container's liveness probe (`/sync?force=true` every two minutes) and
-  the script all go through it, so two forced syncs meeting can take the cluster's secrets
-  down for minutes. Find the error in the previous container's log (grep for the error line
-  only: the log carries its login), then serialize forced syncs or stop the probe and the
-  script forcing one.
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
   found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches
   them in batches that each start from the pre-refresh snapshot (`getAuthor` serves the

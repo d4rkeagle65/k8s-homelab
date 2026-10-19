@@ -95,6 +95,14 @@ spec:
           fi
           export BW_SESSION
           bw unlock --check
+          # bw serve only syncs when asked, and this loop is the only thing that
+          # asks on a schedule. A sync may refresh the access token; several at
+          # once hit Vaultwarden's login rate limit, and bw serve exits on the
+          # refusal (an unhandled rejection), so there is one caller. A plain
+          # sync, not a forced one, downloads only when the vault has changed.
+          (while sleep 120; do
+            node -e "fetch('http://127.0.0.1:8087/sync',{method:'POST'}).catch(()=>{})"
+          done) &
           echo "Serving on port 8087"
           # --hostname all: bw serve 2026.6.0+ otherwise rejects requests
           # addressed to the Service name. The NetworkPolicy limits who can
@@ -141,8 +149,8 @@ spec:
           containerPort: 8087
           protocol: TCP
         # Exec probes, so they don't depend on how the NetworkPolicy treats
-        # kubelet traffic. The liveness probe also pulls vault changes: bw
-        # serve only syncs when asked.
+        # kubelet traffic. The liveness probe only reads /status (served and
+        # unlocked); the loop above does the syncing.
         startupProbe:
           exec:
             command: ["node", "-e", "require('net').connect(8087,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
@@ -156,7 +164,7 @@ spec:
           timeoutSeconds: 5
         livenessProbe:
           exec:
-            command: ["node", "-e", "fetch('http://127.0.0.1:8087/sync?force=true',{method:'POST'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+            command: ["node", "-e", "fetch('http://127.0.0.1:8087/status').then(r=>r.json()).then(j=>process.exit(j.success&&j.data&&j.data.template&&j.data.template.status==='unlocked'?0:1),()=>process.exit(1))"]
           periodSeconds: 120
           timeoutSeconds: 30
           failureThreshold: 3
