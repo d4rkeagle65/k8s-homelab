@@ -5,18 +5,28 @@ session you reach from claude.ai/code or the Claude app without the PC
 running, and that stays up when the cluster it works on doesn't. It runs in
 a tmux session named `claude` inside the container, in a clone of this repo.
 
-## Worktrees
+## Lanes
 
-Each git worktree of the clone gets a Claude Code session of its own at
-start-up, in its own pane of that tmux session, with Remote Control on: the
-clone itself as `homelab`, every other worktree as `homelab-<its folder's
-name>` (`bin/claude-code-start`). A worktree made while the container runs
-starts at the next restart (`docker restart claude-code`). Each session
-continues its own folder's newest conversation.
+A lane is a folder with one Claude Code process working in it, started with
+Remote Control on, in its own window of that tmux session
+(`bin/claude-code-start`). The clone itself is the **Main** lane; each name in
+`CLAUDE_LANES` (`compose.yaml`) is a git worktree at
+`.claude/worktrees/<name>`, made at start-up if it's missing, with nothing
+checked out. Each is named `<REMOTE_CONTROL_NAME> - <Lane>` at claude.ai/code,
+in the Claude app and on its tmux window: `k8s-homelab - Docker - Main`,
+`k8s-homelab - Docker - Netbox`.
 
-Every session is a Claude Code process within the stack's `mem_limit`
-(`compose.yaml`): remove a worktree that's finished (`git worktree remove
-<folder>`) so it stops starting, or raise the limit for more at once.
+A lane's process makes a branch per change in its own folder (`git switch -c
+<branch> origin/main`) and pushes it; the folder stays. So a pull request is a
+branch, not a lane, and a lane is added only for another process running at
+once: add its name to `CLAUDE_LANES` and redeploy. Other worktrees (Claude Code
+makes its own in `.claude/worktrees/`, which `.gitignore` leaves out) get no
+process. A lane whose process exits starts again ten seconds later, continuing
+its newest conversation; **Ctrl-c** in its window during those ten seconds
+stops it until the next start.
+
+Every lane is a Claude Code process within the stack's `mem_limit`
+(`compose.yaml`): raise the limit before adding lanes.
 
 Everything it keeps is in `/opt/claude-code/home` on the host, which is its
 home folder: its login, settings and conversations, the repo clone, and the
@@ -57,12 +67,11 @@ trusted devices** in your claude.ai settings.
    code it gives you back into the terminal.
 4. Trust the folder when it asks.
 5. Run `/remote-control` and accept its one-time prompt. The session appears
-   as `homelab` at claude.ai/code and in the Claude app. From now on every
-   start connects by itself. A worktree's pane shows the same trust prompt
-   the first time, if its folder isn't trusted yet: move to it with **Ctrl-b**
-   then an arrow key, and accept.
-6. Detach with **Ctrl-b**, then **d**. Leaving Claude Code (`/exit`) closes
-   its pane; leaving the last one restarts the container.
+   as `k8s-homelab - Docker - Main` at claude.ai/code and in the Claude app.
+   From now on every start connects by itself. Each other lane's window shows
+   the same trust prompt the first time, if its folder isn't trusted yet: move
+   to it with **Ctrl-b** then its window number, and accept.
+6. Detach with **Ctrl-b**, then **d**.
 
 ## Credentials
 

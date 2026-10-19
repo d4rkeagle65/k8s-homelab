@@ -1,18 +1,41 @@
 #!/bin/bash
-# The container's start-up: clone the repo on the first start, then run
-# Claude Code with Remote Control on in each of the repo's git worktrees (the
-# clone itself first), one tmux pane each, in a tmux session named "claude",
-# and keep the container up while any of them runs. When the last one exits,
-# so does the container, and Docker starts it again (restart: unless-stopped).
+# The container's start-up: clone the repo on the first start, then run one
+# Claude Code process per lane, each with Remote Control on, in its own window
+# of a tmux session named "claude". A lane is a folder a process works in and
+# switches branches in, one branch per change (README.md, Lanes): the clone
+# itself is the "Main" lane, and each name in CLAUDE_LANES is a git worktree
+# at .claude/worktrees/<name>, made here if it's missing. Other worktrees
+# (Claude Code makes its own there) get no process. A lane's process that
+# exits starts again, continuing its last conversation; the container runs
+# until it's stopped.
 #
 # Attach with: docker exec -it claude-code tmux attach -t claude
-# Move between panes with Ctrl-b then an arrow key; detach with Ctrl-b then d.
-# Leaving Claude Code (/exit) closes its pane; leaving the last one restarts
-# the container.
+# Ctrl-b then a window's number switches lanes; Ctrl-b then d detaches.
 set -euo pipefail
 
 repo="${REPO_DIR:-$HOME/k8s-homelab}"
-name="${REMOTE_CONTROL_NAME:-homelab}"
+prefix="${REMOTE_CONTROL_NAME:-homelab}"
+self="$(readlink -f "$0")"
+
+# Run one lane's Claude Code, again whenever it exits. Claude Code keeps each
+# folder's conversations in ~/.claude/projects/, in a folder named after the
+# path with every character other than a letter or digit turned into "-". If
+# there are any (a restart, or one copied in from another machine), continue
+# the newest; otherwise start a new one.
+if [ "${1:-}" = "--lane" ]; then
+    dir="$2" rc_name="$3"
+    cd "$dir"
+    project="$HOME/.claude/projects/$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
+    while true; do
+        args=(--remote-control "$rc_name")
+        if compgen -G "$project/*.jsonl" >/dev/null; then
+            args=(--continue "${args[@]}")
+        fi
+        claude "${args[@]}" || true
+        echo "Claude Code exited; starting it again in 10 seconds (Ctrl-c to stop this lane)."
+        sleep 10
+    done
+fi
 
 if [ ! -d "$repo/.git" ]; then
     git clone --quiet "${REPO_URL:?REPO_URL is not set}" "$repo"
@@ -20,51 +43,48 @@ fi
 # The repo's pre-commit hook (runs scripts/tests before each commit).
 git -C "$repo" config core.hooksPath .githooks
 
-# Every worktree of the repo, one path per line, the main one first (git
-# lists it first). A worktree whose folder is gone (git marks it prunable)
-# is left out.
-worktrees() {
-    git -C "$repo" worktree list --porcelain | awk '
-        /^worktree / { if (path != "" && !gone) print path; path = substr($0, 10); gone = 0 }
-        /^prunable/  { gone = 1 }
-        END          { if (path != "" && !gone) print path }'
+# A lane's worktree, made on first use with nothing checked out (its process
+# makes a branch per change), plus the local-only files the clone has and a
+# new worktree lacks: .secret-words for the commit hook, and the empty .github
+# the structure test expects. A lane that can't be made is reported and
+# skipped, not fatal: the other lanes still start.
+ensure_lane() {
+    local dir="$1"
+    if [ ! -e "$dir" ]; then
+        git -C "$repo" fetch --quiet origin ||
+            echo "lane $dir: fetch failed; using the last fetched main"
+        git -C "$repo" worktree add --quiet --detach "$dir" origin/main || return 1
+    fi
+    # Its own worktree's top, not just a folder inside the clone's.
+    if [ "$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" != "$(cd "$dir" && pwd -P)" ]; then
+        echo "lane $dir: exists but isn't a git worktree; skipped"
+        return 1
+    fi
+    if [ -f "$repo/.secret-words" ] && [ ! -e "$dir/.secret-words" ]; then
+        cp "$repo/.secret-words" "$dir/.secret-words"
+    fi
+    mkdir -p "$dir/.github"
 }
 
-# Start Claude Code in a folder, under a Remote Control name: the session's
-# first pane, or a new pane beside the others. Claude Code keeps each
-# folder's conversations in ~/.claude/projects/, in a folder named after the
-# path with every character other than a letter or digit turned into "-". If
-# there are any (a restart, or one copied in from another machine), continue
-# the newest; otherwise start a new one.
-start_claude() {
-    local dir="$1" rc_name="$2" project
-    local args=(--remote-control "$rc_name")
-    project="$HOME/.claude/projects/$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
-    if compgen -G "$project/*.jsonl" >/dev/null; then
-        args=(--continue "${args[@]}")
+# One tmux window per lane, each named as its Remote Control session is, so
+# they're told apart at claude.ai/code and in the Claude app: the clone first,
+# as "<prefix> - Main", then each lane in CLAUDE_LANES as "<prefix> - <Lane>"
+# (its folder name with a capital first letter).
+main="$prefix - Main"
+main_window=$(tmux new-session -d -P -F '#{window_id}' -s claude -x 240 -y 60 \
+    -n "$main" -c "$repo" "$self" --lane "$repo" "$main")
+for lane in ${CLAUDE_LANES:-}; do
+    if ! [[ "$lane" =~ ^[A-Za-z0-9-]+$ ]]; then
+        echo "lane '$lane': only letters, digits and - are allowed; skipped"
+        continue
     fi
-    if tmux has-session -t claude 2>/dev/null; then
-        tmux split-window -t claude -c "$dir" claude "${args[@]}"
-        tmux select-layout -t claude tiled
-    else
-        # Sized for many panes: a detached session is 80x24 until a client
-        # attaches, too small to split often. Attaching resizes it.
-        tmux new-session -d -s claude -x 240 -y 60 -c "$dir" claude "${args[@]}"
-    fi
-}
-
-# The main worktree is "$name"; each other one is "$name-<its folder's name>",
-# so each session is told apart at claude.ai/code and in the Claude app.
-first=1
-while IFS= read -r dir; do
-    [ -d "$dir" ] || continue
-    if [ "$first" = 1 ]; then
-        start_claude "$dir" "$name"
-        first=0
-    else
-        start_claude "$dir" "$name-$(basename "$dir" | sed 's/[^A-Za-z0-9-]/-/g')"
-    fi
-done < <(worktrees)
+    dir="$repo/.claude/worktrees/$lane"
+    ensure_lane "$dir" || continue
+    title="$prefix - ${lane^}"
+    tmux new-window -t claude -n "$title" -c "$dir" \
+        "$self" --lane "$dir" "$title"
+done
+tmux select-window -t "$main_window"
 
 # On docker stop, end the session cleanly instead of waiting to be killed.
 trap 'tmux kill-server 2>/dev/null || true; exit 0' TERM INT
