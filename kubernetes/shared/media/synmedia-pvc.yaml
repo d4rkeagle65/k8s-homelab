@@ -1,3 +1,10 @@
+# The NAS's media share. Each media app mounts only its own folders of it, one subPath
+# mount per folder at its path under /synmedia, so root folders and download paths stay
+# as they are. Create a folder before mounting it, owned like its neighbours (chown
+# --reference): the kubelet makes a missing subPath as root, which the apps can't write.
+# Before an app's mounts change, its root folders and download queue lie inside the new
+# ones. Hardlinks can't cross mounts, so torrent imports are copies; moving files between
+# apps' folders needs a pod mounting the whole claim (e.g. a one-off Job).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

@@ -43,7 +43,7 @@ share's own top level) is reachable from it.
 | Whisparr | media/xxx, torrents/xxx, nzbget/xxx | live and checked (2026-10-19), v2; v3 takes the same mounts. Its qBittorrent client fails to authenticate (it was before too): v2 isn't Configarr's, so its key predates the rotation; the owner pastes the current one in its UI |
 | qBittorrent | torrents | live and checked (2026-10-19) |
 | SABnzbd | nzbget | live and checked (2026-10-19) |
-| Tdarr | media/tv, media/movies | PR (2026-10-19); no libraries yet, so a library added later goes inside these |
+| Tdarr | media/tv, media/movies | live and checked (2026-10-19); no libraries yet, so a library added later goes inside these |
 
 ## Resuming
 

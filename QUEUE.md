@@ -20,6 +20,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
   Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
   put it in those two fields.
+- **Whisparr's qBittorrent client fails to authenticate** (found 2026-10-19): Whisparr v2
+  isn't Configarr's (`QUEUE-arr-config.md`), so its key predates the qBittorrent key's
+  rotation; its torrent grabs fail until the current key is pasted in its UI (Settings,
+  Download Clients). Whisparr v3, when it replaces v2, takes the key from Configarr.
+- **Sonarr: "Ms Rachel (2025)" was removed from TheTVDB** (its health page, 2026-10-19):
+  re-point it to the new entry or remove it, or it stays an error and gets no updates.
 7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
    `ansible/docker-vm-update.yml`, both off until set (its header says what each does). The
    owner sets `docker_live_restore: true` on "Node: Docker Update" and runs it; then
