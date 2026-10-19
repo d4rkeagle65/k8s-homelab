@@ -170,7 +170,7 @@ DNS" template). The zone ID is on the zone's Overview page.
 Each host's name is `<its node name>.<acme_domain>` (`acme_fqdn` per host overrides it). The
 names are published in Certificate Transparency logs, like every public certificate's. Each
 name's record, and the shared `proxmox-hosts.<acme_domain>` answering with every host, is
-NetBox DNS's, kept there by hand (`QUEUE-netbox-dns.md`); the run reports where each name
+NetBox DNS's, kept there by hand (`old-queues/QUEUE-netbox-dns.md`); the run reports where each name
 resolves.
 Running the playbook registers the Let's Encrypt account, which accepts its Subscriber
 Agreement. Proxmox renews the certificates itself.
