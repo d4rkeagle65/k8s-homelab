@@ -128,3 +128,37 @@ def test_an_address_without_a_zone_or_an_owner_is_left_alone():
                               _addr(3, "192.0.2.12/24", kind=None), _addr(4, "192.0.2.13/24", kind="ipam.fhrpgroup")],
                              PREFIXES)
     assert got == {}
+
+
+def iface(id, name, parent=None, bridge=None, ips=0, cable=None):
+    ref = lambda r: {"id": r} if r else None
+    return {"id": id, "name": name, "parent": ref(parent), "bridge": ref(bridge), "lag": None,
+            "count_ipaddresses": ips, "cable": cable}
+
+
+def test_stale_interfaces_deletes_a_retired_vlan_port_before_its_bridge():
+    have = [iface(1, "eth5"), iface(2, "vmbr4"), iface(3, "eth5.4", parent=1, bridge=2), iface(4, "vmbr0", ips=1)]
+    delete, kept = m.stale_interfaces(have, {"eth5", "vmbr0"})
+    assert [i["name"] for i in delete] == ["eth5.4", "vmbr4"]
+    assert kept == []
+
+
+def test_stale_interfaces_keeps_one_with_an_address_or_cable_and_what_it_holds():
+    have = [iface(1, "eth5"), iface(2, "vmbr4", ips=1), iface(3, "eth5.4", parent=1, bridge=2),
+            iface(5, "eth9", cable={"id": 7})]
+    delete, kept = m.stale_interfaces(have, {"eth5"})
+    assert [i["name"] for i in delete] == ["eth5.4"]
+    assert [(i["name"], why) for i, why in kept] == [("eth9", "it has a cable"), ("vmbr4", "it has an address")]
+
+
+def test_stale_interfaces_keeps_a_bridge_a_present_port_still_names():
+    # Proxmox still has eth5.4 under vmbr4 in NetBox's view: vmbr4 can't go before it.
+    have = [iface(2, "vmbr4"), iface(3, "eth5.4", bridge=2)]
+    delete, kept = m.stale_interfaces(have, {"eth5.4"})
+    assert delete == []
+    assert [(i["name"], why) for i, why in kept] == [("vmbr4", "eth5.4 still uses it")]
+
+
+def test_stale_interfaces_leaves_what_proxmox_has_even_when_down():
+    have = [iface(1, "eth3")]
+    assert m.stale_interfaces(have, {"eth3"}) == ([], [])

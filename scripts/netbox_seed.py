@@ -23,7 +23,10 @@ DNS name is left as it is.
 Names come from netbox_seed.yaml; no address is in this repo. A dry run (the
 default) reports what it would create or change; --apply writes it. Safe to
 run again: it finds each object by name (or address) and changes only what
-differs, and never deletes anything.
+differs. It deletes one kind of object only: a Proxmox node's interface that
+Proxmox no longer has, and only with prune_node_interfaces on in
+netbox_seed.yaml; off, it lists them. An interface with an address or a cable,
+or that another interface still uses, is kept and reported.
 
 Credentials are never arguments. Each comes from an environment variable when it's
 set (Semaphore's variable group), else from a file in the home folder:
@@ -208,6 +211,55 @@ class NetBox:
                 return http("PATCH", f"{self.base}{path}/{have['id']}/", self.headers, change)
         return have
 
+    def delete(self, path: str, obj: dict, label: str, allowed: bool):
+        """Delete obj when allowed, reading it back as gone; otherwise only report it."""
+        kind = path.split("/")[-1]
+        if not allowed:
+            print(f"  stale {kind}: {label} (prune_node_interfaces is off)")
+            self._note("stale " + path)
+            return
+        print(f"  delete {kind}: {label}")
+        self._note("delete " + path)
+        if self.apply:
+            http("DELETE", f"{self.base}{path}/{obj['id']}/", self.headers)
+            if self.find(path, id=obj["id"]) is not None:
+                raise SystemExit(f"FAIL: {label} is still in NetBox after its delete")
+
+
+def stale_interfaces(have: list[dict], names: set[str]) -> tuple[list[dict], list[tuple[dict, str]]]:
+    """A node's NetBox interfaces that Proxmox no longer has: those to delete, each
+    before any it points at (a VLAN before its port, a port before its bridge), and
+    those kept, with why. One is kept while it has an address or a cable, or while an
+    interface that stays has it as its parent, bridge or LAG."""
+    gone = {i["id"]: i for i in have if i["name"] not in names}
+    why = {}
+    for i in gone.values():
+        if i.get("count_ipaddresses"):
+            why[i["id"]] = "it has an address"
+        elif i.get("cable"):
+            why[i["id"]] = "it has a cable"
+    def refs(i: dict) -> list[int]:
+        return [r["id"] for r in (i.get("parent"), i.get("bridge"), i.get("lag")) if isinstance(r, dict)]
+    changed = True
+    while changed:
+        changed = False
+        for i in have:
+            if i["id"] in gone and i["id"] not in why:
+                continue
+            for r in refs(i):
+                if r in gone and r not in why:
+                    why[r] = f"{i['name']} still uses it"
+                    changed = True
+    left = [i for i in gone.values() if i["id"] not in why]
+    order = []
+    while left:
+        pointed_at = {r for i in left for r in refs(i)}
+        ready = sorted((i for i in left if i["id"] not in pointed_at), key=lambda i: i["name"])
+        order += ready
+        left = [i for i in left if i not in ready]
+    kept = sorted(((gone[k], v) for k, v in why.items()), key=lambda p: p[0]["name"])
+    return order, kept
+
 
 def same(have, want) -> bool:
     """A NetBox field's value against the one we'd write: a nested object by id, a
@@ -285,7 +337,10 @@ def proxmox_state(url: str, token: str):
         # Only interfaces that are up: a node's unused ports (a USB Wi-Fi adapter) stay out.
         ifaces = [i for i in get(f"/nodes/{n['node']}/network") if i.get("active")]
         bridges = {i["iface"]: i.get("cidr") for i in ifaces if i["type"] == "bridge"}
-        nodes[n["node"]] = {"bridges": bridges, "ifaces": ifaces, "maxcpu": n.get("maxcpu"), "status": n.get("status")}
+        # Every interface the node has, up or down: what decides one is gone from it.
+        names = {i["iface"] for i in get(f"/nodes/{n['node']}/network")}
+        nodes[n["node"]] = {"bridges": bridges, "ifaces": ifaces, "names": names,
+                            "maxcpu": n.get("maxcpu"), "status": n.get("status")}
     guests = []
     for r in get("/cluster/resources?type=vm"):
         cfg = get(f"/nodes/{r['node']}/{r['type']}/{r['vmid']}/config")
@@ -474,6 +529,19 @@ def main() -> None:
         primary = node_interfaces(dev, name, nodes[name]["ifaces"], primary_of(dev))
         if primary:
             nb.set_ref("dcim/devices", dev, "primary_ip4", primary, name)
+
+    # NetBox keeps an interface a node no longer has until it's deleted; with
+    # prune_node_interfaces on, the sync deletes it, else it's listed here.
+    print("stale node interfaces:")
+    prune = bool(cfg.get("prune_node_interfaces"))
+    for name, dev in sorted(node_devs.items()):
+        if dev["id"] < 0:
+            continue
+        delete, kept = stale_interfaces(nb.all("dcim/interfaces", device_id=dev["id"]), nodes[name]["names"])
+        for i, reason in kept:
+            print(f"  KEEP {name} {i['name']}: not in Proxmox, but {reason}")
+        for i in delete:
+            nb.delete("dcim/interfaces", i, f"{name} {i['name']}", prune)
 
     def differ(name: str, pairs: dict):
         """Report where Proxmox differs from a shape NetBox owns; nothing is written."""
