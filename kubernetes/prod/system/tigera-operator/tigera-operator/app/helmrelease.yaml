@@ -180,6 +180,19 @@ spec:
       limits:
         cpu: 1000m
         memory: 896Mi
+    tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoSchedule
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+    - key: node.kubernetes.io/network-unavailable
+      operator: Exists
+      effect: NoSchedule
   commonMetadata:
     labels:
       homelab.local/env: prod

@@ -6,10 +6,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Claude Code's git worktrees: each is a separate checkout of its own branch,
-# never part of the checkout that holds it.
-/.claude/worktrees/
-
 # Python bytecode / test cache from scripts/ and scripts/tests/
 __pycache__/
 *.pyc
@@ -41,6 +37,9 @@ id_rsa*
 id_ed25519*
 
 # Added by hand (kept by generate):
+# Claude Code's git worktrees: each is a separate checkout of its own branch,
+# never part of the checkout that holds it.
+/.claude/worktrees/
 # kubernetes/apps/<namespace>/<app>/ over time (see README's next-steps).
 # classify_cluster_locality) and the operator's real variable-substitution
 # mapping (varsub.py). Both are regenerated/maintained locally; committing
