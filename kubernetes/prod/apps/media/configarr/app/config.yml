@@ -2506,6 +2506,56 @@ readarr:
         enable_completed_download_handling: true
         auto_redownload_failed: true
         auto_redownload_failed_from_interactive_search: true
+whisparr:
+  whisparr-v3:
+    base_url: http://whisparr-v3:6969
+    api_key: !env WHISPARR_API_KEY
+    # Whisparr v3 (QUEUE-arr-config.md), Configarr's experimental support. Started
+    # empty (2026-10-19), so these are set rather than captured: v2's root
+    # folders and download category. This build's qBittorrent client takes no
+    # API key, so it logs in with the Web UI username and password.
+    root_folders:
+      - "/synmedia/media/xxx/movies"
+      - "/synmedia/media/xxx/scenes"
+    download_clients:
+      # The key is written on every run: the apps never show it, so it can't
+      # be compared, and the diff report lists it each time.
+      update_password: true
+      data:
+        - name: qBittorrent
+          type: qbittorrent
+          enable: true
+          priority: 1
+          remove_completed_downloads: true
+          remove_failed_downloads: true
+          fields:
+            host: "qbittorrent"
+            port: 8080
+            use_ssl: false
+            username: !env QBITTORRENT_USERNAME
+            password: !env QBITTORRENT_PASSWORD
+            movie_category: "xxx"
+            recent_movie_priority: 0
+            older_movie_priority: 0
+            initial_state: 0
+            sequential_order: false
+            first_and_last: false
+            content_layout: 0
+        - name: SABnzbd
+          type: sabnzbd
+          enable: true
+          priority: 1
+          remove_completed_downloads: true
+          remove_failed_downloads: true
+          fields:
+            host: "sabnzbd"
+            port: 8080
+            use_ssl: false
+            api_key: !env SABNZBD_API_KEY
+            movie_category: "xxx"
+            recent_movie_priority: -100
+            older_movie_priority: -100
+
 prowlarr:
   prowlarr:
     base_url: http://prowlarr:9696
@@ -2554,6 +2604,16 @@ prowlarr:
             syncCategories: [5000, 5010, 5020, 5030, 5040, 5045, 5050, 5090]
             animeSyncCategories: [5070]
             syncAnimeStandardFormatSearch: true
+            syncRejectBlocklistedTorrentHashesWhileGrabbing: false
+          tags: []
+        - name: "Whisparr v3"
+          type: Whisparr
+          sync_level: fullSync
+          fields:
+            prowlarrUrl: "http://prowlarr:9696"
+            baseUrl: "http://whisparr-v3:6969"
+            apiKey: !env WHISPARR_API_KEY
+            syncCategories: [6000, 6010, 6020, 6030, 6040, 6045, 6050, 6070, 6080, 6090]
             syncRejectBlocklistedTorrentHashesWhileGrabbing: false
           tags: []
     sync_profiles:
