@@ -14,7 +14,7 @@ builds the cluster's VMs and will read NetBox to do it.
   may log in (the blueprint's binding).
 - **Scripts and tools use API tokens** through `netbox.<domain>/api`, which is served
   without a login page.
-- **NetBox owns local DNS** (`QUEUE-netbox-dns.md`): `netbox-dns-sync` (`dns-sync/`) copies
+- **NetBox owns local DNS** (`old-queues/QUEUE-netbox-dns.md`): `netbox-dns-sync` (`dns-sync/`) copies
   NetBox DNS's records to every Pi-hole each minute. Its variables: `NETBOX_DNS_SYNC_TOKEN` (a
   read-only token), `PIHOLE_1_URL` and `PIHOLE_1_PASSWORD` (an app password; `PIHOLE_2_...`
   for the second), and its switches, off until set to `true`: `SYNC_APPLY` writes,

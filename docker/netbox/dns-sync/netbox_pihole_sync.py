@@ -1,4 +1,4 @@
-"""Copies NetBox DNS's records to every Pi-hole: QUEUE-netbox-dns.md.
+"""Copies NetBox DNS's records to every Pi-hole: old-queues/QUEUE-netbox-dns.md.
 
 NetBox is the one owner of local DNS. This owns every name inside a NetBox zone
 on each Pi-hole, and nothing outside them: it adds the A, AAAA and CNAME records

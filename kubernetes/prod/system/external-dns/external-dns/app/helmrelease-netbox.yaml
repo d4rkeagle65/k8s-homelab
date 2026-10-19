@@ -7,7 +7,7 @@
 # the external-dns.kubernetes.io/ prefix, not external-dns.alpha.kubernetes.io/.)
 #
 # NetBox owns local DNS, and netbox-dns-sync copies it to the Pi-holes
-# (QUEUE-netbox-dns.md). ExternalDNS writes through its own webhook provider
+# (old-queues/QUEUE-netbox-dns.md). ExternalDNS writes through its own webhook provider
 # (netbox-dns-webhook.py), a sidecar in this pod listening on 127.0.0.1 only.
 # The webhook lists and changes only the records it marked (description
 # external-dns), which is the ownership the noop registry leaves to it: so

@@ -17,7 +17,7 @@ only when its pull request is merged and applied.
 
 Each address on a device's or VM's interface whose prefix names a zone (the
 prefix's custom field dns_zone) gets the DNS name <object name>.<zone>, from
-which NetBox DNS makes its record (QUEUE-netbox-dns.md); every other address's
+which NetBox DNS makes its record (old-queues/QUEUE-netbox-dns.md); every other address's
 DNS name is left as it is.
 
 Names come from netbox_seed.yaml; no address is in this repo. A dry run (the

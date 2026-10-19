@@ -12,7 +12,7 @@
 #
 # Each host's name, and the shared name proxmox-hosts.<acme_domain> that answers
 # with every host, are records in NetBox DNS, kept there by hand like any other
-# (QUEUE-netbox-dns.md); its sync copies them to the Pi-holes. This only looks
+# (old-queues/QUEUE-netbox-dns.md); its sync copies them to the Pi-holes. This only looks
 # each name up at the end and reports where it leads.
 #
 # Needs proxmox-guests.yml (pve_node, pve_guests) before it.
