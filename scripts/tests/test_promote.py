@@ -27,7 +27,7 @@ APP = "kubernetes/prod/apps/babybuddy/babybuddy/app"
 
 def test_service_drops_assigned_ips_but_keeps_headless():
     svc = {"kind": "Service", "metadata": {"name": "s"}, "spec": {
-        "clusterIP": "10.228.166.228", "clusterIPs": ["10.228.166.228"],
+        "clusterIP": "192.0.2.228", "clusterIPs": ["192.0.2.228"],
         "type": "LoadBalancer", "healthCheckNodePort": 31000,
         "ports": [{"port": 8000, "nodePort": 30080}],
     }}
@@ -96,8 +96,8 @@ def _obj(kind, name, ns="babybuddy", **extra):
 
 CLUSTER = {
     "deployment": [_obj("Deployment", "babybuddy-server", spec={"template": {"metadata": {"labels": {"app": "bb"}}}})],
-    "service": [_obj("Service", "babybuddy-svc", spec={"clusterIP": "10.0.0.1", "ports": [{"port": 8000}]}),
-                _obj("Service", "other-svc", ns="other", spec={"clusterIP": "10.0.0.2"})],
+    "service": [_obj("Service", "babybuddy-svc", spec={"clusterIP": "192.0.2.1", "ports": [{"port": 8000}]}),
+                _obj("Service", "other-svc", ns="other", spec={"clusterIP": "192.0.2.2"})],
     "persistentvolumeclaim": [_obj("PersistentVolumeClaim", "babybuddy-config", spec={"volumeName": DYNAMIC_PV})],
     "configmap": [_obj("ConfigMap", "babybuddy-env", data={"TZ": "UTC"})],
 }
