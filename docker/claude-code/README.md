@@ -5,6 +5,19 @@ session you reach from claude.ai/code or the Claude app without the PC
 running, and that stays up when the cluster it works on doesn't. It runs in
 a tmux session named `claude` inside the container, in a clone of this repo.
 
+## Worktrees
+
+Each git worktree of the clone gets a Claude Code session of its own at
+start-up, in its own pane of that tmux session, with Remote Control on: the
+clone itself as `homelab`, every other worktree as `homelab-<its folder's
+name>` (`bin/claude-code-start`). A worktree made while the container runs
+starts at the next restart (`docker restart claude-code`). Each session
+continues its own folder's newest conversation.
+
+Every session is a Claude Code process within the stack's `mem_limit`
+(`compose.yaml`): remove a worktree that's finished (`git worktree remove
+<folder>`) so it stops starting, or raise the limit for more at once.
+
 Everything it keeps is in `/opt/claude-code/home` on the host, which is its
 home folder: its login, settings and conversations, the repo clone, and the
 credentials below. None of those are in git or in Dockhand.
@@ -45,9 +58,11 @@ trusted devices** in your claude.ai settings.
 4. Trust the folder when it asks.
 5. Run `/remote-control` and accept its one-time prompt. The session appears
    as `homelab` at claude.ai/code and in the Claude app. From now on every
-   start connects by itself.
-6. Detach with **Ctrl-b**, then **d**. Leaving Claude Code (`/exit`)
-   restarts the container instead.
+   start connects by itself. A worktree's pane shows the same trust prompt
+   the first time, if its folder isn't trusted yet: move to it with **Ctrl-b**
+   then an arrow key, and accept.
+6. Detach with **Ctrl-b**, then **d**. Leaving Claude Code (`/exit`) closes
+   its pane; leaving the last one restarts the container.
 
 ## Credentials
 
