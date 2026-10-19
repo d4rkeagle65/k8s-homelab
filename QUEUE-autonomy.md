@@ -91,7 +91,8 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
       would own all twenty keys
 - [x] **netbox-shape** (2026-10-16): built and proved up to the template, which is the
       owner's (`QUEUE-netbox-shape.md`, its last two boxes)
-- [ ] **netbox-dns:** `QUEUE-netbox.md` phase 4, NetBox owning DNS (large)
+- [x] **netbox-dns** (2026-10-19): NetBox owns local DNS, both Pi-holes synced from it
+      (`old-queues/QUEUE-netbox-dns.md`)
 - [x] **ssh-keys** (2026-10-16): `ansible/retire-ssh-keys.yml` and `proxmox-host.yml`'s
       retired-interfaces play, built and checked; their runs are the owner's (below)
 - [ ] **kea-ha:** `QUEUE-kea-ha.md`: `kea-db` up and proved (2026-10-16); next the copy, then
@@ -118,9 +119,6 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [ ] Your real run of "Retire: Old SSH Keys" (its dry run, task 745, was clean). VLAN 9 is out
       of Proxmox (task 748); delete its `vmbr9` and `eth5.9` interfaces in NetBox
 - [x] Kea's three variables in Vaultwarden (2026-10-16)
-- [ ] netbox-dns: the sidecar is deployed and works (it was asked for 37 records and skipped
-      each: NetBox DNS has no zone). Create the zone(s) in NetBox DNS (the domain the Ingresses
-      use, with its SOA nameserver); the records follow within a minute
 - [x] Dockhand's environment for the second Docker VM, connected (2026-10-17: the 429 was
       Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
 - [ ] `NETBOX_READ_TOKEN` in Vaultwarden without its "Bearer " prefix (its users accept either),
