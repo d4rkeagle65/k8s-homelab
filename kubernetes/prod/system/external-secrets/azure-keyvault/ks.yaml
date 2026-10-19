@@ -1,0 +1,37 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: azure-keyvault
+  namespace: flux-system
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: external-secrets
+      homelab.local/category: system
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  path: ./kubernetes/prod/system/external-secrets/azure-keyvault/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: external-secrets
+  # ClusterSecretStore is an external-secrets CRD.
+  dependsOn:
+  - name: external-secrets
+  # The vault's address and tenant come only from azure-keyvault-bootstrap, applied by hand
+  # (QUEUE-azure-keyvault.md), never from cluster-secrets, which this store is to build: a
+  # rebuilt cluster would wait on itself. Optional like the others; without it, strict
+  # substitution fails on ${AZURE_KEYVAULT_URL} here.
+  postBuild:
+    substituteFrom:
+    - kind: ConfigMap
+      name: cluster-settings
+      optional: true
+    - kind: Secret
+      name: cluster-secrets
+      optional: true
+    - kind: Secret
+      name: azure-keyvault-bootstrap
+      optional: true
