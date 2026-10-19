@@ -1,0 +1,147 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: whisparr-v3
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: media
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 5.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    defaultPodOptions:
+      priorityClassName: homelab-low
+    controllers:
+      main:
+        containers:
+          main:
+            # Whisparr v3, movie-based (QUEUE-arr-config.md), beside v2 until v2 is
+            # retired. Pinned by version and digest; a major version is a
+            # migration, held for approval by Renovate.
+            image:
+              repository: ghcr.io/hotio/whisparr
+              tag: v3-3.1.0.2116@sha256:e522eec938fb0d0980d90b28304c3ef768b81ad95874092be26d8d764f1180e8
+            env:
+              - name: PUID
+                value: "${MEDIA_PUID}"
+              - name: PGID
+                value: "${MEDIA_PGID}"
+              - name: TZ
+                value: ${TIMEZONE}
+              - name: WHISPARR__POSTGRES__HOST
+                value: whisparr-v3-db-rw
+              - name: WHISPARR__POSTGRES__PORT
+                value: "5432"
+              - name: WHISPARR__POSTGRES__USER
+                value: whisparr
+              - name: WHISPARR__POSTGRES__PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: whisparr-v3-db-app
+                    key: password
+              - name: WHISPARR__POSTGRES__MAINDB
+                value: whisparr-main
+              - name: WHISPARR__POSTGRES__LOGDB
+                value: whisparr-log
+              - name: WHISPARR__AUTH__APIKEY
+                valueFrom:
+                  secretKeyRef:
+                    name: whisparr-v3
+                    key: api-key
+              # As the other apps (QUEUE-arr-config.md, phase 1): Forms login,
+              # required; info logs (debug floods Loki); analytics off.
+              - name: WHISPARR__AUTH__METHOD
+                value: Forms
+              - name: WHISPARR__AUTH__REQUIRED
+                value: Enabled
+              - name: WHISPARR__LOG__LEVEL
+                value: info
+              - name: WHISPARR__LOG__ANALYTICSENABLED
+                value: "false"
+              # Traefik reaches it from the pod network: trusting that network lets its
+              # X-Forwarded-Proto through, so the redirect to the login page is https.
+              - name: WHISPARR__SERVER__TRUSTEDNETWORKS
+                value: ${CALICO_POD_CIDR}
+            # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml).
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 6969}
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 6969}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: {path: "/ping", port: 6969}
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+            resources:
+              requests:
+                cpu: 10m
+                memory: 352Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 6969
+    ingress:
+      main:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+        hosts:
+          - host: whisparr3${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: http
+        tls:
+          - secretName: whisparr-v3-tls
+            hosts:
+              - whisparr3${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      config:
+        existingClaim: whisparr-v3-config
+        globalMounts:
+          - path: /config
+      # Only its own folders of the media share, each at the path it had
+      # (kubernetes/shared/media/synmedia-pvc.yaml): its library, and the qBittorrent and SABnzbd
+      # category folders its downloads land in.
+      synmedia:
+        existingClaim: synmedia-nfs
+        globalMounts:
+          - path: /synmedia/media/xxx
+            subPath: media/xxx
+          - path: /synmedia/torrents/xxx
+            subPath: torrents/xxx
+          - path: /synmedia/nzbget/xxx
+            subPath: nzbget/xxx
