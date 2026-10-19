@@ -108,13 +108,10 @@ references).
       `vaultwarden-fields.ps1`) is tested only against a mock vault and a fake kubectl, so its
       first run against the real vault and cluster is its check: the listing's `Synced` all
       `yes` for the 141 mapped variables, and one set read back; capture's "aren't in
-      Vaultwarden yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`);
-      and `scripts/keyvault_copy.py`'s `request()`, which turns only an HTTP error into an
-      answer: a dropped connection or timeout (once, 2026-10-19) ends in a traceback, and in an
-      `--apply` run skips the read-back report, so it should stop cleanly as a `Stop` does
+      Vaultwarden yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`)
 - [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`
-      (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket),
-      written 2026-10-19; left: that it shows loaded and inactive in Prometheus once merged
+      (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket; #116),
+      read back 2026-10-19: loaded on both Prometheus replicas, inactive, health `ok`
 - [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired
 
 ## Resuming
