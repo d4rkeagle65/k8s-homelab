@@ -25,9 +25,8 @@ spec:
       main:
         containers:
           main:
-            # Whisparr v3, movie-based (QUEUE-arr-config.md), beside v2 until v2 is
-            # retired. Pinned by version and digest; a major version is a
-            # migration, held for approval by Renovate.
+            # Whisparr v3, movie-based. Pinned by version and digest; a major
+            # version is a migration, held for approval by Renovate.
             image:
               repository: ghcr.io/hotio/whisparr
               tag: v3-3.1.0.2116@sha256:e522eec938fb0d0980d90b28304c3ef768b81ad95874092be26d8d764f1180e8
@@ -118,7 +117,7 @@ spec:
           cert-manager.io/cluster-issuer: cloudflare-letsencrypt
           traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
         hosts:
-          - host: whisparr3${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+          - host: whisparr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
             paths:
               - path: /
                 service:
@@ -127,7 +126,7 @@ spec:
         tls:
           - secretName: whisparr-v3-tls
             hosts:
-              - whisparr3${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+              - whisparr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
     persistence:
       config:
         existingClaim: whisparr-v3-config

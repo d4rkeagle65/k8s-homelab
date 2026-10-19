@@ -1,8 +1,8 @@
 # exportarr for the media apps: one container per app, each reading its API
 # (queue, library, health, history) with its own key. Bookshelf is a Readarr
 # fork and uses exportarr's readarr mode, which later exportarr releases drop:
-# stay on 2.3.0 while Bookshelf is in use. Whisparr is a Sonarr fork and uses
-# exportarr's sonarr mode.
+# stay on 2.3.0 while Bookshelf is in use. Whisparr v3 is a Radarr fork and uses
+# exportarr's radarr mode.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -135,12 +135,12 @@ spec:
         resources: *resources
       - name: whisparr
         image: ghcr.io/onedr0p/exportarr:v2.3.0
-        args: [sonarr]
+        args: [radarr]
         env:
         - name: PORT
           value: "9712"
         - name: URL
-          value: http://whisparr.media.svc.${CLUSTER_DOMAIN}:6969
+          value: http://whisparr-v3.media.svc.${CLUSTER_DOMAIN}:6969
         - name: API_KEY
           valueFrom:
             secretKeyRef:

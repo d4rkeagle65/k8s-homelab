@@ -893,7 +893,7 @@ spec:
                     icon: whisparr.png
                     href: https://whisparr.${BASE_DOMAIN}
                     namespace: media
-                    app: whisparr
+                    app: whisparr-v3
             - Upcoming:
                 - Calendar:
                     icon: mdi-calendar-month

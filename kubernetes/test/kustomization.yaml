@@ -13,7 +13,7 @@ resources:
 - ../prod/apps/media/qbittorrent/ks.yaml
 - ../prod/apps/media/lidarr/ks.yaml
 - ../prod/apps/media/seerr/ks.yaml
-- ../prod/apps/media/whisparr/ks.yaml
+- ../prod/apps/media/whisparr-v3/ks.yaml
 - ../prod/apps/media/tdarr/ks.yaml
 patches:
 # Every media Kustomization: deploy into media-test and layer test values on top.
@@ -104,11 +104,11 @@ patches:
 - target:
     group: kustomize.toolkit.fluxcd.io
     kind: Kustomization
-    name: whisparr
+    name: whisparr-v3
   patch: |-
     - op: replace
       path: /metadata/name
-      value: whisparr-test
+      value: whisparr-v3-test
 - target:
     group: kustomize.toolkit.fluxcd.io
     kind: Kustomization

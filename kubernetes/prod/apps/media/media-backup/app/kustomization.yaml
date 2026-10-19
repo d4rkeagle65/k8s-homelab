@@ -9,5 +9,4 @@ resources:
 - scheduledbackup-radarr-db.yaml
 - scheduledbackup-rreading-glasses-db.yaml
 - scheduledbackup-sonarr-db.yaml
-- scheduledbackup-whisparr-db.yaml
 - scheduledbackup-whisparr-v3-db.yaml
