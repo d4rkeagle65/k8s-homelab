@@ -537,8 +537,8 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     """Flux fails a Kustomization on an undefined ${VAR} (strict substitution,
     the default since kustomize-controller v1.9), so every one used under
     kubernetes/ must be a key
-    of cluster-settings (public, in git) or a field of the cluster-secrets
-    ExternalSecret (private, from Vaultwarden). The test overlay's own
+    of cluster-settings (public, in git) or a variable of the cluster-secrets
+    ExternalSecret (private, from Azure Key Vault). The test overlay's own
     variables come from cluster-substitutions-test, and the azure-keyvault
     store's from the bootstrap Secret applied by hand.
     """
@@ -546,11 +546,15 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     test_vars = load_yaml(repo_root / "kubernetes/flux/meta/vars/cluster-substitutions-test.yaml")["data"]
     external = load_yaml(repo_root / "kubernetes/secrets/cluster-secrets.yaml")
     secrets = {d["secretKey"] for d in external["spec"]["data"]}
-    assert not set(settings) & secrets, "a variable is defined both in git and in Vaultwarden"
+    assert not set(settings) & secrets, "a variable is defined both in git and in Key Vault"
+    # One Key Vault secret per variable, named after it with "_" as "-" (Key Vault allows
+    # only letters, digits and "-"), so Dockhand and the cluster read the same names.
+    assert external["spec"]["secretStoreRef"]["name"] == "azure-keyvault"
     for d in external["spec"]["data"]:
-        assert d["remoteRef"]["property"] == d["secretKey"], f"{d['secretKey']}: field name must match the variable"
-    # Variables built from those fields by the target's template. Without Merge, a
-    # template's keys replace every field's, and all the other variables vanish.
+        assert d["remoteRef"] == {"key": d["secretKey"].replace("_", "-")}, \
+            f"{d['secretKey']}: must read the Key Vault secret {d['secretKey'].replace('_', '-')}, nothing else"
+    # Variables built from those by the target's template. Without Merge, a
+    # template's keys replace every variable's, and all the others vanish.
     template = external["spec"]["target"].get("template") or {}
     built = set(template.get("data") or {})
     if built:

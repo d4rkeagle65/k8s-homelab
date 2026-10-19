@@ -65,7 +65,7 @@ next reconcile, which takes the annotation away mid-roll and leaves the restart 
 Apps use the `traefik` IngressClass; `traefik-isolated` has its own address for an isolated
 VLAN (ManicTime only). Apps on the Docker hosts are served through Traefik too, from
 `prod/system/external-services/`: a Service pointing at the app's real address (an EndpointSlice for
-an IP, ExternalName for a hostname, both Vaultwarden fields) and an Ingress. ExternalDNS
+an IP, ExternalName for a hostname, both `cluster-secrets` variables) and an Ingress. ExternalDNS
 (`prod/system/external-dns/`) writes a Pi-hole record for each `traefik`/`traefik-isolated` Ingress
 hostname, and for a name in the `external-dns.kubernetes.io/hostname` annotation on Traefik's
 Service (`smtp-relay`). It's `upsert-only`, so a removed hostname's record is deleted in
@@ -89,12 +89,13 @@ Pi-hole by hand, and hand-made records stay.
   `websecure` entry points (`strip-authentik-headers`). Only the `authentik`
   forward-auth Middleware sets them. babybuddy logs users in from that header,
   so never remove that Middleware or narrow its list.
-- **The `bitwarden-cli` pod must never reach Vaultwarden through Traefik**,
-  or a rebuilt cluster deadlocks: Traefik needs `INGRESS_IP` from
-  `cluster-secrets`, which needs the CLI. The CLI uses
-  `vaultwarden-direct.<domain>` (a hand-made Pi-hole record) and Vaultwarden's
-  own HTTPS. The CLI refuses plain HTTP. The certificate comes from
-  cert-manager; `scripts/vaultwarden-cert-sync.sh` copies it to the host.
+- **A rebuilt cluster needs `azure-keyvault-bootstrap` applied by hand, and the internet,
+  before Traefik:** Traefik needs `INGRESS_IP` from `cluster-secrets`, which External Secrets
+  builds from Azure Key Vault, signing in with that Secret (`QUEUE-azure-keyvault.md`). The
+  `bitwarden-cli` pod, kept until it is retired, reaches Vaultwarden at
+  `vaultwarden-direct.<domain>` (a hand-made Pi-hole record) over Vaultwarden's own HTTPS,
+  never through Traefik; that certificate comes from cert-manager, and
+  `scripts/vaultwarden-cert-sync.sh` copies it to the host.
 
 ## Authentik and cluster DNS
 
@@ -103,7 +104,7 @@ Apps made before Dockhand's were made in Authentik's UI and live only in its dat
 - **New Authentik apps are blueprints, and their client secrets are not.** A blueprint goes
   in the `authentik-blueprints` ConfigMap (`prod/services/authentik/authentik-extras/app/`), which the
   worker mounts and reapplies, reverting UI edits. Its client secret is a Secret in
-  `authentik-extras` (a base64 Vaultwarden field, as for every promoted Secret), passed to the
+  `authentik-extras` (a base64 `cluster-secrets` variable, as for every promoted Secret), passed to the
   worker as an env var (`worker.env`, without the `AUTHENTIK_` prefix, which Authentik reads as
   its own settings) and read with `!Env`. A blueprint reading a new variable fails its first
   apply and isn't retried: re-apply it once the restarted worker is up.

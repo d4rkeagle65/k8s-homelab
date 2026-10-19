@@ -12,7 +12,7 @@ When `main` moves, Flux calls each stack's webhook in Dockhand
 (`kubernetes/prod/system/external-services/dockhand-webhooks/`), and Dockhand redeploys the
 stacks whose folder changed. `claude-code` has none: it redeploys on a weekly schedule, since
 a redeploy restarts the session running in it. A new stack gets its webhook turned on in
-Dockhand (its secret is the Vaultwarden field `DOCKHAND_WEBHOOK_SECRET`) and a Provider and Alert in that folder. A service
+Dockhand (its secret is the `cluster-secrets` variable `DOCKHAND_WEBHOOK_SECRET`) and a Provider and Alert in that folder. A service
 built here (`build:`) carries `pull_policy: build` and a `local` tag, or a redeploy tries to pull it.
 A stack whose compose file uses variables has a `.env` naming each one, blank, for Dockhand's
 **Populate** (`tests/test-docker-stacks.py`); the values are set in Dockhand, marked secret.
