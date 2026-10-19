@@ -104,15 +104,18 @@ references).
       External Secrets' calls now `GetSecret` on Azure Key Vault, its `bitwarden-cli` request
       count flat; `scripts/keyvault_copy.py`'s dry run "141 already the same"
 - [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first
-- [ ] Tooling: `scripts/vaultwarden-fields.ps1` against Key Vault (from the cutover it no
-      longer works on `cluster-secrets`: it reads the Vaultwarden item ID from the live
-      ExternalSecret, which then names Key Vault secrets); capture's "aren't in Vaultwarden
-      yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`);
+- [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
+      `vaultwarden-fields.ps1`) is tested only against a mock vault and a fake kubectl, so its
+      first run against the real vault and cluster is its check: the listing's `Synced` all
+      `yes` for the 141 mapped variables, and one set read back; capture's "aren't in
+      Vaultwarden yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`);
       and `scripts/keyvault_copy.py`'s `request()`, which turns only an HTTP error into an
       answer: a dropped connection or timeout (once, 2026-10-19) ends in a traceback, and in an
       `--apply` run skips the read-back report, so it should stop cleanly as a `Stop` does
 - [ ] An alert on an ExternalSecret that stops syncing (`externalsecret_status_condition`)
-- [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired
+- [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired,
+      with `scripts/vaultwarden-fields.ps1` and its format file (it reads the Vaultwarden item
+      ID from the live ExternalSecret, which now names Key Vault secrets, so it no longer works)
 
 ## Resuming
 
