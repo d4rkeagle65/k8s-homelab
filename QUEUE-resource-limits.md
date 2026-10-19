@@ -190,18 +190,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
       are the import (5401Mi peak in the 6Gi limit set for it, p95 992m at the 1000m cap,
       throttled in 26% of periods) against requests of 1376Mi and 30m. Sized once the import is
       done, or now with a limit above 6Gi (3Gi was OOM-killed within 30 seconds of each start)
-- [ ] The owner: `primaryUpdateMethod: switchover` on the Clusters? A change then costs a
-      switchover of a few seconds rather than the primary's smart shutdown: on 2026-10-18 the
-      re-measure's restarts took Authentik down for about 3.5 minutes (22:47-22:51 UTC), its
-      primary restarted twice (its Cluster's limit, then its `ObjectStore`'s sidecar). Its
-      HelmRelease stalled on the upgrade that timed out meanwhile (`RetriesExceeded`); `flux
-      reconcile helmrelease authentik -n authentik --force` clears it, its pods already current.
-      Nothing chose `restart`: it's CloudNativePG's default, which the four `.promote` Clusters
-      (Authentik, Baby Buddy, Immich, ManicTime) spell out only because capture writes the live
-      spec; the twelve hand-written ones leave it unset. Switchovers already work here
-      (`ansible/tasks/cnpg-free-node.yml` makes one per primary before draining a node).
-      rreading-glasses-db has one instance, so it restarts in place either way. The lesser
-      alternative is a shorter `smartShutdownTimeout` (180s on every Cluster)
+- [x] `primaryUpdateMethod: switchover` on every Cluster with a replica (the owner, 2026-10-18),
+      after the re-measure's in-place restarts took Authentik down for about 3.5 minutes: all 15
+      (`kubernetes/CLAUDE.md`; `test_replicated_databases_switch_over` holds new ones to it).
+      rreading-glasses-db has one instance and restarts in place either way
 - [ ] The owner: whether the 1000m CPU cap rises. It was set when two of three workers had 2
       cores; the four workers now have 3, 4, 4 and 6 (the control planes 2). At the cap and
       throttled on 2026-10-18: democratic-csi's drivers 66-79% of periods, Renovate 47%,
