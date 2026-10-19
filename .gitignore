@@ -6,6 +6,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code's git worktrees: each is a separate checkout of its own branch,
+# never part of the checkout that holds it.
+/.claude/worktrees/
+
 # Python bytecode / test cache from scripts/ and scripts/tests/
 __pycache__/
 *.pyc
