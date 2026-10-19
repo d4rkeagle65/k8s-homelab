@@ -30,6 +30,12 @@ spec:
     remediation:
       retries: 3
   values:
+    # A ServiceMonitor and metrics Service each for the controller, the webhook
+    # and the cert controller. The controller's
+    # externalsecret_provider_api_calls_count counts every read from a secret
+    # store: one per ExternalSecret data entry per refresh.
+    serviceMonitor:
+      enabled: true
     # Requests and limits by QUEUE-resource-limits.md's rules; the webhook's
     # CPU request above them (its 95th percentile is 0), since every apply of
     # an ExternalSecret waits on it.
