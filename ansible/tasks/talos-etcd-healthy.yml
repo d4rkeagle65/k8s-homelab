@@ -1,0 +1,72 @@
+# etcd is whole and caught up: talosctl's etcd status from every control plane
+# (talos_cp_addresses) answers, no member is a learner or reports an error, all agree on one
+# leader that is one of them, and every member's applied raft index is within etcd_lag_max
+# (default 1000) of the highest. The table is read by its header's columns, so a talosctl that
+# adds a column still parses, and a column it needs that's missing is a problem, never a pass.
+# With etcd_wait set it keeps asking for up to 10 minutes, for after a control plane's reboot.
+# talosctl_cmd from talosctl-local.yml.
+
+- name: Read etcd's status on every control plane
+  ansible.builtin.command: >-
+    {{ talosctl_cmd }} --nodes {{ talos_cp_addresses | join(',') }}
+    --endpoints {{ talos_cp_addresses | join(',') }} etcd status
+  register: etcd_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  until: etcd_problems | length == 0 or not (etcd_wait | default(false))
+  retries: "{{ 60 if etcd_wait | default(false) else 0 }}"
+  delay: 10
+  vars:
+    etcd_problems: &etcd_problems >-
+      {% set lines = etcd_status.stdout_lines | default([]) | reject('match', '^\s*$') | list %}{%
+      set p = [] %}{%
+      if lines | length == 0 %}{%
+        set _ = p.append('talosctl etcd status gave no table (exit ' ~ etcd_status.rc | default('?') ~ ')') %}{%
+      else %}{%
+        set header = lines[0] %}{%
+        set names = header | trim | regex_replace('\s{2,}', '\t') | split('\t') %}{%
+        set ns = namespace(pos=0, starts=[]) %}{%
+        for n in names %}{% set i = header.find(n, ns.pos) %}{%
+          set ns.starts = ns.starts + [i] %}{% set ns.pos = i + n | length %}{%
+        endfor %}{%
+        set rows = [] %}{%
+        for l in lines[1:] %}{% set r = {} %}{%
+          for n in names %}{%
+            set a = ns.starts[loop.index0] %}{%
+            set b = ns.starts[loop.index0 + 1] if not loop.last else l | length %}{%
+            set _ = r.update({n: l[a:b] | trim}) %}{%
+          endfor %}{% set _ = rows.append(r) %}{%
+        endfor %}{%
+        for c in ['NODE', 'MEMBER', 'LEADER', 'RAFT APPLIED INDEX', 'LEARNER'] if c not in names %}{%
+          set _ = p.append('talosctl etcd status has no ' ~ c ~ ' column') %}{%
+        endfor %}{%
+        if p | length == 0 %}{%
+          for a in talos_cp_addresses if a not in rows | map(attribute='NODE') | list %}{%
+            set _ = p.append(a ~ ' did not answer') %}{%
+          endfor %}{%
+          for r in rows if r['LEARNER'] != 'false' %}{% set _ = p.append(r['NODE'] ~ ' is a learner') %}{% endfor %}{%
+          for r in rows if r['ERRORS'] | default('') | length > 0 %}{%
+            set _ = p.append(r['NODE'] ~ ': ' ~ r['ERRORS']) %}{%
+          endfor %}{%
+          set leaders = rows | map(attribute='LEADER') | unique | list %}{%
+          if leaders | length != 1 or leaders[0] not in rows | map(attribute='MEMBER') | list %}{%
+            set _ = p.append('no one leader among the members (' ~ leaders | join(', ') ~ ')') %}{%
+          endif %}{%
+          set idx = rows | map(attribute='RAFT APPLIED INDEX') | map('int') | list %}{%
+          if idx and (idx | max) - (idx | min) > etcd_lag_max | default(1000) | int %}{%
+            set _ = p.append('a member is behind (applied indexes ' ~ idx | join(', ') ~ ')') %}{%
+          endif %}{%
+        endif %}{%
+      endif %}{{ p }}
+
+- name: etcd is whole and caught up
+  ansible.builtin.assert:
+    that: etcd_problems | length == 0
+    fail_msg: >-
+      etcd: {{ etcd_problems | join('; ') }}.
+      {{ etcd_status.stderr | default('') | trim | truncate(300) }}
+    success_msg: >-
+      etcd whole: {{ talos_cp_addresses | length }} members answering, one leader, caught up.
+  vars:
+    etcd_problems: *etcd_problems
