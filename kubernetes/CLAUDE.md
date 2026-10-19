@@ -35,8 +35,13 @@ with the live one; `old-queues/QUEUE-restore-tests.md` has the method. A change 
 spec restarts its instances, and so, separately, does a change to its `ObjectStore`'s
 `instanceSidecarConfiguration`. A Cluster with a replica sets `primaryUpdateMethod: switchover`
 (a test holds every one to it): the replica restarts first, then takes over as primary, a few
-seconds without a writable database. A one-instance Cluster restarts in place, and its apps
-lose the database for its smart shutdown, up to `smartShutdownTimeout` (180s).
+seconds without a writable database, though the whole restart takes one to six minutes and an
+app that exits when its database goes (Authentik, Linkwarden) restarts with it. A one-instance
+Cluster restarts in place, and its apps lose the database for its smart shutdown, up to
+`smartShutdownTimeout` (180s). To restart one by hand, do what `kubectl cnpg restart` does,
+`kubectl annotate` the Cluster's `kubectl.kubernetes.io/restartedAt`, but with
+`--field-manager` set to a name of your own: Flux strips fields kubectl's managers set at its
+next reconcile, which takes the annotation away mid-roll and leaves the restart half done.
 
 - **Create the `ObjectStore` before a Cluster that names it, and prove archiving with
   `pg_stat_archiver`.** A Cluster applied first stays stuck at "Pre-reconcile hook stopped the
