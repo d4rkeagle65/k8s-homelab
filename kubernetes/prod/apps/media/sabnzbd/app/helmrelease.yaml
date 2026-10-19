@@ -100,7 +100,11 @@ spec:
         existingClaim: sabnzbd-config
         globalMounts:
           - path: /config
+      # Only the nzbget folder of the media share, at the path it had
+      # (QUEUE-media-isolation.md): its incomplete and complete folders and
+      # every category's folder.
       synmedia:
         existingClaim: synmedia-nfs
         globalMounts:
-          - path: /synmedia
+          - path: /synmedia/nzbget
+            subPath: nzbget
