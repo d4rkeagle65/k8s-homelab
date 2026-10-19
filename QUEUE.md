@@ -38,8 +38,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
   progress go with it. Its folder watching (`watch: true` in `sync/grimmory.yaml`) sees only
   changes made from its own pod, since the share is NFS, so it catches up at the nightly
-  `SYNC_LIBRARY_FILES` task. Until it's handled, a Bookshelf rename pass is followed by
-  re-running the metadata copy from Bookshelf and re-shelving.
+  `SYNC_LIBRARY_FILES` task. On 2026-10-19 titles, authors and series were copied from
+  Bookshelf into Grimmory and locked by a one-off script, not kept; after a Bookshelf rename
+  pass the moved books lose that and need it again (Grimmory's metadata API, `PUT
+  /books/{id}/metadata?replaceMode=REPLACE_WHEN_PROVIDED`), and re-shelving.
 - **The control planes are short of memory** (found 2026-10-18): each has 4096Mi
   (`tofu/proxmox/netbox-guests.json`, `talos_nodes`), and since 2026-10-14 their available
   memory (`node_memory_MemAvailable_bytes`) has fallen to 6%, 9% and 14% at its lowest; the
