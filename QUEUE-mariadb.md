@@ -18,20 +18,18 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
   operator's recommended kind) on a schedule with `maxRetention`. Metrics through the
   operator's mysqld-exporter and its ServiceMonitor, which replace Grimmory's own exporter.
 - **Youtarr waits for this**, rather than getting a MariaDB of its own first and moving later.
+- **Topology** (the owner, 2026-10-19): Grimmory on asynchronous replication, 3 instances
+  (failover, and point-in-time recovery from binlogs archived to Garage, which needs that
+  topology); Youtarr on one instance with nightly physical backups (its media can be fetched
+  again). About +1 GiB of memory in all with the operator (measured 2026-10-19: Grimmory's
+  MariaDB peaks at 230 MiB; the workers had 12 GiB unrequested).
+- **MariaDB 11.8** for Grimmory's move (what it runs now, an LTS); 12.x later as its own update.
 
-## To decide (each with a recommendation)
+## To decide
 
-1. **Topology.** Point-in-time recovery (binlogs archived to Garage, since 26.3.0) works
-   only with asynchronous replication: a primary and at least 2 replicas, failover by
-   `primary.autoFailover`. A single instance gets nightly physical backups only.
-   Recommendation: replication with 3 instances for Grimmory, matching what its Postgres
-   peers get from CloudNativePG (failover and PITR), if the workers' `local-db` space and
-   memory allow; else a single instance and nightly backups, which is what it has today.
-2. **MariaDB version.** Grimmory runs 11.8.9 (an LTS); the operator's default is 12.3.
-   Recommendation: 11.8 for the move, so it changes one thing; 12.x later as its own update.
-3. **Garage bucket and key.** Recommendation: a bucket of its own (`mariadb-backups`) and a
-   key with access to it only; the owner makes them and adds the key's two fields to
-   Vaultwarden, mapped by a pull request of their own.
+- **Garage bucket and key:** a bucket of its own (`mariadb-backups`) and a key with access to
+  it only; the owner makes them and adds the key's two values as Azure Key Vault secrets
+  (`cluster-secrets`, root `CLAUDE.md`), mapped by a pull request of their own.
 
 ## Rules
 
@@ -47,8 +45,9 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
 
 ## Where things live
 
-- `kubernetes/prod/system/mariadb-operator/` (to make): the CRDs and operator HelmReleases,
-  their OCI sources (`kubernetes/flux/meta/`, with the other chart sources).
+- `kubernetes/prod/services/mariadb-system/mariadb-operator/` (beside CloudNativePG's
+  `cnpg-system`): the CRDs and operator HelmReleases; their chart source is the OCI
+  HelmRepository `kubernetes/flux/meta/repositories/mariadb-operator.yaml`.
 - Each app's `MariaDB`, `Database`, `User`, `Grant` and `PhysicalBackup` in its own folder,
   beside its release (Grimmory's: `prod/apps/grimmory/grimmory/app/`).
 - Today's Grimmory database: the `mariadb` controller and `exporter` in its HelmRelease,
@@ -57,10 +56,12 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
 
 ## Checklist
 
-- [ ] Decisions 1 to 3 (the owner)
-- [ ] Garage bucket and key; their Vaultwarden fields mapped in `cluster-secrets`
-- [ ] The operator: CRDs and operator charts pinned, resource limits, its ServiceMonitor;
-      Renovate holds major versions for approval, as for CloudNativePG
+- [ ] Garage bucket and key (the owner); their Key Vault secrets mapped in `cluster-secrets`
+- [ ] The operator (PR, 2026-10-19): `prod/services/mariadb-system/mariadb-operator/`, the
+      CRDs and operator charts at 26.10.1 from an OCI HelmRepository (the CRDs release never
+      pruned), `clusterName` set to the cluster's domain, resource limits, metrics and its
+      ServiceMonitors; Renovate holds their major versions for approval. Left: the merge,
+      then the CRDs, the three Deployments and the webhook read back
 - [ ] A trial MariaDB in a test namespace: a physical backup to Garage, a new instance
       bootstrapped from it (`bootstrapFrom`), its tables compared; with replication, a
       point-in-time restore too; then the trial deleted
