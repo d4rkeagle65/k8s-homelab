@@ -39,8 +39,8 @@ share's own top level) is reachable from it.
 | Bookshelf | media/books, torrents/books, nzbget/books | live and checked (2026-10-19) |
 | Sonarr | media/tv, media/youtube, torrents/tv-sonarr, nzbget/tv | live and checked (2026-10-19) |
 | Radarr | media/movies, torrents/radarr, nzbget/movies | live and checked (2026-10-19) |
-| Lidarr | media/music, torrents/lidarr, nzbget/music | PR (2026-10-19) |
-| Whisparr | media/xxx, torrents/xxx, nzbget/xxx | |
+| Lidarr | media/music, torrents/lidarr, nzbget/music | live and checked (2026-10-19) |
+| Whisparr | media/xxx, torrents/xxx, nzbget/xxx | PR (2026-10-19), v2; v3 takes the same mounts |
 | qBittorrent | torrents | |
 | SABnzbd | nzbget | |
 | Tdarr | media/tv, media/movies | last: it writes into the library |
