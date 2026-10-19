@@ -84,10 +84,12 @@ rotated key is one paste into Vaultwarden.
       live (v3-3.1.0.2116, `whisparr3` hostname, v2's folders; WAL archiving proven), its
       nightly backup completing, Configarr owning its root folders and both download clients
       (qBittorrent by the Web UI login, since this build's client takes no API key; both test
-      OK), Prowlarr syncing its indexers into it; health clean. Next: the library added (v2
-      holds 4 sites, none monitored, one file each under `media/xxx/scenes/`; v3 imports a
-      file only against a scene it already lists, so each is looked up and added first), its
-      quality captured, v2 retired
+      OK), Prowlarr syncing its indexers into it; health clean. One root folder,
+      `/synmedia/media/xxx` (v3's folder formats start with `scenes/` or `movies/`). The library
+      is in: v2's 4 files went through v3's `import/` folder (Scenes > Import Scenes) and are 4
+      scenes in v3's layout. Its 7 quality profiles captured (PR; language isn't Configarr's for
+      Whisparr). Next: v2 retired (Prowlarr's link to it, its release, its database a day
+      later), then v3 onto the `whisparr` hostname
 - [ ] Outside Configarr, each its own decision: Bookshelf's metadata source (`/api/v1/config/
       development`), qBittorrent's preferences and categories, SABnzbd's categories and folders,
       Seerr's links to Radarr and Sonarr (`settings.json`)
