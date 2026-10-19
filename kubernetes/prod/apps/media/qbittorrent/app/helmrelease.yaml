@@ -98,7 +98,10 @@ spec:
         existingClaim: qbittorrent-config
         globalMounts:
           - path: /config
+      # Only the torrents folder of the media share, at the path it had
+      # (QUEUE-media-isolation.md): every category's save path and the temp path.
       synmedia:
         existingClaim: synmedia-nfs
         globalMounts:
-          - path: /synmedia
+          - path: /synmedia/torrents
+            subPath: torrents
