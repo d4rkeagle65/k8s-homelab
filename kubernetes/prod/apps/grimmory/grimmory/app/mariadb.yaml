@@ -19,6 +19,18 @@ spec:
     enabled: true
     primary:
       autoFailover: true
+    # A replica that can't follow the primary is rebuilt by the operator from a
+    # physical backup of a ready replica (grimmory-db-recovery, below) once it has
+    # reported the error for five minutes. Error 1236 is the one to expect: an
+    # instance offline while another was promoted comes back asking for a position
+    # the new primary's binary log doesn't hold (no instance logs what it
+    # replicates). The same source seeds any replica added later.
+    replica:
+      bootstrapFrom:
+        physicalBackupTemplateRef: {name: grimmory-db-recovery}
+      recovery:
+        enabled: true
+        errorDurationThreshold: 5m
   # innodb_snapshot_isolation off (11.8's default is on): with it on, an update
   # of rows another transaction changed since this one's snapshot fails
   # ("Record has changed since last read"), and Grimmory's library scans write
@@ -96,6 +108,37 @@ spec:
     s3:
       bucket: mariadb-backups
       prefix: grimmory
+      endpoint: ${MARIADB_BACKUP_S3_HOST}
+      region: garage
+      accessKeyIdSecretKeyRef: {name: mariadb-backup-s3, key: access-key-id}
+      secretAccessKeySecretKeyRef: {name: mariadb-backup-s3, key: secret-access-key}
+      tls:
+        enabled: false
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 1000m, memory: 512Mi}
+---
+# The template the operator rebuilds or adds a replica from (the MariaDB's
+# replica.bootstrapFrom): never scheduled itself; each use makes a PhysicalBackup
+# from it, taken from a ready replica (the primary if there's none), without
+# waiting for the MariaDB to be Ready, since a broken replica is what keeps it
+# from being. Its own prefix keeps these apart from the nightly backups.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PhysicalBackup
+metadata:
+  name: grimmory-db-recovery
+spec:
+  mariaDbRef: {name: grimmory-db, waitForIt: false}
+  schedule:
+    suspend: true
+  target: PreferReplica
+  maxRetention: 336h
+  compression: gzip
+  timeout: 1h
+  storage:
+    s3:
+      bucket: mariadb-backups
+      prefix: grimmory-recovery
       endpoint: ${MARIADB_BACKUP_S3_HOST}
       region: garage
       accessKeyIdSecretKeyRef: {name: mariadb-backup-s3, key: access-key-id}
