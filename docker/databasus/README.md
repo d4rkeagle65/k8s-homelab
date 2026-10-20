@@ -34,21 +34,20 @@ file is the record of what's set there.
    in both stacks is fine) on the **semaphore** and **kea** stacks and redeploy them. Each
    `databasus-role-init` log ends `databasus role: login true, reads all data true`.
 3. **The folder:** `install -d -m 700 /opt/databasus` as root on the host.
-4. **The networks:** `docker network ls` on the host. `SEMAPHORE_NETWORK`, `KEA_NETWORK` and
-   `NETBOX_NETWORK` are those stacks' networks (the ones their `*-postgres` containers are on: `docker
-   inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' kea-postgres`).
+4. **The secret provider:** bind the Key Vault as the stack's secret provider in Dockhand,
+   with its selector empty. `.env` holds the references.
 
-## Variables (the stack's environment in Dockhand)
+The compose file joins the semaphore, kea and netbox stacks' default networks
+(`semaphore_default` and so on), where their `*-postgres` containers are.
+
+## Variables (Key Vault, referenced from `.env`)
 
 | Variable | Value |
 |---|---|
-| `DATABASUS_BIND_ADDRESS` | the host's management address |
-| `DATABASUS_URL` | `https://databasus.<domain>` |
-| `SEMAPHORE_NETWORK` | the semaphore stack's network |
-| `KEA_NETWORK` | the kea stack's network |
-| `NETBOX_NETWORK` | the netbox stack's network |
+| `DOCKER_VM_1_MGMT_ADDRESS` | the host's management address |
+| `BASE_DOMAIN` | the domain: its links use `https://databasus.<domain>` |
 | `DATABASUS_AGENT_ID` | the verification agent's ID (below) |
-| `DATABASUS_AGENT_TOKEN` | secret: its token (below) |
+| `DATABASUS_AGENT_TOKEN` | its token (below) |
 
 ## In the web UI, after the first deploy
 
@@ -78,7 +77,7 @@ note in `compose.yaml`).
 
 1. In the UI, **Settings → Verification agents → Create verification agent** (e.g.
    `docker-vm`). The dialog shows its **ID** and its **token**, once: put them in
-   `DATABASUS_AGENT_ID` and `DATABASUS_AGENT_TOKEN` (secret), keep a copy of the token in
+   Key Vault's `DATABASUS-AGENT-ID` and `DATABASUS-AGENT-TOKEN`, keep a copy of the token in
    Vaultwarden, and redeploy. Ignore the dialog's install commands; the stack runs the agent.
 2. The agent shows as online in that list within a minute. Its log:
    `docker logs databasus-verification-agent`.
@@ -86,8 +85,8 @@ note in `compose.yaml`).
    on a schedule such as weekly, with the email notifier for failures.
 4. Queue one check on each now and read the report: every table with its row count.
 
-A lost token is replaced with **Rotate token** on the agent's row, then the new one in
-Dockhand.
+A lost token is replaced with **Rotate token** on the agent's row, then the new one in Key
+Vault's `DATABASUS-AGENT-TOKEN` and a redeploy.
 
 ## Updating
 
