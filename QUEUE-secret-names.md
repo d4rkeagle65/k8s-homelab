@@ -260,11 +260,15 @@ against today's value by hash.
       `docker/CLAUDE.md`). Read back 2026-10-20: Kea's API port 8000 open on the management
       address and refused on the production one, as before the move; the primary sees it in
       hot-standby, in touch, heard from 4 s before. tailscale third, with the `.env` of
-      references every moved stack now has (cadvisor's and kea-standby's too; branch
-      `tailscale-standard-names`): `TAILSCALE_AUTH_KEY`, `_TAGS`, `_HOSTNAME`, `_ROUTES`.
-      Before: its container running since 2026-10-16 17:35Z; the values are the same, so a
-      redeploy whose references resolve leaves it running, and a changed start time means
-      one didn't
+      references every moved stack now has (cadvisor's and kea-standby's too; #150):
+      `TAILSCALE_AUTH_KEY`, `_TAGS`, `_HOSTNAME`, `_ROUTES`. Read back 2026-10-20: the owner
+      sees it up; the redeploy after the merge recreated it at 16:49Z (same image), its four
+      Key Vault values are Dockhand's by hash, and it hasn't restarted since, as an unresolved
+      `TS_ROUTES` would make it; cadvisor not recreated, its target `up`. A new start time
+      alone doesn't mean a reference failed: Dockhand also recreates on a forced redeploy
+      (Recreate all, the stack's always-redeploy setting, a retry after a failed deploy).
+      Left: on the host, `docker inspect tailscale --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -c azurekv`
+      gives 0 when every reference resolved
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -296,8 +300,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - cadvisor's `CADVISOR_ADDRESS`: now `DOCKER_VM_1_MGMT_ADDRESS` (#140)
 - kea-standby's `KEA_API_ADDRESS` and `KEA_DHCP_ADDRESS`: now `DOCKER_VM_2_MGMT_ADDRESS` and
   `DOCKER_VM_2_PROD_ADDRESS` (#146)
-- tailscale's `TS_AUTHKEY`, `TS_TAGS`, `TS_HOSTNAME` and `TS_ROUTES`: now `TAILSCALE_*`, once
-  its move reads back
+- tailscale's `TS_AUTHKEY`, `TS_TAGS`, `TS_HOSTNAME` and `TS_ROUTES`: now `TAILSCALE_*` (#150)
 - cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's two references, set by hand in
   Dockhand: their `.env`s carry the same references now
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
