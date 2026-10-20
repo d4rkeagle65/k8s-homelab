@@ -60,10 +60,26 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
       pruned), `clusterName` the cluster's domain. Read back: 12 CRDs, the operator, webhook
       and cert-controller ready, the webhook registered, all three scraped. Memory at start:
       84, 60 and 16 MiB (the cert-controller over its 32Mi request: raise it when tuning)
-- [ ] A trial MariaDB in a test namespace: a physical backup to Garage, a new instance
-      bootstrapped from it (`bootstrapFrom`), its tables compared; with replication, a
-      point-in-time restore too; then the trial deleted
-- [ ] Grimmory: its new `MariaDB` beside the old StatefulSet, loaded from a `mariadb-dump`
+- [x] A trial (2026-10-20, namespace `mariadb-trial`, applied by hand and deleted after): a
+      3-instance replicated MariaDB 11.8.9 on `local-db`, one per worker; replicas matched the
+      primary's row counts and checksums, and a switchover lost nothing. A `PhysicalBackup` to
+      `mariadb-backups` completed, and a new instance bootstrapped from it (`bootstrapFrom.
+      backupRef`) matched exactly: counts, `CHECKSUM TABLE`, the foreign key; it took writes.
+      **Point-in-time recovery didn't work:** the agent logged "Starting binary log
+      archiver" and archived nothing, with no `status.pointInTimeRecovery`, no event and no
+      operator log line, both when added to a running MariaDB and when configured from its
+      creation (base backup present, empty prefix, binlogs flushed). Its objects, namespace and
+      released PVs were removed; the PVs' folders may remain on the workers (`local-db`
+      retains; QUEUE.md's entry on retired databases' files)
+- [ ] Decide (the owner): Grimmory without point-in-time recovery for now, as (a) replicated,
+      3 instances (failover; nightly physical backups) or (b) one instance (nightly physical
+      backups, what it has today in effect); then retry PITR on the next operator release.
+      Recommendation: (a)
+- [ ] `MARIADB_BACKUP_S3_HOST`: `storage.s3.endpoint` takes `host:port` without a scheme, and
+      `CNPG_BACKUP_S3_ENDPOINT` has one (`http://`), which Flux can't strip; the owner adds the
+      Key Vault secret, mapped by a pull request of its own
+- [ ] Grimmory (its namespace enforces Pod Security `restricted`? MariaDB's pods don't meet it
+      by default: set their security context): its new `MariaDB` beside the old StatefulSet, loaded from a `mariadb-dump`
       while Grimmory is stopped, row counts compared; Grimmory pointed at it; a backup and
       restore proven; the old StatefulSet, exporter, dump CronJob and its NAS folder retired
       a day later; `QUEUE-restore-tests`'s Grimmory method updated where it's recorded
