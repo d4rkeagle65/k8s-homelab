@@ -147,7 +147,12 @@ against today's value by hash.
       at 14:12Z, port 9338 published on the management address (the owner, from its ports
       line), Prometheus's `docker-vm` target `up`; its leftovers are on the delete list below.
       A variable compose interpolates (as in `ports:`) never reaches the container's environment, so
-      `printenv` inside it shows neither name; the ports line is the check
+      `printenv` inside it shows neither name; the ports line is the check. kea-standby next:
+      its compose file reads `DOCKER_VM_2_PROD_ADDRESS` and `DOCKER_VM_2_MGMT_ADDRESS` (branch
+      `kea-standby-standard-names`). It has no webhook (a Hawser stack on the second VM), so
+      the owner sets both references, merges, then redeploys it in Dockhand. Before: Kea's API
+      port 8000 open on the VM's management address and refused on its production one, which
+      the same probe after the redeploy must show again
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
@@ -170,6 +175,8 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 **Dockhand stack variables:**
 
 - cadvisor's `CADVISOR_ADDRESS`: now `DOCKER_VM_1_MGMT_ADDRESS` (#140)
+- kea-standby's `KEA_API_ADDRESS` and `KEA_DHCP_ADDRESS`: now `DOCKER_VM_2_MGMT_ADDRESS` and
+  `DOCKER_VM_2_PROD_ADDRESS`, once its move reads back
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming

@@ -9,9 +9,10 @@
 # primary's stack by itself.
 #
 # Variables (set in the stack's environment in Dockhand):
-#   KEA_DHCP_ADDRESS   the VM's address the firewall relays DHCP to
-#   KEA_API_ADDRESS    the VM's management address: Kea's API (8000), which
-#                      the HA peers talk through
+#   DOCKER_VM_2_PROD_ADDRESS   the VM's address the firewall relays DHCP to
+#   DOCKER_VM_2_MGMT_ADDRESS   the VM's management address: Kea's API (8000),
+#                              which the HA peers talk through
+# Both from Key Vault (azurekv://DOCKER-VM-2-PROD-ADDRESS, -MGMT-ADDRESS).
 services:
   # Fetches the pair's Kea configuration from git, then exits.
   kea-config:
@@ -42,8 +43,8 @@ services:
         condition: service_completed_successfully
     command: ["/usr/sbin/kea-dhcp4", "-c", "/etc/kea/conf/kea-dhcp4.conf"]
     ports:
-    - ${KEA_DHCP_ADDRESS}:67:67/udp
-    - ${KEA_API_ADDRESS}:8000:8000
+    - ${DOCKER_VM_2_PROD_ADDRESS}:67:67/udp
+    - ${DOCKER_VM_2_MGMT_ADDRESS}:8000:8000
     - 127.0.0.1:8000:8000
     volumes:
     - kea-config:/etc/kea/conf:ro
