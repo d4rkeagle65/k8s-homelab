@@ -60,7 +60,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 | Phase 1 live | the owner in the `Grafana Admins` group (made by the blueprint) | after the merge |
 | Phase 2 | a Garage bucket `loki-logs` and its key (`LOKI_S3_ACCESS_KEY_ID`, `LOKI_S3_SECRET_ACCESS_KEY`) | present (2026-10-10) |
 | Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | present (2026-10-10) |
-| Phase 5 | where alerts go (email through the relay, n8n, or both) | a decision |
+| Phase 5 | where alerts go | Zammad tickets through `zammad-bridge` (the owner, 2026-10-20; Alertmanager already routes warning and critical there) |
 | Phase 9 | a read-only Garage key `backup-monitor` (read on `cnpg-backups` and `docker-backups`) as `BACKUP_MONITOR_S3_ACCESS_KEY_ID` and `BACKUP_MONITOR_S3_SECRET_ACCESS_KEY` | asked 2026-10-18 |
 | Phase 9 | how the Synology copies to the TerraMaster (Hyper Backup, rsync, Snapshot Replication, or a pull), its folder there, and whether a Proxmox host or SSH reaches it | asked 2026-10-18 |
 
@@ -189,8 +189,18 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [x] Phase 6 (in phase 1)
 - [ ] Phase 7
 - [ ] Phase 8
-- [ ] Phase 9: the dashboard's CloudNativePG section and the Proxmox collector need nothing
-      from the owner; the Garage exporter waits on its key, the Synology copy on its answer
+- [ ] Phase 9 (the owner, 2026-10-20: this phase first). In PR: the Backups dashboard
+      (Grafana, Homelab folder, `json/homelab/backups.json`) and the `homelab.backups` alerts:
+      Postgres from the Barman Cloud plugin's metrics (CloudNativePG's own backup timestamps
+      stay empty with the plugin), through recording rules `cnpg:backup_last_available_timestamp:max`,
+      `cnpg:backup_last_failed_timestamp:max` and `cnpg:archiver_seconds_since_last_archival:min`
+      (the dashboard needs no `label_replace`, whose `$1` Flux and Grafana would each read);
+      MariaDB from kube-state-metrics' custom-resource view of each `PhysicalBackup`
+      (`mariadb_physicalbackup_last_schedule_timestamp`, `_complete`), since the operator
+      exports none. Every query tested against the live Prometheus; the retired `whisparr-db`
+      already shows red (26.7 h). Left: the merge and its read-back; then the Proxmox
+      collector (Ansible, applies by the owner), the Garage exporter (its key) and the
+      Synology copy (its answer)
 
 ## Resuming
 

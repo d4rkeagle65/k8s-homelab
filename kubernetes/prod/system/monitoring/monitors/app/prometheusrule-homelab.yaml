@@ -192,3 +192,83 @@ spec:
           Its community is a hand edit to /etc/snmp/snmpd.conf that TOS can rewrite
           (an update, a reboot, saving SNMP in its UI): check line 33
           (QUEUE-monitoring.md).
+  # Every database's backup (QUEUE-monitoring.md, phase 9; the Backups dashboard):
+  # a night is missed after 26 hours. Postgres from the Barman Cloud plugin's
+  # metrics (CloudNativePG's own backup timestamps stay empty with the plugin);
+  # MariaDB from kube-state-metrics' view of each PhysicalBackup.
+  - name: homelab.backups
+    rules:
+    # Each Postgres cluster's newest good and failed base backup, its instances'
+    # pod names less their ordinal; the alerts below and the Backups dashboard
+    # read these.
+    - record: cnpg:backup_last_available_timestamp:max
+      expr: |
+        max by (namespace, cluster) (label_replace(
+          barman_cloud_cloudnative_pg_io_last_available_backup_timestamp > 0,
+          "cluster", "$${1}", "pod", "(.*)-[0-9]+"))
+    - record: cnpg:backup_last_failed_timestamp:max
+      expr: |
+        max by (namespace, cluster) (label_replace(
+          barman_cloud_cloudnative_pg_io_last_failed_backup_timestamp > 0,
+          "cluster", "$${1}", "pod", "(.*)-[0-9]+"))
+    # Seconds since the cluster last archived WAL (its primary archives; the
+    # smallest across its instances).
+    - record: cnpg:archiver_seconds_since_last_archival:min
+      expr: |
+        min by (namespace, cluster) (label_replace(
+          cnpg_pg_stat_archiver_seconds_since_last_archival,
+          "cluster", "$${1}", "pod", "(.*)-[0-9]+"))
+    - alert: PostgresBackupTooOld
+      expr: time() - cnpg:backup_last_available_timestamp:max > 26 * 3600
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: A Postgres database's newest base backup is over 26 hours old.
+        description: >-
+          {{ $labels.namespace }}/{{ $labels.cluster }}: newest backup
+          {{ $value | humanizeDuration }} ago. Its ScheduledBackup is in
+          media-backup/ or beside the Cluster; a retired cluster's alert stops when
+          it's deleted.
+    - alert: PostgresBackupFailed
+      expr: |
+        cnpg:backup_last_failed_timestamp:max
+          > on (namespace, cluster) cnpg:backup_last_available_timestamp:max
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: A Postgres database's newest backup attempt failed.
+        description: >-
+          {{ $labels.namespace }}/{{ $labels.cluster }}: its last failed backup is newer
+          than its last good one; read the Backup objects in its namespace.
+    - alert: PostgresWALArchivingFailing
+      expr: increase(cnpg_pg_stat_archiver_failed_count[1h]) > 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: A Postgres database is failing to archive WAL to Garage.
+        description: >-
+          {{ $labels.namespace }}/{{ $labels.pod }}: WAL archiving failed in the last
+          hour, so its point-in-time recovery has a gap; read its pod's plugin sidecar log.
+    - alert: MariaDBBackupTooOld
+      expr: (time() - mariadb_physicalbackup_last_schedule_timestamp) > 26 * 3600
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: A MariaDB database's newest physical backup is over 26 hours old.
+        description: >-
+          {{ $labels.exported_namespace }}/{{ $labels.mariadb }} (PhysicalBackup
+          {{ $labels.name }}): newest backup started {{ $value | humanizeDuration }} ago.
+    - alert: MariaDBBackupNotComplete
+      expr: mariadb_physicalbackup_complete == 0
+      for: 2h
+      labels:
+        severity: warning
+      annotations:
+        summary: A MariaDB database's newest physical backup hasn't completed.
+        description: >-
+          {{ $labels.exported_namespace }}/{{ $labels.mariadb }} (PhysicalBackup
+          {{ $labels.name }}): two hours without completing; read its Job's log.

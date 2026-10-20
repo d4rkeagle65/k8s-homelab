@@ -283,11 +283,49 @@ spec:
           verbs:
           - list
           - watch
+        # mariadb-operator's PhysicalBackups, for the Backups dashboard and alerts
+        # (QUEUE-monitoring.md, phase 9): the operator exports no backup metrics.
+        - apiGroups:
+          - k8s.mariadb.com
+          resources:
+          - physicalbackups
+          verbs:
+          - list
+          - watch
       customResourceState:
         enabled: true
         config:
           spec:
             resources:
+            # Each MariaDB PhysicalBackup's last start and whether it completed
+            # (mariadb_physicalbackup_*): the Backups dashboard and the
+            # homelab.backups alerts.
+            - groupVersionKind:
+                group: k8s.mariadb.com
+                version: v1alpha1
+                kind: PhysicalBackup
+              metricNamePrefix: mariadb
+              metrics:
+              - name: physicalbackup_last_schedule_timestamp
+                help: When the PhysicalBackup's newest backup started, in Unix seconds.
+                labelsFromPath:
+                  exported_namespace: [metadata, namespace]
+                  name: [metadata, name]
+                  mariadb: [spec, mariaDbRef, name]
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, lastScheduleTime]
+              - name: physicalbackup_complete
+                help: 1 when the PhysicalBackup's newest backup completed.
+                labelsFromPath:
+                  exported_namespace: [metadata, namespace]
+                  name: [metadata, name]
+                  mariadb: [spec, mariaDbRef, name]
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, conditions, "[type=Complete]", status]
             - groupVersionKind:
                 group: kustomize.toolkit.fluxcd.io
                 version: v1
