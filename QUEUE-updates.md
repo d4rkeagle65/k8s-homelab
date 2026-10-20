@@ -110,8 +110,12 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       at a worker with no room to drain; the worker on H4 went to 16 GiB for it (the owner
       moved guests to free its host; rebooted by `talos-reboot.yml`, tasks 942 and 945), and
       read live after, every node's pods fit elsewhere (the tightest, the first worker: 13.2 GiB
-      to move, 14.8 free). Next: the check run again, then for real, then the OpenTofu job.
-      The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
+      to move, 14.8 free). The real runs (tasks 951 and 955) upgraded the three control planes
+      (etcd 3.7.2 on each), then stopped at the first worker after its install: talosctl's own
+      drain can't run on a worker, now `--drain=false` (`tasks/talos-node-upgrade.yml`). That
+      worker holds v1.14.4 on its disk and runs v1.14.2 until it reboots; it was uncordoned
+      by hand, and its database replicas came back. Next: that fix merged, the run again for
+      the four workers, then the OpenTofu job. The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
       should update only the seven nodes' machine configs (the install image) and the other
       Talos VMs' `import_from`, which the provider records without re-importing a disk
       ("Never re-import existing disks", its v0.116.0 `disk.go`). The Talos VMs have
