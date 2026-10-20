@@ -215,11 +215,13 @@ against today's value by hash.
       check; `scripts/keyvault_copy.py` (#154), which also leaves a value rewritten plain
       before its template is live (reported `plain`), beyond what the Rules asked. Retiring
       the copy instead is the owner's call
-- [ ] The hold (Rules' "The switch", step 1), merged just before the pilot
+- [ ] The hold (Rules' "The switch", step 1), merged just before the pilot: #161, open.
+      Then read it back as step 1 says
 - [ ] The batches, each one pull request, in this order. 45 variables are held base64, and
       every one is listed here. They are ordered by what a wrong value would do, mildest first:
   - [ ] Pilot: `MEALIE_OIDC_CLIENT_ID` alone. A wrong value only fails Mealie's SSO login,
-        and nothing writes it anywhere
+        and nothing writes it anywhere. #162, a draft until the owner's rewrite (its
+        description has the sequence and commands)
   - [ ] 1 (12), each read only by its own app: `MEALIE_OIDC_CLIENT_SECRET`; babybuddy MCP's
         `BABYBUDDY_MCP_SECRETS_*` (4); Immich power tools' `IMMICH_POWER_TOOLS_APIKEY_*` (4;
         `_IMMICH_APIKEY` is Homepage's too); `NOIP_DUC_CREDENTIALS_*` (2);
