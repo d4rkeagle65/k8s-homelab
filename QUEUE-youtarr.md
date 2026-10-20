@@ -65,8 +65,10 @@ mirrored into Emby, Emby's watched status read back for cleanup) and has a web U
       removed
 - [x] Read back (2026-10-20): `youtarr-db` ready, its first backup complete, Youtarr healthy as
       the media user with its 21 tables; the owner added the channel and it downloaded
-- [ ] Emby: a library on `media/youtube` (the owner), Emby's URL and key in Youtarr's settings
-- [ ] Homepage and Organizr tiles
+- [x] Emby: a library on `media/youtube`, and Emby's address and key in Youtarr (the owner,
+      2026-10-20)
+- [ ] (PR) Homepage's tile (Library, beside Whisparr) and Organizr's tab (Downloads, framed:
+      Youtarr sends no frame-blocking headers). Left: the merge, then both read back
 
 ## Resuming
 
