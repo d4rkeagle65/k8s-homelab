@@ -7,6 +7,7 @@ resources:
 - configarr/ks.yaml
 - lidarr/ks.yaml
 - media-backup/ks.yaml
+- media-sync/ks.yaml
 - namespace.yaml
 - prowlarr/ks.yaml
 - qbittorrent/ks.yaml

@@ -112,8 +112,11 @@ rotated key is one paste into Vaultwarden.
         `sonarr:8989`, profile 4, anime profile 10, folders `/synmedia/media/tv`, season folders,
         default, sync on; external URLs `https://<app>.${BASE_DOMAIN}`; API keys from the apps'
         Secrets. Seerr's own key: `SEERR_API_KEY` (in `cluster-secrets`).
-      Steps: (1) the Job, report-only, its first run showing no change for all four; (2) apply.
-      Done when the Job applies and reads back all four, and a change planted in each shows
+      Trials (2026-10-20, temporary Jobs against the live apps): report-only showed every
+      section unchanged; with a change planted in each, all seven planted changes showed
+      ("would change"/"would create"); an apply round trip on one qBittorrent preference (3 to
+      4 and back) wrote and read back. In PR, applying. Left: the merge, then its run's log
+      (every section unchanged)
 
 ## Resuming
 

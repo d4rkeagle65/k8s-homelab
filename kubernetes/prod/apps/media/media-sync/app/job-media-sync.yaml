@@ -1,0 +1,72 @@
+# Applies sync/media-sync.yaml to Bookshelf, qBittorrent, SABnzbd and Seerr
+# (sync/media-sync.py; QUEUE-arr-config.md). The ConfigMap's generated name
+# changes with either file, which changes this Job's spec; Flux then replaces
+# the Job (force), so each change runs once.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: media-sync
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: deps
+          image: python:3.14.8-alpine
+          command: [pip, install, --quiet, --no-cache-dir, --target, /deps, pyyaml==6.0.3]
+          env:
+            - {name: HOME, value: /tmp}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: deps, mountPath: /deps}
+      containers:
+        - name: sync
+          image: python:3.14.8-alpine
+          command: [python, /etc/media-sync/media-sync.py]
+          env:
+            - {name: PYTHONPATH, value: /deps}
+            # "true" reports every difference and changes nothing (set it for a
+            # change whose report should be read first).
+            - {name: DRY_RUN, value: "false"}
+            - {name: BOOKSHELF_URL, value: "http://bookshelf:8787"}
+            - {name: QBITTORRENT_URL, value: "http://qbittorrent:8080"}
+            - {name: SABNZBD_URL, value: "http://sabnzbd:8080"}
+            - {name: SEERR_URL, value: "http://seerr:5055"}
+            - {name: RADARR_EXTERNAL_URL, value: "https://radarr.${BASE_DOMAIN}"}
+            - {name: SONARR_EXTERNAL_URL, value: "https://sonarr.${BASE_DOMAIN}"}
+            - name: BOOKSHELF_API_KEY
+              valueFrom: {secretKeyRef: {name: bookshelf, key: api-key}}
+            - name: QBITTORRENT_API_KEY
+              valueFrom: {secretKeyRef: {name: configarr, key: qbittorrent-api-key}}
+            - name: SABNZBD_API_KEY
+              valueFrom: {secretKeyRef: {name: configarr, key: sabnzbd-api-key}}
+            - name: RADARR_API_KEY
+              valueFrom: {secretKeyRef: {name: radarr, key: api-key}}
+            - name: SONARR_API_KEY
+              valueFrom: {secretKeyRef: {name: sonarr, key: api-key}}
+            - name: SEERR_API_KEY
+              valueFrom: {secretKeyRef: {name: media-sync, key: seerr-api-key}}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: deps, mountPath: /deps}
+            - {name: sync, mountPath: /etc/media-sync}
+      volumes:
+        - name: deps
+          emptyDir: {}
+        - name: sync
+          configMap:
+            name: media-sync
