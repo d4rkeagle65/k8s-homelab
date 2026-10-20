@@ -61,7 +61,7 @@ account: the first one administers the instance. Keep its password in Vaultwarde
 - **Databases:** logical backups, user `databasus`. Four PostgreSQL 17 entries:
   `semaphore-postgres:5432` / `semaphore` and `tfstate` with `DATABASUS_SEMAPHORE_DB_PASSWORD`;
   `kea-postgres:5432` / `kea` and `stork` with kea's `DATABASUS_DB_PASSWORD`. One PostgreSQL 18 entry with NetBox's own password
-  (`NETBOX_DATABASUS_DB_PASSWORD`): `netbox-postgres:5432` / `netbox`.
+  (`DATABASUS_NETBOX_DB_PASSWORD`): `netbox-postgres:5432` / `netbox`.
 - **Schedule:** daily at 03:30 UTC, after the cluster's database backups and the 01:00
   Proxmox backup. **Retention:** 30 days.
 - **Notifier:** email through the cluster's SMTP relay, as Vaultwarden sends: host `smtp-relay.<domain>`,

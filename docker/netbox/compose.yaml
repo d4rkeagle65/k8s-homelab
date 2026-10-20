@@ -6,23 +6,23 @@
 # external-services), private networks only. Logins go through Authentik
 # (OIDC, config/sso.py); scripts use API tokens. See README.md.
 #
-# Variables (set in the stack's environment in Dockhand):
-#   NETBOX_BIND_ADDRESS     the host's management address (the web UI, 8085)
-#   NETBOX_HOST             netbox.<domain>, the name it answers to
-#   NETBOX_DB_PASSWORD      secret: the netbox database role's
-#   NETBOX_SECRET_KEY       secret: signs sessions and the like (50+ random characters)
-#   NETBOX_API_TOKEN_PEPPER secret: hashes API tokens (50+ random characters);
+# Variables, from Key Vault (references in .env):
+#   DOCKER_VM_1_MGMT_ADDRESS the host's management address (the web UI, 8085)
+#   BASE_DOMAIN             the domain: netbox.<domain> is the name it answers to,
+#                           auth.<domain> its OIDC provider (Authentik)
+#   NETBOX_DB_PASSWORD      the netbox database role's
+#   NETBOX_SECRET_KEY       signs sessions and the like (50+ random characters)
+#   NETBOX_API_TOKEN_PEPPER hashes API tokens (50+ random characters);
 #                           changing it invalidates every token
-#   OIDC_ENDPOINT           https://auth.<domain>/application/o/netbox/
-#   OIDC_CLIENT_SECRET      secret: the same one Authentik's blueprint reads
-#                           (AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET)
-#   CONFIG_DIFF_USERNAME, CONFIG_DIFF_PASSWORD  secret: the switches' and APs' login,
-#                           for the Config Diff plugin; empty until it's used
-#   KEA_NETWORK             the kea stack's Docker network, as `docker network ls`
-#                           names it: the Kea plugin calls http://kea-dhcp4:8000 on it
-#   DATABASUS_DB_PASSWORD   secret: the databasus role's (read-only, for backups); this
-#                           stack's own, the Vaultwarden field NETBOX_DATABASUS_DB_PASSWORD
-#   TZ                      e.g. America/New_York
+#   AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET  the same one Authentik's blueprint reads
+#   DATABASUS_NETBOX_DB_PASSWORD  the databasus role's (read-only, for backups)
+#   TIMEZONE                e.g. America/New_York
+#   NETBOX_DNS_SYNC_TOKEN, PIHOLE_1_URL, PIHOLE_1_PASSWORD, PIHOLE_2_URL,
+#   PIHOLE_2_PASSWORD       netbox-dns-sync's (below)
+# Empty until the Config Diff plugin is used:
+#   CONFIG_DIFF_USERNAME, CONFIG_DIFF_PASSWORD  the switches' and APs' login
+#
+# The Kea plugin calls http://kea-dhcp4:8000 on the kea stack's network (below).
 x-netbox: &netbox
   image: homelab/netbox:local
   restart: unless-stopped
@@ -41,14 +41,14 @@ x-netbox: &netbox
     API_TOKEN_PEPPER_1: ${NETBOX_API_TOKEN_PEPPER}
     # Space-separated: the public name, and the service's own name, which only
     # this stack's network reaches (netbox-dns-sync calls http://netbox:8080).
-    ALLOWED_HOSTS: ${NETBOX_HOST} netbox
-    CSRF_TRUSTED_ORIGINS: https://${NETBOX_HOST}
+    ALLOWED_HOSTS: netbox.${BASE_DOMAIN} netbox
+    CSRF_TRUSTED_ORIGINS: https://netbox.${BASE_DOMAIN}
     LOGIN_REQUIRED: "true"
-    TIME_ZONE: ${TZ:-UTC}
+    TIME_ZONE: ${TIMEZONE:-UTC}
     SKIP_SUPERUSER: "true"
     GRANIAN_WORKERS: "2"
-    OIDC_ENDPOINT: ${OIDC_ENDPOINT}
-    OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+    OIDC_ENDPOINT: https://auth.${BASE_DOMAIN}/application/o/netbox/
+    OIDC_CLIENT_SECRET: ${AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET}
     CONFIG_DIFF_USERNAME: ${CONFIG_DIFF_USERNAME:-}
     CONFIG_DIFF_PASSWORD: ${CONFIG_DIFF_PASSWORD:-}
   networks: [default, kea]
@@ -108,7 +108,7 @@ services:
       PGUSER: netbox
       PGDATABASE: netbox
       PGPASSWORD: ${NETBOX_DB_PASSWORD}
-      DATABASUS_DB_PASSWORD: ${DATABASUS_DB_PASSWORD}
+      DATABASUS_DB_PASSWORD: ${DATABASUS_NETBOX_DB_PASSWORD}
     command:
     - /bin/sh
     - -c
@@ -150,7 +150,7 @@ services:
       netbox-files-init:
         condition: service_completed_successfully
     ports:
-    - ${NETBOX_BIND_ADDRESS}:8085:8080
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:8085:8080
     # The first start migrates an empty database with every plugin (about 15
     # minutes in testing); the worker waits for healthy, so a shorter grace marks
     # NetBox unhealthy mid-migration and the worker never starts. A passing check
@@ -199,9 +199,9 @@ services:
       PIHOLE_1_PASSWORD: ${PIHOLE_1_PASSWORD}
       PIHOLE_2_URL: ${PIHOLE_2_URL}
       PIHOLE_2_PASSWORD: ${PIHOLE_2_PASSWORD}
-      PIHOLE_TLS_VERIFY: ${PIHOLE_TLS_VERIFY:-true}
-      SYNC_APPLY: ${SYNC_APPLY:-false}
-      SYNC_DELETE: ${SYNC_DELETE:-false}
+      PIHOLE_TLS_VERIFY: "true"
+      SYNC_APPLY: "true"
+      SYNC_DELETE: "false"
     command: [--every, "60", --health, /tmp/healthy]
     # Healthy while a round has finished cleanly in the last five minutes.
     healthcheck:
@@ -211,7 +211,8 @@ services:
       interval: 60s
 
 networks:
-  # Kea's control API (the Kea plugin), on the kea stack's network.
+  # Kea's control API (the Kea plugin), on the kea stack's default network,
+  # which Docker names <stack>_default.
   kea:
     external: true
-    name: ${KEA_NETWORK:?set KEA_NETWORK on this stack in Dockhand}
+    name: kea_default
