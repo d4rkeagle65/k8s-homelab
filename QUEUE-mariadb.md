@@ -71,18 +71,24 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
       creation (base backup present, empty prefix, binlogs flushed). Its objects, namespace and
       released PVs were removed; the PVs' folders may remain on the workers (`local-db`
       retains; QUEUE.md's entry on retired databases' files)
-- [ ] Decide (the owner): Grimmory without point-in-time recovery for now, as (a) replicated,
-      3 instances (failover; nightly physical backups) or (b) one instance (nightly physical
-      backups, what it has today in effect); then retry PITR on the next operator release.
-      Recommendation: (a)
-- [ ] `MARIADB_BACKUP_S3_HOST`: `storage.s3.endpoint` takes `host:port` without a scheme, and
-      `CNPG_BACKUP_S3_ENDPOINT` has one (`http://`), which Flux can't strip; the owner adds the
-      Key Vault secret, mapped by a pull request of its own
-- [ ] Grimmory (its namespace enforces Pod Security `restricted`? MariaDB's pods don't meet it
-      by default: set their security context): its new `MariaDB` beside the old StatefulSet, loaded from a `mariadb-dump`
-      while Grimmory is stopped, row counts compared; Grimmory pointed at it; a backup and
-      restore proven; the old StatefulSet, exporter, dump CronJob and its NAS folder retired
-      a day later; `QUEUE-restore-tests`'s Grimmory method updated where it's recorded
+- [x] Grimmory without point-in-time recovery for now (the owner, 2026-10-20: option a):
+      replicated, 3 instances (failover; nightly physical backups); PITR retried on a later
+      operator release
+- [x] `MARIADB_BACKUP_S3_HOST` (2026-10-20): Garage's address as `host:port`, since
+      `storage.s3.endpoint` takes no scheme and `CNPG_BACKUP_S3_ENDPOINT` has one. Read back:
+      equal to the endpoint without its scheme
+- [ ] Grimmory, in steps:
+      1. (PR, 2026-10-20) `grimmory-db` beside the old `grimmory-mariadb` StatefulSet
+         (`app/mariadb.yaml`): 3 instances of 11.8.9 on `local-db` (5Gi), its `myCnf` keeping
+         `innodb_snapshot_isolation=OFF`, its `Database`, `User` and `Grant` as the old one's
+         (cleanupPolicy Skip), and a nightly `PhysicalBackup` to `mariadb-backups/grimmory`
+         (14 days). Grimmory's Kustomization waits for `mariadb-operator`. Left: the merge, then the instances, grants, the first
+         backup and a restore from it read back
+      2. The move: Grimmory's release suspended and scaled to 0, a `mariadb-dump` of the old
+         database loaded into `grimmory-db-primary`, every table's row count compared; a PR
+         points `DATABASE_URL` at `grimmory-db-primary` and resumes it
+      3. A day later: the old StatefulSet, its exporter and ServiceMonitor, the dump CronJob and
+         its PVC removed, and the NAS dump folder; the old data PVC's PV deleted once released
 - [ ] Youtarr: its own `MariaDB`, then its release (its own QUEUE file if it grows)
 
 ## Resuming

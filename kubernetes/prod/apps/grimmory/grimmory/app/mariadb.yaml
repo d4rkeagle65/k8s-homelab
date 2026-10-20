@@ -1,0 +1,104 @@
+# Grimmory's database on mariadb-operator (QUEUE-mariadb.md), beside the
+# hand-built grimmory-mariadb StatefulSet until Grimmory is moved onto it:
+# three instances replicating, the primary failing over by itself, behind the
+# grimmory-db-primary Service. Its root and grimmory logins are grimmory-db's,
+# so Grimmory's password doesn't change.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: grimmory-db
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  image: docker.io/library/mariadb:11.8.9
+  rootPasswordSecretKeyRef:
+    name: grimmory-db
+    key: root-password
+  replicas: 3
+  replication:
+    enabled: true
+    primary:
+      autoFailover: true
+  # innodb_snapshot_isolation off (11.8's default is on): with it on, an update
+  # of rows another transaction changed since this one's snapshot fails
+  # ("Record has changed since last read"), and Grimmory's library scans write
+  # beside the web app without retrying.
+  myCnf: |
+    [mariadb]
+    innodb_snapshot_isolation=OFF
+  storage:
+    size: 5Gi
+    storageClassName: local-db
+  # Scheduled before ordinary pods when nodes are short (cluster-policy).
+  priorityClassName: homelab-critical
+  resources:
+    requests: {cpu: 30m, memory: 224Mi}
+    limits: {cpu: 1000m, memory: 768Mi}
+  # The operator's mysqld-exporter and ServiceMonitor.
+  metrics:
+    enabled: true
+---
+# The database, login and grants as the StatefulSet's are; Skip keeps the real
+# database and user if a resource here is deleted.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: grimmory
+spec:
+  mariaDbRef: {name: grimmory-db}
+  characterSet: utf8mb4
+  collate: utf8mb4_uca1400_ai_ci
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: grimmory
+spec:
+  mariaDbRef: {name: grimmory-db}
+  host: "%"
+  passwordSecretKeyRef:
+    name: grimmory-db
+    key: password
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: grimmory
+spec:
+  mariaDbRef: {name: grimmory-db}
+  username: grimmory
+  host: "%"
+  database: grimmory
+  table: "*"
+  privileges: [ALL PRIVILEGES]
+  cleanupPolicy: Skip
+---
+# A physical backup every night to Garage (mariadb-backups/grimmory), taken from
+# a replica, kept 14 days as the dumps were. A restore is a new MariaDB with
+# bootstrapFrom.backupRef naming this (QUEUE-mariadb.md, the trial).
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PhysicalBackup
+metadata:
+  name: grimmory-db
+spec:
+  mariaDbRef: {name: grimmory-db}
+  schedule:
+    cron: "40 3 * * *"
+    immediate: true
+  maxRetention: 336h
+  compression: gzip
+  storage:
+    s3:
+      bucket: mariadb-backups
+      prefix: grimmory
+      endpoint: ${MARIADB_BACKUP_S3_HOST}
+      region: garage
+      accessKeyIdSecretKeyRef: {name: mariadb-backup-s3, key: access-key-id}
+      secretAccessKeySecretKeyRef: {name: mariadb-backup-s3, key: secret-access-key}
+      tls:
+        enabled: false
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 1000m, memory: 512Mi}

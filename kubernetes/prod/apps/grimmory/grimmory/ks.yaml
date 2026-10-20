@@ -17,7 +17,9 @@ spec:
     kind: GitRepository
     name: flux-system
   targetNamespace: grimmory
-  dependsOn: []
+  # Its MariaDB is mariadb-operator's.
+  dependsOn:
+  - name: mariadb-operator
   postBuild:
     substituteFrom:
     - kind: ConfigMap
