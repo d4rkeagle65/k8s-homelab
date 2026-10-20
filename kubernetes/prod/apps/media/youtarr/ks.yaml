@@ -1,0 +1,30 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: youtarr
+  namespace: flux-system
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: media
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 10m
+  path: ./kubernetes/prod/apps/media/youtarr/app
+  prune: true
+  targetNamespace: media
+  # Its MariaDB is mariadb-operator's.
+  dependsOn:
+  - name: mariadb-operator
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  postBuild:
+    substituteFrom:
+    - kind: ConfigMap
+      name: cluster-settings
+      optional: true
+    - kind: Secret
+      name: cluster-secrets
+      optional: true
