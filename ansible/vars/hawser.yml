@@ -1,0 +1,5 @@
+# Dockhand's Hawser agent, the same on every host that runs it (docker-host.yml,
+# synology-baseline.yml): the image, and the port Dockhand connects to.
+
+hawser_image: ghcr.io/finsys/hawser:0.2.50
+hawser_port: 2376

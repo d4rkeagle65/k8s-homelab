@@ -17,6 +17,7 @@ and addresses), the SSH key, and the Kubernetes token.
 | `baseline.yml` | The same baseline on every Debian host at once, from the "All Debian Hosts" inventory: the admin login (`admin-users.yml`'s steps), Semaphore's shared key for root, the packages in `vars/baseline.yml` (installed when missing, never removed or upgraded), and one interactive bash setup (`files/homelab-bashrc`). Check mode reports each part. |
 | `admin-users.yml` | The admin login alone, on every host of the inventory it runs against (`baseline.yml` runs the same steps, `tasks/admin-user.yml`): the account `admin_user` with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. |
 | `docker-host.yml` | Makes one Debian 13 VM (`docker_host_target`) a Docker host like the first: Docker CE at the first host's version from Docker's repository, held, `daemon.json` with the local log driver and live-restore on; then Dockhand's Hawser agent when the run's environment has `HAWSER_TOKEN`. Each step read back. |
+| `synology-baseline.yml` | The Synology's own baseline (DSM, not Debian): Docker as Synology's package (Container Manager from DSM 7.2, Docker before it) installed from Synology's server and started, read back from the daemon; then Dockhand's Hawser agent as `docker-host.yml` runs it (image and port from `vars/hawser.yml`), its stacks on the data volume, when the run's environment has `HAWSER_TOKEN`. Only `raw`: DSM has no Python to rely on. Check mode reports each part. |
 | `kea-ha.yml` | Kea's HA pair's host files (`QUEUE-kea-ha.md`): the primary's site file and API login copied to the standby, and on both the peers' password file and `ha.json` (which one this is, both peers' API addresses from NetBox); then Kea's own config test of `docker/kea/kea-dhcp4.conf` against them. Restarts nothing. Survey: `kea_primary`, `kea_standby` (target Variable). |
 | `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
 | `openwrt-aps.yml` | Prometheus's exporter on the OpenWrt access points (OpenWrt's `prometheus-node-exporter-lua` with its Wi-Fi collectors), listening on one interface's address, then read back from there. Only `raw`, since OpenWrt has no Python. Check mode reports the missing packages and the listening interface. |
@@ -301,6 +302,21 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
   router accepting both sources on those ports from the zone the traffic arrives in.
 - **Template** with the inventory and the repository; nothing else. The access points need
   their package feeds (the internet) for the first run.
+
+## The Synology (`synology-baseline.yml`)
+
+- **Group.** The NetBox inventory's `synology` group: the NetBox tag `synology` on the
+  Synology, beside its `ansible` and `nas` tags (`nas` also holds the TerraMaster, which runs
+  TOS). The login is the host's `ansible_user` in its local config context, an
+  administrator with passwordless sudo (`/etc/sudoers.d/<user>`, made by hand); a DSM update
+  can remove that file, and the first step then stops and says so.
+- **Template** "Synology: baseline", the NetBox inventory, and an environment with
+  `HAWSER_TOKEN` as a secret: a token you choose, the same one typed into Dockhand's
+  environment for the Synology (Settings > Environments, Hawser, Standard, the Synology's
+  address and port 2376). Without it, the run installs Docker and leaves Hawser alone.
+- **First run a dry run**: it reports DSM's version, whether Docker's package is installed
+  and answering, and what Hawser would change.
+- **DSM's firewall**, if on, has to let the Docker VM reach port 2376.
 
 ## One command on chosen hosts (`run-command.yml`)
 
