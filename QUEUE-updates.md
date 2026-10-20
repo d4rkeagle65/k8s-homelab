@@ -106,9 +106,15 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       rest of 1.14.3 touches nothing here: its QEMU GSO fix is in talosctl's local QEMU
       provisioner, not the OS; no PTP devices; nothing calls `talosctl time --check` as
       `os:reader`. The Image Factory serves the schematic's installer and nocloud image at
-      v1.14.4. After the merge, Semaphore's node-upgrade template (`ansible/talos-upgrade.yml`;
-      "App: Upgrade Talos" is the Kubernetes one, `talos-k8s-upgrade.yml`) in check mode, then
-      for real, then
+      v1.14.4. Merged 2026-10-20. Its check run ("Node: Upgrade Talos", task 930) passed the
+      three control planes and stopped at the first worker's capacity check: 12.6 GiB of memory
+      requests to move, 9.8 GiB free elsewhere. Read live the same morning, a second worker
+      fails it too (11.6 to 10.0) and the other two pass; the workers request about twice the
+      memory they use (the first: 17.1 GiB requested, 8.6 in use). So the control planes can go
+      now (`talos_nodes_only`),
+      and the workers either after `QUEUE-resource-limits.md`'s recheck lowers requests, or with
+      `reboot_allow_pending: true`, where the higher tiers preempt `homelab-low` pods and the
+      media apps wait for the node. Then
       the OpenTofu job, whose plan should replace only `proxmox_download_file.talos_nocloud`
       (its file name carries the version) and update the install image in place. The Talos
       VMs' disks import from that file and the VMs have `prevent_destroy`, so a plan that wants

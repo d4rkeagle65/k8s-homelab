@@ -157,6 +157,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the host, skipped by Renovate). Say instead what makes Dockhand rebuild after a Dockerfile
   change, once that's read on the host. Left, a version bump merged by Renovate may never
   reach the running image, and the README points at an edit that shouldn't be made.
+- **`talos_nodes_only` given as a string matches by substring** (`ansible/talos-upgrade.yml`,
+  `n.metadata.name in talos_nodes_only`): the workers' common name prefix selects every worker. Split a string on
+  commas and spaces into exact names, as `talos-reboot.yml` does with `reboot_vms`. Left, a
+  partial name upgrades more nodes than meant (each still checked and drained first).
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 - **Restore-test the PostgreSQL 18 clusters' backups.** Their base backups read `DONE` in Garage
