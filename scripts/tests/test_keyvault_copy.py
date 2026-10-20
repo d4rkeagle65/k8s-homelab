@@ -26,15 +26,26 @@ def load():
     return module
 
 
-def external_secret(variables, ready="True"):
-    return {"spec": {"data": [{"secretKey": v, "remoteRef": {"key": "item", "property": v}} for v in variables]},
-            "status": {"conditions": [{"type": "Ready", "status": ready, "reason": "SecretSynced"}]}}
+def external_secret(variables, ready="True", template=None):
+    spec = {"data": [{"secretKey": v, "remoteRef": {"key": "item", "property": v}} for v in variables]}
+    if template:
+        spec["target"] = {"name": "cluster-secrets", "template": {"mergePolicy": "Merge", "data": template}}
+    return {"spec": spec, "status": {"conditions": [{"type": "Ready", "status": ready, "reason": "SecretSynced"}]}}
+
+
+def b64(text):
+    return base64.b64encode(text.encode()).decode()
 
 
 def secret(values, extra=None):
-    data = {k: base64.b64encode(v.encode()).decode() for k, v in values.items()}
+    data = {k: b64(v) for k, v in values.items()}
     data.update(extra or {})
     return {"data": data}
+
+
+# Child1 encoded by the template, so Key Vault holds it plain and the Secret its base64.
+ENCODED = {"Child1": "{{ .Child1 | b64enc }}"}
+ENCODED_VALUES = {**VALUES, "Child1": b64(VALUES["Child1"])}
 
 
 class FakeVault:
@@ -131,6 +142,27 @@ def test_values_refuse_a_value_that_isnt_text():
         m.source_values(external_secret(["K"]), {"data": {"K": base64.b64encode(b"\xff\xfe").decode()}})
 
 
+def test_values_decode_once_more_a_variable_the_template_b64encs():
+    assert m.source_values(external_secret(VALUES, template=ENCODED), secret(ENCODED_VALUES)) == VALUES
+
+
+def test_values_take_a_template_key_built_from_other_variables_as_no_change():
+    built = {"BUILT_BY_TEMPLATE": "x {{ .Child1 | b64enc }}"}
+    got = m.source_values(external_secret(VALUES, template=built), secret(VALUES, {"BUILT_BY_TEMPLATE": "eA=="}))
+    assert got == VALUES
+
+
+@pytest.mark.parametrize("form", ["{{ .Child1 }}", "{{.Child1 | b64enc}}", "{{ .INGRESS_IP | b64enc }}"])
+def test_values_refuse_a_template_of_a_variables_name_in_another_form(form):
+    with pytest.raises(m.Stop, match="Child1: the template builds it other than as"):
+        m.source_values(external_secret(VALUES, template={"Child1": form}), secret(ENCODED_VALUES))
+
+
+def test_values_refuse_a_b64enc_variable_whose_secret_value_isnt_base64():
+    with pytest.raises(m.Stop, match="Child1: the template b64encs it, but"):
+        m.source_values(external_secret(VALUES, template=ENCODED), secret(VALUES))
+
+
 def test_dry_run_reports_and_writes_nothing(run):
     vault = FakeVault(held={"Child1": VALUES["Child1"], "INGRESS-IP": "something else"})
     code, text, _ = run(["--vault", "kv-test-01"], vault, external_secret(VALUES), secret(VALUES))
@@ -146,6 +178,34 @@ def test_apply_writes_only_what_differs_and_reads_every_name_back(run):
     assert sorted(vault.puts) == ["INGRESS-IP", "MEDIA-SONARR-HOST"]
     assert vault.held == {"MEDIA-SONARR-HOST": VALUES["MEDIA_SONARR_HOST"], "Child1": VALUES["Child1"],
                           "INGRESS-IP": VALUES["INGRESS_IP"]}
+    assert "read back: 3 of 3 match" in text
+
+
+def test_apply_writes_a_variable_the_template_b64encs_plain(run):
+    vault = FakeVault(held={"MEDIA-SONARR-HOST": VALUES["MEDIA_SONARR_HOST"], "INGRESS-IP": VALUES["INGRESS_IP"]})
+    code, text, _ = run(["--vault", "kv-test-01", "--apply"], vault, external_secret(VALUES, template=ENCODED),
+                        secret(ENCODED_VALUES))
+    assert code == 0 and vault.puts == ["Child1"] and vault.held["Child1"] == VALUES["Child1"]
+    assert "read back: 3 of 3 match" in text
+
+
+def test_a_variable_the_template_b64encs_held_plain_is_the_same(run):
+    vault = FakeVault(held={"MEDIA-SONARR-HOST": VALUES["MEDIA_SONARR_HOST"], "Child1": VALUES["Child1"],
+                            "INGRESS-IP": VALUES["INGRESS_IP"]})
+    code, text, _ = run(["--vault", "kv-test-01", "--apply"], vault, external_secret(VALUES, template=ENCODED),
+                        secret(ENCODED_VALUES))
+    assert code == 0 and vault.puts == []
+    assert "3 already the same, 0 held plain" in text and "read back: 3 of 3 match" in text
+
+
+def test_a_value_rewritten_plain_before_its_template_is_live_is_reported_and_left(run):
+    # No template yet, so the Secret holds Child1's base64; Key Vault holds it decoded, as
+    # the owner's rewrite leaves it until the batch's pull request merges.
+    vault = FakeVault(held={"Child1": VALUES["Child1"], "INGRESS-IP": VALUES["INGRESS_IP"]})
+    code, text, _ = run(["--vault", "kv-test-01", "--apply"], vault, external_secret(VALUES), secret(ENCODED_VALUES))
+    assert code == 0
+    assert "1 held plain with no template to encode them" in text and "  plain  Child1" in text
+    assert vault.puts == ["MEDIA-SONARR-HOST"] and vault.held["Child1"] == VALUES["Child1"]
     assert "read back: 3 of 3 match" in text
 
 
