@@ -95,12 +95,64 @@ against today's value by hash.
 - **Base64 becomes plain with no refresh in between.** The template run on a value still
   base64 encodes it twice, and a plain value read as base64 can decode without an error into
   a wrong credential, which an app then uses (Authentik's blueprints set client secrets from
-  them). So a value and its template change in the same refresh. The method, to be proved on
-  a test ExternalSecret first (`QUEUE-azure-keyvault.md`'s rule): hold cluster-secrets'
-  refreshes (`refreshPolicy: OnChange`) while the owner rewrites the values, then one pull
-  request adds the templates and restores `Periodic`. Open until then: whether ESO 2.12
-  honours `OnChange`, and whether a template key overrides the data key of the same name
-  under `mergePolicy: Merge` (if not, the plain value comes in under a name of its own).
+  them). So nothing may refresh `cluster-secrets` between the owner's rewrite of a value and
+  its template reaching the cluster. What External Secrets 2.12 does (proved on scratch
+  ExternalSecrets, the checklist has the evidence):
+  - **`refreshPolicy: OnChange` holds**: no periodic refresh, whatever `refreshInterval` says.
+    It refreshes once for each change to the ExternalSecret's generation, labels or
+    annotations (`status.syncedResourceVersion` is the generation and a hash of all of
+    them), and once whenever its Secret's data is edited. A Flux apply that changes nothing
+    does not refresh it, nor does a new `main` revision. `scripts/keyvault-secrets.ps1`'s
+    force-sync refreshes it twice: when its `force-sync` annotation is set, and when Flux
+    strips it (it is `kubectl-annotate`'s) at its next reconcile of `cluster-secrets`.
+  - **A template key overrides the data key of the same name** under `mergePolicy: Merge`,
+    because `template.data` is written last: data `TIMEZONE` and template
+    `TIMEZONE: "{{ .TIMEZONE | b64enc }}"` give base64 of the plain value. So every variable
+    keeps its name.
+  - A variable moving to a new name needs no hold when its new Key Vault secret already
+    holds the plain value: its entry and its template land in one pull request, then the
+    manifests move to it.
+- **The switch: tooling first, then one hold, then batches.** Before the first batch, in
+  pull requests of their own:
+  - `scripts/tests/test_structure.py`'s `test_every_substituted_variable_is_defined` accepts
+    a template key named after its own field when the template is exactly
+    `{{ .NAME | b64enc }}`. Today it refuses a built variable with a field's name, and its
+    sources pattern doesn't read a `|` pipe.
+  - `scripts/keyvault-secrets.ps1` treats a variable the live template encodes as held
+    plain: no encoding on a set, no decoding on `-Get`. Otherwise `-Get` can decode a plain
+    value into a wrong one without an error, and a set writes base64 for the template to
+    encode again.
+  - `scripts/keyvault_copy.py` compares such a variable's decoded value, or it goes: as it
+    stands, its `--apply` writes the Secret's base64 back into Key Vault, which the
+    template then encodes twice.
+
+  Then:
+  1. **The hold**: a pull request sets `refreshPolicy: OnChange` on `cluster-secrets`. Its
+     merge is one refresh, with values unchanged. Read back: `syncedResourceVersion` starts with
+     the new generation, and `refreshTime` stays put for more than 15 minutes. It stays on
+     through every batch. While it is on, a value changed in Key Vault reaches the cluster
+     only through a force-sync or a spec change.
+  2. **Each batch** (a few variables, one app's to start) is a pull request that adds
+     `NAME: "{{ .NAME | b64enc }}"` to the template for each variable, leaving the `data`
+     entries unchanged. It is opened and passes its suite, but is not merged yet.
+  3. **Just before the rewrite**, read: the SHA-256 of every key in the `cluster-secrets`
+     Secret (the fingerprint); no `force-sync` annotation on the ExternalSecret; its
+     `syncedResourceVersion` matching its generation; and no other pull request touching
+     `cluster-secrets.yaml` about to merge (its merge would refresh).
+  4. **The owner rewrites** each variable's Key Vault value from base64 to plain, without a
+     force-sync, read back by hash:
+     `$v = ./scripts/keyvault-secrets.ps1 NAME -Get; ./scripts/keyvault-secrets.ps1 NAME -Value $v -Raw -NoSync`.
+     Afterwards `refreshTime` is unchanged.
+  5. **The owner merges the batch's pull request** at once: its spec change is the one
+     refresh.
+  6. **Read back**: `refreshTime` moved, `SecretSynced` for the new generation, and every key's
+     hash equal to the fingerprint. That proves the Key Vault values are plain, since the
+     template encodes them back to what they were, and that nothing downstream changes. If
+     `refreshTime` moves between 4 and 5, merging the batch's pull request is the repair:
+     then this read-back, and a restart of any app whose Secret Flux rewrote in between.
+
+  The last batch's pull request also restores `refreshPolicy: Periodic`. Read back:
+  `refreshTime` advancing every 15 minutes.
 - **Which names hold equal values goes no further than the decisions above**: no value, and no
   list of logins sharing one, in this public file.
 
@@ -138,12 +190,26 @@ against today's value by hash.
       (a deliberate wrong name, as a control, drifted). Read back 2026-10-20: `SecretSynced`
       for its new spec, none of the seven left and all five there, every Flux object Ready, no
       CNPG instance restarted, Loki's release unchanged. Their old Key Vault secrets are on
-      the delete list below. Left: `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD`, waiting on
-      the base64 switch, as the manifests read them base64
-- [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches. The test is
-      `kubernetes/secrets/keyvault-b64-test.yaml`, two scratch ExternalSecrets on `TIMEZONE`
-      alone, answering Rules' two open questions; it comes out in a pull request of its own
-      once they are answered, and Flux prunes both and their Secrets
+      the delete list below. Left: `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD`, which the
+      manifests read base64. Each needs a `b64enc` template entry, so they wait on the
+      structure test's change. They need no hold if their new Key Vault secrets are plain
+      already (Rules)
+- [x] The base64-to-plain method proved (#147, 2026-10-20) on two scratch ExternalSecrets
+      reading `TIMEZONE` alone, read back as timestamps and hashes only. OnChange:
+      `refreshTime` stayed put for 10 minutes across ten 1m intervals, and the object was
+      not written once, through a no-op Flux reconcile and a new `main` revision. A Periodic 1m
+      control beside it refreshed every minute. Then each of these caused one refresh: a
+      spec patch, Flux putting it back, a `force-sync` annotation, Flux stripping it, and an
+      edit to its Secret's data (it removed the stray key). Afterwards it stayed put again. The
+      override: the Secret's `TIMEZONE` is base64 of `cluster-secrets`' `TIMEZONE`, and it is
+      the only key; the fallback (`TIMEZONE_PLAIN`) gave the same. External Secrets' v2.12.0
+      source agrees (`shouldRefresh`, `GetResourceVersion`, `isSecretValid`, and
+      `ApplyTemplate` writing `template.data` last). Not tried live: a controller restart,
+      which the source shows forces no refresh
+- [ ] The scratch ExternalSecrets out (`kubernetes/secrets/keyvault-b64-test.yaml`), in a
+      pull request of its own; read back: both and their Secrets gone
+- [ ] The switch's three tooling changes (Rules), each a pull request of its own
+- [ ] The hold, then the batches, then `Periodic` back (Rules' "The switch")
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
       as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
