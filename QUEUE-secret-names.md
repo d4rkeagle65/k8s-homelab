@@ -104,7 +104,7 @@ against today's value by hash.
     It refreshes once for each change to the ExternalSecret's generation, labels or
     annotations (`status.syncedResourceVersion` is the generation and a hash of all of
     them), and once whenever its Secret's data is edited. A Flux apply that changes nothing
-    does not refresh it, nor does a new `main` revision. `scripts/keyvault-secrets.ps1`'s
+    does not refresh it, nor does a new `main` revision or a restart of the controller. `scripts/keyvault-secrets.ps1`'s
     force-sync refreshes it twice: when its `force-sync` annotation is set, and when Flux
     strips it (it is `kubectl-annotate`'s) at its next reconcile of `cluster-secrets`.
   - **A template key overrides the data key of the same name** under `mergePolicy: Merge`,
@@ -210,8 +210,9 @@ against today's value by hash.
       override: the Secret's `TIMEZONE` is base64 of `cluster-secrets`' `TIMEZONE`, and it is
       the only key; the fallback (`TIMEZONE_PLAIN`) gave the same. External Secrets' v2.12.0
       source agrees (`shouldRefresh`, `GetResourceVersion`, `isSecretValid`, and
-      `ApplyTemplate` writing `template.data` last). Not tried live: a controller restart,
-      which the source shows forces no refresh. The scratch objects are out (#151). Read back
+      `ApplyTemplate` writing `template.data` last). On `cluster-secrets` itself, a node
+      drain replaced the controller (2026-10-20 18:16Z) and the webhook (18:21Z), and neither
+      refreshed it. The scratch objects are out (#151). Read back
       2026-10-20: both ExternalSecrets and their Secrets gone; `cluster-secrets` untouched
       (its generation unchanged, `SecretSynced`); its Kustomization Ready
 - [ ] The switch's three tooling changes (Rules), each a pull request of its own, all three
@@ -241,13 +242,16 @@ against today's value by hash.
         for generation 67, `SecretSynced`, all 145 keys equal to the fingerprint, and the
         Secret not rewritten. The six Secrets these feed (babybuddy, cert-manager, immich,
         mealie, noip-duc, homepage) were last written days before
-  - [ ] 2 (8), the Authentik OIDC client secrets:
+  - [x] 2 (8), the Authentik OIDC client secrets:
         `AUTHENTIK_{DOCKHAND,GRAFANA,GRIMMORY,HOMEPAGE,NETBOX,ORGANIZR,SEMAPHORE,STORK}_OIDC_CLIENT_SECRET`.
-        Authentik's blueprints write them into Authentik, so a wrong one breaks that app's
-        login until it is put right. NETBOX, SEMAPHORE and STORK are the three Dockhand
-        shares: once they are plain, its stacks can read them, and `dockhand_keyvault_copy.py`
-        stops counting any name as held base64. #173, a draft until the owner's rewrite; all
-        8 read back in their old base64 form, each decoding to text, before it
+        #173, 2026-10-20. Read back by hash only: all 8 in the old base64 form before the
+        rewrite; all 8 plain after it, with no refresh in between. Then one refresh for
+        generation 68, `SecretSynced`, all 145 keys equal to the fingerprint, and the Secret
+        not rewritten. The 12 Secrets these feed (the 8 in `authentik`, plus Grafana's,
+        Grimmory's, Homepage's and Organizr's) were last written days before. NETBOX,
+        SEMAPHORE and STORK are the three Dockhand shares, now plain, so kea's, netbox's and
+        semaphore's stacks can read them by reference (each stack's move), and
+        `dockhand_keyvault_copy.py` should count no name as held base64
   - [ ] 3 (5), the *arr API keys: `MEDIA_{BOOKSHELF,LIDARR,PROWLARR,RADARR,SONARR}_API_KEY`.
         Each app sets its own key from one, and Homepage, exportarr and organizr-sync read it
   - [ ] 4 (8), connections: `CLOUDFLARE_TUNNEL_SECRET_*` (3; the tunnel carries everything the
