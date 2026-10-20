@@ -1,5 +1,15 @@
 {
-  "containers": {},
+  "containers": {
+    "199": {
+      "bridges": [
+        "vmbr7"
+      ],
+      "cores": 1,
+      "disk_gb": 4,
+      "memory": 512,
+      "tags": []
+    }
+  },
   "docker_vms": {
     "107": {
       "bridges": [
