@@ -46,7 +46,7 @@ The owner, 2026-10-19:
 
 | Standard | Cluster today | Dockhand today |
 |---|---|---|
-| `TIMEZONE` | `TIMEZONE` | semaphore's and netbox's `${TZ}` |
+| `TIMEZONE` | `TIMEZONE` | semaphore's and netbox's `TZ` (both compared equal) |
 | `OWNER_EMAIL` | `ACME_EMAIL`, `ORGANIZR_ADMIN_EMAIL`, `ZAMMAD_ADMIN_EMAIL` | vaultwarden's `SMTP_FROM` |
 | `BASE_DOMAIN` | `BASE_DOMAIN` | vaultwarden's `SIGNUPS_DOMAINS_WHITELIST`, as `${BASE_DOMAIN}` |
 | `KEA_DB_PASSWORD` | `KEA_DB_PASSWORD` | kea's `KEA_DB_PASSWORD` |
@@ -55,7 +55,7 @@ The owner, 2026-10-19:
 | `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` | the same (base64) | netbox's `OIDC_CLIENT_SECRET` |
 | `PIHOLE_1_PASSWORD` | `PIHOLE_PASSWORD` (base64) | netbox's `PIHOLE_1_PASSWORD` |
 | `PIHOLE_2_PASSWORD` | `PIHOLE2_PASSWORD` (base64) | netbox's `PIHOLE_2_PASSWORD`; the values differ (owner item 1) |
-| `PIHOLE_1_URL`, `PIHOLE_2_URL` | `PIHOLE_URL`, `PIHOLE2_URL` | netbox's `PIHOLE_1_URL`, `PIHOLE_2_URL`, if equal (owner item 2) |
+| `PIHOLE_1_URL`, `PIHOLE_2_URL` | `PIHOLE_URL`, `PIHOLE2_URL` | netbox's `PIHOLE_1_URL`, `PIHOLE_2_URL` (compared equal) |
 | `GARAGE_S3_ENDPOINT` | `CNPG_BACKUP_S3_ENDPOINT` | vaultwarden's `BACKUP_S3_ENDPOINT` |
 | `CNPG_BACKUP_S3_ACCESS_KEY_ID`, `..._SECRET_ACCESS_KEY`, `GARAGE_METRICS_TOKEN` | the same | garage's, the same names (not compared: owner item 2) |
 | `DOCKER_VM_1_MGMT_ADDRESS` | (Key Vault's `CADVISOR-ADDRESS`, unmapped) | cadvisor's `CADVISOR_ADDRESS`; databasus's, netbox's and semaphore's `*_BIND_ADDRESS`; kea's `KEA_API_ADDRESS` |
@@ -69,13 +69,13 @@ The owner, 2026-10-19:
 
 | Stack | Today | Standard |
 |---|---|---|
-| databasus, netbox, semaphore | `KEA_NETWORK`, `NETBOX_NETWORK`, `SEMAPHORE_NETWORK` | written into the compose files |
+| databasus, kea, netbox, semaphore | `KEA_NETWORK` (one value in all four; kea's compose doesn't read it), `NETBOX_NETWORK`, `SEMAPHORE_NETWORK` | written into the compose files; kea's dropped |
 | kea, netbox, semaphore | `DATABASUS_DB_PASSWORD` (not one value across the three) | `DATABASUS_KEA_DB_PASSWORD`, `DATABASUS_NETBOX_DB_PASSWORD`, `DATABASUS_SEMAPHORE_DB_PASSWORD` |
 | kea | `POSTGRES_PASSWORD` | `KEA_POSTGRES_PASSWORD` |
 | kea | `STORK_OIDC_ISSUER_URL`, `STORK_OIDC_REDIRECT_URI` | built from `${BASE_DOMAIN}` |
 | netbox | `NETBOX_HOST`, `OIDC_ENDPOINT` | built from `${BASE_DOMAIN}` |
 | netbox | `CONFIG_DIFF_USERNAME`, `CONFIG_DIFF_PASSWORD` | `NETBOX_CONFIG_DIFF_USERNAME`, `NETBOX_CONFIG_DIFF_PASSWORD` |
-| netbox | `NETBOX_DNS_SYNC_TOKEN` | `NETBOX_DNS_TOKEN` if the same token (owner item 2), else kept |
+| netbox | `NETBOX_DNS_SYNC_TOKEN` (not the cluster's `NETBOX_DNS_TOKEN`) | kept: it fits `NETBOX_<CONSUMER>_TOKEN` |
 | netbox | `PIHOLE_TLS_VERIFY`, `SYNC_APPLY`, `SYNC_DELETE` | written into the compose file |
 | semaphore | `NETBOX_API`, `SEMAPHORE_OIDC_ISSUER_URL`, `SEMAPHORE_WEB_ROOT` | built from `${BASE_DOMAIN}` |
 | semaphore | `NETBOX_TOKEN` (no cluster token holds it) | `NETBOX_SEMAPHORE_TOKEN` |
@@ -92,15 +92,19 @@ The owner, 2026-10-19:
 1. **Pi-hole 2's password.** The cluster's `PIHOLE2_PASSWORD` works: nebula-sync, which signs
    in to Pi-hole 2 with it, ran 25 syncs and no sign-in error in the 48 hours to 2026-10-19.
    netbox's `PIHOLE_2_PASSWORD` holds a different value (both checked clean: no stray
-   whitespace or newline, so not an encoding difference). Pi-hole 6 takes the web password or
-   an app password, so both may sign in; netbox's Pi-hole sync log says whether its does.
-   Recommendation: `PIHOLE_2_PASSWORD` takes the cluster's value.
-2. **Dockhand variables not marked secret**, which the export (secrets only) left out, so
-   nothing compared them: garage's seven, kea-standby's two, netbox's `CONFIG_DIFF_*`,
-   `NETBOX_DNS_SYNC_TOKEN`, `PIHOLE_1_URL`, `PIHOLE_2_URL` and `TZ`, vaultwarden's
-   `BACKUP_ZIP_PASSWORD`, semaphore's `KEA_NETWORK`. A credential without the mark is stored
-   unencrypted and shown in Dockhand's UI (`docker/CLAUDE.md` says credentials are marked
-   secret): mark them, export again, and the dry run compares them.
+   whitespace or newline, so not an encoding difference). Its one reader is `netbox-dns-sync`
+   (`docker/netbox/dns-sync/`, not a Semaphore script), which calls it an app password and
+   signs in to each Pi-hole every minute; a round that fails leaves the container unhealthy.
+   So its health in Dockhand answers this: healthy, and both sign in, so they are two
+   credentials (the web password and an app password) and get two names; unhealthy, and
+   `PIHOLE_2_PASSWORD` takes the cluster's value.
+2. **Variables still missing from the export.** The owner marked the rest secret and
+   exported again (2026-10-19, 68 variables), but these still aren't secret stack variables
+   in Dockhand's database: garage's seven, kea-standby's two, netbox's `CONFIG_DIFF_USERNAME`
+   and `CONFIG_DIFF_PASSWORD`, vaultwarden's `BACKUP_ZIP_PASSWORD`. The export reads every
+   Dockhand environment, and only `Local` has any; garage runs through Hawser on the NAS and
+   kea-standby on the second Docker VM. Where are their values set? (netbox's
+   `PIHOLE_TLS_VERIFY` and `SYNC_DELETE` are settings, written into the compose file.)
 3. **What vaultwarden's `SMTP_HOST` is** (the cluster's `smtp-relay`, or an outside service):
    its three variables are named for it.
 4. **`Child2` and `MEDIA_WHISPARR_API_KEY`**: nothing in the repo reads either
@@ -133,8 +137,8 @@ The owner, 2026-10-19:
 ## Checklist
 
 - [x] Compared (2026-10-19): Key Vault's 145 secrets and Dockhand's 61 secret stack variables,
-      by hash and base64-decoded where held so, by `scripts/dockhand_keyvault_copy.py`'s dry
-      run; where each is used, from the repo
+      then 68 once more were marked secret, by hash and base64-decoded where held so, by
+      `scripts/dockhand_keyvault_copy.py`'s dry run; where each is used, from the repo
 - [ ] The owner's four items above
 - [ ] `scripts/dockhand_keyvault_copy.py` takes its names from this file's tables, counts a
       secret the cluster already holds with the same value as shared rather than a conflict,
@@ -164,5 +168,8 @@ one thing, and every value in Key Vault is plain.
 
 - **`DATABASUS_DB_PASSWORD` as one secret**: the three stacks' values aren't one value.
 - **semaphore's `NETBOX_TOKEN` as one of the cluster's NetBox tokens**: none holds it.
+- **netbox's `NETBOX_DNS_SYNC_TOKEN` as the cluster's `NETBOX_DNS_TOKEN`**: different tokens.
+- **A Semaphore script reading netbox's Pi-hole passwords**: none; `netbox-dns-sync` is the
+  only reader.
 - **vaultwarden's S3 keys as the CNPG backup keys**: different keys.
 - **Pi-hole 2's difference as an encoding artefact**: both copies are clean; the values differ.
