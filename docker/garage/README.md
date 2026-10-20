@@ -11,39 +11,36 @@ Docker host.
 | `<GARAGE_DIR>/meta/`, `<GARAGE_DIR>/data/` | on the NAS: Garage's metadata and the stored objects |
 
 Docker runs on the NAS, so the stack can't mount a file from this folder: its host paths are
-paths on the NAS. Garage's config is inline instead (`configs:` with `content:`), which Compose
-2.23 and later copies into the container through Docker's API. If the container exits with
-"no config file", Dockhand's Compose is older: put the config in `<GARAGE_DIR>/garage.toml` and
-mount it at `/etc/garage.toml` instead.
+paths on the NAS. Garage's config is inline in `compose.yaml` instead: the `garage-config`
+service writes it into a volume at every deploy, before Garage starts (its header says why).
 
-## Before the first deploy (once, on the NAS over SSH)
+## Before the first deploy (once)
 
-1. **A folder for Garage** on a NAS volume, with `meta/` and `data/` in it, for example
+1. **A folder for Garage** on a NAS volume (over SSH), with `meta/` and `data/` in it, for example
    `/Volume1/garage` (TOS's volume paths). Put `meta/` on an SSD if the NAS has one.
 
    ```sh
    mkdir -p /Volume1/garage/meta /Volume1/garage/data
    ```
 
-2. **Five random values** for the stack's secrets, kept in Vaultwarden:
+2. **Five random values** for the stack's secrets, into Key Vault under the names in the table
+   below (`_` as `-`), with a copy in Vaultwarden:
    - `openssl rand -hex 32`: the RPC secret (must be hex);
    - `openssl rand -base64 32`, twice: the admin and metrics tokens;
    - `echo GK$(openssl rand -hex 16)` and `openssl rand -hex 32`: the backup key's ID and
-     secret. Put these two in the `cluster-secrets` item as `CNPG_BACKUP_S3_ACCESS_KEY_ID` and
-     `CNPG_BACKUP_S3_SECRET_ACCESS_KEY`: the cluster reads them from there, Garage from the
-     stack's variables of the same names.
+     secret. The cluster reads these two from Key Vault too, under the same names.
+3. **The secret provider:** bind the Key Vault as the stack's secret provider in Dockhand,
+   with its selector empty. `.env` holds the references.
 
-## Variables (the stack's environment in Dockhand)
-
-Mark every one **secret**, as for the other stacks; `.env` lists them blank for Populate.
+## Variables (Key Vault, referenced from `.env`)
 
 | Variable | Value |
 |---|---|
-| `GARAGE_BIND_ADDRESS` | the NAS's address the cluster reaches it on (the S3 API, port 3900) |
+| `TERRAMASTER_MGMT_ADDRESS` | the NAS's management address, which the cluster reaches it on (the S3 API, port 3900) |
 | `GARAGE_DIR` | the folder from step 1, e.g. `/Volume1/garage` (holds `meta/` and `data/`) |
-| `GARAGE_RPC_SECRET` | secret: the hex value |
-| `GARAGE_ADMIN_TOKEN`, `GARAGE_METRICS_TOKEN` | secret: the two base64 values |
-| `CNPG_BACKUP_S3_ACCESS_KEY_ID`, `CNPG_BACKUP_S3_SECRET_ACCESS_KEY` | secret: the backup key's ID and secret |
+| `GARAGE_RPC_SECRET` | the hex value |
+| `GARAGE_ADMIN_TOKEN`, `GARAGE_METRICS_TOKEN` | the two base64 values |
+| `CNPG_BACKUP_S3_ACCESS_KEY_ID`, `CNPG_BACKUP_S3_SECRET_ACCESS_KEY` | the backup key's ID and secret |
 
 ## What it sets up by itself
 

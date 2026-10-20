@@ -280,7 +280,13 @@ against today's value by hash.
       these moves) and not restarting since, which the agent would if its URL hadn't resolved;
       port 4005 open on the management address and refused on the production one, as before;
       its URL answers 200 through Traefik. Left: the agent online in Databasus, and the
-      `docker inspect` count above for `databasus databasus-verification-agent`
+      `docker inspect` count above for `databasus databasus-verification-agent`. garage fifth
+      (branch `garage-standard-names`): `TERRAMASTER_MGMT_ADDRESS` for `GARAGE_BIND_ADDRESS`;
+      its other six keep their names, so they go from Dockhand just before its redeploy (by
+      hand: a Hawser stack, no webhook); rendered from its `.env`'s references, its compose
+      file gave exactly the old one's. Before: Prometheus's `garage` target `up`, ports 3900
+      and 3903 open on the NAS's management address and 3901 refused, all 17 CNPG clusters
+      `ContinuousArchiving`
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -318,6 +324,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - databasus's `DATABASUS_BIND_ADDRESS`, `DATABASUS_URL`, `SEMAPHORE_NETWORK`, `KEA_NETWORK`
   and `NETBOX_NETWORK`: now `DOCKER_VM_1_MGMT_ADDRESS`, a URL built from `BASE_DOMAIN`, and
   network names in the compose file (#159)
+- garage's `GARAGE_BIND_ADDRESS`: now `TERRAMASTER_MGMT_ADDRESS`, once its move reads back
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
