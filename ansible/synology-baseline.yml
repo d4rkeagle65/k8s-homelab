@@ -5,7 +5,10 @@
 # DSM's Docker is a package from its Package Center: Container Manager from
 # DSM 7.2, Docker before it (synology_docker_package overrides the choice). It's
 # installed with synopkg from Synology's server, started, and read back from the
-# Docker daemon itself. DSM has no apt, and nothing here needs Python on the
+# Docker daemon itself. DSM 7.1's Docker installs only from Package Center: its
+# pre-install script can't make the `docker` shared folder from synopkg ("failed
+# to create docker share"), so a failed install says to install it there once;
+# the next run finds it and goes on. DSM has no apt, and nothing here needs Python on the
 # NAS: every step is one `raw` script.
 #
 # Inventory: the NetBox one; the `synology` group is the NetBox tag. The login is
@@ -94,7 +97,12 @@
           echo "CHANGE install $pkg from Synology's package server"
           pending=1
           if [ "$dry" = 0 ]; then
-            $synopkg install_from_server "$pkg" || { echo "ERROR synopkg install_from_server $pkg failed"; exit 1; }
+            if ! $synopkg install_from_server "$pkg"; then
+              echo "ERROR synopkg install_from_server $pkg failed; DSM's log says:"
+              grep -F "$pkg" /var/log/messages | grep -v pkg_version | tail -n 3 | sed 's/^/  /'
+              echo "ERROR install $pkg once from Package Center (its wizard makes the package's shared folder, which DSM 7.1's Docker can't do from synopkg), then run this again"
+              exit 1
+            fi
             ver=$(installed)
             [ -n "$ver" ] || { echo "ERROR $pkg isn't installed after install_from_server"; exit 1; }
           fi

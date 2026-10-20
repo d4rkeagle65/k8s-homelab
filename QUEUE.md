@@ -22,11 +22,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   put it in those two fields.
 - **Sonarr: "Ms Rachel (2025)" was removed from TheTVDB** (its health page, 2026-10-19):
   re-point it to the new entry or remove it, or it stays an error and gets no updates.
-- **The Synology's baseline is untried on DSM** (`ansible/synology-baseline.yml`, 2026-10-20):
-  its scripts ran only against stand-ins for `synopkg` and `docker`. The owner makes the
-  template and the Dockhand environment (`ansible/README.md`, "The Synology"), then a dry run:
-  it shows whether `synopkg version` and `install_from_server` answer as the script expects.
-  Its NetBox tag `synology` is on. Left untried, the first real run is the test.
+- **The Synology's Docker needs one install from Package Center** (`ansible/synology-baseline.yml`):
+  it's on DSM 7.1.1, the DS415+'s last, so its package is Docker 20.10.3, whose pre-install
+  script fails from `synopkg` ("failed to create docker share", 2026-10-20). The owner
+  installs Docker there once (volume1), then runs "Synology: baseline" again: it then starts
+  and verifies Docker and sets up Hawser, untried on DSM until that run.
 7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
    `ansible/docker-vm-update.yml`, both off until set (its header says what each does). The
    owner sets `docker_live_restore: true` on "Node: Docker Update" and runs it; then
