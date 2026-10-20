@@ -53,7 +53,7 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
 - [x] Garage bucket `mariadb-backups` and a key Garage created, allowed on it alone (the owner,
       2026-10-20; `docker/garage/README.md`, More buckets); `MARIADB_BACKUP_S3_ACCESS_KEY_ID`
       and `_SECRET_ACCESS_KEY` in Key Vault and `cluster-secrets`, the endpoint
-      `CNPG_BACKUP_S3_ENDPOINT`'s. Read back: the key writes, reads and deletes there and is
+      `GARAGE_S3_ENDPOINT`'s. Read back: the key writes, reads and deletes there and is
       refused on `cnpg-backups`
 - [x] The operator (2026-10-20): `prod/services/mariadb-system/mariadb-operator/`, the CRDs
       and operator charts at 26.10.1 from an OCI HelmRepository (the CRDs release never
@@ -75,7 +75,7 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
       replicated, 3 instances (failover; nightly physical backups); PITR retried on a later
       operator release
 - [x] `MARIADB_BACKUP_S3_HOST` (2026-10-20): Garage's address as `host:port`, since
-      `storage.s3.endpoint` takes no scheme and `CNPG_BACKUP_S3_ENDPOINT` has one. Read back:
+      `storage.s3.endpoint` takes no scheme and `GARAGE_S3_ENDPOINT` has one. Read back:
       equal to the endpoint without its scheme
 - [ ] Grimmory, in steps:
       1. (2026-10-20) `grimmory-db` beside the old `grimmory-mariadb` StatefulSet

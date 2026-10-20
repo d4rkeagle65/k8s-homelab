@@ -4,7 +4,7 @@
 # outside the cluster.
 #
 # ExternalDNS doesn't come through here: it talks to Pi-hole's address
-# directly (PIHOLE_URL), so it never depends on this route.
+# directly (PIHOLE_1_URL), so it never depends on this route.
 apiVersion: v1
 kind: Service
 metadata:
