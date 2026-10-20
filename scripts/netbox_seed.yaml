@@ -17,6 +17,11 @@ networks:
 - {bridge: vmbr8, name: DMZ, vlan: 8}
 - {bridge: vmbr1, name: 2.5G}
 
+# Delete a Proxmox node's interface in NetBox once Proxmox no longer has it (a
+# retired VLAN's bridge and port). Off, each run lists them as stale instead.
+# One with an address or a cable, or that a kept interface uses, always stays.
+prune_node_interfaces: false
+
 # Proxmox guests to leave out, by VMID (none now).
 skip_vmids: []
 

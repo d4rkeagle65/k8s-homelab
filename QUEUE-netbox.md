@@ -162,8 +162,11 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         refuses while a guest or kept bridge names one. NetBox has no VLAN or prefix for it,
         only the ten interfaces. Done 2026-10-19: the owner's run (task 905) removed
         both on all 5, each read back gone with its default route kept. Left: the ten
-        interfaces deleted in NetBox (the sync, task 902, brought them back before the run;
-        it never deletes), `eth5.4` first, by the owner: my delete is refused
+        interfaces deleted in NetBox (the sync, task 902, brought them back before the run).
+        The sync lists them under "stale node interfaces" each night; with
+        `prune_node_interfaces: true` in `scripts/netbox_seed.yaml` it deletes them (and
+        any later retired interface) itself, or the owner deletes them by hand, `eth5.4`
+        first
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
       template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
       Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL` =
