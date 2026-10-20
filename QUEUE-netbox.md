@@ -191,16 +191,16 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       [old-queues/QUEUE-netbox-shape.md](old-queues/QUEUE-netbox-shape.md)
 - [ ] The switches' cables. Done 2026-10-20 from the owner's port map: 39 cables, every core
       switch port in use traced end to end through a modelled 24-port patch panel (switch side
-      on its front, devices on its rear); the firewall, the 2.5G switch, the Raspberry Pi and two
-      test hosts as new devices (role Firewall, Switch or Lab; the last three Offline); switch 02
-      a TL-SG108E; the APs WAX206s on switch 04 ports 1 and 2, with those ports' VLANs (switch
-      04's VLAN 1 is recorded as VLAN 5: a TL-SG105E can't move its management VLAN). Left, each
-      waiting on the owner:
+      on its front, devices on its rear); the firewall (a Barracuda F80), the 2.5G switch (a
+      TRENDnet TEG-S5091, isolated), the Raspberry Pi and the two test Proxmox hosts as devices
+      under the owner's names (the last three Offline, role Lab); switch 02 a TL-SG108E; the
+      APs WAX206s on switch 04 ports 1 and 2, with those ports' VLANs (switch 04's VLAN 1 is
+      recorded as VLAN 5: a TL-SG105E can't move its management VLAN); the travel router a
+      GL-MT3000 with its LAN and reservations. Left, each waiting on the owner:
       - which production host's 2.5G NIC is on each of the 2.5G switch's ports 1-5 (the panel's
-        rear 1-5);
-      - real names for the placeholder devices (the firewall, the 2.5G switch, the Pi, the test
-        hosts, which may be one host with two NICs);
-      - the console run's far end (the panel's rear 6)
+        rear 1-5), found by pulling one cord at a time or by the activity lights under load;
+      - the console run's far end (the panel's rear 6);
+      - the test hosts' NIC names (each has a placeholder `nic1`)
 
 ## Resuming
 
