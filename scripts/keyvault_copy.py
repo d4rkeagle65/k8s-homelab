@@ -141,20 +141,28 @@ def error_code(body: dict) -> str:
     return (body.get("error") or {}).get("code", "")
 
 
-def remote_digest(vault_url: str, name: str, token: str) -> str | None:
-    """The SHA-256 of the value Key Vault holds under name, or None when it holds none."""
+def remote_secret(vault_url: str, name: str, token: str) -> tuple[str, dict] | None:
+    """The SHA-256 of the value Key Vault holds under name and the secret's tags, or None when
+    it holds none."""
     status, body = request("GET", f"{vault_url}/secrets/{urllib.parse.quote(name)}?api-version={API_VERSION}", token)
     if status == 404:
         return None
     if status != 200:
         raise Stop(f"{name}: Key Vault answered a read with HTTP {status} {error_code(body)}")
-    return digest(body.get("value", ""))
+    return digest(body.get("value", "")), body.get("tags") or {}
 
 
-def write(vault_url: str, name: str, value: str, token: str) -> str:
-    """Sets name's value; returns "" when written, else why not."""
+def remote_digest(vault_url: str, name: str, token: str) -> str | None:
+    """The SHA-256 of the value Key Vault holds under name, or None when it holds none."""
+    held = remote_secret(vault_url, name, token)
+    return held[0] if held else None
+
+
+def write(vault_url: str, name: str, value: str, token: str, tags: dict | None = None) -> str:
+    """Sets name's value and tags (by default, cluster-secrets'); returns "" when written, else
+    why not."""
     status, body = request("PUT", f"{vault_url}/secrets/{urllib.parse.quote(name)}?api-version={API_VERSION}", token,
-                           {"value": value, "tags": {"source": "cluster-secrets"}})
+                           {"value": value, "tags": tags or {"source": "cluster-secrets"}})
     if status == 200:
         return ""
     if status == 409 and error_code(body) == "Conflict":
