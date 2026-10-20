@@ -120,7 +120,11 @@ references).
       `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
       all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake
       kubectl, so their first real runs are their check (one set read back, one `-Get`); capture's "aren't in
-      Vaultwarden yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`)
+      Vaultwarden yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`);
+      and `scripts/keyvault_copy.py`'s `request()`: Key Vault drops a connection mid-run often
+      (four times on 2026-10-19 and 20, each a clean `Stop` that a rerun cleared), so a GET
+      could retry once before stopping; a PUT stays single-shot, as a retried write may land
+      twice
 - [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`
       (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket; #116),
       read back 2026-10-19: loaded on both Prometheus replicas, inactive, health `ok`

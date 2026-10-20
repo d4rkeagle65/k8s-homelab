@@ -115,15 +115,18 @@ against today's value by hash.
       them, no live Secret held the Whisparr v2 key, and the leak check keeps `Child2`'s value
       through `.secret-words`), read back 2026-10-19: the Secret holds neither, `SecretSynced`
       for its new spec, every Flux object Ready
-- [ ] The owner deletes their Key Vault secrets, `Child2` and `MEDIA-WHISPARR-API-KEY` (both
-      still there at the read-back)
+- [x] The owner deleted their Key Vault secrets, `Child2` and `MEDIA-WHISPARR-API-KEY`; read
+      back 2026-10-20: both gone from the vault, their soft-deleted records kept by purge
+      protection
 - [x] `scripts/dockhand_keyvault_copy.py` copies by `docker/secret-names.yaml`, counts a name
       Key Vault already holds with the same value as shared, and never changes one; dry run
       2026-10-20 against the owner's export: no conflicts, 44 names to add, 5 held with the
       same value, 3 held base64 (the Authentik OIDC client secrets, waiting on the base64
       switch), all 12 built forms giving today's values
-- [ ] Key Vault: the names it lacks, by the owner's `--apply` run of the copy (its read-back
-      all matching is its first real check)
+- [x] Key Vault: the names it lacked, by the owner's `--apply` run of the copy (2026-10-20, 44
+      written, its read-back 44 of 44); read back after: a dry run finds none to add, 49 held
+      with the same value and the 3 base64 OIDC client secrets, and all 44 carry
+      `source=dockhand`
 - [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
       owner
