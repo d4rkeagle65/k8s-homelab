@@ -319,7 +319,7 @@ against today's value by hash.
       The two failures in that window weren't Garage: a switchover in progress, and the
       Kubernetes API refusing during a node drain; both archived again within a minute. Left:
       Dockhand's deploy record showing success on #163's commit, since a deploy that never ran
-      also leaves it running. semaphore sixth (branch `semaphore-standard-names`):
+      also leaves it running. semaphore sixth (#172):
       `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its web root, OIDC issuer and NetBox URL are
       built in the compose file), `DATABASUS_SEMAPHORE_DB_PASSWORD`, `NETBOX_SEMAPHORE_TOKEN`,
       `TIMEZONE`, `kea_default` written in, and seven that keep their names, which go from
@@ -329,7 +329,15 @@ against today's value by hash.
       variable goes. Rendered with Key Vault's values and that one from Dockhand, its compose
       file gave exactly the old one's. Before: `semaphore` and `semaphore-postgres` running since
       2026-10-18 23:06Z, port 3001 open on the management address and refused on the
-      production one, `/api/ping` answering `pong` through Traefik
+      production one, `/api/ping` answering `pong` through Traefik. The owner deleted the seven
+      before the merge (21:10:47Z); Flux's alert called its webhook at 21:11:52Z. Read back
+      2026-10-20: neither container recreated, as with garage and unlike tailscale and
+      databasus; `/api/ping` answering `pong`, port 3001 open on the management address and
+      refused on the production one, as before. Left: on the host, `docker ps -a --filter
+      label=com.docker.compose.project=semaphore --format '{{.Names}}: {{.Status}}'` showing
+      the two init containers exited (0) at about 21:12Z (each deploy re-runs them, and
+      they're too short-lived for cAdvisor), which tells a deploy that changed nothing from
+      one that never ran; a login through Authentik
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
