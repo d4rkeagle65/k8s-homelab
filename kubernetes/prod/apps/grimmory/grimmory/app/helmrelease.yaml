@@ -44,7 +44,8 @@ spec:
               USER_ID: "${MEDIA_PUID}"
               GROUP_ID: "${MEDIA_PGID}"
               TZ: ${TIMEZONE}
-              DATABASE_URL: jdbc:mariadb://grimmory-mariadb:3306/grimmory
+              # grimmory-db's primary (app/mariadb.yaml), on mariadb-operator.
+              DATABASE_URL: jdbc:mariadb://grimmory-db-primary:3306/grimmory
               DATABASE_USERNAME: grimmory
               DATABASE_PASSWORD:
                 valueFrom:
