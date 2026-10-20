@@ -14,8 +14,10 @@ stacks whose folder changed. `claude-code` has none: it redeploys on a weekly sc
 a redeploy restarts the session running in it. A new stack gets its webhook turned on in
 Dockhand (its secret is the `cluster-secrets` variable `DOCKHAND_WEBHOOK_SECRET`) and a Provider and Alert in that folder. A service
 built here (`build:`) carries `pull_policy: build` and a `local` tag, or a redeploy tries to pull it.
-A stack whose compose file uses variables has a `.env` naming each one, blank, for Dockhand's
-**Populate** (`tests/test-docker-stacks.py`); the values are set in Dockhand, marked secret.
+A stack whose compose file uses variables has a `.env` naming each one for Dockhand's
+**Populate** (`tests/test-docker-stacks.py`): on Key Vault, its own reference,
+`NAME=azurekv://NAME-WITH-DASHES`, which Dockhand resolves at each deploy; until its stack
+moves, blank, with the value set in Dockhand, marked secret.
 Every long-running service has a `mem_limit` (the same suite checks), a few times its peak in
 cAdvisor's data: the VM has no swap, and one runaway container could take the others with it.
 

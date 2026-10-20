@@ -1,11 +1,14 @@
 """
-Each Docker stack's .env (docker/<stack>/), the blank list Dockhand's Populate reads: a stack
-whose compose.yaml uses variables has one, it names exactly those variables, and every value
-is blank, since the real ones live only in Dockhand (docker/CLAUDE.md).
+Each Docker stack's .env (docker/<stack>/), the list Dockhand's Populate reads: a stack whose
+compose.yaml uses variables has one, it names exactly those variables, and every value is
+blank or the variable's own Key Vault reference, azurekv://<NAME with - for _>, naming a
+secret docker/secret-names.yaml gives; Dockhand resolves those at each deploy
+(docker/CLAUDE.md). Anything else is a value.
 
   missing .env        Populate lists nothing, and a variable is easy to forget in Dockhand
   missing or extra    the list drifted from compose.yaml
   a value             a real value one commit away from a public repo
+  another reference   a variable reading a secret meant for another, or one no map gives
   no mem_limit        a long-running service that can take the whole host's memory with it
 """
 
@@ -51,6 +54,26 @@ def env_entries(text):
     return entries, bad
 
 
+def map_names(text):
+    """Every Key Vault name docker/secret-names.yaml gives a stack: each NAME entry, and each
+    ${NAME} a built form reads."""
+    names = set()
+    for variables in (YAML(typ="safe").load(text) or {}).values():
+        for entry in (variables or {}).values():
+            if isinstance(entry, str):
+                names.add(entry)
+            elif isinstance(entry, dict) and isinstance(entry.get("built"), str):
+                names.update(re.findall(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", entry["built"]))
+    return names
+
+
+def not_allowed(entries, known):
+    """The names whose value is neither blank nor their own Key Vault reference to a name the
+    map gives."""
+    return sorted(name for name, value in entries.items()
+                  if value.strip() and not (value == "azurekv://" + name.replace("_", "-") and name in known))
+
+
 def unlimited_services(text):
     """The services that keep running (restart isn't "no") without a mem_limit. Without
     one, a single runaway container can push the whole host into its OOM killer."""
@@ -68,6 +91,14 @@ t.check("  a comment line names none", compose_variables("# set ${HOST} in Dockh
 t.check("SELF-TEST: a blank entry", env_entries("# x\nA=\n\nB=\n"), ({"A": "", "B": ""}, []))
 t.check("  a value is read as one", env_entries("A=secret\n")[0], {"A": "secret"})
 t.check("  a line that's neither is reported", env_entries("A\n")[1], ["A"])
+t.check("SELF-TEST: a blank value and a variable's own reference pass",
+        not_allowed({"A_B": "", "A_B2": "azurekv://A-B2"}, {"A_B2"}), [])
+t.check("  a real value is CAUGHT", not_allowed({"A": "secret"}, {"A"}), ["A"])
+t.check("  a reference to another name is CAUGHT", not_allowed({"A_B": "azurekv://C-D"}, {"A_B", "C_D"}), ["A_B"])
+t.check("  a reference to a name no map gives is CAUGHT", not_allowed({"A_B": "azurekv://A-B"}, set()), ["A_B"])
+t.check("  so is one with anything around it", not_allowed({"A": "'azurekv://A' "}, {"A"}), ["A"])
+t.check("SELF-TEST: the map's names are its entries and its built forms' ${NAME}s",
+        map_names('s:\n  X: N1\n  Y: {built: "https://a.${N2}/${N3}"}\n  Z: {none: "blank"}\n'), {"N1", "N2", "N3"})
 t.check("SELF-TEST: a running service without mem_limit is CAUGHT",
         unlimited_services("services:\n  a:\n    restart: always\n"), ["a"])
 t.check("  one with mem_limit passes", unlimited_services("services:\n  a:\n    restart: always\n    mem_limit: 1g\n"), [])
@@ -76,6 +107,8 @@ t.check("  a limit inherited through an anchor counts",
         unlimited_services("x: &d\n  mem_limit: 1g\nservices:\n  a:\n    <<: *d\n    restart: always\n"), [])
 
 t.section("every stack's .env")
+known = map_names(t.source(t.project_file("secret-names.yaml")))
+t.check("the names map gives some names", len(known) > 0, True)
 for compose in stacks:
     folder = os.path.dirname(t.rel(compose))
     used = compose_variables(t.source(compose))
@@ -90,7 +123,7 @@ for compose in stacks:
     t.check("  every line is NAME=, a comment or blank", bad, [])
     t.check("  it lists every variable compose.yaml uses", sorted(used - set(entries)), [])
     t.check("  and none that compose.yaml doesn't", sorted(set(entries) - used), [])
-    t.check("  every value is blank", sorted(n for n, v in entries.items() if v.strip()), [])
+    t.check("  every value is blank or its own Key Vault reference", not_allowed(entries, known), [])
 
 t.section("every long-running service has a memory limit")
 for compose in stacks:

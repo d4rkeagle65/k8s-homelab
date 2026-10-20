@@ -87,11 +87,11 @@ against today's value by hash.
   request of its own, then the manifests, then the old entry, then the old Key Vault secret
   (`CLAUDE.md`'s rule). A deleted name stays reserved for 90 days (purge protection), so a
   name is deleted only once nothing reads it.
-- **A Dockhand stack moves in one redeploy, its new variables set first.** Merging its compose
-  file's renames redeploys it (Flux calls its Dockhand webhook), so its variables under the
-  new names, as `azurekv://` references, are set in Dockhand beside the old ones before that
-  merge; the old ones go after it reads back working. One stack first: cadvisor, with one
-  variable.
+- **A Dockhand stack moves in one redeploy, its secret provider bound first.** Its move's
+  `.env` holds its references, which Dockhand resolves at each deploy, so binding the vault
+  as its provider (selector empty) is the one step before the merge, which redeploys it
+  (Flux calls its webhook; one without is redeployed by hand). Its old variables go on the
+  delete list once it reads back working.
 - **Base64 becomes plain with no refresh in between.** The template run on a value still
   base64 encodes it twice, and a plain value read as base64 can decode without an error into
   a wrong credential, which an app then uses (Authentik's blueprints set client secrets from
@@ -223,7 +223,12 @@ against today's value by hash.
       name": a secret selector on the stack had pulled the whole vault (cleared; the rule is in
       `docker/CLAUDE.md`). Read back 2026-10-20: Kea's API port 8000 open on the management
       address and refused on the production one, as before the move; the primary sees it in
-      hot-standby, in touch, heard from 4 s before
+      hot-standby, in touch, heard from 4 s before. tailscale third, with the `.env` of
+      references every moved stack now has (cadvisor's and kea-standby's too; branch
+      `tailscale-standard-names`): `TAILSCALE_AUTH_KEY`, `_TAGS`, `_HOSTNAME`, `_ROUTES`.
+      Before: its container running since 2026-10-16 17:35Z; the values are the same, so a
+      redeploy whose references resolve leaves it running, and a changed start time means
+      one didn't
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
@@ -247,7 +252,11 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 
 - cadvisor's `CADVISOR_ADDRESS`: now `DOCKER_VM_1_MGMT_ADDRESS` (#140)
 - kea-standby's `KEA_API_ADDRESS` and `KEA_DHCP_ADDRESS`: now `DOCKER_VM_2_MGMT_ADDRESS` and
-  `DOCKER_VM_2_PROD_ADDRESS`, once its move reads back
+  `DOCKER_VM_2_PROD_ADDRESS` (#146)
+- tailscale's `TS_AUTHKEY`, `TS_TAGS`, `TS_HOSTNAME` and `TS_ROUTES`: now `TAILSCALE_*`, once
+  its move reads back
+- cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's two references, set by hand in
+  Dockhand: their `.env`s carry the same references now
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming

@@ -302,13 +302,14 @@ forms and what the copy refuses are in `dockhand_keyvault_copy.py`'s docstring.
    conflict, and each stack's references. A variable the map doesn't name stops
    it until the map does. Then the same with `--apply`, which writes only the
    names Key Vault lacks and never changes one it holds.
-4. One stack at a time, cadvisor first: in Dockhand, with the vault as its
-   secret provider and its selector left empty (`docker/CLAUDE.md`), set each
-   reference beside the old variables (`NAME = azurekv://NAME-WITH-DASHES`);
-   merge its compose file's move to the standard names, which redeploys it (a
-   stack without a webhook is redeployed by hand); check it. The old variables
-   go on `QUEUE-secret-names.md`'s delete list. A reference marked "once Key
-   Vault holds it plain" waits for the base64-to-plain switch.
+4. One stack at a time, cadvisor first: in Dockhand, bind the vault as its
+   secret provider, its selector left empty (`docker/CLAUDE.md`). Then merge
+   its move: compose on the standard names, and a `.env` of references
+   (`NAME=azurekv://NAME-WITH-DASHES`) that Dockhand resolves at each deploy,
+   so nothing needs typing in (Populate imports them as they are). The merge
+   redeploys it (one without a webhook is redeployed by hand); check it. The
+   old variables go on `QUEUE-secret-names.md`'s delete list. A reference
+   marked "once Key Vault holds it plain" waits for the base64-to-plain switch.
 5. Delete the JSON once the stacks read Key Vault.
 
 ### Bring the test environment up, and take it down

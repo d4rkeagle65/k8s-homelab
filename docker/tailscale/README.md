@@ -82,7 +82,7 @@ Hands-off, which also survives losing `/opt/tailscale`:
    expire.
 2. In the policy file: `tagOwners` for the tag, and `autoApprovers` for the
    advertised subnets and `exitNode`, so the node's routes need no clicks.
-3. Set `TS_TAGS` to the tag and `TS_AUTHKEY` to the client secret with
+3. Set Key Vault's `TAILSCALE-TAGS` to the tag and `TAILSCALE-AUTH-KEY` to the client secret with
    `?ephemeral=false&preauthorized=true` appended.
 
 A tagged node is owned by the tag, not a user; that only matters to access
@@ -90,8 +90,9 @@ rules that name users as the source of its traffic.
 
 ## Changing its flags later
 
-`TS_EXTRA_ARGS` (and so `TS_TAGS`) only applies when the node registers;
-later starts reapply just `TS_ROUTES` and `TS_HOSTNAME`. To change another
+`TS_EXTRA_ARGS` (and so `TAILSCALE_TAGS`) only applies when the node registers;
+later starts reapply just `TS_ROUTES` and `TS_HOSTNAME` (`TAILSCALE_ROUTES` and
+`TAILSCALE_HOSTNAME`). To change another
 flag on a running node:
 
 ```sh
@@ -99,7 +100,7 @@ docker exec tailscale tailscale set --accept-routes=false
 ```
 
 Tags can't be changed that way. Either remove the node from the tailnet,
-empty `/opt/tailscale` and redeploy with the new `TS_TAGS`, or re-register
+empty `/opt/tailscale` and redeploy with the new `TAILSCALE_TAGS`, or re-register
 in place (`docker exec tailscale tailscale up --force-reauth
 --auth-key=<key> --advertise-tags=<tags>` with the same flags as
 `TS_EXTRA_ARGS`).
@@ -119,7 +120,7 @@ down for the minute or two it takes: do it from the LAN.
    it (`systemctl disable tailscaled`).
 2. Point the firewall's 100.64.0.0/10 route and its routes to other tailnet
    routers' subnets at the host's DMZ address.
-3. Deploy the stack in Dockhand (variables set, `TS_AUTHKEY` secret). With
+3. Deploy the stack in Dockhand (the vault bound as its secret provider). With
    a tag and auto-approvers, the node's routes and exit node are approved
    as it registers; otherwise approve them in the admin console and
    disable its key expiry.
