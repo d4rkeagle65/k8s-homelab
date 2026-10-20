@@ -875,7 +875,6 @@ sonarr:
     # The complete list: Configarr deletes a root folder not named here.
     root_folders:
       - "/synmedia/media/tv"
-      - "/synmedia/media/youtube"
     delay_profiles:
       default:
         enableUsenet: true
