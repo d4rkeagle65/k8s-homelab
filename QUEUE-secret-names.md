@@ -148,7 +148,10 @@ against today's value by hash.
   5. **The owner merges the batch's pull request** at once: its spec change is the one
      refresh.
   6. **Read back**: `refreshTime` moved, `SecretSynced` for the new generation, and every key's
-     hash equal to the fingerprint. That proves the Key Vault values are plain, since the
+     hash equal to the fingerprint. Read only once `syncedResourceVersion` starts with the new
+     generation: the refresh can come seconds after Flux's apply, and a read before it proves
+     nothing. An unchanged Secret `resourceVersion` says the same, since External Secrets
+     doesn't write a Secret whose data is unchanged. That proves the Key Vault values are plain, since the
      template encodes them back to what they were, and that nothing downstream changes. If
      `refreshTime` moves between 4 and 5, merging the batch's pull request is the repair:
      then this read-back, and a restart of any app whose Secret Flux rewrote in between.
@@ -215,13 +218,17 @@ against today's value by hash.
       check; `scripts/keyvault_copy.py` (#154), which also leaves a value rewritten plain
       before its template is live (reported `plain`), beyond what the Rules asked. Retiring
       the copy instead is the owner's call
-- [ ] The hold (Rules' "The switch", step 1), merged just before the pilot: #161, open.
-      Then read it back as step 1 says
+- [x] The hold (Rules' "The switch", step 1): #161, merged 2026-10-20 17:33Z. Read back:
+      `OnChange` at generation 65, one refresh at its apply with no key changed (the Secret was
+      last written at 14:38Z), `SecretSynced`, then no refresh until the pilot's merge. The
+      owner's rewrite came 5 minutes in, before step 1's 15 minutes were up; nothing refreshed
 - [ ] The batches, each one pull request, in this order. 45 variables are held base64, and
       every one is listed here. They are ordered by what a wrong value would do, mildest first:
-  - [ ] Pilot: `MEALIE_OIDC_CLIENT_ID` alone. A wrong value only fails Mealie's SSO login,
-        and nothing writes it anywhere. #162, a draft until the owner's rewrite (its
-        description has the sequence and commands)
+  - [x] Pilot: `MEALIE_OIDC_CLIENT_ID` alone (#162, 2026-10-20). Read back, by hash only:
+        Key Vault held the plain value from the owner's rewrite at 17:39Z; nothing refreshed
+        before the merge at 17:42Z; then one refresh for generation 66, `SecretSynced`, all 145
+        keys equal to the fingerprint, and the Secret not even rewritten. Mealie's
+        `mealie-oidc` is unchanged (last written 2026-10-05)
   - [ ] 1 (12), each read only by its own app: `MEALIE_OIDC_CLIENT_SECRET`; babybuddy MCP's
         `BABYBUDDY_MCP_SECRETS_*` (4); Immich power tools' `IMMICH_POWER_TOOLS_APIKEY_*` (4;
         `_IMMICH_APIKEY` is Homepage's too); `NOIP_DUC_CREDENTIALS_*` (2);
