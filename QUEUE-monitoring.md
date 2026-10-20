@@ -198,15 +198,11 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       MariaDB from kube-state-metrics' custom-resource view of each `PhysicalBackup`
       (`mariadb_physicalbackup_last_schedule_timestamp`, `_complete`), since the operator
       exports none. Read back live 2026-10-20, and a hand-sent warning reached Zammad as a
-      ticket through `zammad-bridge`. In PR: the Proxmox collector
-      (`ansible/files/proxmox-backup-metrics.py`, installed with a 15-minute timer by
-      `ansible/tasks/host-exporters.yml`), its three `Proxmox*` alerts and the dashboard's
-      Proxmox panels; tested against a fake `pvesh` fed a real task log, output checked with
-      `promtool check metrics`. Left: the merge, a check-mode run of Debian Host Baseline,
-      then the owner's apply and its read-back (`proxmox_backup_collector_success` 1 on all
-      five hosts). Until the apply, `ProxmoxBackupCollectorFailing` fires an hour after the
-      merge, since each host answers without the collector. Then the Garage exporter (its
-      key) and the Synology copy (its answer)
+      ticket through `zammad-bridge`; and Proxmox's vzdump of every guest
+      (`ansible/files/proxmox-backup-metrics.py`, a 15-minute timer from
+      `ansible/tasks/host-exporters.yml`, three `Proxmox*` alerts, the dashboard's Proxmox
+      panels), live on all five hosts since 2026-10-20 with 13 guests covered. Left: the Garage
+      exporter (its key) and the Synology copy (its answer)
 
 ## Resuming
 
