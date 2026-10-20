@@ -252,18 +252,25 @@ spec:
         description: >-
           {{ $labels.namespace }}/{{ $labels.pod }}: WAL archiving failed in the last
           hour, so its point-in-time recovery has a gap; read its pod's plugin sidecar log.
+    # Each database by its newest backup, whichever PhysicalBackup took it: a
+    # one-off (a replica recovery's) keeps its old start time once done.
     - alert: MariaDBBackupTooOld
-      expr: (time() - mariadb_physicalbackup_last_schedule_timestamp) > 26 * 3600
+      expr: |
+        time() - max by (exported_namespace, mariadb) (mariadb_physicalbackup_last_schedule_timestamp)
+          > 26 * 3600
       for: 30m
       labels:
         severity: warning
       annotations:
         summary: A MariaDB database's newest physical backup is over 26 hours old.
         description: >-
-          {{ $labels.exported_namespace }}/{{ $labels.mariadb }} (PhysicalBackup
-          {{ $labels.name }}): newest backup started {{ $value | humanizeDuration }} ago.
+          {{ $labels.exported_namespace }}/{{ $labels.mariadb }}: newest backup started
+          {{ $value | humanizeDuration }} ago; read its PhysicalBackups.
+    # A template (suspended schedule) never completes, so it's skipped.
     - alert: MariaDBBackupNotComplete
-      expr: mariadb_physicalbackup_complete == 0
+      expr: |
+        mariadb_physicalbackup_complete == 0
+          unless on (exported_namespace, name) mariadb_physicalbackup_suspended == 1
       for: 2h
       labels:
         severity: warning
