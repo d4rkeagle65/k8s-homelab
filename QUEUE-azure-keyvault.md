@@ -112,10 +112,10 @@ references).
 - [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first, under the names in
       `QUEUE-secret-names.md`. The owner's export ran 2026-10-19
       (`scripts/dockhand-export-secrets.cjs`: 61 secret variables from 7 stacks), and its
-      values match the cluster's by hash where both hold one thing, so its decryption is proved. Left: the copy
-      (`scripts/dockhand_keyvault_copy.py`, reworked to those names first), whose first real
-      `--apply` is its check (the read-back all matching), and each stack redeployed and
-      working on its references
+      values match the cluster's by hash where both hold one thing, so its decryption is
+      proved. Left: the copy (`scripts/dockhand_keyvault_copy.py`, by `docker/secret-names.yaml`),
+      whose first real `--apply` is its check (the read-back all matching), and each stack
+      redeployed and working on its references
 - [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
       `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
       all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake
