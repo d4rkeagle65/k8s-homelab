@@ -20,7 +20,8 @@
 # and netplan gets them sent back out that interface.
 #
 # Prometheus's exporters (tasks/host-exporters.yml): node-exporter, and on the
-# Proxmox hosts the SMART and NVMe collectors, off until host_exporters is true.
+# Proxmox hosts the SMART, NVMe and backup collectors, off until host_exporters
+# is true.
 #
 # In check mode (--check) it reports the missing packages, the exporters and
 # whether the bash setup differs, and changes nothing.

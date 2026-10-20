@@ -272,3 +272,47 @@ spec:
         description: >-
           {{ $labels.exported_namespace }}/{{ $labels.mariadb }} (PhysicalBackup
           {{ $labels.name }}): two hours without completing; read its Job's log.
+    # Proxmox's vzdump, from each host's node-exporter
+    # (ansible/files/proxmox-backup-metrics.py, every 15 minutes). A guest the
+    # backup job covers with no archive at all counts as too old.
+    - alert: ProxmoxBackupTooOld
+      expr: |
+        (time() - proxmox_backup_archive_timestamp_seconds > 26 * 3600
+          and on (vmid) proxmox_backup_guest_covered == 1)
+        or (proxmox_backup_guest_covered == 1
+          unless on (vmid) proxmox_backup_archive_timestamp_seconds)
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: A Proxmox guest's newest backup is over 26 hours old, or missing.
+        description: >-
+          {{ $labels.vmid }} ({{ $labels.guest }}): no archive on the backup storage
+          from the last 26 hours. Read the host's vzdump task log (Datacenter, Backup).
+    - alert: ProxmoxBackupFailed
+      expr: proxmox_backup_last_result == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: A Proxmox guest's newest vzdump run failed.
+        description: >-
+          {{ $labels.vmid }} ({{ $labels.guest }}): its newest backup run didn't finish;
+          read that night's vzdump task log on its host.
+    # The collector itself: a read failed, it stopped running, or a host answers
+    # without it (not yet installed: ansible/tasks/host-exporters.yml).
+    - alert: ProxmoxBackupCollectorFailing
+      expr: |
+        proxmox_backup_collector_success == 0
+        or time() - proxmox_backup_collector_last_run_timestamp_seconds > 3600
+        or (up{job="proxmox-hosts"} == 1
+          unless on (instance) proxmox_backup_collector_success)
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: A Proxmox host isn't reporting its backups.
+        description: >-
+          {{ $labels.instance }}: proxmox-backup-metrics failed, stopped, or isn't
+          installed, so its guests' backups go unwatched; read
+          journalctl -u proxmox-backup-metrics there.
