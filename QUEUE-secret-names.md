@@ -303,7 +303,17 @@ against today's value by hash.
       The two failures in that window weren't Garage: a switchover in progress, and the
       Kubernetes API refusing during a node drain; both archived again within a minute. Left:
       Dockhand's deploy record showing success on #163's commit, since a deploy that never ran
-      also leaves it running
+      also leaves it running. semaphore sixth (branch `semaphore-standard-names`):
+      `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its web root, OIDC issuer and NetBox URL are
+      built in the compose file), `DATABASUS_SEMAPHORE_DB_PASSWORD`, `NETBOX_SEMAPHORE_TOKEN`,
+      `TIMEZONE`, `kea_default` written in, and seven that keep their names, which go from
+      Dockhand just before the merge. `SEMAPHORE_OIDC_CLIENT_SECRET` stays in Dockhand, its
+      `.env` line blank: Key Vault holds `AUTHENTIK-SEMAPHORE-OIDC-CLIENT-SECRET` base64. Once
+      the switch makes it plain, the compose file reads it by reference and the Dockhand
+      variable goes. Rendered with Key Vault's values and that one from Dockhand, its compose
+      file gave exactly the old one's. Before: `semaphore` and `semaphore-postgres` running since
+      2026-10-18 23:06Z, port 3001 open on the management address and refused on the
+      production one, `/api/ping` answering `pong` through Traefik
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -342,6 +352,11 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   and `NETBOX_NETWORK`: now `DOCKER_VM_1_MGMT_ADDRESS`, a URL built from `BASE_DOMAIN`, and
   network names in the compose file (#159)
 - garage's `GARAGE_BIND_ADDRESS`: now `TERRAMASTER_MGMT_ADDRESS` (#163)
+- semaphore's `SEMAPHORE_BIND_ADDRESS`, `SEMAPHORE_WEB_ROOT`, `SEMAPHORE_OIDC_ISSUER_URL`,
+  `NETBOX_API`, `KEA_NETWORK`, `TZ`, `DATABASUS_DB_PASSWORD` and `NETBOX_TOKEN`: now
+  `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
+  `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN`, once its move
+  reads back. Its `SEMAPHORE_OIDC_CLIENT_SECRET` is still read, until the base64 switch
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming

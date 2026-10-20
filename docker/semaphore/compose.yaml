@@ -7,27 +7,28 @@
 # networks only. Logins go through Authentik (OIDC); the built-in admin is the
 # fallback when Authentik is down. See README.md.
 #
-# Variables (set in the stack's environment in Dockhand):
-#   SEMAPHORE_BIND_ADDRESS   the host's management address (the web UI, 3001)
-#   SEMAPHORE_WEB_ROOT       https://semaphore.<domain>
-#   SEMAPHORE_DB_PASSWORD    secret: the semaphore database role's
-#   SEMAPHORE_ADMIN_PASSWORD secret: the built-in admin's, created on the first start
+# Variables, from Key Vault (references in .env):
+#   DOCKER_VM_1_MGMT_ADDRESS the host's management address (the web UI, 3001)
+#   BASE_DOMAIN              the domain: semaphore.<domain> (its links),
+#                            auth.<domain> (Authentik), netbox.<domain> (the NetBox
+#                            inventory, ansible/inventory/netbox.yml)
+#   SEMAPHORE_DB_PASSWORD    the semaphore database role's
+#   SEMAPHORE_ADMIN_PASSWORD the built-in admin's, created on the first start
 #   SEMAPHORE_ADMIN_EMAIL    the built-in admin's email; not the owner's Authentik one
-#   SEMAPHORE_ACCESS_KEY_ENCRYPTION  secret: encrypts the stored keys and secrets
+#   SEMAPHORE_ACCESS_KEY_ENCRYPTION  encrypts the stored keys and secrets
 #                            (head -c32 /dev/urandom | base64); losing it loses them
-#   SEMAPHORE_COOKIE_HASH, SEMAPHORE_COOKIE_ENCRYPTION  secret: the same kind of
+#   SEMAPHORE_COOKIE_HASH, SEMAPHORE_COOKIE_ENCRYPTION  the same kind of
 #                            32-byte base64 values, for sessions
-#   SEMAPHORE_OIDC_ISSUER_URL  https://auth.<domain>/application/o/semaphore/
-#   SEMAPHORE_OIDC_CLIENT_SECRET  secret: the same one Authentik's blueprint reads
+#   TFSTATE_DB_PASSWORD      the tfstate role's (OpenTofu's state database)
+#   DATABASUS_SEMAPHORE_DB_PASSWORD  the databasus role's (read-only, for backups)
+#   TIMEZONE                 the timezone schedules run in, e.g. America/New_York
+#   NETBOX_SEMAPHORE_TOKEN   a NetBox token with writes off, for the inventory
+# Set in Dockhand, marked secret, until Key Vault holds it plain:
+#   SEMAPHORE_OIDC_CLIENT_SECRET  the same one Authentik's blueprint reads
 #                            (AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET)
-#   TFSTATE_DB_PASSWORD      secret: the tfstate role's (OpenTofu's state database)
-#   DATABASUS_DB_PASSWORD    secret: the databasus role's (read-only, for backups)
-#   TZ                       the timezone schedules run in, e.g. America/New_York
-#   NETBOX_API               https://netbox.<domain>, for ansible/inventory/netbox.yml
-#   NETBOX_TOKEN             secret: a NetBox token with writes off, for the same
-#   KEA_NETWORK              the kea stack's Docker network, as `docker network ls`
-#                            names it: scripts/netbox_seed.py reads Kea at
-#                            http://kea-dhcp4:8000 on it
+#
+# scripts/netbox_seed.py reads Kea at http://kea-dhcp4:8000 on the kea stack's
+# network (below).
 services:
   semaphore-postgres:
     mem_limit: 512m
@@ -79,7 +80,7 @@ services:
 
   # The read-only role Databasus backs these databases up as
   # (docker/databasus/): created when missing, password set from
-  # DATABASUS_DB_PASSWORD, and pg_read_all_data (read every table, change
+  # DATABASUS_SEMAPHORE_DB_PASSWORD, and pg_read_all_data (read every table, change
   # nothing), on every deploy, then exits.
   databasus-role-init:
     image: postgres:17.11-alpine
@@ -95,7 +96,7 @@ services:
       PGUSER: semaphore
       PGDATABASE: semaphore
       PGPASSWORD: ${SEMAPHORE_DB_PASSWORD}
-      DATABASUS_DB_PASSWORD: ${DATABASUS_DB_PASSWORD}
+      DATABASUS_DB_PASSWORD: ${DATABASUS_SEMAPHORE_DB_PASSWORD}
     command:
     - /bin/sh
     - -c
@@ -118,7 +119,7 @@ services:
       semaphore-postgres:
         condition: service_healthy
     ports:
-    - ${SEMAPHORE_BIND_ADDRESS}:3001:3000
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:3001:3000
     networks: [default, kea]
     environment:
       SEMAPHORE_DB_DIALECT: postgres
@@ -127,7 +128,7 @@ services:
       SEMAPHORE_DB: semaphore
       SEMAPHORE_DB_USER: semaphore
       SEMAPHORE_DB_PASS: ${SEMAPHORE_DB_PASSWORD}
-      SEMAPHORE_WEB_ROOT: ${SEMAPHORE_WEB_ROOT}
+      SEMAPHORE_WEB_ROOT: https://semaphore.${BASE_DOMAIN}
       SEMAPHORE_ADMIN: admin
       SEMAPHORE_ADMIN_NAME: Semaphore admin
       SEMAPHORE_ADMIN_EMAIL: ${SEMAPHORE_ADMIN_EMAIL}
@@ -135,11 +136,11 @@ services:
       SEMAPHORE_ACCESS_KEY_ENCRYPTION: ${SEMAPHORE_ACCESS_KEY_ENCRYPTION}
       SEMAPHORE_COOKIE_HASH: ${SEMAPHORE_COOKIE_HASH}
       SEMAPHORE_COOKIE_ENCRYPTION: ${SEMAPHORE_COOKIE_ENCRYPTION}
-      SEMAPHORE_SCHEDULE_TIMEZONE: ${TZ:-UTC}
+      SEMAPHORE_SCHEDULE_TIMEZONE: ${TIMEZONE:-UTC}
       # Semaphore gives a task only the environment it's told to forward; the NetBox
       # inventory reads these two.
-      NETBOX_API: ${NETBOX_API}
-      NETBOX_TOKEN: ${NETBOX_TOKEN}
+      NETBOX_API: https://netbox.${BASE_DOMAIN}
+      NETBOX_TOKEN: ${NETBOX_SEMAPHORE_TOKEN}
       SEMAPHORE_FORWARDED_ENV_VARS: '["NETBOX_API", "NETBOX_TOKEN"]'
       # The image turns SSH host-key checking off for every host; this file pins
       # the hosts' keys instead (README.md says how to fill it).
@@ -152,10 +153,10 @@ services:
       # owner's Authentik email. Users are named by their email too.
       SEMAPHORE_OIDC_PROVIDERS: >-
         {"authentik": {"display_name": "Authentik",
-        "provider_url": "${SEMAPHORE_OIDC_ISSUER_URL}",
+        "provider_url": "https://auth.${BASE_DOMAIN}/application/o/semaphore/",
         "client_id": "semaphore",
         "client_secret": "${SEMAPHORE_OIDC_CLIENT_SECRET}",
-        "redirect_url": "${SEMAPHORE_WEB_ROOT}/api/auth/oidc/authentik/redirect",
+        "redirect_url": "https://semaphore.${BASE_DOMAIN}/api/auth/oidc/authentik/redirect",
         "scopes": ["openid", "profile", "email"],
         "username_claim": "email",
         "name_claim": "name"}}
@@ -179,7 +180,8 @@ configs:
       ruamel.yaml
 
 networks:
-  # Kea's control API (scripts/netbox_seed.py), on the kea stack's network.
+  # Kea's control API (scripts/netbox_seed.py), on the kea stack's default
+  # network, which Docker names <stack>_default.
   kea:
     external: true
-    name: ${KEA_NETWORK:?set KEA_NETWORK on this stack in Dockhand}
+    name: kea_default
