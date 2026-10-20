@@ -33,7 +33,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   Dockhand Git stacks; then each gets a Provider and Alert in
   `prod/system/external-services/dockhand-webhooks/app/webhooks.yaml` with its Dockhand stack
   ID, or a change to `compose.yaml` reaches neither NAS until it is redeployed by hand.
-
+- **Every `tofu/proxmox` apply fails while the Talos image changes** (found 2026-10-20, Semaphore
+  task 940): a new version in `talos/patches/common.yaml` replaces
+  `proxmox_download_file.talos_nocloud`, and deleting the old file needs `Datastore.Allocate` on
+  `syn-nfs`, which `TofuGuests` (`tofu/README.md`) lacks: HTTP 403, and nothing after it applies
+  (VM 115's memory raise among them). Either the role gets it on `/storage/syn-nfs` (that entry
+  then lists `PVEAuditor` and `TofuGuests` too, and the token could delete any volume there,
+  the HA VMs' disks included), or the code stops deleting old images. The owner's call. Left,
+  no apply of the module succeeds.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
