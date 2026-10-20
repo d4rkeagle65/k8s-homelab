@@ -191,9 +191,7 @@ against today's value by hash.
       for its new spec, none of the seven left and all five there, every Flux object Ready, no
       CNPG instance restarted, Loki's release unchanged. Their old Key Vault secrets are on
       the delete list below. Left: `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD`, which the
-      manifests read base64. Each needs a `b64enc` template entry, so they wait on the
-      structure test's change. They need no hold if their new Key Vault secrets are plain
-      already (Rules)
+      manifests read base64. They are the switch's renamed pair, below
 - [x] The base64-to-plain method proved (#147, 2026-10-20) on two scratch ExternalSecrets
       reading `TIMEZONE` alone, read back as timestamps and hashes only. OnChange:
       `refreshTime` stayed put for 10 minutes across ten 1m intervals, and the object was
@@ -209,7 +207,39 @@ against today's value by hash.
       2026-10-20: both ExternalSecrets and their Secrets gone; `cluster-secrets` untouched
       (its generation unchanged, `SecretSynced`); its Kustomization Ready
 - [ ] The switch's three tooling changes (Rules), each a pull request of its own
-- [ ] The hold, then the batches, then `Periodic` back (Rules' "The switch")
+- [ ] The hold (Rules' "The switch", step 1), merged just before the pilot
+- [ ] The batches, each one pull request, in this order. 45 variables are held base64, and
+      every one is listed here. They are ordered by what a wrong value would do, mildest first:
+  - [ ] Pilot: `MEALIE_OIDC_CLIENT_ID` alone. A wrong value only fails Mealie's SSO login,
+        and nothing writes it anywhere
+  - [ ] 1 (12), each read only by its own app: `MEALIE_OIDC_CLIENT_SECRET`; babybuddy MCP's
+        `BABYBUDDY_MCP_SECRETS_*` (4); Immich power tools' `IMMICH_POWER_TOOLS_APIKEY_*` (4;
+        `_IMMICH_APIKEY` is Homepage's too); `NOIP_DUC_CREDENTIALS_*` (2);
+        `CERT_MANAGER_CLOUDFLARE_API_TOKEN_API_TOKEN` (a failed renewal retries, with weeks to
+        spare)
+  - [ ] 2 (8), the Authentik OIDC client secrets:
+        `AUTHENTIK_{DOCKHAND,GRAFANA,GRIMMORY,HOMEPAGE,NETBOX,ORGANIZR,SEMAPHORE,STORK}_OIDC_CLIENT_SECRET`.
+        Authentik's blueprints write them into Authentik, so a wrong one breaks that app's
+        login until it is put right. NETBOX, SEMAPHORE and STORK are the three Dockhand
+        shares: once they are plain, its stacks can read them, and `dockhand_keyvault_copy.py`
+        stops counting any name as held base64
+  - [ ] 3 (5), the *arr API keys: `MEDIA_{BOOKSHELF,LIDARR,PROWLARR,RADARR,SONARR}_API_KEY`.
+        Each app sets its own key from one, and Homepage, exportarr and organizr-sync read it
+  - [ ] 4 (8), connections: `CLOUDFLARE_TUNNEL_SECRET_*` (3; the tunnel carries everything the
+        internet reaches), `REDIS_HA_CREDS_*` (2), `AUTHENTIK_REDIS_PASSWORD_PASSWORD`,
+        `IMMICH_REDIS_PASSWORD_PASSWORD`, `IMMICH_REDIS_URL_REDIS_URL`
+  - [ ] 5 (9), last, and it restores `Periodic`. A wrong value here would change stored state:
+        `IMMICH_POSTGRES_SUPERUSER_*` (2; CloudNativePG sets the superuser's password from it,
+        `enableSuperuserAccess`), `OBSIDIAN_COUCHDB_*` (4), `AUTHENTIK_SECRET_KEY_PASSWORD`
+        (Authentik's secret key: its sessions and what it encrypts),
+        `AUTHENTIK_SECRET_BOOTSTRAP_*` (2)
+  - [ ] The two renamed, with no hold (Rules), in the order of "A name reaches Key Vault
+        before anything reads it". `PIHOLE_PASSWORD` becomes `PIHOLE_1_PASSWORD`:
+        `PIHOLE-1-PASSWORD` is `PIHOLE-PASSWORD`'s plain form (by hash, 2026-10-20), so its
+        entry and template land in one pull request, then Homepage's, nebula-sync's and
+        pihole-exporter's manifests move to it. `PIHOLE2_PASSWORD` becomes
+        `PIHOLE_2_APP_PASSWORD`, which Key Vault lacks, so the owner adds it first:
+        `$v = ./scripts/keyvault-secrets.ps1 PIHOLE2_PASSWORD -Get; ./scripts/keyvault-secrets.ps1 PIHOLE_2_APP_PASSWORD -New -Value $v -Raw`
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
       as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
@@ -262,7 +292,8 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 ## Resuming
 
 `scripts/keyvault-secrets.ps1` lists each cluster variable with its Key Vault name and
-encoding; a Dockhand stack's `.env` names its variables. The first unticked box is next.
+encoding (`| Where-Object Encoding -eq base64` gives the switch's variables still to move); a
+Dockhand stack's `.env` names its variables. The first unticked box is next.
 
 ## Done when
 
