@@ -338,11 +338,11 @@ against today's value by hash.
       before the merge (21:10:47Z); Flux's alert called its webhook at 21:11:52Z. Read back
       2026-10-20: neither container recreated, as with garage and unlike tailscale and
       databasus; `/api/ping` answering `pong`, port 3001 open on the management address and
-      refused on the production one, as before. Left: on the host, `docker ps -a --filter
-      label=com.docker.compose.project=semaphore --format '{{.Names}}: {{.Status}}'` showing
-      the two init containers exited (0) at about 21:12Z (each deploy re-runs them, and
-      they're too short-lived for cAdvisor), which tells a deploy that changed nothing from
-      one that never ran; a login through Authentik
+      refused on the production one, as before. The deploy ran: on the host (the owner,
+      `docker ps -a --filter label=com.docker.compose.project=semaphore`), both init containers
+      exited (0) at about 21:12Z, which each deploy re-runs, while `semaphore` and
+      `semaphore-postgres` stayed up from 10-18. An unresolved reference would have changed
+      their config and recreated them. Left: a login through Authentik
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
