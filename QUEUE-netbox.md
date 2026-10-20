@@ -133,14 +133,14 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 - [x] Owner's choices (2026-10-15): every "yes" plugin, Attachments not Documents, the custom
       ExternalDNS webhook for the Ingress records, NetBox moved first and the inventories next
-- [ ] Phase 1. Done 2026-10-15/16: `docker/netbox/` (the image proved in a throwaway pod from
+- [x] Phase 1. Done 2026-10-15/16: `docker/netbox/` (the image proved in a throwaway pod from
       the stack's own files: all fourteen plugins load, 540 migrations, the OIDC settings and the
       group mapping); the stack running on the Docker host (Dockhand stack 10, its webhook
       Provider); the cutover commit (Authentik's NetBox blueprint to OIDC with
       `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, base64 in Vaultwarden and decoded in Dockhand like
       the other clients'; NetBox off the forward-auth outpost; `external-services/netbox.yaml` to
       port 8085; the in-cluster release and its chart's HelmRepository out of git; Homepage's
-      tile). Left:
+      tile).
   - [x] Login through Authentik works (2026-10-16); every plugin's API answers through a
         read-only token (all fourteen listed at `/api/plugins/`). Each plugin's UI pages: a look
         in the browser when they're first used
