@@ -147,7 +147,7 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
   - [x] Homepage's token made again (2026-10-16); its tile reads NetBox's status
   - [x] Backups (2026-10-16): Databasus joins NetBox's network (`NETBOX_NETWORK`) and backs
         `netbox` up daily; the first backup taken
-- [ ] Phase 2. Done 2026-10-16: NetBox seeded by `scripts/netbox_seed.py` (names in
+- [x] Phase 2. Done 2026-10-16: NetBox seeded by `scripts/netbox_seed.py` (names in
       `netbox_seed.yaml`; the write token `~/.netbox-token` in the claude-code container, saved
       with `save-secret .netbox-token`, a path relative to home): the site, VLANs, prefixes,
       DHCP ranges, the Proxmox nodes' interfaces, every guest's NICs with MAC, VLAN and
@@ -156,16 +156,7 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       them now, and the seed leaves tags, contexts and the access points' devices alone. Every Ansible template in Semaphore runs on the File
       inventory "NetBox" (`ansible/inventory/netbox.yml`, key `semaphore-shared`), each
       checked against its last static run; the static inventories and the per-group keys
-      `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner. Left:
-  - [ ] VLAN 4 (`vmbr4` on `eth5.4`, on every Proxmox node) comes out too (the owner,
-        2026-10-19), as VLAN 9 did: in `proxmox-host.yml`'s `retired_interfaces`, whose run
-        refuses while a guest or kept bridge names one. NetBox has no VLAN or prefix for it,
-        only the ten interfaces. Done 2026-10-19: the owner's run (task 905) removed
-        both on all 5, each read back gone with its default route kept. Left: the ten
-        interfaces deleted in NetBox (the sync, task 902, brought them back before the run).
-        Task 909 listed exactly those ten as stale;
-        `prune_node_interfaces` is on from 2026-10-20, so the next sync deletes them. Left:
-        that run's log read for ten deletes, and none left in NetBox
+      `semaphore-to-proxmox`, `-docker`, `-pihole` and `-k8s` deleted by the owner.
 - [x] Phase 3 (2026-10-16): `scripts/netbox_seed.py` runs nightly at 23:00 from Semaphore's
       template "NetBox: Sync from Proxmox and Kea" (Python, `--apply`; variable group "Netbox
       Sync": `PROXMOX_URL` = `https://proxmox.<domain>`, `KEA_URL` =
