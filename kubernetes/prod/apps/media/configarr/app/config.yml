@@ -1,5 +1,5 @@
 # Configarr's configuration: the media apps' database-held settings, from git
-# (QUEUE-arr-config.md). Each instance names only where it is and its API key
+# (old-queues/QUEUE-arr-config.md). Each instance names only where it is and its API key
 # (from the app's own Secret, through the CronJob's env) until a phase captures
 # a section; a section left out is the app's UI's to set. Nothing unmanaged is
 # ever deleted.
@@ -13,7 +13,7 @@ sonarr:
   sonarr:
     base_url: http://sonarr:8989
     api_key: !env SONARR_API_KEY
-    # Phase 5 (QUEUE-arr-config.md): quality captured from the app as it was;
+    # Phase 5 (old-queues/QUEUE-arr-config.md): quality captured from the app as it was;
     # its custom formats are in customFormatDefinitions at the end of this file.
     quality_definition:
       qualities:
@@ -866,7 +866,7 @@ sonarr:
             score: 1000
           - name: "Remux-1080p - Anime"
             score: 1000
-    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # Phase 4 (old-queues/QUEUE-arr-config.md): captured from the app as it was.
     # Created if missing; unlisted tags are left alone.
     tags:
       - "1 - david"
@@ -976,7 +976,7 @@ radarr:
   radarr:
     base_url: http://radarr:7878
     api_key: !env RADARR_API_KEY
-    # Phase 5 (QUEUE-arr-config.md): quality captured from the app as it was;
+    # Phase 5 (old-queues/QUEUE-arr-config.md): quality captured from the app as it was;
     # its custom formats are in customFormatDefinitions at the end of this file.
     quality_definition:
       qualities:
@@ -1897,7 +1897,7 @@ radarr:
         assign_scores_to:
           - name: "HD Blueray 1080p"
             score: 15
-    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # Phase 4 (old-queues/QUEUE-arr-config.md): captured from the app as it was.
     # Created if missing; unlisted tags are left alone.
     tags:
       - "1 - david"
@@ -2004,7 +2004,7 @@ lidarr:
   lidarr:
     base_url: http://lidarr:8686
     api_key: !env LIDARR_API_KEY
-    # Phase 5 (QUEUE-arr-config.md): quality profiles captured from the app as it
+    # Phase 5 (old-queues/QUEUE-arr-config.md): quality profiles captured from the app as it
     # was (Configarr doesn't manage Lidarr's or Readarr's quality sizes).
     quality_profiles:
       - name: "Any"
@@ -2202,7 +2202,7 @@ lidarr:
               - "MP3-8"
           - name: "Unknown"
             enabled: false
-    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # Phase 4 (old-queues/QUEUE-arr-config.md): captured from the app as it was.
     # The complete list: Configarr deletes a root folder not named here.
     root_folders:
       - path: "/synmedia/media/music"
@@ -2324,7 +2324,7 @@ readarr:
   bookshelf:
     base_url: http://bookshelf:8787
     api_key: !env BOOKSHELF_API_KEY
-    # Phase 5 (QUEUE-arr-config.md): quality profiles captured from the app as it
+    # Phase 5 (old-queues/QUEUE-arr-config.md): quality profiles captured from the app as it
     # was (Configarr doesn't manage Lidarr's or Readarr's quality sizes).
     quality_profiles:
       - name: "eBook"
@@ -2377,7 +2377,7 @@ readarr:
             enabled: false
           - name: "Unknown Text"
             enabled: false
-    # Phase 4 (QUEUE-arr-config.md): captured from the app as it was.
+    # Phase 4 (old-queues/QUEUE-arr-config.md): captured from the app as it was.
     # The complete list: Configarr deletes a root folder not named here.
     root_folders:
       - path: "/synmedia/media/books"
@@ -2509,7 +2509,7 @@ whisparr:
   whisparr-v3:
     base_url: http://whisparr-v3:6969
     api_key: !env WHISPARR_API_KEY
-    # Whisparr v3 (QUEUE-arr-config.md), Configarr's experimental support. Started
+    # Whisparr v3 (old-queues/QUEUE-arr-config.md), Configarr's experimental support. Started
     # empty (2026-10-19), so these are set rather than captured: one root folder,
     # since v3's folder formats start with movies/ or scenes/ themselves, and v2's
     # download category. This build's qBittorrent client takes no API key, so it
@@ -3046,7 +3046,7 @@ prowlarr:
   prowlarr:
     base_url: http://prowlarr:9696
     api_key: !env PROWLARR_API_KEY
-    # Phase 4 (QUEUE-arr-config.md): captured from Prowlarr as it was. Its link to
+    # Phase 4 (old-queues/QUEUE-arr-config.md): captured from Prowlarr as it was. Its link to
     # Whisparr stays the UI's (Whisparr is being replaced, and its key isn't in a Secret).
     applications:
       data:

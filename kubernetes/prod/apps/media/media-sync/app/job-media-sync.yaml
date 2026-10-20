@@ -1,5 +1,5 @@
 # Applies sync/media-sync.yaml to Bookshelf, qBittorrent, SABnzbd and Seerr
-# (sync/media-sync.py; QUEUE-arr-config.md). The ConfigMap's generated name
+# (sync/media-sync.py; old-queues/QUEUE-arr-config.md). The ConfigMap's generated name
 # changes with either file, which changes this Job's spec; Flux then replaces
 # the Job (force), so each change runs once.
 apiVersion: batch/v1
