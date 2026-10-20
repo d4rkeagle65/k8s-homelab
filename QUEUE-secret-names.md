@@ -298,7 +298,8 @@ against today's value by hash.
       the owner restarted it at 17:41:57Z. Read back 2026-10-20: Prometheus's `garage` target
       `up` throughout, its cluster healthy with one node; ports 3900 and 3903 open on the
       NAS's management address and 3901 refused, as before; all 16 CNPG clusters (Whisparr
-      v2's is gone) `ContinuousArchiving`, and 12 instances archived to it after the restart.
+      v2's is gone) `ContinuousArchiving`, 10 of them archiving to it after the restart (the
+      other six had no new WAL).
       The two failures in that window weren't Garage: a switchover in progress, and the
       Kubernetes API refusing during a node drain; both archived again within a minute. Left:
       Dockhand's deploy record showing success on #163's commit, since a deploy that never ran
