@@ -57,7 +57,7 @@ spec:
                   secretKeyRef:
                     name: whisparr-v3
                     key: api-key
-              # As the other apps (QUEUE-arr-config.md, phase 1): Forms login,
+              # As the other apps (old-queues/QUEUE-arr-config.md, phase 1): Forms login,
               # required; info logs (debug floods Loki); analytics off.
               - name: WHISPARR__AUTH__METHOD
                 value: Forms
