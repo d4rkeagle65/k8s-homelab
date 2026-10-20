@@ -271,7 +271,8 @@ against today's value by hash.
         `IMMICH_POSTGRES_SUPERUSER_*` (2; CloudNativePG sets the superuser's password from it,
         `enableSuperuserAccess`), `OBSIDIAN_COUCHDB_*` (4), `AUTHENTIK_SECRET_KEY_PASSWORD`
         (Authentik's secret key: its sessions and what it encrypts),
-        `AUTHENTIK_SECRET_BOOTSTRAP_*` (2)
+        `AUTHENTIK_SECRET_BOOTSTRAP_*` (2). #182, a draft until the owner's rewrite, also ending
+        the hold; all 9 read back in their old base64 form, each decoding to text, before it
   - [ ] The two renamed, with no hold (Rules), in the order of "A name reaches Key Vault
         before anything reads it". `PIHOLE_PASSWORD` becomes `PIHOLE_1_PASSWORD`:
         `PIHOLE-1-PASSWORD` is `PIHOLE-PASSWORD`'s plain form (by hash, 2026-10-20), so its
