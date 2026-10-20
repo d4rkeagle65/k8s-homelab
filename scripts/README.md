@@ -281,6 +281,28 @@ add to Key Vault.
 3. Set a new version of its secret in Key Vault and let it sync.
 4. Run `all` again.
 
+### Move Dockhand's secret stack variables into Key Vault
+
+Dockhand never shows a secret's value (its API returns `***`): it keeps them
+encrypted in its database, so they come out by decrypting them in its container.
+The names, tags and refusals are in `dockhand_keyvault_copy.py`'s docstring.
+
+1. On the Docker VM, as root, with `scripts/dockhand-export-secrets.cjs` copied
+   there: `(umask 077; docker exec -i dockhand node --no-warnings - <
+   dockhand-export-secrets.cjs > /root/dockhand-secrets.json)`. It reads the
+   database read-only and prints only a count; exit code 2 names each value it
+   couldn't decrypt.
+2. Copy the JSON to `kubernetes/.local/dockhand-secrets.json` here, then
+   `shred -u` it on the VM.
+3. `python scripts/dockhand_keyvault_copy.py kubernetes/.local/dockhand-secrets.json
+   --vault <vault>` is a dry run: what it would add, the values Key Vault also
+   holds under another name (drop an entry from the JSON to reference that one
+   instead), and each stack variable's `azurekv://` reference. Then the same
+   with `--apply`.
+4. In Dockhand, with the vault as the stack's secret provider, set each
+   variable to its reference, redeploy, and check the stack. One stack first.
+5. Delete the JSON once the stacks read Key Vault.
+
 ### Bring the test environment up, and take it down
 
 `cluster-test` (`kubernetes/flux/config/test.yaml`) applies `kubernetes/test/`:
@@ -340,6 +362,7 @@ before the switchover.
 | `vaultwarden-pending.yaml` | Private values found that `cluster-secrets` doesn't hold yet, with their values, to add to Key Vault. Only there while some are pending. |
 | `azure-keyvault-sp-external-secrets.json` | The cluster's Key Vault service principal (read only): the `azure-keyvault-bootstrap` Secret in `flux-system` is built from it, by hand. |
 | `azure-keyvault-sp-claude-code.json` | The Docker VM's Claude Code service principal (read and write), for its stack in Dockhand. |
+| `dockhand-secrets.json` | Dockhand's secret stack variables in plain text, from `dockhand-export-secrets.cjs`, only while they move into Key Vault. |
 | `bitwarden-cli.env` | The Bitwarden CLI pod's Vaultwarden login, for recreating its Secret until the pod is retired. |
 | `variable-substitutions.yaml` | Legacy: where the values lived before Vaultwarden. Only read if `cluster-secrets` is missing from the cluster. |
 | `cluster/` | Full backup of built-in and operator-owned cluster objects, not committed. |
