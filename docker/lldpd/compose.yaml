@@ -1,0 +1,35 @@
+# lldpd on the NAS Docker hosts, so the switches see which host and interface is
+# on each port, as the Proxmox hosts do (ansible/tasks/proxmox-lldpd.yml).
+# Deployed by Dockhand through each NAS's Hawser agent, the same stack on each.
+# It shares the host's network, so it sees the NAS's own interfaces and sends
+# the NAS's hostname.
+#
+# The port ID is the interface's name (portidsubtype ifname). The container
+# writes that into /etc/lldpd.d/ itself at every start, as a Hawser stack can't
+# mount a file from this folder (docker/CLAUDE.md), then runs lldpd in the
+# foreground. lldpd comes from Alpine's packages at every start, so a start
+# needs the internet.
+#
+# Check it with `docker exec lldpd lldpcli show neighbors` (what the switch
+# sends) or `docker exec lldpd lldpcli show configuration`.
+services:
+  lldpd:
+    mem_limit: 128m  # unmeasured: lldpd itself is a few MB; apk needs more while it installs
+    image: alpine:3.20
+    container_name: lldpd
+    network_mode: host
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    restart: unless-stopped
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      apk add --no-cache lldpd
+      # lldpd's privilege-separated half chroots into /run/lldpd, which the
+      # package's init script would make; here nothing else does.
+      mkdir -p /etc/lldpd.d /run/lldpd
+      echo 'configure lldp portidsubtype ifname' > /etc/lldpd.d/port.conf
+      exec lldpd -d
