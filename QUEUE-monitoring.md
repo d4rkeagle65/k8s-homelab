@@ -189,7 +189,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [x] Phase 6 (in phase 1)
 - [ ] Phase 7
 - [ ] Phase 8
-- [ ] Phase 9 (the owner, 2026-10-20: this phase first). In PR: the Backups dashboard
+- [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
       (Grafana, Homelab folder, `json/homelab/backups.json`) and the `homelab.backups` alerts:
       Postgres from the Barman Cloud plugin's metrics (CloudNativePG's own backup timestamps
       stay empty with the plugin), through recording rules `cnpg:backup_last_available_timestamp:max`,
@@ -197,10 +197,9 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       (the dashboard needs no `label_replace`, whose `$1` Flux and Grafana would each read);
       MariaDB from kube-state-metrics' custom-resource view of each `PhysicalBackup`
       (`mariadb_physicalbackup_last_schedule_timestamp`, `_complete`), since the operator
-      exports none. Every query tested against the live Prometheus; the retired `whisparr-db`
-      already shows red (26.7 h). Left: the merge and its read-back; then the Proxmox
-      collector (Ansible, applies by the owner), the Garage exporter (its key) and the
-      Synology copy (its answer)
+      exports none. Read back live 2026-10-20, and a hand-sent warning reached Zammad as a
+      ticket through `zammad-bridge`. Left: the Proxmox collector (Ansible, applied by the
+      owner), the Garage exporter (its key) and the Synology copy (its answer)
 
 ## Resuming
 
