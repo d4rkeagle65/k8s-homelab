@@ -78,15 +78,20 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
       `storage.s3.endpoint` takes no scheme and `CNPG_BACKUP_S3_ENDPOINT` has one. Read back:
       equal to the endpoint without its scheme
 - [ ] Grimmory, in steps:
-      1. (PR, 2026-10-20) `grimmory-db` beside the old `grimmory-mariadb` StatefulSet
+      1. (2026-10-20) `grimmory-db` beside the old `grimmory-mariadb` StatefulSet
          (`app/mariadb.yaml`): 3 instances of 11.8.9 on `local-db` (5Gi), its `myCnf` keeping
          `innodb_snapshot_isolation=OFF`, its `Database`, `User` and `Grant` as the old one's
          (cleanupPolicy Skip), and a nightly `PhysicalBackup` to `mariadb-backups/grimmory`
          (14 days). Grimmory's Kustomization waits for `mariadb-operator`. Left: the merge, then the instances, grants, the first
          backup and a restore from it read back
-      2. The move: Grimmory's release suspended and scaled to 0, a `mariadb-dump` of the old
-         database loaded into `grimmory-db-primary`, every table's row count compared; a PR
-         points `DATABASE_URL` at `grimmory-db-primary` and resumes it
+      2. The move (2026-10-20, Grimmory stopped from 01:55Z): its release suspended and scaled to
+         0, a `mariadb-dump` of the old database loaded into `grimmory-db-0` (the primary). All
+         73 tables' row counts matched (1,766 rows), and the new primary's and a replica's
+         checksums matched each other; `book`'s `CHECKSUM TABLE` differed from the old one's
+         while its definition, row format and a hash of every row's values matched (the old
+         table's storage, not its data). The `grimmory` login was raised to 30 connections
+         first (the operator's default is 10; Grimmory's pool holds 10). In PR: `DATABASE_URL`
+         to `grimmory-db-primary`; then the release resumed
       3. A day later: the old StatefulSet, its exporter and ServiceMonitor, the dump CronJob and
          its PVC removed, and the NAS dump folder; the old data PVC's PV deleted once released
 - [ ] Youtarr: its own `MariaDB`, then its release (its own QUEUE file if it grows)
