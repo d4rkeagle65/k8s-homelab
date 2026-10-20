@@ -59,7 +59,7 @@ spec:
                     name: lidarr
                     key: api-key
               # Start-up settings pinned here rather than in config.xml, which
-              # they override (QUEUE-arr-config.md): Forms login, as set up;
+              # they override (old-queues/QUEUE-arr-config.md): Forms login, as set up;
               # info logs (debug floods Loki); the update channel it runs.
               - name: LIDARR__AUTH__METHOD
                 value: Forms
