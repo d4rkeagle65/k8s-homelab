@@ -42,25 +42,27 @@ the setup: the web UI is on the host's management address only, served through T
    head -c32 /dev/urandom | base64
    ```
 
-## Variables (the stack's environment in Dockhand)
+## Variables (Key Vault, referenced from `.env`)
 
-`.env` here lists every variable, blank, so Dockhand's **Populate** can fill in the names. Mark
-every one **secret** in Dockhand, even the plain settings: Dockhand passes secret variables to
-compose directly, and those override the blank file. Never put a value in `.env`.
+Each is a Key Vault secret, `_` as `-`, read through the vault bound as the stack's secret
+provider in Dockhand, with its selector empty. One waits in Dockhand, marked secret:
+`SEMAPHORE_OIDC_CLIENT_SECRET`, the plain value of Key Vault's
+`AUTHENTIK-SEMAPHORE-OIDC-CLIENT-SECRET` (held base64 there for now), the same one Authentik's
+blueprint reads.
 
 | Variable | Value |
 |---|---|
-| `SEMAPHORE_BIND_ADDRESS` | the host's management address |
-| `SEMAPHORE_WEB_ROOT` | `https://semaphore.<domain>` |
-| `SEMAPHORE_DB_PASSWORD` | secret: a new random password |
-| `SEMAPHORE_ADMIN_PASSWORD` | secret: the built-in admin's |
+| `DOCKER_VM_1_MGMT_ADDRESS` | the host's management address |
+| `BASE_DOMAIN` | the domain: `semaphore.<domain>`, `auth.<domain>` and `netbox.<domain>` are built from it |
+| `SEMAPHORE_DB_PASSWORD` | a new random password |
+| `SEMAPHORE_ADMIN_PASSWORD` | the built-in admin's |
 | `SEMAPHORE_ADMIN_EMAIL` | the built-in admin's email: **not** your Authentik email. Semaphore matches an Authentik login to users by email and refuses a local one, so with the same address you can't log in through Authentik (e.g. `you+semaphore-admin@<domain>`) |
-| `SEMAPHORE_ACCESS_KEY_ENCRYPTION` | secret: a random key from step 3. Losing it loses every stored key and secret; keep a copy in Vaultwarden |
-| `SEMAPHORE_COOKIE_HASH`, `SEMAPHORE_COOKIE_ENCRYPTION` | secret: the other two random keys |
-| `SEMAPHORE_OIDC_ISSUER_URL` | `https://auth.<domain>/application/o/semaphore/` |
-| `SEMAPHORE_OIDC_CLIENT_SECRET` | secret: the same value as the `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` field in Vaultwarden (plain, not base64) |
-| `TFSTATE_DB_PASSWORD` | secret: a new random password for the `tfstate` role (OpenTofu's state) |
-| `TZ` | the timezone schedules run in, e.g. `America/New_York` |
+| `SEMAPHORE_ACCESS_KEY_ENCRYPTION` | a random key from step 3. Losing it loses every stored key and secret; keep a copy in Vaultwarden |
+| `SEMAPHORE_COOKIE_HASH`, `SEMAPHORE_COOKIE_ENCRYPTION` | the other two random keys |
+| `TFSTATE_DB_PASSWORD` | a new random password for the `tfstate` role (OpenTofu's state) |
+| `DATABASUS_SEMAPHORE_DB_PASSWORD` | a new random password for the read-only `databasus` role (`docker/databasus/README.md`) |
+| `TIMEZONE` | the timezone schedules run in, e.g. `America/New_York` |
+| `NETBOX_SEMAPHORE_TOKEN` | a NetBox token with writes off, for the NetBox inventory |
 
 ## First login
 
@@ -68,7 +70,7 @@ compose directly, and those override the blank file. Never put a value in `.env`
 2. Log in once with **Authentik**: Semaphore creates your user, named by your email, as an
    ordinary user. Its OIDC can't make anyone an admin. (If it sends you back to the login page
    and its log says the user "conflicts with local user", the built-in admin has your email:
-   change the admin's email in Semaphore, and `SEMAPHORE_ADMIN_EMAIL` to match.)
+   change the admin's email in Semaphore, and Key Vault's `SEMAPHORE-ADMIN-EMAIL` to match.)
 3. Log out, log in as the built-in `admin` with `SEMAPHORE_ADMIN_PASSWORD`, and under Users
    tick **Admin** on your account.
 4. From then on, log in with Authentik. The built-in admin is the fallback when Authentik is
