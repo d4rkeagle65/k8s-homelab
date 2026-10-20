@@ -140,6 +140,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **kea-standby's API doesn't answer an HTTP request from the owner's PC** (found 2026-10-20):
+  on the second Docker VM's management address, port 8000 accepts the connection, then the
+  `status-get` is reset after about 20 seconds, though the primary's HA heartbeats reach it
+  (in touch, every few seconds). The first VM needed management-network return routing for
+  the PC to reach its published ports; check the second has it. Left, a script on the PC
+  that asks the standby (as `netbox_seed.py` asks the primary) gets no answer.
+
 - **Whisparr v2's leftovers** (retired 2026-10-19; its final base backup
   `whisparr-db-final-202610191449` completed, its WAL archived through its end): from
   2026-10-20, delete the `whisparr-db` Cluster in `media` (kept from pruning by its

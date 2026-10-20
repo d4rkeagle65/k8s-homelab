@@ -150,12 +150,14 @@ against today's value by hash.
       at 14:12Z, port 9338 published on the management address (the owner, from its ports
       line), Prometheus's `docker-vm` target `up`; its leftovers are on the delete list below.
       A variable compose interpolates (as in `ports:`) never reaches the container's environment, so
-      `printenv` inside it shows neither name; the ports line is the check. kea-standby next:
-      its compose file reads `DOCKER_VM_2_PROD_ADDRESS` and `DOCKER_VM_2_MGMT_ADDRESS` (branch
-      `kea-standby-standard-names`). It has no webhook (a Hawser stack on the second VM), so
-      the owner sets both references, merges, then redeploys it in Dockhand. Before: Kea's API
-      port 8000 open on the VM's management address and refused on its production one, which
-      the same probe after the redeploy must show again
+      `printenv` inside it shows neither name; the ports line is the check. kea-standby
+      second, done but for its leftovers: its compose file reads `DOCKER_VM_2_PROD_ADDRESS` and
+      `DOCKER_VM_2_MGMT_ADDRESS` (#146), set as references and redeployed by hand (no webhook:
+      a Hawser stack on the second VM). Its first deploy failed, "Invalid environment variable
+      name": a secret selector on the stack had pulled the whole vault (cleared; the rule is in
+      `docker/CLAUDE.md`). Read back 2026-10-20: Kea's API port 8000 open on the management
+      address and refused on the production one, as before the move; the primary sees it in
+      hot-standby, in touch, heard from 4 s before
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
