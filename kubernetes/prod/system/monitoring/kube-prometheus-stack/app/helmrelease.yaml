@@ -326,6 +326,19 @@ spec:
                   type: Gauge
                   gauge:
                     path: [status, conditions, "[type=Complete]", status]
+              # A template (a suspended schedule, such as a MariaDB's replica
+              # recovery source) never completes, and the alerts skip it.
+              - name: physicalbackup_suspended
+                help: 1 when the PhysicalBackup's schedule is suspended.
+                labelsFromPath:
+                  exported_namespace: [metadata, namespace]
+                  name: [metadata, name]
+                  mariadb: [spec, mariaDbRef, name]
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [spec, schedule, suspend]
+                    nilIsZero: true
             - groupVersionKind:
                 group: kustomize.toolkit.fluxcd.io
                 version: v1
