@@ -4,9 +4,11 @@ resources:
 - cronjob-grimmory-db-backup.yaml
 - helmrelease.yaml
 - job-grimmory-sync.yaml
+- mariadb.yaml
 - pvc.yaml
 - secret-grimmory-db.yaml
 - secret-grimmory-sync.yaml
+- secret-mariadb-backup-s3.yaml
 # Grimmory's configuration and the script that applies it. The generated name
 # carries a hash of both, so a change renames the ConfigMap and the Job runs
 # again (job-grimmory-sync.yaml).
