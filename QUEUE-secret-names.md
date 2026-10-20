@@ -261,7 +261,9 @@ against today's value by hash.
         exportarr's, Homepage's, organizr-sync's) were last written days before
   - [ ] 4 (8), connections: `CLOUDFLARE_TUNNEL_SECRET_*` (3; the tunnel carries everything the
         internet reaches), `REDIS_HA_CREDS_*` (2), `AUTHENTIK_REDIS_PASSWORD_PASSWORD`,
-        `IMMICH_REDIS_PASSWORD_PASSWORD`, `IMMICH_REDIS_URL_REDIS_URL`
+        `IMMICH_REDIS_PASSWORD_PASSWORD`, `IMMICH_REDIS_URL_REDIS_URL`. #180, a draft until the
+        owner's rewrite; all 8 read back in their old base64 form, each decoding to text,
+        before it
   - [ ] 5 (9), last, and it restores `Periodic`. A wrong value here would change stored state:
         `IMMICH_POSTGRES_SUPERUSER_*` (2; CloudNativePG sets the superuser's password from it,
         `enableSuperuserAccess`), `OBSIDIAN_COUCHDB_*` (4), `AUTHENTIK_SECRET_KEY_PASSWORD`
