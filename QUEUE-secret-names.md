@@ -343,7 +343,20 @@ against today's value by hash.
       `docker ps -a --filter label=com.docker.compose.project=semaphore`), both init containers
       exited (0) at about 21:12Z, which each deploy re-runs, while `semaphore` and
       `semaphore-postgres` stayed up from 10-18. An unresolved reference would have changed
-      their config and recreated them. Left: a login through Authentik
+      their config and recreated them. Left: a login through Authentik. Its OIDC client
+      secret's follow-up is unblocked: Key Vault holds all three OIDC client secrets plain
+      now (the copy script's dry run, 2026-10-20: 52 held the same, none base64). netbox
+      seventh (branch `netbox-standard-names`): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its
+      host and OIDC endpoint are built in the compose file),
+      `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` by reference, `DATABASUS_NETBOX_DB_PASSWORD`,
+      `TIMEZONE`, `kea_default` and its three sync settings written in (`SYNC_APPLY` true by
+      hash, the two Dockhand never set at their defaults), and eight that keep their names,
+      which go from Dockhand just before the merge. Rendered as compose does (parse, then
+      interpolate), its compose file gave exactly the old one's. Its two images are built on
+      each deploy, so a rebuilt image can recreate it whatever the values. Before: `netbox`
+      and `netbox-dns-sync` running since 2026-10-20 03:26Z, the rest since 10-19 03:35Z,
+      port 8085 open on the management address and refused on the production one, `/login/`
+      answering 200 through Traefik
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -387,6 +400,11 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
   `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN`, once its move
   reads back. Its `SEMAPHORE_OIDC_CLIENT_SECRET` is still read, until the base64 switch
+- netbox's `NETBOX_BIND_ADDRESS`, `NETBOX_HOST`, `OIDC_ENDPOINT`, `OIDC_CLIENT_SECRET`,
+  `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
+  `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
+  `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, `kea_default` and `SYNC_APPLY` in the compose file,
+  `DATABASUS_NETBOX_DB_PASSWORD` and `TIMEZONE`, once its move reads back
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
