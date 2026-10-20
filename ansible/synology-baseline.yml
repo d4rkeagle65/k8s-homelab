@@ -5,14 +5,18 @@
 # DSM's Docker is a package from its Package Center: Container Manager from
 # DSM 7.2, Docker before it (synology_docker_package overrides the choice). It's
 # installed with synopkg from Synology's server, started, and read back from the
-# Docker daemon itself. The package keeps its data in a `docker` shared folder,
-# which Package Center's wizard makes; from synopkg, DSM 7.1's Docker can't
-# ("failed to create docker share"), so a missing one is made first, on
+# Docker daemon itself. Each step that runs as root sets DSM's own PATH first
+# (synology_path, /etc/profile's): an SSH session that isn't a login has only
+# /usr/bin:/bin:/usr/sbin:/sbin, sudo keeps it (DSM sets no secure_path), and the
+# package's scripts call synoshare and the like by name, so without it Docker's
+# install fails with "failed to create docker share". The package keeps its data
+# in a `docker` shared folder; a missing one is made first, on
 # synology_docker_volume (default /volume1), the way the other shares are (empty
-# user lists, DSM's ACLs), and read back. Should the install still fail, it
-# prints DSM's reason and says to install the package from Package Center once;
-# the next run finds it and goes on. DSM has no apt, and nothing here needs
-# Python on the NAS: every step is one `raw` script.
+# user lists, DSM's ACLs), and read back, as the install that worked by hand had
+# it. Should the install still fail, it prints DSM's reason and says to install
+# the package from Package Center once; the next run finds it and goes on. DSM
+# has no apt, and nothing here needs Python on the NAS: every step is one `raw`
+# script.
 #
 # Inventory: the NetBox one; the `synology` group is the NetBox tag. The login is
 # the host's ansible_user (its local config context), an administrator with
@@ -40,6 +44,8 @@
   vars:
     hawser_token: "{{ lookup('ansible.builtin.env', 'HAWSER_TOKEN') }}"
     hawser_stacks: "{{ synology_hawser_stacks | default('/volume1/docker/hawser-stacks') }}"
+    # DSM's /etc/profile PATH, which a non-login SSH session lacks.
+    synology_path: /sbin:/bin:/usr/sbin:/usr/bin:/usr/syno/sbin:/usr/syno/bin:/usr/local/sbin:/usr/local/bin
   tasks:
     # Without become: a sudo that asks for a password would otherwise fail
     # every later step with Ansible's generic "missing sudo password".
@@ -82,6 +88,7 @@
     # (UNVERIFIED in check mode while the package is missing or stopped).
     - name: Docker, as Synology's package
       ansible.builtin.raw: |
+        PATH={{ synology_path | quote }}; export PATH
         dry={{ 1 if ansible_check_mode else 0 }}
         pkg='{{ synology_docker_package | default('ContainerManager' if dsm.MAJOR | int > 7 or (dsm.MAJOR | int == 7 and dsm.MINOR | int >= 2) else 'Docker') }}'
         synopkg=/usr/syno/bin/synopkg
@@ -164,6 +171,7 @@
     # lines are printed by the task after it.
     - name: Hawser, Dockhand's agent
       ansible.builtin.raw: |
+        PATH={{ synology_path | quote }}; export PATH
         dry={{ 1 if ansible_check_mode else 0 }}
         docker=/usr/local/bin/docker
         image={{ hawser_image | quote }}
