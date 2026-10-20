@@ -106,7 +106,10 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       rest of 1.14.3 touches nothing here: its QEMU GSO fix is in talosctl's local QEMU
       provisioner, not the OS; no PTP devices; nothing calls `talosctl time --check` as
       `os:reader`. The Image Factory serves the schematic's installer and nocloud image at
-      v1.14.4. After the merge: `ansible/talos-upgrade.yml` in check mode, then for real, then
+      v1.14.4. Semaphore's "App: Upgrade Talos" template runs `ansible/talos-k8s-upgrade.yml`
+      (task 928, 2026-10-20: play "Upgrade Kubernetes", "target v1.36.5: nothing to do"), so
+      it can't do this until it names `ansible/talos-upgrade.yml`. After the merge, that
+      playbook in check mode, then for real, then
       the OpenTofu job, whose plan should replace only `proxmox_download_file.talos_nocloud`
       (its file name carries the version) and update the install image in place. The Talos
       VMs' disks import from that file and the VMs have `prevent_destroy`, so a plan that wants
