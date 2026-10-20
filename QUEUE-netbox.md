@@ -169,7 +169,7 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       and VM's addresses in their prefix's zone; the rest were imported from Pi-hole and are kept
       by hand; `netbox-dns-sync` keeps both Pi-holes exactly matching, deletes included
       ([old-queues/QUEUE-netbox-dns.md](old-queues/QUEUE-netbox-dns.md))
-- [ ] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` stops carrying a
+- [x] Phase 5: OpenTofu reads each guest from NetBox, so `TF_VAR_site` stops carrying a
       second, hand-kept copy of it. One owner per value: NetBox for each guest's VMID, node,
       name, addresses and MACs; `TF_VAR_site` keeps the stable facts (each network's prefix
       and gateway, the nodes' DNS servers and search domain, the Talos cluster values).
@@ -178,20 +178,14 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       the Docker VM and the Talos VMs ignore `node_name`, so an HA move is never a change;
       the retired LXC nodes out). Checked before pushing: for all ten guests, NetBox's node,
       name, last octet and the Docker VM's MACs equal the "OpenTofu site (Proxmox)" note's.
-      Left:
+      The NetBox-first workflow (`tofu/README.md`) proven twice with VMID 199: built,
+      destroyed, and rebuilt 2026-10-20 (generator, apply task 915: one container added,
+      nothing else; sync task 916 marked it active).
   - [x] Live 2026-10-16: `TF_VAR_netbox_url` and `TF_VAR_netbox_token` in Semaphore's
         "OpenTofu: Proxmox and Talos" group; its plan (task 724) read NetBox and found no
         changes. 101-106 stay in the state until an apply with a change writes the refresh
   - [x] `guests` out of `TF_VAR_site`, in Semaphore's copy and the Vaultwarden note "OpenTofu
         site (Proxmox)" (the owner, 2026-10-16)
-  - [ ] The NetBox-first workflow (tofu/README.md) worked with a test guest, 2026-10-16:
-        Planned in NetBox, built by an apply (task 725), marked active by the sync, which
-        reused the hand-entered interface and address, then destroyed by an apply.
-        Decommissioning (the owner, 2026-10-20) means a guest being removed by hand: the
-        generator keeps `main`'s entry for it unchanged and the sync writes nothing about it
-        (`tofu/README.md`). Left: after that merges, the next "NetBox: Guests to git" run
-        opens no pull request and the next sync's log shows no write for a Decommissioning
-        VM. VMID 199 has no role and no Proxmox guest, so neither touches it either way
 - [ ] Phase 6: each guest's shape (sizes, roles, disks, bridges) edited in NetBox and brought
       into git by a pull request from Semaphore: [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md)
 - [ ] The switches' cables: the core switch (TL-SG3428, 24 copper and 4 SFP ports), 02 and 04
