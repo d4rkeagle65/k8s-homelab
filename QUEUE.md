@@ -280,6 +280,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
     through the community `kalebharrison/dockhand` provider (unofficial,
     with known gaps, so a Dockhand update can break it). Dockhand can't set
     itself up: Ansible installs it on the VM, then Terraform configures it.
+- **The PC's Claude sessions get API tokens of their own** (found 2026-10-20): local
+  sessions on separate forks may be given copies of the claude-code container's
+  `~/.semaphore-token` and `~/.netbox-token` (`/opt/claude-code/home/` on the Docker host),
+  so one token serves two machines, and revoking it cuts off both. Make a Semaphore user and
+  a NetBox token for the PC sessions instead, each revocable on its own, as the cluster
+  access already is (`claude-code` ServiceAccount vs the PC's admin kubeconfig).
 
 ## Working queue files
 
