@@ -115,7 +115,10 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       and the workers with `reboot_allow_pending: true`, where the higher tiers preempt
       `homelab-low` pods and the media apps wait for the node, or once the workers have more
       room: `QUEUE-resource-limits.md`'s recheck won't make it (its rule raises as much as it
-      lowers). Then
+      lowers), the worker on H4 at 16 GiB will (the owner moved guests to free its host,
+      2026-10-20; still to do: the NetBox sync, its memory in NetBox, the guests pull request,
+      the OpenTofu job, then `talos-reboot.yml` for VM 115), leaving about 14 and 15 GiB of
+      room for the two that failed. Then
       the OpenTofu job, whose plan should replace only `proxmox_download_file.talos_nocloud`
       (its file name carries the version) and update the install image in place. The Talos
       VMs' disks import from that file and the VMs have `prevent_destroy`, so a plan that wants

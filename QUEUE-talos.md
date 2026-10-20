@@ -57,24 +57,24 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 |---|---|---|---|---|
 | H1 | 8 | 31 GB | Talos control plane (VM 112), Talos worker (VM 117), Pi-hole 2 | |
 | H2 | 4 | 31 GB | Talos worker (VM 116) | VT-x and VT-d on since 2026-10-12 |
-| H3 | 4 | 15.5 GB | Talos worker (VM 115) | its NVMe is at 86% wear (QUEUE.md) |
-| H4 | 4 | 31 GB | control plane 2, Pi-hole 1, Docker VM, domain controller VM | |
-| H5 | 8 (i7-7700) | 63 GB | Talos control plane (VM 110) | in the cluster since 2026-10-12; its root is on the NX-512 (Phase 0) |
+| H3 | 4 | 15.5 GB | Talos control plane (VM 113), Pi-hole 1 | its NVMe is at 86% wear (QUEUE.md) |
+| H4 | 4 | 31 GB | Talos worker (VM 115), Docker VM | |
+| H5 | 8 (i7-7700) | 63 GB | Talos control plane (VM 110), Talos worker (VM 114), domain controller VM | in the cluster since 2026-10-12; its root is on the NX-512 (Phase 0) |
 
-**The layout** (as built, 2026-10-14):
+**The layout** (the owner moved VMs 113, 115, Pi-hole 1 and the domain controller on
+2026-10-20, so the worker on H4 can grow):
 
-| | Talos control plane (2 vCPU, 4 GiB) | Talos worker |
+| | Talos control plane (2 vCPU, 6 GiB) | Talos worker |
 |---|---|---|
 | H1 | yes | 4 vCPU, 16 GiB (2026-10-14: memory was what kept a worker from draining) |
 | H2 | no | 3 vCPU, 16 GiB |
-| H3 | no (small, worn disk) | 4 vCPU, 10 GiB (the owner, 2026-10-14: with local-db, worn disk or not) |
-| H4 | yes | none (the owner, 2026-10-15: it carries the HA VMs and a Pi-hole; a worker only if needed) |
+| H3 | yes (on its worn disk: etcd writes about 22 GB a day) | none |
+| H4 | no | 4 vCPU, 11 GiB, with local-db; it carries the Docker VM (HA) too |
 | H5 | yes | 6 vCPU, 20 GiB |
 
-62 GiB of workers in all; losing the largest (H5) leaves 42 GiB, above the pods' requests
-(about 27 GiB) with room.
-Control planes on H1, H4, H5 (the owner, 2026-10-13: the first Talos one was built on H5): losing
-any one keeps etcd's quorum.
+63 GiB of workers in all, whose pods request about 48 GiB (2026-10-20): losing the largest (H5)
+leaves 43 GiB, less than they ask, so the lower tiers wait until it's back.
+Control planes on H1, H3, H5: losing any one keeps etcd's quorum.
 
 ## Phase 1: preparation (no change to the running cluster)
 
@@ -147,7 +147,8 @@ goes once the retired guests are destroyed.
       only other host with room for both), `shutdown_policy=migrate` and `crs ha=static` (HA
       places by configured memory, not by counting services). HA moved both live to H5 and back
       for H4's drained reboot (2026-10-15, maintenance mode, `proxmox-reboot.yml`); recovery
-      from a dead host is the failover test below
+      from a dead host is the failover test below. Since 2026-10-20 `infra-vms` holds only the
+      Docker VM, and the domain controller has a rule of its own: H5 first, H1 next
 - [x] Phase 1: Talos image and machine configs (`talos/`, the secrets as `TALOS_SECRETS`);
       kube-proxy labels; the service-account issuer; the API address (the control planes'
       `Layer2VIPConfig`, Phase 2); Calico's address detection
