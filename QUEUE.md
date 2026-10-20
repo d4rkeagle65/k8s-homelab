@@ -157,6 +157,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the host, skipped by Renovate). Say instead what makes Dockhand rebuild after a Dockerfile
   change, once that's read on the host. Left, a version bump merged by Renovate may never
   reach the running image, and the README points at an edit that shouldn't be made.
+- **`test-scripts-pytest` is red wherever `kubernetes/.local/` exists** (found 2026-10-20):
+  `scripts/tests/test_dockhand_keyvault_copy.py`'s `"TIMEZONE"` fixture holds the real value,
+  which `test_no_substitution_literal_leaks_outside_local` (`test_secrets_hygiene.py`) refuses.
+  Use a made-up zone (`Etc/UTC`). Left, every full run and rebase on the owner's PC reads red,
+  and a commit there touching `scripts/` is refused.
 - **`talos_nodes_only` given as a string matches by substring** (`ansible/talos-upgrade.yml`,
   `n.metadata.name in talos_nodes_only`): the workers' common name prefix selects every worker. Split a string on
   commas and spaces into exact names, as `talos-reboot.yml` does with `reboot_vms`. Left, a
