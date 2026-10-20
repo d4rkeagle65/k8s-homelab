@@ -22,8 +22,10 @@ The owner, 2026-10-19:
   `TIMEZONE`, `BASE_DOMAIN`, `CLUSTER_DOMAIN`, `OWNER_EMAIL`.
 - **An instance number is its own word:** `<SYSTEM>_<N>_<THING>` (`DOCKER_VM_1_MGMT_ADDRESS`,
   `PIHOLE_2_PASSWORD`). There are two Docker VMs; kea-standby runs on the second.
-- **A host's address is one variable**, `<HOST>_<N>_<NETWORK>_ADDRESS`; a service binds to
-  its host's, never to one of its own.
+- **A host's address is one variable**, `<HOST>_<N>_<NETWORK>_ADDRESS`, the `_<N>` only where
+  there are several (`DOCKER_VM_1_MGMT_ADDRESS`, `TERRAMASTER_MGMT_ADDRESS`); a service binds
+  to its host's, never to one of its own. Each address below was checked 2026-10-19 to be on
+  the network its name says.
 - **Built, not stored:** a URL or hostname under the domain is written in the file from
   `${BASE_DOMAIN}`, as the cluster's manifests do.
 - **What is fine in git stays in git:** Docker network names and flags are written into the
@@ -66,10 +68,11 @@ The owner, 2026-10-19:
 | `PIHOLE_2_APP_PASSWORD` | `PIHOLE2_PASSWORD` (base64) | |
 | `PIHOLE_1_URL`, `PIHOLE_2_URL` | `PIHOLE_URL`, `PIHOLE2_URL` | netbox's `PIHOLE_1_URL`, `PIHOLE_2_URL` (compared equal) |
 | `GARAGE_S3_ENDPOINT` | `CNPG_BACKUP_S3_ENDPOINT` | vaultwarden's `BACKUP_S3_ENDPOINT` |
-| `CNPG_BACKUP_S3_ACCESS_KEY_ID`, `..._SECRET_ACCESS_KEY`, `GARAGE_METRICS_TOKEN` | the same | garage's, the same names (not compared: owner item 1) |
+| `CNPG_BACKUP_S3_ACCESS_KEY_ID`, `..._SECRET_ACCESS_KEY`, `GARAGE_METRICS_TOKEN` | the same | garage's, the same names (compared equal) |
 | `DOCKER_VM_1_MGMT_ADDRESS` | (Key Vault's `CADVISOR-ADDRESS`, unmapped) | cadvisor's `CADVISOR_ADDRESS`; databasus's, netbox's and semaphore's `*_BIND_ADDRESS`; kea's `KEA_API_ADDRESS` |
 | `DOCKER_VM_1_PROD_ADDRESS` | | kea's `KEA_DHCP_ADDRESS`, `VAULTWARDEN_BIND_ADDRESS` |
 | `DOCKER_VM_2_MGMT_ADDRESS`, `DOCKER_VM_2_PROD_ADDRESS` | | kea-standby's `KEA_API_ADDRESS`, `KEA_DHCP_ADDRESS` |
+| `TERRAMASTER_MGMT_ADDRESS` | `TERRAMASTER_ADDRESS` | garage's `GARAGE_BIND_ADDRESS` (compared equal) |
 
 **Dockhand's own, renamed or dropped** (kept as they are: databasus's `DATABASUS_AGENT_ID`,
 `_AGENT_TOKEN`, `_URL`; kea's `STORK_DB_PASSWORD`; netbox's `NETBOX_API_TOKEN_PEPPER`,
@@ -96,17 +99,6 @@ The owner, 2026-10-19:
 | vaultwarden | `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` | `AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_ID`, `AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_SECRET` |
 | vaultwarden | `SMTP_HOST` (compared equal to the built form) | `smtp-relay.${BASE_DOMAIN}` |
 | vaultwarden | `SMTP_USERNAME`, `SMTP_PASSWORD` | `ENTRA_VAULTWARDEN_SMTP_USERNAME`, `ENTRA_VAULTWARDEN_SMTP_CLIENT_SECRET` |
-| garage | `GARAGE_BIND_ADDRESS` | `TERRAMASTER_ADDRESS` if the same (owner item 1) |
-
-## Waiting on the owner
-
-1. **Garage's and kea-standby's variables**, still missing from the export after the owner
-   marked the rest secret and exported again (2026-10-19, 68 variables): garage's seven and
-   kea-standby's two aren't secret stack variables in Dockhand's database. The export reads
-   every Dockhand environment, and only `Local` has any; garage runs through Hawser on the NAS
-   and kea-standby on the second Docker VM. Where are their values set? (netbox's
-   `CONFIG_DIFF_*` and vaultwarden's `BACKUP_ZIP_PASSWORD` are blank, the owner says;
-   `PIHOLE_TLS_VERIFY` and `SYNC_DELETE` are settings, written into the compose file.)
 
 ## Rules
 
@@ -134,14 +126,17 @@ The owner, 2026-10-19:
 
 ## Checklist
 
-- [x] Compared (2026-10-19): Key Vault's 145 secrets and Dockhand's 61 secret stack variables,
-      then 68 once more were marked secret, by hash and base64-decoded where held so, by
-      `scripts/dockhand_keyvault_copy.py`'s dry run; where each is used, from the repo
-- [ ] What waits on the owner above
-- [ ] `Child2` and `MEDIA_WHISPARR_API_KEY` out of `cluster-secrets.yaml` (the owner,
-      2026-10-19: nothing reads them, no live Secret holds the Whisparr v2 key, and the leak
-      check keeps `Child2`'s value through `.secret-words`); once that merges, the owner
-      deletes their Key Vault secrets, `Child2` and `MEDIA-WHISPARR-API-KEY`
+- [x] Compared (2026-10-19): Key Vault's secrets with every Dockhand stack variable (77 from 9
+      stacks, once the owner had marked them all secret; netbox's `CONFIG_DIFF_*` and
+      vaultwarden's `BACKUP_ZIP_PASSWORD` are blank), by hash and base64-decoded where held so,
+      by `scripts/dockhand_keyvault_copy.py`'s dry run; where each is used, from the repo
+- [x] The owner's decisions (2026-10-19), all in Settled and the tables
+- [x] `Child2` and `MEDIA_WHISPARR_API_KEY` out of `cluster-secrets.yaml` (#135; nothing read
+      them, no live Secret held the Whisparr v2 key, and the leak check keeps `Child2`'s value
+      through `.secret-words`), read back 2026-10-19: the Secret holds neither, `SecretSynced`
+      for its new spec, every Flux object Ready
+- [ ] The owner deletes their Key Vault secrets, `Child2` and `MEDIA-WHISPARR-API-KEY` (both
+      still there at the read-back)
 - [ ] `scripts/dockhand_keyvault_copy.py` takes its names from this file's tables, counts a
       secret the cluster already holds with the same value as shared rather than a conflict,
       and its tests follow; `QUEUE-azure-keyvault.md`'s Dockhand items say so
