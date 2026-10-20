@@ -10,7 +10,7 @@ It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (thei
 variables), each host's local context, and the devices Proxmox doesn't run (the
 access points). A primary address NetBox already has is kept while the host
 still has it. A VM whose role is one of netbox_seed.yaml's vm_roles has its shape
-owned by NetBox (QUEUE-netbox-shape.md): its vCPUs, memory, disk sizes and the
+owned by NetBox (old-queues/QUEUE-netbox-shape.md): its vCPUs, memory, disk sizes and the
 custom fields talos_apply_mode and proxmox_tags are never written, and where
 Proxmox differs it's reported, since a resize made in NetBox reaches Proxmox
 only when its pull request is merged and applied.
@@ -477,11 +477,11 @@ def main() -> None:
                        "description": "How OpenTofu applies a Talos node's config (tofu/proxmox)"}, "choice set Talos apply modes")
     nb.ensure("extras/custom-fields", {"name": "talos_apply_mode"},
               {"type": "select", "choice_set": modes["id"], "object_types": ["virtualization.virtualmachine"],
-               "label": "Talos apply mode", "description": "auto, or no_reboot (QUEUE-netbox-shape.md)"},
+               "label": "Talos apply mode", "description": "auto, or no_reboot (old-queues/QUEUE-netbox-shape.md)"},
               "custom field talos_apply_mode")
     nb.ensure("extras/custom-fields", {"name": "proxmox_tags"},
               {"type": "text", "object_types": ["virtualization.virtualmachine"], "label": "Proxmox tags",
-               "description": "A guest's Proxmox tags, separated by ; (QUEUE-netbox-shape.md)"},
+               "description": "A guest's Proxmox tags, separated by ; (old-queues/QUEUE-netbox-shape.md)"},
               "custom field proxmox_tags")
     vm_roles = {key: nb.ensure("dcim/device-roles", {"slug": slug(name)}, {"name": name, "vm_role": True}, name)
                 for key, name in cfg["vm_roles"].items()}
