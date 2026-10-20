@@ -1,4 +1,4 @@
-# Semaphore's hosts from NetBox (QUEUE-netbox.md, phase 2). NetBox is the
+# Semaphore's hosts from NetBox (old-queues/QUEUE-netbox.md, phase 2). NetBox is the
 # source: scripts/netbox_seed.py put every host there with its primary address,
 # tagged with its Ansible group, and the group's variables as a config context
 # on that tag. This file rebuilds the groups from those tags.
