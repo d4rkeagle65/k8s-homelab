@@ -13,16 +13,12 @@
 # served at databasus.<domain> through Traefik to private networks only
 # (kubernetes external-services). Its logins are its own: it has no OIDC.
 #
-# Variables (set in the stack's environment in Dockhand):
-#   DATABASUS_BIND_ADDRESS  the host's management address (the web UI)
-#   DATABASUS_URL           https://databasus.<domain>: the address its links use
-#   SEMAPHORE_NETWORK       the semaphore stack's Docker network, as
-#                           `docker network ls` names it
-#   KEA_NETWORK             the kea stack's Docker network
-#   NETBOX_NETWORK          the netbox stack's Docker network
-#   DATABASUS_AGENT_ID      the verification agent's ID (Settings > Verification
-#                           agents in the UI)
-#   DATABASUS_AGENT_TOKEN   secret: its token, shown once when it's created
+# Variables, from Key Vault (references in .env):
+#   DOCKER_VM_1_MGMT_ADDRESS  the host's management address (the web UI)
+#   BASE_DOMAIN               the domain: its links use https://databasus.<domain>
+#   DATABASUS_AGENT_ID        the verification agent's ID (Settings > Verification
+#                             agents in the UI)
+#   DATABASUS_AGENT_TOKEN     its token, shown once when it's created
 #
 # databasus-verification-agent restores each backup into a throwaway
 # PostgreSQL and reports row counts. It starts those databases through the
@@ -40,11 +36,11 @@ services:
     container_name: databasus
     restart: unless-stopped
     ports:
-    - ${DATABASUS_BIND_ADDRESS}:4005:4005
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:4005:4005
     volumes:
     - /opt/databasus:/databasus-data
     environment:
-      DATABASUS_URL: ${DATABASUS_URL}
+      DATABASUS_URL: https://databasus.${BASE_DOMAIN}
       IS_DISABLE_ANONYMOUS_TELEMETRY: "true"
     networks:
     - default
@@ -74,7 +70,7 @@ services:
     - /run/agent:rw,exec,mode=700,size=128m
     working_dir: /run/agent
     environment:
-      DATABASUS_URL: ${DATABASUS_URL}
+      DATABASUS_URL: https://databasus.${BASE_DOMAIN}
       DATABASUS_AGENT_ID: ${DATABASUS_AGENT_ID}
       DATABASUS_AGENT_TOKEN: ${DATABASUS_AGENT_TOKEN}
     # Budgets for all verifications together; these databases are tiny.
@@ -91,13 +87,14 @@ services:
         "$$DATABASUS_URL" "$$DATABASUS_AGENT_ID" "$$DATABASUS_AGENT_TOKEN" > databasus-verification.json
       exec ./verification-agent run
 
+# Each stack's default network, which Docker names <stack>_default.
 networks:
   semaphore:
     external: true
-    name: ${SEMAPHORE_NETWORK:?set SEMAPHORE_NETWORK on this stack in Dockhand}
+    name: semaphore_default
   kea:
     external: true
-    name: ${KEA_NETWORK:?set KEA_NETWORK on this stack in Dockhand}
+    name: kea_default
   netbox:
     external: true
-    name: ${NETBOX_NETWORK:?set NETBOX_NETWORK on this stack in Dockhand}
+    name: netbox_default
