@@ -23,7 +23,7 @@ here so a later session, after a compaction, knows where things stand.
 - **No physical Proxmox host is rebooted without the owner's approval** (2026-10-16), even inside an
   approved batch: the reboot template, an upgrade that reboots, or a command.
 - **Decisions:** Kea's standby partner is (b), the reservations in a CloudNativePG cluster
-  (`QUEUE.md`, Kea phase 3); VLAN 9 comes out of Proxmox (`QUEUE-netbox.md`); Immich's
+  (`QUEUE.md`, Kea phase 3); VLAN 9 comes out of Proxmox (`old-queues/QUEUE-netbox.md`); Immich's
   PostgreSQL move isn't due (`QUEUE-updates.md`); `guests` is out of `TF_VAR_site`.
 
 ## Approved (the owner, 2026-10-16)

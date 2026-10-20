@@ -188,7 +188,7 @@
   serial: 1
   any_errors_fatal: true
   vars:
-    # VLANs 9 and 4 (QUEUE-netbox.md): each bridge, then the VLAN port under it.
+    # VLANs 9 and 4 (old-queues/QUEUE-netbox.md): each bridge, then the VLAN port under it.
     retired_interfaces: [vmbr9, eth5.9, vmbr4, eth5.4]
   tasks:
     - name: Retired interfaces out

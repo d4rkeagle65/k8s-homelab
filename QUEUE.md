@@ -305,7 +305,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 55%): Prometheus, Loki and Grafana, in eight phases.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
-- [QUEUE-netbox.md](QUEUE-netbox.md) (about 95%): NetBox on the Docker VM as the source of Semaphore's hosts and OpenTofu's guests, then owning DNS.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 65%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
 - [QUEUE-secret-names.md](QUEUE-secret-names.md) (about 10%): one naming standard for Key Vault's secrets, and one secret wherever the cluster and Dockhand touch the same thing.
