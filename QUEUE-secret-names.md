@@ -129,7 +129,11 @@ against today's value by hash.
       `source=dockhand`
 - [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
-      owner
+      owner. The five held plain are mapped (branch `cluster-secrets-standard-names`, each new
+      name equal by hash to the live variable it replaces): `OWNER_EMAIL`,
+      `GARAGE_S3_ENDPOINT`, `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL`, `PIHOLE_2_URL`.
+      `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD` wait on the base64 switch, as the
+      manifests read them base64
 - [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches
 - [ ] Each Dockhand stack on its standard names and references, cadvisor first: its compose
       file reads `DOCKER_VM_1_MGMT_ADDRESS` (branch `cadvisor-standard-names`); the owner sets
