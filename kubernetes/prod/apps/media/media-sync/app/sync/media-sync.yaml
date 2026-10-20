@@ -1,4 +1,4 @@
-# The media apps' settings outside Configarr (QUEUE-arr-config.md), applied by
+# The media apps' settings outside Configarr (old-queues/QUEUE-arr-config.md), applied by
 # media-sync.py through each app's API. A setting not named here stays the
 # app's UI's; nothing unnamed is ever deleted. env:NAME takes a value from the
 # Job's environment, so no secret is in this file.
