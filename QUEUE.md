@@ -145,9 +145,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `whisparr-db-final-202610191449` completed, its WAL archived through its end): from
   2026-10-20, delete the `whisparr-db` Cluster in `media` (kept from pruning by its
   annotation) and the released PV of `whisparr-config`, after reading that the backup is
-  still listed in Garage. Then a pull request drops `MEDIA_WHISPARR_API_KEY` from
-  `kubernetes/secrets/cluster-secrets.yaml` (nothing else uses it), and the owner deletes
-  its Vaultwarden field.
+  still listed in Garage.
 - **`test-harness` reads red when the suite is run by hand in a Claude desktop worktree**
   (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
   checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
