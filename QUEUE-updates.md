@@ -100,13 +100,6 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       pull request for it is ready to merge once they do. Rechecked 2026-10-19: Flux,
       cert-manager and CloudNativePG have no newer release; External Secrets 2.13.0
       (2026-10-16) is unread.
-- [ ] **Read back `renovate.json`'s `minimumReleaseAgeBehaviour` and `opentofu/opentofu`
-      rules on Renovate's first run after they merge.** Expected: the Authentik pull request
-      gains `ghcr.io/goauthentik/server` 2026.8.4 beside its chart; the images from outside
-      Docker Hub (Immich 3.3.3, Home Assistant, Homepage, Mealie and the rest) leave the
-      dashboard's "Pending Status Checks" for open pull requests or "Rate-Limited"; the OpenTofu
-      1.13.1 pull request closes as "autoclosed" (close it by hand if it doesn't). Left, a rule
-      that didn't take leaves the chart-only Authentik pull request looking ready to merge.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
