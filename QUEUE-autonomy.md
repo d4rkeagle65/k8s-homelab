@@ -90,7 +90,7 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
       there goes in the outpost's `config`, owned in Authentik's UI, and a blueprint setting it
       would own all twenty keys
 - [x] **netbox-shape** (2026-10-16): built and proved up to the template, which is the
-      owner's (`QUEUE-netbox-shape.md`, its last two boxes)
+      owner's; done 2026-10-20 (`old-queues/QUEUE-netbox-shape.md`)
 - [x] **netbox-dns** (2026-10-19): NetBox owns local DNS, both Pi-holes synced from it
       (`old-queues/QUEUE-netbox-dns.md`)
 - [x] **ssh-keys** (2026-10-16): `ansible/retire-ssh-keys.yml` and `proxmox-host.yml`'s
@@ -103,9 +103,8 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] `claude-code` made a Task Runner in Semaphore (2026-10-16, checked by `/api/project/1/role`)
 - [x] Decision 10, the test folders: both kept, the split explained in each `CLAUDE.md` (2026-10-16)
 - [x] A fine-grained GitHub token for this repository, in Semaphore's "Netbox Sync" group
-- [ ] Worker w05 (VM 115) drained and rebooted when convenient: #15's memory (11264 MB) is
-      applied in Proxmox and takes effect then (`QUEUE-netbox-shape.md`).
-      The test container (VMID 199) stays as Decommissioning, the generator's skip case once it has the role
+- [x] Worker w05 (VM 115) drained and rebooted (task 919, 2026-10-20): #15's 11264 MB in effect.
+      Decommissioning settled the same day: the generator keeps `main`'s entry, the sync skips it
       "Plain container"
 - [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)
 - [ ] Delete task 713 in Semaphore (it holds two replaced tokens)

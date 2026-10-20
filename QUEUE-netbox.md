@@ -186,8 +186,9 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         changes. 101-106 stay in the state until an apply with a change writes the refresh
   - [x] `guests` out of `TF_VAR_site`, in Semaphore's copy and the Vaultwarden note "OpenTofu
         site (Proxmox)" (the owner, 2026-10-16)
-- [ ] Phase 6: each guest's shape (sizes, roles, disks, bridges) edited in NetBox and brought
-      into git by a pull request from Semaphore: [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md)
+- [x] Phase 6 (2026-10-20): each guest's shape (sizes, roles, disks, bridges) edited in NetBox and
+      brought into git by a pull request from Semaphore:
+      [old-queues/QUEUE-netbox-shape.md](old-queues/QUEUE-netbox-shape.md)
 - [ ] The switches' cables: the core switch (TL-SG3428, 24 copper and 4 SFP ports), 02 and 04
       (TL-SG105E) are in NetBox with their ports and management addresses (role
       Switch, untagged `ansible`, so no inventory takes them), but no cable. Which port goes to
@@ -195,8 +196,7 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
 
 ## Resuming
 
-The first unticked box is next. NetBox's own pages show what phase A has synced; until the
-move NetBox is the `netbox` HelmRelease, after it the Dockhand stack.
+The first unticked box is next: the cables, which wait on the owner's port list.
 
 ## Done when
 
