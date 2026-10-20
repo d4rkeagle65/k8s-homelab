@@ -270,12 +270,17 @@ against today's value by hash.
       alone doesn't mean a reference failed: Dockhand also recreates on a forced redeploy
       (Recreate all, the stack's always-redeploy setting, a retry after a failed deploy).
       Left: on the host, `docker inspect tailscale --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -c azurekv`
-      gives 0 when every reference resolved. databasus fourth (branch
-      `databasus-standard-names`): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its URL is
-      built in the compose file), `DATABASUS_AGENT_ID` and `DATABASUS_AGENT_TOKEN`, and its
-      three networks written in as `<stack>_default` (the values, by hash). Before: both
-      containers running since 2026-10-17 03:03Z, port 4005 open on the management address
-      and refused on the production one
+      gives 0 when every reference resolved. databasus fourth (#159):
+      `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its URL is built in the compose file),
+      `DATABASUS_AGENT_ID` and `DATABASUS_AGENT_TOKEN`, and its three networks written in as
+      `<stack>_default` (the values, by hash); rendered with Key Vault's values, its compose
+      file gave exactly the old one's. The owner deleted the agent's two Dockhand variables
+      before the merge. Read back 2026-10-20: both containers recreated at 17:25Z (same image,
+      as with tailscale: with the rendered file proven the same, start times are no check for
+      these moves) and not restarting since, which the agent would if its URL hadn't resolved;
+      port 4005 open on the management address and refused on the production one, as before;
+      its URL answers 200 through Traefik. Left: the agent online in Databasus, and the
+      `docker inspect` count above for `databasus databasus-verification-agent`
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -312,7 +317,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   Dockhand: their `.env`s carry the same references now
 - databasus's `DATABASUS_BIND_ADDRESS`, `DATABASUS_URL`, `SEMAPHORE_NETWORK`, `KEA_NETWORK`
   and `NETBOX_NETWORK`: now `DOCKER_VM_1_MGMT_ADDRESS`, a URL built from `BASE_DOMAIN`, and
-  network names in the compose file, once its move reads back
+  network names in the compose file (#159)
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
