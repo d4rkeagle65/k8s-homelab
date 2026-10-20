@@ -265,7 +265,7 @@ help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/vaultwarden-fields.ps1` did the same for the Vaultwarden item, which
 `cluster-secrets` no longer reads, so it no longer works on it.
 `scripts/keyvault_copy.py` copies every `cluster-secrets` variable into Key
-Vault and compares by hash.
+Vault and compares by hash, a variable the template encodes as its plain value.
 
 capture finds some private values on its own (an ACME email, a non-IP NFS
 hostname, your main Ingress domain) and every promoted Secret's value. Anything
