@@ -161,7 +161,7 @@ spec:
         additionalMetricsRelabels:
           nas: synology
       - name: terramaster
-        target: ${TERRAMASTER_ADDRESS}
+        target: ${TERRAMASTER_MGMT_ADDRESS}
         module: [system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table]
         additionalMetricsRelabels:
           nas: terramaster

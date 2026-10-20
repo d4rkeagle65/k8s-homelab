@@ -55,7 +55,7 @@ The owner, 2026-10-19:
 
 **Merged, one secret serving both sides:**
 
-| Standard | Cluster today | Dockhand today |
+| Standard | The cluster's old name | Dockhand's old name |
 |---|---|---|
 | `TIMEZONE` | `TIMEZONE` | semaphore's and netbox's `TZ` (both compared equal) |
 | `OWNER_EMAIL` | `ACME_EMAIL`, `ORGANIZR_ADMIN_EMAIL`, `ZAMMAD_ADMIN_EMAIL` | vaultwarden's `SMTP_FROM` |
@@ -129,12 +129,17 @@ against today's value by hash.
       `source=dockhand`
 - [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
-      owner. The five held plain are mapped (#141, each new name equal by hash to the live
-      variable it replaces; read back 2026-10-20: `SecretSynced` for its new spec, the Secret
-      holding all five, every Flux object Ready): `OWNER_EMAIL`, `GARAGE_S3_ENDPOINT`,
-      `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL`, `PIHOLE_2_URL`. Next for them: the
-      manifests. `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD` wait on the base64 switch,
-      as the manifests read them base64
+      owner. The five held plain, `OWNER_EMAIL`, `GARAGE_S3_ENDPOINT`,
+      `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL` and `PIHOLE_2_URL`: mapped (#141, read back
+      2026-10-20), then every manifest moved to them and the seven old entries removed in one
+      pull request (branch `manifests-standard-names`; capture writes the alphabetically first
+      of two names holding one value, so both mapped would turn the ClusterIssuer back to
+      `${ACME_EMAIL}`). `flux diff` against the cluster: no rendered change in any of the 18
+      Kustomizations it touches or `cluster-resources` (a deliberate wrong name, as a control,
+      drifted). Left for them, once it merges and syncs: the owner deletes Key Vault's
+      `ACME-EMAIL`, `ORGANIZR-ADMIN-EMAIL`, `ZAMMAD-ADMIN-EMAIL`, `CNPG-BACKUP-S3-ENDPOINT`,
+      `TERRAMASTER-ADDRESS`, `PIHOLE-URL` and `PIHOLE2-URL`. `PIHOLE_1_PASSWORD` and
+      `PIHOLE_2_APP_PASSWORD` wait on the base64 switch, as the manifests read them base64
 - [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
