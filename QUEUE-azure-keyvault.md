@@ -105,9 +105,9 @@ references).
       count flat; `scripts/keyvault_copy.py`'s dry run "141 already the same"
 - [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first
 - [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
-      `vaultwarden-fields.ps1`) is tested only against a mock vault and a fake kubectl, so its
-      first run against the real vault and cluster is its check: the listing's `Synced` all
-      `yes` for the 141 mapped variables, and one set read back; capture's "aren't in
+      `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
+      all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake
+      kubectl, so their first real runs are their check (one set read back, one `-Get`); capture's "aren't in
       Vaultwarden yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`)
 - [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`
       (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket; #116),

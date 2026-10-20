@@ -32,6 +32,11 @@ a new version of the secret and read back, compared by SHA-256. The script then
 force-syncs the ExternalSecret, waits for the cluster-secrets Secret to hold the
 new value, and prints the Flux reconcile commands to run.
 
+With -Name and -Get, outputs the secret's current value instead, the only
+path that shows one: decoded from base64 when the variable is used in a
+Secret (-Raw gives the form Key Vault holds), as a string, so it can go to a
+variable or Set-Clipboard rather than the screen.
+
 It signs in as the Azure CLI's current account (az login), which needs "Key
 Vault Secrets Officer" on the vault to set a secret, or "Key Vault Secrets
 User" to list. The vault's URL comes from the azure-keyvault-bootstrap Secret
@@ -54,13 +59,20 @@ The variables the mealie Kustomization uses.
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1 IMMICH_POWER_TOOLS_APIKEY_IMMICH_APIKEY
 Asks for the new value and sets the secret.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 IMMICH_POWER_TOOLS_APIKEY_IMMICH_APIKEY -Get | Set-Clipboard
+Copies the secret's current value, without showing it.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)][string]$Name,
     # The new value. Leave it out to be prompted without echo.
     [string]$Value,
-    # Store the value exactly as given, even for a variable used in a Secret.
+    # Output the secret's current value instead of setting it.
+    [switch]$Get,
+    # Store the value exactly as given, even for a variable used in a Secret;
+    # with -Get, output it as Key Vault holds it, without decoding.
     [switch]$Raw,
     # Allow adding a secret that doesn't exist yet. It also needs an entry in
     # kubernetes/secrets/cluster-secrets.yaml before it reaches the cluster.
@@ -208,6 +220,7 @@ $vaultUrl = Get-VaultUrl
 $token = Get-AccessToken
 
 if (-not $Name) {
+    if ($Get) { throw '-Get needs the name of the variable to read.' }
     Update-FormatData -PrependPath (Join-Path $PSScriptRoot 'keyvault-secrets.format.ps1xml')
     $inVault = Get-VaultSecrets
     $held = @{}
@@ -246,6 +259,26 @@ if ($secretName -notmatch '^[A-Za-z0-9-]{1,127}$') { throw "$secretName isn't a 
 
 $files = $usage[$Name]
 $inSecret = $files -and ($files.Values -contains $true)
+
+if ($Get) {
+    if ($PSBoundParameters.ContainsKey('Value') -or $New -or $NoSync) { throw '-Get only reads: leave out -Value, -New and -NoSync.' }
+    $current = Invoke-KeyVault GET (Get-SecretUrl $secretName) $null
+    if ($current.Status -eq 404) { throw "Key Vault has no secret named $secretName." }
+    # A disabled secret's read is refused (403), so it lands here too.
+    if ($current.Status -ne 200) { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
+    $held = [string]$current.Body.value
+    if (-not $inSecret -or $Raw) { return $held }
+    if ($files.Values -contains $false) {
+        Write-Warning "$Name is used both in a Secret's data (base64) and elsewhere (plain); this is the value as Key Vault holds it, not decoded."
+        return $held
+    }
+    try { return ([Text.UTF8Encoding]::new($false, $true)).GetString([Convert]::FromBase64String($held)) }
+    catch {
+        Write-Warning "$secretName should hold base64 (a Secret's data: uses $Name), but doesn't decode to text; this is the value as Key Vault holds it."
+        return $held
+    }
+}
+
 if ($files -and $inSecret -and ($files.Values -contains $false) -and -not $Raw) {
     throw "$Name is used both in a Secret's data (base64) and elsewhere (plain), so no one value fits both. Files: $($files.Keys -join ', ')"
 }
