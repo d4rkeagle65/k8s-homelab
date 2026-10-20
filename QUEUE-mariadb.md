@@ -98,7 +98,8 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
          instance, its backup and PV were removed
       3. From 2026-10-21: the old StatefulSet, its exporter and ServiceMonitor, the dump CronJob and
          its PVC removed, and the NAS dump folder; the old data PVC's PV deleted once released
-- [ ] Youtarr's `MariaDB`: in `QUEUE-youtarr.md`, with its release
+- [x] Youtarr's `MariaDB` (2026-10-20): `youtarr-db`, one instance, nightly physical backups
+      (`old-queues/QUEUE-youtarr.md`)
 
 ## Resuming
 
