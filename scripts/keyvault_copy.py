@@ -4,17 +4,22 @@ Reads the variables the cluster-secrets ExternalSecret maps (its spec.data, neve
 template builds) and their values from the Secret it keeps in flux-system. Each becomes one
 Key Vault secret named after its variable with "_" replaced by "-" (MEDIA_SONARR_API_KEY is
 MEDIA-SONARR-API-KEY), holding exactly the value the Secret holds: a value held as base64
-stays base64. Once cluster-secrets reads Key Vault, a dry run is a check that the two agree.
+stays base64. The exception is a variable the template encodes, as exactly
+{{ .NAME | b64enc }}: Key Vault holds it plain, so its value is the Secret's decoded. Once
+cluster-secrets reads Key Vault, a dry run is a check that the two agree.
 
 A dry run (the default) reports, for each name, whether Key Vault lacks it, holds the same
-value or holds a different one. --apply writes the missing and different ones, then reads
-every name back and compares. Values are compared by SHA-256; they are never printed, logged,
-written to disk or passed as arguments, and travel only in memory and HTTPS request bodies.
+value, holds a different one, or holds it plain where the template doesn't encode it yet:
+the Secret's value decoded, as a base64-to-plain rewrite leaves it until its template is live
+(QUEUE-secret-names.md). --apply writes the missing and different ones, then reads every name
+back and compares. Values are compared by SHA-256; they are never printed, logged, written to
+disk or passed as arguments, and travel only in memory and HTTPS request bodies.
 
 Nothing is written when the script can't answer: the ExternalSecret isn't Ready, a mapped
-variable is missing from the Secret or isn't text, two variables become one Key Vault name
-(Key Vault ignores case), a name isn't valid there, or Key Vault refuses or doesn't answer a
-read. A write that gets no answer stops the writing; every name is still read back.
+variable is missing from the Secret or isn't text, the template builds a mapped variable other
+than as {{ .NAME | b64enc }}, two variables become one Key Vault name (Key Vault ignores case),
+a name isn't valid there, or Key Vault refuses or doesn't answer a read. A write that gets no
+answer stops the writing; every name is still read back.
 
 --vault names the vault (its URL is https://<name>.vault.azure.net; the name isn't in this
 repo). It signs in as the Azure CLI's current account (az login), which needs "Key Vault
@@ -91,8 +96,19 @@ def kubectl_json(context: str | None, *args: str) -> dict:
     return json.loads(result.stdout)
 
 
+def template_encodes(external_secret: dict) -> dict[str, bool]:
+    """Each mapped variable the ExternalSecret's template has a key of the same name for, which
+    replaces its value: True when that key is exactly {{ .NAME | b64enc }}, so Key Vault holds
+    the value plain and the Secret base64; False for any other form."""
+    spec = external_secret.get("spec", {})
+    mapped = {d["secretKey"] for d in spec.get("data") or []}
+    template = ((spec.get("target") or {}).get("template") or {}).get("data") or {}
+    return {name: text == f"{{{{ .{name} | b64enc }}}}" for name, text in template.items() if name in mapped}
+
+
 def source_values(external_secret: dict, secret: dict) -> dict[str, str]:
-    """Every variable the ExternalSecret maps, with its value from the Secret it builds."""
+    """Every variable the ExternalSecret maps, with the value Key Vault holds for it, from the
+    Secret it builds: the Secret's value, decoded once more where the template encodes it."""
     ready = next((c for c in external_secret.get("status", {}).get("conditions", []) if c.get("type") == "Ready"), {})
     if ready.get("status") != "True":
         raise Stop(f"the {EXTERNAL_SECRET_NAME} ExternalSecret isn't Ready ({ready.get('reason', 'no Ready condition')}), "
@@ -100,15 +116,24 @@ def source_values(external_secret: dict, secret: dict) -> dict[str, str]:
     variables = [d["secretKey"] for d in external_secret.get("spec", {}).get("data") or []]
     if not variables:
         raise Stop(f"the {EXTERNAL_SECRET_NAME} ExternalSecret maps no variables")
+    encodes = template_encodes(external_secret)
     data = secret.get("data") or {}
     values: dict[str, str] = {}
     for variable in variables:
         if variable not in data:
             raise Stop(f"{variable}: the ExternalSecret maps it but its Secret doesn't hold it")
+        if encodes.get(variable) is False:
+            raise Stop(f"{variable}: the template builds it other than as {{{{ .{variable} | b64enc }}}}, "
+                       "so its Secret's value isn't Key Vault's")
         try:
             values[variable] = base64.b64decode(data[variable]).decode("utf-8")
         except UnicodeDecodeError as error:
             raise Stop(f"{variable}: its value isn't UTF-8 text, which a Key Vault secret holds") from error
+        if encodes.get(variable):
+            try:
+                values[variable] = base64.b64decode(values[variable], validate=True).decode("utf-8")
+            except ValueError as error:  # binascii.Error and UnicodeDecodeError are both ValueErrors
+                raise Stop(f"{variable}: the template b64encs it, but its Secret's value isn't base64 of text") from error
     return values
 
 
@@ -195,29 +220,43 @@ def main(argv: list[str] | None = None) -> int:
         target = (external_secret.get("spec", {}).get("target") or {}).get("name") or EXTERNAL_SECRET_NAME
         secret = kubectl_json(args.context, "-n", NAMESPACE, "get", "secret", target)
         values = source_values(external_secret, secret)
+        encodes = template_encodes(external_secret)
         names = check_names(list(values))
         token = access_token()
-        state = {}
+        state, expected = {}, {}
         for variable, name in names.items():
             have = remote_digest(vault_url, name, token)
-            state[variable] = "add" if have is None else ("same" if have == digest(values[variable]) else "update")
+            expected[variable] = digest(values[variable])
+            if have is None:
+                state[variable] = "add"
+            elif have == expected[variable]:
+                state[variable] = "same"
+            elif variable not in encodes and have == decoded_digest(values[variable]):
+                # Rewritten plain ahead of its {{ .NAME | b64enc }} template: writing the
+                # Secret's base64 back would have the template encode it twice.
+                state[variable], expected[variable] = "plain", have
+            else:
+                state[variable] = "update"
     except Stop as stop:
         print(f"stopped, nothing written: {stop}", file=sys.stderr)
         return 2
 
-    counts = {k: sum(1 for s in state.values() if s == k) for k in ("add", "same", "update")}
+    counts = {k: sum(1 for s in state.values() if s == k) for k in ("add", "same", "update", "plain")}
     print(f"{len(state)} variables: {counts['add']} missing from Key Vault, {counts['update']} different, "
-          f"{counts['same']} already the same")
+          f"{counts['same']} already the same, {counts['plain']} held plain with no template to encode them")
     for variable, action in state.items():
         if action != "same":
             print(f"  {action:6s} {names[variable]}")
+    if counts["plain"]:
+        print("  (plain: Key Vault holds the Secret's value decoded, rewritten before its {{ .NAME | b64enc }} "
+              "template is live; --apply leaves it)")
     if not args.apply:
         print("dry run: nothing written (--apply writes)")
         return 0
 
     failed = 0
     for variable, action in state.items():
-        if action == "same":
+        if action in ("same", "plain"):
             continue
         try:
             why = write(vault_url, names[variable], values[variable], token)
@@ -231,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     mismatched = []
     for variable, name in names.items():
         try:
-            if remote_digest(vault_url, name, token) != digest(values[variable]):
+            if remote_digest(vault_url, name, token) != expected[variable]:
                 mismatched.append(name)
         except Stop as stop:
             mismatched.append(f"{name} ({stop})")
