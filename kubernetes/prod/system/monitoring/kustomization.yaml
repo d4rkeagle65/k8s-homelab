@@ -8,6 +8,7 @@ resources:
 - blackbox-exporter/ks.yaml
 - dashboards/ks.yaml
 - exportarr/ks.yaml
+- garage-backup-exporter/ks.yaml
 - kube-prometheus-stack/ks.yaml
 - loki/ks.yaml
 - monitoring-extras/ks.yaml

@@ -316,3 +316,33 @@ spec:
           {{ $labels.instance }}: proxmox-backup-metrics failed, stopped, or isn't
           installed, so its guests' backups go unwatched; read
           journalctl -u proxmox-backup-metrics there.
+    # Garage's backup buckets (garage-backup-exporter). Only docker-backups alerts
+    # here: Databasus and Vaultwarden's files have no other watch, while the
+    # Postgres and MariaDB backups in the other buckets alert from their own
+    # metrics above.
+    - alert: GarageBackupTooOld
+      expr: time() - garage_backup_newest_object_timestamp_seconds{bucket="docker-backups"} > 26 * 3600
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: A Docker host backup in Garage is over 26 hours old.
+        description: >-
+          {{ $labels.bucket }}/{{ $labels.prefix }}: newest file
+          {{ $value | humanizeDuration }} old. Databasus's backups are its databases'
+          names; vaultwarden/ is the Vaultwarden stack's own backup job.
+    - alert: GarageBackupExporterFailing
+      expr: |
+        garage_backup_bucket_up == 0
+        or time() - garage_backup_last_refresh_timestamp_seconds > 1800
+        or up{job="garage-backup-exporter"} == 0
+        or absent(up{job="garage-backup-exporter"})
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: Garage's backup buckets aren't being listed.
+        description: >-
+          {{ with $labels.bucket }}{{ . }}: {{ end }}garage-backup-exporter can't list
+          the bucket, has stopped listing, or isn't running, so the Docker host backups go
+          unwatched; read its pod's log in monitoring.
