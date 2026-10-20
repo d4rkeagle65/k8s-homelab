@@ -82,8 +82,11 @@ which opens a pull request the way Renovate's updates do. `QUEUE-netbox.md`, Pha
 - [x] Proved end to end: #15 merged 2026-10-16; plan 762 showed VM 115's memory 10240 -> 11264
       (beside the Docker VM commit's adds), apply 763 wrote it, and plan 770 had nothing left
       for 115
-- [ ] VM 115 (worker w05) running on its 11264 MB: Proxmox holds it, the node still has 10240
-      (up since 2026-10-15) until its next drained reboot, the owner's
+- [ ] VM 115 (worker w05) running on its 11264 MB: Proxmox holds it pending, the node still has
+      10240 (up since 2026-10-15). "Reboot: Talos VMs" (template 28, `reboot_vms` 115) applies
+      it; its dry run (task 918, 2026-10-20) found `memory 10240 -> 11264` pending, etcd whole and
+      5.7 GiB of requests to move with 10.2 GiB free elsewhere. Left: the owner's run, then the
+      node's memory capacity read back at about 11 GiB
 - [x] The Pi-holes (2026-10-19): the role "Pi-hole" in NetBox (`vm_roles`), on VMIDs 100 and 109
       with `proxmox_tags`; `local.piholes` in `guests.tf` replaced by the generated `piholes`,
       whose values equal the hand-written ones
