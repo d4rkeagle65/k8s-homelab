@@ -13,7 +13,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 
 - **The shape** (VMIDs, roles, sizes, bridges, tags) is in git, and nothing else: no names,
   addresses or numbers from the site. The Talos VMs', plain containers', Docker VMs' and Pi-holes' shape is NetBox's
-  (QUEUE-netbox-shape.md): `proxmox/netbox-guests.json` is generated from it by
+  (old-queues/QUEUE-netbox-shape.md): `proxmox/netbox-guests.json` is generated from it by
   `scripts/netbox_guests.py`, which Semaphore's "NetBox: Guests to git" runs to open a pull
   request; never edit the file by hand.
 - **Each guest's Proxmox host, name, addresses and MACs are NetBox's** (`netbox.tf`): one
