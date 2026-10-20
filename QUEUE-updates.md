@@ -113,9 +113,11 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       to move, 14.8 free). The real runs (tasks 951 and 955) upgraded the three control planes
       (etcd 3.7.2 on each), then stopped at the first worker after its install: talosctl's own
       drain can't run on a worker, now `--drain=false` (`tasks/talos-node-upgrade.yml`). That
-      worker holds v1.14.4 on its disk and runs v1.14.2 until it reboots; it was uncordoned
-      by hand, and its database replicas came back. Next: that fix merged, the run again for
-      the four workers, then the OpenTofu job. The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
+      worker was uncordoned by hand, and its database replicas came back. With the fix, task
+      963 upgraded three workers and timed out draining the last, held by Grimmory's MariaDB
+      PodDisruptionBudget (`QUEUE.md`, its diverged replica); uncordoned again, every
+      PostgreSQL cluster whole a minute later. Six of seven nodes are on v1.14.4. Next: that
+      replica rebuilt, the run again for the last worker, then the OpenTofu job. The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
       should update only the seven nodes' machine configs (the install image) and the other
       Talos VMs' `import_from`, which the provider records without re-importing a disk
       ("Never re-import existing disks", its v0.116.0 `disk.go`). The Talos VMs have
