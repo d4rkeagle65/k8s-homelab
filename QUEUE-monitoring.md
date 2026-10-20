@@ -156,7 +156,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [x] Phase 3D, first part built: exportarr for Radarr, Sonarr, Lidarr, Prowlarr and Bookshelf
       (`exportarr/`, pinned to 2.3.0, the last with the Readarr mode Bookshelf needs);
       Kubernetes events into Loki (`alloy-events/`, one Alloy for the cluster); cAdvisor on the
-      Docker VM (`docker/cadvisor`, a new Dockhand stack, `CADVISOR_ADDRESS`) and Kea's
+      Docker VM (`docker/cadvisor`, a new Dockhand stack, `DOCKER_VM_1_MGMT_ADDRESS`) and Kea's
       statistics through Stork's agent (`docker/kea` publishes 9547), both scraped with the
       Docker VM's node-exporter.
 - [x] Phase 3D, second part built: the Pi-hole exporter (one container per Pi-hole) and the

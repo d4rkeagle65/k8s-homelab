@@ -4,7 +4,8 @@
 # stack), redeployed when a change here reaches main (its webhook; docker/CLAUDE.md).
 #
 # Variables (set in the stack's environment in Dockhand):
-#   CADVISOR_ADDRESS   the host's management address
+#   DOCKER_VM_1_MGMT_ADDRESS   the host's management address, from Key Vault
+#                              (azurekv://DOCKER-VM-1-MGMT-ADDRESS)
 services:
   cadvisor:
     mem_limit: 1g
@@ -23,7 +24,7 @@ services:
     - --store_container_labels=false
     - --whitelisted_container_labels=com.docker.compose.project,com.docker.compose.service
     ports:
-    - ${CADVISOR_ADDRESS}:9338:8080
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:9338:8080
     volumes:
     - /:/rootfs:ro
     - /var/run:/var/run:ro
