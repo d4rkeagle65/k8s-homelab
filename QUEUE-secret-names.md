@@ -140,7 +140,10 @@ against today's value by hash.
       CNPG instance restarted, Loki's release unchanged. Their old Key Vault secrets are on
       the delete list below. Left: `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD`, waiting on
       the base64 switch, as the manifests read them base64
-- [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches
+- [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches. The test is
+      `kubernetes/secrets/keyvault-b64-test.yaml`, two scratch ExternalSecrets on `TIMEZONE`
+      alone, answering Rules' two open questions; it comes out in a pull request of its own
+      once they are answered, and Flux prunes both and their Secrets
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
       as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
