@@ -8,7 +8,9 @@
 # node Ready on the new version, uncordoned and every database cluster whole
 # again. A control plane runs alone at a time, so etcd keeps its quorum; its
 # API server answers through the shared address meanwhile. For
-# talos-upgrade.yml; needs kubectl-local.yml and talosctl-local.yml.
+# talos-upgrade.yml's per-node play, run as the node's own host: needs
+# kubectl_cmd, kubectl_host and talosctl_cmd (kubectl-local.yml and
+# talosctl-local.yml, run on localhost) and vars/talos.yml.
 
 - name: Every Kubernetes node is Ready first
   ansible.builtin.include_tasks: kubernetes-healthy.yml

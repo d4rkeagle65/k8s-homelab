@@ -19,9 +19,8 @@
 - name: Upgrade Kubernetes
   hosts: localhost
   gather_facts: false
+  vars_files: [vars/talos.yml]
   vars:
-    talos_common: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../talos/patches/common.yaml') }}"
-    talos_version: "{{ talos_common | regex_search('image: factory\\.talos\\.dev/[^\\s]+:(v[0-9.]+)', '\\1') | first }}"
     tofu_talos: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../tofu/proxmox/talos-config.tf') }}"
     k8s_target: "{{ tofu_talos | regex_search('kubernetes_version\\s*=\\s*\"([0-9.]+)\"', '\\1') | first }}"
   tasks:
