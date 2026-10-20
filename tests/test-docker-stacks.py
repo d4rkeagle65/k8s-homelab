@@ -98,7 +98,7 @@ t.check("  a reference to another name is CAUGHT", not_allowed({"A_B": "azurekv:
 t.check("  a reference to a name no map gives is CAUGHT", not_allowed({"A_B": "azurekv://A-B"}, set()), ["A_B"])
 t.check("  so is one with anything around it", not_allowed({"A": "'azurekv://A' "}, {"A"}), ["A"])
 t.check("SELF-TEST: the map's names are its entries and its built forms' ${NAME}s",
-        map_names('s:\n  X: N1\n  Y: {built: "https://a.${N2}/${N3}"}\n  Z: {none: "blank"}\n'), {"N1", "N2", "N3"})
+        sorted(map_names('s:\n  X: N1\n  Y: {built: "https://a.${N2}/${N3}"}\n  Z: {none: "blank"}\n')), ["N1", "N2", "N3"])
 t.check("SELF-TEST: a running service without mem_limit is CAUGHT",
         unlimited_services("services:\n  a:\n    restart: always\n"), ["a"])
 t.check("  one with mem_limit passes", unlimited_services("services:\n  a:\n    restart: always\n    mem_limit: 1g\n"), [])
