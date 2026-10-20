@@ -291,12 +291,18 @@ against today's value by hash.
       port 4005 open on the management address and refused on the production one, as before;
       its URL answers 200 through Traefik. Left: the agent online in Databasus, and the
       `docker inspect` count above for `databasus databasus-verification-agent`. garage fifth
-      (branch `garage-standard-names`): `TERRAMASTER_MGMT_ADDRESS` for `GARAGE_BIND_ADDRESS`;
-      its other six keep their names, so they go from Dockhand just before its redeploy (by
-      hand: a Hawser stack, no webhook); rendered from its `.env`'s references, its compose
-      file gave exactly the old one's. Before: Prometheus's `garage` target `up`, ports 3900
-      and 3903 open on the NAS's management address and 3901 refused, all 17 CNPG clusters
-      `ContinuousArchiving`
+      (#163): `TERRAMASTER_MGMT_ADDRESS` for `GARAGE_BIND_ADDRESS`; its other six keep their
+      names, so the owner deleted them from Dockhand just before its redeploy (by hand: a
+      Hawser stack, no webhook); rendered from its `.env`'s references, its compose file gave
+      exactly the old one's. The redeploy left Garage running, as an unchanged config does;
+      the owner restarted it at 17:41:57Z. Read back 2026-10-20: Prometheus's `garage` target
+      `up` throughout, its cluster healthy with one node; ports 3900 and 3903 open on the
+      NAS's management address and 3901 refused, as before; all 16 CNPG clusters (Whisparr
+      v2's is gone) `ContinuousArchiving`, and 12 instances archived to it after the restart.
+      The two failures in that window weren't Garage: a switchover in progress, and the
+      Kubernetes API refusing during a node drain; both archived again within a minute. Left:
+      Dockhand's deploy record showing success on #163's commit, since a deploy that never ran
+      also leaves it running
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -334,7 +340,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - databasus's `DATABASUS_BIND_ADDRESS`, `DATABASUS_URL`, `SEMAPHORE_NETWORK`, `KEA_NETWORK`
   and `NETBOX_NETWORK`: now `DOCKER_VM_1_MGMT_ADDRESS`, a URL built from `BASE_DOMAIN`, and
   network names in the compose file (#159)
-- garage's `GARAGE_BIND_ADDRESS`: now `TERRAMASTER_MGMT_ADDRESS`, once its move reads back
+- garage's `GARAGE_BIND_ADDRESS`: now `TERRAMASTER_MGMT_ADDRESS` (#163)
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
