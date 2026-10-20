@@ -115,9 +115,11 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       drain can't run on a worker, now `--drain=false` (`tasks/talos-node-upgrade.yml`). That
       worker was uncordoned by hand, and its database replicas came back. With the fix, task
       963 upgraded three workers and timed out draining the last, held by Grimmory's MariaDB
-      PodDisruptionBudget (`QUEUE.md`, its diverged replica); uncordoned again, every
-      PostgreSQL cluster whole a minute later. Six of seven nodes are on v1.14.4. Next: that
-      replica rebuilt, the run again for the last worker, then the OpenTofu job. The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
+      PodDisruptionBudget (a replica that couldn't follow the primary); uncordoned again,
+      every PostgreSQL cluster whole a minute later. The operator rebuilt that replica
+      (replica recovery, 2026-10-20: all three at one GTID, every table's checksum equal, the
+      PDB allowing one eviction). Six of seven nodes are on v1.14.4. Next: the run again for
+      the last worker, dry run first, then the OpenTofu job. The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
       should update only the seven nodes' machine configs (the install image) and the other
       Talos VMs' `import_from`, which the provider records without re-importing a disk
       ("Never re-import existing disks", its v0.116.0 `disk.go`). The Talos VMs have
