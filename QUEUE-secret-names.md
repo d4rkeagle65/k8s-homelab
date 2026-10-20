@@ -131,8 +131,11 @@ against today's value by hash.
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
       owner
 - [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches
-- [ ] Each Dockhand stack on its standard names and references, cadvisor first; then Key
-      Vault's `CADVISOR-ADDRESS` deleted by the owner
+- [ ] Each Dockhand stack on its standard names and references, cadvisor first: its compose
+      file reads `DOCKER_VM_1_MGMT_ADDRESS` (branch `cadvisor-standard-names`); the owner sets
+      it in Dockhand as `azurekv://DOCKER-VM-1-MGMT-ADDRESS` before that merges, and removes
+      `CADVISOR_ADDRESS` once cadvisor reads back working; then Key Vault's `CADVISOR-ADDRESS`
+      deleted by the owner
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
