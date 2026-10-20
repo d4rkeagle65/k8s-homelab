@@ -130,6 +130,13 @@ def test_an_address_without_a_zone_or_an_owner_is_left_alone():
     assert got == {}
 
 
+def test_a_decommissioning_vms_addresses_get_no_name():
+    a = _addr(1, "192.0.2.10/24")
+    a["assigned_object"]["virtual_machine"]["id"] = 7
+    assert m.wanted_dns_names([a], PREFIXES, frozenset({7})) == {}
+    assert m.wanted_dns_names([a], PREFIXES) == {1: "guest1.mgmt.example"}
+
+
 def iface(id, name, parent=None, bridge=None, ips=0, cable=None):
     ref = lambda r: {"id": r} if r else None
     return {"id": id, "name": name, "parent": ref(parent), "bridge": ref(bridge), "lag": None,

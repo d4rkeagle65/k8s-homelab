@@ -186,9 +186,12 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
         site (Proxmox)" (the owner, 2026-10-16)
   - [ ] The NetBox-first workflow (tofu/README.md) worked with a test guest, 2026-10-16:
         Planned in NetBox, built by an apply (task 725), marked active by the sync, which
-        reused the hand-entered interface and address, then destroyed by an apply. Left:
-        the test container (VMID 199) kept in NetBox as Decommissioning, the guests-to-git
-        generator's skip case (the owner)
+        reused the hand-entered interface and address, then destroyed by an apply.
+        Decommissioning (the owner, 2026-10-20) means a guest being removed by hand: the
+        generator keeps `main`'s entry for it unchanged and the sync writes nothing about it
+        (`tofu/README.md`). Left: after that merges, the next "NetBox: Guests to git" run
+        opens no pull request and the next sync's log shows no write for a Decommissioning
+        VM. VMID 199 has no role and no Proxmox guest, so neither touches it either way
 - [ ] Phase 6: each guest's shape (sizes, roles, disks, bridges) edited in NetBox and brought
       into git by a pull request from Semaphore: [QUEUE-netbox-shape.md](QUEUE-netbox-shape.md)
 - [ ] The switches' cables: the core switch (TL-SG3428, 24 copper and 4 SFP ports), 02 and 04

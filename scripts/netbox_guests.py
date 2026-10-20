@@ -4,6 +4,9 @@ tofu/proxmox/netbox-guests.json, and with --pr opens a pull request for it:
 QUEUE-netbox-shape.md.
 
 A VM is in the file when its NetBox role is one of netbox_seed.yaml's vm_roles.
+A VM whose status is Decommissioning is being removed by hand: its entry stays
+exactly as main's file has it (so OpenTofu neither changes nor destroys it), and
+one main's file doesn't have stays out. Deleting the VM in NetBox drops it.
 For each, by VMID: the Talos VMs' role, cores, memory, disk_gb (virtual disk
 scsi0), data_gb (scsi1, else 0) and apply_mode (custom field talos_apply_mode);
 the plain containers' and Pi-holes' cores, memory, disk_gb (rootfs), bridges and
@@ -92,8 +95,16 @@ def interface_bridge(itf: dict, prefixes: list[tuple], bridges: dict[str, str]) 
     return found.pop() if len(found) == 1 else None
 
 
-def shape(data: dict, cfg: dict) -> dict:
-    """The file's content from NetBox's GraphQL answer; Refused when it's incomplete."""
+def decommissioning(data: dict) -> set[str]:
+    """The VMIDs of NetBox's VMs whose status is Decommissioning."""
+    return {str((vm.get("custom_fields") or {}).get("vmid")) for vm in data["virtual_machine_list"]
+            if str(vm.get("status", "")).lower() == "decommissioning"
+            and (vm.get("custom_fields") or {}).get("vmid") is not None}
+
+
+def shape(data: dict, cfg: dict, previous: dict | None = None) -> dict:
+    """The file's content from NetBox's GraphQL answer, a Decommissioning VM's entry
+    taken unchanged from previous (main's file); Refused when it's incomplete."""
     import ipaddress
     roles = {name: key for key, name in cfg["vm_roles"].items()}
     bridges = {n["name"]: n["bridge"] for n in cfg["networks"]}
@@ -102,7 +113,7 @@ def shape(data: dict, cfg: dict) -> dict:
     for vm in data["virtual_machine_list"]:
         role = roles.get((vm.get("role") or {}).get("name"))
         if role is None or str(vm.get("status", "")).lower() == "decommissioning":
-            continue
+            continue  # a Decommissioning one is carried over from previous below
         cf = vm.get("custom_fields") or {}
         label = f"VMID {cf.get('vmid')}" if cf.get("vmid") is not None else "a VM with no vmid"
         disks = {d["name"]: d["size"] for d in vm.get("virtualdisks") or []}
@@ -145,9 +156,14 @@ def shape(data: dict, cfg: dict) -> dict:
                     docker_vms[vmid] = entry
     if problems:
         raise Refused("; ".join(sorted(problems)))
+    groups = {"talos_nodes": talos, "containers": containers, "docker_vms": docker_vms, "piholes": piholes}
+    for vmid in decommissioning(data):
+        for group, entries in groups.items():
+            if vmid in ((previous or {}).get(group) or {}):
+                entries[vmid] = previous[group][vmid]
     if not talos:
         raise Refused("NetBox lists no Talos node with a role: refusing to write a file that would drop them all")
-    return {"talos_nodes": talos, "containers": containers, "docker_vms": docker_vms, "piholes": piholes}
+    return groups
 
 
 def render(content: dict) -> str:
@@ -207,26 +223,37 @@ def repository() -> str:
     return m.group(1)
 
 
-def open_pr(text: str, token: str) -> None:
+def github(token: str) -> tuple[str, dict]:
     repo = repository()
-    api = f"https://api.github.com/repos/{repo}"
-    h = {"Authorization": f"Bearer {token.strip()}", "Accept": "application/vnd.github+json",
-         "X-GitHub-Api-Version": "2022-11-28"}
+    return f"https://api.github.com/repos/{repo}", {
+        "Authorization": f"Bearer {token.strip()}", "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"}
 
-    def must(status_body, wanted, what):
-        status, body = status_body
-        if status not in wanted:
-            message = body.get("message") if isinstance(body, dict) else ""
-            raise Refused(f"GitHub refused {what} (HTTP {status}: {message})")
-        return body
 
-    main = must(call("GET", f"{api}/git/ref/heads/main", h), (200,), "reading main")["object"]["sha"]
+def must(status_body, wanted, what):
+    status, body = status_body
+    if status not in wanted:
+        message = body.get("message") if isinstance(body, dict) else ""
+        raise Refused(f"GitHub refused {what} (HTTP {status}: {message})")
+    return body
+
+
+def main_file(token: str) -> tuple[str | None, str]:
+    """main's copy of the file: its blob sha (None when main has none) and its text."""
+    api, h = github(token)
     status, current = call("GET", f"{api}/contents/{OUTPUT}?ref=main", h)
-    if status not in (200, 404):
-        must((status, current), (200,), f"reading {OUTPUT} on main")
+    if status == 404:
+        return None, ""
+    current = must((status, current), (200,), f"reading {OUTPUT} on main")
+    return current["sha"], base64.b64decode(current["content"]).decode("utf-8")
+
+
+def open_pr(text: str, token: str) -> None:
+    api, h = github(token)
+    repo = api.removeprefix("https://api.github.com/repos/")
+    main = must(call("GET", f"{api}/git/ref/heads/main", h), (200,), "reading main")["object"]["sha"]
     # The branch starts at main, so main's copy is the one the commit replaces.
-    current_sha = current["sha"] if status == 200 else None
-    old_text = base64.b64decode(current["content"]).decode("utf-8") if status == 200 else ""
+    current_sha, old_text = main_file(token)
     if old_text == text:
         print(f"main's {OUTPUT} matches NetBox: no pull request needed")
         return
@@ -274,11 +301,22 @@ def main() -> None:
         raise SystemExit("FAIL: --pr needs GITHUB_TOKEN; nothing was written")
     try:
         cfg = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))
-        text = render(shape(netbox(url, token), cfg))
+        # A Decommissioning VM keeps main's entry: from GitHub with --pr, else the checkout's.
+        if args.pr:
+            previous_text = main_file(os.environ["GITHUB_TOKEN"])[1]
+        else:
+            out = Path(args.output)
+            previous_text = out.read_text(encoding="utf-8") if out.exists() else ""
+        data = netbox(url, token)
+        previous = json.loads(previous_text) if previous_text else {}
+        text = render(shape(data, cfg, previous))
         Path(args.output).write_text(text, encoding="utf-8", newline="\n")
         content = json.loads(text)
         print(f"wrote {args.output}: {len(content['talos_nodes'])} Talos nodes, {len(content['containers'])} containers, "
               f"{len(content['docker_vms'])} Docker VMs, {len(content['piholes'])} Pi-holes")
+        kept = sorted((v for v in decommissioning(data) if any(v in g for g in content.values())), key=int)
+        if kept:
+            print(f"kept as main has them (Decommissioning in NetBox): VMID {', '.join(kept)}")
         if args.pr:
             open_pr(text, os.environ["GITHUB_TOKEN"])
     except (Refused, urllib.error.URLError, OSError) as e:

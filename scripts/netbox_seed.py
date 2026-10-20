@@ -15,6 +15,9 @@ custom fields talos_apply_mode and proxmox_tags are never written, and where
 Proxmox differs it's reported, since a resize made in NetBox reaches Proxmox
 only when its pull request is merged and applied.
 
+A VM whose status in NetBox is Decommissioning is being removed by hand and is
+left exactly as it is: nothing about it or its addresses is written.
+
 Each address on a device's or VM's interface whose prefix names a zone (the
 prefix's custom field dns_zone) gets the DNS name <object name>.<zone>, from
 which NetBox DNS makes its record (old-queues/QUEUE-netbox-dns.md); every other address's
@@ -286,9 +289,10 @@ def dns_label(name: str) -> str:
     return re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")
 
 
-def wanted_dns_names(addresses: list[dict], prefixes: list[dict]) -> dict[int, str]:
+def wanted_dns_names(addresses: list[dict], prefixes: list[dict], skip_vms: frozenset = frozenset()) -> dict[int, str]:
     """By address id, the DNS name each device's or VM's address should carry: its
-    object's name in the zone of the most specific prefix holding it that names one."""
+    object's name in the zone of the most specific prefix holding it that names one.
+    A VM in skip_vms (by id) gets none."""
     import ipaddress
     zones = []
     for p in prefixes:
@@ -300,6 +304,8 @@ def wanted_dns_names(addresses: list[dict], prefixes: list[dict]) -> dict[int, s
         owner = a.get("assigned_object") or {}
         obj = owner.get("device") or owner.get("virtual_machine")
         if a.get("assigned_object_type") not in ("dcim.interface", "virtualization.vminterface") or not obj:
+            continue
+        if owner.get("virtual_machine") and obj.get("id") in skip_vms:
             continue
         ip = ipaddress.ip_interface(a["address"]).ip
         held = [(net, z) for net, z in zones if ip in net]
@@ -552,9 +558,14 @@ def main() -> None:
 
     print("virtual machines:")
     skip = set(cfg.get("skip_vmids") or [])
+    retiring = nb.all("virtualization/virtual-machines", status="decommissioning")
+    retiring_names = {v["name"] for v in retiring}
     for g in sorted(guests, key=lambda g: g["name"]):
         if g["vmid"] in skip:
             print(f"  skip {g['type']} {g['vmid']} (skip_vmids)")
+            continue
+        if g["name"] in retiring_names:
+            print(f"  skip {g['type']} {g['vmid']} {g['name']} (Decommissioning in NetBox)")
             continue
         cfg_g = g["config"]
         shape = {"vcpus": int(cfg_g.get("cores", 1)) * int(cfg_g.get("sockets", 1)),
@@ -603,7 +614,7 @@ def main() -> None:
     # DNSsync turns each name into the zone's record.
     print("dns names:")
     addresses = nb.all("ipam/ip-addresses")
-    wanted = wanted_dns_names(addresses, nb.all("ipam/prefixes"))
+    wanted = wanted_dns_names(addresses, nb.all("ipam/prefixes"), frozenset(v["id"] for v in retiring))
     for a in sorted(addresses, key=lambda a: a["address"]):
         name = wanted.get(a["id"])
         if name is not None and (a.get("dns_name") or "") != name:
