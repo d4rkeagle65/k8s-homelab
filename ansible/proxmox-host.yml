@@ -35,6 +35,10 @@
 # it; a boot change is flagged for proxmox-upgrade.yml to reboot for, never
 # rebooted here. amt_sol: false reports only.
 #
+# LLDP (tasks/proxmox-lldpd.yml): lldpd installed, running at boot, and
+# sending each interface's name as its port ID (/etc/lldpd.d/port.conf), read
+# back from lldpd.
+#
 # Cloud-init snippets (tasks/proxmox-snippets.yml): files/docker-vm-vendor-data.yaml
 # onto the shared syn-nfs storage, once, for OpenTofu's Docker VMs to name.
 #
@@ -45,7 +49,8 @@
 # left to remove, and a rebuilt host's copied config is caught.
 #
 # In check mode (--check) it reports each host's ARC, certificate, NAS block
-# storage, NIC offloads, SOL setup and retired interfaces, now and wanted, and
+# storage, NIC offloads, SOL setup, LLDP port ID and retired interfaces, now
+# and wanted, and
 # changes nothing.
 
 - ansible.builtin.import_playbook: require-hosts.yml
@@ -170,6 +175,9 @@
 
     - name: Intel AMT Serial-over-LAN
       ansible.builtin.include_tasks: tasks/proxmox-amt-sol.yml
+
+    - name: LLDP
+      ansible.builtin.include_tasks: tasks/proxmox-lldpd.yml
 
     - name: Cloud-init snippets on the shared storage
       ansible.builtin.include_tasks: tasks/proxmox-snippets.yml
