@@ -68,7 +68,7 @@ comes back elsewhere by itself. Bring a fifth host into the Proxmox cluster for 
 |---|---|---|
 | H1 | yes | 4 vCPU, 16 GiB (2026-10-14: memory was what kept a worker from draining) |
 | H2 | no | 3 vCPU, 16 GiB |
-| H3 | yes (on its worn disk: etcd writes about 22 GB a day) | none |
+| H3 | yes (the owner, 2026-10-20: on its worn disk, though etcd writes about 22 GB a day) | none |
 | H4 | no | 4 vCPU, 11 GiB, with local-db; it carries the Docker VM (HA) too |
 | H5 | yes | 6 vCPU, 20 GiB |
 
