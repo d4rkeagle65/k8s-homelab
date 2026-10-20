@@ -59,9 +59,10 @@ mirrored into Emby, Emby's watched status read back for cleanup) and has a web U
       the share's folder by `subPath`, the health probes on `/api/health`, its ingress; runs as
       the media user; `/app/migrations` never mounted. The MariaDB resources passed a server
       dry run against the operator's webhook
-- [ ] (PR) Youtarr on `media/youtube`, Sonarr's mount of it and its Configarr root folder
-      removed. Left: the merge, Youtarr resumed (its release is suspended) and seeing its
-      videos, then the empty `media/youtarr` removed
+- [x] Youtarr on `media/youtube` (2026-10-20), resumed and seeing its videos (1 channel, 15
+      downloaded, its records intact); Sonarr's mount of it and its Configarr root folder
+      removed (Sonarr's only root folder `media/tv`, health clean); the empty `media/youtarr`
+      removed
 - [x] Read back (2026-10-20): `youtarr-db` ready, its first backup complete, Youtarr healthy as
       the media user with its 21 tables; the owner added the channel and it downloaded
 - [ ] Emby: a library on `media/youtube` (the owner), Emby's URL and key in Youtarr's settings
