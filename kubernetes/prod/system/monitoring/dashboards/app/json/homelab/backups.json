@@ -26,7 +26,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Each backup's newest copy. **Green** under 26 hours; **red** when older, or when the last attempt failed. The same conditions alert into Zammad (`homelab.backups` rules).\n\n**Covered:** Postgres (CloudNativePG, base backups and WAL to Garage), MariaDB (mariadb-operator, physical backups to Garage) and Proxmox's nightly vzdump of every guest (each host's `proxmox-backup-metrics`). **Still to come** (QUEUE-monitoring.md, phase 9): the Garage buckets of Databasus and Vaultwarden, and the Synology-to-TerraMaster copy."
+        "content": "Each backup's newest copy. **Green** under 26 hours; **red** when older, or when the last attempt failed. The same conditions alert into Zammad (`homelab.backups` rules).\n\n**Covered:** Postgres (CloudNativePG, base backups and WAL to Garage), MariaDB (mariadb-operator, physical backups to Garage) Proxmox's nightly vzdump of every guest (each host's `proxmox-backup-metrics`), and the Docker host's backups in Garage (Databasus and Vaultwarden, `garage-backup-exporter`). **Still to come** (QUEUE-monitoring.md, phase 9): the Synology-to-TerraMaster copy."
       }
     },
     {
@@ -670,6 +670,159 @@
       }
     },
     {
+      "id": 7,
+      "title": "Docker host backups in Garage",
+      "type": "table",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 24,
+        "h": 8
+      },
+      "description": "docker-backups, listed every 10 minutes: Databasus's backups (one per database, by name) and the Vaultwarden stack's own (vaultwarden/).",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "(time() - garage_backup_newest_object_timestamp_seconds{bucket=\"docker-backups\"}) / 3600",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "B",
+          "expr": "garage_backup_newest_object_size_bytes{bucket=\"docker-backups\"}",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "C",
+          "expr": "garage_backup_objects{bucket=\"docker-backups\"}",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge"
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "bucket": true,
+              "container": true,
+              "endpoint": true,
+              "instance": true,
+              "job": true,
+              "namespace": true,
+              "pod": true,
+              "service": true
+            },
+            "renameByName": {
+              "prefix": "Backup",
+              "Value #A": "Hours since newest",
+              "Value #B": "Newest size",
+              "Value #C": "Files kept"
+            },
+            "indexByName": {
+              "Backup": 0,
+              "Hours since newest": 1,
+              "Newest size": 2,
+              "Files kept": 3
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hours since newest"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "h"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 26
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Newest size"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Hours since newest",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
       "id": 4,
       "title": "Hours since each newest backup",
       "type": "timeseries",
@@ -679,7 +832,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 40,
         "w": 24,
         "h": 9
       },
@@ -711,6 +864,15 @@
           "refId": "C",
           "expr": "(time() - max by (vmid, guest) (proxmox_backup_archive_timestamp_seconds)) / 3600",
           "legendFormat": "{{vmid}} {{guest}}"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "D",
+          "expr": "(time() - garage_backup_newest_object_timestamp_seconds{bucket=\"docker-backups\"}) / 3600",
+          "legendFormat": "garage: {{prefix}}"
         }
       ],
       "fieldConfig": {
@@ -759,7 +921,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 41,
+        "y": 49,
         "w": 24,
         "h": 9
       },
@@ -773,6 +935,50 @@
           "refId": "A",
           "expr": "max by (vmid, guest) (proxmox_backup_archive_size_bytes)",
           "legendFormat": "{{vmid}} {{guest}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Garage backup buckets' size",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 24,
+        "h": 9
+      },
+      "description": "Everything kept in each backup bucket, retention included: steady growth is normal, a sudden drop is a deletion.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (bucket) (garage_backup_bytes)",
+          "legendFormat": "{{bucket}}"
         }
       ],
       "fieldConfig": {
