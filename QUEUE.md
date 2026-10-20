@@ -286,7 +286,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 65%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
 - [QUEUE-secret-names.md](QUEUE-secret-names.md) (about 10%): one naming standard for Key Vault's secrets, and one secret wherever the cluster and Dockhand touch the same thing.
 - [QUEUE-mariadb.md](QUEUE-mariadb.md) (0%): MariaDB through mariadb-operator, Grimmory moved onto it (no more dump script), then Youtarr.
-- [QUEUE-youtarr.md](QUEUE-youtarr.md) (0%): Youtarr, YouTube channels for Emby, on its own MariaDB.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
