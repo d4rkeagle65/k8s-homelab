@@ -29,19 +29,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
-- **Read back Grimmory's MariaDB once `replica.recovery` merges** (2026-10-20): `grimmory-db-0`
-  can't follow the primary, and with 2 of 3 healthy the `grimmory-db` PodDisruptionBudget
-  (`minAvailable: 50%`) allows no eviction, so no node holding another of its pods can be
-  drained (the Talos upgrade's last worker timed out on it). It was the primary, evicted by a
-  drain without a switchover, and offline when `grimmory-db-1` was promoted; back as a
-  replica, it asks to resume after GTID 0-10-364, and the new primary's binary log holds none
-  of what it replicated (`log_slave_updates` off): error 1236, "not in the master's binlog".
-  0-10-361..364 are the operator's own user and grant statements, which it reapplied on the new
-  primary, so no Grimmory data is missing. The operator's replica recovery (`mariadb.yaml`'s
-  `replica.bootstrapFrom` and `recovery`, the `grimmory-db-recovery` template) rebuilds `-0`
-  from a ready replica's physical backup after five minutes of the error. After the merge:
-  the MariaDB Ready, all three instances replicating, the PDB allowing one eviction, no pod
-  restarted for the spec change; then the Talos run for the last worker (`QUEUE-updates.md`).
 - **A worker's drain doesn't know the MariaDB clusters** (found 2026-10-20):
   `ansible/tasks/cnpg-free-node.yml`, which `k8s-node-drain.yml` runs, switches over
   CloudNativePG primaries and lists single-instance PostgreSQL clusters, but not
