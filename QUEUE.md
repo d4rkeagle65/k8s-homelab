@@ -155,6 +155,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **ExternalDNS's NetBox pod restarts once on every start** (found 2026-10-20): in
+  `helmrelease-netbox.yaml` the `external-dns` container dials the webhook sidecar
+  (`netbox-dns-webhook.py`, 127.0.0.1:8888) before it listens, exits with "failed to connect
+  to webhook", and works on the restart. Harmless now, but each rollout counts a restart, so a
+  restart alert would fire on a real crash loop and this alike. Make the webhook a native
+  sidecar with a startup probe if the chart allows, or have ExternalDNS wait for it.
+
 - **`test-script-health`'s standard-library check only knows the platform it runs on**
   (found 2026-10-20): `t.probe` asks the running Python whether each called name exists, so a
   POSIX-only name (`os.uname`, in #168's `ansible/files/proxmox-backup-metrics.py`) passes in
