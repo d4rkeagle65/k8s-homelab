@@ -481,7 +481,7 @@ spec:
                           format: {type: number, suffix: " °C"}
                 - TerraMaster:
                     icon: terramaster.png
-                    href: http://${TERRAMASTER_ADDRESS}:8181
+                    href: http://${TERRAMASTER_MGMT_ADDRESS}:8181
                     description: Second NAS
                     widget:
                       type: prometheusmetric

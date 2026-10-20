@@ -16,7 +16,7 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
 - **Login through Authentik** by OIDC, a public client with PKCE (no client secret), allowed for
   authentik Admins. The first admin and the OIDC settings come from the chart's auto wizard
   (`autoWizard` in `helmrelease.yaml`), applied once at the first visit; the admin's email is the owner's
-  Authentik email (`ZAMMAD_ADMIN_EMAIL`), so the first Authentik login links to it.
+  Authentik email (`OWNER_EMAIL`), so the first Authentik login links to it.
 - **Search is Elasticsearch,** the chart's bundled node (`eck-elasticsearch`), run by Elastic's
   ECK operator (`prod/system/elastic-system/eck-operator`, managing only this namespace).
 
