@@ -894,6 +894,11 @@ spec:
                     href: https://whisparr.${BASE_DOMAIN}
                     namespace: media
                     app: whisparr-v3
+                - Youtarr:
+                    icon: youtarr.png
+                    href: https://youtarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    namespace: media
+                    app: youtarr
             - Upcoming:
                 - Calendar:
                     icon: mdi-calendar-month
