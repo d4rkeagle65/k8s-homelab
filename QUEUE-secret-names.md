@@ -206,7 +206,13 @@ against today's value by hash.
       which the source shows forces no refresh. The scratch objects are out (#151). Read back
       2026-10-20: both ExternalSecrets and their Secrets gone; `cluster-secrets` untouched
       (its generation unchanged, `SecretSynced`); its Kustomization Ready
-- [ ] The switch's three tooling changes (Rules), each a pull request of its own
+- [ ] The switch's three tooling changes (Rules), each a pull request of its own, all three
+      open and passing their suites (2026-10-20), for the owner to merge before the hold: the
+      structure test (#152); `scripts/keyvault-secrets.ps1` (#153), proved only on a mock
+      vault and a fake kubectl, so its first set or `-Get` after a batch merges is its live
+      check; `scripts/keyvault_copy.py` (#154), which also leaves a value rewritten plain
+      before its template is live (reported `plain`), beyond what the Rules asked. Retiring
+      the copy instead is the owner's call
 - [ ] The hold (Rules' "The switch", step 1), merged just before the pilot
 - [ ] The batches, each one pull request, in this order. 45 variables are held base64, and
       every one is listed here. They are ordered by what a wrong value would do, mildest first:
@@ -259,6 +265,13 @@ against today's value by hash.
       Before: its container running since 2026-10-16 17:35Z; the values are the same, so a
       redeploy whose references resolve leaves it running, and a changed start time means
       one didn't
+- [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
+      value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
+      lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
+      (`promote.py`'s "Secrets" comment, `varsub.py`'s `_write_entries`). Left so, each Secret
+      promoted afterwards adds a base64 value, and "every value in Key Vault is plain" (Done
+      when) stops being true: each new one wants its plain value and a
+      `{{ .NAME | b64enc }}` template entry
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
