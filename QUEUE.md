@@ -129,7 +129,8 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   5-day and 1-day rates, 2026-10-20). Since 2026-10-20 it carries a control plane instead, whose
   etcd writes about twice the worker's (22 GB a day in the guest against 12,
   `pve_disk_written_bytes_total`): its last 14% (about 10 TB) lasts roughly six months to a
-  year. Replace it, a ZFS disk swap, or put the control plane on H2 (`QUEUE-talos.md`). The first host's 256 GB boot drive is at 66% (about 1.4 years). Every host's
+  year. Replace it or swap the ZFS disk; the owner keeps the control plane there (2026-10-20),
+  since losing it leaves etcd's quorum to the other two. The first host's 256 GB boot drive is at 66% (about 1.4 years). Every host's
   drives write 40 to 70 GB a day on lifetime average, far more than Prometheus did: once a few
   days of `node_disk_written_bytes_total` and `pve_disk_written_bytes` exist, find the writers
   (etcd, the workers' databases, images and logs, Proxmox's own files) and cut what can be.
