@@ -205,9 +205,9 @@ against today's value by hash.
       the only key; the fallback (`TIMEZONE_PLAIN`) gave the same. External Secrets' v2.12.0
       source agrees (`shouldRefresh`, `GetResourceVersion`, `isSecretValid`, and
       `ApplyTemplate` writing `template.data` last). Not tried live: a controller restart,
-      which the source shows forces no refresh
-- [ ] The scratch ExternalSecrets out (`kubernetes/secrets/keyvault-b64-test.yaml`), in a
-      pull request of its own; read back: both and their Secrets gone
+      which the source shows forces no refresh. The scratch objects are out (#151). Read back
+      2026-10-20: both ExternalSecrets and their Secrets gone; `cluster-secrets` untouched
+      (its generation unchanged, `SecretSynced`); its Kustomization Ready
 - [ ] The switch's three tooling changes (Rules), each a pull request of its own
 - [ ] The hold, then the batches, then `Periodic` back (Rules' "The switch")
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
