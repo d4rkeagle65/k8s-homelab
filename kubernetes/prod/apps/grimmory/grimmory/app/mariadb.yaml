@@ -60,6 +60,9 @@ spec:
   passwordSecretKeyRef:
     name: grimmory-db
     key: password
+  # The operator's default is 10, and Grimmory's pool alone holds 10 (the old
+  # database peaked at 11 with the exporter's); its sync Job needs room too.
+  maxUserConnections: 30
   cleanupPolicy: Skip
 ---
 apiVersion: k8s.mariadb.com/v1alpha1
