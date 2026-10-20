@@ -252,10 +252,13 @@ against today's value by hash.
         SEMAPHORE and STORK are the three Dockhand shares, now plain, so kea's, netbox's and
         semaphore's stacks can read them by reference (each stack's move), and
         `dockhand_keyvault_copy.py` should count no name as held base64
-  - [ ] 3 (5), the *arr API keys: `MEDIA_{BOOKSHELF,LIDARR,PROWLARR,RADARR,SONARR}_API_KEY`.
-        Each app sets its own key from one, and Homepage, exportarr and organizr-sync read it.
-        #175, a draft until the owner's rewrite; all 5 read back in their old base64 form,
-        each decoding to text, before it
+  - [x] 3 (5), the *arr API keys: `MEDIA_{BOOKSHELF,LIDARR,PROWLARR,RADARR,SONARR}_API_KEY`.
+        #175, 2026-10-20, after #176 (the Garage backup-monitor key's mapping) had merged and
+        refreshed first, adding only its two keys. Read back by hash only: all 5 in the old
+        base64 form before the rewrite; all 5 plain after it, with no refresh in between.
+        Then one refresh for generation 70, `SecretSynced`, all 147 keys equal to the
+        fingerprint, and the Secret not rewritten. The 8 Secrets these feed (the five apps',
+        exportarr's, Homepage's, organizr-sync's) were last written days before
   - [ ] 4 (8), connections: `CLOUDFLARE_TUNNEL_SECRET_*` (3; the tunnel carries everything the
         internet reaches), `REDIS_HA_CREDS_*` (2), `AUTHENTIK_REDIS_PASSWORD_PASSWORD`,
         `IMMICH_REDIS_PASSWORD_PASSWORD`, `IMMICH_REDIS_URL_REDIS_URL`
