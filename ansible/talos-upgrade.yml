@@ -5,28 +5,38 @@
 # (tasks/talos-node-upgrade.yml). A failed step stops the run and says what it
 # left cordoned.
 #
-# The target is talos/patches/common.yaml's installer image, the one place
-# Talos's version and schematic are set (tofu/proxmox/talos-config.tf reads it
-# too). Change it there in a commit, run this, then the OpenTofu job: the
-# machine configs' install image then matches, and nothing reboots.
+# The target is talos/patches/common.yaml's installer image (vars/talos.yml).
+# Change it there in a commit, run this, then the OpenTofu job: the machine
+# configs' install image then matches, and nothing reboots.
+#
+# Three plays: the first plans on localhost, where kubectl and talosctl run, and
+# hands each node to upgrade to the second as a host of its own, so the run's log
+# names the node a step works on rather than localhost; the work still runs here
+# (ansible_connection local). The second takes them one at a time; a node that
+# fails is recorded and the nodes after it are left alone. The third removes the
+# CA certificate, kubectl and talosctl whatever happened, then fails the run if a
+# node did.
 #
 # Variables (Semaphore): the Kubernetes variable group (k8s_api_url,
 # k8s_ca_b64, k8s_token) and talosconfig_b64, an os:admin talosconfig
-# (ansible/README.md). Optional: talos_nodes_only, node names to limit the
-# run to; reboot_allow_pending, as for proxmox-reboot.yml.
+# (ansible/README.md). Optional: talos_nodes_only, node names to limit the run
+# to (a list, or one string separated by commas or spaces; each must be a Talos
+# node); reboot_allow_pending, as for proxmox-reboot.yml.
 #
 # In check mode (--check) it reports the target, each node's version and what
 # it would drain, and changes nothing.
 
-- name: Upgrade Talos, one node at a time
+- name: Plan the upgrade
   hosts: localhost
   gather_facts: false
+  vars_files: [vars/talos.yml]
   vars:
-    talos_common: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../talos/patches/common.yaml') }}"
-    talos_image: "{{ talos_common | regex_search('image: (factory\\.talos\\.dev/[^\\s]+:v[0-9.]+)', '\\1') | first }}"
-    talos_version: "{{ talos_image.split(':') | last }}"
+    talos_only: >-
+      {{ ((talos_nodes_only | default('')) if (talos_nodes_only | default('')) is string
+          else (talos_nodes_only | join(' '))) | regex_replace('[,\s]+', ' ') | trim | split(' ')
+         | reject('equalto', '') | list }}
   tasks:
-    - name: Check, plan and upgrade, cleaning up whatever happens
+    - name: Check and plan, cleaning up if that fails
       block:
         - name: Decode the Kubernetes CA certificate
           ansible.builtin.set_fact:
@@ -61,15 +71,26 @@
 
         - name: Work out the nodes to upgrade, control planes first
           ansible.builtin.set_fact:
-            talos_plan: >-
+            talos_all: >-
               {% set out = [] %}{% for n in (talos_nodes_json.stdout | from_json)['items']
-                 if n.status.nodeInfo.osImage is search('^Talos')
-                    and (not talos_nodes_only | default([]) or n.metadata.name in talos_nodes_only) %}{%
+                 if n.status.nodeInfo.osImage is search('^Talos') %}{%
                 set _ = out.append({'name': n.metadata.name,
                   'address': (n.status.addresses | selectattr('type', 'equalto', 'InternalIP') | first).address,
                   'control_plane': 'node-role.kubernetes.io/control-plane' in n.metadata.labels,
                   'version': n.status.nodeInfo.osImage | regex_search('v[0-9.]+') }) %}{%
               endfor %}{{ out | sort(attribute='name') | sort(attribute='control_plane', reverse=true) }}
+
+        - name: Every node in talos_nodes_only is a Talos node
+          ansible.builtin.assert:
+            that: talos_only | difference(talos_all | map(attribute='name')) | length == 0
+            fail_msg: >-
+              talos_nodes_only names what isn't a Talos node:
+              {{ talos_only | difference(talos_all | map(attribute='name')) | join(', ') }}. Nothing was run.
+            quiet: true
+
+        - name: Keep the nodes asked for
+          ansible.builtin.set_fact:
+            talos_plan: "{{ talos_all | selectattr('name', 'in', talos_only) | list if talos_only else talos_all }}"
 
         - name: Talos's API answers with this talosconfig (read only)
           ansible.builtin.command: >-
@@ -78,7 +99,7 @@
           changed_when: false
           check_mode: false
           vars:
-            talos_cp: "{{ talos_plan | selectattr('control_plane') | first }}"
+            talos_cp: "{{ talos_all | selectattr('control_plane') | first }}"
 
         - name: Report the plan
           ansible.builtin.debug:
@@ -90,21 +111,58 @@
                 To upgrade: {{ talos_plan | rejectattr('version', 'equalto', talos_version) | map(attribute='name') | list
                 or ['none, every node is on ' ~ talos_version] }}
 
-        - name: Upgrade each node that isn't on the target
-          ansible.builtin.include_tasks: tasks/talos-node-upgrade.yml
+        - name: Hand each node to upgrade to the next play, as a host of its own
+          ansible.builtin.add_host:
+            name: "{{ item.name }}"
+            groups: talos_upgrade_nodes
+            talos_node: "{{ item }}"
+            ansible_connection: local
+            ansible_python_interpreter: "{{ ansible_playbook_python }}"
           loop: "{{ talos_plan | rejectattr('version', 'equalto', talos_version) | list }}"
           loop_control:
-            loop_var: talos_node
-            label: "{{ talos_node.name }}"
+            label: "{{ item.name }}"
+          changed_when: false
 
-      always:
+      rescue:
         - name: Remove the CA certificate, and kubectl and talosctl with their configs
-          ansible.builtin.file:
-            path: "{{ item }}"
-            state: absent
-          loop:
-            - "{{ playbook_dir }}/.k8s-ca.pem"
-            - "{{ kubectl_dir | default('') }}"
-            - "{{ talos_dir | default('') }}"
-          when: item | length > 0
-          check_mode: false
+          ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
+
+        - name: Stop the run
+          ansible.builtin.fail:
+            msg: "{{ ansible_failed_result.msg | default('A step failed') }}"
+
+- name: Upgrade each node, one at a time
+  hosts: talos_upgrade_nodes
+  serial: 1
+  gather_facts: false
+  vars_files: [vars/talos.yml]
+  vars:
+    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
+    kubectl_host: "{{ hostvars['localhost'].kubectl_host }}"
+    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
+  tasks:
+    - name: Upgrade it, unless a node before it failed
+      when: hostvars['localhost'].talos_stopped_at is not defined
+      block:
+        - name: Upgrade Talos on {{ inventory_hostname }}
+          ansible.builtin.include_tasks: tasks/talos-node-upgrade.yml
+
+      rescue:
+        - name: Record where the run stopped, so the nodes after it are left alone
+          ansible.builtin.set_fact:
+            talos_stopped_at: "{{ inventory_hostname }}: {{ ansible_failed_result.msg | default('a step failed') }}"
+          delegate_to: localhost
+          delegate_facts: true
+
+- name: Clean up, and say whether every node was upgraded
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove the CA certificate, and kubectl and talosctl with their configs
+      ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
+
+    - name: Every node to upgrade was upgraded
+      ansible.builtin.assert:
+        that: talos_stopped_at is not defined
+        fail_msg: "The run stopped at {{ talos_stopped_at | default('') }}. The nodes after it were left as they were."
+        success_msg: "Every node planned was upgraded."

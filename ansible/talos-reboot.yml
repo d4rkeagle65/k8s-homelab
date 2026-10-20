@@ -8,6 +8,10 @@
 # up again, before the next (tasks/talos-vm-reboot.yml). A failed step stops the run and says
 # what it left cordoned.
 #
+# Three plays, as talos-upgrade.yml's header says: a plan on localhost, then each VM as a
+# host of its own (named for its node, so the log says which VM a step works on), then the
+# cleanup.
+#
 # Which VMs: reboot_vms (required), VM IDs or names, separated by commas or spaces, rebooted
 # in that order; ALL (any case) for every Talos VM, control planes first. Each must be a
 # Proxmox VM whose name is a Talos node's.
@@ -25,16 +29,14 @@
   vars:
     required_group: proxmox
 
-- name: Reboot Talos VMs through Proxmox, one at a time
+- name: Plan the reboots
   hosts: localhost
   gather_facts: false
+  vars_files: [vars/talos.yml]
   vars:
-    talos_common: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../talos/patches/common.yaml') }}"
-    talos_image: "{{ talos_common | regex_search('image: (factory\\.talos\\.dev/[^\\s]+:v[0-9.]+)', '\\1') | first }}"
-    talos_version: "{{ talos_image.split(':') | last }}"
     pve_api_host: "{{ groups['proxmox'] | first }}"
   tasks:
-    - name: Check, plan and reboot, cleaning up whatever happens
+    - name: Check and plan, cleaning up if that fails
       block:
         - name: reboot_vms names the VMs to reboot
           ansible.builtin.assert:
@@ -168,21 +170,60 @@
                   ~ ', HA ' ~ ('yes' if r.vm.ha else 'no') ~ ', pending: ' ~ (p | join(', ') or 'nothing')) %}{%
               endfor %}{{ out }}
 
-        - name: Reboot each, one at a time
-          ansible.builtin.include_tasks: tasks/talos-vm-reboot.yml
+        - name: Hand each VM to the next play, as a host named for its node
+          ansible.builtin.add_host:
+            name: "{{ item.name }}"
+            groups: talos_reboot_vms
+            talos_vm: "{{ item }}"
+            ansible_connection: local
+            ansible_python_interpreter: "{{ ansible_playbook_python }}"
           loop: "{{ reboot_plan }}"
           loop_control:
-            loop_var: talos_vm
-            label: "{{ talos_vm.vmid }} {{ talos_vm.name }}"
+            label: "{{ item.vmid }} {{ item.name }}"
+          changed_when: false
 
-      always:
+      rescue:
         - name: Remove the CA certificate, and kubectl and talosctl with their configs
-          ansible.builtin.file:
-            path: "{{ item }}"
-            state: absent
-          loop:
-            - "{{ playbook_dir }}/.k8s-ca.pem"
-            - "{{ kubectl_dir | default('') }}"
-            - "{{ talos_dir | default('') }}"
-          when: item | length > 0
-          check_mode: false
+          ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
+
+        - name: Stop the run
+          ansible.builtin.fail:
+            msg: "{{ ansible_failed_result.msg | default('A step failed') }}"
+
+- name: Reboot each VM, one at a time
+  hosts: talos_reboot_vms
+  serial: 1
+  gather_facts: false
+  vars_files: [vars/talos.yml]
+  vars:
+    pve_api_host: "{{ groups['proxmox'] | first }}"
+    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
+    kubectl_host: "{{ hostvars['localhost'].kubectl_host }}"
+    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
+    talos_cp_addresses: "{{ hostvars['localhost'].talos_cp_addresses }}"
+  tasks:
+    - name: Reboot it, unless a VM before it failed
+      when: hostvars['localhost'].talos_stopped_at is not defined
+      block:
+        - name: Reboot VM {{ talos_vm.vmid }} ({{ inventory_hostname }})
+          ansible.builtin.include_tasks: tasks/talos-vm-reboot.yml
+
+      rescue:
+        - name: Record where the run stopped, so the VMs after it are left alone
+          ansible.builtin.set_fact:
+            talos_stopped_at: "VM {{ talos_vm.vmid }} ({{ inventory_hostname }}): {{ ansible_failed_result.msg | default('a step failed') }}"
+          delegate_to: localhost
+          delegate_facts: true
+
+- name: Clean up, and say whether every VM was rebooted
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove the CA certificate, and kubectl and talosctl with their configs
+      ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
+
+    - name: Every VM to reboot was rebooted
+      ansible.builtin.assert:
+        that: talos_stopped_at is not defined
+        fail_msg: "The run stopped at {{ talos_stopped_at | default('') }}. The VMs after it were left as they were."
+        success_msg: "Every VM planned was rebooted."
