@@ -1,5 +1,5 @@
 # Youtarr (QUEUE-youtarr.md): follows YouTube channels and downloads their
-# videos, with NFO files and posters, into media/youtarr for Emby. Its database
+# videos, with NFO files and posters, into media/youtube for Emby. Its database
 # is youtarr-db (mariadb.yaml), on mariadb-operator.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -64,7 +64,7 @@ spec:
                     name: youtarr
                     key: admin-password
               # Informational only in Youtarr: where its videos are on the share.
-              YOUTUBE_OUTPUT_DIR: media/youtarr on the media share
+              YOUTUBE_OUTPUT_DIR: media/youtube on the media share
             # Startup allows ten minutes (database migrations on a new version).
             probes:
               startup:
@@ -141,4 +141,4 @@ spec:
         existingClaim: synmedia-nfs
         globalMounts:
           - path: /usr/src/app/data
-            subPath: media/youtarr
+            subPath: media/youtube
