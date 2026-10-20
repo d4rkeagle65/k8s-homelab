@@ -1,0 +1,211 @@
+# The Synology's own baseline (DSM, not Debian: baseline.yml is for those).
+# For now: Docker, as Synology's own package, and Dockhand's Hawser agent, so
+# Dockhand deploys the NAS's stacks (docker/CLAUDE.md) as it does the Docker VM's.
+#
+# DSM's Docker is a package from its Package Center: Container Manager from
+# DSM 7.2, Docker before it (synology_docker_package overrides the choice). It's
+# installed with synopkg from Synology's server, started, and read back from the
+# Docker daemon itself. DSM has no apt, and nothing here needs Python on the
+# NAS: every step is one `raw` script.
+#
+# Inventory: the NetBox one; the `synology` group is the NetBox tag. The login is
+# the host's ansible_user (its local config context), an administrator with
+# passwordless sudo through a sudoers.d file made by hand, which a DSM update may
+# remove; the first step says so when sudo asks for a password.
+#
+# Hawser: as docker-host.yml runs it (its header says how the token is made),
+# the image and port from vars/hawser.yml, but its stacks on the data volume
+# (synology_hawser_stacks, default /volume1/docker/hawser-stacks), at the same
+# path inside the container: DSM's system partition is small and an update may
+# reset it. It runs only when HAWSER_TOKEN is in the run's environment, and is
+# recreated when its image or token differs. The token is never printed.
+#
+# In check mode (--check) it reports DSM's version, the package, whether
+# Docker answers and what Hawser would change, and changes nothing.
+
+- ansible.builtin.import_playbook: require-hosts.yml
+  vars:
+    required_group: synology
+
+- name: The Synology's baseline
+  hosts: synology
+  gather_facts: false
+  vars_files: [vars/hawser.yml]
+  vars:
+    hawser_token: "{{ lookup('ansible.builtin.env', 'HAWSER_TOKEN') }}"
+    hawser_stacks: "{{ synology_hawser_stacks | default('/volume1/docker/hawser-stacks') }}"
+  tasks:
+    # Without become: a sudo that asks for a password would otherwise fail
+    # every later step with Ansible's generic "missing sudo password".
+    - name: This is DSM 7 or later, with passwordless sudo
+      ansible.builtin.raw: |
+        [ -r /etc.defaults/VERSION ] || { echo "ERROR not DSM: no /etc.defaults/VERSION"; exit 1; }
+        . /etc.defaults/VERSION
+        echo "DSM=$productversion"
+        echo "MAJOR=$majorversion"
+        echo "MINOR=$minorversion"
+        echo "BUILD=$buildnumber"
+        echo "MODEL=$(sed -n 's/^upnpmodelname="\(.*\)"$/\1/p' /etc/synoinfo.conf | head -1)"
+        echo "ARCH=$(uname -m)"
+        echo "MEM_MB=$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo)"
+        if sudo -n true 2>/dev/null; then echo "SUDO=ok"; else echo "SUDO=password"; fi
+      register: dsm_raw
+      changed_when: false
+      check_mode: false
+      failed_when: dsm_raw.rc != 0 or 'ERROR' in dsm_raw.stdout
+
+    - name: Read DSM's facts
+      ansible.builtin.set_fact:
+        # KEY=value lines; no value holds an "=".
+        dsm: "{{ dict(dsm_raw.stdout_lines | select('search', '^[A-Z_]+=') | map('split', '=')) }}"
+
+    - name: DSM is new enough and sudo needs no password
+      ansible.builtin.assert:
+        that:
+          - dsm.MAJOR | int >= 7
+          - dsm.SUDO == 'ok'
+        fail_msg: >-
+          {{ inventory_hostname }}: DSM {{ dsm.DSM }}, sudo {{ dsm.SUDO }}.
+          {{ 'DSM 7 or later is needed (synopkg install_from_server). ' if dsm.MAJOR | int < 7 else '' }}
+          {{ 'sudo asked for a password: the sudoers.d file for ' ~ (ansible_user | default('the login')) ~
+             ' is gone (a DSM update removes it); recreate it as root, then check with sudo -k; sudo -n true.'
+             if dsm.SUDO != 'ok' else '' }}
+        quiet: true
+
+    # Prints one CHANGE line per change, then VERIFIED with the daemon's version
+    # (UNVERIFIED in check mode while the package is missing or stopped).
+    - name: Docker, as Synology's package
+      ansible.builtin.raw: |
+        dry={{ 1 if ansible_check_mode else 0 }}
+        pkg='{{ synology_docker_package | default('ContainerManager' if dsm.MAJOR | int > 7 or (dsm.MAJOR | int == 7 and dsm.MINOR | int >= 2) else 'Docker') }}'
+        synopkg=/usr/syno/bin/synopkg
+        docker=/usr/local/bin/docker
+        pending=0
+        installed() {
+          # A version, or nothing: synopkg's answer for a missing package isn't one.
+          v=$($synopkg version "$pkg" 2>/dev/null || true)
+          case "$v" in [0-9]*) echo "$v" ;; esac
+        }
+        answers() {
+          server=$($docker version --format '{% raw %}{{.Server.Version}}{% endraw %}' 2>/dev/null) && [ -n "$server" ]
+        }
+        ver=$(installed)
+        if [ -z "$ver" ]; then
+          echo "CHANGE install $pkg from Synology's package server"
+          pending=1
+          if [ "$dry" = 0 ]; then
+            $synopkg install_from_server "$pkg" || { echo "ERROR synopkg install_from_server $pkg failed"; exit 1; }
+            ver=$(installed)
+            [ -n "$ver" ] || { echo "ERROR $pkg isn't installed after install_from_server"; exit 1; }
+          fi
+        fi
+        echo "PACKAGE $pkg ${ver:-not installed}"
+        # Running means the daemon answers, whatever the package says.
+        if [ -n "$ver" ] && ! answers; then
+          echo "CHANGE start $pkg"
+          pending=1
+          [ "$dry" = 1 ] || $synopkg start "$pkg" || { echo "ERROR synopkg start $pkg failed"; exit 1; }
+        fi
+        if [ "$dry" = 1 ] && [ "$pending" = 1 ]; then
+          echo "UNVERIFIED until the changes above are made (check mode)"
+          exit 0
+        fi
+        # The daemon takes a few seconds to answer after the package starts.
+        i=0
+        until answers; do
+          i=$((i + 1))
+          [ "$i" -le 30 ] || { echo "ERROR the Docker daemon doesn't answer ($docker version)"; exit 1; }
+          sleep 2
+        done
+        if $docker compose version >/dev/null 2>&1; then compose="docker compose $($docker compose version --short 2>/dev/null)"
+        elif [ -x /usr/local/bin/docker-compose ]; then compose="docker-compose $(/usr/local/bin/docker-compose version --short 2>/dev/null)"
+        else compose=none; fi
+        echo "VERIFIED Docker $server answers; compose: $compose; data root $($docker info --format '{% raw %}{{.DockerRootDir}}{% endraw %}' 2>/dev/null)"
+      become: true
+      register: docker_pkg
+      changed_when: "'CHANGE' in docker_pkg.stdout"
+      failed_when: docker_pkg.rc != 0 or 'ERROR' in docker_pkg.stdout
+      # raw is skipped in check mode unless told otherwise; the script itself
+      # changes nothing then.
+      check_mode: false
+
+    - name: Without a token, Hawser waits
+      ansible.builtin.debug:
+        msg: "No HAWSER_TOKEN in the run's environment: Hawser was left alone (make the token in Dockhand, then run again)."
+      when: hawser_token | length == 0
+
+    # Prints CHANGE lines, then VERIFIED once its container is running on the
+    # wanted image and token (UNVERIFIED in check mode before it is). raw takes
+    # no environment, so the token is in the script: hence no_log, and the
+    # lines are printed by the task after it.
+    - name: Hawser, Dockhand's agent
+      ansible.builtin.raw: |
+        dry={{ 1 if ansible_check_mode else 0 }}
+        docker=/usr/local/bin/docker
+        image={{ hawser_image | quote }}
+        stacks={{ hawser_stacks | quote }}
+        TOKEN={{ hawser_token | quote }}
+        export TOKEN
+        if ! $docker version >/dev/null 2>&1; then
+          [ "$dry" = 1 ] && { echo "UNVERIFIED Docker isn't answering yet (check mode)"; exit 0; }
+          echo "ERROR the Docker daemon doesn't answer"; exit 1
+        fi
+        vol=$(echo "$stacks" | cut -d/ -f1-2)
+        [ -d "$vol" ] || { echo "ERROR $vol doesn't exist (synology_hawser_stacks)"; exit 1; }
+        if [ ! -d "$stacks" ]; then
+          echo "CHANGE make $stacks"
+          [ "$dry" = 1 ] || mkdir -p "$stacks" || { echo "ERROR mkdir $stacks failed"; exit 1; }
+        fi
+        have_image=$($docker inspect -f '{% raw %}{{.Config.Image}}{% endraw %}' hawser 2>/dev/null || true)
+        have_token=$($docker inspect -f '{% raw %}{{range .Config.Env}}{{println .}}{{end}}{% endraw %}' hawser 2>/dev/null | sed -n 's/^TOKEN=//p')
+        if [ -z "$have_image" ]; then
+          echo "CHANGE run Hawser ($image)"
+        elif [ "$have_image" != "$image" ] || [ "$have_token" != "$TOKEN" ]; then
+          echo "CHANGE recreate Hawser: $([ "$have_image" != "$image" ] && echo "image $have_image -> $image")$([ "$have_token" != "$TOKEN" ] && echo " token differs")"
+          [ "$dry" = 1 ] || $docker rm -f hawser >/dev/null || { echo "ERROR docker rm hawser failed"; exit 1; }
+        else
+          have_image=keep
+        fi
+        if [ "$dry" = 1 ]; then
+          [ "$have_image" = keep ] || { echo "UNVERIFIED until the changes above are made (check mode)"; exit 0; }
+        elif [ "$have_image" != keep ]; then
+          $docker run -d --name hawser --restart unless-stopped -p {{ hawser_port }}:2376 \
+            -v /var/run/docker.sock:/var/run/docker.sock -v "$stacks:$stacks" \
+            -e STACKS_DIR="$stacks" -e TOKEN "$image" >/dev/null || { echo "ERROR docker run hawser failed"; exit 1; }
+          sleep 5
+        fi
+        running=$($docker inspect -f '{% raw %}{{.State.Running}} {{.RestartCount}}{% endraw %}' hawser 2>/dev/null || true)
+        [ "${running%% *}" = true ] || { echo "ERROR Hawser's container isn't running ($running): docker logs hawser says why"; exit 1; }
+        echo "VERIFIED Hawser running on port {{ hawser_port }}, $image, stacks in $stacks, restarts ${running#* }"
+      become: true
+      register: hawser_raw
+      changed_when: "'CHANGE' in hawser_raw.stdout"
+      # Judged by the next two tasks, which can show why: no_log hides a failure's output.
+      failed_when: false
+      check_mode: false
+      no_log: true
+      when: hawser_token | length > 0
+
+    # The token never reaches these lines: the script prints none of it.
+    - name: What Hawser's step did
+      ansible.builtin.debug:
+        msg: "{{ hawser_raw.stdout_lines | default([]) }}"
+      when: hawser_raw is not skipped
+
+    - name: Hawser's step succeeded
+      ansible.builtin.assert:
+        that:
+          - hawser_raw.rc == 0
+          - "'ERROR' not in hawser_raw.stdout"
+        fail_msg: "{{ inventory_hostname }}: Hawser's step failed (rc {{ hawser_raw.rc }}); the lines above say why."
+        quiet: true
+      when: hawser_raw is not skipped
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: {{ dsm.MODEL }} ({{ dsm.ARCH }}, {{ dsm.MEM_MB }} MB) on DSM
+          {{ dsm.DSM }} build {{ dsm.BUILD }};
+          {{ docker_pkg.stdout_lines | select('search', '^(CHANGE|PACKAGE|VERIFIED|UNVERIFIED)') | join('; ') }};
+          Hawser {{ 'not set up (no HAWSER_TOKEN)' if hawser_raw is skipped else
+          (hawser_raw.stdout_lines | select('search', '^(CHANGE|VERIFIED|UNVERIFIED)') | join('; ')) }}

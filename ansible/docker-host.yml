@@ -31,11 +31,10 @@
   hosts: "{{ docker_host_target | default('none') }}"
   gather_facts: true
   become: true
+  vars_files: [vars/hawser.yml]
   vars:
     docker_version: "5:29.9.1-1~debian.13~trixie"
     held: [docker-ce, docker-ce-cli, docker-ce-rootless-extras, containerd.io, docker-buildx-plugin, docker-compose-plugin]
-    hawser_image: ghcr.io/finsys/hawser:0.2.50
-    hawser_port: 2376
     hawser_token: "{{ lookup('ansible.builtin.env', 'HAWSER_TOKEN') }}"
   tasks:
     - name: One Debian 13 host
