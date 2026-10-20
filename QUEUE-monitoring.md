@@ -201,13 +201,14 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       ticket through `zammad-bridge`; and Proxmox's vzdump of every guest
       (`ansible/files/proxmox-backup-metrics.py`, a 15-minute timer from
       `ansible/tasks/host-exporters.yml`, three `Proxmox*` alerts, the dashboard's Proxmox
-      panels), live on all five hosts since 2026-10-20 with 13 guests covered. In PR: the Garage
-      bucket exporter (`garage-backup-exporter/`, standard-library Python on the stock image,
-      the zammad-bridge pattern) listing the three backup buckets every 10 minutes, with
-      `GarageBackupTooOld` on `docker-backups` only (Databasus and Vaultwarden; the other
-      buckets alert from their own metrics) and `GarageBackupExporterFailing`; run locally
-      against Garage and its output checked with promtool. Left: the merge and its read-back
-      (six `docker-backups` prefixes, all three buckets up); then the Synology copy (its answer)
+      panels), live on all five hosts since 2026-10-20 with 13 guests covered. The Garage
+      bucket exporter
+      (`garage-backup-exporter/`) lists the three backup buckets every 10 minutes:
+      `GarageBackupTooOld` on `docker-backups` only (Databasus's five databases and
+      Vaultwarden; the other buckets alert from their own metrics) and
+      `GarageBackupExporterFailing`; read back 2026-10-20, all three buckets up. A suspended
+      PhysicalBackup (a replica recovery's template) is skipped by `MariaDBBackupNotComplete`.
+      Left: the Synology copy (its answer)
 
 ## Resuming
 
