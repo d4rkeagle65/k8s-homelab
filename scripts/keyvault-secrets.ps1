@@ -12,9 +12,14 @@ With no -Name, outputs one object per variable (never the values), with:
   Name          the variable's name. For a Key Vault secret the ExternalSecret
                 doesn't map, its name with "-" turned back into "_".
   KeyVaultName  its secret's name in Key Vault.
-  Encoding      base64 when the variable is used in a Secret's `data:` (Flux
-                substitutes it as is, so the secret must hold the base64
-                form), plain when used elsewhere, empty when nothing uses it.
+  Encoding      the form Key Vault should hold the value in. base64 when the
+                variable is used in a Secret's `data:` (Flux substitutes it as
+                is, so the secret must hold the base64 form), plain when used
+                elsewhere, empty when nothing uses it. plain (b64enc) when the
+                cluster-secrets template encodes it, as exactly
+                {{ .NAME | b64enc }}: Key Vault holds it plain and the Secret
+                base64. UNKNOWN (template) when the template builds it any
+                other way.
   Synced        yes when the ExternalSecret maps it and Key Vault holds it; no
                 when Key Vault holds it but the ExternalSecret doesn't map it
                 (so it never reaches the cluster); DISABLED when Key Vault holds
@@ -27,22 +32,24 @@ any other objects.
 
 With -Name (a variable's name, with "_"), sets its secret. The value is asked
 for without echoing it (or taken from -Value, which leaves it in your shell
-history), base64-encoded when the variable is used in a Secret, then written as
-a new version of the secret and read back, compared by SHA-256. The script then
-force-syncs the ExternalSecret, waits for the cluster-secrets Secret to hold the
-new value, and prints the Flux reconcile commands to run.
+history), base64-encoded when Key Vault holds the variable base64 (Encoding),
+then written as a new version of the secret and read back, compared by SHA-256.
+The script then force-syncs the ExternalSecret, waits for the cluster-secrets
+Secret to hold the new value, and prints the Flux reconcile commands to run.
 
 With -Name and -Get, outputs the secret's current value instead, the only
-path that shows one: decoded from base64 when the variable is used in a
-Secret (-Raw gives the form Key Vault holds), as a string, so it can go to a
+path that shows one: decoded from base64 when Key Vault holds the variable
+base64 (-Raw gives the form Key Vault holds), as a string, so it can go to a
 variable or Set-Clipboard rather than the screen.
+
+A variable whose Encoding is UNKNOWN (template) is set or read only with -Raw.
 
 It signs in as the Azure CLI's current account (az login), which needs "Key
 Vault Secrets Officer" on the vault to set a secret, or "Key Vault Secrets
 User" to list. The vault's URL comes from the azure-keyvault-bootstrap Secret
-in flux-system (or -Vault names the vault), the variable mapping from the live
-ExternalSecret, and the variable usage from the kubernetes/ folder of this
-checkout. Run `git pull` first.
+in flux-system (or -Vault names the vault), the variable mapping and template
+from the live ExternalSecret, and the variable usage from the kubernetes/
+folder of this checkout. Run `git pull` first.
 
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1
@@ -215,6 +222,16 @@ if ($es.spec.secretStoreRef.name -ne $StoreName) {
 # Variable -> its Key Vault secret's name.
 $mapped = [ordered]@{}
 foreach ($entry in @($es.spec.data)) { $mapped[$entry.secretKey] = $entry.remoteRef.key }
+# Variable -> how the template treats it, when it has a key of the variable's own name
+# (which replaces the variable's value): b64enc for exactly {{ .NAME | b64enc }}, so Key
+# Vault holds it plain; other for anything else, whose form in Key Vault isn't known.
+$templated = @{}
+if ($es.spec.target.template.data) {
+    foreach ($key in $es.spec.target.template.data.PSObject.Properties) {
+        if (-not $mapped.Contains($key.Name)) { continue }   # built from other variables
+        $templated[$key.Name] = if ($key.Value -ceq "{{ .$($key.Name) | b64enc }}") { 'b64enc' } else { 'other' }
+    }
+}
 $usage = Get-VariableUsage
 $vaultUrl = Get-VaultUrl
 $token = Get-AccessToken
@@ -234,7 +251,9 @@ if (-not $Name) {
             PSTypeName   = 'Homelab.KeyVaultSecret'
             Name         = $variable
             KeyVaultName = $secretName
-            Encoding     = if (-not $files) { '' } elseif ($files.Values -contains $true) { 'base64' } else { 'plain' }
+            Encoding     = if ($templated[$variable] -eq 'b64enc') { 'plain (b64enc)' }
+                           elseif ($templated[$variable]) { 'UNKNOWN (template)' }
+                           elseif (-not $files) { '' } elseif ($files.Values -contains $true) { 'base64' } else { 'plain' }
             Synced       = $synced
             UsedBy       = [string[]]@(if ($files) { $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique })
         }
@@ -259,6 +278,16 @@ if ($secretName -notmatch '^[A-Za-z0-9-]{1,127}$') { throw "$secretName isn't a 
 
 $files = $usage[$Name]
 $inSecret = $files -and ($files.Values -contains $true)
+$encodes = $templated[$Name]
+if ($encodes -eq 'other' -and -not $Raw) {
+    throw "cluster-secrets' template builds $Name other than as {{ .$Name | b64enc }}, so the form Key Vault should hold it in isn't known. -Raw sets or reads it as Key Vault holds it."
+}
+if ($encodes -eq 'b64enc' -and $files -and ($files.Values -contains $false)) {
+    Write-Warning "cluster-secrets' template encodes $Name, so the files that use it outside a Secret's data get base64: $(@($files.Keys | Where-Object { -not $files[$_] }) -join ', ')"
+}
+# Key Vault holds base64 where a Secret's data uses the variable and the template doesn't
+# encode it.
+$heldBase64 = $inSecret -and -not $encodes
 
 if ($Get) {
     if ($PSBoundParameters.ContainsKey('Value') -or $New -or $NoSync) { throw '-Get only reads: leave out -Value, -New and -NoSync.' }
@@ -267,7 +296,7 @@ if ($Get) {
     # A disabled secret's read is refused (403), so it lands here too.
     if ($current.Status -ne 200) { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
     $held = [string]$current.Body.value
-    if (-not $inSecret -or $Raw) { return $held }
+    if (-not $heldBase64 -or $Raw) { return $held }
     if ($files.Values -contains $false) {
         Write-Warning "$Name is used both in a Secret's data (base64) and elsewhere (plain); this is the value as Key Vault holds it, not decoded."
         return $held
@@ -279,7 +308,7 @@ if ($Get) {
     }
 }
 
-if ($files -and $inSecret -and ($files.Values -contains $false) -and -not $Raw) {
+if ($heldBase64 -and ($files.Values -contains $false) -and -not $Raw) {
     throw "$Name is used both in a Secret's data (base64) and elsewhere (plain), so no one value fits both. Files: $($files.Keys -join ', ')"
 }
 if (-not $files) { Write-Warning "Nothing under kubernetes/ uses `${$Name}` in this checkout." }
@@ -304,7 +333,7 @@ if (-not $PSBoundParameters.ContainsKey('Value')) {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
 }
 if ($Value -eq '') { throw 'Empty value; nothing changed.' }
-$stored = if ($inSecret -and -not $Raw) { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Value)) } else { $Value }
+$stored = if ($heldBase64 -and -not $Raw) { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Value)) } else { $Value }
 $how = if ($stored -ne $Value) { ' (base64-encoded)' } else { '' }
 
 if ($currentHash -eq (Get-Sha256 $stored)) {
@@ -329,14 +358,21 @@ if (-not $mapped.Contains($Name)) {
 }
 if (-not $NoSync) {
     kubectl annotate externalsecret cluster-secrets -n flux-system "force-sync=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())" --overwrite | Out-Null
-    $want = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($stored))
-    $deadline = (Get-Date).AddSeconds(60)
-    do {
-        Start-Sleep -Seconds 2
-        $have = kubectl get secret cluster-secrets -n flux-system -o "jsonpath={.data.$Name}"
-    } until ($have -eq $want -or (Get-Date) -gt $deadline)
-    if ($have -ne $want) { throw 'The cluster-secrets Secret still has the old value after 60s. Check: kubectl describe externalsecret cluster-secrets -n flux-system' }
-    Write-Host 'The cluster-secrets Secret has the new value.'
+    if ($encodes -eq 'other') {
+        Write-Warning "Force-synced, but cluster-secrets' template builds $Name, so whether its Secret has the new value isn't checked."
+    }
+    else {
+        # The Secret's value is what Key Vault holds, encoded once more where the template encodes it.
+        $inCluster = if ($encodes) { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($stored)) } else { $stored }
+        $want = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($inCluster))
+        $deadline = (Get-Date).AddSeconds(60)
+        do {
+            Start-Sleep -Seconds 2
+            $have = kubectl get secret cluster-secrets -n flux-system -o "jsonpath={.data.$Name}"
+        } until ($have -eq $want -or (Get-Date) -gt $deadline)
+        if ($have -ne $want) { throw 'The cluster-secrets Secret still has the old value after 60s. Check: kubectl describe externalsecret cluster-secrets -n flux-system' }
+        Write-Host 'The cluster-secrets Secret has the new value.'
+    }
 }
 
 if ($files) {
