@@ -34,6 +34,18 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **`docker/lldpd/` has no webhooks yet**: the owner deploys it to both NAS Docker hosts as two
+  Dockhand Git stacks; then each gets a Provider and Alert in
+  `prod/system/external-services/dockhand-webhooks/app/webhooks.yaml` with its Dockhand stack
+  ID, or a change to `compose.yaml` reaches neither NAS until it is redeployed by hand.
+- **Every `tofu/proxmox` apply fails while the Talos image changes** (found 2026-10-20, Semaphore
+  task 940): a new version in `talos/patches/common.yaml` replaces
+  `proxmox_download_file.talos_nocloud`, and deleting the old file needs `Datastore.Allocate` on
+  `syn-nfs`, which `TofuGuests` (`tofu/README.md`) lacks: HTTP 403, and nothing after it applies
+  (VM 115's memory raise among them). Either the role gets it on `/storage/syn-nfs` (that entry
+  then lists `PVEAuditor` and `TofuGuests` too, and the token could delete any volume there,
+  the HA VMs' disks included), or the code stops deleting old images. The owner's call. Left,
+  no apply of the module succeeds.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
@@ -161,8 +173,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
   checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
   worktree's top, but `other_calls_ours("pre-merge-commit")` in `tests/test-harness.py` accepts
-  only a line naming `.githooks/pre-merge-commit`. The commit hook's own run passes. Left, a
-  manual `run-all-tests.py` there fails for a hook that works.
+  only a line naming `.githooks/pre-merge-commit`. The commit hook's own run passes, since it
+  runs only the suites for the staged files. Left, a manual `run-all-tests.py` there fails for
+  a hook that works. So does the post-rewrite hook after every rebase that rewrites a commit,
+  which prints "the rebased branch is red" for a clean change and invites a needless
+  `git reset --keep ORIG_HEAD`.
 - **`docker/claude-code/README.md`'s "Updating" says to change the image tag in `compose.yaml`**
   with the Dockerfile's versions, but the tag is always `homelab/claude-code:local` (built on
   the host, skipped by Renovate). Say instead what makes Dockhand rebuild after a Dockerfile
@@ -302,7 +317,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 65%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
 - [QUEUE-secret-names.md](QUEUE-secret-names.md) (about 10%): one naming standard for Key Vault's secrets, and one secret wherever the cluster and Dockhand touch the same thing.
-- [QUEUE-mariadb.md](QUEUE-mariadb.md) (0%): MariaDB through mariadb-operator, Grimmory moved onto it (no more dump script), then Youtarr.
+- [QUEUE-mariadb.md](QUEUE-mariadb.md) (about 90%): MariaDB through mariadb-operator; Grimmory and Youtarr on it, backed up without a script. Left: Grimmory's old database removed, and point-in-time recovery on a later operator release.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
