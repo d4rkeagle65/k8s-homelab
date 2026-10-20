@@ -86,9 +86,34 @@ rotated key is one paste into Vaultwarden.
       its indexers into it. v2's 4 files went through v3's `import/` folder into its layout.
       v2 retired: Prowlarr's link to it deleted, its release removed, v3 on the `whisparr`
       hostname; its database's removal is in QUEUE.md's Cleanup
-- [ ] Outside Configarr, each its own decision: Bookshelf's metadata source (`/api/v1/config/
-      development`), qBittorrent's preferences and categories, SABnzbd's categories and folders,
-      Seerr's links to Radarr and Sonarr (`settings.json`)
+- [ ] Outside Configarr (the owner, 2026-10-20: all four from git): a sync Job,
+      `prod/apps/media/media-sync/`, as `grimmory-sync` is built (a script and a YAML of
+      wanted settings in a ConfigMap whose hashed name reruns the Job on a change). Each app
+      through its API, every setting read back after writing; a setting not listed stays the
+      app's UI's; `DRY_RUN` reports the differences and changes nothing (Configarr's rule).
+      Captured 2026-10-20 (the first run must report no change):
+      - **Bookshelf:** `/api/v1/config/development` `metadataSource` =
+        `http://rreading-glasses.media:8788`.
+      - **qBittorrent** (`/api/v2/app/preferences`, keys from the configarr Secret):
+        `save_path` `/synmedia/torrents/downloads/complete`, `temp_path_enabled` true,
+        `temp_path` `/synmedia/torrents/downloads/temp`, `auto_tmm_enabled` true,
+        `torrent_changed_tmm_enabled` true, `save_path_changed_tmm_enabled` false,
+        `category_changed_tmm_enabled` false, ratio 1 / seeding 1440 min (`max_ratio_act` 0),
+        queueing 3 / 5 / 3; categories (the complete list) books, console, lidarr, movies,
+        music, other, radarr, tv, tv-sonarr, tv-whisparr, xxx at `/synmedia/torrents/<name>`,
+        prowlarr and software with no path.
+      - **SABnzbd** (`mode=get_config`/`set_config`): `download_dir`
+        `/synmedia/nzbget/intermediate`, `complete_dir` `/synmedia/nzbget/completed`;
+        categories `*` (pp 3, no script) then movies, tv, music, xxx, prowlarr, console,
+        software, books, other at `/synmedia/nzbget/<name>` (script Default, priority -100).
+      - **Seerr** (`/api/v1/settings/radarr` and `/sonarr`, through its API rather than seeding
+        `settings.json`, which Seerr rewrites): Radarr `radarr:7878`, profile 6, folder
+        `/synmedia/media/movies`, minimum availability released, default, sync on; Sonarr
+        `sonarr:8989`, profile 4, anime profile 10, folders `/synmedia/media/tv`, season folders,
+        default, sync on; external URLs `https://<app>.${BASE_DOMAIN}`; API keys from the apps'
+        Secrets. Seerr's own key: `SEERR_API_KEY` (in `cluster-secrets`).
+      Steps: (1) the Job, report-only, its first run showing no change for all four; (2) apply.
+      Done when the Job applies and reads back all four, and a change planted in each shows
 
 ## Resuming
 
