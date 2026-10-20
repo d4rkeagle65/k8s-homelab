@@ -140,8 +140,8 @@ The owner, 2026-10-19:
 - [ ] `scripts/dockhand_keyvault_copy.py` takes its names from this file's tables, counts a
       secret the cluster already holds with the same value as shared rather than a conflict,
       and its tests follow; `QUEUE-azure-keyvault.md`'s Dockhand items say so
-- [ ] Key Vault: the new names (`OWNER_EMAIL`, `GARAGE_S3_ENDPOINT`, `PIHOLE_1_*`,
-      `PIHOLE_2_*`, `DOCKER_VM_*`, Dockhand's renamed ones), by the owner's copy run
+- [ ] Key Vault: every name in the tables above that it doesn't hold yet, by the owner's
+      copy run
 - [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
       owner
