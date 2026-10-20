@@ -1,5 +1,5 @@
 """ExternalDNS's webhook provider for NetBox DNS: the Ingress hostnames ExternalDNS
-finds become records in NetBox (QUEUE-netbox.md, phase 4). It runs beside
+finds become records in NetBox (old-queues/QUEUE-netbox.md, phase 4). It runs beside
 ExternalDNS in its pod and listens on 127.0.0.1 only, so nothing else can reach
 its unauthenticated API.
 
