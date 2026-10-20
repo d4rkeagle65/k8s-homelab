@@ -64,18 +64,21 @@ allowed to read, write and own it. Nothing to run after the deploy.
 ## More buckets
 
 Garage makes only `cnpg-backups` and its key by itself. Another bucket is made once on the
-NAS, with a key allowed on it alone (mariadb-operator's backups, `QUEUE-mariadb.md`):
+NAS, with a key Garage creates, allowed on that bucket alone (mariadb-operator's backups,
+`QUEUE-mariadb.md`):
 
 ```sh
 g="docker exec garage /garage -c /etc/garage/garage.toml"
 $g bucket create mariadb-backups
-$g key import --yes <key ID> <secret> -n mariadb-backups
+$g key create mariadb-backups
 $g bucket allow --read --write --owner mariadb-backups --key mariadb-backups
+$g key info --show-secret mariadb-backups
 ```
 
-The key's ID and secret are made as the backup key's are (see the table above), and the
-same two values go into Azure Key Vault for `cluster-secrets`. These buckets aren't
-recreated by Garage's start-up: if its metadata is lost, run them again.
+The last command shows the key's ID and secret, which go into Azure Key Vault for
+`cluster-secrets`. Let Garage create the key: `key import` with an ID made like the backup
+key's (`GK` and 32 hex) didn't add one. These buckets and keys aren't recreated by Garage's
+start-up: if its metadata is lost, make them again, with new Key Vault values.
 
 ## Updating
 
