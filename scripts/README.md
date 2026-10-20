@@ -258,7 +258,9 @@ replaces the new value.
 `scripts/keyvault-secrets.ps1` lists the `cluster-secrets` variables with their
 Key Vault secrets (never the values), and with a variable's name sets its
 value: base64-encoded when a Secret's `data:` uses it, read back by hash, then
-force-synced into the cluster. It signs in as your `az login` account; its
+force-synced into the cluster. With `-Get` it outputs a variable's current
+value instead (decoded from base64, unless `-Raw`), for a variable or
+`Set-Clipboard`. It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/vaultwarden-fields.ps1` did the same for the Vaultwarden item, which
 `cluster-secrets` no longer reads, so it no longer works on it.
