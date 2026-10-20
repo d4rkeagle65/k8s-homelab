@@ -29,6 +29,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **`docker/lldpd/` has no webhooks yet**: the owner deploys it to both NAS Docker hosts as two
+  Dockhand Git stacks; then each gets a Provider and Alert in
+  `prod/system/external-services/dockhand-webhooks/app/webhooks.yaml` with its Dockhand stack
+  ID, or a change to `compose.yaml` reaches neither NAS until it is redeployed by hand.
 - **Every `tofu/proxmox` apply fails while the Talos image changes** (found 2026-10-20, Semaphore
   task 940): a new version in `talos/patches/common.yaml` replaces
   `proxmox_download_file.talos_nocloud`, and deleting the old file needs `Datastore.Allocate` on
