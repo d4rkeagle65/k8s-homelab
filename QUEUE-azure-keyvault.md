@@ -33,13 +33,18 @@ references).
   credentials are in `kubernetes/.local/azure-keyvault-sp-external-secrets.json` and
   `azure-keyvault-sp-claude-code.json` (fields `appId`, `password`, `tenant`), with two-year
   client secrets, to about 2028-10.
+- **Dockhand's stacks use inline `azurekv://<name>` references, never a bulk pull** (from
+  Dockhand's source, 2026-10-19: `secretproviders/azure-kv.ts`, `resolveBulk` in `stacks.ts`):
+  a bulk pull ignores its selector and hands the stack every secret in the vault under its Key
+  Vault name, unchanged, so `MEDIA-SONARR-API-KEY` arrives as that, which a compose file can't
+  interpolate, along with all of `cluster-secrets`. So a Dockhand secret's name is free:
+  `<stack>--<KEY>`, tagged with its stack and variable (`scripts/dockhand_keyvault_copy.py`).
 
 ## Waiting on the owner
 
-1. **How a Dockhand bulk pull names its variables** (does `MEDIA-SONARR-API-KEY` arrive as
-   `MEDIA_SONARR_API_KEY`?): from Dockhand's manual or UI. Its principal holds "Key Vault
-   Secrets Officer" (read and write); if Dockhand only reads, "Key Vault Secrets User" is
-   enough. Its client secret expires 2028-10-05.
+1. **Dockhand's principal down to "Key Vault Secrets User"**: its provider only lists and
+   reads (`azure-kv.ts`), and it holds "Key Vault Secrets Officer". Its client secret expires
+   2028-10-05.
 2. **Vaultwarden afterwards:** stays the password manager for people; it stops being the
    cluster's store once the cutover has run a week.
 
@@ -64,7 +69,7 @@ references).
 
 ## Checklist
 
-- [ ] The owner's two answers above
+- [ ] The owner's two items above
 - [x] The vault (the owner, by hand, before 2026-10-19), read 2026-10-19 with the Azure CLI:
       Standard, East US, Azure RBAC, soft delete (90 days) and purge protection on, public
       network access with no firewall rules (sign-in required, so the cluster and the Docker
@@ -103,7 +108,13 @@ references).
       equal by hash to a fingerprint taken before; every Kustomization and HelmRelease Ready;
       External Secrets' calls now `GetSecret` on Azure Key Vault, its `bitwarden-cli` request
       count flat; `scripts/keyvault_copy.py`'s dry run "141 already the same"
-- [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first
+- [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first: the owner exports their
+      secret variables (`scripts/dockhand-export-secrets.cjs`) and copies them in
+      (`scripts/dockhand_keyvault_copy.py`; `scripts/README.md`'s recipe), then sets each
+      variable to its `azurekv://` reference. Both scripts are tested only against fakes (the
+      export against a fake database in Node 24.18.1, Dockhand's), so their first real runs are
+      their check: the export's count with none undecryptable, the copy's read-back all
+      matching, and the first stack redeployed and working on its references
 - [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
       `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
       all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake

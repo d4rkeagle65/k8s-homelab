@@ -163,6 +163,20 @@ def test_a_refused_write_and_a_bad_read_back_both_fail_the_run(run):
     assert "MISMATCH Child1" in text and "MISMATCH INGRESS-IP" in text and "read back: 1 of 3 match" in text
 
 
+def test_a_write_tags_its_secret_as_cluster_secrets_unless_given_tags(monkeypatch):
+    bodies = []
+    monkeypatch.setattr(m, "request", lambda method, url, token, body=None: bodies.append(body) or (200, {}))
+    assert m.write("https://kv-test-01.vault.azure.net", "A", "v", "tok") == ""
+    assert m.write("https://kv-test-01.vault.azure.net", "B", "v", "tok", {"source": "dockhand"}) == ""
+    assert [b["tags"] for b in bodies] == [{"source": "cluster-secrets"}, {"source": "dockhand"}]
+
+
+@pytest.mark.parametrize("value, decoded", [("cGxhaW4tdGV4dA==", "plain-text"), ("", ""),
+                                            ("not base64!", None), ("//79", None)])
+def test_decoded_digest_hashes_only_base64_of_text(value, decoded):
+    assert m.decoded_digest(value) == (m.digest(decoded) if decoded is not None else None)
+
+
 def test_a_bad_vault_name_stops_before_reading_anything(run):
     vault = FakeVault()
     code, text, calls = run(["--vault", "https://x.vault.azure.net"], vault, external_secret(VALUES), secret(VALUES))

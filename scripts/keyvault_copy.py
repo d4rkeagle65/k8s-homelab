@@ -72,6 +72,15 @@ def digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def decoded_digest(value: str) -> str | None:
+    """The SHA-256 of the text a base64 value decodes to, or None when it isn't base64 of UTF-8
+    text: how a value held base64 (for a Secret's data:) is compared with the same one held plain."""
+    try:
+        return digest(base64.b64decode(value, validate=True).decode("utf-8"))
+    except ValueError:  # binascii.Error and UnicodeDecodeError are both ValueErrors
+        return None
+
+
 def kubectl_json(context: str | None, *args: str) -> dict:
     """One kubectl read, as JSON; a failed read stops the run."""
     cmd = ["kubectl", *(["--context", context] if context else []), *args, "-o", "json"]
@@ -141,20 +150,29 @@ def error_code(body: dict) -> str:
     return (body.get("error") or {}).get("code", "")
 
 
-def remote_digest(vault_url: str, name: str, token: str) -> str | None:
-    """The SHA-256 of the value Key Vault holds under name, or None when it holds none."""
+def remote_secret(vault_url: str, name: str, token: str) -> tuple[str, dict, str | None] | None:
+    """The SHA-256 of the value Key Vault holds under name, the secret's tags, and the SHA-256
+    of what the value decodes to when it is base64 (decoded_digest); None when it holds none."""
     status, body = request("GET", f"{vault_url}/secrets/{urllib.parse.quote(name)}?api-version={API_VERSION}", token)
     if status == 404:
         return None
     if status != 200:
         raise Stop(f"{name}: Key Vault answered a read with HTTP {status} {error_code(body)}")
-    return digest(body.get("value", ""))
+    value = body.get("value", "")
+    return digest(value), body.get("tags") or {}, decoded_digest(value)
 
 
-def write(vault_url: str, name: str, value: str, token: str) -> str:
-    """Sets name's value; returns "" when written, else why not."""
+def remote_digest(vault_url: str, name: str, token: str) -> str | None:
+    """The SHA-256 of the value Key Vault holds under name, or None when it holds none."""
+    held = remote_secret(vault_url, name, token)
+    return held[0] if held else None
+
+
+def write(vault_url: str, name: str, value: str, token: str, tags: dict | None = None) -> str:
+    """Sets name's value and tags (by default, cluster-secrets'); returns "" when written, else
+    why not."""
     status, body = request("PUT", f"{vault_url}/secrets/{urllib.parse.quote(name)}?api-version={API_VERSION}", token,
-                           {"value": value, "tags": {"source": "cluster-secrets"}})
+                           {"value": value, "tags": tags or {"source": "cluster-secrets"}})
     if status == 200:
         return ""
     if status == 409 and error_code(body) == "Conflict":
