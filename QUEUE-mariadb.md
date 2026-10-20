@@ -84,15 +84,19 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
          (cleanupPolicy Skip), and a nightly `PhysicalBackup` to `mariadb-backups/grimmory`
          (14 days). Grimmory's Kustomization waits for `mariadb-operator`. Left: the merge, then the instances, grants, the first
          backup and a restore from it read back
-      2. The move (2026-10-20, Grimmory stopped from 01:55Z): its release suspended and scaled to
+      2. (done) The move (2026-10-20, Grimmory stopped from 01:55Z): its release suspended and scaled to
          0, a `mariadb-dump` of the old database loaded into `grimmory-db-0` (the primary). All
          73 tables' row counts matched (1,766 rows), and the new primary's and a replica's
          checksums matched each other; `book`'s `CHECKSUM TABLE` differed from the old one's
          while its definition, row format and a hash of every row's values matched (the old
          table's storage, not its data). The `grimmory` login was raised to 30 connections
-         first (the operator's default is 10; Grimmory's pool holds 10). In PR: `DATABASE_URL`
-         to `grimmory-db-primary`; then the release resumed
-      3. A day later: the old StatefulSet, its exporter and ServiceMonitor, the dump CronJob and
+         first (the operator's default is 10; Grimmory's pool holds 10). `DATABASE_URL` points at
+         `grimmory-db-primary`; the release resumed, Grimmory back at 02:32Z (37 minutes down),
+         its connections on `grimmory-db` and none on the old database, healthy, 178 books.
+         A backup taken with the data, restored into a scratch instance, matched the live
+         database: all 73 tables' row counts and `book`'s hash over every value; the scratch
+         instance, its backup and PV were removed
+      3. From 2026-10-21: the old StatefulSet, its exporter and ServiceMonitor, the dump CronJob and
          its PVC removed, and the NAS dump folder; the old data PVC's PV deleted once released
 - [ ] Youtarr: its own `MariaDB`, then its release (its own QUEUE file if it grows)
 
