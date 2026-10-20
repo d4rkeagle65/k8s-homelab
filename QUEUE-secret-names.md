@@ -246,7 +246,8 @@ against today's value by hash.
         Authentik's blueprints write them into Authentik, so a wrong one breaks that app's
         login until it is put right. NETBOX, SEMAPHORE and STORK are the three Dockhand
         shares: once they are plain, its stacks can read them, and `dockhand_keyvault_copy.py`
-        stops counting any name as held base64
+        stops counting any name as held base64. #173, a draft until the owner's rewrite; all
+        8 read back in their old base64 form, each decoding to text, before it
   - [ ] 3 (5), the *arr API keys: `MEDIA_{BOOKSHELF,LIDARR,PROWLARR,RADARR,SONARR}_API_KEY`.
         Each app sets its own key from one, and Homepage, exportarr and organizr-sync read it
   - [ ] 4 (8), connections: `CLOUDFLARE_TUNNEL_SECRET_*` (3; the tunnel carries everything the
