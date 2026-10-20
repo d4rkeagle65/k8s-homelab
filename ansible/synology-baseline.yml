@@ -5,8 +5,14 @@
 # DSM's Docker is a package from its Package Center: Container Manager from
 # DSM 7.2, Docker before it (synology_docker_package overrides the choice). It's
 # installed with synopkg from Synology's server, started, and read back from the
-# Docker daemon itself. DSM has no apt, and nothing here needs Python on the
-# NAS: every step is one `raw` script.
+# Docker daemon itself. The package keeps its data in a `docker` shared folder,
+# which Package Center's wizard makes; from synopkg, DSM 7.1's Docker can't
+# ("failed to create docker share"), so a missing one is made first, on
+# synology_docker_volume (default /volume1), the way the other shares are (empty
+# user lists, DSM's ACLs), and read back. Should the install still fail, it
+# prints DSM's reason and says to install the package from Package Center once;
+# the next run finds it and goes on. DSM has no apt, and nothing here needs
+# Python on the NAS: every step is one `raw` script.
 #
 # Inventory: the NetBox one; the `synology` group is the NetBox tag. The login is
 # the host's ansible_user (its local config context), an administrator with
@@ -90,11 +96,29 @@
           server=$($docker version --format '{% raw %}{{.Server.Version}}{% endraw %}' 2>/dev/null) && [ -n "$server" ]
         }
         ver=$(installed)
+        synoshare=/usr/syno/sbin/synoshare
+        share_vol={{ synology_docker_volume | default('/volume1') | quote }}
+        if [ -z "$ver" ] && ! $synoshare --get docker >/dev/null 2>&1; then
+          [ -d "$share_vol" ] || { echo "ERROR $share_vol doesn't exist (synology_docker_volume)"; exit 1; }
+          echo "CHANGE make the shared folder docker at $share_vol/docker (the package's wizard would)"
+          pending=1
+          if [ "$dry" = 0 ]; then
+            $synoshare --add docker "Docker's data" "$share_vol/docker" "" "" "" 0 0 >/dev/null ||
+              { echo "ERROR synoshare --add docker failed"; exit 1; }
+            $synoshare --get docker | grep -qF "[$share_vol/docker]" ||
+              { echo "ERROR the docker share doesn't read back at $share_vol/docker"; exit 1; }
+          fi
+        fi
         if [ -z "$ver" ]; then
           echo "CHANGE install $pkg from Synology's package server"
           pending=1
           if [ "$dry" = 0 ]; then
-            $synopkg install_from_server "$pkg" || { echo "ERROR synopkg install_from_server $pkg failed"; exit 1; }
+            if ! $synopkg install_from_server "$pkg"; then
+              echo "ERROR synopkg install_from_server $pkg failed; DSM's log says:"
+              grep -F "$pkg" /var/log/messages | grep -v pkg_version | tail -n 3 | sed 's/^/  /'
+              echo "ERROR install $pkg once from Package Center, then run this again: it finds it and goes on"
+              exit 1
+            fi
             ver=$(installed)
             [ -n "$ver" ] || { echo "ERROR $pkg isn't installed after install_from_server"; exit 1; }
           fi
