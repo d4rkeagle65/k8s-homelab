@@ -233,7 +233,8 @@ against today's value by hash.
         `BABYBUDDY_MCP_SECRETS_*` (4); Immich power tools' `IMMICH_POWER_TOOLS_APIKEY_*` (4;
         `_IMMICH_APIKEY` is Homepage's too); `NOIP_DUC_CREDENTIALS_*` (2);
         `CERT_MANAGER_CLOUDFLARE_API_TOKEN_API_TOKEN` (a failed renewal retries, with weeks to
-        spare)
+        spare). #166, a draft until the owner's rewrite (its description has the loop); all
+        12 read back in their old base64 form, each decoding to text, before it
   - [ ] 2 (8), the Authentik OIDC client secrets:
         `AUTHENTIK_{DOCKHAND,GRAFANA,GRIMMORY,HOMEPAGE,NETBOX,ORGANIZR,SEMAPHORE,STORK}_OIDC_CLIENT_SECRET`.
         Authentik's blueprints write them into Authentik, so a wrong one breaks that app's
