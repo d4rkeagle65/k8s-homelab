@@ -310,10 +310,12 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
   TOS). The login is the host's `ansible_user` in its local config context, an
   administrator with passwordless sudo (`/etc/sudoers.d/<user>`, made by hand); a DSM update
   can remove that file, and the first step then stops and says so.
-- **Template** "Synology: baseline", the NetBox inventory, and an environment with
-  `HAWSER_TOKEN` as a secret: a token you choose, the same one typed into Dockhand's
-  environment for the Synology (Settings > Environments, Hawser, Standard, the Synology's
-  address and port 2376). Without it, the run installs Docker and leaves Hawser alone.
+- **Template** "Setting: Synology Baseline", the NetBox inventory, and the variable group
+  "Synology Baseline" with `HAWSER_TOKEN` among its secrets (environment variables, not
+  extra variables): a token you choose (`openssl rand -hex 32`), the same one typed into
+  Dockhand's environment for the Synology (Settings > Environments, Hawser, Standard, the
+  Synology's address and port 2376), added after the run that starts Hawser. Without it,
+  the run installs Docker and leaves Hawser alone.
 - **First run a dry run**: it reports DSM's version, whether Docker's package is installed
   and answering, and what Hawser would change.
 - **DSM's firewall**, if on, has to let the Docker VM reach port 2376.
