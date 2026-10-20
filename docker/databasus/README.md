@@ -30,8 +30,9 @@ file is the record of what's set there.
 
    The key's ID and secret go into Dockhand only (here and in the vaultwarden stack), with a
    copy in Vaultwarden.
-2. **The read-only role.** Set `DATABASUS_DB_PASSWORD` (a new random password; the same value
-   in both stacks is fine) on the **semaphore** and **kea** stacks and redeploy them. Each
+2. **The read-only role.** A new random password for each stack: Key Vault's
+   `DATABASUS-SEMAPHORE-DB-PASSWORD` for **semaphore**, `DATABASUS_DB_PASSWORD` on the **kea**
+   stack. Redeploy them. Each
    `databasus-role-init` log ends `databasus role: login true, reads all data true`.
 3. **The folder:** `install -d -m 700 /opt/databasus` as root on the host.
 4. **The secret provider:** bind the Key Vault as the stack's secret provider in Dockhand,
@@ -57,9 +58,9 @@ account: the first one administers the instance. Keep its password in Vaultwarde
 - **Storage:** S3, endpoint `http://<the NAS's management address>:3900`, region `garage`,
   bucket `docker-backups`, path prefix `databasus/`, path-style addressing, the
   `docker-backups` key.
-- **Databases:** logical backups, user `databasus`. Four PostgreSQL 17 entries with
-  `DATABASUS_DB_PASSWORD`: `semaphore-postgres:5432` / `semaphore` and `tfstate`;
-  `kea-postgres:5432` / `kea` and `stork`. One PostgreSQL 18 entry with NetBox's own password
+- **Databases:** logical backups, user `databasus`. Four PostgreSQL 17 entries:
+  `semaphore-postgres:5432` / `semaphore` and `tfstate` with `DATABASUS_SEMAPHORE_DB_PASSWORD`;
+  `kea-postgres:5432` / `kea` and `stork` with kea's `DATABASUS_DB_PASSWORD`. One PostgreSQL 18 entry with NetBox's own password
   (`NETBOX_DATABASUS_DB_PASSWORD`): `netbox-postgres:5432` / `netbox`.
 - **Schedule:** daily at 03:30 UTC, after the cluster's database backups and the 01:00
   Proxmox backup. **Retention:** 30 days.
