@@ -107,8 +107,6 @@ The owner, 2026-10-19:
    and kea-standby on the second Docker VM. Where are their values set? (netbox's
    `CONFIG_DIFF_*` and vaultwarden's `BACKUP_ZIP_PASSWORD` are blank, the owner says;
    `PIHOLE_TLS_VERIFY` and `SYNC_DELETE` are settings, written into the compose file.)
-2. **`Child2` and `MEDIA_WHISPARR_API_KEY`**: nothing in the repo reads either
-   (`WHISPARR_API_KEY` is the one Whisparr uses). Removed, or kept for something outside it?
 
 ## Rules
 
@@ -139,7 +137,11 @@ The owner, 2026-10-19:
 - [x] Compared (2026-10-19): Key Vault's 145 secrets and Dockhand's 61 secret stack variables,
       then 68 once more were marked secret, by hash and base64-decoded where held so, by
       `scripts/dockhand_keyvault_copy.py`'s dry run; where each is used, from the repo
-- [ ] The owner's items above
+- [ ] What waits on the owner above
+- [ ] `Child2` and `MEDIA_WHISPARR_API_KEY` out of `cluster-secrets.yaml` (the owner,
+      2026-10-19: nothing reads them, no live Secret holds the Whisparr v2 key, and the leak
+      check keeps `Child2`'s value through `.secret-words`); once that merges, the owner
+      deletes their Key Vault secrets, `Child2` and `MEDIA-WHISPARR-API-KEY`
 - [ ] `scripts/dockhand_keyvault_copy.py` takes its names from this file's tables, counts a
       secret the cluster already holds with the same value as shared rather than a conflict,
       and its tests follow; `QUEUE-azure-keyvault.md`'s Dockhand items say so
