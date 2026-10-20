@@ -1,0 +1,91 @@
+# Youtarr's database on mariadb-operator (QUEUE-youtarr.md): one instance, since
+# what it holds (followed channels, download history) can be rebuilt and its
+# videos fetched again; a physical backup every night all the same.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: youtarr-db
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  image: docker.io/library/mariadb:11.8.9
+  rootPasswordSecretKeyRef:
+    name: youtarr
+    key: db-root-password
+  replicas: 1
+  storage:
+    size: 2Gi
+    storageClassName: local-db
+  # Scheduled before ordinary pods when nodes are short (cluster-policy).
+  priorityClassName: homelab-critical
+  resources:
+    requests: {cpu: 30m, memory: 224Mi}
+    limits: {cpu: 1000m, memory: 768Mi}
+  metrics:
+    enabled: true
+---
+# Its docs require utf8mb4_unicode_ci and all privileges on its database; it
+# creates its own tables at start. Skip keeps them if a resource here goes.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: youtarr
+spec:
+  mariaDbRef: {name: youtarr-db}
+  characterSet: utf8mb4
+  collate: utf8mb4_unicode_ci
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: youtarr
+spec:
+  mariaDbRef: {name: youtarr-db}
+  host: "%"
+  passwordSecretKeyRef:
+    name: youtarr
+    key: db-password
+  # The operator's default is 10 (too few for Grimmory's pool).
+  maxUserConnections: 30
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: youtarr
+spec:
+  mariaDbRef: {name: youtarr-db}
+  username: youtarr
+  host: "%"
+  database: youtarr
+  table: "*"
+  privileges: [ALL PRIVILEGES]
+  cleanupPolicy: Skip
+---
+# A physical backup every night to Garage (mariadb-backups/youtarr), kept 14
+# days. A restore is a new MariaDB with bootstrapFrom.backupRef naming this.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PhysicalBackup
+metadata:
+  name: youtarr-db
+spec:
+  mariaDbRef: {name: youtarr-db}
+  schedule:
+    cron: "50 3 * * *"
+    immediate: true
+  maxRetention: 336h
+  compression: gzip
+  storage:
+    s3:
+      bucket: mariadb-backups
+      prefix: youtarr
+      endpoint: ${MARIADB_BACKUP_S3_HOST}
+      region: garage
+      accessKeyIdSecretKeyRef: {name: mariadb-backup-s3, key: access-key-id}
+      secretAccessKeySecretKeyRef: {name: mariadb-backup-s3, key: secret-access-key}
+      tls:
+        enabled: false
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 1000m, memory: 512Mi}

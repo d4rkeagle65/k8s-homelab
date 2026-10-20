@@ -38,34 +38,30 @@ mirrored into Emby, Emby's watched status read back for cleanup) and has a web U
 - Resources: ffmpeg, yt-dlp, Python, Deno and Apprise are in the image; its compose example
   reserves 1g and limits 2g.
 
-## To decide (the owner), each with a recommendation
-
-1. **Where it writes.** Sonarr's two YouTube series are in `media/youtube`. Recommendation:
-   Youtarr writes to a new `media/youtarr` (its own Emby library), and the Sonarr series
-   stay until their channels are followed in Youtarr; then they're removed from Sonarr and
-   `media/youtube` is retired.
-2. **Login.** (a) its own login, with a username and password from Key Vault
-   (`AUTH_PRESET_*`), as the other media apps have Forms logins; or (b) Authentik in front
-   (`AUTH_ENABLED=false` behind an Authentik proxy), as Headlamp has. Recommendation: (a).
-3. **Hostname:** `youtarr`.
-
-## Variables the owner adds first (Key Vault, then a mapping pull request)
-
-`YOUTARR_DB_PASSWORD`, `YOUTARR_DB_ROOT_PASSWORD` (random), and with login (a)
-`YOUTARR_ADMIN_USERNAME`, `YOUTARR_ADMIN_PASSWORD`.
+- **The owner's choices (2026-10-20):** it writes to `media/youtarr` (its own Emby library);
+  its own login (`AUTH_PRESET_*` from Key Vault); the `youtarr` hostname. Sonarr's YouTube
+  channel (120 videos in `media/youtube`, named by TVDB with no YouTube IDs, so Youtarr can't
+  adopt them) is downloaded fresh by Youtarr; then the series leaves Sonarr and
+  `media/youtube` is deleted.
 
 ## Checklist
 
-- [ ] Decisions 1 to 3
-- [ ] The variables in Key Vault, mapped in `cluster-secrets` by their own PR
-- [ ] `media/youtarr` (or the chosen folder) made on the share, owned like its neighbours
-- [ ] `prod/apps/media/youtarr/`: its MariaDB (`youtarr-db`), Database, User, Grant and
+- [x] Its four variables (`YOUTARR_DB_PASSWORD`, `_DB_ROOT_PASSWORD`, `_ADMIN_USERNAME`,
+      `_ADMIN_PASSWORD`) in Key Vault (the owner, 2026-10-20), mapped by their own PR; all four
+      read back in `cluster-secrets`
+- [x] `media/youtarr` made on the share (2026-10-20), 770 and `1028:100` like `youtube`; the
+      media user writes there
+- [ ] (PR) `prod/apps/media/youtarr/`: its MariaDB (`youtarr-db`), Database, User, Grant and
       PhysicalBackup; the release (app-template, as the other media apps) with its config PVC,
-      the share's folder by `subPath`, the health probes on `/api/health`, its ingress
+      the share's folder by `subPath`, the health probes on `/api/health`, its ingress; runs as
+      the media user; `/app/migrations` never mounted. The MariaDB resources passed a server
+      dry run against the operator's webhook
 - [ ] Read back: the database, the first backup in Garage, Youtarr up and logged in, a
       channel added and a video downloaded into the folder with its NFO and poster
 - [ ] Emby: a library on the folder (the owner), Emby's URL and key in Youtarr's settings
 - [ ] Homepage and Organizr tiles
+- [ ] Sonarr's YouTube series removed (files kept until Youtarr's copies are in Emby), then
+      `media/youtube` deleted
 
 ## Resuming
 
