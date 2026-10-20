@@ -189,7 +189,7 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
 - [x] Phase 6 (2026-10-20): each guest's shape (sizes, roles, disks, bridges) edited in NetBox and
       brought into git by a pull request from Semaphore:
       [old-queues/QUEUE-netbox-shape.md](old-queues/QUEUE-netbox-shape.md)
-- [ ] The switches' cables. Done 2026-10-20 from the owner's port map: 39 cables, every core
+- [x] The switches' cables. Done 2026-10-20 from the owner's port map: 39 cables, every core
       switch port in use traced end to end through a modelled 24-port patch panel (switch side
       on its front, devices on its rear); the firewall (a Barracuda F80), the 2.5G switch (a
       TRENDnet TEG-S5091, isolated), the Raspberry Pi and the two test Proxmox hosts as devices
@@ -198,12 +198,12 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       recorded as VLAN 5: a TL-SG105E can't move its management VLAN); the travel router a
       GL-MT3000 with its LAN and reservations; the test hosts' NICs `eth5`; each production
       host's `eth6` on its 2.5G switch port (found by pulling one cord at a time while Run
-      Command watched every host's carrier). Left, waiting on the owner: the console run's far
-      end (the panel's rear 6).
+      Command watched every host's carrier). The console run ends at
+      `coprpi01`'s USB serial adapter.
 
 ## Resuming
 
-The first unticked box is next: the console run's far end, waiting on the owner.
+Nothing left: every box is ticked.
 
 ## Done when
 

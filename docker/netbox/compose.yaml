@@ -1,6 +1,6 @@
 # NetBox on the Docker host, deployed by Dockhand from this folder (a Git
 # stack): the homelab's documentation, and the source of Semaphore's hosts
-# (QUEUE-netbox.md). Its image is built here (Dockerfile) with the plugins in
+# (old-queues/QUEUE-netbox.md). Its image is built here (Dockerfile) with the plugins in
 # plugin_requirements.txt. The web UI is published on the host's management
 # address only, and served at netbox.<domain> through Traefik (kubernetes
 # external-services), private networks only. Logins go through Authentik

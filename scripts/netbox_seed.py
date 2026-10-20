@@ -1,4 +1,4 @@
-"""Seed NetBox from the homelab's live sources: QUEUE-netbox.md.
+"""Seed NetBox from the homelab's live sources: old-queues/QUEUE-netbox.md.
 
 Reads the networks from Kea (subnets and pools) and from Proxmox (each bridge's
 addresses), and the hosts and guests from Proxmox, then makes NetBox match: the

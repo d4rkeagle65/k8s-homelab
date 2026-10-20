@@ -1,7 +1,7 @@
 # Removes retired keys from root's authorized_keys on the Proxmox hosts, the
 # Pi-holes and the Docker VM: every line whose comment is one of
 # retired_key_comments ("semaphore", the per-group keys Semaphore no longer
-# holds; QUEUE-netbox.md). Each host first proves it still holds the key this
+# holds; old-queues/QUEUE-netbox.md). Each host first proves it still holds the key this
 # run logs in with (semaphore-shared), so removing the others can't lock
 # Semaphore out, and each file is read back afterwards.
 #

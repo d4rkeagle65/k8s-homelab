@@ -1,7 +1,7 @@
 # NetBox
 
 NetBox on the Docker host: the homelab's documentation, and the source of Semaphore's
-inventories (`QUEUE-netbox.md`). It runs here rather than in the cluster because OpenTofu
+inventories (`old-queues/QUEUE-netbox.md`). It runs here rather than in the cluster because OpenTofu
 builds the cluster's VMs and will read NetBox to do it.
 
 - **The image is built here** from the `Dockerfile`: the upstream NetBox image plus the
