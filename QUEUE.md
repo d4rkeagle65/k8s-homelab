@@ -34,10 +34,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   CloudNativePG primaries and lists single-instance PostgreSQL clusters, but not
   mariadb-operator's: Youtarr's (one instance, on local-db) goes down unannounced while its
   node is out, and Grimmory's three-replica cluster's primary is evicted without a switchover
-  first, which left the old primary unable to follow the new one (above). Read how
-  mariadb-operator moves a primary (`spec.replication`), then do for it what that file does
-  for CloudNativePG. Left, every Talos upgrade or reboot of those nodes takes Youtarr's
-  database down without saying so, and leaves an evicted Grimmory primary to be rebuilt.
+  first: offline while another was promoted, it came back unable to follow (error 1236,
+  2026-10-20), and the operator's replica recovery (`apps/grimmory/grimmory/app/mariadb.yaml`)
+  rebuilt it from a backup. Read how mariadb-operator moves a primary (`spec.replication`),
+  then do for it what that file does for CloudNativePG. Left, every Talos upgrade or reboot of
+  those nodes takes Youtarr's database down without saying so, and an evicted Grimmory
+  primary is rebuilt from a backup each time, blocking drains until it is.
 - **`docker/lldpd/` has no webhooks yet**: the owner deploys it to both NAS Docker hosts as two
   Dockhand Git stacks; then each gets a Provider and Alert in
   `prod/system/external-services/dockhand-webhooks/app/webhooks.yaml` with its Dockhand stack
