@@ -50,7 +50,7 @@ spec:
           ruler: loki-logs
           admin: loki-logs
         s3:
-          endpoint: ${CNPG_BACKUP_S3_ENDPOINT}
+          endpoint: ${GARAGE_S3_ENDPOINT}
           region: garage
           accessKeyId: $${LOKI_S3_ACCESS_KEY_ID}
           secretAccessKey: $${LOKI_S3_SECRET_ACCESS_KEY}

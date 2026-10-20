@@ -58,10 +58,10 @@ spec:
           "TextModuleLocale": {"Locale": "en-us"},
           "Users": [
             {
-              "login": "${ZAMMAD_ADMIN_EMAIL}",
+              "login": "${OWNER_EMAIL}",
               "firstname": "Admin",
               "lastname": "Zammad",
-              "email": "${ZAMMAD_ADMIN_EMAIL}",
+              "email": "${OWNER_EMAIL}",
               "password": "${ZAMMAD_ADMIN_PASSWORD}"
             }
           ],

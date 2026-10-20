@@ -161,7 +161,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       Docker VM's node-exporter.
 - [x] Phase 3D, second part built: the Pi-hole exporter (one container per Pi-hole) and the
       Pi-holes' node-exporter (`PIHOLE1_MGMT_ADDRESS`, `PIHOLE2_MGMT_ADDRESS`), Garage's metrics
-      (`TERRAMASTER_ADDRESS`, `GARAGE_METRICS_TOKEN`; the garage stack publishes 3903), the
+      (`TERRAMASTER_MGMT_ADDRESS`, `GARAGE_METRICS_TOKEN`; the garage stack publishes 3903), the
       NASes over SNMP (the community in the exporter's ConfigMap: it expands variables only in
       SNMPv3 logins; SNMPv3 on both NASes would take it out).
 - [x] Phase 3D live (2026-10-10): 121 of 121 targets up, among them both NASes over SNMP,

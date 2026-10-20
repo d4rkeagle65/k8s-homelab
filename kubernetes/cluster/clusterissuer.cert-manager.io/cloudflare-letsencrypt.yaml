@@ -4,7 +4,7 @@ metadata:
   name: cloudflare-letsencrypt
 spec:
   acme:
-    email: ${ACME_EMAIL}
+    email: ${OWNER_EMAIL}
     privateKeySecretRef:
       name: cluster-issuer-account-key
     server: https://acme-v02.api.letsencrypt.org/directory
@@ -14,4 +14,4 @@ spec:
           apiTokenSecretRef:
             key: api-token
             name: cloudflare-api-token
-          email: ${ACME_EMAIL}
+          email: ${OWNER_EMAIL}

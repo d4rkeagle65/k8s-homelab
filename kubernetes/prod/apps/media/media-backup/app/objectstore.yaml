@@ -10,7 +10,7 @@ spec:
   retentionPolicy: 30d
   configuration:
     destinationPath: s3://cnpg-backups/
-    endpointURL: ${CNPG_BACKUP_S3_ENDPOINT}
+    endpointURL: ${GARAGE_S3_ENDPOINT}
     s3Credentials:
       accessKeyId:
         name: cnpg-backup-s3
