@@ -25,12 +25,6 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
   MariaDB peaks at 230 MiB; the workers had 12 GiB unrequested).
 - **MariaDB 11.8** for Grimmory's move (what it runs now, an LTS); 12.x later as its own update.
 
-## To decide
-
-- **Garage bucket and key:** a bucket of its own (`mariadb-backups`) and a key with access to
-  it only; the owner makes them and adds the key's two values as Azure Key Vault secrets
-  (`cluster-secrets`, root `CLAUDE.md`), mapped by a pull request of their own.
-
 ## Rules
 
 - **A backup counts once a restore from it has been read back**, table by table, as
@@ -56,12 +50,16 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
 
 ## Checklist
 
-- [ ] Garage bucket and key (the owner); their Key Vault secrets mapped in `cluster-secrets`
-- [ ] The operator (PR, 2026-10-19): `prod/services/mariadb-system/mariadb-operator/`, the
-      CRDs and operator charts at 26.10.1 from an OCI HelmRepository (the CRDs release never
-      pruned), `clusterName` set to the cluster's domain, resource limits, metrics and its
-      ServiceMonitors; Renovate holds their major versions for approval. Left: the merge,
-      then the CRDs, the three Deployments and the webhook read back
+- [x] Garage bucket `mariadb-backups` and a key Garage created, allowed on it alone (the owner,
+      2026-10-20; `docker/garage/README.md`, More buckets); `MARIADB_BACKUP_S3_ACCESS_KEY_ID`
+      and `_SECRET_ACCESS_KEY` in Key Vault and `cluster-secrets`, the endpoint
+      `CNPG_BACKUP_S3_ENDPOINT`'s. Read back: the key writes, reads and deletes there and is
+      refused on `cnpg-backups`
+- [x] The operator (2026-10-20): `prod/services/mariadb-system/mariadb-operator/`, the CRDs
+      and operator charts at 26.10.1 from an OCI HelmRepository (the CRDs release never
+      pruned), `clusterName` the cluster's domain. Read back: 12 CRDs, the operator, webhook
+      and cert-controller ready, the webhook registered, all three scraped. Memory at start:
+      84, 60 and 16 MiB (the cert-controller over its 32Mi request: raise it when tuning)
 - [ ] A trial MariaDB in a test namespace: a physical backup to Garage, a new instance
       bootstrapped from it (`bootstrapFrom`), its tables compared; with replication, a
       point-in-time restore too; then the trial deleted
