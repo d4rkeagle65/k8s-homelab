@@ -129,17 +129,21 @@ against today's value by hash.
       `source=dockhand`
 - [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
-      owner. The five held plain are mapped (branch `cluster-secrets-standard-names`, each new
-      name equal by hash to the live variable it replaces): `OWNER_EMAIL`,
-      `GARAGE_S3_ENDPOINT`, `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL`, `PIHOLE_2_URL`.
-      `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD` wait on the base64 switch, as the
-      manifests read them base64
+      owner. The five held plain are mapped (#141, each new name equal by hash to the live
+      variable it replaces; read back 2026-10-20: `SecretSynced` for its new spec, the Secret
+      holding all five, every Flux object Ready): `OWNER_EMAIL`, `GARAGE_S3_ENDPOINT`,
+      `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL`, `PIHOLE_2_URL`. Next for them: the
+      manifests. `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD` wait on the base64 switch,
+      as the manifests read them base64
 - [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches
-- [ ] Each Dockhand stack on its standard names and references, cadvisor first: its compose
-      file reads `DOCKER_VM_1_MGMT_ADDRESS` (branch `cadvisor-standard-names`); the owner sets
-      it in Dockhand as `azurekv://DOCKER-VM-1-MGMT-ADDRESS` before that merges, and removes
-      `CADVISOR_ADDRESS` once cadvisor reads back working; then Key Vault's `CADVISOR-ADDRESS`
-      deleted by the owner
+- [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
+      its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
+      as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
+      at 14:12Z, port 9338 published on the management address (the owner, from its ports
+      line), Prometheus's `docker-vm` target `up`. Left for it: `CADVISOR_ADDRESS` out of
+      Dockhand, then Key Vault's `CADVISOR-ADDRESS` deleted, both by the owner. A variable
+      compose interpolates (as in `ports:`) never reaches the container's environment, so
+      `printenv` inside it shows neither name; the ports line is the check
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
