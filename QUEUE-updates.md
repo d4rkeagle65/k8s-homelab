@@ -112,9 +112,10 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       fails it too (11.6 to 10.0) and the other two pass; the workers request about twice the
       memory they use (the first: 17.1 GiB requested, 8.6 in use). So the control planes can go
       now (`talos_nodes_only`),
-      and the workers either after `QUEUE-resource-limits.md`'s recheck lowers requests, or with
-      `reboot_allow_pending: true`, where the higher tiers preempt `homelab-low` pods and the
-      media apps wait for the node. Then
+      and the workers with `reboot_allow_pending: true`, where the higher tiers preempt
+      `homelab-low` pods and the media apps wait for the node, or once the workers have more
+      room: `QUEUE-resource-limits.md`'s recheck won't make it (its rule raises as much as it
+      lowers). Then
       the OpenTofu job, whose plan should replace only `proxmox_download_file.talos_nocloud`
       (its file name carries the version) and update the install image in place. The Talos
       VMs' disks import from that file and the VMs have `prevent_destroy`, so a plan that wants
