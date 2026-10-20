@@ -130,27 +130,47 @@ against today's value by hash.
 - [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
       owner. The five held plain, `OWNER_EMAIL`, `GARAGE_S3_ENDPOINT`,
-      `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL` and `PIHOLE_2_URL`: mapped (#141, read back
-      2026-10-20), then every manifest moved to them and the seven old entries removed in one
-      pull request (branch `manifests-standard-names`; capture writes the alphabetically first
-      of two names holding one value, so both mapped would turn the ClusterIssuer back to
-      `${ACME_EMAIL}`). `flux diff` against the cluster: no rendered change in any of the 18
-      Kustomizations it touches or `cluster-resources` (a deliberate wrong name, as a control,
-      drifted). Left for them, once it merges and syncs: the owner deletes Key Vault's
-      `ACME-EMAIL`, `ORGANIZR-ADMIN-EMAIL`, `ZAMMAD-ADMIN-EMAIL`, `CNPG-BACKUP-S3-ENDPOINT`,
-      `TERRAMASTER-ADDRESS`, `PIHOLE-URL` and `PIHOLE2-URL`. `PIHOLE_1_PASSWORD` and
-      `PIHOLE_2_APP_PASSWORD` wait on the base64 switch, as the manifests read them base64
+      `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL` and `PIHOLE_2_URL`, are done: mapped (#141),
+      then every manifest moved to them and the seven old entries removed in one pull request
+      (#143; capture writes the alphabetically first of two names holding one value, so both
+      mapped would have turned the ClusterIssuer back to `${ACME_EMAIL}`). `flux diff` before
+      it: no rendered change in any of the 18 Kustomizations it touched or `cluster-resources`
+      (a deliberate wrong name, as a control, drifted). Read back 2026-10-20: `SecretSynced`
+      for its new spec, none of the seven left and all five there, every Flux object Ready, no
+      CNPG instance restarted, Loki's release unchanged. Their old Key Vault secrets are on
+      the delete list below. Left: `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD`, waiting on
+      the base64 switch, as the manifests read them base64
 - [ ] Base64 to plain: the method proved on a test ExternalSecret, then in batches
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
       as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
       at 14:12Z, port 9338 published on the management address (the owner, from its ports
-      line), Prometheus's `docker-vm` target `up`. Left for it: `CADVISOR_ADDRESS` out of
-      Dockhand, then Key Vault's `CADVISOR-ADDRESS` deleted, both by the owner. A variable
-      compose interpolates (as in `ports:`) never reaches the container's environment, so
+      line), Prometheus's `docker-vm` target `up`; its leftovers are on the delete list below.
+      A variable compose interpolates (as in `ports:`) never reaches the container's environment, so
       `printenv` inside it shows neither name; the ports line is the check
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
+
+## Left to delete when the move is done
+
+The owner deletes these once every stack and manifest reads its standard name. Nothing reads
+any of them now unless its line says so. A deleted Key Vault name stays reserved for 90 days
+(purge protection), so only what is on this list goes. Each step adds what it leaves behind.
+
+**Key Vault secrets:**
+
+- `ACME-EMAIL`, `ORGANIZR-ADMIN-EMAIL`, `ZAMMAD-ADMIN-EMAIL`: now `OWNER-EMAIL` (#143)
+- `CNPG-BACKUP-S3-ENDPOINT`: now `GARAGE-S3-ENDPOINT` (#143)
+- `TERRAMASTER-ADDRESS`: now `TERRAMASTER-MGMT-ADDRESS` (#143)
+- `PIHOLE-URL`, `PIHOLE2-URL`: now `PIHOLE-1-URL`, `PIHOLE-2-URL` (#143)
+- `CADVISOR-ADDRESS`: now `DOCKER-VM-1-MGMT-ADDRESS` (#140); never mapped into the cluster
+- To come, still read by the cluster: `PIHOLE-PASSWORD` and `PIHOLE2-PASSWORD`, once the
+  base64 switch moves the cluster onto `PIHOLE-1-PASSWORD` and `PIHOLE-2-APP-PASSWORD`
+
+**Dockhand stack variables:**
+
+- cadvisor's `CADVISOR_ADDRESS`: now `DOCKER_VM_1_MGMT_ADDRESS` (#140)
+- To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
 
@@ -160,7 +180,7 @@ encoding; a Dockhand stack's `.env` names its variables. The first unticked box 
 ## Done when
 
 Every Key Vault secret has its standard name, nothing reads an old name, no two secrets hold
-one thing, and every value in Key Vault is plain.
+one thing, every value in Key Vault is plain, and the delete list is empty.
 
 ## Checked and negative
 
