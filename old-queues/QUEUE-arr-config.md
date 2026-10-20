@@ -86,7 +86,7 @@ rotated key is one paste into Vaultwarden.
       its indexers into it. v2's 4 files went through v3's `import/` folder into its layout.
       v2 retired: Prowlarr's link to it deleted, its release removed, v3 on the `whisparr`
       hostname; its database's removal is in QUEUE.md's Cleanup
-- [ ] Outside Configarr (the owner, 2026-10-20: all four from git): a sync Job,
+- [x] Outside Configarr (the owner, 2026-10-20: all four from git): a sync Job,
       `prod/apps/media/media-sync/`, as `grimmory-sync` is built (a script and a YAML of
       wanted settings in a ConfigMap whose hashed name reruns the Job on a change). Each app
       through its API, every setting read back after writing; a setting not listed stays the
@@ -115,8 +115,8 @@ rotated key is one paste into Vaultwarden.
       Trials (2026-10-20, temporary Jobs against the live apps): report-only showed every
       section unchanged; with a change planted in each, all seven planted changes showed
       ("would change"/"would create"); an apply round trip on one qBittorrent preference (3 to
-      4 and back) wrote and read back. In PR, applying. Left: the merge, then its run's log
-      (every section unchanged)
+      4 and back) wrote and read back. Merged 2026-10-20: its first run, applying, found every
+      section of the four apps unchanged
 
 ## Resuming
 
