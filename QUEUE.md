@@ -124,13 +124,9 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   planes are all Talos since 2026-10-13, so etcd's metrics endpoint is set in one place, the
   Talos config (`talos/patches/`): add it there, then turn `kubeEtcd` on.
 - **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
-  rated wear** (`nvme_percentage_used_ratio`, 2026-10-10: 62 TB written over 4.1 years). With a
-  Kubernetes worker on it, it was written at 31-38 GB a day (`nvme_data_units_written_total`,
-  5-day and 1-day rates, 2026-10-20). Since 2026-10-20 it carries a control plane instead, whose
-  etcd writes about twice the worker's (22 GB a day in the guest against 12,
-  `pve_disk_written_bytes_total`): its last 14% (about 10 TB) lasts roughly six months to a
-  year. Replace it or swap the ZFS disk; the owner keeps the control plane there (2026-10-20),
-  since losing it leaves etcd's quorum to the other two. The first host's 256 GB boot drive is at 66% (about 1.4 years). Every host's
+  rated wear** (`nvme_percentage_used_ratio`, 2026-10-10). The owner knows, decides when it's
+  replaced, and chose what runs on it (a control plane and Pi-hole 1 since 2026-10-20): don't
+  raise it again, and don't project its remaining life, which earlier estimates got wrong. The first host's 256 GB boot drive is at 66% (about 1.4 years). Every host's
   drives write 40 to 70 GB a day on lifetime average, far more than Prometheus did: once a few
   days of `node_disk_written_bytes_total` and `pve_disk_written_bytes` exist, find the writers
   (etcd, the workers' databases, images and logs, Proxmox's own files) and cut what can be.
