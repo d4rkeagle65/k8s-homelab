@@ -106,23 +106,17 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       rest of 1.14.3 touches nothing here: its QEMU GSO fix is in talosctl's local QEMU
       provisioner, not the OS; no PTP devices; nothing calls `talosctl time --check` as
       `os:reader`. The Image Factory serves the schematic's installer and nocloud image at
-      v1.14.4. Merged 2026-10-20. Its check run ("Node: Upgrade Talos", task 930) passed the
-      three control planes and stopped at the first worker's capacity check: 12.6 GiB of memory
-      requests to move, 9.8 GiB free elsewhere. Read live the same morning, a second worker
-      fails it too (11.6 to 10.0) and the other two pass; the workers request about twice the
-      memory they use (the first: 17.1 GiB requested, 8.6 in use). So the control planes can go
-      now (`talos_nodes_only`),
-      and the workers with `reboot_allow_pending: true`, where the higher tiers preempt
-      `homelab-low` pods and the media apps wait for the node, or once the workers have more
-      room: `QUEUE-resource-limits.md`'s recheck won't make it (its rule raises as much as it
-      lowers), the worker on H4 at 16 GiB will (the owner moved guests to free its host,
-      2026-10-20; its 16 GiB is applied and pending in Proxmox, so `talos-reboot.yml` for VM 115
-      is what's left), leaving about 14 and 15 GiB of
-      room for the two that failed. Then
-      the OpenTofu job, whose plan should replace only `proxmox_download_file.talos_nocloud`
-      (its file name carries the version) and update the install image in place. The Talos
-      VMs' disks import from that file and the VMs have `prevent_destroy`, so a plan that wants
-      one replaced errors instead: stop there and read why.
+      v1.14.4. Merged 2026-10-20. Its first check run ("Node: Upgrade Talos", task 930) stopped
+      at a worker with no room to drain; the worker on H4 went to 16 GiB for it (the owner
+      moved guests to free its host; rebooted by `talos-reboot.yml`, tasks 942 and 945), and
+      read live after, every node's pods fit elsewhere (the tightest, the first worker: 13.2 GiB
+      to move, 14.8 free). Next: the check run again, then for real, then the OpenTofu job.
+      The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
+      should update only the seven nodes' machine configs (the install image) and the other
+      Talos VMs' `import_from`, which the provider records without re-importing a disk
+      ("Never re-import existing disks", its v0.116.0 `disk.go`). The Talos VMs have
+      `prevent_destroy`, so a plan that wants one replaced errors instead: stop there and read
+      why.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
