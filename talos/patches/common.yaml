@@ -11,7 +11,7 @@
 apiVersion: v1alpha1
 kind: UnattendedInstallConfig
 installer:
-  image: factory.talos.dev/nocloud-installer/c23d16533980fd972f96a79cc22130404615c16de18f43da4a40d801d4fe8d6a:v1.14.2
+  image: factory.talos.dev/nocloud-installer/c23d16533980fd972f96a79cc22130404615c16de18f43da4a40d801d4fe8d6a:v1.14.4
 # A patched document replaces the generated one whole, so the disk is stated
 # too: each VM's first SCSI disk (tofu/proxmox/).
 provisioning:
