@@ -1,0 +1,15 @@
+# Youtarr's own files: config.json, its logs and yt-dlp cache, its jobs and its
+# thumbnails (three subPaths of this one claim; helmrelease.yaml).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: youtarr-config
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 2Gi
