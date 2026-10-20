@@ -144,7 +144,10 @@ against today's value by hash.
   4. **The owner rewrites** each variable's Key Vault value from base64 to plain, without a
      force-sync, read back by hash:
      `$v = ./scripts/keyvault-secrets.ps1 NAME -Get; ./scripts/keyvault-secrets.ps1 NAME -Value $v -Raw -NoSync`.
-     Afterwards `refreshTime` is unchanged.
+     For a batch, use the loop in #166's description. It rewrites only a variable whose Key
+     Vault value still equals what the `cluster-secrets` Secret holds, so a rerun after a stop
+     never decodes a plain value. Then, before the merge, check by hash that every variable
+     in the batch is plain in Key Vault and that `refreshTime` is unchanged.
   5. **The owner merges the batch's pull request** at once: its spec change is the one
      refresh.
   6. **Read back**: `refreshTime` moved, `SecretSynced` for the new generation, and every key's
@@ -229,12 +232,15 @@ against today's value by hash.
         before the merge at 17:42Z; then one refresh for generation 66, `SecretSynced`, all 145
         keys equal to the fingerprint, and the Secret not even rewritten. Mealie's
         `mealie-oidc` is unchanged (last written 2026-10-05)
-  - [ ] 1 (12), each read only by its own app: `MEALIE_OIDC_CLIENT_SECRET`; babybuddy MCP's
+  - [x] 1 (12), each read only by its own app: `MEALIE_OIDC_CLIENT_SECRET`; babybuddy MCP's
         `BABYBUDDY_MCP_SECRETS_*` (4); Immich power tools' `IMMICH_POWER_TOOLS_APIKEY_*` (4;
         `_IMMICH_APIKEY` is Homepage's too); `NOIP_DUC_CREDENTIALS_*` (2);
-        `CERT_MANAGER_CLOUDFLARE_API_TOKEN_API_TOKEN` (a failed renewal retries, with weeks to
-        spare). #166, a draft until the owner's rewrite (its description has the loop); all
-        12 read back in their old base64 form, each decoding to text, before it
+        `CERT_MANAGER_CLOUDFLARE_API_TOKEN_API_TOKEN`. #166, 2026-10-20. Read back by hash
+        only: all 12 in the old base64 form before the rewrite; all 12 plain after it, with no
+        refresh in between (the hold had gone 16 minutes without one first). Then one refresh
+        for generation 67, `SecretSynced`, all 145 keys equal to the fingerprint, and the
+        Secret not rewritten. The six Secrets these feed (babybuddy, cert-manager, immich,
+        mealie, noip-duc, homepage) were last written days before
   - [ ] 2 (8), the Authentik OIDC client secrets:
         `AUTHENTIK_{DOCKHAND,GRAFANA,GRIMMORY,HOMEPAGE,NETBOX,ORGANIZR,SEMAPHORE,STORK}_OIDC_CLIENT_SECRET`.
         Authentik's blueprints write them into Authentik, so a wrong one breaks that app's
