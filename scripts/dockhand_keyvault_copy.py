@@ -9,9 +9,10 @@ can't stand in: it hands a stack every secret in the vault under its Key Vault n
 compose file can't interpolate (a variable name has no "-"), cluster-secrets' among them.
 
 A dry run (the default) reports, for each variable, whether Key Vault lacks its name, holds the
-same value or holds a different one; which values Key Vault also holds under another name, or
-another stack variable shares (each is still copied under its own name: drop an entry from the
-JSON to reference the other instead); and each stack variable's reference. --apply writes the
+same value or holds a different one; which values Key Vault also holds under another name
+(plain, or base64 for a Secret's data:), or another stack variable shares (each is still copied
+under its own name: drop an entry from the JSON to reference the other instead); and each stack
+variable's reference. --apply writes the
 missing and different ones, then reads every name back and compares value and tags. Values are
 compared by SHA-256 and never printed; they travel only in memory and HTTPS request bodies.
 
@@ -109,8 +110,8 @@ def plan(entries: list[dict]) -> tuple[dict[str, dict], list[str]]:
     return targets, skipped
 
 
-def vault_contents(vault: str, vault_url: str, token: str) -> tuple[dict[str, tuple[str, dict]], set[str]]:
-    """Every enabled secret in the vault, by name, with its value's SHA-256 and its tags; and
+def vault_contents(vault: str, vault_url: str, token: str) -> tuple[dict[str, tuple[str, dict, str | None]], set[str]]:
+    """Every enabled secret in the vault, by name, as keyvault_copy.remote_secret reads it; and
     the names of the disabled ones, which can't be read."""
     enabled: dict[str, bool] = {}
     url = f"{vault_url}/secrets?api-version={kv.API_VERSION}&maxresults=25"
@@ -139,16 +140,21 @@ def owned(tags: dict, target: dict) -> bool:
     return all(tags.get(k) == v for k, v in tags_for(target["stack"], target["key"]).items())
 
 
-def shared_values(targets: dict[str, dict], held: dict[str, tuple[str, dict]]) -> list[str]:
-    """Each group of names holding one value, where the group has a stack variable in it; empty
-    values, which match by nothing but being empty, are left out."""
+def shared_values(targets: dict[str, dict], held: dict[str, tuple[str, dict, str | None]]) -> list[str]:
+    """Each group of names holding one value, where the group has a stack variable in it, a
+    vault secret holding it base64 marked so; empty values, which match by nothing but being
+    empty, are left out."""
     target_lower = {name.lower() for name in targets}
     groups: dict[str, set[str]] = {}
     for name, target in targets.items():
         groups.setdefault(kv.digest(target["value"]), set()).add(name)
-    for name, (value_digest, _) in held.items():
-        if name.lower() not in target_lower and value_digest in groups:
+    for name, (value_digest, _, decoded) in held.items():
+        if name.lower() in target_lower:
+            continue
+        if value_digest in groups:
             groups[value_digest].add(name)
+        elif decoded in groups:
+            groups[decoded].add(f"{name} (base64)")
     empty = kv.digest("")
     return sorted(" = ".join(sorted(names, key=str.lower)) for d, names in groups.items() if len(names) > 1 and d != empty)
 
@@ -177,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
             elif name.lower() not in held_lower:
                 state[name] = "add"
             else:
-                value_digest, tags = held[held_lower[name.lower()]]
+                value_digest, tags, _ = held[held_lower[name.lower()]]
                 if not owned(tags, target):
                     taken.append(f"{name} is held by a secret not tagged as {target['stack']} {target['key']} "
                                  f"(source: {tags.get('source', 'none')})")

@@ -4,6 +4,7 @@ the REST calls) replaced. Every run also checks that no value reaches the output
 
 from __future__ import annotations
 
+import base64
 import importlib.util
 import json
 import sys
@@ -44,10 +45,11 @@ ENTRIES = [
     entry("garage", "DOCKHAND_SECRET_SELECTOR", "selector-value"),
     entry("garage", "RPC_SECRET", "garage-rpc-value-4", environment="nas"),
 ]
-# cluster-secrets' copies, one sharing a value with a stack variable; one disabled; two
-# earlier copies of stack variables, one since changed in Dockhand.
+# cluster-secrets' copies, one sharing a value with a stack variable and one holding another's
+# as base64; one disabled; two earlier copies of stack variables, one since changed in Dockhand.
 HELD = {
     "KEA-API-PASSWORD": {"value": "kea-pass-value-1", "tags": {"source": "cluster-secrets"}},
+    "GARAGE-RPC-B64": {"value": base64.b64encode(b"garage-rpc-value-4").decode(), "tags": {"source": "cluster-secrets"}},
     "INGRESS-IP": {"value": "ingress-value-5", "tags": {"source": "cluster-secrets"}},
     "OLD-ONE": {"value": "old-disabled-value", "tags": {}, "enabled": False},
     "netbox--DB-PASSWORD": {"value": "netbox-db-value-2", "tags": ours("netbox", "DB_PASSWORD")},
@@ -198,6 +200,7 @@ def test_dry_run_reports_and_writes_nothing(run):
     assert "skip   garage DOCKHAND_SECRET_SELECTOR: Dockhand's bulk-pull selector" in text
     assert "  kea--KEA-API-PASSWORD = KEA-API-PASSWORD\n" in text
     assert "  netbox--DB-PASSWORD = netbox-worker--DB-PASSWORD\n" in text
+    assert "  garage--RPC-SECRET = GARAGE-RPC-B64 (base64)\n" in text
     assert "kea--EMPTY-TWO = netbox--EMPTY-ONE" not in text  # empty values match by nothing else
     assert "  netbox_worker DB_PASSWORD = azurekv://netbox-worker--DB-PASSWORD" in text
     assert "  garage RPC_SECRET = azurekv://garage--RPC-SECRET" in text

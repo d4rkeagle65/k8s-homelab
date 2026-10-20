@@ -171,6 +171,12 @@ def test_a_write_tags_its_secret_as_cluster_secrets_unless_given_tags(monkeypatc
     assert [b["tags"] for b in bodies] == [{"source": "cluster-secrets"}, {"source": "dockhand"}]
 
 
+@pytest.mark.parametrize("value, decoded", [("cGxhaW4tdGV4dA==", "plain-text"), ("", ""),
+                                            ("not base64!", None), ("//79", None)])
+def test_decoded_digest_hashes_only_base64_of_text(value, decoded):
+    assert m.decoded_digest(value) == (m.digest(decoded) if decoded is not None else None)
+
+
 def test_a_bad_vault_name_stops_before_reading_anything(run):
     vault = FakeVault()
     code, text, calls = run(["--vault", "https://x.vault.azure.net"], vault, external_secret(VALUES), secret(VALUES))
