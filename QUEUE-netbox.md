@@ -189,18 +189,17 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
 - [x] Phase 6 (2026-10-20): each guest's shape (sizes, roles, disks, bridges) edited in NetBox and
       brought into git by a pull request from Semaphore:
       [old-queues/QUEUE-netbox-shape.md](old-queues/QUEUE-netbox-shape.md)
-- [ ] The switches' cables. Done 2026-10-20 from the owner's port map: 36 cables, every core
+- [ ] The switches' cables. Done 2026-10-20 from the owner's port map: 39 cables, every core
       switch port in use traced end to end through a modelled 24-port patch panel (switch side
-      on its front, devices on its rear), plus the firewall, the 2.5G switch, the Raspberry Pi
-      and two test hosts as new devices (role Firewall, Switch or Lab; the last three Offline),
-      and switch 02 retyped as the 8-port L3 switch. Left, each waiting on the owner:
-      - switch 04's uplink port (the panel's rear 22 to it) and which of its ports each AP is on
-        (an AP has only its virtual `management` interface: add a physical one to cable it);
+      on its front, devices on its rear); the firewall, the 2.5G switch, the Raspberry Pi and two
+      test hosts as new devices (role Firewall, Switch or Lab; the last three Offline); switch 02
+      a TL-SG108E; the APs WAX206s on switch 04 ports 1 and 2, with those ports' VLANs (switch
+      04's VLAN 1 is recorded as VLAN 5: a TL-SG105E can't move its management VLAN). Left, each
+      waiting on the owner:
       - which production host's 2.5G NIC is on each of the 2.5G switch's ports 1-5 (the panel's
         rear 1-5);
-      - switch 02's real model (its type is "8-port L3 switch (model to confirm)"), and real
-        names for the placeholder devices (the firewall, the 2.5G switch, the Pi, the test hosts,
-        which may be one host with two NICs);
+      - real names for the placeholder devices (the firewall, the 2.5G switch, the Pi, the test
+        hosts, which may be one host with two NICs);
       - the console run's far end (the panel's rear 6)
 
 ## Resuming
