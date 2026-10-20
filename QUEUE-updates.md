@@ -100,6 +100,17 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       pull request for it is ready to merge once they do. Rechecked 2026-10-19: Flux,
       cert-manager and CloudNativePG have no newer release; External Secrets 2.13.0
       (2026-10-16) is unread.
+- [ ] **Talos 1.14.2 -> 1.14.4** (Renovate's pull request, triaged 2026-10-19): Linux 6.18.54 ->
+      6.18.57, containerd 2.3.7, a KubePrism recovery fix, and etcd 3.7.1 -> 3.7.2, which
+      follows Talos as each control plane upgrades (no machine config pins its image). The
+      rest of 1.14.3 touches nothing here: its QEMU GSO fix is in talosctl's local QEMU
+      provisioner, not the OS; no PTP devices; nothing calls `talosctl time --check` as
+      `os:reader`. The Image Factory serves the schematic's installer and nocloud image at
+      v1.14.4. After the merge: `ansible/talos-upgrade.yml` in check mode, then for real, then
+      the OpenTofu job, whose plan should replace only `proxmox_download_file.talos_nocloud`
+      (its file name carries the version) and update the install image in place. The Talos
+      VMs' disks import from that file and the VMs have `prevent_destroy`, so a plan that wants
+      one replaced errors instead: stop there and read why.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
