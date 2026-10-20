@@ -22,12 +22,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   put it in those two fields.
 - **Sonarr: "Ms Rachel (2025)" was removed from TheTVDB** (its health page, 2026-10-19):
   re-point it to the new entry or remove it, or it stays an error and gets no updates.
-- **The Synology's Docker install is untried with its share made first**
-  (`ansible/synology-baseline.yml`): it's on DSM 7.1.1, the DS415+'s last, so its package is
-  Docker 20.10.3, whose pre-install script failed from `synopkg` ("failed to create docker
-  share", runs on 2026-10-20). The playbook now makes the `docker` share itself before
-  installing. The owner runs "Synology: baseline" again; should the install still fail,
-  install Docker once from Package Center and run it again. Hawser is untried on DSM until then.
+- **The Synology's Docker install from Semaphore is untried with DSM's PATH**
+  (`ansible/synology-baseline.yml`): run 957 failed with "failed to create docker share"
+  where the same `synopkg` by hand worked, since a non-login SSH session lacks
+  `/usr/syno/sbin` and the package's scripts call `synoshare` by name; each root step now
+  sets `synology_path`. The owner uninstalls Docker and removes the `docker` share again,
+  then runs "Synology: baseline". Hawser is untried on DSM until then.
 7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
    `ansible/docker-vm-update.yml`, both off until set (its header says what each does). The
    owner sets `docker_live_restore: true` on "Node: Docker Update" and runs it; then
