@@ -196,15 +196,14 @@ empty when this started: no sites, devices, VMs, prefixes or addresses.
       under the owner's names (the last three Offline, role Lab); switch 02 a TL-SG108E; the
       APs WAX206s on switch 04 ports 1 and 2, with those ports' VLANs (switch 04's VLAN 1 is
       recorded as VLAN 5: a TL-SG105E can't move its management VLAN); the travel router a
-      GL-MT3000 with its LAN and reservations. Left, each waiting on the owner:
-      - which production host's 2.5G NIC is on each of the 2.5G switch's ports 1-5 (the panel's
-        rear 1-5), found by pulling one cord at a time or by the activity lights under load;
-      - the console run's far end (the panel's rear 6);
-      - the test hosts' NIC names (each has a placeholder `nic1`)
+      GL-MT3000 with its LAN and reservations; the test hosts' NICs `eth5`; each production
+      host's `eth6` on its 2.5G switch port (found by pulling one cord at a time while Run
+      Command watched every host's carrier). Left, waiting on the owner: the console run's far
+      end (the panel's rear 6).
 
 ## Resuming
 
-The first unticked box is next: the rest of the cables, each waiting on the owner (its list says what).
+The first unticked box is next: the console run's far end, waiting on the owner.
 
 ## Done when
 
