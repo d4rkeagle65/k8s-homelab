@@ -39,8 +39,9 @@ The owner, 2026-10-19:
   sides), and so do the names `promote.py` generates (`<namespace>-<secret>_<key>`). New names
   follow the standard.
 - **A Dockhand stack variable is an inline reference under its standard name**:
-  `TIMEZONE = azurekv://TIMEZONE`. This replaces `scripts/dockhand_keyvault_copy.py`'s
-  `<stack>--<KEY>` names, which nothing has been written under.
+  `TIMEZONE = azurekv://TIMEZONE`. `docker/secret-names.yaml` gives each stack variable's name,
+  and `scripts/dockhand_keyvault_copy.py` copies by it; the `<stack>--<KEY>` names it once
+  proposed were never written.
 - **Pi-hole 2 has two credentials**, both signing in (netbox-dns-sync healthy after a restart,
   2026-10-19): `PIHOLE_2_PASSWORD`, its web password, the one typed at its login page, and
   `PIHOLE_2_APP_PASSWORD`, its app password. The cluster's `PIHOLE2_PASSWORD` (the app
@@ -74,31 +75,10 @@ The owner, 2026-10-19:
 | `DOCKER_VM_2_MGMT_ADDRESS`, `DOCKER_VM_2_PROD_ADDRESS` | | kea-standby's `KEA_API_ADDRESS`, `KEA_DHCP_ADDRESS` |
 | `TERRAMASTER_MGMT_ADDRESS` | `TERRAMASTER_ADDRESS` | garage's `GARAGE_BIND_ADDRESS` (compared equal) |
 
-**Dockhand's own, renamed or dropped** (kept as they are: databasus's `DATABASUS_AGENT_ID`,
-`_AGENT_TOKEN`, `_URL`; kea's `STORK_DB_PASSWORD`; netbox's `NETBOX_API_TOKEN_PEPPER`,
-`_DB_PASSWORD`, `_SECRET_KEY`; semaphore's `SEMAPHORE_*` and `TFSTATE_DB_PASSWORD`; garage's
-`GARAGE_RPC_SECRET`, `GARAGE_ADMIN_TOKEN`, `GARAGE_DIR`):
-
-| Stack | Today | Standard |
-|---|---|---|
-| databasus, kea, netbox, semaphore | `KEA_NETWORK` (one value in all four; kea's compose doesn't read it), `NETBOX_NETWORK`, `SEMAPHORE_NETWORK` | written into the compose files; kea's dropped |
-| kea, netbox, semaphore | `DATABASUS_DB_PASSWORD` (not one value across the three) | `DATABASUS_KEA_DB_PASSWORD`, `DATABASUS_NETBOX_DB_PASSWORD`, `DATABASUS_SEMAPHORE_DB_PASSWORD` |
-| kea | `POSTGRES_PASSWORD` | `KEA_POSTGRES_PASSWORD` |
-| kea | `STORK_OIDC_ISSUER_URL`, `STORK_OIDC_REDIRECT_URI` | built from `${BASE_DOMAIN}` |
-| netbox | `NETBOX_HOST`, `OIDC_ENDPOINT` | built from `${BASE_DOMAIN}` |
-| netbox | `CONFIG_DIFF_USERNAME`, `CONFIG_DIFF_PASSWORD` (blank) | nothing to store; `NETBOX_CONFIG_DIFF_USERNAME`, `_PASSWORD` if ever set |
-| netbox | `NETBOX_DNS_SYNC_TOKEN` (not the cluster's `NETBOX_DNS_TOKEN`) | kept: it fits `NETBOX_<CONSUMER>_TOKEN` |
-| netbox | `PIHOLE_TLS_VERIFY`, `SYNC_APPLY`, `SYNC_DELETE` | written into the compose file |
-| semaphore | `NETBOX_API`, `SEMAPHORE_OIDC_ISSUER_URL`, `SEMAPHORE_WEB_ROOT` | built from `${BASE_DOMAIN}` |
-| semaphore | `NETBOX_TOKEN` (no cluster token holds it) | `NETBOX_SEMAPHORE_TOKEN` |
-| tailscale | `TS_AUTHKEY`, `TS_HOSTNAME`, `TS_ROUTES`, `TS_TAGS` | `TAILSCALE_AUTH_KEY`, `TAILSCALE_HOSTNAME`, `TAILSCALE_ROUTES`, `TAILSCALE_TAGS` |
-| vaultwarden | `ADMIN_TOKEN` | `VAULTWARDEN_ADMIN_TOKEN` |
-| vaultwarden | `BACKUP_ZIP_PASSWORD` (blank) | nothing to store; `VAULTWARDEN_BACKUP_ZIP_PASSWORD` if ever set |
-| vaultwarden | `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` (not the CNPG keys) | `VAULTWARDEN_BACKUP_S3_ACCESS_KEY_ID`, `VAULTWARDEN_BACKUP_S3_SECRET_ACCESS_KEY` |
-| vaultwarden | `DOMAIN`, `SSO_AUTHORITY` | built from `${BASE_DOMAIN}` |
-| vaultwarden | `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET` | `AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_ID`, `AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_SECRET` |
-| vaultwarden | `SMTP_HOST` (compared equal to the built form) | `smtp-relay.${BASE_DOMAIN}` |
-| vaultwarden | `SMTP_USERNAME`, `SMTP_PASSWORD` | `ENTRA_VAULTWARDEN_SMTP_USERNAME`, `ENTRA_VAULTWARDEN_SMTP_CLIENT_SECRET` |
+**Dockhand's own names**, each stack variable's in turn, are in `docker/secret-names.yaml`: its
+standard name, the form its compose file builds it in from `${BASE_DOMAIN}`, or why it has
+none (a setting written into the compose file, a blank). The copy checks each built form
+against today's value by hash.
 
 ## Rules
 
@@ -137,11 +117,13 @@ The owner, 2026-10-19:
       for its new spec, every Flux object Ready
 - [ ] The owner deletes their Key Vault secrets, `Child2` and `MEDIA-WHISPARR-API-KEY` (both
       still there at the read-back)
-- [ ] `scripts/dockhand_keyvault_copy.py` takes its names from this file's tables, counts a
-      secret the cluster already holds with the same value as shared rather than a conflict,
-      and its tests follow; `QUEUE-azure-keyvault.md`'s Dockhand items say so
-- [ ] Key Vault: every name in the tables above that it doesn't hold yet, by the owner's
-      copy run
+- [x] `scripts/dockhand_keyvault_copy.py` copies by `docker/secret-names.yaml`, counts a name
+      Key Vault already holds with the same value as shared, and never changes one; dry run
+      2026-10-20 against the owner's export: no conflicts, 44 names to add, 5 held with the
+      same value, 3 held base64 (the Authentik OIDC client secrets, waiting on the base64
+      switch), all 12 built forms giving today's values
+- [ ] Key Vault: the names it lacks, by the owner's `--apply` run of the copy (its read-back
+      all matching is its first real check)
 - [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
       owner

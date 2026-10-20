@@ -285,9 +285,11 @@ add to Key Vault.
 
 Dockhand never shows a secret's value (its API returns `***`): it keeps them
 encrypted in its database, so they come out by decrypting them in its container.
-The names, tags and refusals are in `dockhand_keyvault_copy.py`'s docstring.
+Each stack variable's Key Vault name is in `docker/secret-names.yaml`; the map's
+forms and what the copy refuses are in `dockhand_keyvault_copy.py`'s docstring.
 
-1. On the Docker VM, as root, with `scripts/dockhand-export-secrets.cjs` copied
+1. In Dockhand, mark every credential secret: the export takes only those. Then
+   on the Docker VM, as root, with `scripts/dockhand-export-secrets.cjs` copied
    there: `(umask 077; docker exec -i dockhand node --no-warnings - <
    dockhand-export-secrets.cjs > /root/dockhand-secrets.json)`. It reads the
    database read-only and prints only a count; exit code 2 names each value it
@@ -295,12 +297,17 @@ The names, tags and refusals are in `dockhand_keyvault_copy.py`'s docstring.
 2. Copy the JSON to `kubernetes/.local/dockhand-secrets.json` here, then
    `shred -u` it on the VM.
 3. `python scripts/dockhand_keyvault_copy.py kubernetes/.local/dockhand-secrets.json
-   --vault <vault>` is a dry run: what it would add, the values Key Vault also
-   holds under another name (drop an entry from the JSON to reference that one
-   instead), and each stack variable's `azurekv://` reference. Then the same
-   with `--apply`.
-4. In Dockhand, with the vault as the stack's secret provider, set each
-   variable to its reference, redeploy, and check the stack. One stack first.
+   --vault <vault>` is a dry run: each name's state (to add, held with the same
+   value, held base64), each built form checked against today's value, any
+   conflict, and each stack's references. A variable the map doesn't name stops
+   it until the map does. Then the same with `--apply`, which writes only the
+   names Key Vault lacks and never changes one it holds.
+4. One stack at a time, cadvisor first: in Dockhand, with the vault as its
+   secret provider, set each reference beside the old variables
+   (`NAME = azurekv://NAME-WITH-DASHES`); merge its compose file's move to the
+   standard names, which redeploys it; check it; then remove the old variables.
+   A reference marked "once Key Vault holds it plain" waits for the
+   base64-to-plain switch (`QUEUE-secret-names.md`).
 5. Delete the JSON once the stacks read Key Vault.
 
 ### Bring the test environment up, and take it down
