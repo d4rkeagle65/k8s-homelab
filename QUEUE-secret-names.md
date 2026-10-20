@@ -253,7 +253,9 @@ against today's value by hash.
         semaphore's stacks can read them by reference (each stack's move), and
         `dockhand_keyvault_copy.py` should count no name as held base64
   - [ ] 3 (5), the *arr API keys: `MEDIA_{BOOKSHELF,LIDARR,PROWLARR,RADARR,SONARR}_API_KEY`.
-        Each app sets its own key from one, and Homepage, exportarr and organizr-sync read it
+        Each app sets its own key from one, and Homepage, exportarr and organizr-sync read it.
+        #175, a draft until the owner's rewrite; all 5 read back in their old base64 form,
+        each decoding to text, before it
   - [ ] 4 (8), connections: `CLOUDFLARE_TUNNEL_SECRET_*` (3; the tunnel carries everything the
         internet reaches), `REDIS_HA_CREDS_*` (2), `AUTHENTIK_REDIS_PASSWORD_PASSWORD`,
         `IMMICH_REDIS_PASSWORD_PASSWORD`, `IMMICH_REDIS_URL_REDIS_URL`
