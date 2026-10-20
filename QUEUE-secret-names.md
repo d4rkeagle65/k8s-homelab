@@ -89,9 +89,11 @@ against today's value by hash.
   name is deleted only once nothing reads it.
 - **A Dockhand stack moves in one redeploy, its secret provider bound first.** Its move's
   `.env` holds its references, which Dockhand resolves at each deploy, so binding the vault
-  as its provider (selector empty) is the one step before the merge, which redeploys it
-  (Flux calls its webhook; one without is redeployed by hand). Its old variables go on the
-  delete list once it reads back working.
+  as its provider (selector empty) is the step before the merge, which redeploys it (Flux
+  calls its webhook; one without is redeployed by hand). A variable set in Dockhand under a
+  reference's own name wins over the `.env`, so it is deleted just before the merge, or the
+  stack keeps reading it and a broken reference shows only once it goes. Its other old
+  variables go on the delete list once it reads back working.
 - **Base64 becomes plain with no refresh in between.** The template run on a value still
   base64 encodes it twice, and a plain value read as base64 can decode without an error into
   a wrong credential, which an app then uses (Authentik's blueprints set client secrets from
@@ -268,7 +270,12 @@ against today's value by hash.
       alone doesn't mean a reference failed: Dockhand also recreates on a forced redeploy
       (Recreate all, the stack's always-redeploy setting, a retry after a failed deploy).
       Left: on the host, `docker inspect tailscale --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -c azurekv`
-      gives 0 when every reference resolved
+      gives 0 when every reference resolved. databasus fourth (branch
+      `databasus-standard-names`): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its URL is
+      built in the compose file), `DATABASUS_AGENT_ID` and `DATABASUS_AGENT_TOKEN`, and its
+      three networks written in as `<stack>_default` (the values, by hash). Before: both
+      containers running since 2026-10-17 03:03Z, port 4005 open on the management address
+      and refused on the production one
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -303,6 +310,9 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - tailscale's `TS_AUTHKEY`, `TS_TAGS`, `TS_HOSTNAME` and `TS_ROUTES`: now `TAILSCALE_*` (#150)
 - cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's two references, set by hand in
   Dockhand: their `.env`s carry the same references now
+- databasus's `DATABASUS_BIND_ADDRESS`, `DATABASUS_URL`, `SEMAPHORE_NETWORK`, `KEA_NETWORK`
+  and `NETBOX_NETWORK`: now `DOCKER_VM_1_MGMT_ADDRESS`, a URL built from `BASE_DOMAIN`, and
+  network names in the compose file, once its move reads back
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
