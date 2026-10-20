@@ -156,11 +156,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the PC to reach its published ports; check the second has it. Left, a script on the PC
   that asks the standby (as `netbox_seed.py` asks the primary) gets no answer.
 
-- **Whisparr v2's leftovers** (retired 2026-10-19; its final base backup
-  `whisparr-db-final-202610191449` completed, its WAL archived through its end): from
-  2026-10-20, delete the `whisparr-db` Cluster in `media` (kept from pruning by its
-  annotation) and the released PV of `whisparr-config`, after reading that the backup is
-  still listed in Garage.
 - **`test-harness` reads red when the suite is run by hand in a Claude desktop worktree**
   (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
   checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
