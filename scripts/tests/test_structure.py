@@ -532,6 +532,27 @@ _BOOTSTRAP_SECRET_NAME = "azure-keyvault-bootstrap"
 _BOOTSTRAP_VARIABLES = {"AZURE_KEYVAULT_URL", "AZURE_TENANT_ID"}
 _BOOTSTRAP_FOLDER = "kubernetes/prod/system/external-secrets/azure-keyvault/"
 
+# A Go template's actions ({{ ... }}), and the fields (.NAME) each one reads.
+_TEMPLATE_ACTION_RE = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
+_TEMPLATE_FIELD_RE = re.compile(r"(?<![\w.])\.([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _template_key_problem(name: str, text: str, fields: set[str]) -> str | None:
+    """Why cluster-secrets' template can't build the key `name` from `text`, or None when it
+    can. A key named after a field replaces that field's value (template.data is written
+    last), which is allowed only to base64 the field's own plain Key Vault value, written
+    exactly {{ .NAME | b64enc }} so that a tool reading the live template can tell it by its
+    text. Any other key is built from mapped fields only."""
+    if name in fields:
+        own = f"{{{{ .{name} | b64enc }}}}"
+        return None if text == own else f"has a field's name, so it must be exactly {own}"
+    sources = {field for action in _TEMPLATE_ACTION_RE.findall(text) for field in _TEMPLATE_FIELD_RE.findall(action)}
+    if not sources:
+        return "reads no field"
+    if sources - fields:
+        return f"reads fields that aren't mapped: {sorted(sources - fields)}"
+    return None
+
 
 def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     """Flux fails a Kustomization on an undefined ${VAR} (strict substitution,
@@ -553,16 +574,22 @@ def test_every_substituted_variable_is_defined(repo_root, load_yaml):
     for d in external["spec"]["data"]:
         assert d["remoteRef"] == {"key": d["secretKey"].replace("_", "-")}, \
             f"{d['secretKey']}: must read the Key Vault secret {d['secretKey'].replace('_', '-')}, nothing else"
-    # Variables built from those by the target's template. Without Merge, a
-    # template's keys replace every variable's, and all the others vanish.
+    fields = {"A", "B"}
+    assert _template_key_problem("A", "{{ .A | b64enc }}", fields) is None
+    assert _template_key_problem("C", "x {{ .A }}:{{ .B | b64enc }}", fields) is None
+    for other_form in ("{{ .A }}", "{{.A | b64enc}}", "{{ .B | b64enc }}", "{{ .A | b64dec }}", "x{{ .A | b64enc }}"):
+        assert _template_key_problem("A", other_form, fields), f"A built as {other_form} passed"
+    assert _template_key_problem("C", "{{ .A }} {{ .D | b64enc }}", fields) == "reads fields that aren't mapped: ['D']"
+    assert _template_key_problem("C", "constant", fields) == "reads no field"
+    # Variables built from those by the target's template, or encoded by it. Without
+    # Merge, a template's keys replace every variable's, and all the others vanish.
     template = external["spec"]["target"].get("template") or {}
     built = set(template.get("data") or {})
     if built:
         assert template.get("mergePolicy") == "Merge", "cluster-secrets' template must use mergePolicy: Merge"
-        assert not built & secrets, f"a built variable has a field's name: {sorted(built & secrets)}"
-        for name, text in template["data"].items():
-            sources = set(re.findall(r"\{\{\s*\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}", text))
-            assert sources and sources <= secrets, f"{name} is built from fields that aren't mapped: {sorted(sources - secrets)}"
+        problems = {name: why for name, text in template["data"].items()
+                    if (why := _template_key_problem(name, text, secrets))}
+        assert not problems, f"cluster-secrets' template: {problems}"
     secrets |= built
 
     kubernetes = repo_root / "kubernetes"
