@@ -55,14 +55,20 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
    `VM.PowerMgmt`, `VM.Migrate`, `VM.GuestAgent.Audit`, `Datastore.AllocateSpace`,
    `Datastore.AllocateTemplate`, `Datastore.Audit`, `SDN.Use`, `Sys.Audit` and
    `Sys.AccessNetwork` (downloading an image by URL). No backups, snapshots, consoles or host
-   settings. On a Proxmox host:
+   settings. A new Talos version replaces `proxmox_download_file.talos_nocloud`, and deleting
+   the old image needs `Datastore.Allocate`, which also allows deleting any volume on that
+   storage: so a role `TofuImages` with only that, on `/storage/syn-nfs` alone, where the
+   images are. On a Proxmox host:
 
    ```sh
    pveum role add TofuGuests -privs VM.Allocate,VM.Audit,VM.Config.CDROM,VM.Config.CPU,VM.Config.Cloudinit,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options,VM.PowerMgmt,VM.Migrate,VM.GuestAgent.Audit,Datastore.AllocateSpace,Datastore.AllocateTemplate,Datastore.Audit,SDN.Use,Sys.Audit,Sys.AccessNetwork
    pveum acl modify / -users tofu@pve -roles PVEAuditor,TofuGuests
+   pveum role add TofuImages -privs Datastore.Allocate
+   pveum acl modify /storage/syn-nfs -users tofu@pve -roles PVEAuditor,TofuGuests,TofuImages
    ```
 
-   A path with its own entry replaces what a user inherits there, not adds to it: so no
+   A path with its own entry replaces what a user inherits there, not adds to it: so the
+   `/storage/syn-nfs` entry lists all three roles, and no
    entry on `/vms/...` for this user (an older `TofuDockerVM` entry on `/vms/107` is removed:
    `pveum acl delete /vms/107 -users tofu@pve -roles PVEAuditor,TofuDockerVM`, then
    `pveum role delete TofuDockerVM`).
