@@ -1,8 +1,8 @@
 # Working in docker/
 
 Each `docker/<stack>/` is deployed by Dockhand as a Git stack, from its `compose.yaml`: to the
-Docker host, or, for `garage`, to the NAS through its Hawser agent. Flux never reads this
-folder. A stack deployed through Hawser runs on that machine's Docker, so its host paths are
+Docker host, or to a NAS through its Hawser agent (`garage`, on the TerraMaster; the Synology's
+agent comes from `ansible/synology-baseline.yml`). Flux never reads this folder. A stack deployed through Hawser runs on that machine's Docker, so its host paths are
 paths there: it can't bind-mount a file from this folder, so a small config goes inline
 (written into a volume by an init service at each deploy, as `garage/compose.yaml` does: a
 `configs:` with `content:` is copied in once and can be lost when the container is recreated). Dockhand's own compose file isn't here: it lives
