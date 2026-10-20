@@ -2,7 +2,9 @@
 # talos_image: every node Ready and every database cluster whole first, its
 # pods checked to fit elsewhere (k8s-capacity-check.yml), then out of service
 # (k8s-node-drain.yml: primaries switched over, cordon, drain), talosctl
-# upgrade with --wait (it installs, reboots and waits for the node), then the
+# upgrade with --wait (it installs, reboots and waits for the node) and
+# --drain=false (the drain is k8s-node-drain.yml's; talosctl's own fetches a
+# kubeconfig from the node, which only a control plane serves), then the
 # node Ready on the new version, uncordoned and every database cluster whole
 # again. A control plane runs alone at a time, so etcd keeps its quorum; its
 # API server answers through the shared address meanwhile. For
@@ -30,7 +32,7 @@
     - name: Upgrade Talos on the node
       ansible.builtin.command: >-
         {{ talosctl_cmd }} --nodes {{ talos_node.address }} --endpoints {{ talos_node.address }}
-        upgrade --image {{ talos_image }} --wait --timeout 20m
+        upgrade --image {{ talos_image }} --wait --timeout 20m --drain=false
       changed_when: true
       when: not ansible_check_mode
 
@@ -68,6 +70,7 @@
         msg:
           - "{{ talos_node.name }} stopped at: {{ ansible_failed_task.name | default('?') }}"
           - "It may still be cordoned. Once it's Ready: kubectl uncordon {{ talos_node.name }}"
+          - "Until then its database instances on local-db (the replicas of every cluster with one here) wait Pending."
           - "Its version now: talosctl -n {{ talos_node.address }} -e {{ talos_node.address }} version"
 
     - name: Stop the run

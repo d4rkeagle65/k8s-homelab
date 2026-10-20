@@ -35,6 +35,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **A worker's drain doesn't know the MariaDB clusters** (found 2026-10-20):
+  `ansible/tasks/cnpg-free-node.yml`, which `k8s-node-drain.yml` runs, switches over
+  CloudNativePG primaries and lists single-instance PostgreSQL clusters, but not
+  mariadb-operator's: Youtarr's (one instance, on local-db) goes down unannounced while its
+  node is out, and Grimmory's three-replica cluster's primary is evicted without a switchover
+  first. Read how mariadb-operator moves a primary (`spec.replication`), then do for it what
+  that file does for CloudNativePG. Left, every Talos upgrade or reboot of those nodes takes
+  Youtarr's database down without saying so, and may cut Grimmory's writes until a failover.
 - **`docker/lldpd/` has no webhooks yet**: the owner deploys it to both NAS Docker hosts as two
   Dockhand Git stacks; then each gets a Provider and Alert in
   `prod/system/external-services/dockhand-webhooks/app/webhooks.yaml` with its Dockhand stack
