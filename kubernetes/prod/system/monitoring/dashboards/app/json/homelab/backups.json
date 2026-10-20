@@ -26,7 +26,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Each database's newest backup. **Green** under 26 hours; **red** when older, or when the last attempt failed. The same conditions alert into Zammad (`homelab.backups` rules).\n\n**Covered:** Postgres (CloudNativePG, base backups and WAL to Garage) and MariaDB (mariadb-operator, physical backups to Garage). **Still to come** (QUEUE-monitoring.md, phase 9): Proxmox's nightly vzdump, the Garage buckets of Databasus and Vaultwarden, and the Synology-to-TerraMaster copy."
+        "content": "Each backup's newest copy. **Green** under 26 hours; **red** when older, or when the last attempt failed. The same conditions alert into Zammad (`homelab.backups` rules).\n\n**Covered:** Postgres (CloudNativePG, base backups and WAL to Garage), MariaDB (mariadb-operator, physical backups to Garage) and Proxmox's nightly vzdump of every guest (each host's `proxmox-backup-metrics`). **Still to come** (QUEUE-monitoring.md, phase 9): the Garage buckets of Databasus and Vaultwarden, and the Synology-to-TerraMaster copy."
       }
     },
     {
@@ -445,9 +445,9 @@
       }
     },
     {
-      "id": 4,
-      "title": "Hours since each database's newest backup",
-      "type": "timeseries",
+      "id": 5,
+      "title": "Proxmox guests (vzdump)",
+      "type": "table",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -455,6 +455,231 @@
       "gridPos": {
         "x": 0,
         "y": 22,
+        "w": 24,
+        "h": 10
+      },
+      "description": "The nightly backup job to the TerraMaster, one row per guest, from the host it runs on. Size over the timeseries below shows a backup that shrinks.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "(time() - max by (vmid, guest, type) (proxmox_backup_archive_timestamp_seconds)) / 3600",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "B",
+          "expr": "max by (vmid, guest, type) (proxmox_backup_archive_size_bytes)",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "C",
+          "expr": "max by (vmid, guest, type) (proxmox_backup_last_result)",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "D",
+          "expr": "max by (vmid, guest, type) (proxmox_backup_guest_covered)",
+          "legendFormat": "",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge"
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "vmid": "ID",
+              "guest": "Guest",
+              "type": "Type",
+              "Value #A": "Hours since backup",
+              "Value #B": "Size",
+              "Value #C": "Last run",
+              "Value #D": "In the backup job"
+            },
+            "indexByName": {
+              "ID": 0,
+              "Guest": 1,
+              "Type": 2,
+              "Hours since backup": 3,
+              "Size": 4,
+              "Last run": 5,
+              "In the backup job": 6
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hours since backup"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "h"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 26
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last run"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "finished",
+                        "color": "green"
+                      },
+                      "0": {
+                        "text": "FAILED",
+                        "color": "red"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "In the backup job"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "1": {
+                        "text": "yes",
+                        "color": "green"
+                      },
+                      "0": {
+                        "text": "NO",
+                        "color": "red"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Size"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Hours since backup",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "title": "Hours since each newest backup",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
         "w": 24,
         "h": 9
       },
@@ -477,6 +702,15 @@
           "refId": "B",
           "expr": "(time() - max by (exported_namespace, mariadb) (mariadb_physicalbackup_last_schedule_timestamp)) / 3600",
           "legendFormat": "{{exported_namespace}}/{{mariadb}}"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "C",
+          "expr": "(time() - max by (vmid, guest) (proxmox_backup_archive_timestamp_seconds)) / 3600",
+          "legendFormat": "{{vmid}} {{guest}}"
         }
       ],
       "fieldConfig": {
@@ -501,6 +735,50 @@
               "mode": "line"
             }
           }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Proxmox backup sizes",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 9
+      },
+      "description": "Each guest's newest archive. A step down without a reason is a backup missing data.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "max by (vmid, guest) (proxmox_backup_archive_size_bytes)",
+          "legendFormat": "{{vmid}} {{guest}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
         },
         "overrides": []
       },
