@@ -63,10 +63,24 @@ def test_a_container_takes_its_bridges_by_prefix_in_nic_order_and_its_tags():
                                          "bridges": ["vmbr7", "vmbr6"], "tags": ["debian", "web"]}}
 
 
-def test_vms_without_an_owned_role_or_being_decommissioned_are_left_out():
+def test_vms_without_an_owned_role_or_decommissioning_and_not_in_main_are_left_out():
     out = m.shape(answer(vm(110, "Talos control plane"), vm(107, None), vm(130, "Something else"),
                          vm(113, "Talos control plane", status="decommissioning")), CFG)
     assert list(out["talos_nodes"]) == ["110"]
+
+
+def test_a_decommissioning_vm_keeps_mains_entry_unchanged():
+    previous = {"talos_nodes": {"113": {"role": "worker", "cores": 4, "memory": 8192, "disk_gb": 40, "data_gb": 0,
+                                        "apply_mode": "auto"}},
+                "piholes": {"109": {"cores": 1, "memory": 512, "disk_gb": 8, "bridges": ["vmbr7"], "tags": []}}}
+    # NetBox's values differ (and 109 lacks fields it would need): main's entry is what's kept.
+    out = m.shape(answer(vm(110, "Talos control plane"),
+                         vm(113, "Talos worker", memory=2048, status="decommissioning"),
+                         vm(109, "Pi-hole", disks=(), mode=None, status="decommissioning"),
+                         vm(199, None, status="decommissioning")), CFG, previous)
+    assert out["talos_nodes"]["113"] == previous["talos_nodes"]["113"]
+    assert out["piholes"] == previous["piholes"]
+    assert m.decommissioning(answer(vm(113, None, status="decommissioning"), vm(110, None))) == {"113"}
 
 
 def test_a_missing_field_refuses_the_whole_file():
