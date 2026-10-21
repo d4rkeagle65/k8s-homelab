@@ -32,9 +32,7 @@ where a playbook says it's required (`run-command.yml`, `docker-host.yml`, `talo
 A name outside the inventory, or a host outside the playbook's group, stops the run before
 anything runs. `select-hosts.yml` does this for the inventory playbooks; the Talos playbooks
 read `target_hosts` themselves, since their nodes come from the cluster; `kea-ha.yml` names
-its pair by role (`kea_primary`, `kea_standby`) instead. The older names (`reboot_hosts`,
-`run_hosts`, `talos_nodes_only`, `reboot_vms`, `docker_host_target`) still work, and a run
-giving both a different old name and `target_hosts` stops.
+its pair by role (`kea_primary`, `kea_standby`) instead.
 
 Every run's log says where Ansible runs (Semaphore's container, as the host `semaphore`) and
 which hosts it picked. `tests/test-ansible-hosts.py` checks each playbook keeps to this.
