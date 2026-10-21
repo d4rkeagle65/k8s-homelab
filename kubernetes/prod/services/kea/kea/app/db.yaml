@@ -38,6 +38,10 @@ spec:
       secret:
         name: kea-db-credentials
   postgresql:
+    # WAL to Garage at least hourly (scripts/tests/test_structure.py,
+    # test_databases_archive_hourly, says why).
+    parameters:
+      archive_timeout: 1h
     # After the operator's own lines (local, and the replicas' certificates):
     # nothing without TLS, and kea's database only from the two Kea hosts.
     pg_hba:
