@@ -30,7 +30,7 @@ spec:
             # release since 3.1.0. Its database is upgraded past stable's.
             image:
               repository: linuxserver/lidarr
-              tag: nightly-3.1.6.5102-ls220
+              tag: nightly-3.1.6.5102-ls221
             env:
               - name: PUID
                 value: "${MEDIA_PUID}"
