@@ -126,20 +126,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   matrix) and the add-ons' ranges: Calico 3.33 is the one that covers 1.37 (3.33.0 tested on
   1.35-1.37). Bump the claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
-- **Every Ansible template picks its hosts with `target_hosts`** (2026-10-21,
-  `ansible/select-hosts.yml`; `ansible/README.md`, "Picking the hosts"). Left, in Semaphore: a
-  survey variable `target_hosts` (target "Variable", optional) on each template that works on
-  hosts: "Config: Admin SSH Key and Settings", "Setting: Debian Baseline", "Node: Docker
-  Update", "Setting: OpenWRT APs", "Setting: Pi-Hole", "Node: Pi-Hole Update", "Setting:
-  Proxmox Host", "Host: Proxmox Upgrade", "Retire: Old SSH Keys", "Setting: Synology Baseline"
-  and "Node: Upgrade Talos"; and on the four with an older name, `target_hosts` in its place:
-  `reboot_hosts` on "Reboot: Proxmox Hosts", `run_hosts` on "Execute: Command" (required),
-  `reboot_vms` on "Reboot: Talos VMs" (required) and `docker_host_target` on "Setup: Docker
-  Host w/ Dockhand" (required). Then a pull request removes the older names
-  (`select_alias` in `proxmox-reboot.yml`, `run-command.yml` and `docker-host.yml`;
-  `reboot_vms` in `talos-reboot.yml`, `talos_nodes_only` in `talos-upgrade.yml`). Until the
-  surveys change, a run can only be limited through CLI args, and the old names keep two
-  ways to say one thing.
+- **Dry-run the host jobs under `target_hosts` before their next real run** (2026-10-21,
+  `ansible/select-hosts.yml`; `ansible/README.md`, "Picking the hosts"). Every Semaphore
+  template that works on hosts has the survey variable (read back; Run Command task 1080 ran on
+  the one host it named). Left: a dry run of "Reboot: Proxmox Hosts" (`ALL`), "Host: Proxmox
+  Upgrade" and "Node: Upgrade Talos", read through, since beyond host selection they ran only
+  against a fake inventory; then a pull request removes the older names (`select_alias` in
+  `proxmox-reboot.yml`, `run-command.yml` and `docker-host.yml`; `reboot_vms` in
+  `talos-reboot.yml`, `talos_nodes_only` in `talos-upgrade.yml`), which no survey sends any
+  more. Left, the next real reboot or upgrade is the first run of its changed steps.
 
 ## Cleanup
 
