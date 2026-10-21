@@ -27,18 +27,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   runs on the first Docker VM only. The TerraMaster (Garage's card) and the second VM
   (kea-standby) would each need the stack with their own address variable, and a server in
   Homepage's `docker.yaml`; left, those cards show no container state.
-- **Vaultwarden's backup archives made before the ZIP password open with a published one**
-  (found 2026-10-21): with `ZIP_PASSWORD` blank, ttionya/vaultwarden-backup used its own default
-  (`scripts/includes.sh`), printed in its source. The compose file now reads
-  `VAULTWARDEN_BACKUP_ZIP_PASSWORD` by reference (a random value the owner added to Key Vault on
-  2026-10-21). Since its merge, `vaultwarden-backup` was recreated (02:24Z), its `docker
-  inspect` azurekv count is 0, and Dockhand's old `BACKUP_ZIP_PASSWORD` is deleted (the
-  owner); its `ZIP_PASSWORD` is set, 48 characters, not the default (Run Command task 983).
-  Left: the next nightly archive (03:30 UTC) opening with the new password and not the
-  default (the owner, as a restore would). The
-  archives from before keep the default until they age out (30 days, about 2026-11-20): until
-  then anyone who reads `docker-backups` can open those, each holding the key that signs
-  Vaultwarden's logins and its `config.json`
+- **Vaultwarden's backup archives up to 2026-10-20 open with a published password**
+  (found 2026-10-21): with `ZIP_PASSWORD` blank, ttionya/vaultwarden-backup used its own
+  default (`scripts/includes.sh`), printed in its source. Since 2026-10-21 the archives use
+  `VAULTWARDEN_BACKUP_ZIP_PASSWORD` (the owner tested `backup.20261021.7z`: it opens with it, and
+  `backup.20261020.7z` doesn't). The older ones in `docker-backups/vaultwarden/` age out at 30
+  days, about 2026-11-20; until then anyone who reads that bucket can open them, each holding
+  the key that signs Vaultwarden's logins and its `config.json`. Deleting them now closes that
+  sooner, at the cost of the history before 2026-10-21 (the owner's call).
 - **mariadb-operator's webhook is one pod** (found 2026-10-21): draining its node fails every
   MariaDB reconcile ("failed calling webhook vmariadb-v1alpha1.kb.io", Ready=False Failed) until
   the replacement is ready, about 30 s in task 992. Two replicas with a PodDisruptionBudget, if
