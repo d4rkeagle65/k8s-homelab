@@ -235,6 +235,34 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 | `cluster-secrets` Secret | Private values: the domain, IPs, hostnames, promoted Secrets' values. capture replaces each one wherever it appears in captured files. | A secret in Azure Key Vault named after `NAME` with `_` as `-` (`MEDIA_SONARR_API_KEY` is `MEDIA-SONARR-API-KEY`). External Secrets copies it into the Secret (`kubernetes/secrets/cluster-secrets.yaml`, every 15 minutes). |
 | `cluster-settings` ConfigMap | Plain settings that are fine in git, such as a UID like `1027`. Never searched for. | `kubernetes/flux/meta/vars/cluster-settings.yaml` |
 
+**Its name.** One standard covers every name in Key Vault, the cluster's and the Dockhand
+stacks' alike (`docker/secret-names.yaml` maps each stack variable to its name):
+
+- **One thing, one secret.** The cluster and a Dockhand stack that use the same credential
+  or setting read the same secret. Two credentials are two secrets, whatever their values:
+  equal values are a reason to look, never a reason to merge. A fact given to many apps
+  (the owner's address) is one.
+- **`<SYSTEM>_<THING>`, named for the system the value belongs to**, not for the app that
+  reads it: Pi-hole 1's password is `PIHOLE_1_PASSWORD` for every app that uses it; a client
+  secret Authentik issues is `AUTHENTIK_<APP>_OIDC_CLIENT_SECRET`; a NetBox token is
+  `NETBOX_<CONSUMER>_TOKEN`; a Garage key is `GARAGE_<CONSUMER>_S3_ACCESS_KEY_ID` and
+  `..._SECRET_ACCESS_KEY`; databasus's login on X's database is `DATABASUS_<X>_DB_PASSWORD`;
+  a sender's Entra app for the mail relay is `ENTRA_<APP>_SMTP_USERNAME`
+  (`tenant_id@client_id`) and `..._SMTP_CLIENT_SECRET`.
+- **No generic names.** `TZ`, `DOMAIN`, `ADMIN_TOKEN`, `POSTGRES_PASSWORD`, `OIDC_*` and
+  `SSO_*` take their system's prefix. Facts about the whole setup stand alone: `TIMEZONE`,
+  `BASE_DOMAIN`, `CLUSTER_DOMAIN`, `OWNER_EMAIL`.
+- **An instance number is its own word:** `<SYSTEM>_<N>_<THING>` (`PIHOLE_2_PASSWORD`). A
+  host's address is one variable, `<HOST>_<N>_<NETWORK>_ADDRESS`, the `_<N>` only where
+  there are several (`DOCKER_VM_1_MGMT_ADDRESS`, `TERRAMASTER_MGMT_ADDRESS`); a service
+  binds to its host's address, never to one of its own.
+- **Built, not stored:** a URL or hostname under the domain is written from
+  `${BASE_DOMAIN}`. What is fine in git stays in git: a Docker network name or a flag goes
+  in the compose file, not in a variable.
+- **Older names stay.** A variable that predates the standard keeps its name unless
+  something else comes to share its value (`PIHOLE1_MGMT_ADDRESS`), and so do the names
+  capture gives a promoted Secret's values.
+
 **A new private value:**
 1. Add its secret to Key Vault plain, whatever reads it:
    `./scripts/keyvault-secrets.ps1 NAME -New -Raw` asks for the value without
