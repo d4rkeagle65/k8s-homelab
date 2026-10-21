@@ -404,13 +404,29 @@ against today's value by hash.
       10-20 08:03Z; port 443 open on the production address and refused on the management
       one; `/alive` answering 200 through Traefik and direct; `bitwarden-cli` ready, no
       restarts, and the four ClusterSecretStores Valid
-- [ ] New values plain too, due now that the switch's batches are done (#182). `scripts/README.md`'s "A new private
-      value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
-      lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
-      (`promote.py`'s "Secrets" comment, `varsub.py`'s `_write_entries`). Left so, each Secret
-      promoted afterwards adds a base64 value, and "every value in Key Vault is plain" (Done
-      when) stops being true: each new one wants its plain value and a
-      `{{ .NAME | b64enc }}` template entry
+- [ ] New values plain too: #189, open and passing its suite (2026-10-21), for the owner to
+      merge. `scripts/README.md`'s "A new private value" stores a value plain
+      (`keyvault-secrets.ps1 NAME -New -Raw`) and adds its `{{ .NAME | b64enc }}` template
+      entry in the mapping's pull request when a Secret's `data:` reads it; capture lists a
+      promoted Secret's value in `kubernetes/.local/vaultwarden-pending.yaml` plain, with that
+      entry (`varsub.pending_rows`). `_write_entries` stays base64: it writes the legacy
+      substitutions file, whose literals are what captured files hold. Its first live check is
+      the next Secret promoted: its row plain, and its manifest written once the value is in
+      Key Vault and mapped with its entry
+- [ ] `scripts/keyvault-secrets.ps1 NAME -New` without `-Raw` stores a new value base64 when
+      the checkout already uses `${NAME}` in a Secret's `data:` (`$heldBase64` doesn't ask
+      whether the ExternalSecret maps it). Once its `{{ .NAME | b64enc }}` entry is live, the
+      template encodes it twice and the app gets a wrong value with no error. #189's recipe
+      passes `-Raw`, so only an off-recipe run hits it. The fix: hold a variable the
+      ExternalSecret doesn't map yet plain (keeping the refusal for one also used outside a
+      Secret's `data:`), name its template entry in the "doesn't map" warning, and show the
+      same in the listing's Encoding. No suite in the repo covers the script: #153 was proved
+      on a mock vault and a fake kubectl
+- [ ] Once the Pi-hole pair has moved, `scripts/tests/test_structure.py` could require a
+      `{{ .NAME | b64enc }}` entry for every variable a Secret's `data:` reads, so a new value
+      held base64 fails the gate instead of resting on the README.
+      `test_every_substituted_variable_is_defined` checks a template key's form only where one
+      exists. A value that isn't text (held base64, with no entry) would need naming there
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
