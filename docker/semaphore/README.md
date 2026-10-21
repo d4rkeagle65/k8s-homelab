@@ -45,10 +45,7 @@ the setup: the web UI is on the host's management address only, served through T
 ## Variables (Key Vault, referenced from `.env`)
 
 Each is a Key Vault secret, `_` as `-`, read through the vault bound as the stack's secret
-provider in Dockhand, with its selector empty. One waits in Dockhand, marked secret:
-`SEMAPHORE_OIDC_CLIENT_SECRET`, the plain value of Key Vault's
-`AUTHENTIK-SEMAPHORE-OIDC-CLIENT-SECRET` (held base64 there for now), the same one Authentik's
-blueprint reads.
+provider in Dockhand, with its selector empty.
 
 | Variable | Value |
 |---|---|
@@ -59,6 +56,7 @@ blueprint reads.
 | `SEMAPHORE_ADMIN_EMAIL` | the built-in admin's email: **not** your Authentik email. Semaphore matches an Authentik login to users by email and refuses a local one, so with the same address you can't log in through Authentik (e.g. `you+semaphore-admin@<domain>`) |
 | `SEMAPHORE_ACCESS_KEY_ENCRYPTION` | a random key from step 3. Losing it loses every stored key and secret; keep a copy in Vaultwarden |
 | `SEMAPHORE_COOKIE_HASH`, `SEMAPHORE_COOKIE_ENCRYPTION` | the other two random keys |
+| `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` | Semaphore's client secret in Authentik, the same one Authentik's blueprint reads |
 | `TFSTATE_DB_PASSWORD` | a new random password for the `tfstate` role (OpenTofu's state) |
 | `DATABASUS_SEMAPHORE_DB_PASSWORD` | a new random password for the read-only `databasus` role (`docker/databasus/README.md`) |
 | `TIMEZONE` | the timezone schedules run in, e.g. `America/New_York` |
