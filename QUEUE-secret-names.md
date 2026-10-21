@@ -447,14 +447,9 @@ The owner deletes these once every stack and manifest reads its standard name. N
 any of them now unless its line says so. A deleted Key Vault name stays reserved for 90 days
 (purge protection), so only what is on this list goes. Each step adds what it leaves behind.
 
-**Key Vault secrets:**
-
-- `ACME-EMAIL`, `ORGANIZR-ADMIN-EMAIL`, `ZAMMAD-ADMIN-EMAIL`: now `OWNER-EMAIL` (#143)
-- `CNPG-BACKUP-S3-ENDPOINT`: now `GARAGE-S3-ENDPOINT` (#143)
-- `TERRAMASTER-ADDRESS`: now `TERRAMASTER-MGMT-ADDRESS` (#143)
-- `PIHOLE-URL`, `PIHOLE2-URL`: now `PIHOLE-1-URL`, `PIHOLE-2-URL` (#143)
-- `CADVISOR-ADDRESS`: now `DOCKER-VM-1-MGMT-ADDRESS` (#140); never mapped into the cluster
-- `PIHOLE-PASSWORD`, `PIHOLE2-PASSWORD`: now `PIHOLE-1-PASSWORD`, `PIHOLE-2-APP-PASSWORD` (#190)
+**Key Vault secrets:** none left. The owner deleted the ten old names on 2026-10-21. Read back:
+all ten soft-deleted (kept 90 days by purge protection) and none active, `cluster-secrets`
+refreshed after and `SecretSynced`, and every ExternalSecret Ready.
 
 **Dockhand stack variables:** the listing of every one at 22:40 EDT on 2026-10-20, after the
 queue had recorded them all deleted, still holds six:
