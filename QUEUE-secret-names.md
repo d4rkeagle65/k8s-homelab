@@ -350,7 +350,7 @@ against today's value by hash.
       `docker ps -a --filter label=com.docker.compose.project=semaphore`), both init containers
       exited (0) at about 21:12Z, which each deploy re-runs, while `semaphore` and
       `semaphore-postgres` stayed up from 10-18. An unresolved reference would have changed
-      their config and recreated them. Its OIDC client secret followed, plain since #173: the
+      their config and recreated them. Its OIDC client secret followed (#194), plain since #173: the
       compose file reads `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` by reference, Key Vault's
       value equal to Dockhand's by hash (the copy script's dry run, 2026-10-21: 52 held the
       same, none base64, none to add). No Dockhand variable has the new name, so nothing goes
@@ -473,8 +473,8 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `NETBOX_API`, `KEA_NETWORK`, `TZ`, `DATABASUS_DB_PASSWORD` and `NETBOX_TOKEN`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
   `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN` (#172); and its
-  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET`, once a login
-  through Authentik works
+  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` (#194), once a
+  login through Authentik works
 - netbox's `NETBOX_BIND_ADDRESS`, `NETBOX_HOST`, `OIDC_ENDPOINT`, `OIDC_CLIENT_SECRET`,
   `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
