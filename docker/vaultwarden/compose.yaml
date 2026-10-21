@@ -27,17 +27,17 @@
 # the Garage bucket docker-backups on the NAS, nightly: the database through
 # SQLite's own .backup (safe while Vaultwarden runs), with the RSA key that
 # signs logins, config.json, attachments and Sends, in one 7z archive
-# encrypted with BACKUP_ZIP_PASSWORD. Keep that password OUTSIDE Vaultwarden:
-# it's what opens the backup when Vaultwarden is the thing that's gone. Blank,
-# the image falls back to its own published default (scripts/includes.sh),
-# which protects nothing.
+# encrypted with VAULTWARDEN_BACKUP_ZIP_PASSWORD. Keep that password OUTSIDE
+# Vaultwarden: it's what opens the backup when Vaultwarden is the thing that's
+# gone. Blank, the image falls back to its own published default
+# (scripts/includes.sh), which protects nothing.
 # Restore: see the image's README (`restore` command, the container stopped).
 #
-# Backup variables, from Key Vault but for the last:
+# Backup variables, from Key Vault:
 #   GARAGE_S3_ENDPOINT  Garage's S3 API
 #   VAULTWARDEN_BACKUP_S3_ACCESS_KEY_ID, VAULTWARDEN_BACKUP_S3_SECRET_ACCESS_KEY
 #                       the docker-backups key
-#   BACKUP_ZIP_PASSWORD the archive's password: blank for now
+#   VAULTWARDEN_BACKUP_ZIP_PASSWORD  the archive's password
 services:
   vaultwarden:
     mem_limit: 768m
@@ -107,7 +107,7 @@ services:
       BACKUP_KEEP_DAYS: "30"
       ZIP_ENABLE: "TRUE"
       ZIP_TYPE: 7z
-      ZIP_PASSWORD: ${BACKUP_ZIP_PASSWORD}
+      ZIP_PASSWORD: ${VAULTWARDEN_BACKUP_ZIP_PASSWORD}
       DISPLAY_NAME: vaultwarden
       # Garage over S3: path-style addressing and its region name; the bucket
       # already exists, so rclone doesn't try to create it.
