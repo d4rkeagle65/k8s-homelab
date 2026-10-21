@@ -86,16 +86,23 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   probes) got theirs; cert-manager's cainjector has no health endpoint (its 1.21 chart offers
   no probe); the config-reloader and dashboard sidecars, Calico, kube-proxy, Authentik's
   outposts and the tunnel connector belong to their charts and operators.
-- **Pod Security: `restricted` where it holds.** Since 2026-10-16 every namespace whose pods
-  pass enforces `baseline` (`pod-security.kubernetes.io/enforce` in its `namespace.yaml`; each
-  checked by a server-side dry run of the label and its workload templates, CronJobs
-  included). Left unlabelled, and so `privileged` (the control planes' cluster-wide
-  default): calico-system, tigera-operator, monitoring, metallb-system, metrics-server,
-  democratic-csi, homeassistant (host network, host paths, NET_RAW) and local-path-storage
-  (its provisioner's helper pods mount host paths). Next: `restricted` for the 13 that pass it
-  today (cert-manager, cluster-access, cnpg-system, external-dns, external-secrets,
-  external-services, nebula-sync, redis-ha, renovate, smtp-relay, both Traefiks), once their
-  CronJob and Job templates are checked against it too.
+- **Pod Security: `restricted` for the rest.** `pod-security.kubernetes.io/enforce` in each
+  `namespace.yaml`: 14 namespaces enforce `restricted` (cert-manager, cluster-access,
+  cnpg-system, external-dns, external-secrets, external-services, headlamp, kea, nebula-sync,
+  redis-ha, renovate, smtp-relay, both Traefiks), 21 `baseline`. Left unlabelled, and so
+  `privileged` (the control planes' cluster-wide default): calico-system, tigera-operator,
+  monitoring, metallb-system, metrics-server, democratic-csi, homeassistant (host network,
+  host paths, NET_RAW) and local-path-storage (its provisioner's helper pods mount host
+  paths). The `baseline` ones fail `restricted` on their containers' security contexts
+  (`allowPrivilegeEscalation`, capabilities not dropped, `runAsNonRoot`, seccomp), Grimmory on
+  a volume type too: each needs its app's own settings changed, one app at a time. Check a
+  namespace both ways before raising it: a server-side dry run of the label (`kubectl label
+  --dry-run=server --overwrite ns <ns> pod-security.kubernetes.io/enforce=restricted`), which
+  judges only the pods running; and every pod template it can start, each made a Pod and
+  dry-run created in a throwaway namespace enforcing `restricted`: Deployments, StatefulSets
+  (claim templates as volumes), DaemonSets, Jobs, CronJobs, Helm hooks (`helm get hooks`, Jobs
+  that exist only during an upgrade) and an operator's Jobs (CloudNativePG's share its
+  instance pods' security contexts).
 - **Prometheus doesn't scrape etcd** (`kube-prometheus-stack`'s `kubeEtcd` is off), so there's
   no WAL fsync latency, leader changes or database size history: on 2026-10-13 the Talos control
   plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. The control

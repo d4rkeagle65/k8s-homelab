@@ -76,7 +76,7 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] **hardening** (2026-10-16): Pod Security's `baseline` enforced on 31 namespaces (Zammad's
       privileged init container gone first); probes for n8n's runners and External Secrets'
       controller. Left with the owner: node-loss timing (a Talos control-plane change, `QUEUE.md`),
-      as for etcd scraping; `restricted` for 13 namespaces once their Job templates are checked
+      as for etcd scraping
 - [x] **small-cleanups** (2026-10-16): Lidarr's `migrations/` out; Garage's config written into
       a volume at each deploy (checked on the NAS); the Docker live-restore and upgrade
       switches in `docker-vm-update.yml` (off until the owner sets them); and found on the way,
