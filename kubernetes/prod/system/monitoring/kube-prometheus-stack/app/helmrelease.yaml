@@ -31,15 +31,21 @@ spec:
     fullnameOverride: kps
     cleanPrometheusOperatorObjectNames: true
 
-    # kubeadm binds the scheduler's, the controller-manager's, etcd's and
-    # kube-proxy's metrics to 127.0.0.1, out of Prometheus's reach: their scrapes
-    # and rules stay off until those bind to the node address (phase 5).
+    # The scheduler and controller-manager listen on the node address
+    # (talos/patches/controlplane-metrics.yaml), found by their pods' labels.
+    # etcd is a Talos service, not a pod, so this release keeps only its rules
+    # and monitors/app/scrapeconfig-etcd.yaml scrapes it. kube-proxy's metrics
+    # stay on 127.0.0.1 (Talos's bootstrap manifest), so it stays off.
     kubeEtcd:
-      enabled: false
+      enabled: true
+      service:
+        enabled: false
+      serviceMonitor:
+        enabled: false
     kubeScheduler:
-      enabled: false
+      enabled: true
     kubeControllerManager:
-      enabled: false
+      enabled: true
     kubeProxy:
       enabled: false
     windowsMonitoring:
@@ -110,10 +116,6 @@ spec:
         kubeApiserverBurnrate: false
         kubeApiserverHistogram: false
         kubeApiserverSlos: false
-        etcd: false
-        kubeControllerManager: false
-        kubeSchedulerAlerting: false
-        kubeSchedulerRecording: false
         kubeProxy: false
         windows: false
 

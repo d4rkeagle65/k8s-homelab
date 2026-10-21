@@ -1,0 +1,16 @@
+# The controller-manager's and the scheduler's metrics where Prometheus can
+# reach them: Talos binds both to 127.0.0.1. They serve HTTPS (10257, 10259)
+# and authorize each scrape against the API, as before. 0.0.0.0 rather than
+# the node's address: Talos's own health checks reach them on localhost.
+# On Talos 1.14 these are their own documents; the v1alpha1 config's
+# cluster.controllerManager and cluster.scheduler are refused beside them.
+# etcd's metrics port is controlplane-etcd-metrics.yaml.
+apiVersion: v1alpha1
+kind: KubeControllerManagerConfig
+extraArgs:
+  bind-address: 0.0.0.0
+---
+apiVersion: v1alpha1
+kind: KubeSchedulerConfig
+extraArgs:
+  bind-address: 0.0.0.0
