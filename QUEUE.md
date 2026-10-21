@@ -151,6 +151,21 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **13 of the 16 CloudNativePG primaries sit on one worker** (found 2026-10-21, after the
+  Talos 1.14.4 run): each drain switched its primaries to another instance
+  (`ansible/tasks/cnpg-free-node.yml`), and nothing moves them back: one worker holds 13,
+  another 3, the other two none. CPUThrottlingHigh came up for most of them on that node
+  together. Left, losing that one worker fails over 13 databases at once, and their writes
+  share one node's CPU. After a run that drains every worker, switch primaries back out
+  (`kubectl cnpg promote`, a field manager of our own) so each worker holds about a quarter.
+
+- **The `external-dns-netbox` ServiceMonitor scrapes a webhook that has no metrics** (found
+  2026-10-21; `TargetDown` firing since 2026-10-16): the chart's ServiceMonitor also lists
+  the `http-webhook` port (8080), where `netbox-dns-webhook.py` answers `/metrics` with 404.
+  Left, a standing `TargetDown` hides a real one for that job. Serve a `/metrics` from the
+  webhook (requests to NetBox and their failures would be worth having), or drop that
+  endpoint through the chart's values.
+
 - **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
   plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
   DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected
