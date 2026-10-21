@@ -10,6 +10,7 @@ secret docker/secret-names.yaml gives; Dockhand resolves those at each deploy
   a value             a real value one commit away from a public repo
   another reference   a variable reading a secret meant for another, or one no map gives
   no mem_limit        a long-running service that can take the whole host's memory with it
+  proxies differ      a Docker socket proxy allowing what another host's doesn't
 """
 
 import os
@@ -124,6 +125,31 @@ for compose in stacks:
     t.check("  it lists every variable compose.yaml uses", sorted(used - set(entries)), [])
     t.check("  and none that compose.yaml doesn't", sorted(set(entries) - used), [])
     t.check("  every value is blank or its own Key Vault reference", not_allowed(entries, known), [])
+
+def socket_proxies(texts):
+    """{folder: (image, command)} for each wollomatic/socket-proxy service: the stacks that
+    give Homepage a read-only Docker view (docker/docker-socket-proxy*), which differ only in
+    the address they publish on."""
+    found = {}
+    for folder, text in texts.items():
+        for name, svc in ((YAML(typ="safe").load(text) or {}).get("services") or {}).items():
+            image = str((svc or {}).get("image", ""))
+            if image.split(":")[0] == "wollomatic/socket-proxy":
+                found[folder] = (image, tuple((svc or {}).get("command") or []))
+    return found
+
+
+t.check("SELF-TEST: a proxy allowing more than another is CAUGHT",
+        len(set(socket_proxies({
+            "a": "services:\n  p:\n    image: wollomatic/socket-proxy:1\n    command: [-allowGET=x]\n",
+            "b": "services:\n  p:\n    image: wollomatic/socket-proxy:1\n    command: [-allowGET=.*]\n",
+        }).values())), 2)
+
+t.section("the Docker socket proxies allow the same requests")
+proxies = socket_proxies({os.path.dirname(t.rel(c)): t.source(c) for c in stacks})
+t.check("there are socket-proxy stacks to compare", len(proxies) > 0, True)
+t.check("  every one has the same image and command",
+        sorted(f for f in proxies if proxies[f] != proxies.get("docker/docker-socket-proxy")), [])
 
 t.section("every long-running service has a memory limit")
 for compose in stacks:
