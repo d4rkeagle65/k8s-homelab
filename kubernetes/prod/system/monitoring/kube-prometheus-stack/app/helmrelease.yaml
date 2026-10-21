@@ -177,8 +177,11 @@ spec:
         scrapeConfigSelectorNilUsesHelmValues: false
 
     alertmanager:
-      # The chart's default config (its inhibit rules, Watchdog to nowhere) plus
-      # one route: warning and critical alerts to Zammad through zammad-bridge
+      # The chart's default config (its inhibit rules) plus two routes: the
+      # always-firing Watchdog to Healthchecks.io every 5 minutes, the
+      # dead-man's switch outside the cluster that notifies the owner when the
+      # pings stop (the cluster, Prometheus, Alertmanager or the internet down);
+      # and warning and critical alerts to Zammad through zammad-bridge
       # (QUEUE-zammad.md), each alert on its own (group_by '...') so a ticket
       # opens, gets a note every repeat_interval while it fires, and closes on
       # recovery. Setting this replaces the chart's default whole, so its parts
@@ -204,13 +207,20 @@ spec:
           repeat_interval: 12h
           receiver: "null"
           routes:
-          - receiver: "null"
+          - receiver: healthchecks
             matchers: [alertname = "Watchdog"]
+            group_wait: 0s
+            group_interval: 1m
+            repeat_interval: 5m
           - receiver: zammad
             matchers: [severity =~ "warning|critical", alertname != "InfoInhibitor"]
             group_by: ["..."]
         receivers:
         - name: "null"
+        - name: healthchecks
+          webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-healthchecks/url
+            send_resolved: false
         - name: zammad
           webhook_configs:
           - url: http://zammad-bridge.monitoring.svc.${CLUSTER_DOMAIN}:8080/alertmanager
@@ -220,6 +230,9 @@ spec:
       alertmanagerSpec:
         # Two, clustered, on different workers.
         replicas: 2
+        # The dead-man's switch's ping URL, at
+        # /etc/alertmanager/secrets/alertmanager-healthchecks/url.
+        secrets: [alertmanager-healthchecks]
         # Scheduled before ordinary pods when nodes are short (cluster-policy).
         priorityClassName: homelab-critical
         podAntiAffinity: hard
