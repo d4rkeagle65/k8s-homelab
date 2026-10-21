@@ -817,6 +817,33 @@ def test_replicated_databases_switch_over(repo_root):
     assert not wrong, f"replicated Clusters that restart their primary in place: {wrong}"
 
 
+def test_databases_archive_hourly(repo_root):
+    """Every CloudNativePG Cluster sets archive_timeout: 1h. A forced WAL switch writes a
+    whole 16 MB segment however little changed, so at CloudNativePG's default of 5 minutes an
+    app that writes a little all the time (the *arrs) costs each instance about 4.5 GB of disk
+    a day, the hosts' largest writer (2026-10-21). An hour bounds what's lost if both
+    instances' disks go; a restore test runs SELECT pg_switch_wal() on the primary rather
+    than waiting for the switch.
+    """
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes/*.yaml"], cwd=repo_root,
+                             capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    clusters, wrong = 0, []
+    for rel in filter(None, tracked):
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        if "postgresql.cnpg.io/" not in text:
+            continue
+        for doc in _yaml.load_all(text):
+            if not isinstance(doc, dict) or doc.get("kind") != "Cluster" \
+                    or not str(doc.get("apiVersion", "")).startswith("postgresql.cnpg.io/"):
+                continue
+            clusters += 1
+            params = ((doc.get("spec") or {}).get("postgresql") or {}).get("parameters") or {}
+            if str(params.get("archive_timeout")) != "1h":
+                wrong.append(f"{rel} ({params.get('archive_timeout', 'unset: 5min')})")
+    assert clusters, "found no CloudNativePG Cluster, so nothing was checked"
+    assert not wrong, f"Clusters not archiving hourly: {wrong}"
+
+
 _GOTK_SELECTOR_RE = re.compile(r"gotk_resource_info\s*\{([^}]*)\}")
 _MATCHER_LABEL_RE = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)\s*(?:=~|!~|!=|=)\s*"')
 # On every gotk_resource_info series beside the config's own labels: kube-state-metrics'
