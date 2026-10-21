@@ -102,6 +102,11 @@
         - name: Every database cluster is healthy before this host
           ansible.builtin.include_tasks: tasks/databases-healthy.yml
 
+        - name: Flux is still held, if this run holds it
+          ansible.builtin.include_tasks: tasks/flux-held.yml
+          vars:
+            flux_frozen: "{{ hostvars['localhost'].flux_frozen | default(false) }}"
+
         - name: Read the Proxmox guests
           ansible.builtin.include_tasks: tasks/proxmox-guests.yml
 
