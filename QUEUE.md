@@ -16,10 +16,11 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a setting.
 
-7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
-   `ansible/docker-vm-update.yml`, both off until set (its header says what each does). The
-   owner sets `docker_live_restore: true` on "Node: Docker Update" and runs it; then
-   `upgrade_docker: true` once the live-restore run has read back on.
+7. **Docker upgrades from Semaphore:** live-restore is on on both Docker VMs ("Node: Docker
+   Update" tasks 1021 and 1024, read back from `docker info` 2026-10-21), so the daemon can
+   restart without taking the containers down. Left: the owner runs it with
+   `upgrade_docker: true` (both VMs report an upgrade due from 29.9.1), and reboots the first
+   VM, which reports a reboot due, when Vaultwarden, Kea, Dockhand and Semaphore can be down.
 
 ## Next
 
@@ -67,10 +68,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   day, reset at 00:00 UTC, and 60 a minute with bursts of 10; a re-fetched work costs about
   one, so keep a day's repairs to about 1,000 and leave the rest to Bookshelf. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
-- **systemd-resolved caches "no such name" on the Debian hosts** (found 2026-10-17): a hostname
-  asked for before ExternalDNS made its record stayed unresolvable there though the Pi-holes
-  answered it. `tasks/resolver-cache.yml` (in `baseline.yml`, 2026-10-17) sets
-  `Cache=no-negative` where resolved runs; left: the owner's baseline run
 - **The Pi-holes answer every network from Production** (found 2026-10-16, Run Command task
   784): from their management, DMZ and other addresses, replies leave by `eth0`, Production's
   default route, so a client on another subnet reaching one of those addresses through the
@@ -78,16 +75,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   containers whose networks Proxmox configures, so `tasks/management-routing.yml` only
   reports them: give each address its own table and rule (as the Docker VMs have), through
   the containers' network config, and check DMZ clients' DNS before and after.
-- **Docker on the Docker VM was upgraded by "Node: Docker Update" (task 749, 2026-10-16), against
-  its hold:** `docker-vm-update.yml` read the installed packages through the command module,
-  which expanded `${Package}` as an environment variable, so its list to hold was empty and it
-  upgraded docker-ce to 29.9.1, restarting the daemon and every container on the VM (Kea,
-  Vaultwarden, Semaphore, NetBox, Tailscale; all back within seconds; Semaphore lost the task,
-  which shows "running" forever). Fixed: the read goes through the shell, and the run stops
-  unless every installed Docker package reads back held. Live-restore is still off: the run's
-  `docker_live_restore` was a survey variable targeting "Environment", which Ansible never
-  sees. Left: the survey's target set to "Variable", a dry run, then the run; task 749 stopped
-  in Semaphore by the owner.
 - **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
   check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
   the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
