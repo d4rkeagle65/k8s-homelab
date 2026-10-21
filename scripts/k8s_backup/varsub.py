@@ -5,8 +5,8 @@ with a ${NAME} placeholder that Flux substitutes back at apply time.
 The values live in two objects in flux-system that every Flux
 Kustomization reads (postBuild.substituteFrom):
 
-- `cluster-secrets`: a Secret built by External Secrets from the custom
-  fields of one Vaultwarden item (kubernetes/secrets/cluster-secrets.yaml).
+- `cluster-secrets`: a Secret built by External Secrets from Azure Key
+  Vault, one secret per variable (kubernetes/secrets/cluster-secrets.yaml).
   Every non-empty value here is a literal capture replaces.
 - `cluster-settings`: a ConfigMap committed in git
   (kubernetes/flux/meta/vars/cluster-settings.yaml) for plain settings like
@@ -17,9 +17,9 @@ capture reads both from the live cluster (from_live). A new private value
 it finds -- an auto-detected domain (auto_seed_candidates) or a promoted
 Secret's value -- is replaced in this run's output at once, and written to
 the gitignored kubernetes/.local/vaultwarden-pending.yaml to be added to
-Vaultwarden by hand. Each run also writes the full list to the gitignored
-kubernetes/.local/substitutions-cache.yaml, which the pre-commit hook's
-leak check reads without cluster access.
+Key Vault by hand (pending_rows). Each run also writes the full list to the
+gitignored kubernetes/.local/substitutions-cache.yaml, which the pre-commit
+hook's leak check reads without cluster access.
 
 Before cluster-secrets existed, the values lived in the gitignored
 kubernetes/.local/variable-substitutions.yaml (load_substitutions); capture
@@ -247,7 +247,7 @@ def auto_seed_candidates(cluster_raw: dict, ingress_items: list[dict], known: li
     (ACME account emails, non-IP NFS server hostnames, and a dominant Ingress
     domain -- see _dominant_domains) that aren't among `known` yet, as new
     entries with a free placeholder name. The caller replaces them in this
-    run's output and lists them for Vaultwarden; nothing is written here.
+    run's output and lists them for Key Vault; nothing is written here.
     """
     # Imported here (not at module load) to avoid a capture.py <-> varsub.py
     # <-> secretscan.py import cycle; classify_ip has no dependency back on
@@ -312,15 +312,17 @@ def from_live(secret: dict | None, settings: dict | None) -> list[dict]:
 SETTINGS_PATH = ("kubernetes", "flux", "meta", "vars", "cluster-settings.yaml")
 
 PENDING_HEADER = (
-    "# Local, gitignored, written by capture: private values Vaultwarden doesn't hold yet.\n"
-    "# Add each as a hidden custom field of the `cluster-secrets` item (field name = name),\n"
-    "# and an entry in kubernetes/secrets/cluster-secrets.yaml, then re-run capture.\n"
-    "# capture deletes this file once none are left.\n"
+    "# Local, gitignored, written by capture: private values the live cluster-secrets Secret\n"
+    "# doesn't hold yet, new or changed. Each goes into Azure Key Vault exactly as `value` gives\n"
+    "# it: plain, except where its note says otherwise (scripts/README.md, \"A new private value\").\n"
+    "# A new one also needs its entry in kubernetes/secrets/cluster-secrets.yaml and, where its\n"
+    "# row has a `template`, the template entry `NAME: \"<template>\"`, both in one pull request.\n"
+    "# Re-run capture once it has synced. capture deletes this file once none are left.\n"
 )
 CACHE_HEADER = (
     "# Local, gitignored, rewritten by every capture from the live cluster-secrets and\n"
-    "# cluster-settings (plus any values still pending for Vaultwarden). Don't edit:\n"
-    "# change the Vaultwarden item or kubernetes/flux/meta/vars/cluster-settings.yaml.\n"
+    "# cluster-settings (plus any values still pending for Key Vault). Don't edit:\n"
+    "# change Key Vault or kubernetes/flux/meta/vars/cluster-settings.yaml.\n"
 )
 
 
@@ -332,12 +334,41 @@ def load_settings(root: Path) -> dict | None:
     return yamlio.read_yaml_file(path) if path.is_file() else None
 
 
+def _decoded_text(value: str) -> str | None:
+    """The text a base64 value decodes to, or None when it isn't base64 of UTF-8 text."""
+    import base64
+
+    try:
+        return base64.b64decode(value, validate=True).decode("utf-8")
+    except ValueError:  # binascii.Error and UnicodeDecodeError are both ValueErrors
+        return None
+
+
 def pending_rows(entries: list[dict]) -> list[dict]:
-    """kubernetes/.local/vaultwarden-pending.yaml: the values Vaultwarden
-    doesn't hold yet, for the operator to add (capture writes it with
-    PENDING_HEADER, through its file tracker so it's removed once empty).
+    """kubernetes/.local/vaultwarden-pending.yaml: the values cluster-secrets
+    doesn't hold yet, each as Key Vault should hold it, for the operator to add
+    (capture writes it with PENDING_HEADER, through its file tracker so it's
+    removed once empty). An entry from a Secret's data: (`secret_data`) holds
+    the base64 the Secret stores; Key Vault holds its plain value instead, and
+    the row's `template` is the cluster-secrets template entry that encodes it
+    back. A value that isn't text stays base64, with no template entry: Key
+    Vault holds only text.
     """
-    return [{"name": _var_name(e["placeholder"]), "value": e["literal"], "note": e.get("note", "")} for e in entries]
+    rows = []
+    for e in entries:
+        name = _var_name(e["placeholder"])
+        row = {"name": name, "value": e["literal"]}
+        note = e.get("note", "")
+        if e.get("secret_data"):
+            plain = _decoded_text(e["literal"])
+            if plain is None:
+                note += "; not text, so Key Vault holds it base64, as given here, with no template entry"
+            else:
+                row["value"] = plain
+                row["template"] = f"{{{{ .{name} | b64enc }}}}"
+        row["note"] = note
+        rows.append(row)
+    return rows
 
 
 def cache_rows(entries: list[dict]) -> list[dict]:
@@ -361,9 +392,8 @@ def _write_entries(root: Path, entries: list) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     header = (
         "# Local, gitignored: exact literal values replaced with a placeholder in every\n"
-        "# git-tracked captured file. Entries marked `source: auto` were detected\n"
-        "# automatically (ACME emails, non-IP NFS server hostnames); `source: auto-secret`\n"
-        "# entries hold a promoted Secret's values (base64, as the Secret stores them).\n"
+        "# git-tracked captured file, so a promoted Secret's value is its base64, as the\n"
+        "# Secret and its captured manifest hold it.\n"
         "# `replace: false` marks a config-only variable: rendered for Flux to substitute,\n"
         "# never searched for and replaced in captured files (e.g. MEDIA_PUID).\n"
         "# Add your own for anything else. Never committed -- that would defeat the point.\n"

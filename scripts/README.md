@@ -236,14 +236,19 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 | `cluster-settings` ConfigMap | Plain settings that are fine in git, such as a UID like `1027`. Never searched for. | `kubernetes/flux/meta/vars/cluster-settings.yaml` |
 
 **A new private value:**
-1. Add its secret to Key Vault, in the portal or with `az keyvault secret set
-   --vault-name <vault> --name <NAME with - for _> --file <file>` (so the value
-   isn't on the command line). A value used in a Secret's `data:` goes in as
-   its base64.
-2. Add an entry for it to `kubernetes/secrets/cluster-secrets.yaml`
-   (`secretKey: NAME`, `remoteRef: {key: NAME-WITH-DASHES}`), and push that
-   first. The tests fail if any `${NAME}` in `kubernetes/` is defined in
-   neither source, or if an entry reads any other Key Vault name.
+1. Add its secret to Key Vault plain, whatever reads it:
+   `./scripts/keyvault-secrets.ps1 NAME -New -Raw` asks for the value without
+   echoing it and reads it back by hash. `-Raw` stores it as given: without
+   it, a value a Secret's `data:` reads would go in as its base64 until its
+   template entry (step 2) is live.
+2. Map it in `kubernetes/secrets/cluster-secrets.yaml` (`secretKey: NAME`,
+   `remoteRef: {key: NAME-WITH-DASHES}`) in a pull request of its own. If a
+   Secret's `data:` reads it, add `NAME: "{{ .NAME | b64enc }}"` to that
+   file's `template.data` in the same pull request: `data:` takes base64,
+   and the template encodes the plain value into it. The tests fail if any
+   `${NAME}` in `kubernetes/` is defined in neither source, if an entry reads
+   any other Key Vault name, or if a template key named after its variable is
+   anything but that form.
 3. Check it synced: `kubectl get externalsecret cluster-secrets -n flux-system`
    should show `SecretSynced`. To sync now rather than within 15 minutes:
    `kubectl annotate externalsecret cluster-secrets -n flux-system force-sync=$(Get-Date -UFormat %s) --overwrite`
@@ -272,14 +277,18 @@ capture finds some private values on its own (an ACME email, a non-IP NFS
 hostname, your main Ingress domain) and every promoted Secret's value. Anything
 `cluster-secrets` doesn't hold yet is replaced in that run's output anyway, and
 listed with its value in `kubernetes/.local/vaultwarden-pending.yaml` for you to
-add to Key Vault.
+add to Key Vault as above: plain, and a promoted Secret's with the template
+entry its row gives. A Secret's value that isn't text is listed base64, with
+no template entry, since Key Vault holds only text.
 
 ### Rotate a promoted Secret's value
 
 1. Change the Secret in the cluster.
 2. Run `capture`. It holds the manifest, so Flux won't revert your change, and
    lists the new value in `kubernetes/.local/vaultwarden-pending.yaml`.
-3. Set a new version of its secret in Key Vault and let it sync.
+3. Set a new version of its secret in Key Vault, plain
+   (`./scripts/keyvault-secrets.ps1 NAME`, which sees its template entry),
+   and let it sync.
 4. Run `all` again.
 
 ### Move Dockhand's secret stack variables into Key Vault
@@ -386,7 +395,7 @@ only copy of those objects.
 | Warning contains | Meaning | Do this |
 |---|---|---|
 | `not written yet -- the live 'cluster-secrets' Secret ... doesn't hold its values` | A promoted Secret is held back | Add its values to Key Vault, let it sync, then run `all` |
-| `private value(s) aren't in Vaultwarden yet` | capture found values `cluster-secrets` doesn't hold | Add each from `vaultwarden-pending.yaml` to Key Vault and `kubernetes/secrets/cluster-secrets.yaml` |
+| `private value(s) aren't in cluster-secrets yet` | capture found values `cluster-secrets` doesn't hold | Add each from `vaultwarden-pending.yaml` to Key Vault and `kubernetes/secrets/cluster-secrets.yaml`, with its template entry ([A new private value](#add-or-change-a-substitution-variable)) |
 | `the cluster-secrets Secret isn't in flux-system` | External Secrets hasn't produced it | Check `kubectl describe externalsecret cluster-secrets -n flux-system` |
 | `StorageClass '...' doesn't exist` | A promoted PVC or database asks for a missing class | Fine while bound; migrate it before any rebuild |
 | `PVC is Lost` | Its volume is gone | Delete the PVC if nothing needs it |
