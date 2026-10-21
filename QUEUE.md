@@ -35,8 +35,9 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `VAULTWARDEN_BACKUP_ZIP_PASSWORD` by reference (a random value the owner added to Key Vault on
   2026-10-21). Since its merge, `vaultwarden-backup` was recreated (02:24Z), its `docker
   inspect` azurekv count is 0, and Dockhand's old `BACKUP_ZIP_PASSWORD` is deleted (the
-  owner). Left: its `ZIP_PASSWORD` set, on the host; the next nightly archive (03:30 UTC)
-  opening with the new password and not the default (the owner, as a restore would). The
+  owner); its `ZIP_PASSWORD` is set, 48 characters, not the default (Run Command task 983).
+  Left: the next nightly archive (03:30 UTC) opening with the new password and not the
+  default (the owner, as a restore would). The
   archives from before keep the default until they age out (30 days, about 2026-11-20): until
   then anyone who reads `docker-backups` can open those, each holding the key that signs
   Vaultwarden's logins and its `config.json`
