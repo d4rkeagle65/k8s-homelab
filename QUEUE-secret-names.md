@@ -417,22 +417,23 @@ against today's value by hash.
       `template` entry, and its manifest written once the value is in Key Vault and mapped
       with that entry. A row still base64 for a value that is text means capture's
       `secret_data` mark didn't reach `varsub.pending_rows`
-- [ ] `scripts/keyvault-secrets.ps1` sets base64 a value whose name the ExternalSecret doesn't
-      map yet, when a Secret's `data:` in the checkout reads it (`$heldBase64` doesn't ask
-      whether it's mapped). Once its `{{ .NAME | b64enc }}` entry is live, the template
-      encodes it twice and the app gets a wrong value with no error. #191, open and passing
-      its suite (2026-10-21), for the owner to merge, closes the path that adds one: `-New`
-      runs only with `-Raw`. Left after it: setting, without `-New`, a secret Key Vault already
-      holds but the ExternalSecret doesn't map (a name the Dockhand copy wrote, say), and the
-      listing showing such a name as `base64`. The fix: hold an unmapped variable plain
-      (keeping the refusal for one also used outside a Secret's `data:`), and the listing
-      the same. No suite in the repo covers the script: #153 and #191 were proved on a mock
-      vault and a fake kubectl
-- [ ] Once the Pi-hole pair has moved, `scripts/tests/test_structure.py` could require a
-      `{{ .NAME | b64enc }}` entry for every variable a Secret's `data:` reads, so a new value
-      held base64 fails the gate instead of resting on the README.
-      `test_every_substituted_variable_is_defined` checks a template key's form only where one
-      exists. A value that isn't text (held base64, with no entry) would need naming there
+- [ ] Nothing held base64, enforced: #193, open and passing its suite (2026-10-21), for the
+      owner to merge. `scripts/keyvault-secrets.ps1` stops encoding and decoding: a name the
+      ExternalSecret doesn't map yet goes in plain (today it can go in base64, which its
+      `{{ .NAME | b64enc }}` entry then encodes twice), and a mapped one a Secret's `data:`
+      reads without its live entry is refused. `test_cluster_secrets_encodes_what_a_secrets_data_reads`
+      requires that entry for every variable a Secret's `data:` reads, and keeps an encoded
+      one out of every other file. The script is proved only on a mock vault and a fake
+      kubectl (no suite in the repo covers it), so its first real listing (no `NEEDS b64enc`)
+      and set are its live check. On the merge, Resuming's `Where-Object Encoding -eq base64`
+      becomes `-eq 'NEEDS b64enc'`
+- [ ] A promoted Secret's value that isn't text has no supported form once #193 merges: Key
+      Vault holds only text, and the structure test refuses a Secret's variable without its
+      template entry (capture's pending note says so). None exists today. One route, untried:
+      Key Vault holds its base64, and its entry adds `decodingStrategy: Base64` to `remoteRef`,
+      so the usual template line gives the Secret that base64 back. The structure test's
+      `remoteRef == {key: ...}` check, and `keyvault-secrets.ps1`'s listing, would need to
+      allow it
 - [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen, once the first names follow it
 
