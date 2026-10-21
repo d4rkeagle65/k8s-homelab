@@ -23,16 +23,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
-- **Homepage's container state needs `docker-socket-proxy` deployed** (2026-10-21): Homepage
-  now reads the first Docker VM's containers from `docker/docker-socket-proxy/` (port 9339 on
-  its management address) instead of Dockhand's widget, which held Dockhand's admin login.
-  Until the stack runs, the six cards with `server: docker-vm-1` show a Docker error. The
-  owner: create it in Dockhand as a Git stack on that VM (Key Vault as its secret provider,
-  selector empty, Populate), turn its webhook on and give its stack ID for a Provider and
-  Alert in `dockhand-webhooks/app/webhooks.yaml`; then delete the Key Vault secrets
-  `DOCKHAND-HOMEPAGE-USERNAME` and `-PASSWORD` and change Dockhand's admin password, which
-  Homepage held. Later, the same proxy on the TerraMaster (Garage's card) and the second VM
-  (kea-standby), each its own stack with its own address variable.
+- **Homepage's Docker proxy on the other Docker hosts** (2026-10-21): `docker/docker-socket-proxy/`
+  runs on the first Docker VM only. The TerraMaster (Garage's card) and the second VM
+  (kea-standby) would each need the stack with their own address variable, and a server in
+  Homepage's `docker.yaml`; left, those cards show no container state.
 - **Vaultwarden's backup archives made before the ZIP password open with a published one**
   (found 2026-10-21): with `ZIP_PASSWORD` blank, ttionya/vaultwarden-backup used its own default
   (`scripts/includes.sh`), printed in its source. The compose file now reads

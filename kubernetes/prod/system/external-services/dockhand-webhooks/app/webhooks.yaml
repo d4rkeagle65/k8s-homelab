@@ -285,3 +285,31 @@ spec:
   # Only a new commit's artifact, not every other event the source emits.
   inclusionList:
   - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-docker-socket-proxy
+spec:
+  type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/14/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-docker-socket-proxy
+spec:
+  providerRef:
+    name: dockhand-docker-socket-proxy
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
