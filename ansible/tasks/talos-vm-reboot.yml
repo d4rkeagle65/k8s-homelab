@@ -5,9 +5,9 @@
 # again and so applies anything pending, the node Ready on a new boot ID with nothing left
 # pending, uncordoned, every database cluster whole, and for a control plane its three static
 # pods Ready and etcd caught up again. A control plane goes alone, so etcd keeps its quorum.
-# For talos-reboot.yml's per-VM play, run as the VM's own host: needs kubectl_cmd,
-# kubectl_host and talosctl_cmd (kubectl-local.yml and talosctl-local.yml, run on
-# localhost), pve_api_host and talos_cp_addresses.
+# For talos-reboot.yml's per-VM play, run as the VM's own host: needs kubectl_cmd and
+# talosctl_cmd (kubectl-local.yml and talosctl-local.yml, run as semaphore),
+# kubectl_host (the node itself), pve_api_host and talos_cp_addresses.
 
 - name: Every Kubernetes node is Ready first
   ansible.builtin.include_tasks: kubernetes-healthy.yml
