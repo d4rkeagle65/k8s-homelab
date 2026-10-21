@@ -176,8 +176,9 @@ Queries (Prometheus, `kube-prometheus-stack`):
         with it). Their pods predate the LimitRanges,
         so they have none until recreated, and `ContainerWithoutLimits` doesn't see them: it
         reads `kube_pod_container_resource_limits`, not the init containers' series;
-      - sizes Immich's machine learning again once the import is done: its 2304Mi and 620m are
-        the import's.
+      - sizes Immich's machine learning again once the imports are done: its 2304Mi and 620m
+        are the first's, and the second, from OneDrive (`immich-import`, from 2026-10-21), is
+        to come.
       - reads the control planes' memory: 6Gi each since 2026-10-19 (VMs rebooted by
         `talos-reboot.yml`), 2.2-3.1GiB available just after; their lowest over the week says
         whether that's enough.
@@ -196,8 +197,9 @@ Queries (Prometheus, `kube-prometheus-stack`):
       needs the node-fit check above; CPU requests 34%, use 29%
 - [ ] Immich's server, with the owner (asked in its pull request, the apps batch): its 4.2 days
       are the import (5401Mi peak in the 6Gi limit set for it, p95 992m at the 1000m cap,
-      throttled in 26% of periods) against requests of 1376Mi and 30m. Sized once the import is
-      done, or now with a limit above 6Gi (3Gi was OOM-killed within 30 seconds of each start)
+      throttled in 26% of periods) against requests of 1376Mi and 30m. Sized once the second
+      import, from OneDrive (`immich-import`, from 2026-10-21), is done too, as it sets its own
+      peaks, or now with a limit above 6Gi (3Gi was OOM-killed within 30 seconds of each start)
 - [x] `primaryUpdateMethod: switchover` on every Cluster with a replica (the owner, 2026-10-18),
       after the re-measure's in-place restarts took Authentik down for about 3.5 minutes: all 15
       (`kubernetes/CLAUDE.md`; `test_replicated_databases_switch_over` holds new ones to it).
