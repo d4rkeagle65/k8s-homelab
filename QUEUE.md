@@ -81,22 +81,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   day, reset at 00:00 UTC, and 60 a minute with bursts of 10; a re-fetched work costs about
   one, so keep a day's repairs to about 1,000 and leave the rest to Bookshelf. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
-- **The Pi-holes answer every network from Production** (found 2026-10-16, Run Command task
-  784; read again 2026-10-21, tasks 1044-1055): both are Debian 13 LXC containers with an
-  address on five networks and one rule set, so a reply from any address but Production's
-  leaves by `eth0` to Production's gateway. A client on a network the Pi-holes aren't on, asking
-  a non-Production address through the firewall, gets no answer. Kea hands each of its subnets
-  the Pi-holes' address on that subnet, so its clients aren't affected; the client that is
-  hasn't been reproduced from any host a Run Command reaches (they all sit on networks the
-  Pi-holes share). `tasks/management-routing.yml` now takes `interface_gateways` where there's
-  no netplan: a table and rule per listed address, set by a systemd unit (Proxmox rewrites
-  the containers' `/etc/network/interfaces`). Left: the owner sets each Pi-hole's
-  `interface_gateways` in its NetBox local context (eth1 to eth4, each network's gateway, the
-  `.254` the Docker VMs and Kea use), runs "Setting: Debian Baseline" limited to the Pi-holes in
-  check mode, then for real, and the DNS checks run before and after: a query to every
-  address of each Pi-hole from each of the first Docker VM's addresses (`dig -b`), and one
-  from a client on a network the Pi-holes aren't on. Left as is, such a client gets no
-  answer from a Pi-hole's management, DMZ or other address.
+- **Check the Pi-holes' per-address routing from a network they aren't on** (applied
+  2026-10-21): each Pi-hole's replies from eth1 to eth4 now leave by their own interface
+  (`interface_gateways` in its NetBox local context, `tasks/management-routing.yml`'s systemd
+  unit; "Setting: Debian Baseline" tasks 1076 and 1078, each read back). From the first Docker
+  VM's three addresses to every Pi-hole address, 28 of 30 answer before and after (task 1077
+  and after 1078); the two that don't, to each eth3 address from the VM's second interface, never
+  reach the Pi-hole, so the firewall drops them. Left: one query from a VPN or IoT/Work client
+  to a Pi-hole's management or DMZ address, the case the change is for, which no Run Command
+  host can make. Undo: `systemctl disable --now homelab-source-routing` on the Pi-hole, and
+  the context removed so the baseline doesn't put it back.
 - **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
   check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
   the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
