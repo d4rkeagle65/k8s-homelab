@@ -1,0 +1,69 @@
+# The TerraMaster's logs into the cluster's Loki. TOS has no syslog forwarding,
+# so Alloy reads its files instead: /var/log/messages (BusyBox syslogd: sshd,
+# the kernel, TOS's services) and rsyncd.log (the Synology's Hyper Backup
+# arriving), through a read-only mount of the folder (a file mount would keep
+# the old file across a rotation). It pushes them to Loki's push route with its
+# login (kubernetes/prod/system/monitoring/monitoring-extras/app/ingress-loki-push.yaml),
+# labelled as the NASes' syslog is: source="syslog", host="terramaster", and
+# app (the program, or rsyncd). Deployed by Dockhand through the TerraMaster's
+# Hawser agent; Alloy's position in each file is kept in a volume.
+services:
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: terramaster-logs
+    restart: unless-stopped
+    mem_limit: 256m  # unmeasured: a guess at a few times Alloy's footprint for two files
+    # Root, to read whatever TOS writes under /var/log.
+    user: "0:0"
+    environment:
+      LOKI_PUSH_URL: https://loki-push.${BASE_DOMAIN}/loki/api/v1/push
+      LOKI_PUSH_PASSWORD: ${LOKI_PUSH_PASSWORD}
+      ALLOY_CONFIG: |
+        logging {
+          level = "warn"
+        }
+
+        loki.write "default" {
+          endpoint {
+            url = sys.env("LOKI_PUSH_URL")
+            basic_auth {
+              username = "alloy"
+              password = sys.env("LOKI_PUSH_PASSWORD")
+            }
+          }
+          external_labels = {host = "terramaster", source = "syslog"}
+        }
+
+        loki.source.file "logs" {
+          targets = [
+            {"__path__" = "/host/log/messages"},
+            {"__path__" = "/host/log/rsyncd.log", "app" = "rsyncd"},
+          ]
+          forward_to = [loki.process.messages.receiver]
+        }
+
+        // "Oct 21 17:19:14 TNAS auth.info sshd[24845]: ...": the program as app.
+        loki.process "messages" {
+          stage.regex {
+            expression = "^\\w{3}\\s+\\d+\\s[\\d:]+\\s\\S+\\s\\w+\\.\\w+\\s(?P<app>[^\\[:\\s]+)"
+          }
+          stage.labels {
+            values = {app = ""}
+          }
+          forward_to = [loki.write.default.receiver]
+        }
+    # The config is written from ALLOY_CONFIG at each start, since a Hawser stack
+    # can't mount a file from git.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+    - |
+      set -e
+      [ -n "$$ALLOY_CONFIG" ] || { echo "ALLOY_CONFIG is empty"; exit 1; }
+      printf '%s' "$$ALLOY_CONFIG" > /etc/alloy/config.alloy
+      exec /bin/alloy run --storage.path=/var/lib/alloy/data --server.http.listen-addr=127.0.0.1:12345 /etc/alloy/config.alloy
+    volumes:
+    - /var/log:/host/log:ro
+    - alloy-data:/var/lib/alloy/data
+
+volumes:
+  alloy-data:
