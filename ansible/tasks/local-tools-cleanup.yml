@@ -1,8 +1,9 @@
 # Removes what kubectl-local.yml and talosctl-local.yml left on the machine running
 # the playbook (Semaphore's container, which keeps /tmp between runs): the
 # Kubernetes CA certificate written beside the playbook, and kubectl's and
-# talosctl's directories with their configs. Runs on localhost, where their facts
-# are; a directory never made is skipped. For talos-upgrade.yml and talos-reboot.yml.
+# talosctl's directories with their configs. Runs as the host that set them up,
+# where their facts are (semaphore); a directory never made is skipped. For
+# talos-upgrade.yml and talos-reboot.yml.
 
 - name: Remove the CA certificate, and kubectl and talosctl with their configs
   ansible.builtin.file:

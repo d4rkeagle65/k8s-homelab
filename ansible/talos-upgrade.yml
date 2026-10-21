@@ -9,13 +9,15 @@
 # Change it there in a commit, run this, then the OpenTofu job: the machine
 # configs' install image then matches, and nothing reboots.
 #
-# Three plays: the first plans on localhost, where kubectl and talosctl run, and
-# hands each node to upgrade to the second as a host of its own, so the run's log
-# names the node a step works on rather than localhost; the work still runs here
-# (ansible_connection local). The second takes them one at a time; a node that
-# fails is recorded and the nodes after it are left alone. The third removes the
-# CA certificate, kubectl and talosctl whatever happened, then fails the run if a
-# node did.
+# Everything runs on the machine running Ansible (Semaphore), where kubectl and
+# talosctl are, but the log names what a step is about: semaphore-host.yml adds
+# that machine as the host semaphore, which plans; each node to upgrade is then a
+# host of its own (ansible_connection local), its kubectl steps delegated to itself
+# rather than to localhost, so every line of its work reads [node]; and semaphore
+# cleans up. The per-node play takes the nodes one at a time; a node that fails is
+# recorded and the nodes after it are left alone. The cleanup removes the CA
+# certificate, kubectl and talosctl whatever happened, then fails the run if a node
+# did.
 #
 # Variables (Semaphore): the Kubernetes variable group (k8s_api_url,
 # k8s_ca_b64, k8s_token) and talosconfig_b64, an os:admin talosconfig
@@ -26,8 +28,10 @@
 # In check mode (--check) it reports the target, each node's version and what
 # it would drain, and changes nothing.
 
+- ansible.builtin.import_playbook: semaphore-host.yml
+
 - name: Plan the upgrade
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   vars_files: [vars/talos.yml]
   vars:
@@ -137,12 +141,14 @@
   gather_facts: false
   vars_files: [vars/talos.yml]
   vars:
-    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
-    kubectl_host: "{{ hostvars['localhost'].kubectl_host }}"
-    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
+    kubectl_cmd: "{{ hostvars['semaphore'].kubectl_cmd }}"
+    # The node itself: it runs locally, so its kubectl steps run where kubectl is
+    # and read [node] in the log, not [node -> localhost].
+    kubectl_host: "{{ inventory_hostname }}"
+    talosctl_cmd: "{{ hostvars['semaphore'].talosctl_cmd }}"
   tasks:
     - name: Upgrade it, unless a node before it failed
-      when: hostvars['localhost'].talos_stopped_at is not defined
+      when: hostvars['semaphore'].talos_stopped_at is not defined
       block:
         - name: Upgrade Talos on {{ inventory_hostname }}
           ansible.builtin.include_tasks: tasks/talos-node-upgrade.yml
@@ -151,11 +157,11 @@
         - name: Record where the run stopped, so the nodes after it are left alone
           ansible.builtin.set_fact:
             talos_stopped_at: "{{ inventory_hostname }}: {{ ansible_failed_result.msg | default('a step failed') }}"
-          delegate_to: localhost
+          delegate_to: semaphore
           delegate_facts: true
 
 - name: Clean up, and say whether every node was upgraded
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   tasks:
     - name: Remove the CA certificate, and kubectl and talosctl with their configs
