@@ -151,9 +151,9 @@ for the exact rules.
 
 Private values -- an internal hostname, an account email -- are replaced
 with a `${{PLACEHOLDER}}` in every git-tracked captured file. capture reads
-them from the `cluster-secrets` Secret, which External Secrets builds from a
-Vaultwarden item (see `scripts/README.md`), and lists any new ones in the
-gitignored `kubernetes/.local/vaultwarden-pending.yaml`. A file carrying a
+them from the `cluster-secrets` Secret, which External Secrets builds from
+Azure Key Vault (see `scripts/README.md`), and lists any new ones in the
+gitignored `kubernetes/.local/keyvault-pending.yaml`. A file carrying a
 placeholder is not directly `kubectl apply`-able until you substitute the
 real value back in (by hand, or with `envsubst`).
 

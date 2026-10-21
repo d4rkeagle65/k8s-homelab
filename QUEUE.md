@@ -227,7 +227,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 - **A new private value's first promotion is #189's live check** (`scripts/promote.py`,
   `varsub.pending_rows`): the next Secret capture promotes should list its row in
-  `kubernetes/.local/vaultwarden-pending.yaml` plain, with its `template` entry, and its
+  `kubernetes/.local/keyvault-pending.yaml` plain, with its `template` entry, and its
   manifest be written once the value is in Key Vault and mapped with that entry. A row still
   base64 for a value that is text means capture's `secret_data` mark didn't reach
   `varsub.pending_rows`. Left, a new value can go into Key Vault base64 and reach its app
