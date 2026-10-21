@@ -350,15 +350,19 @@ against today's value by hash.
       `docker ps -a --filter label=com.docker.compose.project=semaphore`), both init containers
       exited (0) at about 21:12Z, which each deploy re-runs, while `semaphore` and
       `semaphore-postgres` stayed up from 10-18. An unresolved reference would have changed
-      their config and recreated them. Its OIDC client secret followed, plain since #173: the
-      compose file reads `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` by reference, Key Vault's
-      value equal to Dockhand's by hash (the copy script's dry run, 2026-10-21: 52 held the
-      same, none base64, none to add). No Dockhand variable has the new name, so nothing goes
-      before the merge; the old one goes on the delete list. Before: as above, `semaphore` and
-      `semaphore-postgres` up since 10-18 23:06Z, `pong`, 3001 open on the management address
-      and refused on the production one. With the value unchanged, the merge should leave
-      both running. Left: its read-back, and a login through Authentik, which tests the
-      client secret itself. netbox
+      their config and recreated them. Its OIDC client secret followed (#194), plain since
+      #173: the compose file reads `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` by reference, Key
+      Vault's value equal to Dockhand's by hash (the copy script's dry run, 2026-10-21: 52 held
+      the same, none base64, none to add); rendered as compose does, the file gave exactly the
+      old one's. No Dockhand variable has the new name, so nothing went before the merge; the
+      old one is on the delete list. Merged 02:05:21Z; Flux dispatched the webhook event at
+      02:05:36Z, with no error. Read back 2026-10-21: neither container recreated (both still
+      from 10-18 23:06Z), `/api/ping` answering `pong` through Traefik, port 3001 open on the
+      management address and refused on the production one, as before. cAdvisor never sees
+      the init containers, which exit in seconds. Left, the owner's: that the deploy ran
+      (Dockhand's log line, `docker logs --since 1h dockhand 2>&1 | grep 'reference(s)
+      (promoted'`, resolving 13 of 13 for semaphore), and a login through Authentik, which
+      tests the client secret itself. netbox
       seventh (#184): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its
       host and OIDC endpoint are built in the compose file),
       `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` by reference, `DATABASUS_NETBOX_DB_PASSWORD`,
@@ -466,8 +470,8 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `NETBOX_API`, `KEA_NETWORK`, `TZ`, `DATABASUS_DB_PASSWORD` and `NETBOX_TOKEN`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
   `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN` (#172); and its
-  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET`, once a login
-  through Authentik works
+  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` (#194), once a
+  login through Authentik works
 - netbox's `NETBOX_BIND_ADDRESS`, `NETBOX_HOST`, `OIDC_ENDPOINT`, `OIDC_CLIENT_SECRET`,
   `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
