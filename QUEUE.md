@@ -150,13 +150,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
   by `grimmory-db`'s physical backups). Left, 14 days of stale dumps take NAS space.
 
-- **13 of the 16 CloudNativePG primaries sit on one worker** (found 2026-10-21, after the
-  Talos 1.14.4 run): each drain switched its primaries to another instance
-  (`ansible/tasks/cnpg-free-node.yml`), and nothing moves them back: one worker holds 13,
-  another 3, the other two none. CPUThrottlingHigh came up for most of them on that node
-  together. Left, losing that one worker fails over 13 databases at once, and their writes
-  share one node's CPU. After a run that drains every worker, switch primaries back out
-  (`kubectl cnpg promote`, a field manager of our own) so each worker holds about a quarter.
+- **The CloudNativePG instances crowd two of the four workers** (found 2026-10-21): of 31
+  instances, one worker runs 13 and another 11, the other two 3 and 4, since each cluster's
+  anti-affinity only keeps its own two apart. Each drain also moves primaries off and nothing
+  moves them back: after the Talos 1.14.4 run one worker held 13 of the 16 primaries. Seven
+  were switched back on 2026-10-21 (20-30 s each, only Zammad's scheduler restarted), to 6, 3,
+  3 and 4: as even as the instances allow, since a primary can only move to its replica's node.
+  Left, losing the busiest worker fails over six databases and restarts 13 instances, and the
+  next full drain piles the primaries up again. Spread the instances (a topology spread across
+  the workers, or moving replicas one at a time onto the emptier ones), and end a run that
+  drains every worker by switching primaries back out.
 
 - **The `external-dns-netbox` ServiceMonitor scrapes a webhook that has no metrics** (found
   2026-10-21; `TargetDown` firing since 2026-10-16): the chart's ServiceMonitor also lists
