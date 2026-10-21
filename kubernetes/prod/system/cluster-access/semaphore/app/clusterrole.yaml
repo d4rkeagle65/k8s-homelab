@@ -3,8 +3,9 @@
 # cnpg-free-node.yml, mariadb-free-node.yml, proxmox-host-reboot.yml): cordon
 # and uncordon nodes, evict their pods (kubectl drain reads the pods and their
 # DaemonSets), switch CloudNativePG primaries over and open maintenance
-# windows, and switch mariadb-operator primaries over. Nothing
-# else: no Secrets, no deleting, no other writes.
+# windows, switch mariadb-operator primaries over, and suspend and resume
+# Flux's flux-system source for a run that reboots everything
+# (flux-freeze.yml). Nothing else: no Secrets, no deleting, no other writes.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -31,5 +32,9 @@ rules:
 - apiGroups: ["k8s.mariadb.com"]
   resources: ["mariadbs"]
   verbs: ["get", "list", "patch"]
+- apiGroups: ["source.toolkit.fluxcd.io"]
+  resources: ["gitrepositories"]
+  resourceNames: ["flux-system"]
+  verbs: ["get", "patch"]
 - nonResourceURLs: ["/readyz", "/readyz/*", "/livez", "/livez/*", "/version"]
   verbs: ["get"]
