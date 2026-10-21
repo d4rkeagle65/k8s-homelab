@@ -33,6 +33,7 @@
 - name: Check the clusters before touching anything
   hosts: localhost
   gather_facts: false
+  vars_files: [vars/talos.yml]
   tasks:
     - name: Decode the Kubernetes CA certificate
       ansible.builtin.set_fact:
@@ -59,6 +60,9 @@
     - name: Set up kubectl, for draining a host's Kubernetes nodes before its reboot
       ansible.builtin.include_tasks: tasks/kubectl-local.yml
 
+    - name: Set up talosctl {{ talos_version }}, for etcd around a control plane's host
+      ansible.builtin.include_tasks: tasks/talosctl-local.yml
+
 - name: Upgrade the Proxmox hosts one at a time
   hosts: proxmox
   serial: 1
@@ -70,6 +74,7 @@
     dns_on: "{{ dns_guest_tag | default('') | length > 0 }}"
     kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
     kubectl_host: localhost
+    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
     reboot_reason: Rebooting for the Proxmox upgrade (Semaphore)
   tasks:
     - name: The Proxmox cluster has quorum
@@ -219,11 +224,5 @@
                        map(attribute='dns_guests') | first | default([]) | length) == 1
                    else 'none') }}
 
-    - name: Remove the CA certificate, and kubectl with its kubeconfig
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "{{ playbook_dir }}/.k8s-ca.pem"
-        - "{{ kubectl_dir }}"
-      check_mode: false
+    - name: Remove the CA certificate, and kubectl and talosctl with their configs
+      ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml

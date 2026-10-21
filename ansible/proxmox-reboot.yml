@@ -26,9 +26,10 @@
   vars:
     required_group: proxmox
 
-- name: Check the clusters and set up kubectl
+- name: Check the clusters and set up kubectl and talosctl
   hosts: localhost
   gather_facts: false
+  vars_files: [vars/talos.yml]
   tasks:
     - name: Decode the Kubernetes CA certificate
       ansible.builtin.set_fact:
@@ -54,6 +55,9 @@
 
     - name: Set up kubectl
       ansible.builtin.include_tasks: tasks/kubectl-local.yml
+
+    - name: Set up talosctl {{ talos_version }}, for etcd around a control plane's host
+      ansible.builtin.include_tasks: tasks/talosctl-local.yml
 
     - name: Every database cluster is healthy
       ansible.builtin.include_tasks: tasks/databases-healthy.yml
@@ -86,6 +90,7 @@
     dns_on: "{{ dns_guest_tag | default('') | length > 0 }}"
     kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
     kubectl_host: localhost
+    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
     reboot_reason: Rebooting the host (Semaphore, proxmox-reboot.yml)
   tasks:
     - name: Check and reboot this host, lifting Flux's hold if it fails
@@ -156,11 +161,5 @@
       vars:
         kubectl_host: localhost
 
-    - name: Remove the CA certificate, and kubectl with its kubeconfig
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - "{{ playbook_dir }}/.k8s-ca.pem"
-        - "{{ kubectl_dir }}"
-      check_mode: false
+    - name: Remove the CA certificate, and kubectl and talosctl with their configs
+      ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
