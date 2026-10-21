@@ -317,3 +317,75 @@ def test_a_write_that_gets_no_answer_stops_writing_but_still_reads_back(run):
     assert vault.puts == []  # the first write got no answer, and none followed
     assert "NOT WRITTEN MEDIA-SONARR-HOST" in text and "no further writes" in text
     assert "read back: 0 of 3 match" in text
+
+
+class TokenAnswer:
+    def __init__(self, body):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self.body
+
+
+FAKE_CLIENT_SECRET = "not-" + "a-real-one"  # built, so the leak check sees no literal
+SP = {"AZURE_CLIENT_ID": "app-id", "AZURE_CLIENT_SECRET": FAKE_CLIENT_SECRET, "AZURE_TENANT_ID": "tenant-id"}
+
+
+def test_a_service_principal_signs_in_from_the_environment_without_the_cli(monkeypatch):
+    for name, value in SP.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(m.shutil, "which", lambda name: pytest.fail("used the Azure CLI"))
+    sent = []
+
+    def answer(req, timeout):
+        sent.append(req)
+        return TokenAnswer(b'{"access_token": "tok"}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", answer)
+    assert m.access_token() == "tok"
+    (req,) = sent
+    assert req.full_url == "https://login.microsoftonline.com/tenant-id/oauth2/v2.0/token"
+    form = dict(p.split("=", 1) for p in req.data.decode().split("&"))
+    assert form["grant_type"] == "client_credentials" and form["client_id"] == "app-id"
+    assert form["scope"] == "https%3A%2F%2Fvault.azure.net%2F.default"
+
+
+@pytest.mark.parametrize("unset", list(SP))
+def test_a_service_principal_with_a_variable_missing_stops_rather_than_use_the_cli(monkeypatch, unset):
+    for name, value in SP.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv(unset)
+    monkeypatch.setattr(m.shutil, "which", lambda name: pytest.fail("fell back to the Azure CLI"))
+    with pytest.raises(m.Stop) as stopped:
+        m.access_token()
+    assert f"but not {unset}" in str(stopped.value)
+
+
+def test_entras_refusal_names_its_code_never_the_secret(monkeypatch):
+    for name, value in SP.items():
+        monkeypatch.setenv(name, value)
+
+    def refuse(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", {},
+                                     __import__("io").BytesIO(b'{"error": "invalid_client"}'))
+
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    with pytest.raises(m.Stop) as stopped:
+        m.access_token()
+    assert "HTTP 401 invalid_client" in str(stopped.value)
+    assert FAKE_CLIENT_SECRET not in str(stopped.value)
+
+
+def test_with_no_service_principal_it_signs_in_through_the_cli(monkeypatch):
+    for name in SP:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(m.shutil, "which", lambda name: None)
+    with pytest.raises(m.Stop) as stopped:
+        m.access_token()
+    assert "the Azure CLI (az) isn't on PATH" in str(stopped.value)

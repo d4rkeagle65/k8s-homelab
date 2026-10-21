@@ -22,9 +22,10 @@ a name isn't valid there, or Key Vault refuses or doesn't answer a read. A write
 answer stops the writing; every name is still read back.
 
 --vault names the vault (its URL is https://<name>.vault.azure.net; the name isn't in this
-repo). It signs in as the Azure CLI's current account (az login), which needs "Key Vault
-Secrets Officer" on the vault to write, or "Key Vault Secrets User" for a dry run. kubectl
-uses its current context, or --context.
+repo). It signs in as a service principal when AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and
+AZURE_TENANT_ID are all set (the Docker VM's Claude Code, docker/claude-code/), else as the
+Azure CLI's current account (az login). Writing needs "Key Vault Secrets Officer" on the
+vault, a dry run "Key Vault Secrets User". kubectl uses its current context, or --context.
 """
 from __future__ import annotations
 
@@ -32,6 +33,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -139,8 +141,21 @@ def source_values(external_secret: dict, secret: dict) -> dict[str, str]:
     return values
 
 
+SP_VARIABLES = ("AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_TENANT_ID")
+TOKEN_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+
+
 def access_token() -> str:
-    """A Key Vault token for the Azure CLI's signed-in account."""
+    """A Key Vault token: a service principal's when SP_VARIABLES are all set, else the Azure
+    CLI's signed-in account's. Only some of them set is a Stop, not a fallback: it would sign in
+    as someone other than meant."""
+    present = [name for name in SP_VARIABLES if os.environ.get(name)]
+    if present:
+        missing = [name for name in SP_VARIABLES if name not in present]
+        if missing:
+            raise Stop(f"{', '.join(present)} set but not {', '.join(missing)}: a service principal "
+                       "signs in with all three")
+        return service_principal_token(*(os.environ[name] for name in SP_VARIABLES))
     az = shutil.which("az")
     if not az:
         raise Stop("the Azure CLI (az) isn't on PATH")
@@ -150,6 +165,30 @@ def access_token() -> str:
         detail = (result.stderr.strip().splitlines() or ["no output"])[-1]
         raise Stop(f"az account get-access-token: {detail} (run az login first)")
     return json.loads(result.stdout)["accessToken"]
+
+
+def service_principal_token(client_id: str, client_secret: str, tenant: str) -> str:
+    """A Key Vault token for a service principal, by the client credentials grant. Entra's
+    refusal is reported by its error code (invalid_client and the like), never the secret."""
+    form = urllib.parse.urlencode({"grant_type": "client_credentials", "client_id": client_id,
+                                   "client_secret": client_secret,
+                                   "scope": "https://vault.azure.net/.default"}).encode("utf-8")
+    req = urllib.request.Request(TOKEN_URL.format(tenant=urllib.parse.quote(tenant, safe="")), data=form,
+                                 method="POST", headers={"Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            token = json.loads(response.read() or b"{}").get("access_token")
+    except urllib.error.HTTPError as error:
+        try:
+            code = json.loads(error.read() or b"{}").get("error", "")
+        except ValueError:
+            code = "unreadable error body"
+        raise Stop(f"Entra refused the service principal's sign-in: HTTP {error.code} {code}") from error
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+        raise Stop(f"no answer from Entra to the service principal's sign-in ({getattr(error, 'reason', error)})") from error
+    if not token:
+        raise Stop("Entra's answer to the service principal's sign-in held no token")
+    return token
 
 
 def request(method: str, url: str, token: str, body: dict | None = None) -> tuple[int, dict]:

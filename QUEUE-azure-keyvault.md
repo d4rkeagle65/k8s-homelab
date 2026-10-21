@@ -28,8 +28,8 @@ references).
 - **Who reaches the vault** (the owner, 2026-10-19; each role scoped to this vault, each service
   principal proved to sign in and list over REST): the owner, "Key Vault Secrets Officer";
   `k8s-homelab-external-secrets`, the cluster's, "Key Vault Secrets User" (read only);
-  `k8s-homelab-claude-code`, the Docker VM's Claude Code, "Key Vault Secrets Officer" (read and
-  write); and Dockhand's own principal, "Key Vault Secrets Officer". The two new principals'
+  `k8s-homelab-claude-code`, the Docker VM's Claude Code, "Key Vault Secrets User" (read only:
+  narrowed by the owner 2026-10-21, as nothing it should do writes a secret); and Dockhand's own principal, "Key Vault Secrets Officer". The two new principals'
   credentials are in `kubernetes/.local/azure-keyvault-sp-external-secrets.json` and
   `azure-keyvault-sp-claude-code.json` (fields `appId`, `password`, `tenant`), with two-year
   client secrets, to about 2028-10.
@@ -79,8 +79,15 @@ references).
 - [x] The owner's, the cluster's and Claude Code's access (2026-10-19, "Who reaches the vault"
       above), read back: each role at the vault, both credential files complete, each new
       principal signing in and listing (HTTP 200, the vault still empty)
-- [ ] The Docker VM's Claude Code given its credential through Dockhand (a secret stack
-      variable), then checked from inside the container
+- [ ] The Docker VM's Claude Code given its credential through Dockhand, then checked from
+      inside the container: Key Vault holds it (`ENTRA_CLAUDE_CODE_CLIENT_ID`, `_SECRET`,
+      `ENTRA_TENANT_ID`), the stack's `.env` references it, and `scripts/keyvault_copy.py`
+      signs in from `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` (branch
+      `claude-code-keyvault`). Before its merge, read back 2026-10-21: the principal holds
+      "Key Vault Secrets User" only at the vault (Officer gone at 04:59:51Z), and the three names
+      are in Key Vault, enabled, each equal by hash to its field of
+      `azure-keyvault-sp-claude-code.json`. Left after its merge: the stack's provider bound
+      and a redeploy, then `docker/claude-code/README.md`'s dry run from inside the container
 - [x] The copy script, `scripts/keyvault_copy.py`: the 141 mapped variables from the live
       `cluster-secrets` Secret into Key Vault under their mapped names, read back by hash; a dry
       run by default (2026-10-19: 141 missing, nothing written)
