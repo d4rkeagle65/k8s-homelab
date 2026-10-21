@@ -19,7 +19,8 @@
 #       only within docker-ce's major version (live-restore isn't supported
 #       across majors: a major upgrade is reported, for a run by hand). The
 #       running containers are read before and after; one that ran before and
-#       isn't running after fails the run. The packages are held again whatever
+#       isn't running after fails the run. Then each container still holding the
+#       old daemon's socket is restarted. The packages are held again whatever
 #       happens.
 # Docker's own {{.Field}} format syntax would be read as Ansible's, so Docker
 # is read as JSON (--format json).
@@ -232,6 +233,37 @@
                 before_names: "{{ ps_before.stdout_lines | map('from_json') | map(attribute='Names') | list }}"
                 after_names: "{{ ps_after.stdout_lines | map('from_json') | map(attribute='Names') | list }}"
                 missing: "{{ before_names | difference(after_names) }}"
+
+            # Docker's restart makes a new docker.sock; a container that mounts the
+            # file (Dockhand, Hawser) keeps the old one, alive but refused. Restart
+            # each whose socket, seen through /proc/<pid>/root, isn't the host's.
+            - name: Restart the containers holding the old daemon's socket
+              ansible.builtin.shell: |
+                {% raw %}
+                set -eu
+                stale() {
+                  sock=$(stat -c %i /var/run/docker.sock)
+                  for id in $(docker ps -q); do
+                    docker inspect -f '{{.State.Pid}} {{.Name}} {{range .Mounts}}{{.Source}}={{.Destination}} {{end}}' "$id"
+                  done | while read -r pid name mounts; do
+                    for m in $mounts; do
+                      case "${m%%=*}" in /var/run/docker.sock|/run/docker.sock) ;; *) continue ;; esac
+                      [ "$(stat -L -c %i "/proc/$pid/root${m#*=}" 2>/dev/null)" = "$sock" ] || echo "${name#/}"
+                      break
+                    done
+                  done
+                }
+                for n in $(stale); do docker restart "$n" >/dev/null; echo "$n"; done
+                sleep 5
+                left=$(stale)
+                [ -z "$left" ] || { echo "still on the old socket: $left" >&2; exit 1; }
+                {% endraw %}
+              register: socket_restarts
+              changed_when: socket_restarts.stdout_lines | length > 0
+
+            - name: Report the restarts
+              ansible.builtin.debug:
+                msg: "Restarted for the new socket: {{ socket_restarts.stdout_lines | join(', ') or 'none' }}"
           always:
             - name: Hold Docker's packages again
               ansible.builtin.dpkg_selections:
