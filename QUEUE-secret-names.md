@@ -408,10 +408,10 @@ against today's value by hash.
       webhook at 01:17:24Z. Read back 2026-10-21: neither container recreated; port 443 open on
       the production address and refused on the management one, `/alive` answering 200
       through Traefik and direct, `bitwarden-cli` ready with no restarts and the four stores
-      Valid, as before. It has no init container to show the deploy ran, but Dockhand logs
-      each deploy's count: left, on the host, `docker logs --since 1h dockhand 2>&1 | grep
-      'reference(s) (promoted'` showing vaultwarden's at about 01:17Z resolving all 11 from
-      `.env`; a login through Authentik and with the master password
+      Valid, as before. The deploy ran: Dockhand's log line for it (the owner, `docker logs
+      --since 1h dockhand 2>&1 | grep 'reference(s) (promoted'`) resolved 11 of 11 references
+      from Key Vault, so an unchanged config, not a skipped deploy, left both running. Left: a
+      login through Authentik and with the master password
 - [ ] New values plain too (#189, merged 2026-10-21), checked live only by the next Secret
       promoted: its row in `kubernetes/.local/vaultwarden-pending.yaml` plain, with its
       `template` entry, and its manifest written once the value is in Key Vault and mapped
