@@ -38,8 +38,8 @@ references).
   a bulk pull ignores its selector and hands the stack every secret in the vault under its Key
   Vault name, unchanged, so `MEDIA-SONARR-API-KEY` arrives as that, which a compose file can't
   interpolate, along with all of `cluster-secrets`. So a Dockhand secret's name is free, and
-  follows `QUEUE-secret-names.md`'s standard: one secret where the cluster and a stack touch
-  the same thing.
+  follows the naming standard (`scripts/README.md`'s "Add or change a substitution
+  variable"): one secret where the cluster and a stack touch the same thing.
 
 ## Waiting on the owner
 
@@ -109,14 +109,14 @@ references).
       equal by hash to a fingerprint taken before; every Kustomization and HelmRelease Ready;
       External Secrets' calls now `GetSecret` on Azure Key Vault, its `bitwarden-cli` request
       count flat; `scripts/keyvault_copy.py`'s dry run "141 already the same"
-- [ ] Dockhand's stacks on Key Vault (`docker/`), one stack first, under the names in
-      `QUEUE-secret-names.md`. The owner's export ran 2026-10-19
+- [x] Dockhand's stacks on Key Vault (`docker/`), one stack first, under the names in
+      `docker/secret-names.yaml`. The owner's export ran 2026-10-19
       (`scripts/dockhand-export-secrets.cjs`: 61 secret variables from 7 stacks), and its
       values match the cluster's by hash where both hold one thing, so its decryption is
       proved. The copy ran 2026-10-20 (`scripts/dockhand_keyvault_copy.py`, by
       `docker/secret-names.yaml`: 44 written, read back 44 of 44), and cadvisor reads Key Vault
-      (#140). Left: each other stack redeployed and working on its references
-      (`QUEUE-secret-names.md`)
+      (#140). All nine read their `.env`s' references since 2026-10-21, each read back
+      (`old-queues/QUEUE-secret-names.md`)
 - [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
       `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
       all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake
