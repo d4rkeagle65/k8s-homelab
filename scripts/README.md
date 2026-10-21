@@ -347,9 +347,10 @@ forms and what the copy refuses are in `dockhand_keyvault_copy.py`'s docstring.
    its move: compose on the standard names, and a `.env` of references
    (`NAME=azurekv://NAME-WITH-DASHES`) that Dockhand resolves at each deploy,
    so nothing needs typing in (Populate imports them as they are). The merge
-   redeploys it (one without a webhook is redeployed by hand); check it. The
-   old variables go on `QUEUE-secret-names.md`'s delete list. A reference
-   marked "once Key Vault holds it plain" waits for the base64-to-plain switch.
+   redeploys it (one without a webhook is redeployed by hand); check it. Then
+   delete its old variables in Dockhand (the copies of its `.env`'s references
+   that Dockhand fills in itself stay). A reference marked "once Key Vault
+   holds it plain" has its value held base64 there: rewrite it plain first.
 5. Delete the JSON once the stacks read Key Vault.
 
 ### Bring the test environment up, and take it down
