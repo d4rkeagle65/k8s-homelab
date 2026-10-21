@@ -346,7 +346,7 @@ against today's value by hash.
       their config and recreated them. Left: a login through Authentik. Its OIDC client
       secret's follow-up is unblocked: Key Vault holds all three OIDC client secrets plain
       now (the copy script's dry run, 2026-10-20: 52 held the same, none base64). netbox
-      seventh (branch `netbox-standard-names`): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its
+      seventh (#184): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its
       host and OIDC endpoint are built in the compose file),
       `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` by reference, `DATABASUS_NETBOX_DB_PASSWORD`,
       `TIMEZONE`, `kea_default` and its three sync settings written in (`SYNC_APPLY` true by
@@ -356,7 +356,15 @@ against today's value by hash.
       each deploy, so a rebuilt image can recreate it whatever the values. Before: `netbox`
       and `netbox-dns-sync` running since 2026-10-20 03:26Z, the rest since 10-19 03:35Z,
       port 8085 open on the management address and refused on the production one, `/login/`
-      answering 200 through Traefik
+      answering 200 through Traefik. Read back 2026-10-21 (merged 00:39:59Z): `netbox` and
+      `netbox-worker` not recreated; `netbox-dns-sync` recreated at 00:41:17Z, its image being
+      built at each deploy (both Pi-hole URLs are `http`, so `PIHOLE_TLS_VERIFY` changes
+      nothing); `/login/` answering 200, port 8085 open on the management address and refused
+      on the production one, as before. Left, on the host: the init containers exited (0) at
+      about 00:41Z (`docker ps -a --filter label=com.docker.compose.project=netbox`);
+      `netbox-dns-sync` healthy, with the `docker inspect` count at 0, since it was recreated;
+      no `SYNC_DELETE` or `PIHOLE_TLS_VERIFY` among Dockhand's variables (only secret ones were
+      exported, so the move assumes their defaults); a login through Authentik
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -404,7 +412,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
   `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, `kea_default` and `SYNC_APPLY` in the compose file,
-  `DATABASUS_NETBOX_DB_PASSWORD` and `TIMEZONE`, once its move reads back
+  `DATABASUS_NETBOX_DB_PASSWORD` and `TIMEZONE` (#184)
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
