@@ -427,7 +427,9 @@ Dockhand fills a stack's variables from its `.env` on its own (its env editor,
 Key Vault holds, enabled; blank only claude-code's `REPO_URL` (its default is this repo).
 netbox's `CONFIG_DIFF_*`, blank and unused, are gone from it (#199; read back 2026-10-21:
 `netbox` and `netbox-worker` recreated at 02:57-02:58Z, `/login/` answering 200, port 8085
-on the management address only)
+on the management address only), and so is the Config Diff plugin they were for (#198; read
+back: recreated at 03:02Z after about a minute of 502, then 13 plugins at the versions they
+had and `/login/` answering 200)
 
 **Files:**
 
