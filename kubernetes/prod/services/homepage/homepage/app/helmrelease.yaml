@@ -202,12 +202,18 @@ spec:
                 - GitHub:
                     - icon: github.png
                       href: https://github.com/d4rkeagle65/k8s-homelab
-          # The Docker host's containers, read through docker/docker-socket-proxy
-          # (the container list and stats only): a card with server and
-          # container shows that container's state.
+          # Each Docker host's containers, read through its docker-socket-proxy
+          # stack (docker/docker-socket-proxy*: the container list and stats
+          # only): a card with server and container shows that container's state.
           docker.yaml: |
             docker-vm-1:
               host: ${DOCKHAND_ADDRESS}
+              port: 9339
+            docker-vm-2:
+              host: ${DOCKER_VM_2_MGMT_ADDRESS}
+              port: 9339
+            terramaster:
+              host: ${TERRAMASTER_MGMT_ADDRESS}
               port: 9339
           custom.css: ""
           custom.js: ""
@@ -305,6 +311,12 @@ spec:
                         - label: Used
                           query: 100 * sum(kea_dhcp4_addresses_assigned_total) / sum(kea_dhcp4_addresses_total)
                           format: {type: percent, options: {maximumFractionDigits: 0}}
+                - Kea standby:
+                    icon: isc-kea.png
+                    href: https://stork.${BASE_DOMAIN}
+                    description: DHCP's hot standby, on the second Docker VM
+                    server: docker-vm-2
+                    container: kea-dhcp4
                 - Traefik:
                     icon: traefik.png
                     description: Ingress and certificates
@@ -508,6 +520,8 @@ spec:
                 - Garage:
                     icon: garage.png
                     description: S3 for backups and logs
+                    server: terramaster
+                    container: garage
                     widget:
                       type: prometheusmetric
                       url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
