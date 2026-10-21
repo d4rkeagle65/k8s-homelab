@@ -1,8 +1,10 @@
-# A read-only view of the Docker host's containers for Homepage
+# A read-only view of the first Docker VM's containers for Homepage
 # (services/homepage/, its docker.yaml): each card with a server and container
 # shows that container's state and its CPU and memory. Deployed by Dockhand
 # from this folder (a Git stack), redeployed when a change here reaches main
-# (its webhook; docker/CLAUDE.md).
+# (its webhook; docker/CLAUDE.md). The second VM and the TerraMaster run the
+# same (docker-socket-proxy-vm2/, docker-socket-proxy-terramaster/), with only
+# the address different.
 #
 # wollomatic/socket-proxy passes on only what its allow rules match, each
 # anchored to the whole path: the container list (GET /containers/json) and one

@@ -23,10 +23,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
-- **Homepage's Docker proxy on the other Docker hosts** (2026-10-21): `docker/docker-socket-proxy/`
-  runs on the first Docker VM only. The TerraMaster (Garage's card) and the second VM
-  (kea-standby) would each need the stack with their own address variable, and a server in
-  Homepage's `docker.yaml`; left, those cards show no container state.
+- **Deploy the Docker proxy on the second VM and the TerraMaster** (2026-10-21):
+  `docker/docker-socket-proxy-vm2/` and `docker/docker-socket-proxy-terramaster/` are in git,
+  and Homepage's Garage and Kea standby cards read them (`docker-vm-2`, `terramaster` in its
+  `docker.yaml`); until they run, those two cards show a Docker error. The owner: create each
+  in Dockhand as a Git stack on that host's Hawser environment (Key Vault as its secret
+  provider, selector empty, Populate), turn its webhook on and give the two stack IDs for a
+  Provider and Alert each in `dockhand-webhooks/app/webhooks.yaml`. Port 9339 must be free on
+  each host (it is on the first VM).
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading

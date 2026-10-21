@@ -1,0 +1,44 @@
+# docker/docker-socket-proxy's read-only Docker proxy, on the TerraMaster, for Homepage's
+# Garage card: that file says what it allows and why. Deployed by Dockhand through
+# the TerraMaster's Hawser agent (a Git stack), redeployed when a change here reaches main
+# (its webhook; docker/CLAUDE.md). Only the address differs:
+# tests/test-docker-stacks.py holds every socket-proxy stack to the same image and
+# command.
+#
+# Variables (set in the stack's environment in Dockhand):
+#   TERRAMASTER_MGMT_ADDRESS   the TerraMaster's management address, from Key Vault
+#                              (azurekv://TERRAMASTER-MGMT-ADDRESS)
+services:
+  docker-socket-proxy:
+    mem_limit: 64m  # unmeasured: a small Go proxy
+    image: wollomatic/socket-proxy:1.13.1
+    container_name: docker-socket-proxy
+    restart: unless-stopped
+    # Root for the socket (root:docker, 0660; the image's own user is 65534,
+    # outside the docker group), with every capability dropped and nothing
+    # writable.
+    user: "0:0"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    command:
+    - -loglevel=INFO
+    - -listenip=0.0.0.0
+    - -allowfrom=0.0.0.0/0
+    - -allowGET=(/v[0-9.]+)?/containers/json
+    - -allowGET=(/v[0-9.]+)?/containers/[a-zA-Z0-9_.-]+/stats
+    - -allowhealthcheck
+    # A Docker restart can leave the socket connection broken: stop, and let
+    # restart bring it back.
+    - -watchdoginterval=300
+    - -stoponwatchdog
+    - -shutdowngracetime=5
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    ports:
+    - ${TERRAMASTER_MGMT_ADDRESS}:9339:2375
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
