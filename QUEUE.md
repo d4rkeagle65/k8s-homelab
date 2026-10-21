@@ -59,27 +59,27 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   another. The workers' old archives stay on `tm-nfs`, since the job no longer prunes them:
   delete them once the owner no longer wants them.
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
-  found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches
-  them in batches that each start from the pre-refresh snapshot (`getAuthor` serves the
-  `ra<id>` key while a refresh runs, by design per the declined PR 509), so the last batch
-  overwrites the others and Bookshelf shows a short bibliography (Cassandra Clare: 3 books;
-  six of eleven authors lost most works). Repaired by hand for all eleven: once a refresh has
-  finished, a work fetched on its own attaches to the live record, so the missing works' cache
-  rows (`w<id>` in `rreading-glasses-db`'s `cache` table) were deleted, the pod restarted (it
-  also caches in memory) and each work fetched (`GET /work/<id>`), then RefreshAuthor in
-  Bookshelf. The full list per author comes from its refresh's `ensuring author-work edges`
-  lines with `VERBOSE=true`. Left: an author added from now on can come out short the same
-  way; a small job that does this repair (or a patched image, or the fix upstream) would end
-  it. Already-repaired authors keep their works across refreshes (the snapshot is complete).
-  **Pace any repair to Hardcover's daily budget** (2026-10-18: about 2,000 repair lookups
-  in an afternoon spent the token's whole day, `rg_gql_ratelimit_remaining{bucket="daily"}`
-  0, and every uncached Bookshelf lookup failed for hours): read that metric before and
-  during a batch and stop well short of 0; one work every few seconds, not one a second
-  (rreading-glasses already keeps to the per-second burst budget; its pacing is
-  hard-coded); never a repair while Bookshelf is identifying new files, or several large
-  authors at once. The budget (Hardcover's response headers, 2026-10-19): 5,000 lookups a
-  day, reset at 00:00 UTC, and 60 a minute with bursts of 10; a re-fetched work costs about
-  one, so keep a day's repairs to about 1,000 and leave the rest to Bookshelf. The
+  found 2026-10-18): its first load of an author attaches the works in batches that each start
+  from the pre-refresh snapshot (the `ra<id>` key, by design per the declined PR 509), so the
+  last batch overwrites the others and Bookshelf shows a short bibliography. The
+  `rreading-glasses-repair` CronJob (`kubernetes/prod/apps/media/rreading-glasses/app/`, its
+  script's docstring says how) finds every Bookshelf author missing works it has cached,
+  without a Hardcover lookup, and repairs them through upstream's own path (`DELETE` then
+  `GET /work/<id>`), paced to Hardcover's daily budget. It starts with `DRY_RUN` "true"; a
+  dry run from a session on 2026-10-21 found 4 authors short by 27 works in all. Left, in
+  order: the owner merges it; a night's run (or one started by hand, the command is in the
+  CronJob's comment) is read: each short author and its count; a pull request sets `DRY_RUN`
+  "false", and the next run's log shows each work attached and the budget it spent (its
+  `DELETE` path has never been run here: the script stops if the work doesn't expire, and
+  fails if a work doesn't attach). Left in dry run, a new author's missing works are only
+  listed in the log.
+  **Pace any repair by hand to Hardcover's daily budget** (2026-10-18: about 2,000 repair
+  lookups in an afternoon spent the token's whole day, and every uncached Bookshelf lookup
+  failed for hours): read `rg_gql_ratelimit_remaining{bucket="daily"}` before and during a
+  batch and stop well short of 0; one work every few seconds; never while Bookshelf is
+  identifying new files, or several large authors at once. The budget (Hardcover's response
+  headers, 2026-10-19): 5,000 lookups a day, reset at 00:00 UTC, and 60 a minute with bursts
+  of 10; a re-fetched work costs about one, so keep a day's repairs to about 1,000. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
 - **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
   check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
