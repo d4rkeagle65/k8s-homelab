@@ -125,11 +125,9 @@ references).
       path, so a rename leaves the old file behind on a checkout that has one); the comments
       that still give Vaultwarden as `cluster-secrets`' source, which a reader follows to a
       store nothing reads (`git grep -n "Vaultwarden item\|from Vaultwarden\|Vaultwarden\. See"`:
-      `scaffold.py`'s README text, `constants.py`, `flux.py` and files under `kubernetes/`);
-      and `scripts/keyvault_copy.py`'s `request()`: Key Vault drops a connection mid-run often
-      (four times on 2026-10-19 and 20, each a clean `Stop` that a rerun cleared), so a GET
-      could retry once before stopping; a PUT stays single-shot, as a retried write may land
-      twice
+      `scaffold.py`'s README text, `constants.py`, `flux.py` and files under `kubernetes/`).
+      `scripts/keyvault_copy.py`'s `request()` now tries a GET with no answer once more, never
+      a PUT (branch `keyvault-copy-get-retry`)
 - [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`
       (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket; #116),
       read back 2026-10-19: loaded on both Prometheus replicas, inactive, health `ok`
