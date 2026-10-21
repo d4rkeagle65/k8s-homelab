@@ -133,17 +133,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
   by `grimmory-db`'s physical backups). Left, 14 days of stale dumps take NAS space.
 
-- **The CloudNativePG instances crowd two of the four workers** (found 2026-10-21): of 31
-  instances, one worker runs 13 and another 11, the other two 3 and 4, since each cluster's
-  anti-affinity only keeps its own two apart. Each drain also moves primaries off and nothing
-  moves them back: after the Talos 1.14.4 run one worker held 13 of the 16 primaries. Seven
-  were switched back on 2026-10-21 (20-30 s each, only Zammad's scheduler restarted), to 6, 3,
-  3 and 4: as even as the instances allow, since a primary can only move to its replica's node.
-  Left, losing the busiest worker fails over six databases and restarts 13 instances, and the
-  next full drain piles the primaries up again. Spread the instances (a topology spread across
-  the workers, or moving replicas one at a time onto the emptier ones), and end a run that
-  drains every worker by switching primaries back out.
-
+- **Move database replicas off the two crowded workers** (found 2026-10-21): of 31
+  CloudNativePG instances, one worker runs 13 and another 11, the other two 3 and 4, so losing
+  either busy one fails over about six databases. Every Cluster now keeps its two instances apart
+  and prefers the workers with the fewest instances (`scripts/tests/test_structure.py`,
+  `test_databases_spread`), but a `local-db` volume holds each existing instance to its node, so
+  the rule only places new ones. Left: move about eight replicas, one at a time, each with the
+  owner's go-ahead: delete the replica's pod and PVC so CloudNativePG rebuilds it from its
+  primary on the worker the rule picks, wait for "Cluster in healthy state", then the next. Each
+  leaves a Released `local-db` PV and its folder on the old worker to clean up. Left as is, the
+  next worker lost takes six primaries with it.
 - **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
   plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
   DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected

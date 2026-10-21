@@ -844,6 +844,40 @@ def test_databases_archive_hourly(repo_root):
     assert not wrong, f"Clusters not archiving hourly: {wrong}"
 
 
+def test_databases_spread(repo_root):
+    """Every CloudNativePG Cluster keeps its instances on different workers (anti-affinity
+    required) and prefers the workers holding the fewest instances of any cluster (a preferred
+    anti-affinity on cnpg.io/podRole: instance in every namespace; each matching pod on a node
+    counts against it). Without the second, the scheduler places by memory alone: on 2026-10-21
+    two of the four workers held 24 of 31 instances, so losing either failed over about six
+    databases. A local-db volume holds each instance to its node, so the rule places only new
+    instances; moving an existing one means rebuilding it.
+    """
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes/*.yaml"], cwd=repo_root,
+                             capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    clusters, wrong = 0, []
+    want = {"labelSelector": {"matchLabels": {"cnpg.io/podRole": "instance"}},
+            "namespaceSelector": {}, "topologyKey": "kubernetes.io/hostname"}
+    for rel in filter(None, tracked):
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        if "postgresql.cnpg.io/" not in text:
+            continue
+        for doc in _yaml.load_all(text):
+            if not isinstance(doc, dict) or doc.get("kind") != "Cluster" \
+                    or not str(doc.get("apiVersion", "")).startswith("postgresql.cnpg.io/"):
+                continue
+            clusters += 1
+            aff = (doc.get("spec") or {}).get("affinity") or {}
+            terms = ((aff.get("additionalPodAntiAffinity") or {})
+                     .get("preferredDuringSchedulingIgnoredDuringExecution") or [])
+            if aff.get("podAntiAffinityType") != "required":
+                wrong.append(f"{rel} (podAntiAffinityType {aff.get('podAntiAffinityType', 'unset')})")
+            elif not any(t.get("podAffinityTerm") == want for t in terms):
+                wrong.append(f"{rel} (no preferred anti-affinity on every instance)")
+    assert clusters, "found no CloudNativePG Cluster, so nothing was checked"
+    assert not wrong, f"Clusters not spread over the workers: {wrong}"
+
+
 _GOTK_SELECTOR_RE = re.compile(r"gotk_resource_info\s*\{([^}]*)\}")
 _MATCHER_LABEL_RE = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)\s*(?:=~|!~|!=|=)\s*"')
 # On every gotk_resource_info series beside the config's own labels: kube-state-metrics'
