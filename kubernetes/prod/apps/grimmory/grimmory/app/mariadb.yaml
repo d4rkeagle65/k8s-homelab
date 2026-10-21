@@ -90,7 +90,7 @@ spec:
 ---
 # A physical backup every night to Garage (mariadb-backups/grimmory), taken from
 # a replica, kept 14 days as the dumps were. A restore is a new MariaDB with
-# bootstrapFrom.backupRef naming this (QUEUE-mariadb.md, the trial).
+# bootstrapFrom.backupRef naming this (old-queues/QUEUE-mariadb.md, the trial).
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: PhysicalBackup
 metadata:
