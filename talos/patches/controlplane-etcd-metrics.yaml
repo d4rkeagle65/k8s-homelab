@@ -1,0 +1,7 @@
+# etcd's metrics on a port of their own (2381, plain HTTP, metrics and health
+# only), which monitors/app/scrapeconfig-etcd.yaml scrapes; by default etcd
+# serves them only on its client port, behind client certificates.
+cluster:
+  etcd:
+    extraArgs:
+      listen-metrics-urls: http://0.0.0.0:2381

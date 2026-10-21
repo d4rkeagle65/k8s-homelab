@@ -130,6 +130,7 @@ locals {
       file("${local.talos_patches_dir}/controlplane-podsecurity-delete.yaml"),
       file("${local.talos_patches_dir}/controlplane-podsecurity.yaml"),
       file("${local.talos_patches_dir}/controlplane-metrics.yaml"),
+      file("${local.talos_patches_dir}/controlplane-etcd-metrics.yaml"),
       local.talos_etcd_patch,
     ], local.talos_vip_patch)
     worker = [

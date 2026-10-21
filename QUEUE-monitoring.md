@@ -193,7 +193,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       controller-manager and scheduler to the node address and opens etcd's metrics port (2381);
       kube-prometheus-stack scrapes the first two with its rules on, `scrapeconfig-etcd.yaml` the
       third for the chart's etcd rules; kube-proxy stays off (Talos's bootstrap manifest). Left:
-      the owner rolls the patch onto each control plane with `talosctl patch mc
+      the owner rolls both patches (`controlplane-metrics.yaml`, its own documents on Talos
+      1.14, and `controlplane-etcd-metrics.yaml`) onto each control plane with `talosctl patch mc
       --mode=no-reboot`, one at a time and etcd healthy between, then merges; an OpenTofu plan
       showing nothing new for the nodes; the read-back (every target up, no control-plane
       alert)
