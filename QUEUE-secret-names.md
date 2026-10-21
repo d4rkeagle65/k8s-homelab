@@ -436,8 +436,9 @@ read back (a fresh listing would show it). It holds three more that stay: cadvis
 Dockhand fills a stack's variables from its `.env` on its own (its env editor,
 `previewRepoEnvFiles` in its `git.ts`), so they come back after a delete. Each `.env` checked
 2026-10-21: every variable its compose file reads, as its own `azurekv://` reference to a secret
-Key Vault holds, enabled; blank only claude-code's `REPO_URL` (its default is this repo) and
-netbox's `CONFIG_DIFF_*` (unused)
+Key Vault holds, enabled; blank only claude-code's `REPO_URL` (its default is this repo).
+netbox's `CONFIG_DIFF_*`, blank and unused, are gone from it (branch
+`netbox-no-config-diff-vars`)
 
 **Files:**
 
