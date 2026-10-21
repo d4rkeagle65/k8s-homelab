@@ -16,14 +16,6 @@
 # each is read back. Undo it with `systemctl disable --now homelab-source-routing`,
 # which removes the rules and empties the tables. Proxmox hosts are reported only.
 
-- name: Where answers from the management address leave
-  ansible.builtin.command:
-    argv: [ip, -o, route, get, 192.0.2.1, from, "{{ ansible_host }}"]
-  register: mgmt_out
-  changed_when: false
-  failed_when: false
-  check_mode: false
-
 - name: Does it use netplan
   ansible.builtin.stat:
     path: /etc/netplan
@@ -186,13 +178,27 @@
         label: "{{ item.item }}"
       when: not ansible_check_mode
 
+# Read after the fixes above, so the report says how things are when the run ends.
+- name: Where answers from the management address leave
+  ansible.builtin.command:
+    argv: [ip, -o, route, get, 192.0.2.1, from, "{{ ansible_host }}"]
+  register: mgmt_now
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 - name: Report the management routing
   vars:
-    out_if: "{{ mgmt_out.stdout.split(' dev ')[1].split()[0] if ' dev ' in mgmt_out.stdout else '?' }}"
+    out_if: "{{ mgmt_now.stdout.split(' dev ')[1].split()[0] if ' dev ' in mgmt_now.stdout else '?' }}"
+    fix_set: >-
+      {{ (management_gateway is defined and netplan_dir.stat.isdir | default(false))
+         or (interface_gateways is defined and not (netplan_dir.stat.isdir | default(false))) }}
   ansible.builtin.debug:
     msg: >-
       {{ inventory_hostname }}: {{
       ('answers from ' ~ ansible_host ~ ' leave by ' ~ out_if ~ (', its management interface' if out_if == mgmt_if
-        else ', not its management interface ' ~ mgmt_if ~ ' (set management_gateway where netplan runs, interface_gateways elsewhere)'))
+        else ', not its management interface ' ~ mgmt_if ~ ('; the fix set for it would change that (a dry run)'
+          if ansible_check_mode and fix_set | bool else
+          ' (set management_gateway where netplan runs, interface_gateways elsewhere)')))
       if mgmt_if is defined and not mgmt_if is match('^(br-|docker)') else
       ("can't tell: " ~ ansible_host ~ ", its inventory address, isn't a network of its own (an override, or a Docker bridge Semaphore uses on its own host)") }}
