@@ -428,14 +428,10 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 all ten soft-deleted (kept 90 days by purge protection) and none active, `cluster-secrets`
 refreshed after and `SecretSynced`, and every ExternalSecret Ready.
 
-**Dockhand stack variables:** the listing of every one at 22:40 EDT on 2026-10-20, after the
-queue had recorded them all deleted, still holds three that nothing reads:
-
-- semaphore's `TZ` (now `TIMEZONE`, #172), vaultwarden's `VAULTWARDEN_BIND_ADDRESS` (now
-  `DOCKER_VM_1_PROD_ADDRESS`, #188) and `BACKUP_ZIP_PASSWORD` (now
-  `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, #195; another value, never deployed)
-
-It holds three more that stay: cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's
+**Dockhand stack variables:** none left to delete. The listing of every one at 22:40 EDT on
+2026-10-20 still held three that nothing read, semaphore's `TZ` and vaultwarden's
+`VAULTWARDEN_BIND_ADDRESS` and `BACKUP_ZIP_PASSWORD`; the owner deleted them on 2026-10-21, not
+read back (a fresh listing would show it). It holds three more that stay: cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's
 `DOCKER_VM_2_MGMT_ADDRESS` and `DOCKER_VM_2_PROD_ADDRESS`, the same references as their `.env`s.
 Dockhand fills a stack's variables from its `.env` on its own (its env editor,
 `previewRepoEnvFiles` in its `git.ts`), so they come back after a delete. Each `.env` checked
