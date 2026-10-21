@@ -73,7 +73,7 @@ FLUX_NAMESPACE = "flux-system"
 
 # The substitution sources every Flux Kustomization reads: plain settings
 # committed in git, and the private values External Secrets builds from
-# Vaultwarden. See varsub.py and kubernetes/secrets/.
+# Azure Key Vault. See varsub.py and kubernetes/secrets/.
 SETTINGS_CONFIGMAP_NAME = "cluster-settings"
 SECRETS_SECRET_NAME = "cluster-secrets"
 

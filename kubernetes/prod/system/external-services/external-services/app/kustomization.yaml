@@ -2,7 +2,7 @@
 # through Traefik like the cluster's own: a certificate from cert-manager,
 # and a Pi-hole record from ExternalDNS. Each file is one app: a Service
 # pointing at the app's real address, and its Ingress. The addresses are
-# fields of the cluster-secrets Vaultwarden item, not git (the repo is
+# cluster-secrets variables (Key Vault), not git (the repo is
 # public); ports are fine here.
 #
 # Every Ingress here is LAN and VPN only (traefik_private-networks): none of
