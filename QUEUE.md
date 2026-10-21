@@ -41,16 +41,22 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   Bookshelf into Grimmory and locked by a one-off script, not kept; after a Bookshelf rename
   pass the moved books lose that and need it again (Grimmory's metadata API, `PUT
   /books/{id}/metadata?replaceMode=REPLACE_WHEN_PROVIDED`), and re-shelving.
-- **A failed Proxmox backup restarted a Talos worker** (found 2026-10-19): the backup job
-  that ran 21:00-21:51 local on 2026-10-18 failed at 67% on VM 116 (a worker), and the
-  host's task log then shows "VM 116 - Start": the VM's QEMU process had ended and Proxmox
-  started it again. The node was NotReady about a minute (01:50-01:51:55 UTC, a new boot
-  ID) and its pods came back by 01:55. Not memory: no host recorded an OOM kill. Find why
-  the backup failed and the VM stopped in that host's journal (QEMU's exit, vzdump's error)
-  around 21:50-21:52; left alone, each night's backup can take a worker down, and with it
-  any database instance on its local-db disk. Whether the Talos workers need a VM backup
-  at all is part of it: their system disk is rebuilt from config, and the databases on
-  local-db already go to Garage.
+- **The nightly Proxmox backup can make the HA master's watchdog reset its host** (found
+  2026-10-19, cause found 2026-10-21, Run Command tasks 1010-1014): on 2026-10-18 every host's
+  vzdump (the one job in Datacenter, Backup, hand-made: 21:00, all guests, snapshot, zstd,
+  50 MiB/s each, to the TerraMaster's `tm-nfs`, mounted `hard`) wrote at once; from about 21:40
+  the NAS fell behind ("nfs: server not responding" 80 times in ten minutes on the first HP
+  host), that host's writes backed up behind it until even journald stopped (its log ends
+  21:49:51, no panic or shutdown), and as the HA CRM master (watchdog armed) it was reset by
+  the watchdog; the next host took over as master at 21:51:26 and VM 116 (a worker) came back
+  only because it starts at boot. Whichever host is CRM master at 21:00 carries the risk, and
+  any guest on it goes down with it. Garage shares the NAS, so the databases' WAL archiving
+  slows at the same time. Options, the owner's call (the job lives only in Proxmox): leave the
+  four Talos workers out of the job (their system disk is rebuilt from config, their local-db
+  data is replicated and backed up to Garage; keep the control planes, the only etcd copy
+  until a `talosctl etcd snapshot` is scheduled), and run the hosts one after another or with a
+  lower total bandwidth. Separately, `tm-nfs` keeps every archive (`prune-backups keep-all=1`):
+  486 files, 4.1 of 11 TiB on 2026-10-21, growing until the NAS is full.
 - **Containers on the first Docker VM can't resolve local names** (found 2026-10-19): the
   claude-code container's resolver isn't a Pi-hole and forwards to public DNS, which answers
   NXDOMAIN for anything only the Pi-holes hold (an Ingress hostname, a host's name). Any
