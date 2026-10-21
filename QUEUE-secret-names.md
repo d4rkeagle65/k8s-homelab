@@ -295,7 +295,7 @@ against today's value by hash.
       line), Prometheus's `docker-vm` target `up`; its leftovers are on the delete list below.
       A variable compose interpolates (as in `ports:`) never reaches the container's environment, so
       `printenv` inside it shows neither name; the ports line is the check. kea-standby
-      second, done but for its leftovers: its compose file reads `DOCKER_VM_2_PROD_ADDRESS` and
+      second, done: its compose file reads `DOCKER_VM_2_PROD_ADDRESS` and
       `DOCKER_VM_2_MGMT_ADDRESS` (#146), set as references and redeployed by hand (no webhook:
       a Hawser stack on the second VM). Its first deploy failed, "Invalid environment variable
       name": a secret selector on the stack had pulled the whole vault (cleared; the rule is in
@@ -309,8 +309,10 @@ against today's value by hash.
       `TS_ROUTES` would make it; cadvisor not recreated, its target `up`. A new start time
       alone doesn't mean a reference failed: Dockhand also recreates on a forced redeploy
       (Recreate all, the stack's always-redeploy setting, a retry after a failed deploy).
-      Left: on the host, `docker inspect tailscale --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -c azurekv`
-      gives 0 when every reference resolved. databasus fourth (#159):
+      A reference left unresolved stays in the container's environment as text, so on the host
+      `docker inspect <container> --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -c azurekv`
+      gives 0 when every reference resolved: the owner ran it on every container on the
+      Docker host on 2026-10-21, after #195's redeploy, and each gave 0. databasus fourth (#159):
       `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its URL is built in the compose file),
       `DATABASUS_AGENT_ID` and `DATABASUS_AGENT_TOKEN`, and its three networks written in as
       `<stack>_default` (the values, by hash); rendered with Key Vault's values, its compose
@@ -319,8 +321,7 @@ against today's value by hash.
       as with tailscale: with the rendered file proven the same, start times are no check for
       these moves) and not restarting since, which the agent would if its URL hadn't resolved;
       port 4005 open on the management address and refused on the production one, as before;
-      its URL answers 200 through Traefik. Left: the agent online in Databasus, and the
-      `docker inspect` count above for `databasus databasus-verification-agent`. garage fifth
+      its URL answers 200 through Traefik. Left: the agent online in Databasus. garage fifth
       (#163): `TERRAMASTER_MGMT_ADDRESS` for `GARAGE_BIND_ADDRESS`; its other six keep their
       names, so the owner deleted them from Dockhand just before its redeploy (by hand: a
       Hawser stack, no webhook); rendered from its `.env`'s references, its compose file gave
@@ -379,9 +380,9 @@ against today's value by hash.
       nothing); `/login/` answering 200, port 8085 open on the management address and refused
       on the production one, as before. Left, on the host: the init containers exited (0) at
       about 00:41Z (`docker ps -a --filter label=com.docker.compose.project=netbox`);
-      `netbox-dns-sync` healthy, with the `docker inspect` count at 0, since it was recreated;
-      no `SYNC_DELETE` or `PIHOLE_TLS_VERIFY` among Dockhand's variables (only secret ones were
-      exported, so the move assumes their defaults); a login through Authentik. kea eighth
+      `netbox-dns-sync` healthy; a login through Authentik. Dockhand held no `SYNC_DELETE` or
+      `PIHOLE_TLS_VERIFY` (the listing of every variable, 2026-10-21), so the defaults the move
+      assumed were what it ran with. kea eighth
       (#185): `DOCKER_VM_1_PROD_ADDRESS` and `DOCKER_VM_1_MGMT_ADDRESS`
       for its DHCP and API addresses, `KEA_POSTGRES_PASSWORD`, `DATABASUS_KEA_DB_PASSWORD`,
       `BASE_DOMAIN` (Stork's OIDC issuer and redirect are built in the compose file) and
@@ -399,8 +400,8 @@ against today's value by hash.
       agent reads no variable) and running since; ports 8000, 8080 and 9547 open on the
       management address and refused on the production one, the HA pair in hot-standby with
       the standby heard 5 s before, Stork answering 200, Kea's metrics target `up`. Left, on
-      the host: the init containers exited (0) at about 00:50Z, the `docker inspect` count at
-      0 for `stork-server`; a Stork login through Authentik. vaultwarden ninth and last
+      the host: the init containers exited (0) at about 00:50Z; a Stork login through
+      Authentik. vaultwarden ninth and last
       (#188): `DOCKER_VM_1_PROD_ADDRESS`, `BASE_DOMAIN` (its
       address, signups whitelist, SMTP host and SSO authority are built in the compose file),
       `VAULTWARDEN_ADMIN_TOKEN`, `OWNER_EMAIL`, `ENTRA_VAULTWARDEN_SMTP_*`,
@@ -454,19 +455,6 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - `PIHOLE-URL`, `PIHOLE2-URL`: now `PIHOLE-1-URL`, `PIHOLE-2-URL` (#143)
 - `CADVISOR-ADDRESS`: now `DOCKER-VM-1-MGMT-ADDRESS` (#140); never mapped into the cluster
 - `PIHOLE-PASSWORD`, `PIHOLE2-PASSWORD`: now `PIHOLE-1-PASSWORD`, `PIHOLE-2-APP-PASSWORD` (#190)
-
-**Dockhand stack variables:** checked 2026-10-21 against a listing of every one, secret or
-not, by hash: seven were left, and every other stack variable is gone; semaphore's
-`SEMAPHORE_OIDC_CLIENT_SECRET` has gone since. None is read but through its `.env`'s own
-reference, so all six go:
-
-- cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's `DOCKER_VM_2_MGMT_ADDRESS` and
-  `DOCKER_VM_2_PROD_ADDRESS`: references set by hand, the same ones their `.env`s carry
-- semaphore's `TZ` (now `TIMEZONE`, #172): the same value as Key Vault's
-- vaultwarden's `VAULTWARDEN_BIND_ADDRESS` (now `DOCKER_VM_1_PROD_ADDRESS`, #188), the same
-  value as Key Vault's; and its `BACKUP_ZIP_PASSWORD`, which holds another value than
-  `VAULTWARDEN-BACKUP-ZIP-PASSWORD` (#195) but was never deployed: set after #188's deploy at
-  01:17Z, and `vaultwarden-backup` not started again before #195 merged
 
 **Files:**
 
