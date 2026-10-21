@@ -81,16 +81,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   day, reset at 00:00 UTC, and 60 a minute with bursts of 10; a re-fetched work costs about
   one, so keep a day's repairs to about 1,000 and leave the rest to Bookshelf. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
-- **Check the Pi-holes' per-address routing from a network they aren't on** (applied
-  2026-10-21): each Pi-hole's replies from eth1 to eth4 now leave by their own interface
-  (`interface_gateways` in its NetBox local context, `tasks/management-routing.yml`'s systemd
-  unit; "Setting: Debian Baseline" tasks 1076 and 1078, each read back). From the first Docker
-  VM's three addresses to every Pi-hole address, 28 of 30 answer before and after (task 1077
-  and after 1078); the two that don't, to each eth3 address from the VM's second interface, never
-  reach the Pi-hole, so the firewall drops them. Left: one query from a VPN or IoT/Work client
-  to a Pi-hole's management or DMZ address, the case the change is for, which no Run Command
-  host can make. Undo: `systemctl disable --now homelab-source-routing` on the Pi-hole, and
-  the context removed so the baseline doesn't put it back.
 - **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
   check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
   the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
