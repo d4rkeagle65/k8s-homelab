@@ -126,15 +126,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   matrix) and the add-ons' ranges: Calico 3.33 is the one that covers 1.37 (3.33.0 tested on
   1.35-1.37). Bump the claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
-- **Dry-run the host jobs under `target_hosts` before their next real run** (2026-10-21,
-  `ansible/select-hosts.yml`; `ansible/README.md`, "Picking the hosts"). Every Semaphore
-  template that works on hosts has the survey variable (read back; Run Command task 1080 ran on
-  the one host it named). Left: a dry run of "Reboot: Proxmox Hosts" (`ALL`), "Host: Proxmox
-  Upgrade" and "Node: Upgrade Talos", read through, since beyond host selection they ran only
-  against a fake inventory; then a pull request removes the older names (`select_alias` in
+- **Remove the older host-selection names** (2026-10-21): every Semaphore template's survey sends
+  `target_hosts` (`ansible/select-hosts.yml`), and dry runs passed under it: "Reboot: Proxmox
+  Hosts" with `ALL` (task 1081: all five hosts, Flux's hold planned and lifted), "Host: Proxmox
+  Upgrade" (1082) and "Node: Upgrade Talos" (1083, every node already on the target, so its
+  per-node steps didn't run). Left: a pull request removes the older names (`select_alias` in
   `proxmox-reboot.yml`, `run-command.yml` and `docker-host.yml`; `reboot_vms` in
-  `talos-reboot.yml`, `talos_nodes_only` in `talos-upgrade.yml`), which no survey sends any
-  more. Left, the next real reboot or upgrade is the first run of its changed steps.
+  `talos-reboot.yml`, `talos_nodes_only` in `talos-upgrade.yml`). Left as is, two names say
+  one thing.
 
 ## Cleanup
 
