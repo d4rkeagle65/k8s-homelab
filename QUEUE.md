@@ -82,12 +82,21 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   one, so keep a day's repairs to about 1,000 and leave the rest to Bookshelf. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
 - **The Pi-holes answer every network from Production** (found 2026-10-16, Run Command task
-  784): from their management, DMZ and other addresses, replies leave by `eth0`, Production's
-  default route, so a client on another subnet reaching one of those addresses through the
-  firewall gets no answer (the asymmetric routing that hid the new Docker VM's SSH). They're
-  containers whose networks Proxmox configures, so `tasks/management-routing.yml` only
-  reports them: give each address its own table and rule (as the Docker VMs have), through
-  the containers' network config, and check DMZ clients' DNS before and after.
+  784; read again 2026-10-21, tasks 1044-1055): both are Debian 13 LXC containers with an
+  address on five networks and one rule set, so a reply from any address but Production's
+  leaves by `eth0` to Production's gateway. A client on a network the Pi-holes aren't on, asking
+  a non-Production address through the firewall, gets no answer. Kea hands each of its subnets
+  the Pi-holes' address on that subnet, so its clients aren't affected; the client that is
+  hasn't been reproduced from any host a Run Command reaches (they all sit on networks the
+  Pi-holes share). `tasks/management-routing.yml` now takes `interface_gateways` where there's
+  no netplan: a table and rule per listed address, set by a systemd unit (Proxmox rewrites
+  the containers' `/etc/network/interfaces`). Left: the owner sets each Pi-hole's
+  `interface_gateways` in its NetBox local context (eth1 to eth4, each network's gateway, the
+  `.254` the Docker VMs and Kea use), runs "Setting: Debian Baseline" limited to the Pi-holes in
+  check mode, then for real, and the DNS checks run before and after: a query to every
+  address of each Pi-hole from each of the first Docker VM's addresses (`dig -b`), and one
+  from a client on a network the Pi-holes aren't on. Left as is, such a client gets no
+  answer from a Pi-hole's management, DMZ or other address.
 - **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
   check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
   the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
