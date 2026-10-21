@@ -437,8 +437,9 @@ Dockhand fills a stack's variables from its `.env` on its own (its env editor,
 `previewRepoEnvFiles` in its `git.ts`), so they come back after a delete. Each `.env` checked
 2026-10-21: every variable its compose file reads, as its own `azurekv://` reference to a secret
 Key Vault holds, enabled; blank only claude-code's `REPO_URL` (its default is this repo).
-netbox's `CONFIG_DIFF_*`, blank and unused, are gone from it (branch
-`netbox-no-config-diff-vars`)
+netbox's `CONFIG_DIFF_*`, blank and unused, are gone from it (#199; read back 2026-10-21:
+`netbox` and `netbox-worker` recreated at 02:57-02:58Z, `/login/` answering 200, port 8085
+on the management address only)
 
 **Files:**
 
