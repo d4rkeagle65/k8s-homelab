@@ -155,6 +155,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
+  plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
+  DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected
+  keyword argument 'nested'" and `/api/core/object-changes/` answers 500 for any page holding a
+  role-icon change (eight, from setting the icons). `?fields=` without `changed_object` works.
+  Nothing here reads the change log by API today; a script that does would fail until NetBox's
+  housekeeping drops those rows at the retention limit. Report it upstream, or patch the
+  serializer in `docker/netbox/Dockerfile` until a release fixes it.
+
 - **ExternalDNS's NetBox pod restarts once on every start** (found 2026-10-20): in
   `helmrelease-netbox.yaml` the `external-dns` container dials the webhook sidecar
   (`netbox-dns-webhook.py`, 127.0.0.1:8888) before it listens, exits with "failed to connect
