@@ -12,3 +12,6 @@ resources:
 - secret-pve-exporter.yaml
 - secret-qbittorrent-exporter.yaml
 - pvc-grafana-data.yaml
+- secret-loki-push-auth.yaml
+- ingress-loki-push.yaml
+- service-syslog.yaml
