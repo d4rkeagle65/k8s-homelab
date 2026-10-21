@@ -5,8 +5,8 @@
 # live-restore on from the start, then Dockhand's Hawser agent, so Dockhand
 # deploys stacks here (docker/CLAUDE.md).
 #
-# Inventory: the one host target_hosts names (select-hosts.yml; docker_host_target,
-# its older name, still works), never a group: this installs and restarts Docker.
+# Inventory: the one host target_hosts names (select-hosts.yml), never a group:
+# this installs and restarts Docker.
 # Run after baseline.yml.
 #
 # Hawser: Dockhand's agent (github.com/Finsys/hawser), in standard mode:
@@ -33,8 +33,6 @@
     select_from: all
     select_required: true
     select_one: true
-    select_alias: "{{ docker_host_target | default('') }}"
-    select_alias_name: docker_host_target
 
 - name: A Docker host
   hosts: targets

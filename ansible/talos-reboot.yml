@@ -12,7 +12,7 @@
 # its own named for its node, so every line of its work reads [node] (its Proxmox calls
 # [node -> Proxmox host]), and semaphore cleans up.
 #
-# Which VMs: target_hosts (required; reboot_vms, its older name, still works), VM IDs or names,
+# Which VMs: target_hosts (required), VM IDs or names,
 # separated by commas or spaces, rebooted in that order; ALL (any case) for every Talos VM,
 # control planes first. They're found in Proxmox and the cluster, not the inventory, so this
 # reads target_hosts itself rather than through select-hosts.yml. Each must be a
@@ -37,21 +37,16 @@
   vars_files: [vars/talos.yml]
   vars:
     pve_api_host: "{{ groups['proxmox'] | first }}"
-    vms_new: "{{ target_hosts | default('') | string | trim }}"
-    vms_old: "{{ reboot_vms | default('') | string | trim }}"
-    vm_selection: "{{ vms_new or vms_old }}"
+    vm_selection: "{{ target_hosts | default('') | string | trim }}"
   tasks:
     - name: Check and plan, cleaning up if that fails
       block:
         - name: target_hosts names the VMs to reboot
           ansible.builtin.assert:
-            that:
-              - vm_selection | length > 0
-              - not (vms_new and vms_old and vms_new != vms_old)
+            that: vm_selection | length > 0
             fail_msg: >-
-              {{ 'target_hosts and reboot_vms disagree: give only target_hosts. ' if vms_new and vms_old
-                 else 'target_hosts is unset: the VM IDs or names to reboot, separated by commas or spaces,
-                 or ALL for every Talos VM. ' }}Nothing was run.
+              target_hosts is unset: the VM IDs or names to reboot, separated by commas or spaces,
+              or ALL for every Talos VM. Nothing was run.
             quiet: true
 
         - name: Decode the Kubernetes CA certificate
