@@ -24,8 +24,7 @@
 # (ansible/README.md). Optional: target_hosts, node names to limit the run to
 # (separated by commas or spaces; each must be a Talos node; empty or ALL for
 # every node). The nodes are found in the cluster, not the inventory, so this
-# reads target_hosts itself rather than through select-hosts.yml; talos_nodes_only,
-# its older name, still works.
+# reads target_hosts itself rather than through select-hosts.yml.
 #
 # In check mode (--check) it reports the target, each node's version and what
 # it would drain, and changes nothing.
@@ -37,15 +36,10 @@
   gather_facts: false
   vars_files: [vars/talos.yml]
   vars:
-    nodes_new: >-
+    nodes_given: >-
       {{ ((target_hosts | default('')) if (target_hosts | default('')) is string
           else (target_hosts | join(' '))) | regex_replace('[,\s]+', ' ') | trim | split(' ')
          | reject('equalto', '') | list }}
-    nodes_old: >-
-      {{ ((talos_nodes_only | default('')) if (talos_nodes_only | default('')) is string
-          else (talos_nodes_only | join(' '))) | regex_replace('[,\s]+', ' ') | trim | split(' ')
-         | reject('equalto', '') | list }}
-    nodes_given: "{{ nodes_new or nodes_old }}"
     talos_only: "{{ [] if nodes_given | map('lower') | list == ['all'] else nodes_given }}"
   tasks:
     - name: Check and plan, cleaning up if that fails
@@ -94,14 +88,10 @@
 
         - name: Every node in target_hosts is a Talos node
           ansible.builtin.assert:
-            that:
-              - not (nodes_new and nodes_old and nodes_new != nodes_old)
-              - talos_only | difference(talos_all | map(attribute='name')) | length == 0
+            that: talos_only | difference(talos_all | map(attribute='name')) | length == 0
             fail_msg: >-
-              {{ 'target_hosts and talos_nodes_only disagree: give only target_hosts. '
-                 if nodes_new and nodes_old and nodes_new != nodes_old else
-                 "target_hosts names what isn't a Talos node: "
-                 ~ talos_only | difference(talos_all | map(attribute='name')) | join(', ') ~ '. ' }}Nothing was run.
+              target_hosts names what isn't a Talos node:
+              {{ talos_only | difference(talos_all | map(attribute='name')) | join(', ') }}. Nothing was run.
             quiet: true
 
         - name: Keep the nodes asked for

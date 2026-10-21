@@ -8,8 +8,6 @@
 #       # Optional:
 #       select_required: true   # no default: target_hosts must name hosts
 #       select_one: true        # exactly one host
-#       select_alias: "{{ reboot_hosts | default('') }}"  # an older name for target_hosts
-#       select_alias_name: reboot_hosts
 #
 # target_hosts (a survey variable): hosts, groups or patterns, separated by
 # commas, spaces or new lines; empty or ALL (any case) for every host in
@@ -31,15 +29,10 @@
   vars:
     allowed: >-
       {{ query('ansible.builtin.inventory_hostnames', select_from) | reject('equalto', 'semaphore') | list }}
-    given_new: "{{ target_hosts | default('') }}"
-    given_old: "{{ select_alias | default('') }}"
-    split_new: >-
-      {{ (given_new if given_new is string else given_new | join(' ')) | regex_replace('[,\s]+', ' ') | trim
+    given: "{{ target_hosts | default('') }}"
+    names: >-
+      {{ (given if given is string else given | join(' ')) | regex_replace('[,\s]+', ' ') | trim
          | split(' ') | reject('equalto', '') | list }}
-    split_old: >-
-      {{ (given_old if given_old is string else given_old | join(' ')) | regex_replace('[,\s]+', ' ') | trim
-         | split(' ') | reject('equalto', '') | list }}
-    names: "{{ split_new if split_new else split_old }}"
     every: "{{ names | length == 0 or (names | length == 1 and names[0] | lower == 'all') }}"
   tasks:
     - name: "{{ select_from }} has hosts"
@@ -68,7 +61,6 @@
     - name: The hosts asked for are hosts this playbook may touch
       ansible.builtin.assert:
         that:
-          - not (split_new and split_old and split_new != split_old)
           - not ('all' in names | map('lower') and names | length > 1)
           - not (select_required | default(false) | bool and names | length == 0)
           - select_unknown | length == 0
@@ -76,9 +68,7 @@
           - select_targets | length > 0
           - not (select_one | default(false) | bool and select_targets | length != 1)
         fail_msg: >-
-          {{ ('target_hosts and ' ~ select_alias_name | default('its older name') ~ ' disagree: give only target_hosts. ')
-             if split_new and split_old and split_new != split_old else '' }}{{
-          'ALL stands alone, for every host. ' if 'all' in names | map('lower') and names | length > 1 else '' }}{{
+          {{ 'ALL stands alone, for every host. ' if 'all' in names | map('lower') and names | length > 1 else '' }}{{
           ('No hosts given: set target_hosts to the hosts or groups in ' ~ select_from ~ ' to run on. ')
              if select_required | default(false) | bool and names | length == 0 else '' }}{{
           ('Not in the inventory: ' ~ select_unknown | join(', ') ~ '. ') if select_unknown else '' }}{{

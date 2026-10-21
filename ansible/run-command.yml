@@ -7,8 +7,8 @@
 #                    OpenWrt access points, so no bash-only syntax there)
 #   target_hosts     one or more inventory hosts or groups, separated by
 #                    commas, spaces or new lines; every name must be in the
-#                    inventory, or nothing runs (select-hosts.yml; run_hosts,
-#                    its older name, still works). Required: no default
+#                    inventory, or nothing runs (select-hosts.yml).
+#                    Required: no default
 #   run_timeout      optional: seconds before the command is stopped (300)
 #   run_command_b64  optional, in place of run_command: the command base64-encoded.
 #                    Ansible expands {{ ... }} in a variable's value, so a command
@@ -29,8 +29,6 @@
   vars:
     select_from: all
     select_required: true
-    select_alias: "{{ run_hosts | default('') }}"
-    select_alias_name: run_hosts
 
 - name: The command
   hosts: semaphore
