@@ -27,7 +27,7 @@
 
 - name: Suspend it
   ansible.builtin.command: >-
-    {{ kubectl_cmd }} -n flux-system patch gitrepositories.source.toolkit.fluxcd.io flux-system
+    {{ kubectl_cmd }} -n flux-system patch --field-manager=homelab-ansible gitrepositories.source.toolkit.fluxcd.io flux-system
     --type=merge -p '{"spec": {"suspend": true}}'
   delegate_to: "{{ kubectl_host }}"
   changed_when: true

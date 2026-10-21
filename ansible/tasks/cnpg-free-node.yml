@@ -64,7 +64,7 @@
 
 - name: Switch each primary over
   ansible.builtin.command: >-
-    {{ kubectl_cmd }} patch clusters.postgresql.cnpg.io
+    {{ kubectl_cmd }} patch --field-manager=homelab-ansible clusters.postgresql.cnpg.io
     -n {{ item.namespace }} {{ item.name }} --subresource=status --type=merge
     -p '{{ {"status": {"targetPrimary": item.to,
                        "targetPrimaryTimestamp": now(utc=true).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
@@ -93,7 +93,7 @@
 
 - name: Open a maintenance window on each single-instance cluster here
   ansible.builtin.command: >-
-    {{ kubectl_cmd }} patch clusters.postgresql.cnpg.io
+    {{ kubectl_cmd }} patch --field-manager=homelab-ansible clusters.postgresql.cnpg.io
     -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} --type=merge
     -p '{"spec": {"nodeMaintenanceWindow": {"inProgress": true, "reusePVC": true}}}'
   delegate_to: "{{ kubectl_host }}"
