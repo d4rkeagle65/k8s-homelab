@@ -19,12 +19,16 @@
 # answers from its management address leave; one with management_gateway set
 # and netplan gets them sent back out that interface.
 #
+# sshd on a fixed address (tasks/ssh-listen-retry.yml): where sshd sets a
+# ListenAddress, a drop-in has it wait for the network and retry a failed bind,
+# which Debian's unit otherwise never does; systemd reloads, sshd isn't restarted.
+#
 # Prometheus's exporters (tasks/host-exporters.yml): node-exporter, and on the
 # Proxmox hosts the SMART, NVMe and backup collectors, off until host_exporters
 # is true.
 #
-# In check mode (--check) it reports the missing packages, the exporters and
-# whether the bash setup differs, and changes nothing.
+# In check mode (--check) it reports the missing packages, the exporters, sshd's
+# restart settings and whether the bash setup differs, and changes nothing.
 
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
@@ -141,6 +145,11 @@
       check_mode: false
       failed_when: pkg_back.rc != 0 or pkg_back.stdout is not search(' ii ?$')
       when: not ansible_check_mode
+
+    # --- sshd on a fixed address ------------------------------------------------
+
+    - name: sshd retries a bind to an address that isn't up yet
+      ansible.builtin.include_tasks: tasks/ssh-listen-retry.yml
 
     # --- Prometheus's exporters (not on the Kubernetes nodes) ------------------
 
