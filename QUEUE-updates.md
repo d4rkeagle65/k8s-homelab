@@ -118,8 +118,9 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       PodDisruptionBudget (a replica that couldn't follow the primary); uncordoned again,
       every PostgreSQL cluster whole a minute later. The operator rebuilt that replica
       (replica recovery, 2026-10-20: all three at one GTID, every table's checksum equal, the
-      PDB allowing one eviction). Six of seven nodes are on v1.14.4. Next: the run again for
-      the last worker, dry run first, then the OpenTofu job. The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
+      PDB allowing one eviction). Task 967 upgraded the last worker: all seven nodes on
+      v1.14.4 (2026-10-20, read back: every database whole, etcd's members on 3.7.2 at one
+      index). Next: the OpenTofu job. The nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so its plan
       should update only the seven nodes' machine configs (the install image) and the other
       Talos VMs' `import_from`, which the provider records without re-importing a disk
       ("Never re-import existing disks", its v0.116.0 `disk.go`). The Talos VMs have
