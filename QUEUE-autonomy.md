@@ -62,8 +62,8 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [ ] **resource-limits:** batches 5 and 6, the LimitRanges, the PriorityClass, the 2026-10-18
       risk fixes and the alerts are done, and every running container has limits; re-measured
       2026-10-18 from 4.2 days (raising only, six pull requests). Left: the full-week recheck from
-      2026-10-21, Immich's server after the import, and the owner's call on the 1000m CPU cap
-      (`QUEUE-resource-limits.md`)
+      2026-10-21, Immich's server after the OneDrive import (`immich-import`), and the owner's call
+      on the 1000m CPU cap (`QUEUE-resource-limits.md`)
 - [ ] **monitoring-fixes:** done 2026-10-16: the Proxmox hosts' node-exporters (a boot race,
       fixed in `host-exporters.yml` and run), Pi-hole 1's hung exporter (restarted, probed by
       `/metrics`). Whisparr's exportarr was already up. Left, needing the owner: etcd scraping, a change to every
