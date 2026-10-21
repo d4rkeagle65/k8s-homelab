@@ -120,8 +120,12 @@ references).
 - [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
       `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
       all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake
-      kubectl, so their first real runs are their check (one set read back, one `-Get`); capture's "aren't in
-      Vaultwarden yet" warning and `vaultwarden-pending.yaml`'s name (`scripts/k8s_backup/varsub.py`);
+      kubectl, so their first real runs are their check (one set read back, one `-Get`);
+      `vaultwarden-pending.yaml`'s name (`varsub.py`'s `PENDING_PATH`; `ownership.py` owns the
+      path, so a rename leaves the old file behind on a checkout that has one); the comments
+      that still give Vaultwarden as `cluster-secrets`' source, which a reader follows to a
+      store nothing reads (`git grep -n "Vaultwarden item\|from Vaultwarden\|Vaultwarden\. See"`:
+      `scaffold.py`'s README text, `constants.py`, `flux.py` and files under `kubernetes/`);
       and `scripts/keyvault_copy.py`'s `request()`: Key Vault drops a connection mid-run often
       (four times on 2026-10-19 and 20, each a clean `Stop` that a rerun cleared), so a GET
       could retry once before stopping; a PUT stays single-shot, as a retried write may land

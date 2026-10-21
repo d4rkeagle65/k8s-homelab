@@ -1,11 +1,11 @@
 """Promoted Secrets: git gets the manifest with every value replaced by a
-${VAR} placeholder; the value (base64, as the Secret stores it) belongs in
-the cluster-secrets Vaultwarden item, which External Secrets turns into the
-cluster-secrets Secret Flux substitutes from. Until that Secret holds
-exactly those values, capture lists them in the gitignored
-kubernetes/.local/vaultwarden-pending.yaml and holds the manifest back --
-applying it early would overwrite the real Secret with empty (or stale)
-strings.
+${VAR} placeholder, which Flux fills from the cluster-secrets Secret with
+the value's base64, as the Secret stores it. Key Vault holds the value
+plain, and cluster-secrets' template encodes it. Until that Secret holds
+exactly those values, capture lists them, plain and with their template
+entries, in the gitignored kubernetes/.local/vaultwarden-pending.yaml and
+holds the manifest back -- applying it early would overwrite the real
+Secret with empty (or stale) strings.
 
 No cluster access: kube calls are monkeypatched, and everything writes to
 a throwaway tree under tmp_path. Fake values are built at runtime so this
@@ -100,7 +100,7 @@ def _serve(monkeypatch, secrets, live):
 
 def _run(tmp_path):
     """The promoted-Secret part of capture.run(): returns (warnings, the
-    values pending for Vaultwarden as {name: value})."""
+    values pending for Key Vault as {name: the literal capture replaces})."""
     warnings: list[str] = []
     substitutions = capture._load_substitutions(tmp_path, None, warnings)
     live_values = {varsub._var_name(s["placeholder"]): s["literal"] for s in substitutions}
@@ -119,7 +119,8 @@ def test_secret_is_written_only_once_its_values_are_live(tmp_path, monkeypatch):
     user, password = _b64("someone"), _b64("pw-" + "one")
 
     # 1st run: cluster-secrets doesn't hold them yet -> no manifest, the
-    # values listed for Vaultwarden, and a warning saying what to do.
+    # values listed for Key Vault, and a warning saying what to do. The
+    # literal capture replaces is the base64, as the manifest holds it.
     _serve(monkeypatch, [_secret()], live={})
     warnings, pending = _run(tmp_path)
     assert not (tmp_path / SECRET_FILE).exists()
@@ -127,7 +128,7 @@ def test_secret_is_written_only_once_its_values_are_live(tmp_path, monkeypatch):
     assert pending == {"NOIP_DUC_CREDENTIALS_NOIP_PASSWORD": password, "NOIP_DUC_CREDENTIALS_NOIP_USERNAME": user}
     assert (tmp_path / f"{APP}/deployment-noip-duc.yaml").is_file()
 
-    # Once they're in Vaultwarden and synced: the manifest is written,
+    # Once they're in Key Vault and synced: the manifest is written,
     # placeholders only, and nothing is pending.
     _serve(monkeypatch, [_secret()], live=pending)
     warnings, pending = _run(tmp_path)
@@ -210,6 +211,21 @@ def test_pending_and_cache_rows():
         {"name": "NEW", "value": "v", "note": "n"}]
 
 
+def test_a_secrets_pending_value_is_plain_with_its_template_entry():
+    # Key Vault holds every value plain; the template encodes a Secret's back into
+    # the base64 its data: takes, so the literal (what capture replaces) stays base64.
+    entry = {"literal": _b64("pw-" + "one"), "placeholder": PASS_VAR, "note": "n", "secret_data": True}
+    assert varsub.pending_rows([entry]) == [{
+        "name": "NOIP_DUC_CREDENTIALS_NOIP_PASSWORD", "value": "pw-" + "one",
+        "template": "{{ .NOIP_DUC_CREDENTIALS_NOIP_PASSWORD | b64enc }}", "note": "n"}]
+    assert entry["literal"] == _b64("pw-" + "one")
+    # Key Vault holds only text, so a value that isn't stays base64, untemplated.
+    binary = {**entry, "literal": base64.b64encode(b"\xff\xfe").decode()}
+    [row] = varsub.pending_rows([binary])
+    assert row["value"] == binary["literal"] and "template" not in row
+    assert row["note"].startswith("n; not text")
+
+
 # ---- capture.run end to end ----------------------------------------------------
 
 def _fake_cluster(monkeypatch, secret_result):
@@ -238,8 +254,10 @@ def test_capture_keeps_its_cache_and_lists_pending_values(tmp_path, monkeypatch)
     pending = tmp_path / "kubernetes/.local/vaultwarden-pending.yaml"
 
     report, _ = capture.run(tmp_path, None, False, False)
-    assert any("aren't in Vaultwarden yet (ACME_EMAIL)" in w for w in report.warnings)
-    assert [r["name"] for r in _yaml.load(pending.read_text())] == ["ACME_EMAIL"]
+    assert any("aren't in cluster-secrets yet (ACME_EMAIL)" in w for w in report.warnings)
+    # Not from a Secret's data:, so as found, with no template entry.
+    assert _yaml.load(pending.read_text()) == [
+        {"name": "ACME_EMAIL", "value": "ops@example.org", "note": "ACME account email (ClusterIssuer le)"}]
     inventory = (tmp_path / "docs/inventory.md").read_text()
     assert "example.org" not in inventory  # neither the known nor the pending value
 
@@ -249,10 +267,27 @@ def test_capture_keeps_its_cache_and_lists_pending_values(tmp_path, monkeypatch)
     assert cache.is_file() and pending.is_file()
     assert {e["placeholder"] for e in varsub.load_cache(tmp_path)} >= {"${BASE_DOMAIN}", "${ACME_EMAIL}"}
 
-    # Once Vaultwarden has it, the pending file goes.
+    # Once cluster-secrets has it, the pending file goes.
     _fake_cluster(monkeypatch, ({"data": {"BASE_DOMAIN": _b64("example.org"), "ACME_EMAIL": _b64("ops@example.org")}}, None))
     capture.run(tmp_path, None, False, False)
     assert cache.is_file() and not pending.exists()
+
+
+def test_capture_lists_a_promoted_secrets_values_plain_with_their_template(tmp_path, monkeypatch):
+    _mark(tmp_path)
+    _fake_cluster(monkeypatch, ({"data": {"BASE_DOMAIN": _b64("example.org"), "ACME_EMAIL": _b64("ops@example.org")}}, None))
+    monkeypatch.setattr(kube, "get_namespaced", lambda c, kind, ns: ([_secret()] if kind == "secret" else [], None))
+    monkeypatch.setattr(kube, "get_namespace", lambda c, ns: {
+        "apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns, "labels": {layout.CATEGORY_LABEL: "system"}}})
+    capture.run(tmp_path, None, False, False)
+    rows = _yaml.load((tmp_path / "kubernetes/.local/vaultwarden-pending.yaml").read_text())
+    assert {r["name"]: (r["value"], r.get("template")) for r in rows} == {
+        "NOIP_DUC_CREDENTIALS_NOIP_PASSWORD": ("pw-" + "one", "{{ .NOIP_DUC_CREDENTIALS_NOIP_PASSWORD | b64enc }}"),
+        "NOIP_DUC_CREDENTIALS_NOIP_USERNAME": ("someone", "{{ .NOIP_DUC_CREDENTIALS_NOIP_USERNAME | b64enc }}"),
+    }
+    # The cache, which the leak check reads, keeps the literal the manifests hold.
+    cached = {e["placeholder"]: e["literal"] for e in varsub.load_cache(tmp_path)}
+    assert cached[PASS_VAR] == _b64("pw-" + "one")
 
 
 def test_capture_stops_if_cluster_secrets_cannot_be_read(tmp_path, monkeypatch):

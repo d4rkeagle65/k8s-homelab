@@ -218,14 +218,14 @@ def freeze_restarted_at(doc: dict, previous: dict | None) -> dict:
 
 # ---- Secrets -----------------------------------------------------------------
 #
-# A promoted Secret goes to git with every value replaced by a ${VAR}
-# placeholder. The value itself -- base64, exactly as the Secret stores it --
-# belongs in the cluster-secrets Vaultwarden item; until it's there, capture
-# lists it in the gitignored kubernetes/.local/vaultwarden-pending.yaml and
-# holds the manifest back. Once External Secrets has synced it, Flux's
-# postBuild substitution puts the value back. Base64
-# because it's always a plain YAML scalar: a raw value holding a newline, a
-# ": " or a leading quote would corrupt the manifest Flux substitutes into.
+# A promoted Secret goes to git with each data: value a ${VAR} placeholder,
+# which Flux's postBuild substitution fills with the value's base64, as the
+# Secret stores it: always a plain YAML scalar, where a raw value holding a
+# newline, a ": " or a leading quote would corrupt the manifest. Key Vault
+# holds it plain, and the cluster-secrets template encodes it. Until the live
+# cluster-secrets Secret holds it, capture lists it in the gitignored
+# kubernetes/.local/vaultwarden-pending.yaml (varsub.pending_rows) and holds
+# the manifest back.
 
 
 _GENERATED_SECRET_TYPES = {
