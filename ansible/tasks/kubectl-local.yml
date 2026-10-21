@@ -6,7 +6,11 @@
 # Sets kubectl_cmd, kubectl_host (localhost) and kubectl_dir for the
 # k8s-node-* and cnpg-* tasks. Both files go in a new private temporary
 # directory (0700), never the playbook's folder, which Semaphore keeps between
-# runs; the playbook's last play removes it.
+# runs; the playbook's last play removes it. Every patch through it names
+# --field-manager=homelab-ansible: Flux strips, at its next reconcile, what
+# kubectl's own managers (kubectl-patch) set on an object it applies, so a
+# MariaDB's podIndex, a maintenance window or Flux's own suspend would be
+# undone mid-run.
 - name: Read the API server's version
   ansible.builtin.uri:
     url: "{{ k8s_api_url }}/version"

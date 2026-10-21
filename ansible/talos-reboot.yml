@@ -220,6 +220,11 @@
     - name: Reboot it, unless a VM before it failed
       when: hostvars['semaphore'].talos_stopped_at is not defined
       block:
+        - name: Flux is still held, if this run holds it
+          ansible.builtin.include_tasks: tasks/flux-held.yml
+          vars:
+            flux_frozen: "{{ hostvars['semaphore'].flux_frozen | default(false) }}"
+
         - name: Reboot VM {{ talos_vm.vmid }} ({{ inventory_hostname }})
           ansible.builtin.include_tasks: tasks/talos-vm-reboot.yml
 

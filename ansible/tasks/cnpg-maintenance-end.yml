@@ -2,7 +2,7 @@
 # namespace/name), once the node is back, and reads each back.
 - name: Close the maintenance windows
   ansible.builtin.command: >-
-    {{ kubectl_cmd }} patch clusters.postgresql.cnpg.io
+    {{ kubectl_cmd }} patch --field-manager=homelab-ansible clusters.postgresql.cnpg.io
     -n {{ item.split('/')[0] }} {{ item.split('/')[1] }} --type=merge
     -p '{"spec": {"nodeMaintenanceWindow": {"inProgress": false}}}'
   delegate_to: "{{ kubectl_host }}"

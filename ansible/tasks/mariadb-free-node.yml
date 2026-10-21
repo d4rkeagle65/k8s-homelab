@@ -68,7 +68,7 @@
 
 - name: Switch each primary over
   ansible.builtin.command: >-
-    {{ kubectl_cmd }} patch mariadbs.k8s.mariadb.com
+    {{ kubectl_cmd }} patch --field-manager=homelab-ansible mariadbs.k8s.mariadb.com
     -n {{ item.namespace }} {{ item.name }} --type=merge
     -p '{{ {"spec": {"replication": {"primary": {"podIndex": item.index}}}} | to_json }}'
   delegate_to: "{{ kubectl_host }}"

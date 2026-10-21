@@ -3,7 +3,7 @@
 # outright leaves the hold, and the next freeze stops on it.
 - name: Resume Flux's source
   ansible.builtin.command: >-
-    {{ kubectl_cmd }} -n flux-system patch gitrepositories.source.toolkit.fluxcd.io flux-system
+    {{ kubectl_cmd }} -n flux-system patch --field-manager=homelab-ansible gitrepositories.source.toolkit.fluxcd.io flux-system
     --type=merge -p '{"spec": {"suspend": false}}'
   delegate_to: "{{ kubectl_host }}"
   changed_when: true
