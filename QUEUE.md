@@ -23,6 +23,17 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Deploy Dockhand's backup** (`docker/dockhand-backup/`, 2026-10-21): Dockhand's SQLite
+  database, its `.encryption_key` and its own compose file, in an encrypted 7z archive to
+  `docker-backups/dockhand/` at each start and nightly at 03:45 UTC, kept 30 days. Until it
+  runs, Dockhand's environments, stacks and variables are only in the Proxmox backup of the
+  VM's disk. Left, in order: the owner adds `DOCKHAND-BACKUP-ZIP-PASSWORD` to Key Vault (a new
+  password, kept outside Dockhand too); creates the Git stack `dockhand-backup` in Dockhand on
+  the first VM, with Key Vault bound as its secret provider (selector empty) and Populate
+  run; then its webhook: a pull request adding it to
+  `kubernetes/prod/system/external-services/dockhand-webhooks/` with the new stack's ID. Then
+  the first archive is checked: the container healthy, `docker exec dockhand-backup
+  backup.sh check` says OK, and the archive opens by hand with the password (`7z t`).
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures (~50 GB) down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
@@ -268,10 +279,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   is no longer needed. Check the config context in NetBox, then drop it.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
-- **Dockhand's own data** (`/opt/dockhand`, SQLite: its environments, Git stacks and their
-  variables, secrets included) has no backup of its own beyond the Proxmox backup of the Docker
-  VM's disks. The databases and Vaultwarden there are backed up to Garage nightly
-  (`docker/databasus/`, `vaultwarden-backup` in `docker/vaultwarden/`).
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule
