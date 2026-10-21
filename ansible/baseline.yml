@@ -28,6 +28,10 @@
 # Proxmox hosts the SMART, NVMe and backup collectors, off until host_exporters
 # is true.
 #
+# Logs to the cluster's Loki (tasks/host-alloy.yml): Alloy sending the journal,
+# and the Docker VMs' containers and the Pi-holes' FTL log, off until host_alloy
+# is true.
+#
 # In check mode (--check) it reports the missing packages, the exporters, sshd's
 # restart settings and whether the bash setup differs, and changes nothing.
 
@@ -156,6 +160,11 @@
 
     - name: The host exporters
       ansible.builtin.include_tasks: tasks/host-exporters.yml
+
+    # --- Logs to Loki (not on the Kubernetes nodes) -------------------------------
+
+    - name: Alloy
+      ansible.builtin.include_tasks: tasks/host-alloy.yml
 
     # --- The resolver's cache ---------------------------------------------------
 

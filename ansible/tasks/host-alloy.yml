@@ -1,0 +1,209 @@
+# Grafana Alloy on the machines outside the cluster, sending their logs to the
+# cluster's Loki through its push route (monitoring-extras/app/ingress-loki-push.yaml,
+# behind a login): each host's systemd journal; the Docker VMs' container logs;
+# the Pi-holes' FTL log (not the query log, which is every DNS question). Labels
+# stay few, as the cluster's own logs: host, source (journal, docker, pihole)
+# and app (the systemd unit, the container, or pihole-ftl). From Grafana's apt
+# repository, the package's own service. The Kubernetes nodes are left alone:
+# the cluster's Alloy reads theirs.
+#
+# Variables (the Debian Host Baseline variable group):
+#   host_alloy          true: install and keep it; empty or false: only report
+#   loki_push_url       the push route, https://loki-push.<domain>/loki/api/v1/push
+#   loki_push_password  (a secret) the route's password, the same as Key Vault's
+#                       LOKI_PUSH_PASSWORD, which Traefik checks
+
+- name: Settle the Alloy settings
+  ansible.builtin.set_fact:
+    ha_on: "{{ host_alloy | default(false) | bool }}"
+    ha_skip: "{{ 'k8s_nodes' in group_names }}"
+    ha_docker: "{{ 'docker_vm' in group_names }}"
+    ha_pihole: "{{ 'pihole' in group_names }}"
+
+- name: Read Alloy's state
+  ansible.builtin.shell: |
+    echo "installed=$(dpkg-query -W -f='${db:Status-Abbrev}${Version}' alloy 2>/dev/null)"
+    echo "active=$(systemctl is-active alloy 2>/dev/null)"
+  register: ha_state
+  changed_when: false
+  check_mode: false
+  when: not ha_skip
+
+- name: Report Alloy as found
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: Alloy {{ (ha_state.stdout | regex_search('installed=ii\s*(\S+)', '\1') | first)
+      if 'installed=ii' in ha_state.stdout else 'not installed' }},
+      {{ ha_state.stdout | regex_search('active=(\S*)', '\1') | first | default('') or 'not running' }};
+      {{ ('managing it: journal' ~ (', Docker' if ha_docker else '') ~ (', Pi-hole FTL' if ha_pihole else ''))
+         if ha_on else 'off (host_alloy is not set)' }}
+  when: not ha_skip
+
+- name: Alloy
+  when: ha_on and not ha_skip
+  block:
+    - name: The push route and its password are set
+      ansible.builtin.assert:
+        that:
+          - loki_push_url | default('') is match('^https://.+/loki/api/v1/push$')
+          - loki_push_password | default('') | length > 0
+        fail_msg: >-
+          Set loki_push_url (https://loki-push.<domain>/loki/api/v1/push) and the secret
+          loki_push_password in the Debian Host Baseline variable group.
+        quiet: true
+
+    - name: Grafana's apt key
+      ansible.builtin.get_url:
+        url: https://apt.grafana.com/gpg.key
+        dest: /etc/apt/keyrings/grafana.asc
+        mode: "0644"
+
+    - name: Grafana's apt repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/grafana.list
+        content: "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main\n"
+        mode: "0644"
+      register: ha_repo
+
+    - name: Install Alloy
+      ansible.builtin.apt:
+        name: alloy
+        state: present
+        update_cache: "{{ ha_repo is changed }}"
+        cache_valid_time: 3600
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      when: not ansible_check_mode
+
+    # The journal's readers, and Docker's socket on the Docker VMs.
+    - name: Alloy may read the journal{{ ' and Docker' if ha_docker else '' }}
+      ansible.builtin.user:
+        name: alloy
+        groups: "{{ ['systemd-journal', 'adm'] + (['docker'] if ha_docker else []) }}"
+        append: true
+      register: ha_groups
+      when: not ansible_check_mode
+
+    # The package's unit reads this file as its environment; the config reads
+    # the URL and password from there (sys.env), so they're in no config file.
+    - name: The push route and password, in Alloy's environment
+      ansible.builtin.lineinfile:
+        path: /etc/default/alloy
+        regexp: "^{{ item.key }}="
+        line: '{{ item.key }}="{{ item.value }}"'
+        create: true
+        mode: "0600"
+      loop:
+        - {key: LOKI_PUSH_URL, value: "{{ loki_push_url }}"}
+        - {key: LOKI_PUSH_PASSWORD, value: "{{ loki_push_password }}"}
+      loop_control:
+        label: "{{ item.key }}"
+      no_log: true
+      register: ha_env
+
+    - name: Alloy's config
+      ansible.builtin.copy:
+        dest: /etc/alloy/config.alloy
+        mode: "0644"
+        content: |
+          // Written by ansible/tasks/host-alloy.yml; changes here are overwritten.
+          logging {
+            level = "warn"
+          }
+
+          loki.write "default" {
+            endpoint {
+              url = sys.env("LOKI_PUSH_URL")
+              basic_auth {
+                username = "alloy"
+                password = sys.env("LOKI_PUSH_PASSWORD")
+              }
+            }
+            external_labels = {host = "{{ inventory_hostname }}"}
+          }
+
+          // The journal, each unit as app (its .service dropped).
+          loki.relabel "journal" {
+            forward_to = []
+            rule {
+              source_labels = ["__journal__systemd_unit"]
+              regex         = "(.+?)(\\.service)?"
+              target_label  = "app"
+            }
+          }
+
+          loki.source.journal "system" {
+            max_age       = "12h"
+            labels        = {source = "journal"}
+            relabel_rules = loki.relabel.journal.rules
+            forward_to    = [loki.write.default.receiver]
+          }
+          {% if ha_docker %}
+
+          // Docker's container logs, each container as app.
+          discovery.docker "local" {
+            host = "unix:///var/run/docker.sock"
+          }
+
+          discovery.relabel "docker" {
+            targets = discovery.docker.local.targets
+            rule {
+              source_labels = ["__meta_docker_container_name"]
+              regex         = "/(.*)"
+              target_label  = "app"
+            }
+          }
+
+          loki.source.docker "containers" {
+            host       = "unix:///var/run/docker.sock"
+            targets    = discovery.relabel.docker.output
+            labels     = {source = "docker"}
+            forward_to = [loki.write.default.receiver]
+          }
+          {% endif %}
+          {% if ha_pihole %}
+
+          // Pi-hole's FTL log; its query log stays out.
+          loki.source.file "pihole" {
+            targets    = [{"__path__" = "/var/log/pihole/FTL.log", "source" = "pihole", "app" = "pihole-ftl"}]
+            forward_to = [loki.write.default.receiver]
+          }
+          {% endif %}
+      register: ha_config
+
+    - name: Run Alloy
+      ansible.builtin.systemd_service:
+        name: alloy
+        enabled: true
+        state: >-
+          {{ 'restarted' if (ha_config is changed or ha_env is changed or ha_groups is changed)
+             else 'started' }}
+      when: not ansible_check_mode
+
+    # Sent entries counted, and Loki's answers: 204 is a push taken, 401 a
+    # wrong password, anything else the route or Loki failing.
+    - name: Read Alloy back
+      ansible.builtin.shell: |
+        m=$(curl -sf --max-time 10 http://127.0.0.1:12345/metrics) || { echo "unreachable"; exit 0; }
+        echo "sent=$(echo "$m" | awk '/^loki_write_sent_entries_total/ {s+=$2} END {print s+0}')"
+        echo "ok=$(echo "$m" | awk '/^loki_write_request_duration_seconds_count/ && /status_code="204"/ {s+=$2} END {print s+0}')"
+        echo "denied=$(echo "$m" | awk '/^loki_write_request_duration_seconds_count/ && /status_code="401"/ {s+=$2} END {print s+0}')"
+        echo "failed=$(echo "$m" | awk '/^loki_write_request_duration_seconds_count/ && !/status_code="(204|401)"/ {s+=$2} END {print s+0}')"
+      register: ha_back
+      changed_when: false
+      check_mode: false
+      retries: 6
+      delay: 10
+      until: ansible_check_mode or ha_back.stdout is search('ok=[1-9]') or ha_back.stdout is search('denied=[1-9]')
+      failed_when: >-
+        not ansible_check_mode and
+        ('unreachable' in ha_back.stdout or ha_back.stdout is not search('ok=[1-9]')
+         or ha_back.stdout is search('denied=[1-9]'))
+
+    - name: Report Alloy
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: Alloy sending to Loki,
+          {{ ha_back.stdout | regex_search('sent=(\d+)', '\1') | first | default('?') }} entries sent,
+          {{ ha_back.stdout | regex_search('ok=(\d+)', '\1') | first | default('?') }} pushes taken
+      when: not ansible_check_mode and ha_back.stdout is defined
