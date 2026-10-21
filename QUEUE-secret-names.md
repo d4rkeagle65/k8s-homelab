@@ -283,10 +283,13 @@ against today's value by hash.
         pihole-exporter's manifests move to it. `PIHOLE2_PASSWORD` becomes
         `PIHOLE_2_APP_PASSWORD`, which Key Vault lacks, so the owner adds it first:
         `$v = ./scripts/keyvault-secrets.ps1 PIHOLE2_PASSWORD -Get; ./scripts/keyvault-secrets.ps1 PIHOLE_2_APP_PASSWORD -New -Value $v -Raw`.
-        The mapping is #187, a draft until that secret reads back by hash as the plain form.
-        Then one pull request moves the three manifests and removes both old entries:
-        capture writes the alphabetically first of two names holding one value, and
-        `PIHOLE2_PASSWORD` sorts before `PIHOLE_2_APP_PASSWORD`
+        The owner added it, read back as the plain form by hash. #187 mapped both names, read
+        back 2026-10-21: generation 73, `SecretSynced`, only the two keys added, each equal by
+        hash to its old name's value. #190 moves the three manifests and removes both old
+        entries together, since capture writes the alphabetically first of two names holding
+        one value and `PIHOLE2_PASSWORD` sorts before `PIHOLE_2_APP_PASSWORD`. Its `flux
+        diff`: no rendered change in homepage, monitoring-extras or nebula-sync (a wrong name,
+        as a control, drifted)
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
       as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
