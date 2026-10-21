@@ -33,12 +33,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   (found 2026-10-21): with `ZIP_PASSWORD` blank, ttionya/vaultwarden-backup used its own default
   (`scripts/includes.sh`), printed in its source. The compose file now reads
   `VAULTWARDEN_BACKUP_ZIP_PASSWORD` by reference (a random value the owner added to Key Vault on
-  2026-10-21). Left: on the host after the merge, `vaultwarden-backup`'s `docker inspect`
-  azurekv count at 0 and its `ZIP_PASSWORD` set; the next nightly archive (03:30 UTC) opening
-  with the new password and not the default (the owner, as a restore would); Dockhand's old
-  `BACKUP_ZIP_PASSWORD` deleted. The archives from before keep the default until they age out
-  (30 days, about 2026-11-20): until then anyone who reads `docker-backups` can open those,
-  each holding the key that signs Vaultwarden's logins and its `config.json`
+  2026-10-21). Since its merge, `vaultwarden-backup` was recreated (02:24Z), its `docker
+  inspect` azurekv count is 0, and Dockhand's old `BACKUP_ZIP_PASSWORD` is deleted (the
+  owner). Left: its `ZIP_PASSWORD` set, on the host; the next nightly archive (03:30 UTC)
+  opening with the new password and not the default (the owner, as a restore would). The
+  archives from before keep the default until they age out (30 days, about 2026-11-20): until
+  then anyone who reads `docker-backups` can open those, each holding the key that signs
+  Vaultwarden's logins and its `config.json`
 - **A worker's drain doesn't know the MariaDB clusters** (found 2026-10-20):
   `ansible/tasks/cnpg-free-node.yml`, which `k8s-node-drain.yml` runs, switches over
   CloudNativePG primaries and lists single-instance PostgreSQL clusters, but not
