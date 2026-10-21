@@ -62,7 +62,7 @@ allowed to read, write and own it. Nothing to run after the deploy.
 
 Garage makes only `cnpg-backups` and its key by itself. Another bucket is made once on the
 NAS, with a key Garage creates, allowed on that bucket alone (mariadb-operator's backups,
-`QUEUE-mariadb.md`):
+`old-queues/QUEUE-mariadb.md`):
 
 ```sh
 g="docker exec garage /garage -c /etc/garage/garage.toml"
