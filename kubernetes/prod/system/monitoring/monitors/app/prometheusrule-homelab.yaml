@@ -179,6 +179,51 @@ spec:
         description: >-
           {{ $labels.instance }} {{ $labels.device }} set its critical-warning flags
           ({{ $value }}): read `nvme smart-log` on the host.
+    # Errors that are counts: a drive that has some is not news (one host's NVMe
+    # carries a few media errors, one SATA disk a few reallocated sectors); a count
+    # that grows is the drive failing now. Compared by serial number, since a
+    # host's drives can swap device names (nvme0n1/nvme1n1) at a reboot.
+    - alert: DriveMediaErrorsRising
+      expr: |
+        max by (instance, serial, model) (nvme_media_errors_total * on (instance, device) group_left (serial, model) nvme_device_info)
+          > max by (instance, serial, model) (nvme_media_errors_total offset 1d * on (instance, device) group_left (serial, model) nvme_device_info offset 1d)
+      labels:
+        severity: warning
+      annotations:
+        summary: An NVMe drive logged new media errors today.
+        description: >-
+          {{ $labels.instance }} {{ $labels.model }} (serial {{ $labels.serial }}):
+          media errors rose in the last day, now {{ $value }}. Read `nvme smart-log`
+          and the host's kernel log; copy off what matters if it keeps rising.
+    - alert: DriveSectorsFailing
+      expr: |
+        (
+          max by (instance, serial_number) (smartmon_reallocated_sector_ct_raw_value * on (instance, disk) group_left (serial_number) smartmon_device_info)
+            > max by (instance, serial_number) (smartmon_reallocated_sector_ct_raw_value offset 1d * on (instance, disk) group_left (serial_number) smartmon_device_info offset 1d))
+        or (
+          max by (instance, serial_number) (smartmon_current_pending_sector_raw_value * on (instance, disk) group_left (serial_number) smartmon_device_info)
+            > max by (instance, serial_number) (smartmon_current_pending_sector_raw_value offset 1d * on (instance, disk) group_left (serial_number) smartmon_device_info offset 1d))
+        or (
+          max by (instance, serial_number) (smartmon_offline_uncorrectable_raw_value * on (instance, disk) group_left (serial_number) smartmon_device_info)
+            > max by (instance, serial_number) (smartmon_offline_uncorrectable_raw_value offset 1d * on (instance, disk) group_left (serial_number) smartmon_device_info offset 1d))
+      labels:
+        severity: warning
+      annotations:
+        summary: A SATA drive's reallocated, pending or uncorrectable sectors grew today.
+        description: >-
+          {{ $labels.instance }} (serial {{ $labels.serial_number }}): a SMART sector
+          count rose in the last day, now {{ $value }}. Read `smartctl -a` on the
+          host; a disk still reallocating is failing.
+    - alert: DriveSMARTUnhealthy
+      expr: smartmon_device_smart_healthy == 0
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: A drive fails its own SMART health check.
+        description: >-
+          {{ $labels.instance }} {{ $labels.disk }} reports its overall SMART
+          assessment as failed: replace it.
   - name: homelab.nas
     rules:
     - alert: TerraMasterSNMPDown
