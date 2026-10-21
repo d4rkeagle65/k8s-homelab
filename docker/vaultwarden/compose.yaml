@@ -1,8 +1,20 @@
 # Vaultwarden on the Docker host, deployed by Dockhand from this folder (a
-# Git stack), not by Flux. Each variable below is set in the stack's
-# environment in Dockhand. Mark the credentials as secrets there: Dockhand passes
-# them to compose directly, never through a .env file, so a value containing
-# `$` (an argon2 ADMIN_TOKEN) arrives intact.
+# Git stack), not by Flux. Each variable is a Key Vault reference in .env.
+# Dockhand resolves them at each deploy and hands the values to compose as its
+# environment, never through a file, so a value containing `$` (the argon2
+# VAULTWARDEN_ADMIN_TOKEN) arrives intact.
+#
+# Variables, from Key Vault:
+#   DOCKER_VM_1_PROD_ADDRESS  the host's main-network address (443)
+#   BASE_DOMAIN               the domain: its own address (vaultwarden.<domain>),
+#                             the signups whitelist, smtp-relay.<domain> and
+#                             Authentik's issuer (auth.<domain>) are built from it
+#   VAULTWARDEN_ADMIN_TOKEN   the /admin page's token, an argon2 hash
+#   OWNER_EMAIL               the address its mail is sent from
+#   ENTRA_VAULTWARDEN_SMTP_USERNAME, ENTRA_VAULTWARDEN_SMTP_CLIENT_SECRET
+#                             its login on the SMTP relay
+#   AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_ID, AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_SECRET
+#                             the same pair Authentik's blueprint reads
 #
 # Vaultwarden serves HTTPS itself on 443. scripts/vaultwarden-cert-sync.sh
 # (cron, daily) copies cert-manager's certificate into /opt/vaultwarden/ssl
@@ -16,13 +28,16 @@
 # SQLite's own .backup (safe while Vaultwarden runs), with the RSA key that
 # signs logins, config.json, attachments and Sends, in one 7z archive
 # encrypted with BACKUP_ZIP_PASSWORD. Keep that password OUTSIDE Vaultwarden:
-# it's what opens the backup when Vaultwarden is the thing that's gone.
+# it's what opens the backup when Vaultwarden is the thing that's gone. Blank,
+# the image falls back to its own published default (scripts/includes.sh),
+# which protects nothing.
 # Restore: see the image's README (`restore` command, the container stopped).
 #
-# Backup variables (set in Dockhand too, all secret but the endpoint):
-#   BACKUP_S3_ENDPOINT, BACKUP_S3_ACCESS_KEY_ID, BACKUP_S3_SECRET_ACCESS_KEY
-#                       Garage's S3 API and the docker-backups key
-#   BACKUP_ZIP_PASSWORD the archive's password
+# Backup variables, from Key Vault but for the last:
+#   GARAGE_S3_ENDPOINT  Garage's S3 API
+#   VAULTWARDEN_BACKUP_S3_ACCESS_KEY_ID, VAULTWARDEN_BACKUP_S3_SECRET_ACCESS_KEY
+#                       the docker-backups key
+#   BACKUP_ZIP_PASSWORD the archive's password: blank for now
 services:
   vaultwarden:
     mem_limit: 768m
@@ -31,28 +46,28 @@ services:
     restart: unless-stopped
     ports:
     # The host's main-network address only, not its management one.
-    - ${VAULTWARDEN_BIND_ADDRESS}:443:443
+    - ${DOCKER_VM_1_PROD_ADDRESS}:443:443
     volumes:
     - /opt/vaultwarden/data:/data
     - /opt/vaultwarden/ssl:/ssl:ro
     environment:
       ROCKET_TLS: '{certs="/ssl/tls.crt",key="/ssl/tls.key"}'
       ROCKET_PORT: "443"
-      DOMAIN: ${DOMAIN}
-      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      DOMAIN: https://vaultwarden.${BASE_DOMAIN}
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
       SIGNUPS_ALLOWED: "false"
-      SIGNUPS_DOMAINS_WHITELIST: ${SIGNUPS_DOMAINS_WHITELIST}
-      SMTP_HOST: ${SMTP_HOST}
+      SIGNUPS_DOMAINS_WHITELIST: ${BASE_DOMAIN}
+      SMTP_HOST: smtp-relay.${BASE_DOMAIN}
       SMTP_PORT: "8025"
       SMTP_SECURITY: starttls
-      SMTP_FROM: ${SMTP_FROM}
-      SMTP_USERNAME: ${SMTP_USERNAME}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${OWNER_EMAIL}
+      SMTP_USERNAME: ${ENTRA_VAULTWARDEN_SMTP_USERNAME}
+      SMTP_PASSWORD: ${ENTRA_VAULTWARDEN_SMTP_CLIENT_SECRET}
       SSO_ENABLED: "true"
       SSO_ONLY: "false"
-      SSO_AUTHORITY: ${SSO_AUTHORITY}
-      SSO_CLIENT_ID: ${SSO_CLIENT_ID}
-      SSO_CLIENT_SECRET: ${SSO_CLIENT_SECRET}
+      SSO_AUTHORITY: https://auth.${BASE_DOMAIN}/application/o/vaultwarden/
+      SSO_CLIENT_ID: ${AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_ID}
+      SSO_CLIENT_SECRET: ${AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_SECRET}
       SSO_SCOPES: openid email profile offline_access
       SSO_SIGNUPS_MATCH_EMAIL: "true"
       SSO_ALLOW_UNKNOWN_EMAIL_VERIFICATION: "false"
@@ -97,9 +112,9 @@ services:
       # Garage over S3: path-style addressing and its region name; the bucket
       # already exists, so rclone doesn't try to create it.
       RCLONE_CONFIG_GARAGE_PROVIDER: Other
-      RCLONE_CONFIG_GARAGE_ENDPOINT: ${BACKUP_S3_ENDPOINT}
-      RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID}
-      RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY}
+      RCLONE_CONFIG_GARAGE_ENDPOINT: ${GARAGE_S3_ENDPOINT}
+      RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID: ${VAULTWARDEN_BACKUP_S3_ACCESS_KEY_ID}
+      RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY: ${VAULTWARDEN_BACKUP_S3_SECRET_ACCESS_KEY}
       RCLONE_CONFIG_GARAGE_REGION: garage
       RCLONE_CONFIG_GARAGE_FORCE_PATH_STYLE: "true"
       RCLONE_CONFIG_GARAGE_NO_CHECK_BUCKET: "true"

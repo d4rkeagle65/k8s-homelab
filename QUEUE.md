@@ -29,6 +29,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Vaultwarden's nightly backups open with a published password** (found 2026-10-21):
+  `docker/vaultwarden/compose.yaml`'s `ZIP_PASSWORD: ${BACKUP_ZIP_PASSWORD}` is blank, and
+  ttionya/vaultwarden-backup then falls back to its own default (`scripts/includes.sh`,
+  `ZIP_PASSWORD:-`), printed in its source. Each archive in Garage's `docker-backups` holds the
+  key that signs Vaultwarden's logins and its `config.json`, with the admin token's hash and
+  the SMTP login. The owner adds a random `VAULTWARDEN-BACKUP-ZIP-PASSWORD` to Key Vault, with
+  a copy outside Vaultwarden; then a pull request maps it in `docker/secret-names.yaml` and
+  the compose file reads it by reference. The archives already there keep the default until
+  they age out (30 days). Left, anyone who reads the bucket can open them.
 - **A worker's drain doesn't know the MariaDB clusters** (found 2026-10-20):
   `ansible/tasks/cnpg-free-node.yml`, which `k8s-node-drain.yml` runs, switches over
   CloudNativePG primaries and lists single-instance PostgreSQL clusters, but not
