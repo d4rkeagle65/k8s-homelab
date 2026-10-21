@@ -267,12 +267,15 @@ against today's value by hash.
         and the Secret not rewritten. The 6 Secrets these feed (`cloudflare-tunnel-secret`,
         `redis-ha-creds`, Authentik's and Immich's `redis-password`, `immich-redis-url`,
         Homepage's) were last written days before; the tunnel's pods ready, never restarted
-  - [ ] 5 (9), last, and it restores `Periodic`. A wrong value here would change stored state:
-        `IMMICH_POSTGRES_SUPERUSER_*` (2; CloudNativePG sets the superuser's password from it,
-        `enableSuperuserAccess`), `OBSIDIAN_COUCHDB_*` (4), `AUTHENTIK_SECRET_KEY_PASSWORD`
-        (Authentik's secret key: its sessions and what it encrypts),
-        `AUTHENTIK_SECRET_BOOTSTRAP_*` (2). #182, a draft until the owner's rewrite, also ending
-        the hold; all 9 read back in their old base64 form, each decoding to text, before it
+  - [x] 5 (9), stored state, and the hold's end: `IMMICH_POSTGRES_SUPERUSER_*` (2),
+        `OBSIDIAN_COUCHDB_*` (4), `AUTHENTIK_SECRET_KEY_PASSWORD`, `AUTHENTIK_SECRET_BOOTSTRAP_*`
+        (2), and `refreshPolicy` removed. #182, 2026-10-21. Read back by hash only: all 9 in
+        the old base64 form before the rewrite; all 9 plain after it, with no refresh in
+        between. Then one refresh for generation 72, `SecretSynced`, all 147 keys equal to the
+        fingerprint, and the Secret not rewritten. The 4 Secrets these feed were last written
+        2026-10-05, Immich's database healthy (2 of 2) and CouchDB steady. `refreshPolicy` is
+        gone, and the next refresh came on its own 15 minutes later (00:52Z), the fingerprint
+        unchanged
   - [ ] The two renamed, with no hold (Rules), in the order of "A name reaches Key Vault
         before anything reads it". `PIHOLE_PASSWORD` becomes `PIHOLE_1_PASSWORD`:
         `PIHOLE-1-PASSWORD` is `PIHOLE-PASSWORD`'s plain form (by hash, 2026-10-20), so its
@@ -376,7 +379,7 @@ against today's value by hash.
       since 10-20 03:08Z; ports 8000, 8080 and 9547 open on the management address and refused
       on the production one; the HA pair in hot-standby, the standby in touch; Stork
       answering 200 through Traefik
-- [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
+- [ ] New values plain too, due now that the switch's batches are done (#182). `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
       (`promote.py`'s "Secrets" comment, `varsub.py`'s `_write_entries`). Left so, each Secret
