@@ -1,4 +1,4 @@
-# mariadb-operator (QUEUE-mariadb.md): runs MariaDB as CloudNativePG runs
+# mariadb-operator (old-queues/QUEUE-mariadb.md): runs MariaDB as CloudNativePG runs
 # Postgres. Each app's MariaDB, Database, User, Grant and PhysicalBackup are
 # resources in the app's own folder; this release is the operator, its webhook
 # and its cert-controller (the webhook's certificates, no cert-manager).
