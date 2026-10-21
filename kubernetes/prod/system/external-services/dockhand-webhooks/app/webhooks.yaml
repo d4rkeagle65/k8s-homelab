@@ -228,3 +228,60 @@ spec:
   # Only a new commit's artifact, not every other event the source emits.
   inclusionList:
   - ".*stored artifact.*"
+---
+# docker/lldpd/ is two stacks, one per NAS (its Hawser agent), so two webhooks.
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-lldpd-terramaster
+spec:
+  type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/12/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-lldpd-terramaster
+spec:
+  providerRef:
+    name: dockhand-lldpd-terramaster
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Provider
+metadata:
+  name: dockhand-lldpd-synology
+spec:
+  type: generic
+  # Dockhand answers after the sync and any redeploy; Flux's default is 15s.
+  timeout: 2m
+  address: http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/13/webhook
+  secretRef:
+    name: dockhand-webhook
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta3
+kind: Alert
+metadata:
+  name: dockhand-lldpd-synology
+spec:
+  providerRef:
+    name: dockhand-lldpd-synology
+  eventSeverity: info
+  eventSources:
+  - kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  # Only a new commit's artifact, not every other event the source emits.
+  inclusionList:
+  - ".*stored artifact.*"
