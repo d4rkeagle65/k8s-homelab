@@ -52,8 +52,10 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
   node_name = local.guest[each.key].node
   vm_id     = tonumber(each.key)
   name      = local.guest[each.key].name
-  on_boot   = true
-  tags      = each.value.tags
+  # Off for a guest being removed; whether it runs is ignored below: README,
+  # "A guest being removed".
+  on_boot = !local.guest[each.key].decommissioning
+  tags    = each.value.tags
 
   reboot_after_update = false
 
@@ -152,8 +154,8 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
     prevent_destroy = true
     # Built once: a newer image or changed cloud-init is for the next VM, not a
     # reason to rebuild this one. HA or a migration moves it before the sync
-    # records the new host.
-    ignore_changes = [description, node_name, initialization, disk[0].import_from]
+    # records the new host. Whether it runs is HA's and the owner's.
+    ignore_changes = [description, node_name, initialization, disk[0].import_from, started]
 
     precondition {
       condition     = contains(local.docker_vms_hand_built, each.key) || var.site.vm_login != null

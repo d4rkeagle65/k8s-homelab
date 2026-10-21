@@ -31,7 +31,11 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
   back over NetBox's (it reports where Proxmox differs).
 - **A guest being removed is Decommissioning in NetBox:** the nightly sync writes nothing
   about it, and the generator keeps its entry exactly as `main`'s `netbox-guests.json` has
-  it, so a plan neither changes nor destroys it. Deleting it in NetBox drops its entry.
+  it, so a plan neither resizes nor destroys it. Its start at boot goes off (`netbox.tf`
+  reads the status at every plan), so stopping it by hand holds through a host's reboot;
+  on a running container that one change restarts it, as any container change does.
+  Whether any guest runs is never OpenTofu's after it's made (`started` is ignored), so a
+  plan doesn't start a guest someone stopped. Deleting it in NetBox drops its entry.
 - **What's specific to the site and NetBox doesn't hold** is one JSON value, `TF_VAR_site`:
   each bridge's network prefix and gateway, the nodes' DNS settings, and the Talos cluster's
   values. `variables.tf` describes it and checks it before anything is read.
