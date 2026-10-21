@@ -196,17 +196,12 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - [x] Phase 6 (in phase 1)
 - [ ] Phase 7
 - [ ] Phase 8
-- [ ] Phase 5's control-plane metrics, in PR: `talos/patches/controlplane-metrics.yaml` binds the
-      controller-manager and scheduler to the node address and opens etcd's metrics port (2381);
-      kube-prometheus-stack scrapes the first two with its rules on, `scrapeconfig-etcd.yaml` the
-      third for the chart's etcd rules; kube-proxy stays off (Talos's bootstrap manifest). Left:
-      the owner rolls both patches (`controlplane-metrics.yaml`, its own documents on Talos
-      1.14, and `controlplane-etcd-metrics.yaml`) onto each control plane with `talosctl patch mc
-      --mode=no-reboot` (the controller-manager and scheduler take it at once; etcd only at
-      its next start, and Talos won't restart etcd through its API, so the control planes are
-      then rebooted with "Reboot: Talos VMs", template 28; dry run task 1019 passed), then merges; an OpenTofu plan
-      showing nothing new for the nodes; the read-back (every target up, no control-plane
-      alert)
+- [x] Phase 5's control-plane metrics (2026-10-21): `talos/patches/controlplane-metrics.yaml` (the
+      controller-manager's and scheduler's own documents on Talos 1.14) and
+      `controlplane-etcd-metrics.yaml` rolled onto each control plane with `talosctl patch mc
+      --mode=no-reboot`, then the control planes rebooted (task 1020) for etcd's port; all nine
+      targets up, every etcd member with a leader, no control-plane alert. Left: the OpenTofu
+      apply of plan task 1023 (3 nodes' configs in place, nothing new on them; the owner)
 - [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
       (Grafana, Homelab folder, `json/homelab/backups.json`) and the `homelab.backups` alerts:
       Postgres from the Barman Cloud plugin's metrics (CloudNativePG's own backup timestamps
