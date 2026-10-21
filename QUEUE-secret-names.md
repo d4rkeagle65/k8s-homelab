@@ -390,7 +390,20 @@ against today's value by hash.
       management address and refused on the production one, the HA pair in hot-standby with
       the standby heard 5 s before, Stork answering 200, Kea's metrics target `up`. Left, on
       the host: the init containers exited (0) at about 00:50Z, the `docker inspect` count at
-      0 for `stork-server`; a Stork login through Authentik
+      0 for `stork-server`; a Stork login through Authentik. vaultwarden ninth and last
+      (branch `vaultwarden-standard-names`): `DOCKER_VM_1_PROD_ADDRESS`, `BASE_DOMAIN` (its
+      address, signups whitelist, SMTP host and SSO authority are built in the compose file),
+      `VAULTWARDEN_ADMIN_TOKEN`, `OWNER_EMAIL`, `ENTRA_VAULTWARDEN_SMTP_*`,
+      `AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_*`, `GARAGE_S3_ENDPOINT` and
+      `VAULTWARDEN_BACKUP_S3_*`; no variable keeps its name, so nothing goes from Dockhand
+      before the merge. `BACKUP_ZIP_PASSWORD` stays blank (`QUEUE.md`). Dockhand hands
+      resolved references to compose as its environment (`stacks.ts`: they join the secret
+      variables, `Object.assign(spawnEnv, secretVars)`), so the argon2 admin token's `$`s
+      arrive as they do now. Rendered as compose does, its compose file gave exactly the old
+      one's. Before: `vaultwarden` running since 2026-10-16 17:35Z, `vaultwarden-backup` since
+      10-20 08:03Z; port 443 open on the production address and refused on the management
+      one; `/alive` answering 200 through Traefik and direct; `bitwarden-cli` ready, no
+      restarts, and the four ClusterSecretStores Valid
 - [ ] New values plain too, due now that the switch's batches are done (#182). `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -444,6 +457,11 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `DOCKER_VM_1_PROD_ADDRESS`, `DOCKER_VM_1_MGMT_ADDRESS`, `KEA_POSTGRES_PASSWORD`,
   `DATABASUS_KEA_DB_PASSWORD`, URLs built from `BASE_DOMAIN` and
   `AUTHENTIK_STORK_OIDC_CLIENT_SECRET` (#185); and its `KEA_NETWORK`, which nothing reads
+- vaultwarden's `VAULTWARDEN_BIND_ADDRESS`, `DOMAIN`, `SIGNUPS_DOMAINS_WHITELIST`,
+  `SMTP_HOST`, `SSO_AUTHORITY`, `ADMIN_TOKEN`, `SMTP_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+  `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID` and
+  `BACKUP_S3_SECRET_ACCESS_KEY`: now `DOCKER_VM_1_PROD_ADDRESS`, values built from
+  `BASE_DOMAIN`, and the standard names in its `.env`, once its move reads back
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
