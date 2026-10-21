@@ -11,19 +11,17 @@
 # so they never go in this public repo. Reservations live in the database,
 # where Stork and the API change them live. See README.md.
 #
-# Variables (set in the stack's environment in Dockhand):
-#   KEA_DHCP_ADDRESS    the host address the firewall relays to
-#   KEA_API_ADDRESS     the host's management address: Kea's API (8000),
+# Variables, from Key Vault (references in .env):
+#   DOCKER_VM_1_PROD_ADDRESS  the host address the firewall relays to
+#   DOCKER_VM_1_MGMT_ADDRESS  the host's management address: Kea's API (8000),
 #                       Stork's web UI (8080) and Kea's metrics (9547)
-#   POSTGRES_PASSWORD   secret: the database superuser's
-#   KEA_DB_PASSWORD     secret: the kea role's (also in site.json)
-#   STORK_DB_PASSWORD   secret: the stork role's
-#   DATABASUS_DB_PASSWORD  secret: the databasus role's (read-only, for backups)
-#   STORK_OIDC_ISSUER_URL     Authentik's issuer for Stork:
-#                             https://auth.<domain>/application/o/stork/
-#   STORK_OIDC_REDIRECT_URI   https://stork.<domain>/oidc/callback
-#   STORK_OIDC_CLIENT_SECRET  secret: the same one Authentik's blueprint
-#                             reads (AUTHENTIK_STORK_OIDC_CLIENT_SECRET)
+#   KEA_POSTGRES_PASSWORD  the database superuser's
+#   KEA_DB_PASSWORD     the kea role's (also in site.json)
+#   STORK_DB_PASSWORD   the stork role's
+#   DATABASUS_KEA_DB_PASSWORD  the databasus role's (read-only, for backups)
+#   BASE_DOMAIN         the domain: Stork's OIDC issuer (auth.<domain>, Authentik)
+#                       and its redirect (stork.<domain>) are built from it
+#   AUTHENTIK_STORK_OIDC_CLIENT_SECRET  the same one Authentik's blueprint reads
 services:
   kea-postgres:
     mem_limit: 512m
@@ -31,7 +29,7 @@ services:
     container_name: kea-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${KEA_POSTGRES_PASSWORD}
       # Read by initdb/00-databases.sh on the first start only.
       KEA_DB_PASSWORD: ${KEA_DB_PASSWORD}
       STORK_DB_PASSWORD: ${STORK_DB_PASSWORD}
@@ -46,7 +44,7 @@ services:
 
   # The read-only role Databasus backs these databases up as
   # (docker/databasus/): created when missing, password set from
-  # DATABASUS_DB_PASSWORD, and pg_read_all_data (read every table, change
+  # DATABASUS_KEA_DB_PASSWORD, and pg_read_all_data (read every table, change
   # nothing), on every deploy, then exits.
   databasus-role-init:
     image: postgres:17.11-alpine
@@ -61,8 +59,8 @@ services:
       PGHOST: kea-postgres
       PGUSER: postgres
       PGDATABASE: postgres
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      DATABASUS_DB_PASSWORD: ${DATABASUS_DB_PASSWORD}
+      PGPASSWORD: ${KEA_POSTGRES_PASSWORD}
+      DATABASUS_DB_PASSWORD: ${DATABASUS_KEA_DB_PASSWORD}
     command:
     - /bin/sh
     - -c
@@ -124,11 +122,11 @@ services:
       kea-db-init:
         condition: service_completed_successfully
     ports:
-    - ${KEA_DHCP_ADDRESS}:67:67/udp
-    - ${KEA_API_ADDRESS}:8000:8000
+    - ${DOCKER_VM_1_PROD_ADDRESS}:67:67/udp
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:8000:8000
     # Stork's agent (sharing this container's network) exports Kea's statistics
     # for Prometheus in the cluster.
-    - ${KEA_API_ADDRESS}:9547:9547
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:9547:9547
     # The API on loopback too, for the host itself and its host-network
     # containers (claude-code). From there, connections to the management
     # address leave from it, and its routing rules (table 250) send them
@@ -189,13 +187,13 @@ services:
       # Login through Authentik (OIDC). Only members of authentik Admins may
       # log in, as Stork super-admins; Stork's own admin login stays as the
       # fallback for when Authentik (in the cluster) is down.
-      STORK_OIDC_ISSUER_URL: ${STORK_OIDC_ISSUER_URL}
-      STORK_OIDC_REDIRECT_URI: ${STORK_OIDC_REDIRECT_URI}
+      STORK_OIDC_ISSUER_URL: https://auth.${BASE_DOMAIN}/application/o/stork/
+      STORK_OIDC_REDIRECT_URI: https://stork.${BASE_DOMAIN}/oidc/callback
       STORK_OIDC_CLIENT_ID: stork
-      STORK_OIDC_CLIENT_SECRET: ${STORK_OIDC_CLIENT_SECRET}
+      STORK_OIDC_CLIENT_SECRET: ${AUTHENTIK_STORK_OIDC_CLIENT_SECRET}
       STORK_OIDC_PROVIDER_NAME: Authentik
       STORK_OIDC_GROUP_ALLOW: authentik Admins
       STORK_OIDC_MAP_GROUPS: "1"
       STORK_OIDC_GROUP_SUPER_ADMIN: authentik Admins
     ports:
-    - ${KEA_API_ADDRESS}:8080:8080
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:8080:8080

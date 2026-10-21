@@ -74,9 +74,10 @@ address) where something answers that has neither.
 
 ### 3. Deploy
 
-Add this folder as a Git stack in Dockhand, with `KEA_DHCP_ADDRESS` (the
-host address the firewall relays to) and `KEA_API_ADDRESS` (the management
-address). Then check the API answers:
+Add this folder as a Git stack in Dockhand, with the Key Vault bound as its
+secret provider (its selector empty): `.env` holds the references, among them
+`DOCKER_VM_1_PROD_ADDRESS` (the host address the firewall relays to) and
+`DOCKER_VM_1_MGMT_ADDRESS` (the management address). Then check the API answers:
 
 ```sh
 curl -s -u "$(cat <credentials file>)" -H 'Content-Type: application/json' \
@@ -106,7 +107,7 @@ Assigned Services > DHCP-Relay** (create the DHCP Relay service first if
 it isn't there).
 
 1. Lock, then tick **Enable Relay for IPv4**, UDP port 67.
-2. **DHCP Server IPs**: the Docker host's address (`KEA_DHCP_ADDRESS`).
+2. **DHCP Server IPs**: the Docker host's address (`DOCKER_VM_1_PROD_ADDRESS`).
 3. **Relay Interfaces**: the interface toward the Docker host (the server
    side, always), plus each VLAN as it moves (step 6). Each must have an address in its network;
    that address is the relay address Kea selects the subnet by, so it must
@@ -162,9 +163,9 @@ install -d /opt/kea/postgres /opt/kea/stork-agent
 openssl rand -hex 24
 ```
 
-Generate three passwords that way, and set them in the stack's environment
-in Dockhand as secrets: `POSTGRES_PASSWORD`, `KEA_DB_PASSWORD`,
-`STORK_DB_PASSWORD`. Then add the database's connection to the site file,
+Generate three passwords that way, and put them in Key Vault as
+`KEA-POSTGRES-PASSWORD`, `KEA-DB-PASSWORD` and `STORK-DB-PASSWORD`, with a copy
+in Vaultwarden. Then add the database's connection to the site file,
 with the same `KEA_DB_PASSWORD`, as its first member:
 
 ```json
