@@ -9,7 +9,9 @@
 # comma-separated list, or a group), or ALL (any case), empty or unset for
 # every host in the proxmox group; in inventory order, one at a time either
 # way. Each must be in the proxmox group. (Ansible's own "all" would add
-# localhost and any other inventory host, hence the mapping.)
+# localhost and any other inventory host, hence the mapping.) Rebooting every
+# host holds Flux on its current revision until the run ends, however it ends
+# (tasks/flux-freeze.yml): what's merged meanwhile deploys afterwards.
 #
 # Inventory and variables as for proxmox-upgrade.yml: the proxmox group,
 # dns_guest_tag, evacuate (per host), evacuate_return, and the Kubernetes
@@ -68,6 +70,12 @@
         reboot_targets: "{{ query('inventory_hostnames', reboot_pattern) }}"
         reboot_pattern: "{{ 'proxmox' if reboot_hosts | default('') | string | trim | lower in ['', 'all'] else reboot_hosts }}"
 
+    - name: Hold Flux while every host reboots
+      ansible.builtin.include_tasks: tasks/flux-freeze.yml
+      vars:
+        kubectl_host: localhost
+      when: reboot_hosts | default('') | string | trim | lower in ['', 'all']
+
 - name: Reboot the hosts one at a time
   hosts: "{{ 'proxmox' if reboot_hosts | default('') | string | trim | lower in ['', 'all'] else reboot_hosts }}"
   serial: 1
@@ -80,52 +88,69 @@
     kubectl_host: localhost
     reboot_reason: Rebooting the host (Semaphore, proxmox-reboot.yml)
   tasks:
-    - name: The Proxmox cluster has quorum
-      ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
+    - name: Check and reboot this host, lifting Flux's hold if it fails
+      block:
+        - name: The Proxmox cluster has quorum
+          ansible.builtin.include_tasks: tasks/proxmox-quorate.yml
 
-    - name: The Kubernetes cluster is healthy before this host
-      ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
-      args:
-        apply:
-          delegate_to: localhost
+        - name: The Kubernetes cluster is healthy before this host
+          ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
+          args:
+            apply:
+              delegate_to: localhost
 
-    - name: Every database cluster is healthy before this host
-      ansible.builtin.include_tasks: tasks/databases-healthy.yml
+        - name: Every database cluster is healthy before this host
+          ansible.builtin.include_tasks: tasks/databases-healthy.yml
 
-    - name: Read the Proxmox guests
-      ansible.builtin.include_tasks: tasks/proxmox-guests.yml
+        - name: Read the Proxmox guests
+          ansible.builtin.include_tasks: tasks/proxmox-guests.yml
 
-    - name: Find the DNS servers
-      ansible.builtin.include_tasks: tasks/dns-guests.yml
-      when: dns_on | bool
+        - name: Find the DNS servers
+          ansible.builtin.include_tasks: tasks/dns-guests.yml
+          when: dns_on | bool
 
-    - name: DNS allows rebooting this host
-      ansible.builtin.assert:
-        that: >-
-          not (dns_on | bool and dns_here | default([]) | length > 0
-               and dns_elsewhere | default([]) | length == 0 and dns_guests | default([]) | length > 1)
-        fail_msg: "{{ inventory_hostname }} carries every DNS server; reboot it by hand."
-        quiet: true
+        - name: DNS allows rebooting this host
+          ansible.builtin.assert:
+            that: >-
+              not (dns_on | bool and dns_here | default([]) | length > 0
+                   and dns_elsewhere | default([]) | length == 0 and dns_guests | default([]) | length > 1)
+            fail_msg: "{{ inventory_hostname }} carries every DNS server; reboot it by hand."
+            quiet: true
 
-    - name: Start the evacuation plan
-      ansible.builtin.set_fact:
-        evacuate_plan: []
+        - name: Start the evacuation plan
+          ansible.builtin.set_fact:
+            evacuate_plan: []
 
-    - name: Check the VMs to move off this host can go
-      ansible.builtin.include_tasks: tasks/evacuate-check.yml
-      loop: "{{ evacuate | default([]) }}"
-      loop_control:
-        loop_var: evac
-      vars:
-        evacuate_memory_margin_mb: "{{ evacuate_memory_margin | default(1024) }}"
+        - name: Check the VMs to move off this host can go
+          ansible.builtin.include_tasks: tasks/evacuate-check.yml
+          loop: "{{ evacuate | default([]) }}"
+          loop_control:
+            loop_var: evac
+          vars:
+            evacuate_memory_margin_mb: "{{ evacuate_memory_margin | default(1024) }}"
 
-    - name: Reboot it
-      ansible.builtin.include_tasks: tasks/proxmox-host-reboot.yml
+        - name: Reboot it
+          ansible.builtin.include_tasks: tasks/proxmox-host-reboot.yml
+
+      rescue:
+        - name: Lift the hold on Flux
+          ansible.builtin.include_tasks: tasks/flux-thaw.yml
+          vars:
+            flux_frozen: "{{ hostvars['localhost'].flux_frozen | default(false) }}"
+
+        - name: Stop the run
+          ansible.builtin.fail:
+            msg: "{{ ansible_failed_result.msg | default('A step failed') }}"
 
 - name: Clean up
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Lift the hold on Flux
+      ansible.builtin.include_tasks: tasks/flux-thaw.yml
+      vars:
+        kubectl_host: localhost
+
     - name: Remove the CA certificate, and kubectl with its kubeconfig
       ansible.builtin.file:
         path: "{{ item }}"

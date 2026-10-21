@@ -14,7 +14,8 @@
 #
 # Which VMs: reboot_vms (required), VM IDs or names, separated by commas or spaces, rebooted
 # in that order; ALL (any case) for every Talos VM, control planes first. Each must be a
-# Proxmox VM whose name is a Talos node's.
+# Proxmox VM whose name is a Talos node's. ALL holds Flux on its current revision until the run
+# ends, however it ends (tasks/flux-freeze.yml): what's merged meanwhile deploys afterwards.
 #
 # Inventory: the proxmox group (its first host makes the pvesh calls, for the whole Proxmox
 # cluster). Variables: the Kubernetes variable group (k8s_api_url, k8s_ca_b64, k8s_token) and
@@ -184,7 +185,18 @@
             label: "{{ item.vmid }} {{ item.name }}"
           changed_when: false
 
+        - name: Hold Flux while every Talos VM reboots
+          ansible.builtin.include_tasks: tasks/flux-freeze.yml
+          vars:
+            kubectl_host: semaphore
+          when: reboot_vms | string | trim | lower == 'all'
+
       rescue:
+        - name: Lift the hold on Flux
+          ansible.builtin.include_tasks: tasks/flux-thaw.yml
+          vars:
+            kubectl_host: semaphore
+
         - name: Remove the CA certificate, and kubectl and talosctl with their configs
           ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
 
@@ -222,6 +234,11 @@
   hosts: semaphore
   gather_facts: false
   tasks:
+    - name: Lift the hold on Flux
+      ansible.builtin.include_tasks: tasks/flux-thaw.yml
+      vars:
+        kubectl_host: semaphore
+
     - name: Remove the CA certificate, and kubectl and talosctl with their configs
       ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
 
