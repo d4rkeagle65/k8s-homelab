@@ -13,7 +13,6 @@ spec:
       homelab.local/env: prod
       homelab.local/managed-by: hand
   interval: 30m
-  # The bitwarden-cli NetworkPolicy selects the controller by this name.
   releaseName: external-secrets
   chart:
     spec:

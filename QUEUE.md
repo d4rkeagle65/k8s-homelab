@@ -206,14 +206,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   replicas about 7 each; the first Docker VM 21; and the hosts' own share. Remeasure a week
   after the archive change.
   Alerts on wear and spare capacity are phase 5 of `old-queues/QUEUE-monitoring.md`.
-- **Retire `bitwarden-cli`: merge #205 from 2026-10-26** (from
-  `old-queues/QUEUE-azure-keyvault.md`): a week on Key Vault by then, and `cluster-secrets` is
-  the only ExternalSecret, reading `azure-keyvault`, so nothing reads the three `bitwarden-*`
-  stores. Read back after it: the `bitwarden-cli` Flux Kustomization and its objects gone,
+- **After `bitwarden-cli`'s retirement (#205)** (from `old-queues/QUEUE-azure-keyvault.md`): every
+  ExternalSecret reads `azure-keyvault` (seven on 2026-10-26), none the three `bitwarden-*`
+  stores. Read back after its merge: the `bitwarden-cli` Flux Kustomization and its objects gone,
   `cluster-secrets` Ready and `SecretSynced`, every Kustomization Ready. Then the owner deletes
-  the CLI's hand-applied `bitwarden-cli` Secret in `external-secrets`,
-  `kubernetes/.local/bitwarden-cli.env`, and the `vaultwarden-direct.<domain>` record, which
-  only the CLI used. Vaultwarden stays the password manager for people.
+  the CLI's hand-applied `bitwarden-cli` Secret in `external-secrets` and
+  `kubernetes/.local/bitwarden-cli.env`. The `vaultwarden-direct.<domain>` record stays: Traefik's
+  route to Vaultwarden points at it (`vaultwarden.yaml`). Vaultwarden stays the password manager
+  for people.
 - **Claude Code's Key Vault sign-in, checked from inside its container** (from
   `old-queues/QUEUE-azure-keyvault.md`): deployed 2026-10-21 (#206), Dockhand resolving 3/3
   references, but Entra has no sign-in by `k8s-homelab-claude-code` since. Left:
