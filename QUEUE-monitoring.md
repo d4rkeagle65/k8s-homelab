@@ -195,7 +195,9 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       third for the chart's etcd rules; kube-proxy stays off (Talos's bootstrap manifest). Left:
       the owner rolls both patches (`controlplane-metrics.yaml`, its own documents on Talos
       1.14, and `controlplane-etcd-metrics.yaml`) onto each control plane with `talosctl patch mc
-      --mode=no-reboot`, one at a time and etcd healthy between, then merges; an OpenTofu plan
+      --mode=no-reboot` (the controller-manager and scheduler take it at once; etcd only at
+      its next start, and Talos won't restart etcd through its API, so the control planes are
+      then rebooted with "Reboot: Talos VMs", template 28; dry run task 1019 passed), then merges; an OpenTofu plan
       showing nothing new for the nodes; the read-back (every target up, no control-plane
       alert)
 - [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
