@@ -91,11 +91,7 @@ Pi-hole by hand, and hand-made records stay.
   so never remove that Middleware or narrow its list.
 - **A rebuilt cluster needs `azure-keyvault-bootstrap` applied by hand, and the internet,
   before Traefik:** Traefik needs `INGRESS_IP` from `cluster-secrets`, which External Secrets
-  builds from Azure Key Vault, signing in with that Secret (`QUEUE-azure-keyvault.md`). The
-  `bitwarden-cli` pod, kept until it is retired, reaches Vaultwarden at
-  `vaultwarden-direct.<domain>` (a hand-made Pi-hole record) over Vaultwarden's own HTTPS,
-  never through Traefik; that certificate comes from cert-manager, and
-  `scripts/vaultwarden-cert-sync.sh` copies it to the host.
+  builds from Azure Key Vault, signing in with that Secret (`QUEUE-azure-keyvault.md`).
 
 ## Authentik and cluster DNS
 

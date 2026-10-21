@@ -1,13 +1,8 @@
 # Vaultwarden, in Docker on its own host, serving HTTPS itself on port 443
 # with the certificate below. Two names reach it:
 #   vaultwarden.<domain>          everyone, through Traefik (the Ingress below)
-#   vaultwarden-direct.<domain>   the bitwarden-cli pod (External Secrets),
-#                                 straight to the host, never through Traefik
-# The CLI must not depend on Traefik, or a rebuilt cluster deadlocks: Traefik
-# needs INGRESS_IP from cluster-secrets, and cluster-secrets needs the CLI to
-# reach Vaultwarden. It also refuses anything but HTTPS, hence Vaultwarden's
-# own TLS. vaultwarden-direct.<domain> is a hand-made Pi-hole record (the
-# host's address), so it works with the cluster down.
+#   vaultwarden-direct.<domain>   the host itself (a local DNS record of its
+#                                 address), which Traefik's Service points at
 #
 # scripts/vaultwarden-cert-sync.sh, run daily on the host, copies each
 # renewal of the certificate there and restarts Vaultwarden. It reads the

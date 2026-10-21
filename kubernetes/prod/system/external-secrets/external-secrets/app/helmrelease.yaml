@@ -1,6 +1,6 @@
 # External Secrets Operator (https://external-secrets.io). Builds Kubernetes
-# Secrets from Vaultwarden items, read through the bitwarden-cli pod
-# (../../bitwarden-cli). The chart installs its own CRDs (installCRDs: true).
+# Secrets from Azure Key Vault (the azure-keyvault ClusterSecretStore,
+# ../../azure-keyvault). The chart installs its own CRDs (installCRDs: true).
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -13,7 +13,6 @@ spec:
       homelab.local/env: prod
       homelab.local/managed-by: hand
   interval: 30m
-  # The bitwarden-cli NetworkPolicy selects the controller by this name.
   releaseName: external-secrets
   chart:
     spec:

@@ -170,7 +170,6 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
   the chart, not here.
 - `python:3.12-slim` in `babybuddy-mcp`: it installs its requirements at start; move with a
   test of the server.
-- `node:22-bookworm-slim` in `bitwarden-cli`: Node 22 is a supported LTS line until 2027-04.
 - `curlimages/curl:latest` and `busybox:latest` in Obsidian's CouchDB: the chart's defaults for
   its setup job and init container, set in the chart, not here.
 - Loki's `k8s-sidecar:2.5.0` and Redis `8.2.4`: what the newest charts ship.

@@ -18,10 +18,9 @@
 #
 # Vaultwarden serves HTTPS itself on 443. scripts/vaultwarden-cert-sync.sh
 # (cron, daily) copies cert-manager's certificate into /opt/vaultwarden/ssl
-# and restarts the container when it changes. The cluster's bitwarden-cli pod
-# connects straight here (vaultwarden-direct.<domain>), never through
-# Traefik, and refuses plain HTTP; see
-# kubernetes/prod/system/external-services/external-services/app/vaultwarden.yaml.
+# and restarts the container when it changes; Traefik reaches it over that
+# HTTPS (kubernetes/prod/system/external-services/external-services/app/
+# vaultwarden.yaml).
 #
 # vaultwarden-backup (ttionya/vaultwarden-backup) backs the data folder up to
 # the Garage bucket docker-backups on the NAS, nightly: the database through
