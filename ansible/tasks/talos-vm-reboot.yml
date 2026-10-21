@@ -13,16 +13,15 @@
   ansible.builtin.include_tasks: kubernetes-healthy.yml
 
 - name: Every database cluster is healthy first
-  ansible.builtin.include_tasks: cnpg-healthy.yml
+  ansible.builtin.include_tasks: databases-healthy.yml
 
 - name: etcd is whole and caught up first
   ansible.builtin.include_tasks: talos-etcd-healthy.yml
 
-- name: Its pods fit on the other nodes
+- name: Whether its pods fit on the other nodes
   ansible.builtin.include_tasks: k8s-capacity-check.yml
   vars:
     capacity_nodes: ["{{ talos_vm.name }}"]
-    capacity_allow_pending: "{{ reboot_allow_pending | default(false) }}"
 
 - name: Find the host it runs on now (guests move)
   ansible.builtin.command: pvesh get /cluster/resources --type vm --output-format json
@@ -126,9 +125,9 @@
       when: cnpg_maintenance | default([]) | length > 0
 
     - name: Wait for every database cluster to be whole again
-      ansible.builtin.include_tasks: cnpg-healthy.yml
+      ansible.builtin.include_tasks: databases-healthy.yml
       vars:
-        cnpg_wait: true
+        databases_wait: true
 
     - name: Wait for its static pods (API server, controller manager, scheduler) to be Ready
       ansible.builtin.command: "{{ kubectl_cmd }} -n kube-system get pods -o json"
