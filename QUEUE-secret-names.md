@@ -368,7 +368,7 @@ against today's value by hash.
       `netbox-dns-sync` healthy, with the `docker inspect` count at 0, since it was recreated;
       no `SYNC_DELETE` or `PIHOLE_TLS_VERIFY` among Dockhand's variables (only secret ones were
       exported, so the move assumes their defaults); a login through Authentik. kea eighth
-      (branch `kea-standard-names`): `DOCKER_VM_1_PROD_ADDRESS` and `DOCKER_VM_1_MGMT_ADDRESS`
+      (#185): `DOCKER_VM_1_PROD_ADDRESS` and `DOCKER_VM_1_MGMT_ADDRESS`
       for its DHCP and API addresses, `KEA_POSTGRES_PASSWORD`, `DATABASUS_KEA_DB_PASSWORD`,
       `BASE_DOMAIN` (Stork's OIDC issuer and redirect are built in the compose file) and
       `AUTHENTIK_STORK_OIDC_CLIENT_SECRET` by reference; `KEA_DB_PASSWORD` and
@@ -378,7 +378,15 @@ against today's value by hash.
       2026-10-18 13:48Z, `kea-postgres` since 10-17 11:29Z, `stork-server` and the Stork agent
       since 10-20 03:08Z; ports 8000, 8080 and 9547 open on the management address and refused
       on the production one; the HA pair in hot-standby, the standby in touch; Stork
-      answering 200 through Traefik
+      answering 200 through Traefik. The owner deleted the two before the merge (00:49:06Z);
+      Flux called its webhook at 00:49:58Z. Read back 2026-10-21: `kea-dhcp4` and
+      `kea-postgres` not recreated (Kea's uptime still 59 hours, so DHCP never stopped);
+      `stork-server` and the Stork agent recreated at 00:50Z by their image's rebuild (the
+      agent reads no variable) and running since; ports 8000, 8080 and 9547 open on the
+      management address and refused on the production one, the HA pair in hot-standby with
+      the standby heard 5 s before, Stork answering 200, Kea's metrics target `up`. Left, on
+      the host: the init containers exited (0) at about 00:50Z, the `docker inspect` count at
+      0 for `stork-server`; a Stork login through Authentik
 - [ ] New values plain too, due now that the switch's batches are done (#182). `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -431,8 +439,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `STORK_OIDC_ISSUER_URL`, `STORK_OIDC_REDIRECT_URI` and `STORK_OIDC_CLIENT_SECRET`: now
   `DOCKER_VM_1_PROD_ADDRESS`, `DOCKER_VM_1_MGMT_ADDRESS`, `KEA_POSTGRES_PASSWORD`,
   `DATABASUS_KEA_DB_PASSWORD`, URLs built from `BASE_DOMAIN` and
-  `AUTHENTIK_STORK_OIDC_CLIENT_SECRET`, once its move reads back; and its `KEA_NETWORK`,
-  which nothing reads
+  `AUTHENTIK_STORK_OIDC_CLIENT_SECRET` (#185); and its `KEA_NETWORK`, which nothing reads
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
