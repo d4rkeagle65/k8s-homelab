@@ -283,12 +283,14 @@ spec:
           verbs:
           - list
           - watch
-        # mariadb-operator's PhysicalBackups, for the Backups dashboard and alerts
-        # (QUEUE-monitoring.md, phase 9): the operator exports no backup metrics.
+        # mariadb-operator's PhysicalBackups and MariaDBs, for the Backups
+        # dashboard and the alerts (QUEUE-monitoring.md, phase 9): the operator
+        # exports no backup or readiness metrics.
         - apiGroups:
           - k8s.mariadb.com
           resources:
           - physicalbackups
+          - mariadbs
           verbs:
           - list
           - watch
@@ -339,6 +341,22 @@ spec:
                   gauge:
                     path: [spec, schedule, suspend]
                     nilIsZero: true
+            # Each MariaDB's Ready condition (mariadb_ready): MariaDBNotReady.
+            - groupVersionKind:
+                group: k8s.mariadb.com
+                version: v1alpha1
+                kind: MariaDB
+              metricNamePrefix: mariadb
+              metrics:
+              - name: ready
+                help: 1 when the MariaDB is Ready, 0 while it fails, recovers a replica or switches its primary.
+                labelsFromPath:
+                  exported_namespace: [metadata, namespace]
+                  mariadb: [metadata, name]
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, conditions, "[type=Ready]", status]
             - groupVersionKind:
                 group: kustomize.toolkit.fluxcd.io
                 version: v1
