@@ -16,11 +16,10 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a setting.
 
-7. **Docker upgrades from Semaphore:** live-restore is on on both Docker VMs ("Node: Docker
-   Update" tasks 1021 and 1024, read back from `docker info` 2026-10-21), so the daemon can
-   restart without taking the containers down. Left: the owner runs it with
-   `upgrade_docker: true` (both VMs report an upgrade due from 29.9.1), and reboots the first
-   VM, which reports a reboot due, when Vaultwarden, Kea, Dockhand and Semaphore can be down.
+7. **Docker upgrades from Semaphore:** done for the packages: task 1043 upgraded Docker on both
+   VMs with live-restore on (every container ran before and after: 20 and 3), and the packages
+   are held again. Left: the owner reboots the first VM, which reports a reboot due, when
+   Vaultwarden, Kea, Dockhand and Semaphore can be down.
 
 ## Next
 
