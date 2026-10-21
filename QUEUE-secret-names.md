@@ -187,7 +187,7 @@ against today's value by hash.
       written, its read-back 44 of 44); read back after: a dry run finds none to add, 49 held
       with the same value and the 3 base64 OIDC client secrets, and all 44 carry
       `source=dockhand`
-- [ ] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
+- [x] `cluster-secrets.yaml`: the renamed cluster variables mapped, a pull request of its own;
       then the manifests on them; then the old entries; then the old Key Vault secrets, by the
       owner. The five held plain, `OWNER_EMAIL`, `GARAGE_S3_ENDPOINT`,
       `TERRAMASTER_MGMT_ADDRESS`, `PIHOLE_1_URL` and `PIHOLE_2_URL`, are done: mapped (#141),
@@ -198,8 +198,8 @@ against today's value by hash.
       (a deliberate wrong name, as a control, drifted). Read back 2026-10-20: `SecretSynced`
       for its new spec, none of the seven left and all five there, every Flux object Ready, no
       CNPG instance restarted, Loki's release unchanged. Their old Key Vault secrets are on
-      the delete list below. Left: `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD`, which the
-      manifests read base64. They are the switch's renamed pair, below
+      the delete list below. `PIHOLE_1_PASSWORD` and `PIHOLE_2_APP_PASSWORD` followed as the
+      switch's renamed pair (#187, #190), below
 - [x] The base64-to-plain method proved (#147, 2026-10-20) on two scratch ExternalSecrets
       reading `TIMEZONE` alone, read back as timestamps and hashes only. OnChange:
       `refreshTime` stayed put for 10 minutes across ten 1m intervals, and the object was
@@ -226,7 +226,7 @@ against today's value by hash.
       `OnChange` at generation 65, one refresh at its apply with no key changed (the Secret was
       last written at 14:38Z), `SecretSynced`, then no refresh until the pilot's merge. The
       owner's rewrite came 5 minutes in, before step 1's 15 minutes were up; nothing refreshed
-- [ ] The batches, each one pull request, in this order. 45 variables are held base64, and
+- [x] The batches, each one pull request, in this order. 45 variables were held base64, and
       every one is listed here. They are ordered by what a wrong value would do, mildest first:
   - [x] Pilot: `MEALIE_OIDC_CLIENT_ID` alone (#162, 2026-10-20). Read back, by hash only:
         Key Vault held the plain value from the owner's rewrite at 17:39Z; nothing refreshed
@@ -276,20 +276,18 @@ against today's value by hash.
         2026-10-05, Immich's database healthy (2 of 2) and CouchDB steady. `refreshPolicy` is
         gone, and the next refresh came on its own 15 minutes later (00:52Z), the fingerprint
         unchanged
-  - [ ] The two renamed, with no hold (Rules), in the order of "A name reaches Key Vault
-        before anything reads it". `PIHOLE_PASSWORD` becomes `PIHOLE_1_PASSWORD`:
-        `PIHOLE-1-PASSWORD` is `PIHOLE-PASSWORD`'s plain form (by hash, 2026-10-20), so its
-        entry and template land in one pull request, then Homepage's, nebula-sync's and
-        pihole-exporter's manifests move to it. `PIHOLE2_PASSWORD` becomes
-        `PIHOLE_2_APP_PASSWORD`, which Key Vault lacks, so the owner adds it first:
-        `$v = ./scripts/keyvault-secrets.ps1 PIHOLE2_PASSWORD -Get; ./scripts/keyvault-secrets.ps1 PIHOLE_2_APP_PASSWORD -New -Value $v -Raw`.
-        The owner added it, read back as the plain form by hash. #187 mapped both names, read
-        back 2026-10-21: generation 73, `SecretSynced`, only the two keys added, each equal by
-        hash to its old name's value. #190 moves the three manifests and removes both old
-        entries together, since capture writes the alphabetically first of two names holding
-        one value and `PIHOLE2_PASSWORD` sorts before `PIHOLE_2_APP_PASSWORD`. Its `flux
-        diff`: no rendered change in homepage, monitoring-extras or nebula-sync (a wrong name,
-        as a control, drifted)
+  - [x] The two renamed, with no hold: `PIHOLE_PASSWORD` to `PIHOLE_1_PASSWORD` and
+        `PIHOLE2_PASSWORD` to `PIHOLE_2_APP_PASSWORD`. `PIHOLE-1-PASSWORD` was already the old
+        value's plain form, and the owner added `PIHOLE-2-APP-PASSWORD` from the decoded old
+        value (both by hash). #187 mapped both with their templates (generation 73, only the
+        two keys added, each equal to its old name's). #190, 2026-10-21, moved Homepage's,
+        nebula-sync's and pihole-exporter's Secrets and removed both old entries together,
+        since capture writes the alphabetically first of two names holding one value. Its
+        `flux diff`: no rendered change in the three (a wrong name, as a control, drifted).
+        Read back against the fingerprint from before #187: the two old keys gone, the two
+        new ones holding their values, the other 145 keys unchanged, `SecretSynced` at
+        generation 74; the three Secrets last written days before, the four Kustomizations
+        Ready. The old Key Vault secrets are on the delete list
 - [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
       as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
@@ -451,8 +449,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - `TERRAMASTER-ADDRESS`: now `TERRAMASTER-MGMT-ADDRESS` (#143)
 - `PIHOLE-URL`, `PIHOLE2-URL`: now `PIHOLE-1-URL`, `PIHOLE-2-URL` (#143)
 - `CADVISOR-ADDRESS`: now `DOCKER-VM-1-MGMT-ADDRESS` (#140); never mapped into the cluster
-- To come, still read by the cluster: `PIHOLE-PASSWORD` and `PIHOLE2-PASSWORD`, once the
-  base64 switch moves the cluster onto `PIHOLE-1-PASSWORD` and `PIHOLE-2-APP-PASSWORD`
+- `PIHOLE-PASSWORD`, `PIHOLE2-PASSWORD`: now `PIHOLE-1-PASSWORD`, `PIHOLE-2-APP-PASSWORD` (#190)
 
 **Dockhand stack variables:**
 
