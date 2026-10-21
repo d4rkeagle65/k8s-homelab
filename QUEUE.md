@@ -52,6 +52,20 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   then do for it what that file does for CloudNativePG. Left, every Talos upgrade or reboot of
   those nodes takes Youtarr's database down without saying so, and an evicted Grimmory
   primary is rebuilt from a backup each time, blocking drains until it is.
+  Seen again in "Reboot: Proxmox Hosts" task 992 (2026-10-21), worse: draining w05a took
+  `grimmory-db-1` (then primary) without a switchover, so it was rebuilt; the run went on to the
+  next host while that rebuild ran, since `cnpg-healthy.yml` checks only CloudNativePG, and
+  draining w06a then deadlocked: the PodDisruptionBudget held `grimmory-db-0`, and the rebuild's
+  `grimmory-db-pb-recovery-*` Job (pod affinity to a ready replica's node, w07a, for its local
+  disk) stayed Pending because the earlier drains had filled w07a's memory requests (99%). The
+  drain timed out at 15 minutes and the run stopped before rebooting the third host. So: the
+  between-hosts health check waits for every MariaDB to be Ready too; switch the primary off a
+  node before draining it; and the capacity check counts the recovery Job's room on the
+  replica's node, or the run would deadlock the same way.
+- **mariadb-operator's webhook is one pod** (found 2026-10-21): draining its node fails every
+  MariaDB reconcile ("failed calling webhook vmariadb-v1alpha1.kb.io", Ready=False Failed) until
+  the replacement is ready, about 30 s in task 992. Two replicas with a PodDisruptionBudget, if
+  the chart allows, or the drain waits it out; harmless unless a switchover lands in that gap.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
