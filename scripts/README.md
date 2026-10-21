@@ -238,17 +238,18 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 **A new private value:**
 1. Add its secret to Key Vault plain, whatever reads it:
    `./scripts/keyvault-secrets.ps1 NAME -New -Raw` asks for the value without
-   echoing it and reads it back by hash. `-New` runs only with `-Raw`, which
-   stores the value as given: without it, a value a Secret's `data:` reads
-   would go in as its base64.
+   echoing it, stores it as given and reads it back by hash (`-New` runs only
+   with `-Raw`).
 2. Map it in `kubernetes/secrets/cluster-secrets.yaml` (`secretKey: NAME`,
    `remoteRef: {key: NAME-WITH-DASHES}`) in a pull request of its own. If a
    Secret's `data:` reads it, add `NAME: "{{ .NAME | b64enc }}"` to that
    file's `template.data` in the same pull request: `data:` takes base64,
    and the template encodes the plain value into it. The tests fail if any
    `${NAME}` in `kubernetes/` is defined in neither source, if an entry reads
-   any other Key Vault name, or if a template key named after its variable is
-   anything but that form.
+   any other Key Vault name, if a template key named after its variable is
+   anything but that form, if a Secret's `data:` reads a variable that has no
+   such entry, or if anything but a Secret's `data:` reads one that does (it
+   would get base64).
 3. Check it synced: `kubectl get externalsecret cluster-secrets -n flux-system`
    should show `SecretSynced`. To sync now rather than within 15 minutes:
    `kubectl annotate externalsecret cluster-secrets -n flux-system force-sync=$(Get-Date -UFormat %s) --overwrite`
@@ -262,10 +263,10 @@ replaces the new value.
 
 `scripts/keyvault-secrets.ps1` lists the `cluster-secrets` variables with their
 Key Vault secrets (never the values), and with a variable's name sets its
-value: base64-encoded when a Secret's `data:` uses it and the `cluster-secrets`
-template doesn't encode it (`{{ .NAME | b64enc }}`), read back by hash, then
-force-synced into the cluster. With `-Get` it outputs a variable's current
-value instead (decoded where Key Vault holds base64, unless `-Raw`), for a
+value as given, read back by hash, then force-synced into the cluster. It
+refuses to set a mapped variable a Secret's `data:` uses while the live
+template doesn't encode it, since the cluster would get it plain. With `-Get`
+it outputs a variable's current value instead, as Key Vault holds it, for a
 variable or `Set-Clipboard`. It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/vaultwarden-fields.ps1` did the same for the Vaultwarden item, which
@@ -279,7 +280,8 @@ hostname, your main Ingress domain) and every promoted Secret's value. Anything
 listed with its value in `kubernetes/.local/vaultwarden-pending.yaml` for you to
 add to Key Vault as above: plain, and a promoted Secret's with the template
 entry its row gives. A Secret's value that isn't text is listed base64, with
-no template entry, since Key Vault holds only text.
+no template entry: Key Vault holds only text, and the tests refuse a Secret's
+variable without that entry, so such a value has no supported form yet.
 
 ### Rotate a promoted Secret's value
 
