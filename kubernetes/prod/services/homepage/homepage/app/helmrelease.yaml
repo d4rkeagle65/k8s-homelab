@@ -393,8 +393,10 @@ spec:
                     description: Docker stacks
                     siteMonitor: https://dockhand.${BASE_DOMAIN}
                     # No widget: Dockhand's needs its admin login (a limited user is
-                    # a paid licence), root on every Docker host. The containers'
+                    # a paid licence), root on every Docker host. Its own container's
                     # state comes from docker/docker-socket-proxy instead.
+                    server: docker-vm-1
+                    container: dockhand
             - Wi-Fi:
                 - Production AP:
                     icon: openwrt.png
