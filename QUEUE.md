@@ -203,12 +203,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   reach the running image, and the README points at an edit that shouldn't be made.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
-- **Restore-test the PostgreSQL 18 clusters' backups.** Their base backups read `DONE` in Garage
-  (2026-10-18), but none has been restored, and since the retired clusters' backups were
-  deleted (the owner, 2026-10-18) they are the only copies. Recover each `<app>-db`, Kea's,
-  rreading-glasses' and Zammad's into a one-instance copy and compare it table by table, as
-  `old-queues/QUEUE-restore-tests.md` did for the old clusters. Left, a backup that can't be
-  restored is found only when it's needed.
 - **The retired databases' files may still be on the workers' `local-db` disks** (found
   2026-10-18): deleting a Retain PV leaves its folder on the node. The old clusters' PVs are
   gone, but nobody has looked for their folders, nor for NetBox's old database files
