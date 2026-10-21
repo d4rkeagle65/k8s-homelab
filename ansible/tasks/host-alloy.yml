@@ -74,12 +74,19 @@
         mode: "0644"
       register: ha_repo
 
+    # A fresh read of the lists whenever Alloy isn't installed yet: an
+    # update_cache with cache_valid_time skips the read when the lists are
+    # recent, as they are after the exporters' install, and the new repository
+    # then goes unread ("No package matching 'alloy'").
+    - name: Read Grafana's repository
+      ansible.builtin.apt:
+        update_cache: true
+      when: ha_repo is changed or 'installed=ii' not in ha_state.stdout
+
     - name: Install Alloy
       ansible.builtin.apt:
         name: alloy
         state: present
-        update_cache: "{{ ha_repo is changed }}"
-        cache_valid_time: 3600
       environment:
         DEBIAN_FRONTEND: noninteractive
       when: not ansible_check_mode
