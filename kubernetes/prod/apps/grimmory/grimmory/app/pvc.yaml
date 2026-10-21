@@ -12,18 +12,3 @@ spec:
   resources:
     requests:
       storage: 5Gi
----
-# The nightly database dumps (cronjob-grimmory-db-backup.yaml), on the NAS.
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: grimmory-db-backup
-  annotations:
-    kustomize.toolkit.fluxcd.io/prune: disabled
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: nfs-retain-rwo
-  resources:
-    requests:
-      storage: 2Gi

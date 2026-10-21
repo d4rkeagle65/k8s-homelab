@@ -96,8 +96,12 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
          A backup taken with the data, restored into a scratch instance, matched the live
          database: all 73 tables' row counts and `book`'s hash over every value; the scratch
          instance, its backup and PV were removed
-      3. From 2026-10-21: the old StatefulSet, its exporter and ServiceMonitor, the dump CronJob and
-         its PVC removed, and the NAS dump folder; the old data PVC's PV deleted once released
+      3. In PR (2026-10-21): the old StatefulSet, its exporter, Service and ServiceMonitor, and the
+         dump CronJob and its PVC out of git. Left: the merge; then by hand, since both PVCs
+         keep `prune: disabled` or come from the StatefulSet's template, delete
+         `data-grimmory-mariadb-0` and `grimmory-db-backup` and their Released PVs, the old
+         data's folder on its worker's `local-db` disk, and the dump folder on the NAS (the
+         owner)
 - [x] Youtarr's `MariaDB` (2026-10-20): `youtarr-db`, one instance, nightly physical backups
       (`old-queues/QUEUE-youtarr.md`)
 
