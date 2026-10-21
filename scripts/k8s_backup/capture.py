@@ -104,15 +104,16 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
     promoted_secrets, pending_secrets = _prepare_promoted_secrets(root, context, warnings, verbose, flux_owner, live_values)
     pending += pending_secrets
     # Replaced in this run's output straight away, so they never reach git
-    # even before they're in Vaultwarden.
+    # even before they're in Key Vault.
     substitutions = substitutions + pending
     if pending:
         sink.write_yaml(root.joinpath(*varsub.PENDING_PATH), varsub.pending_rows(pending), header=varsub.PENDING_HEADER)
         names = ", ".join(sorted(varsub._var_name(e["placeholder"]) for e in pending))
         warnings.append(
-            f"{len(pending)} private value(s) aren't in Vaultwarden yet ({names}): add each as a hidden field "
-            "of the cluster-secrets item and an entry in kubernetes/secrets/cluster-secrets.yaml. "
-            "They're listed with their values in kubernetes/.local/vaultwarden-pending.yaml."
+            f"{len(pending)} private value(s) aren't in cluster-secrets yet ({names}): add each to Key Vault "
+            "exactly as kubernetes/.local/vaultwarden-pending.yaml lists it, plain but for a value that isn't "
+            "text, and map a new one in kubernetes/secrets/cluster-secrets.yaml with the template entry its "
+            "row gives (scripts/README.md, \"A new private value\")."
         )
     sink.write_yaml(root.joinpath(*varsub.CACHE_PATH), varsub.cache_rows(substitutions), header=varsub.CACHE_HEADER)
 
@@ -723,7 +724,8 @@ def _prepare_promoted_secrets(root: Path, context, warnings, verbose, flux_owner
     for each promoted namespace's own Secrets (see promote.templated_secret),
     or None where its Secrets couldn't be listed; and, as substitution
     entries, every value cluster-secrets doesn't hold yet (new, or rotated
-    in the cluster), for Vaultwarden.
+    in the cluster), for Key Vault. Each is marked `secret_data`: its literal
+    is base64, as the Secret's data: holds it (varsub.pending_rows).
     """
     promoted, _ = _promoted_namespaces(root, [])  # ambiguity is reported by the namespaced pass
     result: dict = {}
@@ -754,7 +756,8 @@ def _prepare_promoted_secrets(root: Path, context, warnings, verbose, flux_owner
             docs.append((promote.manifest_filename("secret", name), manifest, values))
         result[ns] = docs
     pending = [
-        {"literal": value, "placeholder": placeholder, "sensitivity": "secret", "note": note, "replace": True}
+        {"literal": value, "placeholder": placeholder, "sensitivity": "secret", "note": note, "replace": True,
+         "secret_data": True}
         for placeholder, (value, note) in sorted(wanted.items())
         if live_values.get(varsub._var_name(placeholder)) != value
     ]
@@ -802,7 +805,7 @@ def _write_promoted_release(
                 sink.tracker.keep_existing([app_dir / filename])
                 warnings.append(
                     f"{rel}/app/{filename}: not written yet -- the live '{varsub.SECRETS_SECRET_NAME}' "
-                    "Secret in flux-system doesn't hold its values. Add them to Vaultwarden (see "
+                    "Secret in flux-system doesn't hold its values. Add them to Key Vault (see "
                     "kubernetes/.local/vaultwarden-pending.yaml), then re-run capture once it has synced."
                 )
     if not docs:
