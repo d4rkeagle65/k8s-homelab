@@ -391,7 +391,7 @@ against today's value by hash.
       the standby heard 5 s before, Stork answering 200, Kea's metrics target `up`. Left, on
       the host: the init containers exited (0) at about 00:50Z, the `docker inspect` count at
       0 for `stork-server`; a Stork login through Authentik. vaultwarden ninth and last
-      (branch `vaultwarden-standard-names`): `DOCKER_VM_1_PROD_ADDRESS`, `BASE_DOMAIN` (its
+      (#188): `DOCKER_VM_1_PROD_ADDRESS`, `BASE_DOMAIN` (its
       address, signups whitelist, SMTP host and SSO authority are built in the compose file),
       `VAULTWARDEN_ADMIN_TOKEN`, `OWNER_EMAIL`, `ENTRA_VAULTWARDEN_SMTP_*`,
       `AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_*`, `GARAGE_S3_ENDPOINT` and
@@ -403,7 +403,14 @@ against today's value by hash.
       one's. Before: `vaultwarden` running since 2026-10-16 17:35Z, `vaultwarden-backup` since
       10-20 08:03Z; port 443 open on the production address and refused on the management
       one; `/alive` answering 200 through Traefik and direct; `bitwarden-cli` ready, no
-      restarts, and the four ClusterSecretStores Valid
+      restarts, and the four ClusterSecretStores Valid. Merged 01:16:43Z; Flux called its
+      webhook at 01:17:24Z. Read back 2026-10-21: neither container recreated; port 443 open on
+      the production address and refused on the management one, `/alive` answering 200
+      through Traefik and direct, `bitwarden-cli` ready with no restarts and the four stores
+      Valid, as before. It has no init container to show the deploy ran, but Dockhand logs
+      each deploy's count: left, on the host, `docker logs --since 1h dockhand 2>&1 | grep
+      'reference(s) (promoted'` showing vaultwarden's at about 01:17Z resolving all 11 from
+      `.env`; a login through Authentik and with the master password
 - [ ] New values plain too: #189, open and passing its suite (2026-10-21), for the owner to
       merge. `scripts/README.md`'s "A new private value" stores a value plain
       (`keyvault-secrets.ps1 NAME -New -Raw`) and adds its `{{ .NAME | b64enc }}` template
@@ -477,7 +484,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `SMTP_HOST`, `SSO_AUTHORITY`, `ADMIN_TOKEN`, `SMTP_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
   `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID` and
   `BACKUP_S3_SECRET_ACCESS_KEY`: now `DOCKER_VM_1_PROD_ADDRESS`, values built from
-  `BASE_DOMAIN`, and the standard names in its `.env`, once its move reads back
+  `BASE_DOMAIN`, and the standard names in its `.env` (#188)
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
