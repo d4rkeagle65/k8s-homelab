@@ -488,7 +488,12 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `BACKUP_S3_SECRET_ACCESS_KEY`: now `DOCKER_VM_1_PROD_ADDRESS`, values built from
   `BASE_DOMAIN`, and the standard names in its `.env` (#188); and its blank
   `BACKUP_ZIP_PASSWORD`, now `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, once that reads back
-- To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
+
+**Files:**
+
+- The owner's Dockhand export, in plain text: on the owner's PC, `dockhand_secrets.json` and
+  its redacted copy in Downloads. Every value it holds is in Key Vault now, so step 5 of
+  `scripts/README.md`'s recipe applies: delete it
 
 ## Resuming
 
