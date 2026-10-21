@@ -6,5 +6,5 @@ metadata:
     homelab.local/data: stateless
     homelab.local/exposure: cluster
     homelab.local/login: none
-    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce: restricted
   name: nebula-sync
