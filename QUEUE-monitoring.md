@@ -62,7 +62,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 | Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | present (2026-10-10) |
 | Phase 5 | where alerts go | Zammad tickets through `zammad-bridge` (the owner, 2026-10-20; Alertmanager already routes warning and critical there) |
 | Phase 5 | the dead-man's switch: a Healthchecks.io check (period 5 minutes, grace 10), its ping URL as `HEALTHCHECKS_WATCHDOG_URL` | present (2026-10-21) |
-| Phase 4 | in Semaphore's Debian Host Baseline group: `loki_push_url` (`https://loki-push.<domain>/loki/api/v1/push`), the secret `loki_push_password` (Key Vault's `LOKI_PUSH_PASSWORD`), and `host_alloy: true` once the dry run is clean | the password present (2026-10-21) |
+| Phase 4 | in Semaphore's Debian Host Baseline group: `loki_push_url` (`https://loki-push.<domain>/loki/api/v1/push`), the environment secret `LOKI_PUSH_PASSWORD` (Key Vault's, the same value; an environment secret, since Semaphore can print extra variables in a log), and `host_alloy: true` once the dry run is clean | the password present (2026-10-21) |
 | Phase 9 | a read-only Garage key `backup-monitor` (read on `cnpg-backups`, `docker-backups` and `mariadb-backups`) as `GARAGE_BACKUP_MONITOR_S3_ACCESS_KEY_ID` and `GARAGE_BACKUP_MONITOR_S3_SECRET_ACCESS_KEY` | present (2026-10-20) |
 | Phase 9 | how the Synology copies to the TerraMaster (Hyper Backup, rsync, Snapshot Replication, or a pull), its folder there, and whether a Proxmox host or SSH reaches it | asked 2026-10-18 |
 
@@ -192,7 +192,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       through the `alloy-syslog` LoadBalancer at `ALLOY_SYSLOG_ADDRESS` (514 RFC 5424, 1514 BSD,
       TCP and UDP; labels `source`, `host`, `app`). Left: the merge and a test push and syslog
       line read back in Loki; then Alloy on the Debian hosts (`ansible/tasks/host-alloy.yml`,
-      `loki_push_password` in Semaphore's Debian Host Baseline group); then the NASes pointed
+      `LOKI_PUSH_PASSWORD`, an environment secret in Semaphore's Debian Host Baseline group); then the NASes pointed
       at the receiver (the Synology's Log Center; whether TOS can forward syslog)
 - [x] Phase 5 (2026-10-21): alerts to Zammad through `zammad-bridge`; the drives' wear, spare,
       critical-warning, rising-error (per serial number) and SMART alerts; the TerraMaster's
