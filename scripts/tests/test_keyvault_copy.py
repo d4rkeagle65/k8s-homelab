@@ -246,14 +246,62 @@ def test_a_bad_vault_name_stops_before_reading_anything(run):
 @pytest.mark.parametrize("failure", [urllib.error.URLError("timed out"), TimeoutError("timed out"),
                                      ConnectionResetError("reset by peer")])
 def test_no_answer_from_key_vault_is_a_stop_naming_the_secret_not_the_vault(monkeypatch, failure):
+    calls = []
+
     def fail(*args, **kwargs):
+        calls.append(1)
         raise failure
 
     monkeypatch.setattr(urllib.request, "urlopen", fail)
+    monkeypatch.setattr(m, "RETRY_PAUSE_SECONDS", 0)
     with pytest.raises(m.Stop) as stopped:
         m.request("GET", "https://kv-test-01.vault.azure.net/secrets/INGRESS-IP?api-version=7.4", "tok")
     assert "INGRESS-IP: no answer from Key Vault to a GET" in str(stopped.value)
     assert "kv-test-01" not in str(stopped.value)
+    assert len(calls) == 2  # tried once more before stopping
+
+
+class Answer:
+    status = 200
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return b'{"value": "v"}'
+
+
+def test_a_get_that_gets_no_answer_once_is_tried_again(monkeypatch):
+    calls = []
+
+    def flaky(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise ConnectionResetError("reset by peer")
+        return Answer()
+
+    monkeypatch.setattr(urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(m, "RETRY_PAUSE_SECONDS", 0)
+    assert m.request("GET", "https://kv-test-01.vault.azure.net/secrets/INGRESS-IP?api-version=7.4", "tok") == (200, {"value": "v"})
+    assert len(calls) == 2
+
+
+def test_a_put_that_gets_no_answer_is_never_tried_again(monkeypatch):
+    calls = []
+
+    def fail(*args, **kwargs):
+        calls.append(1)
+        raise ConnectionResetError("reset by peer")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fail)
+    monkeypatch.setattr(m, "RETRY_PAUSE_SECONDS", 0)
+    with pytest.raises(m.Stop) as stopped:
+        m.request("PUT", "https://kv-test-01.vault.azure.net/secrets/INGRESS-IP?api-version=7.4", "tok", {"value": "v"})
+    assert "no answer from Key Vault to a PUT" in str(stopped.value)
+    assert len(calls) == 1  # a retried write could land twice
 
 
 def test_a_dry_run_whose_read_gets_no_answer_stops_without_writing(run):

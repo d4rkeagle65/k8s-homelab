@@ -36,6 +36,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -43,6 +44,7 @@ import urllib.request
 NAMESPACE = "flux-system"
 EXTERNAL_SECRET_NAME = "cluster-secrets"
 API_VERSION = "7.4"
+RETRY_PAUSE_SECONDS = 2
 SECRET_NAME = re.compile(r"[A-Za-z0-9-]{1,127}")
 VAULT_NAME = re.compile(r"[A-Za-z][A-Za-z0-9-]{1,22}[A-Za-z0-9]")
 
@@ -153,22 +155,29 @@ def access_token() -> str:
 def request(method: str, url: str, token: str, body: dict | None = None) -> tuple[int, dict]:
     """One Key Vault REST call: its HTTP status and JSON body (an error's body too). No answer
     at all (a dropped connection, a timeout, a name that won't resolve) is a Stop: it says
-    nothing about the secret."""
+    nothing about the secret. Key Vault drops a connection now and then, so a GET with no
+    answer is tried once more first; a PUT never is, since a retried write may land twice."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method,
-                                 headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
     name = url.split("/secrets/")[-1].split("?")[0]
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            return response.status, json.loads(response.read() or b"{}")
-    except urllib.error.HTTPError as error:
-        raw = error.read() or b"{}"
+    attempts = 2 if method == "GET" else 1
+    for attempt in range(1, attempts + 1):
+        req = urllib.request.Request(url, data=data, method=method,
+                                     headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
         try:
-            return error.code, json.loads(raw)
-        except ValueError:
-            return error.code, {"error": {"code": "unreadable error body"}}
-    except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
-        raise Stop(f"{name}: no answer from Key Vault to a {method} ({getattr(error, 'reason', error)})") from error
+            with urllib.request.urlopen(req, timeout=30) as response:
+                return response.status, json.loads(response.read() or b"{}")
+        except urllib.error.HTTPError as error:
+            raw = error.read() or b"{}"
+            try:
+                return error.code, json.loads(raw)
+            except ValueError:
+                return error.code, {"error": {"code": "unreadable error body"}}
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            if attempt < attempts:
+                time.sleep(RETRY_PAUSE_SECONDS)
+                continue
+            raise Stop(f"{name}: no answer from Key Vault to a {method} ({getattr(error, 'reason', error)})") from error
+    raise AssertionError("unreachable: every attempt returns or raises")
 
 
 def error_code(body: dict) -> str:
