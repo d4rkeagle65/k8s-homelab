@@ -11,7 +11,7 @@ cluster-secrets reads Key Vault, a dry run is a check that the two agree.
 A dry run (the default) reports, for each name, whether Key Vault lacks it, holds the same
 value, holds a different one, or holds it plain where the template doesn't encode it yet:
 the Secret's value decoded, as a base64-to-plain rewrite leaves it until its template is live
-(QUEUE-secret-names.md). --apply writes the missing and different ones, then reads every name
+(old-queues/QUEUE-secret-names.md). --apply writes the missing and different ones, then reads every name
 back and compares. Values are compared by SHA-256; they are never printed, logged, written to
 disk or passed as arguments, and travel only in memory and HTTPS request bodies.
 

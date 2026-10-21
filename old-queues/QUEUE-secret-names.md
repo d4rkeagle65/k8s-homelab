@@ -192,13 +192,13 @@ against today's value by hash.
       refreshed it. The scratch objects are out (#151). Read back
       2026-10-20: both ExternalSecrets and their Secrets gone; `cluster-secrets` untouched
       (its generation unchanged, `SecretSynced`); its Kustomization Ready
-- [ ] The switch's three tooling changes (Rules), each a pull request of its own, all three
+- [x] The switch's three tooling changes (Rules), each a pull request of its own, all three
       open and passing their suites (2026-10-20), for the owner to merge before the hold: the
       structure test (#152); `scripts/keyvault-secrets.ps1` (#153), proved only on a mock
       vault and a fake kubectl, so its first set or `-Get` after a batch merges is its live
       check; `scripts/keyvault_copy.py` (#154), which also leaves a value rewritten plain
       before its template is live (reported `plain`), beyond what the Rules asked. Retiring
-      the copy instead is the owner's call
+      the copy instead is the owner's call. All three merged 2026-10-20, 17:15 to 17:18Z
 - [x] The hold (Rules' "The switch", step 1): #161, merged 2026-10-20 17:33Z. Read back:
       `OnChange` at generation 65, one refresh at its apply with no key changed (the Secret was
       last written at 14:38Z), `SecretSynced`, then no refresh until the pilot's merge. The
@@ -265,7 +265,7 @@ against today's value by hash.
         new ones holding their values, the other 145 keys unchanged, `SecretSynced` at
         generation 74; the three Secrets last written days before, the four Kustomizations
         Ready. The old Key Vault secrets are on the delete list
-- [ ] Each Dockhand stack on its standard names and references. cadvisor first, done but for
+- [x] Each Dockhand stack on its standard names and references. cadvisor first, done but for
       its leftovers: its compose file reads `DOCKER_VM_1_MGMT_ADDRESS` (#140), set in Dockhand
       as `azurekv://DOCKER-VM-1-MGMT-ADDRESS`; read back 2026-10-20: redeployed by its webhook
       at 14:12Z, port 9338 published on the management address (the owner, from its ports
@@ -398,23 +398,11 @@ against today's value by hash.
       through Traefik and direct, `bitwarden-cli` ready with no restarts and the four stores
       Valid, as before. The deploy ran: Dockhand's log line for it (the owner, `docker logs
       --since 1h dockhand 2>&1 | grep 'reference(s) (promoted'`) resolved 11 of 11 references
-      from Key Vault, so an unchanged config, not a skipped deploy, left both running. Left: a
-      login through Authentik and with the master password
-- [ ] New values plain too (#189, merged 2026-10-21), checked live only by the next Secret
-      promoted: its row in `kubernetes/.local/vaultwarden-pending.yaml` plain, with its
-      `template` entry, and its manifest written once the value is in Key Vault and mapped
-      with that entry. A row still base64 for a value that is text means capture's
-      `secret_data` mark didn't reach `varsub.pending_rows`
-- [ ] Nothing held base64 (#193, merged 2026-10-21), checked live only by
-      `scripts/keyvault-secrets.ps1`'s first real runs, since it was proved on a mock vault and
-      a fake kubectl: a listing with no `NEEDS b64enc`, then a set read back by hash and synced
-- [ ] A promoted Secret's value that isn't text has no supported form: Key Vault holds only
-      text, and the structure test refuses a Secret's variable without its template entry
-      (capture's pending note says so). None exists today. One route, untried:
-      Key Vault holds its base64, and its entry adds `decodingStrategy: Base64` to `remoteRef`,
-      so the usual template line gives the Secret that base64 back. The structure test's
-      `remoteRef == {key: ...}` check, and `keyvault-secrets.ps1`'s listing, would need to
-      allow it
+      from Key Vault, so an unchanged config, not a skipped deploy, left both running. Closed
+      2026-10-21: the owner confirmed every login, and the listing of every Dockhand variable
+      found none read but through its `.env`'s own reference
+- [x] Moved to `QUEUE.md`'s Later on retiring this file (2026-10-21): #189's and #193's live
+      checks, and the form for a promoted Secret's value that isn't text
 - [x] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
       variable", where a new name is chosen (2026-10-21)
 
@@ -445,9 +433,7 @@ had and `/login/` answering 200)
 
 **Files:**
 
-- The all-variables listing, `dockhand_variables.json` in Downloads and
-  `~/dockhand_variables.json` on the Docker host: names and SHA-256s, and a short password's
-  hash can be guessed. Delete both
+- The all-variables listing: deleted on the Docker host (the owner) and from Downloads, 2026-10-21
 
 ## Resuming
 
