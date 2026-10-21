@@ -278,7 +278,23 @@ spec:
         summary: A MariaDB database's newest physical backup hasn't completed.
         description: >-
           {{ $labels.exported_namespace }}/{{ $labels.mariadb }} (PhysicalBackup
-          {{ $labels.name }}): two hours without completing; read its Job's log.
+          {{ $labels.name }}): two hours without completing; read its Job's log. A
+          name ending -pb-recovery is a replica's rebuild: once its Job is gone (a
+          Pending Job is deleted at the template's timeout) nothing retries it, and
+          deleting that PhysicalBackup has the operator start a fresh one.
+    # A switchover or a node's return takes it seconds to minutes; an hour is a
+    # replica that can't rejoin or a rebuild that stalled.
+    - alert: MariaDBNotReady
+      expr: mariadb_ready == 0
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: A MariaDB database has not been Ready for an hour.
+        description: >-
+          {{ $labels.exported_namespace }}/{{ $labels.mariadb }}: read its Ready
+          condition's message (kubectl get mariadb) and its pods; while it isn't
+          Ready the reboot playbooks stop before draining.
     # Proxmox's vzdump, from each host's node-exporter
     # (ansible/files/proxmox-backup-metrics.py, every 15 minutes). A guest the
     # backup job covers with no archive at all counts as too old.
