@@ -44,6 +44,10 @@ variable or Set-Clipboard rather than the screen.
 
 A variable whose Encoding is UNKNOWN (template) is set or read only with -Raw.
 
+-New, which adds a secret, runs only with -Raw: Key Vault holds a new value
+plain, and the cluster-secrets template encodes one a Secret's data: reads
+({{ .NAME | b64enc }}, scripts/README.md's "A new private value").
+
 It signs in as the Azure CLI's current account (az login), which needs "Key
 Vault Secrets Officer" on the vault to set a secret, or "Key Vault Secrets
 User" to list. The vault's URL comes from the azure-keyvault-bootstrap Secret
@@ -70,6 +74,10 @@ Asks for the new value and sets the secret.
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1 IMMICH_POWER_TOOLS_APIKEY_IMMICH_APIKEY -Get | Set-Clipboard
 Copies the secret's current value, without showing it.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 NEW_VARIABLE -New -Raw
+Asks for a new variable's value and adds its secret, plain.
 #>
 [CmdletBinding()]
 param(
@@ -81,8 +89,8 @@ param(
     # Store the value exactly as given, even for a variable used in a Secret;
     # with -Get, output it as Key Vault holds it, without decoding.
     [switch]$Raw,
-    # Allow adding a secret that doesn't exist yet. It also needs an entry in
-    # kubernetes/secrets/cluster-secrets.yaml before it reaches the cluster.
+    # Allow adding a secret that doesn't exist yet; only with -Raw. It also needs
+    # an entry in kubernetes/secrets/cluster-secrets.yaml before it reaches the cluster.
     [switch]$New,
     # Don't force-sync the ExternalSecret afterwards.
     [switch]$NoSync,
@@ -91,6 +99,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
+
+# Without -Raw, a new value a Secret's data: in this checkout reads would go in base64,
+# and its {{ .NAME | b64enc }} template entry would then encode it twice. Checked before
+# anything is read, so a refused run touches nothing.
+if ($New -and -not $Raw -and -not $Get) {
+    throw "-New needs -Raw: Key Vault holds a new value plain, as given, and cluster-secrets' template encodes it where a Secret's data: reads it."
+}
 
 $ApiVersion = '7.4'
 $StoreName = 'azure-keyvault'
