@@ -149,6 +149,11 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
+  delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
+  nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
+  by `grimmory-db`'s physical backups). Left, 14 days of stale dumps take NAS space.
+
 - **13 of the 16 CloudNativePG primaries sit on one worker** (found 2026-10-21, after the
   Talos 1.14.4 run): each drain switched its primaries to another instance
   (`ansible/tasks/cnpg-free-node.yml`), and nothing moves them back: one worker holds 13,
@@ -225,6 +230,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   they hold disk space on the workers.
 
 ## Later
+
+- **Point-in-time recovery for Grimmory's MariaDB** (`old-queues/QUEUE-mariadb.md`): on
+  mariadb-operator 26.10.1 the agent logged "Starting binary log archiver" and archived nothing
+  to Garage, added to a running MariaDB or configured from creation. Retry on a later operator
+  release, on a scratch MariaDB first; until then a restore goes back to the nightly physical
+  backup (03:40), up to a day of Grimmory's changes.
 
 - **A new private value's first promotion is #189's live check** (`scripts/promote.py`,
   `varsub.pending_rows`): the next Secret capture promotes should list its row in
@@ -351,7 +362,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 75%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
-- [QUEUE-mariadb.md](QUEUE-mariadb.md) (about 90%): MariaDB through mariadb-operator; Grimmory and Youtarr on it, backed up without a script. Left: Grimmory's old database removed, and point-in-time recovery on a later operator release.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.

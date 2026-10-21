@@ -77,7 +77,7 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
 - [x] `MARIADB_BACKUP_S3_HOST` (2026-10-20): Garage's address as `host:port`, since
       `storage.s3.endpoint` takes no scheme and `GARAGE_S3_ENDPOINT` has one. Read back:
       equal to the endpoint without its scheme
-- [ ] Grimmory, in steps:
+- [x] Grimmory, in steps:
       1. (2026-10-20) `grimmory-db` beside the old `grimmory-mariadb` StatefulSet
          (`app/mariadb.yaml`): 3 instances of 11.8.9 on `local-db` (5Gi), its `myCnf` keeping
          `innodb_snapshot_isolation=OFF`, its `Database`, `User` and `Grant` as the old one's
@@ -96,12 +96,9 @@ downloader the owner wants, is the second database on it (it supports MariaDB or
          A backup taken with the data, restored into a scratch instance, matched the live
          database: all 73 tables' row counts and `book`'s hash over every value; the scratch
          instance, its backup and PV were removed
-      3. In PR (2026-10-21): the old StatefulSet, its exporter, Service and ServiceMonitor, and the
-         dump CronJob and its PVC out of git. Left: the merge; then by hand, since both PVCs
-         keep `prune: disabled` or come from the StatefulSet's template, delete
-         `data-grimmory-mariadb-0` and `grimmory-db-backup` and their Released PVs, the old
-         data's folder on its worker's `local-db` disk, and the dump folder on the NAS (the
-         owner)
+      3. (done 2026-10-21) The old StatefulSet, its exporter, Service and ServiceMonitor, and
+         the dump CronJob and its PVC removed (#225); both old PVCs and PVs deleted and the old
+         data's `local-db` folder removed (the owner)
 - [x] Youtarr's `MariaDB` (2026-10-20): `youtarr-db`, one instance, nightly physical backups
       (`old-queues/QUEUE-youtarr.md`)
 
