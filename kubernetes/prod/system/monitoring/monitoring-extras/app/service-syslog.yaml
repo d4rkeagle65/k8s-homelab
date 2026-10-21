@@ -1,0 +1,20 @@
+# The NASes' syslog, received by alloy-events (its loki.source.syslog) on a
+# MetalLB address of its own: 514 takes RFC 5424 (DSM's "IETF" format), 1514
+# the older BSD format (RFC 3164), each over TCP and UDP. Only these ports:
+# the Alloy pod's own HTTP port (its UI and debug pages) stays inside.
+apiVersion: v1
+kind: Service
+metadata:
+  name: alloy-syslog
+  annotations:
+    metallb.io/loadBalancerIPs: ${ALLOY_SYSLOG_ADDRESS}
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/instance: alloy-events
+    app.kubernetes.io/name: alloy
+  ports:
+  - {name: syslog-tcp, port: 514, targetPort: 5514, protocol: TCP}
+  - {name: syslog-udp, port: 514, targetPort: 5514, protocol: UDP}
+  - {name: bsd-tcp, port: 1514, targetPort: 5515, protocol: TCP}
+  - {name: bsd-udp, port: 1514, targetPort: 5515, protocol: UDP}

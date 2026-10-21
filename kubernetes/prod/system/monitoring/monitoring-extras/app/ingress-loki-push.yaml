@@ -1,0 +1,37 @@
+# Loki's push API for logs from outside the cluster (Alloy on the Debian hosts,
+# ansible/tasks/host-alloy.yml): private networks only, behind a login, and
+# only the push path; nothing reads logs through it.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: loki-push-auth
+spec:
+  basicAuth:
+    secret: loki-push-auth
+    removeHeader: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: loki-push
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,monitoring_loki-push-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: loki-push${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /loki/api/v1/push
+        pathType: Exact
+        backend:
+          service:
+            name: loki
+            port:
+              number: 3100
+  tls:
+  - hosts:
+    - loki-push${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    secretName: loki-push-tls
