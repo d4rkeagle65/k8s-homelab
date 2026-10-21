@@ -16,12 +16,6 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a setting.
 
-- **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
-  `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
-  Docker host, and Homepage holds the password. A limited Dockhand user needs a paid license
-  (role-based access, the owner, 2026-10-21). Recommended: drop the Dockhand widget and give
-  Homepage the containers' state from a read-only Docker socket proxy on each host (containers
-  only, no POST); or keep it and accept that whoever reads Homepage's secret has the host.
 7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
    `ansible/docker-vm-update.yml`, both off until set (its header says what each does). The
    owner sets `docker_live_restore: true` on "Node: Docker Update" and runs it; then
@@ -29,6 +23,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
+- **Homepage's container state needs `docker-socket-proxy` deployed** (2026-10-21): Homepage
+  now reads the first Docker VM's containers from `docker/docker-socket-proxy/` (port 9339 on
+  its management address) instead of Dockhand's widget, which held Dockhand's admin login.
+  Until the stack runs, the six cards with `server: docker-vm-1` show a Docker error. The
+  owner: create it in Dockhand as a Git stack on that VM (Key Vault as its secret provider,
+  selector empty, Populate), turn its webhook on and give its stack ID for a Provider and
+  Alert in `dockhand-webhooks/app/webhooks.yaml`; then delete the Key Vault secrets
+  `DOCKHAND-HOMEPAGE-USERNAME` and `-PASSWORD` and change Dockhand's admin password, which
+  Homepage held. Later, the same proxy on the TerraMaster (Garage's card) and the second VM
+  (kea-standby), each its own stack with its own address variable.
 - **Vaultwarden's backup archives made before the ZIP password open with a published one**
   (found 2026-10-21): with `ZIP_PASSWORD` blank, ttionya/vaultwarden-backup used its own default
   (`scripts/includes.sh`), printed in its source. The compose file now reads

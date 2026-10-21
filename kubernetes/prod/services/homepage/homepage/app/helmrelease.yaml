@@ -202,8 +202,13 @@ spec:
                 - GitHub:
                     - icon: github.png
                       href: https://github.com/d4rkeagle65/k8s-homelab
+          # The Docker host's containers, read through docker/docker-socket-proxy
+          # (the container list and stats only): a card with server and
+          # container shows that container's state.
           docker.yaml: |
-            {}
+            docker-vm-1:
+              host: ${DOCKHAND_ADDRESS}
+              port: 9339
           custom.css: ""
           custom.js: ""
           # The prometheusmetric cards ask Prometheus once a minute, its scrape
@@ -284,6 +289,8 @@ spec:
                     href: https://stork.${BASE_DOMAIN}
                     description: Leases, through Stork
                     siteMonitor: https://stork.${BASE_DOMAIN}
+                    server: docker-vm-1
+                    container: kea-dhcp4
                     widget:
                       type: prometheusmetric
                       url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
@@ -332,6 +339,8 @@ spec:
                     icon: tailscale.png
                     href: https://login.tailscale.com/admin/machines
                     description: Subnet router on the Docker host
+                    server: docker-vm-1
+                    container: tailscale
                     widget:
                       type: tailscale
                       deviceid: "{{ "{{HOMEPAGE_VAR_TAILSCALE_DEVICE}}" }}"
@@ -383,12 +392,9 @@ spec:
                     href: https://dockhand.${BASE_DOMAIN}
                     description: Docker stacks
                     siteMonitor: https://dockhand.${BASE_DOMAIN}
-                    # Dockhand has no API keys: a local Dockhand user for Homepage.
-                    widget:
-                      type: dockhand
-                      url: http://dockhand.external-services.svc.${CLUSTER_DOMAIN}:3000
-                      username: "{{ "{{HOMEPAGE_VAR_DOCKHAND_USERNAME}}" }}"
-                      password: "{{ "{{HOMEPAGE_VAR_DOCKHAND_PASSWORD}}" }}"
+                    # No widget: Dockhand's needs its admin login (a limited user is
+                    # a paid licence), root on every Docker host. The containers'
+                    # state comes from docker/docker-socket-proxy instead.
             - Wi-Fi:
                 - Production AP:
                     icon: openwrt.png
@@ -520,11 +526,15 @@ spec:
                     href: https://semaphore.${BASE_DOMAIN}
                     description: Ansible and OpenTofu
                     siteMonitor: https://semaphore.${BASE_DOMAIN}
+                    server: docker-vm-1
+                    container: semaphore
                 - Databasus:
                     icon: databasus.png
                     href: https://databasus.${BASE_DOMAIN}
                     description: Database backups
                     siteMonitor: https://databasus.${BASE_DOMAIN}
+                    server: docker-vm-1
+                    container: databasus
                 - mesh-mini:
                     icon: meshcentral.png
                     href: https://mesh${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
@@ -536,6 +546,8 @@ spec:
                     href: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                     description: Hosts, addresses and networks
                     siteMonitor: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/login/
+                    server: docker-vm-1
+                    container: netbox
                     # NetBox runs on the Docker host (docker/netbox/), through
                     # Traefik. A read-only API token of NetBox's own; its field
                     # holds the whole header value as NetBox shows it
@@ -727,6 +739,8 @@ spec:
                     href: https://vaultwarden.${BASE_DOMAIN}
                     description: Passwords
                     siteMonitor: https://vaultwarden.${BASE_DOMAIN}
+                    server: docker-vm-1
+                    container: vaultwarden
                 - Authentik:
                     icon: authentik.png
                     href: https://auth.${BASE_DOMAIN}
