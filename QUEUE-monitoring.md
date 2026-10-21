@@ -193,7 +193,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       TCP and UDP; labels `source`, `host`, `app`). Left: the merge and a test push and syslog
       line read back in Loki; then Alloy on the Debian hosts (`ansible/tasks/host-alloy.yml`,
       `LOKI_PUSH_PASSWORD`, an environment secret in Semaphore's Debian Host Baseline group); then the NASes pointed
-      at the receiver (the Synology's Log Center; whether TOS can forward syslog)
+      at the receiver (the Synology's Log Center); the TerraMaster, whose TOS can't forward syslog, through `docker/terramaster-logs/` (Alloy reading its `/var/log` files), once Dockhand has the stack and its webhook
 - [x] Phase 5 (2026-10-21): alerts to Zammad through `zammad-bridge`; the drives' wear, spare,
       critical-warning, rising-error (per serial number) and SMART alerts; the TerraMaster's
       SNMP alert; the control plane's metrics (`talos/patches/controlplane-metrics.yaml` and
