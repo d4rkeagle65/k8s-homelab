@@ -251,4 +251,6 @@
       ansible.builtin.assert:
         that: talos_stopped_at is not defined
         fail_msg: "The run stopped at {{ talos_stopped_at | default('') }}. The VMs after it were left as they were."
-        success_msg: "Every VM planned was rebooted."
+        success_msg: >-
+          {{ 'Every VM planned passed its checks; none was rebooted (check mode).'
+             if ansible_check_mode else 'Every VM planned was rebooted.' }}
