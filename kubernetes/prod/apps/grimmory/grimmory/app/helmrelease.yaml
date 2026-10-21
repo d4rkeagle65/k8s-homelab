@@ -1,8 +1,9 @@
 # Grimmory, the e-book library and reader (the community's fork of Booklore),
 # over the books Bookshelf collects (/synmedia/media/books, mounted at /books),
-# with its own MariaDB (it supports no other database). Login through Authentik (the grimmory blueprint); its
-# settings, libraries and users come from sync/grimmory.yaml through the
-# grimmory-sync Job. Only on the private networks.
+# with its MariaDB on mariadb-operator (mariadb.yaml; it supports no other
+# database). Login through Authentik (the grimmory blueprint); its settings,
+# libraries and users come from sync/grimmory.yaml through the grimmory-sync
+# Job. Only on the private networks.
 #
 # Reader apps (KOReader, Moon+, Panels) over OPDS: each user makes an OPDS
 # login in Grimmory's settings, and the app points at
@@ -97,113 +98,12 @@ spec:
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 3
-      mariadb:
-        type: statefulset
-        # A database, as the CloudNativePG ones are (cluster-policy).
-        pod:
-          priorityClassName: homelab-critical
-        containers:
-          app:
-            image:
-              repository: mariadb
-              tag: 11.8.9
-            # innodb_snapshot_isolation off (11.8's default is on): with it on, an
-            # update of rows another transaction changed since this one's snapshot
-            # fails ("Record has changed since last read"), and Grimmory's library
-            # scans write beside the web app without retrying.
-            args: [--innodb-snapshot-isolation=OFF]
-            env:
-              MARIADB_DATABASE: grimmory
-              MARIADB_USER: grimmory
-              MARIADB_PASSWORD:
-                valueFrom:
-                  secretKeyRef:
-                    name: grimmory-db
-                    key: password
-              MARIADB_ROOT_PASSWORD:
-                valueFrom:
-                  secretKeyRef:
-                    name: grimmory-db
-                    key: root-password
-              # Upgrade the data files in place after a new MariaDB version.
-              MARIADB_AUTO_UPGRADE: "1"
-            resources:
-              requests: {cpu: 30m, memory: 224Mi}
-              limits: {cpu: 1000m, memory: 768Mi}
-            probes:
-              liveness: &dbprobe
-                enabled: true
-                custom: true
-                spec:
-                  exec:
-                    command: [healthcheck.sh, --connect, --innodb_initialized]
-                  periodSeconds: 30
-                  timeoutSeconds: 10
-                  failureThreshold: 5
-              readiness: *dbprobe
-          # Prometheus's view of the database (the grimmory-mariadb
-          # ServiceMonitor below), through the root login on localhost.
-          exporter:
-            image:
-              repository: prom/mysqld-exporter
-              tag: v0.20.0
-            args:
-              - --mysqld.address=localhost:3306
-              - --mysqld.username=root
-            env:
-              MYSQLD_EXPORTER_PASSWORD:
-                valueFrom:
-                  secretKeyRef:
-                    name: grimmory-db
-                    key: root-password
-            probes:
-              readiness:
-                enabled: true
-                custom: true
-                spec:
-                  tcpSocket: {port: 9104}
-                  periodSeconds: 30
-              liveness:
-                enabled: true
-                custom: true
-                spec:
-                  tcpSocket: {port: 9104}
-                  periodSeconds: 60
-                  failureThreshold: 5
-            resources:
-              requests: {cpu: 10m, memory: 64Mi}
-              limits: {cpu: 500m, memory: 256Mi}
-        statefulset:
-          # Node-local disk, Retain, like the CloudNativePG databases.
-          volumeClaimTemplates:
-            - name: data
-              accessMode: ReadWriteOnce
-              size: 5Gi
-              storageClass: local-db
-              advancedMounts:
-                app:
-                  - path: /var/lib/mysql
     service:
       grimmory:
         controller: grimmory
         ports:
           http:
             port: 6060
-      mariadb:
-        controller: mariadb
-        ports:
-          mysql:
-            port: 3306
-          metrics:
-            port: 9104
-    serviceMonitor:
-      mariadb:
-        serviceName: grimmory-mariadb
-        endpoints:
-          - port: metrics
-            scheme: http
-            path: /metrics
-            interval: 60s
     ingress:
       grimmory:
         className: traefik
