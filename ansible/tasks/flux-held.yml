@@ -1,0 +1,21 @@
+# flux-freeze.yml's hold is still on, read before each host or VM: a hold
+# lifted mid-run (by hand, or by Flux undoing the patch) stops the run rather
+# than letting it go on unheld. Only when this run froze Flux (flux_frozen).
+- name: Read whether Flux's source is still suspended
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} -n flux-system get gitrepositories.source.toolkit.fluxcd.io flux-system
+    -o jsonpath={.spec.suspend}
+  delegate_to: "{{ kubectl_host }}"
+  register: flux_still_held
+  changed_when: false
+  check_mode: false
+  when: flux_frozen | default(false) | bool
+
+- name: Flux is still held
+  ansible.builtin.assert:
+    that: flux_still_held.stdout == 'true'
+    fail_msg: >-
+      The flux-system GitRepository is no longer suspended, so Flux would deploy whatever is merged
+      while the run goes on. Stopping before the next one; rerun once nothing is waiting to merge.
+    quiet: true
+  when: flux_frozen | default(false) | bool
