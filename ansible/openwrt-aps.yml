@@ -18,12 +18,12 @@
 # In check mode (--check) it reports the missing packages and a listening
 # interface that differs, and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: openwrt_aps
+    select_from: openwrt_aps
 
 - name: Prometheus's exporter on the OpenWrt access points
-  hosts: openwrt_aps
+  hosts: targets
   gather_facts: false
   vars:
     exporter_interface: "{{ openwrt_exporter_interface | default('lan') }}"

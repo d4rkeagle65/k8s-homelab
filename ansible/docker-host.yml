@@ -5,8 +5,9 @@
 # live-restore on from the start, then Dockhand's Hawser agent, so Dockhand
 # deploys stacks here (docker/CLAUDE.md).
 #
-# Inventory: a host named by docker_host_target (one host, never a group: this
-# installs and restarts Docker). Run after baseline.yml.
+# Inventory: the one host target_hosts names (select-hosts.yml; docker_host_target,
+# its older name, still works), never a group: this installs and restarts Docker.
+# Run after baseline.yml.
 #
 # Hawser: Dockhand's agent (github.com/Finsys/hawser), in standard mode:
 # Dockhand connects to it on hawser_port, sending the token, and the stacks it
@@ -27,8 +28,16 @@
 #
 # In check mode (--check) it reports what it would install and changes nothing.
 
+- ansible.builtin.import_playbook: select-hosts.yml
+  vars:
+    select_from: all
+    select_required: true
+    select_one: true
+    select_alias: "{{ docker_host_target | default('') }}"
+    select_alias_name: docker_host_target
+
 - name: A Docker host
-  hosts: "{{ docker_host_target | default('none') }}"
+  hosts: targets
   gather_facts: true
   become: true
   vars_files: [vars/hawser.yml]
@@ -42,7 +51,7 @@
         that:
           - ansible_play_hosts_all | length == 1
           - ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_major_version'] == '13'
-        fail_msg: "docker_host_target must name one Debian 13 host; nothing was installed."
+        fail_msg: "target_hosts must name one Debian 13 host; nothing was installed."
         quiet: true
 
     - name: Docker's signing key

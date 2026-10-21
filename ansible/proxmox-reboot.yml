@@ -5,13 +5,11 @@
 # database cluster whole and the moved VMs back before the next host
 # (tasks/proxmox-host-reboot.yml, which proxmox-upgrade.yml uses too).
 #
-# Which hosts: reboot_hosts, an Ansible host pattern (one host, a
-# comma-separated list, or a group), or ALL (any case), empty or unset for
-# every host in the proxmox group; in inventory order, one at a time either
-# way. Each must be in the proxmox group. (Ansible's own "all" would add
-# localhost and any other inventory host, hence the mapping.) Rebooting every
-# host holds Flux on its current revision until the run ends, however it ends
-# (tasks/flux-freeze.yml): what's merged meanwhile deploys afterwards.
+# Which hosts: target_hosts (select-hosts.yml; reboot_hosts, its older name,
+# still works), ALL or empty for every host in the proxmox group; in inventory
+# order, one at a time either way. Rebooting every host holds Flux on its
+# current revision until the run ends, however it ends (tasks/flux-freeze.yml):
+# what's merged meanwhile deploys afterwards.
 #
 # Inventory and variables as for proxmox-upgrade.yml: the proxmox group,
 # dns_guest_tag, evacuate (per host), evacuate_return, and the Kubernetes
@@ -22,12 +20,14 @@
 # In check mode (--check) it runs the checks and lists, per host, what it
 # would drain, move and restart, and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: proxmox
+    select_from: proxmox
+    select_alias: "{{ reboot_hosts | default('') }}"
+    select_alias_name: reboot_hosts
 
 - name: Check the clusters and set up kubectl and talosctl
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   vars_files: [vars/talos.yml]
   tasks:
@@ -62,35 +62,23 @@
     - name: Every database cluster is healthy
       ansible.builtin.include_tasks: tasks/databases-healthy.yml
 
-    - name: Every host to reboot is a Proxmox host
-      ansible.builtin.assert:
-        that: reboot_targets | difference(groups['proxmox']) | length == 0 and reboot_targets | length > 0
-        fail_msg: >-
-          reboot_hosts ({{ reboot_hosts | default('unset') }}) names
-          {{ reboot_targets | difference(groups['proxmox']) | join(', ') or 'no host' }},
-          not in the proxmox group.
-        quiet: true
-      vars:
-        reboot_targets: "{{ query('inventory_hostnames', reboot_pattern) }}"
-        reboot_pattern: "{{ 'proxmox' if reboot_hosts | default('') | string | trim | lower in ['', 'all'] else reboot_hosts }}"
-
     - name: Hold Flux while every host reboots
       ansible.builtin.include_tasks: tasks/flux-freeze.yml
       vars:
-        kubectl_host: localhost
-      when: reboot_hosts | default('') | string | trim | lower in ['', 'all']
+        kubectl_host: semaphore
+      when: select_all | bool
 
 - name: Reboot the hosts one at a time
-  hosts: "{{ 'proxmox' if reboot_hosts | default('') | string | trim | lower in ['', 'all'] else reboot_hosts }}"
+  hosts: targets
   serial: 1
   order: inventory
   any_errors_fatal: true
   gather_facts: false
   vars:
     dns_on: "{{ dns_guest_tag | default('') | length > 0 }}"
-    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
-    kubectl_host: localhost
-    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
+    kubectl_cmd: "{{ hostvars['semaphore'].kubectl_cmd }}"
+    kubectl_host: semaphore
+    talosctl_cmd: "{{ hostvars['semaphore'].talosctl_cmd }}"
     reboot_reason: Rebooting the host (Semaphore, proxmox-reboot.yml)
   tasks:
     - name: Check and reboot this host, lifting Flux's hold if it fails
@@ -102,7 +90,7 @@
           ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
           args:
             apply:
-              delegate_to: localhost
+              delegate_to: semaphore
 
         - name: Every database cluster is healthy before this host
           ansible.builtin.include_tasks: tasks/databases-healthy.yml
@@ -110,7 +98,7 @@
         - name: Flux is still held, if this run holds it
           ansible.builtin.include_tasks: tasks/flux-held.yml
           vars:
-            flux_frozen: "{{ hostvars['localhost'].flux_frozen | default(false) }}"
+            flux_frozen: "{{ hostvars['semaphore'].flux_frozen | default(false) }}"
 
         - name: Read the Proxmox guests
           ansible.builtin.include_tasks: tasks/proxmox-guests.yml
@@ -146,20 +134,20 @@
         - name: Lift the hold on Flux
           ansible.builtin.include_tasks: tasks/flux-thaw.yml
           vars:
-            flux_frozen: "{{ hostvars['localhost'].flux_frozen | default(false) }}"
+            flux_frozen: "{{ hostvars['semaphore'].flux_frozen | default(false) }}"
 
         - name: Stop the run
           ansible.builtin.fail:
             msg: "{{ ansible_failed_result.msg | default('A step failed') }}"
 
 - name: Clean up
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   tasks:
     - name: Lift the hold on Flux
       ansible.builtin.include_tasks: tasks/flux-thaw.yml
       vars:
-        kubectl_host: localhost
+        kubectl_host: semaphore
 
     - name: Remove the CA certificate, and kubectl and talosctl with their configs
       ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml

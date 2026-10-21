@@ -26,12 +26,12 @@
 #
 # In check mode (--check) it lists the pending upgrades and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: docker_vm
+    select_from: docker_vm
 
 - name: Update the Docker VM
-  hosts: docker_vm
+  hosts: targets
   gather_facts: false
   vars:
     held: "{{ docker_packages | default(['docker-ce', 'docker-ce-cli', 'docker-ce-rootless-extras', 'containerd.io', 'docker-buildx-plugin', 'docker-compose-plugin']) }}"

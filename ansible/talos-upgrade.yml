@@ -21,9 +21,11 @@
 #
 # Variables (Semaphore): the Kubernetes variable group (k8s_api_url,
 # k8s_ca_b64, k8s_token) and talosconfig_b64, an os:admin talosconfig
-# (ansible/README.md). Optional: talos_nodes_only, node names to limit the run
-# to (a list, or one string separated by commas or spaces; each must be a Talos
-# node).
+# (ansible/README.md). Optional: target_hosts, node names to limit the run to
+# (separated by commas or spaces; each must be a Talos node; empty or ALL for
+# every node). The nodes are found in the cluster, not the inventory, so this
+# reads target_hosts itself rather than through select-hosts.yml; talos_nodes_only,
+# its older name, still works.
 #
 # In check mode (--check) it reports the target, each node's version and what
 # it would drain, and changes nothing.
@@ -35,10 +37,16 @@
   gather_facts: false
   vars_files: [vars/talos.yml]
   vars:
-    talos_only: >-
+    nodes_new: >-
+      {{ ((target_hosts | default('')) if (target_hosts | default('')) is string
+          else (target_hosts | join(' '))) | regex_replace('[,\s]+', ' ') | trim | split(' ')
+         | reject('equalto', '') | list }}
+    nodes_old: >-
       {{ ((talos_nodes_only | default('')) if (talos_nodes_only | default('')) is string
           else (talos_nodes_only | join(' '))) | regex_replace('[,\s]+', ' ') | trim | split(' ')
          | reject('equalto', '') | list }}
+    nodes_given: "{{ nodes_new or nodes_old }}"
+    talos_only: "{{ [] if nodes_given | map('lower') | list == ['all'] else nodes_given }}"
   tasks:
     - name: Check and plan, cleaning up if that fails
       block:
@@ -84,12 +92,16 @@
                   'version': n.status.nodeInfo.osImage | regex_search('v[0-9.]+') }) %}{%
               endfor %}{{ out | sort(attribute='name') | sort(attribute='control_plane', reverse=true) }}
 
-        - name: Every node in talos_nodes_only is a Talos node
+        - name: Every node in target_hosts is a Talos node
           ansible.builtin.assert:
-            that: talos_only | difference(talos_all | map(attribute='name')) | length == 0
+            that:
+              - not (nodes_new and nodes_old and nodes_new != nodes_old)
+              - talos_only | difference(talos_all | map(attribute='name')) | length == 0
             fail_msg: >-
-              talos_nodes_only names what isn't a Talos node:
-              {{ talos_only | difference(talos_all | map(attribute='name')) | join(', ') }}. Nothing was run.
+              {{ 'target_hosts and talos_nodes_only disagree: give only target_hosts. '
+                 if nodes_new and nodes_old and nodes_new != nodes_old else
+                 "target_hosts names what isn't a Talos node: "
+                 ~ talos_only | difference(talos_all | map(attribute='name')) | join(', ') ~ '. ' }}Nothing was run.
             quiet: true
 
         - name: Keep the nodes asked for
