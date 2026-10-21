@@ -18,9 +18,8 @@
 #
 # Inventory: the proxmox group (its first host makes the pvesh calls, for the whole Proxmox
 # cluster). Variables: the Kubernetes variable group (k8s_api_url, k8s_ca_b64, k8s_token) and
-# talosconfig_b64, as for talos-upgrade.yml. Optional: reboot_allow_pending, as for
-# proxmox-reboot.yml; reboot_shutdown_timeout, the seconds Proxmox waits for the guest to shut
-# down before failing the reboot (default 300).
+# talosconfig_b64, as for talos-upgrade.yml. Optional: reboot_shutdown_timeout, the seconds
+# Proxmox waits for the guest to shut down before failing the reboot (default 300).
 #
 # In check mode (--check) it reports each VM's node, host, HA state and pending changes, runs
 # the checks (etcd's included) and lists what it would drain, and changes nothing.

@@ -16,13 +16,12 @@
   ansible.builtin.include_tasks: kubernetes-healthy.yml
 
 - name: Every database cluster is healthy first
-  ansible.builtin.include_tasks: cnpg-healthy.yml
+  ansible.builtin.include_tasks: databases-healthy.yml
 
-- name: Its pods fit on the other nodes
+- name: Whether its pods fit on the other nodes
   ansible.builtin.include_tasks: k8s-capacity-check.yml
   vars:
     capacity_nodes: ["{{ talos_node.name }}"]
-    capacity_allow_pending: "{{ reboot_allow_pending | default(false) }}"
 
 - name: Upgrade it, saying what's left cordoned if it fails
   block:
@@ -62,9 +61,9 @@
       when: cnpg_maintenance | default([]) | length > 0
 
     - name: Wait for every database cluster to be whole again
-      ansible.builtin.include_tasks: cnpg-healthy.yml
+      ansible.builtin.include_tasks: databases-healthy.yml
       vars:
-        cnpg_wait: true
+        databases_wait: true
 
   rescue:
     - name: Say what this node's failure left behind

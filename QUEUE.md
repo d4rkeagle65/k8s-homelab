@@ -41,38 +41,19 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   archives from before keep the default until they age out (30 days, about 2026-11-20): until
   then anyone who reads `docker-backups` can open those, each holding the key that signs
   Vaultwarden's logins and its `config.json`
-- **A worker's drain doesn't know the MariaDB clusters** (found 2026-10-20):
-  `ansible/tasks/cnpg-free-node.yml`, which `k8s-node-drain.yml` runs, switches over
-  CloudNativePG primaries and lists single-instance PostgreSQL clusters, but not
-  mariadb-operator's: Youtarr's (one instance, on local-db) goes down unannounced while its
-  node is out, and Grimmory's three-replica cluster's primary is evicted without a switchover
-  first: offline while another was promoted, it came back unable to follow (error 1236,
-  2026-10-20), and the operator's replica recovery (`apps/grimmory/grimmory/app/mariadb.yaml`)
-  rebuilt it from a backup. Read how mariadb-operator moves a primary (`spec.replication`),
-  then do for it what that file does for CloudNativePG. Left, every Talos upgrade or reboot of
-  those nodes takes Youtarr's database down without saying so, and an evicted Grimmory
-  primary is rebuilt from a backup each time, blocking drains until it is.
-  Seen again in "Reboot: Proxmox Hosts" task 992 (2026-10-21), worse: draining w05a took
-  `grimmory-db-1` (then primary) without a switchover, so it was rebuilt; the run went on to the
-  next host while that rebuild ran, since `cnpg-healthy.yml` checks only CloudNativePG, and
-  draining w06a then deadlocked: the PodDisruptionBudget held `grimmory-db-0`, and the rebuild's
-  `grimmory-db-pb-recovery-*` Job (pod affinity to a ready replica's node, w07a, for its local
-  disk) stayed Pending because the earlier drains had filled w07a's memory requests (99%). The
-  drain timed out at 15 minutes and the run stopped before rebooting the third host. So: the
-  between-hosts health check waits for every MariaDB to be Ready too; switch the primary off a
-  node before draining it; and the capacity check counts the recovery Job's room on the
-  replica's node, or the run would deadlock the same way.
-  After that, the rebuild stalls for good: the Pending Job was gone by 06:44 while the
-  `grimmory-db-pb-recovery` PhysicalBackup still read `Scheduled` (Complete=False,
-  JobNotComplete), so the operator never made another one, and `grimmory-db-1` sat in
-  CrashLoopBackOff with the cluster `Recovering replicas`. Deleting that PhysicalBackup (the
-  MariaDB owns it) should make the operator start a fresh one. Also wanted: an alert for a
-  MariaDB not Ready for over an hour, or for a PhysicalBackup `Scheduled` with no Job, since
-  nothing reported this one.
+- **Nothing reports a MariaDB stuck not Ready** (found 2026-10-21): after task 992, Grimmory's
+  replica rebuild Job sat Pending past the `grimmory-db-recovery` template's `timeout: 1h`, the
+  operator deleted it, and, that template never being scheduled, made no other; the
+  `grimmory-db-pb-recovery` PhysicalBackup stayed `Scheduled` and the cluster `Recovering
+  replicas` for hours, unnoticed. The template now runs at homelab-critical so it can evict its
+  way onto the replica's node, but nothing alerts. Add a PrometheusRule (the operator's metrics,
+  or kube-state-metrics on the CR) for a MariaDB not Ready for over an hour, or a PhysicalBackup
+  `Scheduled` with no Job. Left, the next stall is found only by the next drain refusing.
 - **mariadb-operator's webhook is one pod** (found 2026-10-21): draining its node fails every
   MariaDB reconcile ("failed calling webhook vmariadb-v1alpha1.kb.io", Ready=False Failed) until
   the replacement is ready, about 30 s in task 992. Two replicas with a PodDisruptionBudget, if
-  the chart allows, or the drain waits it out; harmless unless a switchover lands in that gap.
+  the chart allows, or the drain waits it out. `mariadb-free-node.yml` patches before the drain,
+  so its switchover fails only if an earlier drain left the webhook rescheduling.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
