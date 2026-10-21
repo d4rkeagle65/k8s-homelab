@@ -8,9 +8,9 @@
 # up again, before the next (tasks/talos-vm-reboot.yml). A failed step stops the run and says
 # what it left cordoned.
 #
-# Three plays, as talos-upgrade.yml's header says: a plan on localhost, then each VM as a
-# host of its own (named for its node, so the log says which VM a step works on), then the
-# cleanup.
+# Built as talos-upgrade.yml is (its header says how): semaphore plans, each VM is a host of
+# its own named for its node, so every line of its work reads [node] (its Proxmox calls
+# [node -> Proxmox host]), and semaphore cleans up.
 #
 # Which VMs: reboot_vms (required), VM IDs or names, separated by commas or spaces, rebooted
 # in that order; ALL (any case) for every Talos VM, control planes first. Each must be a
@@ -25,12 +25,15 @@
 # In check mode (--check) it reports each VM's node, host, HA state and pending changes, runs
 # the checks (etcd's included) and lists what it would drain, and changes nothing.
 
+- ansible.builtin.import_playbook: semaphore-host.yml
+
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
     required_group: proxmox
+    require_hosts_on: semaphore
 
 - name: Plan the reboots
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   vars_files: [vars/talos.yml]
   vars:
@@ -197,13 +200,14 @@
   vars_files: [vars/talos.yml]
   vars:
     pve_api_host: "{{ groups['proxmox'] | first }}"
-    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
-    kubectl_host: "{{ hostvars['localhost'].kubectl_host }}"
-    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
-    talos_cp_addresses: "{{ hostvars['localhost'].talos_cp_addresses }}"
+    kubectl_cmd: "{{ hostvars['semaphore'].kubectl_cmd }}"
+    # The node itself, as in talos-upgrade.yml: its kubectl steps read [node].
+    kubectl_host: "{{ inventory_hostname }}"
+    talosctl_cmd: "{{ hostvars['semaphore'].talosctl_cmd }}"
+    talos_cp_addresses: "{{ hostvars['semaphore'].talos_cp_addresses }}"
   tasks:
     - name: Reboot it, unless a VM before it failed
-      when: hostvars['localhost'].talos_stopped_at is not defined
+      when: hostvars['semaphore'].talos_stopped_at is not defined
       block:
         - name: Reboot VM {{ talos_vm.vmid }} ({{ inventory_hostname }})
           ansible.builtin.include_tasks: tasks/talos-vm-reboot.yml
@@ -212,11 +216,11 @@
         - name: Record where the run stopped, so the VMs after it are left alone
           ansible.builtin.set_fact:
             talos_stopped_at: "VM {{ talos_vm.vmid }} ({{ inventory_hostname }}): {{ ansible_failed_result.msg | default('a step failed') }}"
-          delegate_to: localhost
+          delegate_to: semaphore
           delegate_facts: true
 
 - name: Clean up, and say whether every VM was rebooted
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   tasks:
     - name: Remove the CA certificate, and kubectl and talosctl with their configs

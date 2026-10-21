@@ -354,6 +354,11 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 - It starts with `import_playbook: require-hosts.yml` for the group it works on. An inventory
   Ansible can't parse (a tab in Semaphore's YAML) only draws warnings, then every play matches
   nothing and the run exits 0: Semaphore shows a success that did nothing.
+- The log names what each step is about. Steps that run on Semaphore itself run as the host
+  `semaphore` (`import_playbook: semaphore-host.yml` first; its own step is the one
+  `[localhost]` line), and a play that works through nodes it found makes each one a host
+  of its own (`add_host`, `ansible_connection: local`), its kubectl steps delegated to
+  itself, so every line of that work reads `[node]`. `talos-upgrade.yml` is the example.
 - `ansible-playbook --syntax-check` passes, with any inventory.
 - In a block scalar (`>-`, `|`), a regex takes a single backslash: `'(\d+)'`, `'\1'`. YAML
   keeps a block's backslashes as they are, so a doubled one reaches the regex as a literal
