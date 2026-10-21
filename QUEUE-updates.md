@@ -100,6 +100,19 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       pull request for it is ready to merge once they do. Rechecked 2026-10-19: Flux,
       cert-manager and CloudNativePG have no newer release; External Secrets 2.13.0
       (2026-10-16) is unread.
+- [ ] **Python 3.14.8 -> 3.15.0** (Renovate's pull request #14; held 2026-10-21): every
+      `python:` image here and `renovate.json`'s Python constraint; Baby Buddy's MCP pod
+      jumps from 3.12.15. Held until PyYAML publishes Python 3.15 wheels: 6.0.3, its newest,
+      has none, and four workloads `pip install` it at every start (the MCP pod, through its
+      requirements; the Grimmory, media and Organizr sync jobs, pinned `pyyaml==6.0.3`), so
+      on 3.15 each would build it from source every time. Everything else the MCP pod
+      installs has 3.15 wheels at the versions it runs, Renovate's own post-upgrade install
+      (`ruamel.yaml`) is pure Python, and no script these pods run uses an API that 3.13 to
+      3.15 removed. Once PyYAML has them: the three jobs' pin moves to that
+      release in the same pull request (Renovate doesn't see a pin inside a command), the
+      wheels are checked again (`pip download --only-binary=:all: --python-version 3.15`
+      for both `musllinux_1_2_x86_64` and the `manylinux` tags), then after the merge each
+      workload is read back: the MCP pod Ready and one run of each sync job succeeding.
 - [x] **Talos 1.14.2 -> 1.14.4** (2026-10-20): Linux 6.18.57, containerd 2.3.7, and etcd
       3.7.2, which follows Talos as each control plane upgrades (no machine config pins its
       image). All seven nodes upgraded by "Node: Upgrade Talos" (tasks 951 to 967), one at a
