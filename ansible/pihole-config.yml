@@ -21,12 +21,12 @@
 # In check mode (--check) it reports which settings differ on which Pi-hole,
 # and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: pihole
+    select_from: pihole
 
 - name: Set the Pi-holes' settings one at a time
-  hosts: pihole
+  hosts: targets
   serial: 1
   order: inventory
   any_errors_fatal: true
@@ -114,7 +114,7 @@
       ansible.builtin.command: >-
         python3 {{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }}
         {{ hostvars[item].ansible_host | default(item) }}
-      delegate_to: localhost
+      delegate_to: semaphore
       loop: "{{ others }}"
       register: others_answer
       until: others_answer.rc == 0
@@ -170,7 +170,7 @@
       ansible.builtin.command: >-
         python3 {{ playbook_dir }}/files/dns-answers.py {{ dns_check_name | default('pi.hole') }}
         {{ ansible_host | default(inventory_hostname) }}
-      delegate_to: localhost
+      delegate_to: semaphore
       register: self_answer
       until: self_answer.rc == 0
       retries: 20

@@ -53,12 +53,12 @@
 # and wanted, and
 # changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: proxmox
+    select_from: proxmox
 
 - name: Proxmox host settings
-  hosts: proxmox
+  hosts: targets
   gather_facts: true
   gather_subset: [min, hardware]
   vars:
@@ -183,7 +183,7 @@
       ansible.builtin.include_tasks: tasks/proxmox-snippets.yml
 
 - name: Retired network interfaces, one host at a time
-  hosts: proxmox
+  hosts: targets
   gather_facts: false
   serial: 1
   any_errors_fatal: true

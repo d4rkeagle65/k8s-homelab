@@ -82,7 +82,7 @@
   ansible.builtin.include_tasks: talos-etcd-healthy.yml
   args:
     apply:
-      delegate_to: localhost
+      delegate_to: semaphore
   when: reboot_cp_here | length > 0
 
 - name: Whether their pods fit on the other nodes
@@ -170,7 +170,7 @@
       ansible.builtin.include_tasks: kubernetes-healthy.yml
       args:
         apply:
-          delegate_to: localhost
+          delegate_to: semaphore
       vars:
         k8s_wait: true
 
@@ -178,7 +178,7 @@
       ansible.builtin.include_tasks: talos-etcd-healthy.yml
       args:
         apply:
-          delegate_to: localhost
+          delegate_to: semaphore
       vars:
         etcd_wait: true
       when: reboot_cp_here | length > 0

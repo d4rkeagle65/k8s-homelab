@@ -16,8 +16,11 @@
 # In check mode (--check) it runs upgrade-k8s with --dry-run, which reports
 # what it would change, and changes nothing.
 
+# The whole cluster at once, by design: no hosts to pick.
+- ansible.builtin.import_playbook: semaphore-host.yml
+
 - name: Upgrade Kubernetes
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   vars_files: [vars/talos.yml]
   vars:

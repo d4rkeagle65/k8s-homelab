@@ -10,12 +10,12 @@
 #
 # In check mode (--check) it lists what it would remove and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: proxmox
+    select_from: proxmox[0]:pihole:docker_vm
 
 - name: Retired keys out of root's authorized_keys
-  hosts: proxmox[0]:pihole:docker_vm
+  hosts: targets
   gather_facts: false
   vars:
     retired_key_comments: [semaphore]

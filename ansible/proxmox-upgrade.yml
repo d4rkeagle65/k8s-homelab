@@ -26,12 +26,12 @@
 # In check mode (--check) it runs the checks and lists the pending upgrades,
 # and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: proxmox
+    select_from: proxmox
 
 - name: Check the clusters before touching anything
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   vars_files: [vars/talos.yml]
   tasks:
@@ -64,7 +64,7 @@
       ansible.builtin.include_tasks: tasks/talosctl-local.yml
 
 - name: Upgrade the Proxmox hosts one at a time
-  hosts: proxmox
+  hosts: targets
   serial: 1
   order: inventory
   any_errors_fatal: true
@@ -72,9 +72,9 @@
   vars:
     in_no_reboot: "{{ inventory_hostname in groups.get('no_reboot', []) }}"
     dns_on: "{{ dns_guest_tag | default('') | length > 0 }}"
-    kubectl_cmd: "{{ hostvars['localhost'].kubectl_cmd }}"
-    kubectl_host: localhost
-    talosctl_cmd: "{{ hostvars['localhost'].talosctl_cmd }}"
+    kubectl_cmd: "{{ hostvars['semaphore'].kubectl_cmd }}"
+    kubectl_host: semaphore
+    talosctl_cmd: "{{ hostvars['semaphore'].talosctl_cmd }}"
     reboot_reason: Rebooting for the Proxmox upgrade (Semaphore)
   tasks:
     - name: The Proxmox cluster has quorum
@@ -84,7 +84,7 @@
       ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
       args:
         apply:
-          delegate_to: localhost
+          delegate_to: semaphore
 
     - name: Read the Proxmox guests
       ansible.builtin.include_tasks: tasks/proxmox-guests.yml
@@ -199,7 +199,7 @@
       when: will_reboot | bool and evacuate_plan | length > 0 and not evacuate_return | default(true) | bool
 
 - name: Report
-  hosts: localhost
+  hosts: semaphore
   gather_facts: false
   tasks:
     - name: Hosts that still need a reboot by hand
