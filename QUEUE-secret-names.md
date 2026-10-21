@@ -411,20 +411,16 @@ against today's value by hash.
       each deploy's count: left, on the host, `docker logs --since 1h dockhand 2>&1 | grep
       'reference(s) (promoted'` showing vaultwarden's at about 01:17Z resolving all 11 from
       `.env`; a login through Authentik and with the master password
-- [ ] New values plain too: #189, open and passing its suite (2026-10-21), for the owner to
-      merge. `scripts/README.md`'s "A new private value" stores a value plain
-      (`keyvault-secrets.ps1 NAME -New -Raw`) and adds its `{{ .NAME | b64enc }}` template
-      entry in the mapping's pull request when a Secret's `data:` reads it; capture lists a
-      promoted Secret's value in `kubernetes/.local/vaultwarden-pending.yaml` plain, with that
-      entry (`varsub.pending_rows`). `_write_entries` stays base64: it writes the legacy
-      substitutions file, whose literals are what captured files hold. Its first live check is
-      the next Secret promoted: its row plain, and its manifest written once the value is in
-      Key Vault and mapped with its entry
+- [ ] New values plain too (#189, merged 2026-10-21), checked live only by the next Secret
+      promoted: its row in `kubernetes/.local/vaultwarden-pending.yaml` plain, with its
+      `template` entry, and its manifest written once the value is in Key Vault and mapped
+      with that entry. A row still base64 for a value that is text means capture's
+      `secret_data` mark didn't reach `varsub.pending_rows`
 - [ ] `scripts/keyvault-secrets.ps1 NAME -New` without `-Raw` stores a new value base64 when
       the checkout already uses `${NAME}` in a Secret's `data:` (`$heldBase64` doesn't ask
       whether the ExternalSecret maps it). Once its `{{ .NAME | b64enc }}` entry is live, the
-      template encodes it twice and the app gets a wrong value with no error. #189's recipe
-      passes `-Raw`, so only an off-recipe run hits it. The fix: hold a variable the
+      template encodes it twice and the app gets a wrong value with no error.
+      `scripts/README.md`'s recipe passes `-Raw`, so only an off-recipe run hits it. The fix: hold a variable the
       ExternalSecret doesn't map yet plain (keeping the refusal for one also used outside a
       Secret's `data:`), name its template entry in the "doesn't map" warning, and show the
       same in the listing's Encoding. No suite in the repo covers the script: #153 was proved
