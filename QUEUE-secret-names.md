@@ -455,38 +455,24 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - `CADVISOR-ADDRESS`: now `DOCKER-VM-1-MGMT-ADDRESS` (#140); never mapped into the cluster
 - `PIHOLE-PASSWORD`, `PIHOLE2-PASSWORD`: now `PIHOLE-1-PASSWORD`, `PIHOLE-2-APP-PASSWORD` (#190)
 
-**Dockhand stack variables:**
+**Dockhand stack variables:** checked 2026-10-21 against a listing of every one, secret or
+not, by hash: seven were left, and every other stack variable is gone; semaphore's
+`SEMAPHORE_OIDC_CLIENT_SECRET` has gone since. None is read but through its `.env`'s own
+reference, so all six go:
 
-- cadvisor's `CADVISOR_ADDRESS`: now `DOCKER_VM_1_MGMT_ADDRESS` (#140)
-- kea-standby's `KEA_API_ADDRESS` and `KEA_DHCP_ADDRESS`: now `DOCKER_VM_2_MGMT_ADDRESS` and
-  `DOCKER_VM_2_PROD_ADDRESS` (#146)
-- tailscale's `TS_AUTHKEY`, `TS_TAGS`, `TS_HOSTNAME` and `TS_ROUTES`: now `TAILSCALE_*` (#150)
-- cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's two references, set by hand in
-  Dockhand: their `.env`s carry the same references now
-- databasus's `DATABASUS_BIND_ADDRESS`, `DATABASUS_URL`, `SEMAPHORE_NETWORK`, `KEA_NETWORK`
-  and `NETBOX_NETWORK`: now `DOCKER_VM_1_MGMT_ADDRESS`, a URL built from `BASE_DOMAIN`, and
-  network names in the compose file (#159)
-- garage's `GARAGE_BIND_ADDRESS`: now `TERRAMASTER_MGMT_ADDRESS` (#163)
-- semaphore's `SEMAPHORE_BIND_ADDRESS`, `SEMAPHORE_WEB_ROOT`, `SEMAPHORE_OIDC_ISSUER_URL`,
-  `NETBOX_API`, `KEA_NETWORK`, `TZ`, `DATABASUS_DB_PASSWORD` and `NETBOX_TOKEN`: now
-  `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
-  `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN` (#172)
-- netbox's `NETBOX_BIND_ADDRESS`, `NETBOX_HOST`, `OIDC_ENDPOINT`, `OIDC_CLIENT_SECRET`,
-  `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
-  `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
-  `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, `kea_default` and `SYNC_APPLY` in the compose file,
-  `DATABASUS_NETBOX_DB_PASSWORD` and `TIMEZONE` (#184)
-- kea's `KEA_DHCP_ADDRESS`, `KEA_API_ADDRESS`, `POSTGRES_PASSWORD`, `DATABASUS_DB_PASSWORD`,
-  `STORK_OIDC_ISSUER_URL`, `STORK_OIDC_REDIRECT_URI` and `STORK_OIDC_CLIENT_SECRET`: now
-  `DOCKER_VM_1_PROD_ADDRESS`, `DOCKER_VM_1_MGMT_ADDRESS`, `KEA_POSTGRES_PASSWORD`,
-  `DATABASUS_KEA_DB_PASSWORD`, URLs built from `BASE_DOMAIN` and
-  `AUTHENTIK_STORK_OIDC_CLIENT_SECRET` (#185); and its `KEA_NETWORK`, which nothing reads
-- vaultwarden's `VAULTWARDEN_BIND_ADDRESS`, `DOMAIN`, `SIGNUPS_DOMAINS_WHITELIST`,
-  `SMTP_HOST`, `SSO_AUTHORITY`, `ADMIN_TOKEN`, `SMTP_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
-  `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID` and
-  `BACKUP_S3_SECRET_ACCESS_KEY`: now `DOCKER_VM_1_PROD_ADDRESS`, values built from
-  `BASE_DOMAIN`, and the standard names in its `.env` (#188); and its blank
-  `BACKUP_ZIP_PASSWORD`, now `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, once that reads back
+- cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's `DOCKER_VM_2_MGMT_ADDRESS` and
+  `DOCKER_VM_2_PROD_ADDRESS`: references set by hand, the same ones their `.env`s carry
+- semaphore's `TZ` (now `TIMEZONE`, #172): the same value as Key Vault's
+- vaultwarden's `VAULTWARDEN_BIND_ADDRESS` (now `DOCKER_VM_1_PROD_ADDRESS`, #188), the same
+  value as Key Vault's; and its `BACKUP_ZIP_PASSWORD`, which holds another value than
+  `VAULTWARDEN-BACKUP-ZIP-PASSWORD` (#195) but was never deployed: set after #188's deploy at
+  01:17Z, and `vaultwarden-backup` not started again before #195 merged
+
+**Files:**
+
+- The all-variables listing, `dockhand_variables.json` in Downloads and
+  `~/dockhand_variables.json` on the Docker host: names and SHA-256s, and a short password's
+  hash can be guessed. Delete both
 
 ## Resuming
 
