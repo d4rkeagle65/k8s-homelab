@@ -26,8 +26,10 @@ resource "proxmox_virtual_environment_vm" "talos" {
   node_name = local.guest[each.key].node
   vm_id     = tonumber(each.key)
   name      = local.guest[each.key].name
-  on_boot   = true
-  tags      = ["k8s", "talos", each.value.role == "controlplane" ? "k8s-control" : "k8s-worker"]
+  # Off for a node being removed; whether it runs is ignored below: README,
+  # "A guest being removed".
+  on_boot = !local.guest[each.key].decommissioning
+  tags    = ["k8s", "talos", each.value.role == "controlplane" ? "k8s-control" : "k8s-worker"]
 
   # A Talos node is changed by its machine config, not by rebooting its VM: a
   # change here that needs a restart only warns, and the restart is done by
@@ -118,10 +120,11 @@ resource "proxmox_virtual_environment_vm" "talos" {
   }
 
   # The host is NetBox's (netbox.tf), and HA or a migration can move a node
-  # before the nightly sync records it: a move is never a change here.
+  # before the nightly sync records it: a move is never a change here. Nor is
+  # whether it runs: a node is stopped and started by hand, after draining.
   lifecycle {
     prevent_destroy = true
-    ignore_changes  = [node_name]
+    ignore_changes  = [node_name, started]
   }
 }
 
