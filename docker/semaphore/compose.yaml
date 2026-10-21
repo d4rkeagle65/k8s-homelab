@@ -19,13 +19,11 @@
 #                            (head -c32 /dev/urandom | base64); losing it loses them
 #   SEMAPHORE_COOKIE_HASH, SEMAPHORE_COOKIE_ENCRYPTION  the same kind of
 #                            32-byte base64 values, for sessions
+#   AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET  the same one Authentik's blueprint reads
 #   TFSTATE_DB_PASSWORD      the tfstate role's (OpenTofu's state database)
 #   DATABASUS_SEMAPHORE_DB_PASSWORD  the databasus role's (read-only, for backups)
 #   TIMEZONE                 the timezone schedules run in, e.g. America/New_York
 #   NETBOX_SEMAPHORE_TOKEN   a NetBox token with writes off, for the inventory
-# Set in Dockhand, marked secret, until Key Vault holds it plain:
-#   SEMAPHORE_OIDC_CLIENT_SECRET  the same one Authentik's blueprint reads
-#                            (AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET)
 #
 # scripts/netbox_seed.py reads Kea at http://kea-dhcp4:8000 on the kea stack's
 # network (below).
@@ -155,7 +153,7 @@ services:
         {"authentik": {"display_name": "Authentik",
         "provider_url": "https://auth.${BASE_DOMAIN}/application/o/semaphore/",
         "client_id": "semaphore",
-        "client_secret": "${SEMAPHORE_OIDC_CLIENT_SECRET}",
+        "client_secret": "${AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET}",
         "redirect_url": "https://semaphore.${BASE_DOMAIN}/api/auth/oidc/authentik/redirect",
         "scopes": ["openid", "profile", "email"],
         "username_claim": "email",
