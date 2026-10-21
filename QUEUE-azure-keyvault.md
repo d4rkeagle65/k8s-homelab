@@ -45,7 +45,8 @@ references).
 
 1. **Dockhand's principal down to "Key Vault Secrets User"**: its provider only lists and
    reads (`azure-kv.ts`), and it holds "Key Vault Secrets Officer". Its client secret expires
-   2028-10-05.
+   2028-10-05. Read 2026-10-21 05:01Z, after the owner's run: still Officer only, no Secrets
+   User at any scope, so the role change didn't take (Claude Code's, run alongside, did).
 2. **Vaultwarden afterwards:** stays the password manager for people; it stops being the
    cluster's store once the cutover has run a week.
 
