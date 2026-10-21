@@ -171,4 +171,6 @@
       ansible.builtin.assert:
         that: talos_stopped_at is not defined
         fail_msg: "The run stopped at {{ talos_stopped_at | default('') }}. The nodes after it were left as they were."
-        success_msg: "Every node planned was upgraded."
+        success_msg: >-
+          {{ 'Every node planned passed its checks; none was upgraded (check mode).'
+             if ansible_check_mode else 'Every node planned was upgraded.' }}
