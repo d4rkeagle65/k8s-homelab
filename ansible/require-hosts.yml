@@ -6,9 +6,12 @@
 #   - ansible.builtin.import_playbook: require-hosts.yml
 #     vars:
 #       required_group: proxmox
+#
+# It runs as localhost, or as require_hosts_on when given (semaphore, for a
+# playbook that imports semaphore-host.yml first).
 
 - name: The inventory has hosts to work on
-  hosts: localhost
+  hosts: "{{ require_hosts_on | default('localhost') }}"
   gather_facts: false
   tasks:
     - name: "{{ required_group }} has hosts"
