@@ -419,15 +419,17 @@ against today's value by hash.
       `template` entry, and its manifest written once the value is in Key Vault and mapped
       with that entry. A row still base64 for a value that is text means capture's
       `secret_data` mark didn't reach `varsub.pending_rows`
-- [ ] `scripts/keyvault-secrets.ps1 NAME -New` without `-Raw` stores a new value base64 when
-      the checkout already uses `${NAME}` in a Secret's `data:` (`$heldBase64` doesn't ask
-      whether the ExternalSecret maps it). Once its `{{ .NAME | b64enc }}` entry is live, the
-      template encodes it twice and the app gets a wrong value with no error.
-      `scripts/README.md`'s recipe passes `-Raw`, so only an off-recipe run hits it. The fix: hold a variable the
-      ExternalSecret doesn't map yet plain (keeping the refusal for one also used outside a
-      Secret's `data:`), name its template entry in the "doesn't map" warning, and show the
-      same in the listing's Encoding. No suite in the repo covers the script: #153 was proved
-      on a mock vault and a fake kubectl
+- [ ] `scripts/keyvault-secrets.ps1` sets base64 a value whose name the ExternalSecret doesn't
+      map yet, when a Secret's `data:` in the checkout reads it (`$heldBase64` doesn't ask
+      whether it's mapped). Once its `{{ .NAME | b64enc }}` entry is live, the template
+      encodes it twice and the app gets a wrong value with no error. #191, open and passing
+      its suite (2026-10-21), for the owner to merge, closes the path that adds one: `-New`
+      runs only with `-Raw`. Left after it: setting, without `-New`, a secret Key Vault already
+      holds but the ExternalSecret doesn't map (a name the Dockhand copy wrote, say), and the
+      listing showing such a name as `base64`. The fix: hold an unmapped variable plain
+      (keeping the refusal for one also used outside a Secret's `data:`), and the listing
+      the same. No suite in the repo covers the script: #153 and #191 were proved on a mock
+      vault and a fake kubectl
 - [ ] Once the Pi-hole pair has moved, `scripts/tests/test_structure.py` could require a
       `{{ .NAME | b64enc }}` entry for every variable a Secret's `data:` reads, so a new value
       held base64 fails the gate instead of resting on the README.
