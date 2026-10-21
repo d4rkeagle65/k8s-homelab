@@ -1,0 +1,77 @@
+# An sshd that listens on one address (ListenAddress) can start before that
+# address is up, at a container's start most of all: the bind fails, sshd exits
+# 255, and Debian's ssh.service never retries that status
+# (RestartPreventExitStatus=255), so the host has no SSH until someone restarts
+# it. A drop-in has it wait for network-online.target and retry every 5 seconds
+# until the bind works; systemd only reloads, so the running sshd is untouched.
+# Only where sshd's own configuration names an address other than the
+# wildcards; every host is reported.
+
+- name: Read the addresses sshd listens on
+  ansible.builtin.shell: /usr/sbin/sshd -T 2>/dev/null | awk '$1 == "listenaddress" { print $2 }'
+  register: sshd_listen
+  changed_when: false
+  check_mode: false
+  failed_when: sshd_listen.rc != 0 or sshd_listen.stdout_lines | length == 0
+
+- name: Work out whether sshd listens on a fixed address
+  ansible.builtin.set_fact:
+    sshd_fixed_listen: >-
+      {{ sshd_listen.stdout_lines | reject('match', '^(0\.0\.0\.0|\[::\]):') | list }}
+
+- name: The drop-in's folder
+  ansible.builtin.file:
+    path: /etc/systemd/system/ssh.service.d
+    state: directory
+    mode: "0755"
+  when: sshd_fixed_listen | length > 0
+
+- name: sshd waits for the network and retries a failed bind
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/ssh.service.d/20-after-network-online.conf
+    mode: "0644"
+    content: |
+      # baseline.yml (tasks/ssh-listen-retry.yml): sshd listens on a fixed
+      # address, which may not be up yet when it starts.
+      [Unit]
+      Wants=network-online.target
+      After=network-online.target
+
+      [Service]
+      # A ListenAddress that isn't up yet exits 255, which Debian's unit won't retry.
+      RestartPreventExitStatus=
+      Restart=on-failure
+      RestartSec=5
+  register: ssh_dropin
+  when: sshd_fixed_listen | length > 0
+
+- name: systemd reads it
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: ssh_dropin is changed and not ansible_check_mode
+
+- name: Read ssh.service's restart settings and state back
+  ansible.builtin.command:
+    argv: [systemctl, show, ssh.service, -p, Restart, -p, RestartPreventExitStatus, -p, RestartUSec, -p, ActiveState]
+  register: ssh_unit
+  changed_when: false
+  check_mode: false
+  when: sshd_fixed_listen | length > 0
+
+- name: Report sshd's restart settings
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ ('sshd on ' ~ sshd_fixed_listen | join(', ') ~ '; ' ~
+      (ssh_unit.stdout_lines | join(', ')))
+      if sshd_fixed_listen | length > 0 else 'sshd on every address, nothing to set' }}
+
+- name: sshd retries a failed bind, and is running
+  ansible.builtin.assert:
+    that:
+      - "'Restart=on-failure' in ssh_unit.stdout_lines"
+      - "'RestartPreventExitStatus=' in ssh_unit.stdout_lines"
+      - "'RestartUSec=5s' in ssh_unit.stdout_lines"
+      - "'ActiveState=active' in ssh_unit.stdout_lines"
+    fail_msg: "{{ inventory_hostname }}: ssh.service reads {{ ssh_unit.stdout_lines | join(', ') }} after the drop-in."
+    quiet: true
+  when: sshd_fixed_listen | length > 0 and not ansible_check_mode
