@@ -41,7 +41,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: smtp-oauth-relay
-        image: ghcr.io/justiniven/smtp-oauth-relay:1.7.0
+        image: ghcr.io/justiniven/smtp-oauth-relay:1.7.1
         command: ["/bin/sh", "-ec"]
         args:
         - |
