@@ -80,7 +80,7 @@
 - name: Wait for each switchover
   ansible.builtin.command: >-
     {{ kubectl_cmd }} get mariadbs.k8s.mariadb.com -n {{ item.namespace }} {{ item.name }}
-    -o jsonpath={.status.currentPrimary}|{.status.conditions[?(@.type=="Ready")].status}
+    -o 'jsonpath={.status.currentPrimary}|{.status.conditions[?(@.type=="Ready")].status}'
   delegate_to: "{{ kubectl_host }}"
   loop: "{{ mariadb_switchovers }}"
   loop_control:
