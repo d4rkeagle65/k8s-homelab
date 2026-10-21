@@ -124,8 +124,14 @@
       vars:
         quorate_wait: true
 
+    # Straight after boot ha-manager can refuse with "no such cluster node"
+    # while quorum is already reported, until pve-cluster has the node list.
     - name: Take this node out of HA maintenance
       ansible.builtin.command: ha-manager crm-command node-maintenance disable {{ pve_node }}
+      register: reboot_ha_disable
+      until: reboot_ha_disable.rc == 0
+      retries: 30
+      delay: 10
       changed_when: true
       when: ha_plan | length > 0 and not ansible_check_mode
 
