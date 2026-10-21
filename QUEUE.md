@@ -41,14 +41,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   archives from before keep the default until they age out (30 days, about 2026-11-20): until
   then anyone who reads `docker-backups` can open those, each holding the key that signs
   Vaultwarden's logins and its `config.json`
-- **Nothing reports a MariaDB stuck not Ready** (found 2026-10-21): after task 992, Grimmory's
-  replica rebuild Job sat Pending past the `grimmory-db-recovery` template's `timeout: 1h`, the
-  operator deleted it, and, that template never being scheduled, made no other; the
-  `grimmory-db-pb-recovery` PhysicalBackup stayed `Scheduled` and the cluster `Recovering
-  replicas` for hours, unnoticed. The template now runs at homelab-critical so it can evict its
-  way onto the replica's node, but nothing alerts. Add a PrometheusRule (the operator's metrics,
-  or kube-state-metrics on the CR) for a MariaDB not Ready for over an hour, or a PhysicalBackup
-  `Scheduled` with no Job. Left, the next stall is found only by the next drain refusing.
 - **mariadb-operator's webhook is one pod** (found 2026-10-21): draining its node fails every
   MariaDB reconcile ("failed calling webhook vmariadb-v1alpha1.kb.io", Ready=False Failed) until
   the replacement is ready, about 30 s in task 992. Two replicas with a PodDisruptionBudget, if

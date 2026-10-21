@@ -137,6 +137,8 @@ spec:
   # Its Job must run beside a ready replica, for that one's disk. homelab-critical
   # lets it evict lesser pods there: left Pending past the timeout, the operator
   # deletes the Job and, this never being scheduled, never makes another.
+  # The field can't change in place (the webhook rejects it, failing the
+  # Kustomization): delete this PhysicalBackup and Flux recreates it.
   priorityClassName: homelab-critical
   timeout: 1h
   storage:
