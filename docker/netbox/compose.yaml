@@ -167,11 +167,25 @@ services:
       netbox:
         condition: service_healthy
     command: [/opt/netbox/venv/bin/python, /opt/netbox/netbox/manage.py, rqworker]
+    # Healthy while this container's RQ worker is registered in Valkey: its key
+    # there lives only as long as the worker's heartbeat renews it (RQ's worker
+    # TTL), so a worker that hangs or loses Valkey turns unhealthy. The process
+    # itself needs no check: tini stops the container when it exits.
     healthcheck:
-      test: ["CMD-SHELL", "ps -aux | grep -v grep | grep -q rqworker"]
-      start_period: 20s
-      timeout: 3s
-      interval: 15s
+      test:
+      - CMD
+      - /opt/netbox/venv/bin/python
+      - -c
+      - >-
+        import os, socket, redis;
+        r = redis.Redis(host=os.environ['REDIS_HOST'], db=int(os.environ.get('REDIS_DATABASE', '0')),
+        password=os.environ.get('REDIS_PASSWORD') or None, socket_timeout=5);
+        me = socket.gethostname().encode();
+        raise SystemExit(0 if any(r.hget(w, 'hostname') == me for w in r.smembers('rq:workers')) else 1)
+      start_period: 2m
+      timeout: 10s
+      interval: 60s
+      retries: 3
 
   # NetBox DNS's records to every Pi-hole, each minute (dns-sync/,
   # old-queues/QUEUE-netbox-dns.md). Report-only until SYNC_APPLY is true; a record
