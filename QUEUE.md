@@ -264,14 +264,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
     Every run already lists what it would remove.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
-- **Pi-hole 1's sshd still doesn't come back after a container restart**, despite the
-  hand-made drop-in (`ssh.service.d/20-after-network-online.conf`, 2026-10-10) meant to make
-  sshd, which listens on the management address only, wait for the network: after a restart
-  around 12:30 UTC on 2026-10-15 it refused connections until restarted by hand on 10-16,
-  and every Semaphore run on Pi-hole 1 failed meanwhile. Find out why on the next restart
-  (`journalctl -b -u ssh`; is the drop-in on both Pi-holes, and is
-  `systemd-networkd-wait-online` or its equivalent enabled in the container?), then have
-  `baseline.yml` own the fix on every host whose sshd sets `ListenAddress`.
+- **The sshd retry drop-in isn't proven yet** (`ansible/tasks/ssh-listen-retry.yml`, in
+  `baseline.yml`): Pi-hole 1's sshd failed its bind at a container start (exit 255, which
+  Debian's `ssh.service` never retries) and stayed down until restarted by hand. Run the
+  baseline, then restart Pi-hole 1's container: `journalctl -b -u ssh` should show the failed
+  bind, then "Server listening" with no one touching it. Left unproven, a Pi-hole restart
+  can still cut Semaphore off from it.
 - **Nothing owns the Pi-holes' timezone** (found 2026-10-19, Run Command task 874): CT 100
   and CT 109 differed until the owner set CT 109 to match by hand (`pct set`, both
   the `TIMEZONE` value since, task 887). Proxmox writes the zone into each container at start,
