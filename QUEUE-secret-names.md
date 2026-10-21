@@ -6,38 +6,15 @@ reads it under another name (`${TZ}`) is changed to the standard one (`${TIMEZON
 
 ## Settled
 
-The owner, 2026-10-19:
+The owner, 2026-10-19. The naming standard itself is in `scripts/README.md`'s "Add or change a
+substitution variable"; these are the move's own decisions:
 
-- **One thing, one secret.** The cluster and a Dockhand stack that use the same credential or
-  setting read the same Key Vault secret. Two credentials are two secrets, whatever their
-  values: equal values are a reason to look, never a reason to merge. A fact given to many
-  apps (the owner's address) is one.
-- **`<SYSTEM>_<THING>`, named for the system the value belongs to**, not for the app that
-  reads it. Pi-hole 1's password is `PIHOLE_1_PASSWORD` for Homepage, nebula-sync and netbox
-  alike; a client secret Authentik issues is `AUTHENTIK_<APP>_OIDC_CLIENT_SECRET`; a NetBox
-  token is `NETBOX_<CONSUMER>_TOKEN`; databasus's login on X's database is
-  `DATABASUS_<X>_DB_PASSWORD`. In Key Vault each `_` is `-`.
-- **No generic names.** `TZ`, `DOMAIN`, `ADMIN_TOKEN`, `POSTGRES_PASSWORD`, `OIDC_*`,
-  `SSO_*` and `TS_*` take their system's prefix. Facts about the whole setup stand alone:
-  `TIMEZONE`, `BASE_DOMAIN`, `CLUSTER_DOMAIN`, `OWNER_EMAIL`.
-- **An instance number is its own word:** `<SYSTEM>_<N>_<THING>` (`DOCKER_VM_1_MGMT_ADDRESS`,
-  `PIHOLE_2_PASSWORD`). There are two Docker VMs; kea-standby runs on the second.
-- **A host's address is one variable**, `<HOST>_<N>_<NETWORK>_ADDRESS`, the `_<N>` only where
-  there are several (`DOCKER_VM_1_MGMT_ADDRESS`, `TERRAMASTER_MGMT_ADDRESS`); a service binds
-  to its host's, never to one of its own. Each address below was checked 2026-10-19 to be on
-  the network its name says.
-- **Built, not stored:** a URL or hostname under the domain is written in the file from
-  `${BASE_DOMAIN}`, as the cluster's manifests do.
-- **What is fine in git stays in git:** Docker network names and flags are written into the
-  compose file, not kept as variables.
 - **Key Vault holds every value plain, all of them.** Where a manifest needs base64 (a
-  Secret's `data:`; the Encoding column of `scripts/keyvault-secrets.ps1`), the
-  `cluster-secrets` ExternalSecret's template encodes it, so a value reads the same to
-  Dockhand and to the cluster.
-- **Renamed only where shared.** A variable only the cluster reads keeps its name, fitting the
-  standard or not (`PIHOLE1_MGMT_ADDRESS`; the CNPG backup keys, already one name on both
-  sides), and so do the names `promote.py` generates (`<namespace>-<secret>_<key>`). New names
-  follow the standard.
+  Secret's `data:`), the `cluster-secrets` ExternalSecret's template encodes it, so a value
+  reads the same to Dockhand and to the cluster.
+- **Renamed only where shared.** A variable only the cluster read kept its name, fitting the
+  standard or not (the CNPG backup keys were already one name on both sides). There are two
+  Docker VMs; kea-standby runs on the second.
 - **A Dockhand stack variable is an inline reference under its standard name**:
   `TIMEZONE = azurekv://TIMEZONE`. `docker/secret-names.yaml` gives each stack variable's name,
   and `scripts/dockhand_keyvault_copy.py` copies by it; the `<stack>--<KEY>` names it once
@@ -48,12 +25,12 @@ The owner, 2026-10-19:
   password) is renamed though only the cluster reads it: beside `PIHOLE_2_PASSWORD` a name
   differing by one `_` would invite the wrong one.
 - **Mail goes through the cluster's relay**, `smtp-relay.${BASE_DOMAIN}` (built, not stored),
-  which holds no credentials: each sender signs in with its own Entra app, as
-  `ENTRA_<APP>_SMTP_USERNAME` (`tenant_id@client_id`) and `ENTRA_<APP>_SMTP_CLIENT_SECRET`.
+  which holds no credentials: each sender signs in with its own Entra app.
 
 ## The names
 
-**Merged, one secret serving both sides:**
+**Merged, one secret serving both sides** (each address checked 2026-10-19 to be on the
+network its name says):
 
 | Standard | The cluster's old name | Dockhand's old name |
 |---|---|---|
@@ -438,8 +415,8 @@ against today's value by hash.
       so the usual template line gives the Secret that base64 back. The structure test's
       `remoteRef == {key: ...}` check, and `keyvault-secrets.ps1`'s listing, would need to
       allow it
-- [ ] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
-      variable", where a new name is chosen, once the first names follow it
+- [x] The standard moved from Settled into `scripts/README.md`'s "Add or change a substitution
+      variable", where a new name is chosen (2026-10-21)
 
 ## Left to delete when the move is done
 

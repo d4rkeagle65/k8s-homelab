@@ -1,5 +1,5 @@
-"""Copy Dockhand's stack variables into Azure Key Vault under their standard names:
-QUEUE-secret-names.md.
+"""Copy Dockhand's stack variables into Azure Key Vault under their standard names
+(scripts/README.md's "Add or change a substitution variable").
 
 Reads the JSON that scripts/dockhand-export-secrets.cjs writes inside the Dockhand container (a
 list of {environment, stack, key, value}, one per secret stack variable, decrypted) and
