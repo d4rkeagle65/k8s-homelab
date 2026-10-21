@@ -46,6 +46,11 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
   (`backend "pg"`); it holds the same site values, so it never goes in git.
 - **What an API token can't set** (container features other than nesting) is set at
   creation and ignored afterwards; Ansible owns it.
+- **A guest that Proxmox has locked** (the nightly backup, a migration) is waited for, not
+  failed on: `guests-unlocked.tf` reads every guest's lock from Proxmox's API at each plan
+  and again as the apply starts, every 30 seconds until none is held, up to four hours, then
+  fails without changing anything. It needs `curl` and `jq` where OpenTofu runs (Semaphore's
+  image has both).
 
 ## Semaphore setup (once per module)
 

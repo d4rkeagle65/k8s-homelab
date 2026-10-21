@@ -23,6 +23,11 @@ terraform {
       source  = "hashicorp/http"
       version = "3.6.2"
     }
+    # The wait for guests' Proxmox locks to clear (guests-unlocked.tf).
+    external = {
+      source  = "hashicorp/external"
+      version = "2.4.2"
+    }
   }
 
   # State in Semaphore's PostgreSQL (database tfstate, tfstate-db-init in
