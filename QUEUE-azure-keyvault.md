@@ -120,12 +120,12 @@ references).
 - [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
       `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
       all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake
-      kubectl, so their first real runs are their check (one set read back, one `-Get`);
-      `vaultwarden-pending.yaml`'s name (`varsub.py`'s `PENDING_PATH`; `ownership.py` owns the
-      path, so a rename leaves the old file behind on a checkout that has one); the comments
-      that still give Vaultwarden as `cluster-secrets`' source, which a reader follows to a
+      kubectl, so their first real runs are their check (one set read back, one `-Get`); the
+      comments that still give Vaultwarden as `cluster-secrets`' source, which a reader follows to a
       store nothing reads (`git grep -n "Vaultwarden item\|from Vaultwarden\|Vaultwarden\. See"`:
-      `scaffold.py`'s README text, `constants.py`, `flux.py` and files under `kubernetes/`).
+      `constants.py`, `flux.py` and files under `kubernetes/`). The pending file is
+      `keyvault-pending.yaml` now, its old name still owned so capture deletes a stale copy
+      (branch `keyvault-pending-file`).
       `scripts/keyvault_copy.py`'s `request()` now tries a GET with no answer once more, never
       a PUT (branch `keyvault-copy-get-retry`)
 - [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`

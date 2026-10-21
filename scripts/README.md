@@ -217,7 +217,7 @@ runs generate before it commits. Step 3 is still the review.
    Use `<ns>-extras` for `<app>` if the namespace already has a Helm release.
 2. `python scripts/backup.py capture`
    - If the namespace has Secrets you manage, their values are listed in
-     `kubernetes/.local/vaultwarden-pending.yaml` and their manifests are
+     `kubernetes/.local/keyvault-pending.yaml` and their manifests are
      **held back** ("not written yet").
 3. If Secrets were held back, add each pending value to Key Vault (see
    [Add or change a substitution variable](#add-or-change-a-substitution-variable)).
@@ -305,7 +305,7 @@ Vault and compares by hash, a variable the template encodes as its plain value.
 capture finds some private values on its own (an ACME email, a non-IP NFS
 hostname, your main Ingress domain) and every promoted Secret's value. Anything
 `cluster-secrets` doesn't hold yet is replaced in that run's output anyway, and
-listed with its value in `kubernetes/.local/vaultwarden-pending.yaml` for you to
+listed with its value in `kubernetes/.local/keyvault-pending.yaml` for you to
 add to Key Vault as above: plain, and a promoted Secret's with the template
 entry its row gives. A Secret's value that isn't text is listed base64, with
 no template entry: Key Vault holds only text, and the tests refuse a Secret's
@@ -315,7 +315,7 @@ variable without that entry, so such a value has no supported form yet.
 
 1. Change the Secret in the cluster.
 2. Run `capture`. It holds the manifest, so Flux won't revert your change, and
-   lists the new value in `kubernetes/.local/vaultwarden-pending.yaml`.
+   lists the new value in `kubernetes/.local/keyvault-pending.yaml`.
 3. Set a new version of its secret in Key Vault, plain
    (`./scripts/keyvault-secrets.ps1 NAME`, which sees its template entry),
    and let it sync.
@@ -409,7 +409,7 @@ before the switchover.
 | File | What it is |
 |---|---|
 | `substitutions-cache.yaml` | Every value capture replaced last run, read from the cluster. Written by capture; the pre-commit leak check reads it. Don't edit. |
-| `vaultwarden-pending.yaml` | Private values found that `cluster-secrets` doesn't hold yet, with their values, to add to Key Vault. Only there while some are pending. |
+| `keyvault-pending.yaml` | Private values found that `cluster-secrets` doesn't hold yet, with their values, to add to Key Vault. Only there while some are pending. |
 | `azure-keyvault-sp-external-secrets.json` | The cluster's Key Vault service principal (read only): the `azure-keyvault-bootstrap` Secret in `flux-system` is built from it, by hand. |
 | `azure-keyvault-sp-claude-code.json` | The Docker VM's Claude Code service principal (read and write), for its stack in Dockhand. |
 | `dockhand-secrets.json` | Dockhand's secret stack variables in plain text, from `dockhand-export-secrets.cjs`, only while they move into Key Vault. |
@@ -426,7 +426,7 @@ only copy of those objects.
 | Warning contains | Meaning | Do this |
 |---|---|---|
 | `not written yet -- the live 'cluster-secrets' Secret ... doesn't hold its values` | A promoted Secret is held back | Add its values to Key Vault, let it sync, then run `all` |
-| `private value(s) aren't in cluster-secrets yet` | capture found values `cluster-secrets` doesn't hold | Add each from `vaultwarden-pending.yaml` to Key Vault and `kubernetes/secrets/cluster-secrets.yaml`, with its template entry ([A new private value](#add-or-change-a-substitution-variable)) |
+| `private value(s) aren't in cluster-secrets yet` | capture found values `cluster-secrets` doesn't hold | Add each from `keyvault-pending.yaml` to Key Vault and `kubernetes/secrets/cluster-secrets.yaml`, with its template entry ([A new private value](#add-or-change-a-substitution-variable)) |
 | `the cluster-secrets Secret isn't in flux-system` | External Secrets hasn't produced it | Check `kubectl describe externalsecret cluster-secrets -n flux-system` |
 | `StorageClass '...' doesn't exist` | A promoted PVC or database asks for a missing class | Fine while bound; migrate it before any rebuild |
 | `PVC is Lost` | Its volume is gone | Delete the PVC if nothing needs it |
