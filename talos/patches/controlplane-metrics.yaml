@@ -1,0 +1,17 @@
+# The control plane's metrics where Prometheus can reach them: Talos binds the
+# controller-manager's and the scheduler's to 127.0.0.1 and serves etcd's only
+# on its client port. The controller-manager (10257) and the scheduler (10259)
+# serve HTTPS and authorize each scrape against the API, as before; etcd's
+# metrics port (2381) is plain HTTP and serves metrics and health only.
+# kube-prometheus-stack scrapes the first two, monitors/app/scrapeconfig-etcd.yaml
+# the third.
+cluster:
+  controllerManager:
+    extraArgs:
+      bind-address: 0.0.0.0
+  scheduler:
+    extraArgs:
+      bind-address: 0.0.0.0
+  etcd:
+    extraArgs:
+      listen-metrics-urls: http://0.0.0.0:2381

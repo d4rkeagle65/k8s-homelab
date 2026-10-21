@@ -1,0 +1,23 @@
+# etcd's metrics on each control plane (talos/patches/controlplane-metrics.yaml):
+# on Talos etcd is a service, not a pod, so the nodes are found by their
+# control-plane role and scraped at their own address on 2381. The job name
+# is the one kube-prometheus-stack's etcd rules select.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: kube-etcd
+spec:
+  kubernetesSDConfigs:
+  - role: Node
+  scrapeInterval: 60s
+  relabelings:
+  - action: keep
+    sourceLabels: [__meta_kubernetes_node_labelpresent_node_role_kubernetes_io_control_plane]
+    regex: "true"
+  - sourceLabels: [__meta_kubernetes_node_address_InternalIP]
+    targetLabel: __address__
+    replacement: $${1}:2381
+  - sourceLabels: [__meta_kubernetes_node_name]
+    targetLabel: instance
+  - targetLabel: job
+    replacement: kube-etcd
