@@ -337,11 +337,10 @@ against today's value by hash.
       `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its web root, OIDC issuer and NetBox URL are
       built in the compose file), `DATABASUS_SEMAPHORE_DB_PASSWORD`, `NETBOX_SEMAPHORE_TOKEN`,
       `TIMEZONE`, `kea_default` written in, and seven that keep their names, which go from
-      Dockhand just before the merge. `SEMAPHORE_OIDC_CLIENT_SECRET` stays in Dockhand, its
-      `.env` line blank: Key Vault holds `AUTHENTIK-SEMAPHORE-OIDC-CLIENT-SECRET` base64. Once
-      the switch makes it plain, the compose file reads it by reference and the Dockhand
-      variable goes. Rendered with Key Vault's values and that one from Dockhand, its compose
-      file gave exactly the old one's. Before: `semaphore` and `semaphore-postgres` running since
+      Dockhand just before the merge. `SEMAPHORE_OIDC_CLIENT_SECRET` stayed in Dockhand, its
+      `.env` line blank, while Key Vault held it base64. Rendered with Key Vault's values and
+      that one from Dockhand, its compose file gave exactly the old one's. Before: `semaphore`
+      and `semaphore-postgres` running since
       2026-10-18 23:06Z, port 3001 open on the management address and refused on the
       production one, `/api/ping` answering `pong` through Traefik. The owner deleted the seven
       before the merge (21:10:47Z); Flux's alert called its webhook at 21:11:52Z. Read back
@@ -351,9 +350,15 @@ against today's value by hash.
       `docker ps -a --filter label=com.docker.compose.project=semaphore`), both init containers
       exited (0) at about 21:12Z, which each deploy re-runs, while `semaphore` and
       `semaphore-postgres` stayed up from 10-18. An unresolved reference would have changed
-      their config and recreated them. Left: a login through Authentik. Its OIDC client
-      secret's follow-up is unblocked: Key Vault holds all three OIDC client secrets plain
-      now (the copy script's dry run, 2026-10-20: 52 held the same, none base64). netbox
+      their config and recreated them. Its OIDC client secret followed, plain since #173: the
+      compose file reads `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` by reference, Key Vault's
+      value equal to Dockhand's by hash (the copy script's dry run, 2026-10-21: 52 held the
+      same, none base64, none to add). No Dockhand variable has the new name, so nothing goes
+      before the merge; the old one goes on the delete list. Before: as above, `semaphore` and
+      `semaphore-postgres` up since 10-18 23:06Z, `pong`, 3001 open on the management address
+      and refused on the production one. With the value unchanged, the merge should leave
+      both running. Left: its read-back, and a login through Authentik, which tests the
+      client secret itself. netbox
       seventh (#184): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its
       host and OIDC endpoint are built in the compose file),
       `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` by reference, `DATABASUS_NETBOX_DB_PASSWORD`,
@@ -460,8 +465,9 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - semaphore's `SEMAPHORE_BIND_ADDRESS`, `SEMAPHORE_WEB_ROOT`, `SEMAPHORE_OIDC_ISSUER_URL`,
   `NETBOX_API`, `KEA_NETWORK`, `TZ`, `DATABASUS_DB_PASSWORD` and `NETBOX_TOKEN`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
-  `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN`, once its move
-  reads back. Its `SEMAPHORE_OIDC_CLIENT_SECRET` is still read, until the base64 switch
+  `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN` (#172); and its
+  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET`, once a login
+  through Authentik works
 - netbox's `NETBOX_BIND_ADDRESS`, `NETBOX_HOST`, `OIDC_ENDPOINT`, `OIDC_CLIENT_SECRET`,
   `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
