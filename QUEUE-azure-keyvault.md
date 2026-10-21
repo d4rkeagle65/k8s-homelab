@@ -82,8 +82,11 @@ references).
       inside the container: Key Vault holds it (`ENTRA_CLAUDE_CODE_CLIENT_ID`, `_SECRET`,
       `ENTRA_TENANT_ID`), the stack's `.env` references it, and `scripts/keyvault_copy.py`
       signs in from `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` (branch
-      `claude-code-keyvault`). Left after its merge: the stack's provider bound and a redeploy,
-      then `docker/claude-code/README.md`'s dry run from inside the container
+      `claude-code-keyvault`). Before its merge, read back 2026-10-21: the principal holds
+      "Key Vault Secrets User" only at the vault (Officer gone at 04:59:51Z), and the three names
+      are in Key Vault, enabled, each equal by hash to its field of
+      `azure-keyvault-sp-claude-code.json`. Left after its merge: the stack's provider bound
+      and a redeploy, then `docker/claude-code/README.md`'s dry run from inside the container
 - [x] The copy script, `scripts/keyvault_copy.py`: the 141 mapped variables from the live
       `cluster-secrets` Secret into Key Vault under their mapped names, read back by hash; a dry
       run by default (2026-10-19: 141 missing, nothing written)
