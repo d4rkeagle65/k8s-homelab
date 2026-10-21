@@ -19,9 +19,15 @@
 #    their preferred one), and the evacuated VMs moved back (unless
 #    evacuate_return is false). A failed check stops the run, before the next host.
 #
+# A host carrying a control plane also has etcd checked whole and caught up
+# before its drain, and waited for after its return (talos-etcd-healthy.yml):
+# a control plane can be Ready while its etcd member still catches up, and the
+# next host's control plane going then would cost etcd its quorum.
+#
 # Needs proxmox-guests.yml, dns-guests.yml (dns_here, dns_elsewhere, or both
 # empty), evacuate_plan, kubectl_cmd and kubectl_host (kubectl-local.yml),
-# and the CA at .k8s-ca.pem for kubernetes-healthy.yml.
+# talosctl_cmd (talosctl-local.yml), and the CA at .k8s-ca.pem for
+# kubernetes-healthy.yml.
 
 - name: Start the list of database maintenance windows
   ansible.builtin.set_fact:
@@ -44,6 +50,10 @@
       {% set cps = [] %}{% for n in reboot_all_nodes
          if 'node-role.kubernetes.io/control-plane' in n.metadata.labels | default({}) %}{%
          set _ = cps.append(n.metadata.name) %}{% endfor %}{{ cps | intersect(reboot_here_running | map(attribute='name')) }}
+    talos_cp_addresses: >-
+      {{ reboot_all_nodes | selectattr('metadata.labels', 'contains', 'node-role.kubernetes.io/control-plane')
+         | map(attribute='status.addresses') | map('selectattr', 'type', 'equalto', 'InternalIP')
+         | map('first') | map(attribute='address') | sort | list }}
     reboot_others_here: >-
       {{ reboot_here_running | map(attribute='name')
          | difference(reboot_all_nodes | map(attribute='metadata.name'))
@@ -67,6 +77,13 @@
       {{ inventory_hostname }} runs the control planes {{ reboot_cp_here | join(', ') }}; rebooting it
       would take etcd's quorum down. Move one to another host first.
     quiet: true
+
+- name: etcd is whole and caught up first, as a control plane goes with this host
+  ansible.builtin.include_tasks: talos-etcd-healthy.yml
+  args:
+    apply:
+      delegate_to: localhost
+  when: reboot_cp_here | length > 0
 
 - name: Whether their pods fit on the other nodes
   ansible.builtin.include_tasks: k8s-capacity-check.yml
@@ -156,6 +173,15 @@
           delegate_to: localhost
       vars:
         k8s_wait: true
+
+    - name: Wait for etcd to be whole and caught up again
+      ansible.builtin.include_tasks: talos-etcd-healthy.yml
+      args:
+        apply:
+          delegate_to: localhost
+      vars:
+        etcd_wait: true
+      when: reboot_cp_here | length > 0
 
     - name: Uncordon this host's Kubernetes nodes
       ansible.builtin.command: "{{ kubectl_cmd }} uncordon {{ item }}"
