@@ -24,7 +24,7 @@ data "http" "netbox_vms" {
     Accept        = "application/json"
   }
   request_body = jsonencode({
-    query = "{ virtual_machine_list { name custom_fields device { name } interfaces { name primary_mac_address { mac_address } ip_addresses { address } } } }"
+    query = "{ virtual_machine_list { name status custom_fields device { name } interfaces { name primary_mac_address { mac_address } ip_addresses { address } } } }"
   })
 
   lifecycle {
@@ -56,15 +56,17 @@ locals {
   }
 
   # By VMID (NetBox's custom field vmid): the Proxmox host (the VM's device),
-  # the name, the MACs in net0, net1... order, and the last octet of its address
+  # the name, the MACs in net0, net1... order, the last octet of its address
   # on the main network (vmbr7), which a container and a Talos node use on
-  # every network.
+  # every network, and whether it's being removed (status Decommissioning),
+  # which turns its start at boot off (README: "A guest being removed").
   guest = {
     for id, vm in local.netbox_vms : id => {
-      node = try(vm.device.name, null)
-      name = vm.name
-      macs = [for n in range(length(local.netbox_macs[id])) : lookup(local.netbox_macs[id], "net${n}", null)]
-      host = try(split(".", one([
+      node            = try(vm.device.name, null)
+      name            = vm.name
+      decommissioning = lower(try(vm.status, "")) == "decommissioning"
+      macs            = [for n in range(length(local.netbox_macs[id])) : lookup(local.netbox_macs[id], "net${n}", null)]
+      host            = try(split(".", one([
         for a in local.netbox_addresses[id] : a if startswith(a, "${var.site.networks["vmbr7"].prefix}.")
       ]))[3], null)
     }

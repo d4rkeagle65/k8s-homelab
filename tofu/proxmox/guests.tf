@@ -68,10 +68,12 @@ resource "proxmox_download_file" "debian_13" {
 resource "proxmox_virtual_environment_container" "container" {
   for_each = local.containers
 
-  node_name     = local.guest[each.key].node
-  vm_id         = tonumber(each.key)
-  unprivileged  = true
-  start_on_boot = true
+  node_name    = local.guest[each.key].node
+  vm_id        = tonumber(each.key)
+  unprivileged = true
+  # Off for a guest being removed; whether it runs is left alone after it's made
+  # (started is ignored below): README, "A guest being removed".
+  start_on_boot = !local.guest[each.key].decommissioning
   started       = true
   tags          = each.value.tags
 
@@ -127,17 +129,18 @@ resource "proxmox_virtual_environment_container" "container" {
 
   # A newer template is for the next container, not a reason to rebuild this one.
   lifecycle {
-    ignore_changes = [operating_system]
+    ignore_changes = [operating_system, started]
   }
 }
 
 resource "proxmox_virtual_environment_container" "pihole" {
   for_each = local.piholes
 
-  node_name     = local.guest[each.key].node
-  vm_id         = tonumber(each.key)
-  unprivileged  = true
-  start_on_boot = true
+  node_name    = local.guest[each.key].node
+  vm_id        = tonumber(each.key)
+  unprivileged = true
+  # As the plain containers': README, "A guest being removed".
+  start_on_boot = !local.guest[each.key].decommissioning
   protection    = true
   tags          = each.value.tags
 
@@ -190,7 +193,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
 
   lifecycle {
     prevent_destroy = true
-    # The community-scripts installer's notes.
-    ignore_changes = [features, operating_system, description]
+    # The community-scripts installer's notes; whether it runs.
+    ignore_changes = [features, operating_system, description, started]
   }
 }
