@@ -137,6 +137,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **NetBox has none of MetalLB's addresses** (found 2026-10-21): `scripts/netbox_seed.py` reads
+  Proxmox and Kea only, so the LoadBalancer addresses (`INGRESS_IP`, `ISOLATED_INGRESS_IP`,
+  `KEA_DB_ADDRESS`, `ALLOY_SYSLOG_ADDRESS`, `TRAEFIK_MGMT_ADDRESS`, and the `production` pool's
+  range) are in NetBox only if added by hand. Left, NetBox shows them free, and the next one
+  chosen from it can collide. Have the sync read the cluster's LoadBalancer Services (and the
+  pools) and record each address with its Service as the description.
+
 - **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
   delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded

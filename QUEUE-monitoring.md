@@ -187,13 +187,16 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       The Proxmox hosts' node-exporters, down since their reboots that day, start once the
       network is up and retry (`ansible/tasks/host-exporters.yml`, run on every Debian host)
 - [ ] Phase 4. Settled (the owner, 2026-10-21): the push route takes a password; the NASes'
-      syslog is received in the cluster. In PR: `loki-push.<domain>` (Traefik, private networks
-      and basic auth, `LOKI_PUSH_PASSWORD`; the push path only), and syslog into `alloy-events`
-      through the `alloy-syslog` LoadBalancer at `ALLOY_SYSLOG_ADDRESS` (514 RFC 5424, 1514 BSD,
-      TCP and UDP; labels `source`, `host`, `app`). Left: the merge and a test push and syslog
-      line read back in Loki; then Alloy on the Debian hosts (`ansible/tasks/host-alloy.yml`,
-      `LOKI_PUSH_PASSWORD`, an environment secret in Semaphore's Debian Host Baseline group); then the NASes pointed
-      at the receiver (the Synology's Log Center); the TerraMaster, whose TOS can't forward syslog, through `docker/terramaster-logs/` (Alloy reading its `/var/log` files), once Dockhand has the stack and its webhook
+      syslog is received in the cluster. Live: `loki-push.<domain>` (Traefik, private networks
+      and basic auth; the push path only) and syslog into `alloy-events` at
+      `ALLOY_SYSLOG_ADDRESS` (514 RFC 5424, 1514 BSD), both read back; Alloy on the Debian hosts
+      (`ansible/tasks/host-alloy.yml`) sending from the Pi-holes and the Docker VMs; the
+      Synology's syslog arriving. In PR: Traefik's `mgmt` entry point at `TRAEFIK_MGMT_ADDRESS`
+      carrying only `loki-push`, whose name moves there, since the hosts only on the management
+      network (the five Proxmox hosts, the TerraMaster's `docker/terramaster-logs`) reach
+      `INGRESS_IP` through the router and the nodes answer over their management leg, so the
+      router resets the connection (task 1064, `status_code=-1`). Left: the merge, the
+      Proxmox hosts' and the TerraMaster's lines read back, and the TerraMaster stack's webhook
 - [x] Phase 5 (2026-10-21): alerts to Zammad through `zammad-bridge`; the drives' wear, spare,
       critical-warning, rising-error (per serial number) and SMART alerts; the TerraMaster's
       SNMP alert; the control plane's metrics (`talos/patches/controlplane-metrics.yaml` and
