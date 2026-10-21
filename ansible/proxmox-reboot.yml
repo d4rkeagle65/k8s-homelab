@@ -54,7 +54,7 @@
       ansible.builtin.include_tasks: tasks/kubectl-local.yml
 
     - name: Every database cluster is healthy
-      ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+      ansible.builtin.include_tasks: tasks/databases-healthy.yml
 
     - name: Every host to reboot is a Proxmox host
       ansible.builtin.assert:
@@ -90,7 +90,7 @@
           delegate_to: localhost
 
     - name: Every database cluster is healthy before this host
-      ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+      ansible.builtin.include_tasks: tasks/databases-healthy.yml
 
     - name: Read the Proxmox guests
       ansible.builtin.include_tasks: tasks/proxmox-guests.yml

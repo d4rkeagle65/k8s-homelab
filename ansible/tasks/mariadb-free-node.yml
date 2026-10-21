@@ -1,0 +1,93 @@
+# Lets node k8s_node be drained without breaking a mariadb-operator database:
+# each replicating MariaDB whose primary is on it is switched over to a ready
+# replica on another node (spec.replication.primary.podIndex, which git leaves
+# unset), and waited for until it is Ready on the new primary. Evicted instead,
+# the primary fails over while offline and comes back unable to follow the new
+# one (error 1236), and the operator rebuilds it from a backup. A
+# single-instance MariaDB on the node is listed: it is down until the node is
+# back, its disk being the node's. kubectl runs on kubectl_host, as kubectl_cmd
+# (kubectl-local.yml).
+- name: Read the MariaDBs and their pods
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} get {{ item }} -A -o json
+  delegate_to: "{{ kubectl_host }}"
+  loop:
+    - mariadbs.k8s.mariadb.com
+    - pods -l app.kubernetes.io/name=mariadb,apps.kubernetes.io/pod-index
+  register: mariadb_reads
+  changed_when: false
+  check_mode: false
+
+- name: Work out what has to move
+  ansible.builtin.set_fact:
+    mariadb_switchovers: >-
+      {% set out = [] %}{% set pods = (mariadb_reads.results[1].stdout | from_json)['items'] %}{%
+      for m in (mariadb_reads.results[0].stdout | from_json)['items']
+          if m.spec.replicas | default(1) > 1 and m.spec.replication.enabled | default(false) %}{%
+        set members = [] %}{% for p in pods if p.metadata.namespace == m.metadata.namespace
+            and p.metadata.labels['app.kubernetes.io/instance'] | default('') == m.metadata.name %}{%
+          set _ = members.append(p) %}{% endfor %}{%
+        set primary = members | selectattr('metadata.name', 'equalto', m.status.currentPrimary | default('')) | list %}{%
+        if primary and primary[0].spec.nodeName == k8s_node %}{%
+          set ready = [] %}{% for p in members if p.metadata.name != m.status.currentPrimary
+               and p.spec.nodeName | default('') != k8s_node
+               and (p.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') |
+                    selectattr('status', 'equalto', 'True') | list) %}{%
+            set _ = ready.append(p) %}{% endfor %}{%
+          set _ = out.append({'namespace': m.metadata.namespace, 'name': m.metadata.name,
+                              'from': m.status.currentPrimary,
+                              'to': ready[0].metadata.name if ready else '',
+                              'index': ready[0].metadata.labels['apps.kubernetes.io/pod-index'] | int if ready else -1,
+                              'ready': m.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') |
+                                       selectattr('status', 'equalto', 'True') | list | length > 0}) %}{%
+        endif %}{% endfor %}{{ out }}
+    mariadb_down: >-
+      {% set out = [] %}{% set pods = (mariadb_reads.results[1].stdout | from_json)['items'] %}{%
+      for m in (mariadb_reads.results[0].stdout | from_json)['items'] if m.spec.replicas | default(1) == 1 %}{%
+        for p in pods if p.metadata.namespace == m.metadata.namespace
+            and p.metadata.labels['app.kubernetes.io/instance'] | default('') == m.metadata.name
+            and p.spec.nodeName | default('') == k8s_node %}{%
+          set _ = out.append(m.metadata.namespace ~ '/' ~ m.metadata.name) %}{%
+        endfor %}{% endfor %}{{ out | unique }}
+
+- name: Every primary here is Ready, with a ready replica elsewhere
+  ansible.builtin.assert:
+    that: mariadb_switchovers | rejectattr('ready') | list | length == 0
+          and mariadb_switchovers | selectattr('to', 'equalto', '') | list | length == 0
+    fail_msg: >-
+      Not Ready, or no ready replica on another node: {{ (mariadb_switchovers | rejectattr('ready') | list
+      + mariadb_switchovers | selectattr('to', 'equalto', '') | list) | map(attribute='name') | unique | join(', ') }};
+      not draining {{ k8s_node }}.
+    quiet: true
+
+- name: Show what moves
+  ansible.builtin.debug:
+    msg:
+      - "Switch over: {{ mariadb_switchovers | map(attribute='name') | list or ['none'] }}"
+      - "Down until this node is back (single instance): {{ mariadb_down or ['none'] }}"
+
+- name: Switch each primary over
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} patch mariadbs.k8s.mariadb.com
+    -n {{ item.namespace }} {{ item.name }} --type=merge
+    -p '{{ {"spec": {"replication": {"primary": {"podIndex": item.index}}}} | to_json }}'
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ mariadb_switchovers }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}: {{ item.from }} -> {{ item.to }}"
+  changed_when: true
+
+- name: Wait for each switchover
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} get mariadbs.k8s.mariadb.com -n {{ item.namespace }} {{ item.name }}
+    -o jsonpath={.status.currentPrimary}|{.status.conditions[?(@.type=="Ready")].status}
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ mariadb_switchovers }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}"
+  register: mariadb_switched
+  until: mariadb_switched.stdout == item.to ~ '|True'
+  retries: 40
+  delay: 15
+  changed_when: false
+  when: not ansible_check_mode

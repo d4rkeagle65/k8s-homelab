@@ -23,7 +23,7 @@
 # k8s_ca_b64, k8s_token) and talosconfig_b64, an os:admin talosconfig
 # (ansible/README.md). Optional: talos_nodes_only, node names to limit the run
 # to (a list, or one string separated by commas or spaces; each must be a Talos
-# node); reboot_allow_pending, as for proxmox-reboot.yml.
+# node).
 #
 # In check mode (--check) it reports the target, each node's version and what
 # it would drain, and changes nothing.
