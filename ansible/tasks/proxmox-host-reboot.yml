@@ -5,8 +5,8 @@
 #    taken out of service: its database primaries switched to a replica on
 #    another node, then cordoned and drained (k8s-node-drain.yml). Two control
 #    planes on one host would take etcd's quorum down with it, so that stops
-#    the run, and so do pods that wouldn't fit on the other nodes by their
-#    memory requests (reboot_allow_pending: true accepts them waiting).
+#    the run. Pods that won't fit on the other nodes by their memory requests
+#    are warned of (k8s-capacity-check.yml), and wait until the nodes are back.
 # 2. Every HA VM here leaves by HA maintenance mode on this node, which makes
 #    HA move it where its rules allow (checked for room first,
 #    evacuate-pick.yml); the VMs evacuate lists are live-migrated off
@@ -68,11 +68,10 @@
       would take etcd's quorum down. Move one to another host first.
     quiet: true
 
-- name: Their pods fit on the other nodes
+- name: Whether their pods fit on the other nodes
   ansible.builtin.include_tasks: k8s-capacity-check.yml
   vars:
     capacity_nodes: "{{ reboot_k8s_here }}"
-    capacity_allow_pending: "{{ reboot_allow_pending | default(false) }}"
 
 - name: Drain, reboot and bring back, saying what's left cordoned if it fails
   block:
@@ -174,9 +173,9 @@
       when: cnpg_maintenance_all | length > 0
 
     - name: Wait for every database cluster to be whole again
-      ansible.builtin.include_tasks: cnpg-healthy.yml
+      ansible.builtin.include_tasks: databases-healthy.yml
       vars:
-        cnpg_wait: true
+        databases_wait: true
 
     - name: Wait for this host's DNS servers to answer again
       ansible.builtin.include_tasks: dns-answers.yml

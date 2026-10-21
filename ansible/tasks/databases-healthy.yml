@@ -1,0 +1,41 @@
+# Every database is healthy: each CloudNativePG cluster has all its instances
+# ready and the phase "Cluster in healthy state", and each mariadb-operator
+# MariaDB is Ready (not while it recovers a replica or switches its primary).
+# Read with kubectl_cmd on kubectl_host. With databases_wait set it keeps
+# asking for up to 20 minutes, for after a node returns.
+- name: Read the databases
+  ansible.builtin.shell: >-
+    {{ kubectl_cmd }} get clusters.postgresql.cnpg.io -A -o json &&
+    echo '---' &&
+    {{ kubectl_cmd }} get mariadbs.k8s.mariadb.com -A -o json
+  delegate_to: "{{ kubectl_host }}"
+  register: databases_read
+  changed_when: false
+  check_mode: false
+  until: databases_read.rc == 0 and (databases_unhealthy | length == 0 or not databases_wait | default(false))
+  retries: "{{ 80 if databases_wait | default(false) else 0 }}"
+  delay: 15
+  vars:
+    databases_unhealthy: &unhealthy >-
+      {% set parts = (databases_read.stdout | default('{"items": []}\n---\n{"items": []}')).split('\n---\n') %}{%
+      set bad = [] %}{% for c in (parts[0] | from_json)['items'] %}{%
+        if c.status.phase | default('') != 'Cluster in healthy state'
+           or c.status.readyInstances | default(0) != c.spec.instances %}{%
+          set _ = bad.append(c.metadata.namespace ~ '/' ~ c.metadata.name ~ ' (' ~
+            c.status.readyInstances | default(0) ~ '/' ~ c.spec.instances ~ ' ready, ' ~
+            c.status.phase | default('no phase') ~ ')') %}{%
+        endif %}{% endfor %}{%
+      for m in (parts[1] | default('{"items": []}') | from_json)['items'] %}{%
+        set ready = m.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') | list %}{%
+        if not ready or ready[0].status != 'True' %}{%
+          set _ = bad.append(m.metadata.namespace ~ '/' ~ m.metadata.name ~ ' (MariaDB, ' ~
+            (ready[0].message if ready else 'no Ready condition') ~ ')') %}{%
+        endif %}{% endfor %}{{ bad }}
+
+- name: Every database is healthy
+  ansible.builtin.assert:
+    that: databases_unhealthy | length == 0
+    fail_msg: "Databases not healthy: {{ databases_unhealthy | join('; ') }}. Stopping before the next node."
+    quiet: true
+  vars:
+    databases_unhealthy: *unhealthy

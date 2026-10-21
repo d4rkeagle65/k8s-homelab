@@ -1,8 +1,9 @@
 # Semaphore's ServiceAccount: read the nodes and the API server's health, and
 # what taking a node out of service needs (ansible/tasks/k8s-node-drain.yml,
-# cnpg-free-node.yml, proxmox-host-reboot.yml): cordon and uncordon nodes,
-# evict their pods (kubectl drain reads the pods and their DaemonSets), and
-# switch CloudNativePG primaries over and open maintenance windows. Nothing
+# cnpg-free-node.yml, mariadb-free-node.yml, proxmox-host-reboot.yml): cordon
+# and uncordon nodes, evict their pods (kubectl drain reads the pods and their
+# DaemonSets), switch CloudNativePG primaries over and open maintenance
+# windows, and switch mariadb-operator primaries over. Nothing
 # else: no Secrets, no deleting, no other writes.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -27,5 +28,8 @@ rules:
 - apiGroups: ["postgresql.cnpg.io"]
   resources: ["clusters/status"]
   verbs: ["get", "patch"]
+- apiGroups: ["k8s.mariadb.com"]
+  resources: ["mariadbs"]
+  verbs: ["get", "list", "patch"]
 - nonResourceURLs: ["/readyz", "/readyz/*", "/livez", "/livez/*", "/version"]
   verbs: ["get"]

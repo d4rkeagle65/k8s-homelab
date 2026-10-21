@@ -52,7 +52,7 @@
           ansible.builtin.include_tasks: tasks/kubectl-local.yml
 
         - name: Every database cluster is healthy
-          ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+          ansible.builtin.include_tasks: tasks/databases-healthy.yml
 
         - name: Set up talosctl {{ talos_version }}
           ansible.builtin.include_tasks: tasks/talosctl-local.yml
@@ -110,9 +110,9 @@
           when: k8s_upgrade is not skipped and not ansible_check_mode
 
         - name: Wait for every database cluster to be whole
-          ansible.builtin.include_tasks: tasks/cnpg-healthy.yml
+          ansible.builtin.include_tasks: tasks/databases-healthy.yml
           vars:
-            cnpg_wait: true
+            databases_wait: true
           when: k8s_upgrade is not skipped and not ansible_check_mode
 
       always:
