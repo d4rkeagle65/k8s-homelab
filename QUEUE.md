@@ -27,9 +27,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   runs on the first Docker VM only. The TerraMaster (Garage's card) and the second VM
   (kea-standby) would each need the stack with their own address variable, and a server in
   Homepage's `docker.yaml`; left, those cards show no container state.
-- **Dockhand's admin login is retired from Homepage** (2026-10-21, #221): the owner deletes the
-  Key Vault secrets `DOCKHAND-HOMEPAGE-USERNAME` and `-PASSWORD` (nothing reads them now) and
-  changes Dockhand's admin password, which Homepage's Secret held until then.
 - **Vaultwarden's backup archives made before the ZIP password open with a published one**
   (found 2026-10-21): with `ZIP_PASSWORD` blank, ttionya/vaultwarden-backup used its own default
   (`scripts/includes.sh`), printed in its source. The compose file now reads
