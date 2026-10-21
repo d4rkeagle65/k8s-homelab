@@ -224,7 +224,7 @@ def freeze_restarted_at(doc: dict, previous: dict | None) -> dict:
 # newline, a ": " or a leading quote would corrupt the manifest. Key Vault
 # holds it plain, and the cluster-secrets template encodes it. Until the live
 # cluster-secrets Secret holds it, capture lists it in the gitignored
-# kubernetes/.local/vaultwarden-pending.yaml (varsub.pending_rows) and holds
+# kubernetes/.local/keyvault-pending.yaml (varsub.pending_rows) and holds
 # the manifest back.
 
 

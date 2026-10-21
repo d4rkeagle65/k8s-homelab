@@ -16,7 +16,7 @@ Kustomization reads (postBuild.substituteFrom):
 capture reads both from the live cluster (from_live). A new private value
 it finds -- an auto-detected domain (auto_seed_candidates) or a promoted
 Secret's value -- is replaced in this run's output at once, and written to
-the gitignored kubernetes/.local/vaultwarden-pending.yaml to be added to
+the gitignored kubernetes/.local/keyvault-pending.yaml to be added to
 Key Vault by hand (pending_rows). Each run also writes the full list to the
 gitignored kubernetes/.local/substitutions-cache.yaml, which the pre-commit
 hook's leak check reads without cluster access.
@@ -36,7 +36,7 @@ from . import constants, yamlio
 
 LOCAL_SUBSTITUTIONS_PATH = ("kubernetes", ".local", "variable-substitutions.yaml")
 CACHE_PATH = ("kubernetes", ".local", "substitutions-cache.yaml")
-PENDING_PATH = ("kubernetes", ".local", "vaultwarden-pending.yaml")
+PENDING_PATH = ("kubernetes", ".local", "keyvault-pending.yaml")
 
 SECRETS_SECRET_NAME = constants.SECRETS_SECRET_NAME
 SETTINGS_CONFIGMAP_NAME = constants.SETTINGS_CONFIGMAP_NAME
@@ -345,7 +345,7 @@ def _decoded_text(value: str) -> str | None:
 
 
 def pending_rows(entries: list[dict]) -> list[dict]:
-    """kubernetes/.local/vaultwarden-pending.yaml: the values cluster-secrets
+    """kubernetes/.local/keyvault-pending.yaml: the values cluster-secrets
     doesn't hold yet, each as Key Vault should hold it, for the operator to add
     (capture writes it with PENDING_HEADER, through its file tracker so it's
     removed once empty). An entry from a Secret's data: (`secret_data`) holds
