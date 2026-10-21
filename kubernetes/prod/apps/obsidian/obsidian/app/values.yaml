@@ -27,7 +27,7 @@ dns:
 extraSecretName: obsidian-couchdb
 image:
   repository: couchdb
-  tag: 3.5.2
+  tag: 3.5.3
 ingress:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
