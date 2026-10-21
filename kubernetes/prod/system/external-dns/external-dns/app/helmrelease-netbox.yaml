@@ -48,36 +48,73 @@ spec:
     # The webhook script's checksum (its first 12 hex digits), so a change to it
     # rolls the pod; test_netbox_dns_webhook.py checks it matches.
     podAnnotations:
-      homelab.local/webhook-sha256: "673307ddec26"
+      homelab.local/webhook-sha256: "2104f8631fad"
+    # The webhook is a native sidecar (initContainers below), not the chart's
+    # provider.webhook container: Kubernetes starts ExternalDNS only once its
+    # startup probe passes, where the chart's runs beside it and ExternalDNS
+    # gave up on a slow start and restarted. Emptied (each key, since the
+    # chart's templates read provider.webhook's keys), provider.webhook also
+    # takes the chart's webhook Service port and scrape endpoint, which the
+    # webhook has no metrics for. A chart version adding a key under
+    # provider.webhook brings its container back unless that key is emptied
+    # here too: diff the rendered Deployment when upgrading the chart.
     provider:
       name: webhook
       webhook:
-        image:
-          repository: python
-          tag: 3.14.8-alpine
-        args: [python, -u, /app/netbox-dns-webhook.py]
-        env:
-        - name: NETBOX_URL
-          value: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
-        - name: DOMAIN_FILTER
-          value: ${BASE_DOMAIN}
-        - name: NETBOX_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: external-dns-netbox
-              key: NETBOX_TOKEN
-        extraVolumeMounts:
-        - {name: webhook, mountPath: /app, readOnly: true}
-        resources:
-          requests: {cpu: 10m, memory: 64Mi}
-          limits: {cpu: 500m, memory: 256Mi}
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 65534
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop: [ALL]
+        image: null
+        env: null
+        args: null
+        extraVolumeMounts: null
+        resources: null
+        securityContext: null
+        livenessProbe: null
+        readinessProbe: null
+        service: null
+        serviceMonitor: null
+    initContainers:
+    - name: webhook
+      image: python:3.14.8-alpine
+      restartPolicy: Always
+      args: [python, -u, /app/netbox-dns-webhook.py]
+      env:
+      - name: NETBOX_URL
+        value: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+      - name: DOMAIN_FILTER
+        value: ${BASE_DOMAIN}
+      - name: NETBOX_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: external-dns-netbox
+            key: NETBOX_TOKEN
+      ports:
+      - {name: http-webhook, containerPort: 8080, protocol: TCP}
+      # Up to two minutes to start; /healthz answers once the API port is bound.
+      startupProbe:
+        httpGet: {path: /healthz, port: http-webhook}
+        periodSeconds: 2
+        failureThreshold: 60
+      livenessProbe:
+        httpGet: {path: /healthz, port: http-webhook}
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 2
+      readinessProbe:
+        httpGet: {path: /healthz, port: http-webhook}
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 6
+      volumeMounts:
+      - {name: webhook, mountPath: /app, readOnly: true}
+      resources:
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 256Mi}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
     extraVolumes:
     - name: webhook
       configMap:

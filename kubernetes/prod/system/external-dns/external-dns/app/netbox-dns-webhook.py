@@ -236,10 +236,12 @@ def main() -> None:
     if not url.startswith("https://") or not token.strip() or not domains:
         sys.exit("NETBOX_URL (https), NETBOX_TOKEN and DOMAIN_FILTER are required")
     Handler.netbox, Handler.domains = NetBox(url, token), domains
+    # Bound before /healthz answers, so the startup probe passing means ExternalDNS can connect.
+    server = ThreadingHTTPServer(("127.0.0.1", 8888), Handler)
     Thread(target=ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("PORT_HEALTH", "8080"))), Health).serve_forever,
            daemon=True).start()
     log(f"listening on 127.0.0.1:8888 for {', '.join(domains)}")
-    ThreadingHTTPServer(("127.0.0.1", 8888), Handler).serve_forever()
+    server.serve_forever()
 
 
 if __name__ == "__main__":
