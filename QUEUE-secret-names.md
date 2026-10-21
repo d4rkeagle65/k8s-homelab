@@ -364,7 +364,18 @@ against today's value by hash.
       about 00:41Z (`docker ps -a --filter label=com.docker.compose.project=netbox`);
       `netbox-dns-sync` healthy, with the `docker inspect` count at 0, since it was recreated;
       no `SYNC_DELETE` or `PIHOLE_TLS_VERIFY` among Dockhand's variables (only secret ones were
-      exported, so the move assumes their defaults); a login through Authentik
+      exported, so the move assumes their defaults); a login through Authentik. kea eighth
+      (branch `kea-standard-names`): `DOCKER_VM_1_PROD_ADDRESS` and `DOCKER_VM_1_MGMT_ADDRESS`
+      for its DHCP and API addresses, `KEA_POSTGRES_PASSWORD`, `DATABASUS_KEA_DB_PASSWORD`,
+      `BASE_DOMAIN` (Stork's OIDC issuer and redirect are built in the compose file) and
+      `AUTHENTIK_STORK_OIDC_CLIENT_SECRET` by reference; `KEA_DB_PASSWORD` and
+      `STORK_DB_PASSWORD` keep their names, so they go from Dockhand just before the merge.
+      Rendered as compose does, its compose file gave exactly the old one's. Three of its
+      services run an image built at each deploy. Before: `kea-dhcp4` running since
+      2026-10-18 13:48Z, `kea-postgres` since 10-17 11:29Z, `stork-server` and the Stork agent
+      since 10-20 03:08Z; ports 8000, 8080 and 9547 open on the management address and refused
+      on the production one; the HA pair in hot-standby, the standby in touch; Stork
+      answering 200 through Traefik
 - [ ] New values plain too, once the switch is done. `scripts/README.md`'s "A new private
       value" puts a value a Secret's `data:` uses into Key Vault as its base64, and capture
       lists a promoted Secret's values base64 in `kubernetes/.local/vaultwarden-pending.yaml`
@@ -413,6 +424,12 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
   `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, `kea_default` and `SYNC_APPLY` in the compose file,
   `DATABASUS_NETBOX_DB_PASSWORD` and `TIMEZONE` (#184)
+- kea's `KEA_DHCP_ADDRESS`, `KEA_API_ADDRESS`, `POSTGRES_PASSWORD`, `DATABASUS_DB_PASSWORD`,
+  `STORK_OIDC_ISSUER_URL`, `STORK_OIDC_REDIRECT_URI` and `STORK_OIDC_CLIENT_SECRET`: now
+  `DOCKER_VM_1_PROD_ADDRESS`, `DOCKER_VM_1_MGMT_ADDRESS`, `KEA_POSTGRES_PASSWORD`,
+  `DATABASUS_KEA_DB_PASSWORD`, URLs built from `BASE_DOMAIN` and
+  `AUTHENTIK_STORK_OIDC_CLIENT_SECRET`, once its move reads back; and its `KEA_NETWORK`,
+  which nothing reads
 - To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
