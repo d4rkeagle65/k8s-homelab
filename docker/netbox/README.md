@@ -17,27 +17,25 @@ builds the cluster's VMs and will read NetBox to do it.
 - **NetBox owns local DNS** (`old-queues/QUEUE-netbox-dns.md`): `netbox-dns-sync` (`dns-sync/`) copies
   NetBox DNS's records to every Pi-hole each minute. Its variables: `NETBOX_DNS_SYNC_TOKEN` (a
   read-only token), `PIHOLE_1_URL` and `PIHOLE_1_PASSWORD` (an app password; `PIHOLE_2_...`
-  for the second), and its switches, off until set to `true`: `SYNC_APPLY` writes,
-  `SYNC_DELETE` also removes a record in a NetBox zone that NetBox doesn't have.
-  `PIHOLE_TLS_VERIFY=false` accepts a Pi-hole's self-signed certificate.
+  for the second). Its switches are set in `compose.yaml`: `SYNC_APPLY` (on) writes,
+  `SYNC_DELETE` (off) also removes a record in a NetBox zone that NetBox doesn't have, and
+  `PIHOLE_TLS_VERIFY` (on) checks each Pi-hole's certificate.
 
 ## First deploy
 
-1. **The secrets**, each in Vaultwarden first, then in the stack's environment in Dockhand
-   (`compose.yaml` says what each is; `.env` lists them blank for Dockhand's **Populate**). Mark
-   every one **secret**, even the plain settings: Dockhand passes those to compose directly,
-   and they override the blank file. Never put a value in `.env`. They are: `NETBOX_DB_PASSWORD`, `NETBOX_SECRET_KEY` and
-   `NETBOX_API_TOKEN_PEPPER` (each `head -c 48 /dev/urandom | base64`), `OIDC_CLIENT_SECRET`
-   (the Vaultwarden field `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET`, which Authentik's blueprint
-   reads too), and `DATABASUS_DB_PASSWORD` (its own, the Vaultwarden field
-   `NETBOX_DATABASUS_DB_PASSWORD`).
+1. **The secrets**, in Key Vault (`_` as `-`, with a copy in Vaultwarden), read through the
+   vault bound as the stack's secret provider in Dockhand, with its selector empty; `.env`
+   holds the references, and `compose.yaml` says what each is. The new ones are
+   `NETBOX_DB_PASSWORD`, `NETBOX_SECRET_KEY` and `NETBOX_API_TOKEN_PEPPER` (each
+   `head -c 48 /dev/urandom | base64`), `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` (Authentik's
+   blueprint reads it too), and `DATABASUS_NETBOX_DB_PASSWORD` (this stack's own).
 2. **The stack** in Dockhand from this folder, with "Build images on deploy" on, and its
    webhook enabled with `DOCKHAND_WEBHOOK_SECRET` (`docker/CLAUDE.md`).
 3. **The first start** migrates an empty database; give it a few minutes before the health
    check passes. Then log in through Authentik.
-4. **Backups:** once this stack is up, its network exists: add it to the Databasus stack as
-   `NETBOX_NETWORK`, as `SEMAPHORE_NETWORK` and `KEA_NETWORK` are (before then, Databasus's
-   redeploy would fail on the missing network). Then add the `netbox` database in Databasus
+4. **Backups:** once this stack is up, its network `netbox_default` exists, which the
+   Databasus stack joins (before then, Databasus's redeploy would fail on the missing
+   network). Then add the `netbox` database in Databasus
    (host `netbox-postgres`, user `databasus`, that same password).
 
 ## Upgrades
@@ -51,5 +49,5 @@ latest backup is the way back.
 
 Its Kea servers are set in NetBox's UI: the DHCPv4 server URL is `http://kea-dhcp4:8000` (Kea
 3 serves its control API from the DHCP server itself), with the user and password from Kea's
-`api-credentials`. NetBox reaches it over the kea stack's network, which this stack joins as
-`KEA_NETWORK`: inside a container, `127.0.0.1` is the container itself, not the host.
+`api-credentials`. NetBox reaches it over the kea stack's network, which this stack joins
+(`kea_default`): inside a container, `127.0.0.1` is the container itself, not the host.
