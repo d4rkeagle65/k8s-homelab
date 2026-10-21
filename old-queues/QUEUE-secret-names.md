@@ -431,8 +431,7 @@ on the management address only)
 
 **Files:**
 
-- The all-variables listing: deleted on the Docker host (the owner, 2026-10-21). Its copy in
-  Downloads was still there when this file retired: `QUEUE.md`'s Cleanup
+- The all-variables listing: deleted on the Docker host (the owner) and from Downloads, 2026-10-21
 
 ## Resuming
 
