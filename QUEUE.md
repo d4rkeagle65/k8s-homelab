@@ -51,10 +51,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   then do for it what that file does for CloudNativePG. Left, every Talos upgrade or reboot of
   those nodes takes Youtarr's database down without saying so, and an evicted Grimmory
   primary is rebuilt from a backup each time, blocking drains until it is.
-- **`docker/lldpd/` has no webhooks yet**: the owner deploys it to both NAS Docker hosts as two
-  Dockhand Git stacks; then each gets a Provider and Alert in
-  `prod/system/external-services/dockhand-webhooks/app/webhooks.yaml` with its Dockhand stack
-  ID, or a change to `compose.yaml` reaches neither NAS until it is redeployed by hand.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
