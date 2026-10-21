@@ -1,0 +1,52 @@
+# A read-only view of the Docker host's containers for Homepage
+# (services/homepage/, its docker.yaml): each card with a server and container
+# shows that container's state and its CPU and memory. Deployed by Dockhand
+# from this folder (a Git stack), redeployed when a change here reaches main
+# (its webhook; docker/CLAUDE.md).
+#
+# wollomatic/socket-proxy passes on only what its allow rules match, each
+# anchored to the whole path: the container list (GET /containers/json) and one
+# container's stats (GET /containers/<id>/stats), the two calls Homepage makes
+# (src/utils/docker/ in v2.5.0). Never inspect (/containers/<id>/json): that
+# returns each container's environment, which holds the values Dockhand
+# resolves from Key Vault. No other method is allowed, so nothing can change.
+# Any client may connect, on the host's management address only: what it can
+# read is what cAdvisor already serves there (docker/cadvisor).
+#
+# Variables (set in the stack's environment in Dockhand):
+#   DOCKER_VM_1_MGMT_ADDRESS   the host's management address, from Key Vault
+#                              (azurekv://DOCKER-VM-1-MGMT-ADDRESS)
+services:
+  docker-socket-proxy:
+    mem_limit: 64m  # unmeasured: a small Go proxy
+    image: wollomatic/socket-proxy:1.13.1
+    container_name: docker-socket-proxy
+    restart: unless-stopped
+    # Root for the socket (root:docker, 0660; the image's own user is 65534,
+    # outside the docker group), with every capability dropped and nothing
+    # writable.
+    user: "0:0"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    command:
+    - -loglevel=INFO
+    - -listenip=0.0.0.0
+    - -allowfrom=0.0.0.0/0
+    - -allowGET=(/v[0-9.]+)?/containers/json
+    - -allowGET=(/v[0-9.]+)?/containers/[a-zA-Z0-9_.-]+/stats
+    - -allowhealthcheck
+    # A Docker restart can leave the socket connection broken: stop, and let
+    # restart bring it back.
+    - -watchdoginterval=300
+    - -stoponwatchdog
+    - -shutdowngracetime=5
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+    ports:
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:9339:2375
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
