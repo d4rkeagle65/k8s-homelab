@@ -82,7 +82,7 @@ Control planes on H1, H3, H5: losing any one keeps etcd's quorum.
   disk images). An HA group over all hosts.
 - Move the Docker VM's and the domain controller VM's disks to it, and put both under Proxmox HA.
   Test: stop a host, the VM comes back elsewhere.
-- The Talos image from Sidero's Image Factory: Talos 1.14.2 (2026-09-29), schematic
+- The Talos image from Sidero's Image Factory: its version and schematic
   in `talos/patches/common.yaml` (qemu-guest-agent; nfs-utils, whose rpc.statd every NFS
   volume here needs, since they all mount NFS v3; iscsi-tools and util-linux-tools for
   democratic-csi), the `nocloud` image so

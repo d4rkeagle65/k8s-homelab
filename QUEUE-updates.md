@@ -100,35 +100,14 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       pull request for it is ready to merge once they do. Rechecked 2026-10-19: Flux,
       cert-manager and CloudNativePG have no newer release; External Secrets 2.13.0
       (2026-10-16) is unread.
-- [ ] **Talos 1.14.2 -> 1.14.4** (Renovate's pull request, triaged 2026-10-19): Linux 6.18.54 ->
-      6.18.57, containerd 2.3.7, a KubePrism recovery fix, and etcd 3.7.1 -> 3.7.2, which
-      follows Talos as each control plane upgrades (no machine config pins its image). The
-      rest of 1.14.3 touches nothing here: its QEMU GSO fix is in talosctl's local QEMU
-      provisioner, not the OS; no PTP devices; nothing calls `talosctl time --check` as
-      `os:reader`. The Image Factory serves the schematic's installer and nocloud image at
-      v1.14.4. Merged 2026-10-20. Its first check run ("Node: Upgrade Talos", task 930) stopped
-      at a worker with no room to drain; the worker on H4 went to 16 GiB for it (the owner
-      moved guests to free its host; rebooted by `talos-reboot.yml`, tasks 942 and 945), and
-      read live after, every node's pods fit elsewhere (the tightest, the first worker: 13.2 GiB
-      to move, 14.8 free). The real runs (tasks 951 and 955) upgraded the three control planes
-      (etcd 3.7.2 on each), then stopped at the first worker after its install: talosctl's own
-      drain can't run on a worker, now `--drain=false` (`tasks/talos-node-upgrade.yml`). That
-      worker was uncordoned by hand, and its database replicas came back. With the fix, task
-      963 upgraded three workers and timed out draining the last, held by Grimmory's MariaDB
-      PodDisruptionBudget (a replica that couldn't follow the primary); uncordoned again,
-      every PostgreSQL cluster whole a minute later. The operator rebuilt that replica
-      (replica recovery, 2026-10-20: all three at one GTID, every table's checksum equal, the
-      PDB allowing one eviction). Task 967 upgraded the last worker: all seven nodes on
-      v1.14.4 (2026-10-20, read back: every database whole, etcd's members on 3.7.2 at one
-      index). Next: rerun the OpenTofu job. Its apply (task 977) recorded four Talos VMs'
-      `import_from` and stopped at the other two, locked by the nightly backup ("VM is locked
-      (backup)"); `guests-unlocked.tf` now waits for such a lock instead of failing on it. The
-      nocloud image is already v1.14.4 (a targeted apply for VM 115, task 941), so the rerun's
-      plan should update only the seven nodes' machine configs (the install image) and those
-      two VMs' `import_from`, which the provider records without re-importing a disk
-      ("Never re-import existing disks", its v0.116.0 `disk.go`). The Talos VMs have
-      `prevent_destroy`, so a plan that wants one replaced errors instead: stop there and read
-      why.
+- [x] **Talos 1.14.2 -> 1.14.4** (2026-10-20): Linux 6.18.57, containerd 2.3.7, and etcd
+      3.7.2, which follows Talos as each control plane upgrades (no machine config pins its
+      image). All seven nodes upgraded by "Node: Upgrade Talos" (tasks 951 to 967), one at a
+      time; then OpenTofu (task 981) recorded the nocloud image on every Talos VM and applied
+      the v1.14.4 installer to every machine config, with no reboot or restart. Read back:
+      every node Ready on v1.14.4, each live machine config's installer v1.14.4, the control
+      planes' static pods not restarted, every database whole, etcd's members on 3.7.2 at one
+      index.
 - [x] **Images on floating tags pinned** to the version each was running (read from the
       image's version label, or matched by digest): the linuxserver apps to their full
       `<version>-ls<n>` tags, Jellyseerr 2.7.3, Tdarr 3.00.00, noip-duc 3.3.0. `renovate.json`
