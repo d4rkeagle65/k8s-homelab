@@ -117,17 +117,13 @@ references).
       `docker/secret-names.yaml`: 44 written, read back 44 of 44), and cadvisor reads Key Vault
       (#140). All nine read their `.env`s' references since 2026-10-21, each read back
       (`old-queues/QUEUE-secret-names.md`)
-- [ ] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
-      `vaultwarden-fields.ps1`): its listing ran against the real vault (2026-10-20, `Synced`
-      all `yes`); setting a value and `-Get` are tested only against a mock vault and a fake
-      kubectl, so their first real runs are their check (one set read back, one `-Get`); the
-      comments that still give Vaultwarden as `cluster-secrets`' source, which a reader follows to a
-      store nothing reads (`git grep -n "Vaultwarden item\|from Vaultwarden\|Vaultwarden\. See"`:
-      `constants.py`, `flux.py` and files under `kubernetes/`). The pending file is
-      `keyvault-pending.yaml` now, its old name still owned so capture deletes a stale copy
-      (branch `keyvault-pending-file`).
-      `scripts/keyvault_copy.py`'s `request()` now tries a GET with no answer once more, never
-      a PUT (branch `keyvault-copy-get-retry`)
+- [x] Tooling: `scripts/keyvault-secrets.ps1` (the Key Vault counterpart of
+      `vaultwarden-fields.ps1`), read 2026-10-21 against the real vault: 185 names, none
+      `NEEDS b64enc` or `UNKNOWN`, every mapped one `Synced`. Its first real set and `-Get` were
+      the Pi-hole rename (`PIHOLE-2-APP-PASSWORD` from `PIHOLE2-PASSWORD`'s `-Get`, equal by
+      hash, #187). The comments that gave Vaultwarden as `cluster-secrets`' source say Key Vault
+      (branch `vaultwarden-source-comments`); the pending file is `keyvault-pending.yaml` (#203);
+      `scripts/keyvault_copy.py`'s `request()` tries a GET with no answer once more (#202)
 - [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`
       (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket; #116),
       read back 2026-10-19: loaded on both Prometheus replicas, inactive, health `ok`

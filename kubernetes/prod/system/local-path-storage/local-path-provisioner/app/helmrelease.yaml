@@ -32,8 +32,8 @@ spec:
       tag: 1.37.0
     # One class, local-db: a directory per volume on a Talos worker's local-db
     # user volume (talos/patches/worker-local-db.yaml). Nodes not listed (the
-    # control planes) are refused. Node names are WORKER_NODE_* fields of the
-    # cluster-secrets Vaultwarden item. The provisioner reads a changed class
+    # control planes) are refused. Node names are WORKER_NODE_* variables of
+    # cluster-secrets (Key Vault). The provisioner reads a changed class
     # list only when it starts: after an
     # edit here, `kubectl rollout restart -n local-path-storage
     # deploy/local-path-provisioner`, or new volumes go where they used to.
