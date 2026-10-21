@@ -1,0 +1,30 @@
+#!/bin/sh
+# Answers from each listed interface's address leave by that interface. For each
+# line "<interface> <table> <gateway>" of /etc/homelab-source-routing.conf, table
+# <table> holds the interface's network and a default route via <gateway>, and a
+# rule (priority 5000 + <table>) sends what leaves from its address there.
+# "stop" removes the rules and empties the tables. Written by Ansible
+# (ansible/tasks/management-routing.yml) and run by homelab-source-routing.service;
+# running it again changes nothing.
+set -eu
+conf=/etc/homelab-source-routing.conf
+[ -r "$conf" ] || exit 0
+rc=0
+while read -r ifname table gw; do
+    case "$ifname" in '' | '#'*) continue ;; esac
+    while ip rule del priority $((5000 + table)) 2>/dev/null; do :; done
+    ip route flush table "$table" 2>/dev/null || true
+    [ "${1:-start}" = stop ] && continue
+    addr=$(ip -o -4 addr show dev "$ifname" | awk '{split($4, a, "/"); print a[1]; exit}')
+    net=$(ip -o -4 route show table main dev "$ifname" scope link | awk '{print $1; exit}')
+    if [ -z "$addr" ] || [ -z "$net" ]; then
+        echo "$ifname: no address or network, left on the main table" >&2
+        rc=1
+        continue
+    fi
+    ip route replace "$net" dev "$ifname" src "$addr" table "$table"
+    ip route replace default via "$gw" dev "$ifname" table "$table"
+    ip rule add from "$addr" lookup "$table" priority $((5000 + table))
+    echo "$ifname: from $addr lookup $table, default via $gw"
+done <"$conf"
+exit $rc

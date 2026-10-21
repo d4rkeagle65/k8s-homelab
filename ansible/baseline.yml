@@ -17,7 +17,8 @@
 #
 # Management routing (tasks/management-routing.yml): every host reports where
 # answers from its management address leave; one with management_gateway set
-# and netplan gets them sent back out that interface.
+# and netplan gets them sent back out that interface, and one without netplan
+# with interface_gateways set gets the same for each address it lists.
 #
 # sshd on a fixed address (tasks/ssh-listen-retry.yml): where sshd sets a
 # ListenAddress, a drop-in has it wait for the network and retry a failed bind,

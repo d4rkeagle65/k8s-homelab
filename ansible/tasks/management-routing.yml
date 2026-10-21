@@ -4,8 +4,17 @@
 # SSH banner that never comes). Every host is checked and reported; a host with
 # management_gateway set (its NetBox local context) and netplan gets the fix the
 # first Docker VM has by hand: routing table 250 for that address, the gateway
-# its default (/etc/netplan/60-management.yaml), applied and read back. Proxmox
-# hosts and containers are configured otherwise, so they're reported only.
+# its default (/etc/netplan/60-management.yaml), applied and read back.
+#
+# A host without netplan (the Pi-hole containers, whose interfaces Proxmox
+# writes) takes interface_gateways instead, in its NetBox local context: each
+# interface other than the default route's, mapped to its network's gateway
+# ({"eth1": "<gateway>", ...}). Every listed address then gets a table and a
+# rule of its own, so a client on a network the host isn't on gets its answer
+# back through the firewall it came through. files/homelab-source-routing sets
+# them, run at boot and after a networking restart by its systemd unit, and
+# each is read back. Undo it with `systemctl disable --now homelab-source-routing`,
+# which removes the rules and empties the tables. Proxmox hosts are reported only.
 
 - name: Where answers from the management address leave
   ansible.builtin.command:
@@ -89,6 +98,94 @@
         quiet: true
       when: not ansible_check_mode
 
+- name: The fix, where interface_gateways is set and there's no netplan
+  when: interface_gateways is defined and not (netplan_dir.stat.isdir | default(false))
+  vars:
+    sr_tables: "{{ dict(interface_gateways.keys() | sort | zip(range(201, 300))) }}"
+  block:
+    - name: Ask the host how it reaches each gateway
+      ansible.builtin.command:
+        argv: [ip, -o, route, get, "{{ item.value }}"]
+      loop: "{{ interface_gateways | dict2items }}"
+      register: sr_gw_routes
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Each gateway is directly on its interface
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0 and (' dev ' ~ item.item.key ~ ' ') in item.stdout and ' via ' not in item.stdout
+        fail_msg: "interface_gateways maps {{ item.item.key }} to {{ item.item.value }}, which isn't directly on {{ item.item.key }} for {{ inventory_hostname }}; nothing was changed."
+        quiet: true
+      loop: "{{ sr_gw_routes.results }}"
+      loop_control:
+        label: "{{ item.item.key }}"
+
+    - name: The script that sets the tables and rules
+      ansible.builtin.copy:
+        src: homelab-source-routing
+        dest: /usr/local/sbin/homelab-source-routing
+        mode: "0755"
+      register: sr_script
+
+    - name: Its interfaces, tables and gateways
+      ansible.builtin.copy:
+        dest: /etc/homelab-source-routing.conf
+        mode: "0644"
+        content: |
+          # <interface> <table> <gateway>, from interface_gateways (ansible/tasks/management-routing.yml)
+          {% for name, gw in interface_gateways | dictsort %}
+          {{ name }} {{ sr_tables[name] }} {{ gw }}
+          {% endfor %}
+      register: sr_conf
+
+    - name: Its unit, run at boot and again after a networking restart
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/homelab-source-routing.service
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Answers from each address leave by its own interface
+          After=network.target networking.service
+          PartOf=networking.service
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/usr/local/sbin/homelab-source-routing
+          ExecStop=/usr/local/sbin/homelab-source-routing stop
+
+          [Install]
+          WantedBy=multi-user.target
+      register: sr_unit
+
+    - name: Run it
+      ansible.builtin.systemd_service:
+        name: homelab-source-routing
+        enabled: true
+        daemon_reload: "{{ sr_unit is changed }}"
+        state: "{{ 'restarted' if (sr_script is changed or sr_conf is changed or sr_unit is changed) else 'started' }}"
+      when: not ansible_check_mode
+
+    - name: Read back where answers from each address leave
+      ansible.builtin.command:
+        argv: [ip, -o, route, get, 192.0.2.1, from, "{{ ansible_facts[item | replace('-', '_')].ipv4.address }}"]
+      loop: "{{ interface_gateways.keys() | list }}"
+      register: sr_back
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Each leaves by its own interface
+      ansible.builtin.assert:
+        that: (' dev ' ~ item.item ~ ' ') in item.stdout and (' via ' ~ interface_gateways[item.item] ~ ' ') in item.stdout
+        fail_msg: "The unit ran, but answers from {{ item.item }}'s address still leave as: {{ item.stdout }}"
+        quiet: true
+      loop: "{{ sr_back.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: not ansible_check_mode
+
 - name: Report the management routing
   vars:
     out_if: "{{ mgmt_out.stdout.split(' dev ')[1].split()[0] if ' dev ' in mgmt_out.stdout else '?' }}"
@@ -96,6 +193,6 @@
     msg: >-
       {{ inventory_hostname }}: {{
       ('answers from ' ~ ansible_host ~ ' leave by ' ~ out_if ~ (', its management interface' if out_if == mgmt_if
-        else ', not its management interface ' ~ mgmt_if ~ ' (set management_gateway to fix it where netplan runs)'))
+        else ', not its management interface ' ~ mgmt_if ~ ' (set management_gateway where netplan runs, interface_gateways elsewhere)'))
       if mgmt_if is defined and not mgmt_if is match('^(br-|docker)') else
       ("can't tell: " ~ ansible_host ~ ", its inventory address, isn't a network of its own (an override, or a Docker bridge Semaphore uses on its own host)") }}
