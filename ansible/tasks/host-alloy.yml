@@ -10,8 +10,10 @@
 # Variables (the Debian Host Baseline variable group):
 #   host_alloy          true: install and keep it; empty or false: only report
 #   loki_push_url       the push route, https://loki-push.<domain>/loki/api/v1/push
-#   loki_push_password  (a secret) the route's password, the same as Key Vault's
-#                       LOKI_PUSH_PASSWORD, which Traefik checks
+#   LOKI_PUSH_PASSWORD  an environment secret (either case), never an extra
+#                       variable, which Semaphore can print in a task's log: the
+#                       route's password, the same as Key Vault's, which Traefik
+#                       checks
 
 - name: Settle the Alloy settings
   ansible.builtin.set_fact:
@@ -19,6 +21,13 @@
     ha_skip: "{{ 'k8s_nodes' in group_names }}"
     ha_docker: "{{ 'docker_vm' in group_names }}"
     ha_pihole: "{{ 'pihole' in group_names }}"
+
+# Read on Semaphore, from its environment, into a fact no task prints.
+- name: The push route's password, from the environment
+  ansible.builtin.set_fact:
+    ha_password: "{{ lookup('ansible.builtin.env', 'LOKI_PUSH_PASSWORD') or lookup('ansible.builtin.env', 'loki_push_password') }}"
+  no_log: true
+  when: host_alloy | default(false) | bool
 
 - name: Read Alloy's state
   ansible.builtin.shell: |
@@ -46,10 +55,10 @@
       ansible.builtin.assert:
         that:
           - loki_push_url | default('') is match('^https://.+/loki/api/v1/push$')
-          - loki_push_password | default('') | length > 0
+          - ha_password | default('') | length > 0
         fail_msg: >-
-          Set loki_push_url (https://loki-push.<domain>/loki/api/v1/push) and the secret
-          loki_push_password in the Debian Host Baseline variable group.
+          Set loki_push_url (https://loki-push.<domain>/loki/api/v1/push) and the environment
+          secret LOKI_PUSH_PASSWORD in the Debian Host Baseline variable group.
         quiet: true
 
     - name: Grafana's apt key
@@ -95,7 +104,7 @@
         mode: "0600"
       loop:
         - {key: LOKI_PUSH_URL, value: "{{ loki_push_url }}"}
-        - {key: LOKI_PUSH_PASSWORD, value: "{{ loki_push_password }}"}
+        - {key: LOKI_PUSH_PASSWORD, value: "{{ ha_password }}"}
       loop_control:
         label: "{{ item.key }}"
       no_log: true
