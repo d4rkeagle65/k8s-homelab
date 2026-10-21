@@ -162,9 +162,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
-- **`dockhand_variables.json` is still in the owner's Downloads** (2026-10-21): the listing of
-  every Dockhand stack variable, names and SHA-256s of their values. Delete it: a short
-  password's hash can be guessed.
 - **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
   plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
   DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected
