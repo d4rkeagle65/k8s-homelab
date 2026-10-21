@@ -1,0 +1,20 @@
+# Lifts flux-freeze.yml's hold, only if this run made it (flux_frozen), and
+# reads it back. The caller runs this however the run ends; a run killed
+# outright leaves the hold, and the next freeze stops on it.
+- name: Resume Flux's source
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} -n flux-system patch gitrepositories.source.toolkit.fluxcd.io flux-system
+    --type=merge -p '{"spec": {"suspend": false}}'
+  delegate_to: "{{ kubectl_host }}"
+  changed_when: true
+  when: flux_frozen | default(false) | bool
+
+- name: Read it back
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} -n flux-system get gitrepositories.source.toolkit.fluxcd.io flux-system
+    -o jsonpath={.spec.suspend}
+  delegate_to: "{{ kubectl_host }}"
+  register: flux_resumed
+  failed_when: flux_resumed.stdout == 'true'
+  changed_when: false
+  when: flux_frozen | default(false) | bool and not ansible_check_mode
