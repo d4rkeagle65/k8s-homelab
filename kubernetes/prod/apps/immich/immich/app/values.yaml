@@ -23,7 +23,7 @@ controllers:
                 name: immich-redis-url
         image:
           repository: ghcr.io/immich-app/immich-server
-          tag: v3.3.1
+          tag: v3.3.5
 immich:
   configuration: {}
   configurationKind: ConfigMap
@@ -46,7 +46,7 @@ machine-learning:
           image:
             pullPolicy: IfNotPresent
             repository: ghcr.io/immich-app/immich-machine-learning
-            tag: v3.3.1
+            tag: v3.3.5
           # Its memory is the face and search models it loads, far above its idle
           # use: 1918Mi at peak during the library import. 3Gi rather than the
           # rules' 2.5 x peak (4.7Gi), since more jobs reuse the loaded models.
