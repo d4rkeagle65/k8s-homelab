@@ -112,11 +112,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   (claim templates as volumes), DaemonSets, Jobs, CronJobs, Helm hooks (`helm get hooks`, Jobs
   that exist only during an upgrade) and an operator's Jobs (CloudNativePG's share its
   instance pods' security contexts).
-- **Prometheus doesn't scrape etcd** (`kube-prometheus-stack`'s `kubeEtcd` is off), so there's
-  no WAL fsync latency, leader changes or database size history: on 2026-10-13 the Talos control
-  plane's commit latency (26-31 ms against 9-25 ms) had to be sampled by hand. The control
-  planes are all Talos since 2026-10-13, so etcd's metrics endpoint is set in one place, the
-  Talos config (`talos/patches/`): add it there, then turn `kubeEtcd` on.
 - **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
   rated wear** (`nvme_percentage_used_ratio`, 2026-10-10). The owner knows, decides when it's
   replaced, and chose what runs on it (a control plane and Pi-hole 1 since 2026-10-20): don't
@@ -128,7 +123,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   about 280 of the 470, the rest Proxmox's own. The CloudNativePG instances were the largest,
   about 4.5 GB a day each from forced 5-minute WAL switches (now hourly, `archive_timeout: 1h`).
   Left: each control plane writes 26 to 30 GB a day (its kube-apiserver about 5, the rest
-  etcd, which isn't a pod: its metrics come with the etcd scrape below); both Prometheus
+  etcd, which isn't a pod: read it from the etcd scrape, `QUEUE-monitoring.md` phase 5); both Prometheus
   replicas about 7 each; the first Docker VM 21; and the hosts' own share. Remeasure a week
   after the archive change.
   Alerts on wear and spare capacity are phase 5 of `QUEUE-monitoring.md`.

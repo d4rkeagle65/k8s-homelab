@@ -106,7 +106,6 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] Worker w05 (VM 115) drained and rebooted (task 919, 2026-10-20): #15's 11264 MB in effect.
       Decommissioning settled the same day: the generator keeps `main`'s entry, the sync skips it
       "Plain container"
-- [ ] A limited Dockhand user for Homepage's widget (`QUEUE.md`)
 - [ ] Delete task 713 in Semaphore (it holds two replaced tokens)
 - [ ] Run "Node: Docker Update" with `upgrade_docker: true` (live-restore is on, checked
       2026-10-21), then reboot the first Docker VM (`QUEUE.md`, decision 7)
