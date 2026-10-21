@@ -1,6 +1,7 @@
 # Whether the pods on capacity_nodes fit on the other nodes, by memory
-# requests as the scheduler counts them: what has to move (less DaemonSets and
-# database instances, which stay with their node's disk) against what's free
+# requests as the scheduler counts them: what has to move (less DaemonSets,
+# static pods, which belong to their node, and database instances, which stay
+# with their node's disk) against what's free
 # on every other node taking pods. Reports both and stops unless
 # capacity_allow_pending (as the callers' reboot_allow_pending) is true. For
 # proxmox-host-reboot.yml and talos-node-upgrade.yml; kubectl_cmd and
@@ -32,7 +33,8 @@
                   map('string') | map('regex_replace', 'i$', '') | map('upper') | map('human_to_bytes') | sum %}{%
         set _ = used.update({p.spec.nodeName: used.get(p.spec.nodeName, 0) + req}) %}{%
         if p.spec.nodeName in capacity_nodes
-           and 'DaemonSet' not in p.metadata.ownerReferences | default([]) | map(attribute='kind')
+           and not p.metadata.ownerReferences | default([]) | map(attribute='kind')
+                   | select('in', ['DaemonSet', 'Node']) | list
            and 'cnpg.io/cluster' not in p.metadata.labels | default({}) %}{%
           set _ = moving.append(moving.pop() + req) %}{%
         endif %}{% endfor %}{% set free = [0] %}{%
