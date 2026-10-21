@@ -1,0 +1,80 @@
+# Attaches to Bookshelf's authors the works rreading-glasses left off them
+# (repair/rreading-glasses-repair.py says how it finds and repairs them, and the
+# limits that keep it inside Hardcover's daily budget). Each repaired work costs
+# about one lookup of that budget, so a failed run isn't retried: the next night
+# finds what is still missing.
+#
+# With DRY_RUN "true" it lists each short author and how many works it lacks, and
+# changes nothing. A run between schedules:
+#   kubectl -n media create job --from=cronjob/rreading-glasses-repair rreading-glasses-repair-now
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rreading-glasses-repair
+spec:
+  # Hours after Hardcover's budget resets at midnight UTC, and away from
+  # Bookshelf's own author refresh and folder rescan.
+  schedule: "15 3 * * *"
+  timeZone: ${TIMEZONE}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 7200
+      template:
+        spec:
+          restartPolicy: Never
+          priorityClassName: homelab-low
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          initContainers:
+            - name: deps
+              image: python:3.14.8-alpine
+              command: [pip, install, --quiet, --no-cache-dir, --target, /deps, pg8000==1.31.5]
+              env:
+                - {name: HOME, value: /tmp}
+              resources:
+                requests: {cpu: 10m, memory: 64Mi}
+                limits: {cpu: 500m, memory: 256Mi}
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              volumeMounts:
+                - {name: deps, mountPath: /deps}
+          containers:
+            - name: repair
+              image: python:3.14.8-alpine
+              command: [python, /etc/rreading-glasses-repair/rreading-glasses-repair.py]
+              env:
+                - {name: PYTHONPATH, value: /deps}
+                - {name: DRY_RUN, value: "true"}
+                - {name: RG_URL, value: "http://rreading-glasses:8788"}
+                - {name: BOOKSHELF_URL, value: "http://bookshelf:8787"}
+                - name: BOOKSHELF_API_KEY
+                  valueFrom: {secretKeyRef: {name: bookshelf, key: api-key}}
+                # Its cache, read only (the script sets every transaction
+                # read-only); the repair itself goes through rreading-glasses.
+                - {name: PGHOST, value: rreading-glasses-db-r}
+                - {name: PGDATABASE, value: rreading-glasses}
+                - name: PGUSER
+                  valueFrom: {secretKeyRef: {name: rreading-glasses-db-app, key: username}}
+                - name: PGPASSWORD
+                  valueFrom: {secretKeyRef: {name: rreading-glasses-db-app, key: password}}
+              # Measured at about 100 MiB reading the whole cache (14k works).
+              resources:
+                requests: {cpu: 10m, memory: 128Mi}
+                limits: {cpu: 500m, memory: 384Mi}
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              volumeMounts:
+                - {name: deps, mountPath: /deps}
+                - {name: script, mountPath: /etc/rreading-glasses-repair}
+          volumes:
+            - name: deps
+              emptyDir: {}
+            - name: script
+              configMap:
+                name: rreading-glasses-repair

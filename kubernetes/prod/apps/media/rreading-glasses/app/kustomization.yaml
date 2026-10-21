@@ -5,3 +5,10 @@ resources:
   - db.yaml
   - secret.yaml
   - servicemonitor.yaml
+  - cronjob-rreading-glasses-repair.yaml
+# The repair job's script (cronjob-rreading-glasses-repair.yaml); the generated
+# name carries its hash, so a change reaches the next run.
+configMapGenerator:
+  - name: rreading-glasses-repair
+    files:
+      - repair/rreading-glasses-repair.py
