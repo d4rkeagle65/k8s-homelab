@@ -463,8 +463,9 @@ It holds three more that stay: cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-sta
 Dockhand fills a stack's variables from its `.env` on its own (its env editor,
 `previewRepoEnvFiles` in its `git.ts`), so they come back after a delete. Each `.env` checked
 2026-10-21: every variable its compose file reads, as its own `azurekv://` reference to a secret
-Key Vault holds, enabled; blank only claude-code's `REPO_URL` (its default is this repo) and
-netbox's `CONFIG_DIFF_*` (unused)
+Key Vault holds, enabled; blank only claude-code's `REPO_URL` (its default is this repo).
+netbox's two blank `CONFIG_DIFF_*` go with the Config Diff plugin, which no device here
+could use (scrapli has no driver for any of them)
 
 **Files:**
 
