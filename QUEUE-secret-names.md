@@ -456,6 +456,18 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - `CADVISOR-ADDRESS`: now `DOCKER-VM-1-MGMT-ADDRESS` (#140); never mapped into the cluster
 - `PIHOLE-PASSWORD`, `PIHOLE2-PASSWORD`: now `PIHOLE-1-PASSWORD`, `PIHOLE-2-APP-PASSWORD` (#190)
 
+**Dockhand stack variables:** the listing of every one at 22:40 EDT on 2026-10-20, after the
+queue had recorded them all deleted, still holds six:
+
+- semaphore's `TZ` (now `TIMEZONE`, #172), vaultwarden's `VAULTWARDEN_BIND_ADDRESS` (now
+  `DOCKER_VM_1_PROD_ADDRESS`, #188) and `BACKUP_ZIP_PASSWORD` (now
+  `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, #195; another value, never deployed): nothing reads them
+- cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's `DOCKER_VM_2_MGMT_ADDRESS` and
+  `DOCKER_VM_2_PROD_ADDRESS`: copies of their `.env`s' references, made by Dockhand's import
+  from `.env` (Populate), which brings them back after each delete. Dockhand reads the `.env`
+  at every deploy without it, and a copy overrides the file, so it would keep an old reference
+  once the `.env` changed: delete them, and don't import
+
 **Files:**
 
 - The all-variables listing, `dockhand_variables.json` in Downloads and
