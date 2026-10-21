@@ -470,8 +470,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 - semaphore's `SEMAPHORE_BIND_ADDRESS`, `SEMAPHORE_WEB_ROOT`, `SEMAPHORE_OIDC_ISSUER_URL`,
   `NETBOX_API`, `KEA_NETWORK`, `TZ`, `DATABASUS_DB_PASSWORD` and `NETBOX_TOKEN`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
-  `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN` (#172); and its
-  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` (#194)
+  `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN` (#172)
 - netbox's `NETBOX_BIND_ADDRESS`, `NETBOX_HOST`, `OIDC_ENDPOINT`, `OIDC_CLIENT_SECRET`,
   `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
@@ -488,12 +487,6 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `BACKUP_S3_SECRET_ACCESS_KEY`: now `DOCKER_VM_1_PROD_ADDRESS`, values built from
   `BASE_DOMAIN`, and the standard names in its `.env` (#188); and its blank
   `BACKUP_ZIP_PASSWORD`, now `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, once that reads back
-
-**Files:**
-
-- The owner's Dockhand export, in plain text: on the owner's PC, `dockhand_secrets.json` and
-  its redacted copy in Downloads. Every value it holds is in Key Vault now, so step 5 of
-  `scripts/README.md`'s recipe applies: delete it
 
 ## Resuming
 
