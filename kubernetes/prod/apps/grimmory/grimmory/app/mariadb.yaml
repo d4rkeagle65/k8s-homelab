@@ -1,8 +1,6 @@
-# Grimmory's database on mariadb-operator (QUEUE-mariadb.md), beside the
-# hand-built grimmory-mariadb StatefulSet until Grimmory is moved onto it:
-# three instances replicating, the primary failing over by itself, behind the
-# grimmory-db-primary Service. Its root and grimmory logins are grimmory-db's,
-# so Grimmory's password doesn't change.
+# Grimmory's database on mariadb-operator: three instances replicating, the
+# primary failing over by itself, behind the grimmory-db-primary Service. Its
+# root and grimmory logins are in the grimmory-db Secret.
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: MariaDB
 metadata:
