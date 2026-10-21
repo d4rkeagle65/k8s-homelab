@@ -12,8 +12,10 @@
 # its own named for its node, so every line of its work reads [node] (its Proxmox calls
 # [node -> Proxmox host]), and semaphore cleans up.
 #
-# Which VMs: reboot_vms (required), VM IDs or names, separated by commas or spaces, rebooted
-# in that order; ALL (any case) for every Talos VM, control planes first. Each must be a
+# Which VMs: target_hosts (required; reboot_vms, its older name, still works), VM IDs or names,
+# separated by commas or spaces, rebooted in that order; ALL (any case) for every Talos VM,
+# control planes first. They're found in Proxmox and the cluster, not the inventory, so this
+# reads target_hosts itself rather than through select-hosts.yml. Each must be a
 # Proxmox VM whose name is a Talos node's. ALL holds Flux on its current revision until the run
 # ends, however it ends (tasks/flux-freeze.yml): what's merged meanwhile deploys afterwards.
 #
@@ -25,12 +27,9 @@
 # In check mode (--check) it reports each VM's node, host, HA state and pending changes, runs
 # the checks (etcd's included) and lists what it would drain, and changes nothing.
 
-- ansible.builtin.import_playbook: semaphore-host.yml
-
 - ansible.builtin.import_playbook: require-hosts.yml
   vars:
     required_group: proxmox
-    require_hosts_on: semaphore
 
 - name: Plan the reboots
   hosts: semaphore
@@ -38,15 +37,21 @@
   vars_files: [vars/talos.yml]
   vars:
     pve_api_host: "{{ groups['proxmox'] | first }}"
+    vms_new: "{{ target_hosts | default('') | string | trim }}"
+    vms_old: "{{ reboot_vms | default('') | string | trim }}"
+    vm_selection: "{{ vms_new or vms_old }}"
   tasks:
     - name: Check and plan, cleaning up if that fails
       block:
-        - name: reboot_vms names the VMs to reboot
+        - name: target_hosts names the VMs to reboot
           ansible.builtin.assert:
-            that: reboot_vms | default('') | string | trim | length > 0
+            that:
+              - vm_selection | length > 0
+              - not (vms_new and vms_old and vms_new != vms_old)
             fail_msg: >-
-              reboot_vms is unset: the VM IDs or names to reboot, separated by commas or
-              spaces, or ALL for every Talos VM. Nothing was run.
+              {{ 'target_hosts and reboot_vms disagree: give only target_hosts. ' if vms_new and vms_old
+                 else 'target_hosts is unset: the VM IDs or names to reboot, separated by commas or spaces,
+                 or ALL for every Talos VM. ' }}Nothing was run.
             quiet: true
 
         - name: Decode the Kubernetes CA certificate
@@ -111,14 +116,14 @@
             talos_cp_addresses: >-
               {{ talos_by_name.values() | selectattr('control_plane') | map(attribute='address') | sort | list }}
 
-        - name: Read reboot_vms
+        - name: Read target_hosts
           ansible.builtin.set_fact:
             reboot_tokens: >-
-              {% if reboot_vms | string | trim | lower == 'all' %}{{
+              {% if vm_selection | lower == 'all' %}{{
                 reboot_qemu | selectattr('name', 'in', talos_by_name.keys() | list) | map(attribute='name')
                 | map('extract', talos_by_name) | sort(attribute='name')
                 | sort(attribute='control_plane', reverse=true) | map(attribute='name') | list }}{%
-              else %}{{ reboot_vms | string | regex_replace('[,\s]+', ' ') | trim | split(' ') }}{% endif %}
+              else %}{{ vm_selection | regex_replace('[,\s]+', ' ') | trim | split(' ') }}{% endif %}
 
         - name: Match each to its VM and Talos node
           ansible.builtin.set_fact:
@@ -144,7 +149,7 @@
               - reboot_plan | length > 0
               - reboot_plan | map(attribute='vmid') | unique | list | length == reboot_plan | length
             fail_msg: >-
-              reboot_vms ({{ reboot_vms }}): {{ ('not the VM of a Talos node: ' ~ reboot_unknown | join(', '))
+              target_hosts ({{ vm_selection }}): {{ ('not the VM of a Talos node: ' ~ reboot_unknown | join(', '))
               if reboot_unknown else 'a VM named twice, or none' }}. Nothing was rebooted.
             quiet: true
 
@@ -189,7 +194,7 @@
           ansible.builtin.include_tasks: tasks/flux-freeze.yml
           vars:
             kubectl_host: semaphore
-          when: reboot_vms | string | trim | lower == 'all'
+          when: vm_selection | lower == 'all'
 
       rescue:
         - name: Lift the hold on Flux

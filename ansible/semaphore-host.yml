@@ -1,8 +1,9 @@
 # Imported first by a playbook whose own steps run on the machine running Ansible
 # (Semaphore's container): adds that machine as a host named semaphore, reached
 # with a local connection and Ansible's own Python, so the plays that run there say
-# [semaphore] in the log rather than localhost. This step is the one line that
-# still reads [localhost]: Ansible's implicit localhost can't be renamed.
+# [semaphore] in the log rather than localhost, and says which machine that is.
+# This step is the one that still reads [localhost]: Ansible's implicit localhost
+# can't be renamed.
 #
 #   - ansible.builtin.import_playbook: semaphore-host.yml
 
@@ -16,3 +17,7 @@
         ansible_connection: local
         ansible_python_interpreter: "{{ ansible_playbook_python }}"
       changed_when: false
+
+    - name: Say where this runs
+      ansible.builtin.debug:
+        msg: "Ansible runs on {{ lookup('ansible.builtin.pipe', 'hostname') }} (Semaphore's container), as the host semaphore"

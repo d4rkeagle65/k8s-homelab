@@ -1,0 +1,101 @@
+# Imported first by every playbook that works on inventory hosts: the one way a
+# job picks its hosts, and the line that says where it runs (README, "Picking the
+# hosts").
+#
+#   - ansible.builtin.import_playbook: select-hosts.yml
+#     vars:
+#       select_from: proxmox    # the hosts this playbook may touch: a group or pattern
+#       # Optional:
+#       select_required: true   # no default: target_hosts must name hosts
+#       select_one: true        # exactly one host
+#       select_alias: "{{ reboot_hosts | default('') }}"  # an older name for target_hosts
+#       select_alias_name: reboot_hosts
+#
+# target_hosts (a survey variable): hosts, groups or patterns, separated by
+# commas, spaces or new lines; empty or ALL (any case) for every host in
+# select_from. Every name must match an inventory host, and every host it
+# matches must be in select_from, or nothing runs. The playbook's plays then run
+# on the group targets, in inventory order.
+#
+# It runs as semaphore (semaphore-host.yml), which is never a target. It stops the
+# run when select_from has no hosts: an inventory Ansible can't parse (a tab in
+# Semaphore's YAML) only draws warnings, then every play matches nothing and the
+# run exits 0. It leaves select_all on semaphore, true when every host was asked
+# for (proxmox-reboot.yml then holds Flux).
+
+- ansible.builtin.import_playbook: semaphore-host.yml
+
+- name: Pick the hosts
+  hosts: semaphore
+  gather_facts: false
+  vars:
+    allowed: >-
+      {{ query('ansible.builtin.inventory_hostnames', select_from) | reject('equalto', 'semaphore') | list }}
+    given_new: "{{ target_hosts | default('') }}"
+    given_old: "{{ select_alias | default('') }}"
+    split_new: >-
+      {{ (given_new if given_new is string else given_new | join(' ')) | regex_replace('[,\s]+', ' ') | trim
+         | split(' ') | reject('equalto', '') | list }}
+    split_old: >-
+      {{ (given_old if given_old is string else given_old | join(' ')) | regex_replace('[,\s]+', ' ') | trim
+         | split(' ') | reject('equalto', '') | list }}
+    names: "{{ split_new if split_new else split_old }}"
+    every: "{{ names | length == 0 or (names | length == 1 and names[0] | lower == 'all') }}"
+  tasks:
+    - name: "{{ select_from }} has hosts"
+      ansible.builtin.assert:
+        that: allowed | length > 0
+        fail_msg: >-
+          The inventory has no hosts in {{ select_from }}: either it failed to parse
+          (the warnings above say why) or it lacks that group. Nothing was run.
+        quiet: true
+
+    - name: Resolve the names given
+      ansible.builtin.set_fact:
+        select_matched: >-
+          {% set out = [] %}{% for n in names if n | lower != 'all' %}{%
+            set _ = out.extend(query('ansible.builtin.inventory_hostnames', n)) %}{% endfor %}{{ out | unique }}
+        select_unknown: >-
+          {% set out = [] %}{% for n in names if n | lower != 'all'
+             and not query('ansible.builtin.inventory_hostnames', n) %}{% set _ = out.append(n) %}{% endfor %}{{ out }}
+
+    - name: Settle the targets
+      ansible.builtin.set_fact:
+        select_all: "{{ every and not (select_required | default(false) | bool and names | length == 0) }}"
+        select_targets: "{{ allowed if every else allowed | select('in', select_matched) | list }}"
+        select_outside: "{{ [] if every else select_matched | difference(allowed) }}"
+
+    - name: The hosts asked for are hosts this playbook may touch
+      ansible.builtin.assert:
+        that:
+          - not (split_new and split_old and split_new != split_old)
+          - not ('all' in names | map('lower') and names | length > 1)
+          - not (select_required | default(false) | bool and names | length == 0)
+          - select_unknown | length == 0
+          - select_outside | length == 0
+          - select_targets | length > 0
+          - not (select_one | default(false) | bool and select_targets | length != 1)
+        fail_msg: >-
+          {{ ('target_hosts and ' ~ select_alias_name | default('its older name') ~ ' disagree: give only target_hosts. ')
+             if split_new and split_old and split_new != split_old else '' }}{{
+          'ALL stands alone, for every host. ' if 'all' in names | map('lower') and names | length > 1 else '' }}{{
+          ('No hosts given: set target_hosts to the hosts or groups in ' ~ select_from ~ ' to run on. ')
+             if select_required | default(false) | bool and names | length == 0 else '' }}{{
+          ('Not in the inventory: ' ~ select_unknown | join(', ') ~ '. ') if select_unknown else '' }}{{
+          ('Not in ' ~ select_from ~ ': ' ~ select_outside | join(', ') ~ '. ') if select_outside else '' }}{{
+          ('One host only; these name ' ~ select_targets | length ~ ': ' ~ select_targets | join(', ') ~ '. ')
+             if select_one | default(false) | bool and select_targets | length > 1 and names else '' }}Nothing was run.
+        quiet: true
+
+    - name: Gather them into the group targets
+      ansible.builtin.add_host:
+        name: "{{ item }}"
+        groups: targets
+      loop: "{{ select_targets }}"
+      changed_when: false
+
+    - name: Say what it runs on
+      ansible.builtin.debug:
+        msg: >-
+          {{ select_targets | length }} of {{ allowed | length }} host(s) in {{ select_from }}:
+          {{ select_targets | join(', ') }}

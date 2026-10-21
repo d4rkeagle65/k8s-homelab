@@ -3,7 +3,7 @@
 # matching the API server's version from dl.k8s.io, checked against its
 # published SHA-256, and a kubeconfig with Semaphore's ServiceAccount token
 # (k8s_api_url, k8s_token and the CA written to .k8s-ca.pem before this).
-# Sets kubectl_cmd, kubectl_host (localhost) and kubectl_dir for the
+# Sets kubectl_cmd, kubectl_host (the host running this, semaphore) and kubectl_dir for the
 # k8s-node-* and cnpg-* tasks. Both files go in a new private temporary
 # directory (0700), never the playbook's folder, which Semaphore keeps between
 # runs; the playbook's last play removes it. Every patch through it names
@@ -75,7 +75,7 @@
 - name: Use it
   ansible.builtin.set_fact:
     kubectl_cmd: "{{ kubectl_tmp.path }}/kubectl --kubeconfig {{ kubectl_tmp.path }}/kubeconfig"
-    kubectl_host: localhost
+    kubectl_host: "{{ inventory_hostname }}"
     kubectl_dir: "{{ kubectl_tmp.path }}"
 
 - name: The cluster answers kubectl

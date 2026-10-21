@@ -5,9 +5,10 @@
 # Inputs (the template's survey):
 #   run_command      the command, run by the remote login shell (sh on the
 #                    OpenWrt access points, so no bash-only syntax there)
-#   run_hosts        one or more inventory hosts or groups, separated by
+#   target_hosts     one or more inventory hosts or groups, separated by
 #                    commas, spaces or new lines; every name must be in the
-#                    inventory, or nothing runs
+#                    inventory, or nothing runs (select-hosts.yml; run_hosts,
+#                    its older name, still works). Required: no default
 #   run_timeout      optional: seconds before the command is stopped (300)
 #   run_command_b64  optional, in place of run_command: the command base64-encoded.
 #                    Ansible expands {{ ... }} in a variable's value, so a command
@@ -24,25 +25,23 @@
 #
 # In check mode (--check) it lists the hosts it would run on and runs nothing.
 
-- name: The hosts named are in the inventory
-  hosts: localhost
+- ansible.builtin.import_playbook: select-hosts.yml
+  vars:
+    select_from: all
+    select_required: true
+    select_alias: "{{ run_hosts | default('') }}"
+    select_alias_name: run_hosts
+
+- name: The command
+  hosts: semaphore
   gather_facts: false
   vars:
     the_command: "{{ run_command_b64 | b64decode if run_command_b64 | default('') | length > 0 else run_command | default('') }}"
-    names: "{{ (run_hosts | default('')) | regex_replace('[,\\s]+', ' ') | trim | split(' ') | reject('equalto', '') | list }}"
-    known: "{{ groups['all'] + (groups.keys() | list) }}"
   tasks:
-    - name: A command and at least one host were given, all of them known
+    - name: A command was given
       ansible.builtin.assert:
-        that:
-          - (the_command | trim) != ''
-          - names | length > 0
-          - names | difference(known) | length == 0
-        fail_msg: >-
-          {{ 'No command given. ' if (the_command | trim) == '' else '' }}{{
-          'No hosts given. ' if names | length == 0 else '' }}{{
-          ('Not in the inventory: ' ~ (names | difference(known) | join(', ')) ~ '. ')
-          if names | difference(known) else '' }}Nothing was run.
+        that: (the_command | trim) != ''
+        fail_msg: No command given. Nothing was run.
         quiet: true
 
     # What runs, in the log before it runs anywhere; secret-shaped values are
@@ -60,23 +59,16 @@
           | regex_replace('(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----', '<redacted private key>')
           | split('\n') }}"
 
-    - name: Gather them into one group
-      ansible.builtin.add_host:
-        name: "{{ item }}"
-        groups: run_command_targets
+    - name: Keep it for the hosts
+      ansible.builtin.set_fact:
         run_the_command: "{{ the_command }}"
-      # Each host named, and every host in each group named.
-      loop: >-
-        {{ (names | intersect(groups['all'])
-            + names | intersect(groups.keys() | list) | map('extract', groups) | flatten) | unique }}
-      changed_when: false
 
 - name: Run the command
-  hosts: run_command_targets
+  hosts: targets
   gather_facts: false
   tasks:
     - name: Run it
-      ansible.builtin.raw: "{{ run_the_command }}"
+      ansible.builtin.raw: "{{ hostvars['semaphore'].run_the_command }}"
       register: run_result
       timeout: "{{ run_timeout | default(300) | int }}"
       failed_when: false

@@ -98,5 +98,6 @@ CommentFiles   = 201
 ClaudeFiles    = 2
 Suites         = 3
 DockerStacks   = 4   # docker/*/compose.yaml (test-docker-stacks)
+AnsiblePlaybooks = 10 # ansible/*.yml (test-ansible-hosts)
 AllFiles       = 470 # every tracked file (test-identifying-data)
 PytestTests    = 59  # tests scripts/tests ran (test-scripts-pytest)

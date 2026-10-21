@@ -35,12 +35,12 @@
 # In check mode (--check) it reports the missing packages, the exporters, sshd's
 # restart settings and whether the bash setup differs, and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: debian
+    select_from: debian
 
 - name: The baseline on every Debian host
-  hosts: debian
+  hosts: targets
   gather_facts: true
   # network: the interfaces, for the management routing.
   gather_subset: [min, network]
@@ -206,7 +206,7 @@
       ansible.builtin.stat:
         path: "{{ playbook_dir }}/files/homelab-bashrc"
         checksum_algorithm: sha1
-      delegate_to: localhost
+      delegate_to: semaphore
       run_once: true
       register: bashrc_src
 

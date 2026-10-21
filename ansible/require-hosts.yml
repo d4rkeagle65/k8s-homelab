@@ -1,17 +1,19 @@
-# Imported first by each playbook: stops the run when the inventory gives it
-# no hosts in the group it works on. Ansible itself only warns when an
-# inventory fails to parse (a tab in Semaphore's YAML, say) and then runs the
-# plays against nothing, exiting 0, so the run would look like a success.
+# For a playbook that needs a group without working on it (talos-reboot.yml
+# calls Proxmox's API through the proxmox group's first host): stops the run when
+# the inventory gives it no hosts in that group. Ansible itself only warns when an
+# inventory fails to parse (a tab in Semaphore's YAML) and then runs the plays
+# against nothing, exiting 0, so the run would look like a success. A playbook
+# that works on the group's hosts imports select-hosts.yml instead, which checks
+# the same.
 #
 #   - ansible.builtin.import_playbook: require-hosts.yml
 #     vars:
 #       required_group: proxmox
-#
-# It runs as localhost, or as require_hosts_on when given (semaphore, for a
-# playbook that imports semaphore-host.yml first).
+
+- ansible.builtin.import_playbook: semaphore-host.yml
 
 - name: The inventory has hosts to work on
-  hosts: "{{ require_hosts_on | default('localhost') }}"
+  hosts: semaphore
   gather_facts: false
   tasks:
     - name: "{{ required_group }} has hosts"

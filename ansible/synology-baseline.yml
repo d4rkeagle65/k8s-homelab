@@ -33,12 +33,12 @@
 # In check mode (--check) it reports DSM's version, the package, whether
 # Docker answers and what Hawser would change, and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: select-hosts.yml
   vars:
-    required_group: synology
+    select_from: synology
 
 - name: The Synology's baseline
-  hosts: synology
+  hosts: targets
   gather_facts: false
   vars_files: [vars/hawser.yml]
   vars:
