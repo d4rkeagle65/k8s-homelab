@@ -359,10 +359,10 @@ against today's value by hash.
       02:05:36Z, with no error. Read back 2026-10-21: neither container recreated (both still
       from 10-18 23:06Z), `/api/ping` answering `pong` through Traefik, port 3001 open on the
       management address and refused on the production one, as before. cAdvisor never sees
-      the init containers, which exit in seconds. Left, the owner's: that the deploy ran
-      (Dockhand's log line, `docker logs --since 1h dockhand 2>&1 | grep 'reference(s)
-      (promoted'`, resolving 13 of 13 for semaphore), and a login through Authentik, which
-      tests the client secret itself. netbox
+      the init containers, which exit in seconds. The owner, 2026-10-21: Dockhand's log line
+      (`docker logs --since 1h dockhand 2>&1 | grep 'reference(s) (promoted'`) shows the deploy
+      resolved its references, and a login through Authentik works, which tests the client
+      secret itself. semaphore is done. netbox
       seventh (#184): `DOCKER_VM_1_MGMT_ADDRESS`, `BASE_DOMAIN` (its
       host and OIDC endpoint are built in the compose file),
       `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` by reference, `DATABASUS_NETBOX_DB_PASSWORD`,
@@ -470,8 +470,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `NETBOX_API`, `KEA_NETWORK`, `TZ`, `DATABASUS_DB_PASSWORD` and `NETBOX_TOKEN`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, URLs built from `BASE_DOMAIN`, `kea_default` in the compose file,
   `TIMEZONE`, `DATABASUS_SEMAPHORE_DB_PASSWORD` and `NETBOX_SEMAPHORE_TOKEN` (#172); and its
-  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` (#194), once a
-  login through Authentik works
+  `SEMAPHORE_OIDC_CLIENT_SECRET`, now `AUTHENTIK_SEMAPHORE_OIDC_CLIENT_SECRET` (#194)
 - netbox's `NETBOX_BIND_ADDRESS`, `NETBOX_HOST`, `OIDC_ENDPOINT`, `OIDC_CLIENT_SECRET`,
   `KEA_NETWORK`, `DATABASUS_DB_PASSWORD`, `TZ` and `SYNC_APPLY`: now
   `DOCKER_VM_1_MGMT_ADDRESS`, values built from `BASE_DOMAIN`,
@@ -487,7 +486,12 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID` and
   `BACKUP_S3_SECRET_ACCESS_KEY`: now `DOCKER_VM_1_PROD_ADDRESS`, values built from
   `BASE_DOMAIN`, and the standard names in its `.env` (#188)
-- To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
+
+**Files:**
+
+- The owner's Dockhand export, in plain text: on the owner's PC, `dockhand_secrets.json` and
+  its redacted copy in Downloads. Every value it holds is in Key Vault now, so step 5 of
+  `scripts/README.md`'s recipe applies: delete it
 
 ## Resuming
 
