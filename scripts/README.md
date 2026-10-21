@@ -238,9 +238,9 @@ as `${NAME}`. Flux fills them in from two objects in `flux-system`:
 **A new private value:**
 1. Add its secret to Key Vault plain, whatever reads it:
    `./scripts/keyvault-secrets.ps1 NAME -New -Raw` asks for the value without
-   echoing it and reads it back by hash. `-Raw` stores it as given: without
-   it, a value a Secret's `data:` reads would go in as its base64 until its
-   template entry (step 2) is live.
+   echoing it and reads it back by hash. `-New` runs only with `-Raw`, which
+   stores the value as given: without it, a value a Secret's `data:` reads
+   would go in as its base64.
 2. Map it in `kubernetes/secrets/cluster-secrets.yaml` (`secretKey: NAME`,
    `remoteRef: {key: NAME-WITH-DASHES}`) in a pull request of its own. If a
    Secret's `data:` reads it, add `NAME: "{{ .NAME | b64enc }}"` to that
