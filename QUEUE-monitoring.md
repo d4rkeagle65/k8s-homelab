@@ -186,23 +186,16 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       The Proxmox hosts' node-exporters, down since their reboots that day, start once the
       network is up and retry (`ansible/tasks/host-exporters.yml`, run on every Debian host)
 - [ ] Phase 4
-- [ ] Phase 5. Done: alerts go to Zammad through `zammad-bridge` (a hand-sent warning became
-      a ticket, 2026-10-20); the drives' wear, spare and critical-warning alerts; the
-      TerraMaster's SNMP alert. In PR: `DriveMediaErrorsRising` (NVMe) and `DriveSectorsFailing`
-      (SATA reallocated, pending, uncorrectable) on a count that grew in a day, compared per
-      serial number, since a host's drives swap `nvme0n1`/`nvme1n1` names at a reboot (the
-      fifth host did twice on 2026-10-21); `DriveSMARTUnhealthy`. Left: the control-plane
-      metrics (the scheduler and controller-manager bind 127.0.0.1 on Talos too; etcd and
-      kube-proxy likewise off), and a dead-man's switch outside the cluster (where: the owner)
+- [x] Phase 5 (2026-10-21): alerts to Zammad through `zammad-bridge`; the drives' wear, spare,
+      critical-warning, rising-error (per serial number) and SMART alerts; the TerraMaster's
+      SNMP alert; the control plane's metrics (`talos/patches/controlplane-metrics.yaml` and
+      `controlplane-etcd-metrics.yaml`, rolled with talosctl, the control planes rebooted for
+      etcd, OpenTofu applied in task 1026) with the chart's rules; and the dead-man's switch:
+      `Watchdog` to a Healthchecks.io check every 5 minutes (read back: sends every 5 minutes,
+      none failed)
 - [x] Phase 6 (in phase 1)
 - [ ] Phase 7
 - [ ] Phase 8
-- [x] Phase 5's control-plane metrics (2026-10-21): `talos/patches/controlplane-metrics.yaml` (the
-      controller-manager's and scheduler's own documents on Talos 1.14) and
-      `controlplane-etcd-metrics.yaml` rolled onto each control plane with `talosctl patch mc
-      --mode=no-reboot`, then the control planes rebooted (task 1020) for etcd's port; all nine
-      targets up, every etcd member with a leader, no control-plane alert. Left: the OpenTofu
-      apply of plan task 1023 (3 nodes' configs in place, nothing new on them; the owner)
 - [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
       (Grafana, Homelab folder, `json/homelab/backups.json`) and the `homelab.backups` alerts:
       Postgres from the Barman Cloud plugin's metrics (CloudNativePG's own backup timestamps
