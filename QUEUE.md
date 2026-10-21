@@ -148,13 +148,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the workers, or moving replicas one at a time onto the emptier ones), and end a run that
   drains every worker by switching primaries back out.
 
-- **The `external-dns-netbox` ServiceMonitor scrapes a webhook that has no metrics** (found
-  2026-10-21; `TargetDown` firing since 2026-10-16): the chart's ServiceMonitor also lists
-  the `http-webhook` port (8080), where `netbox-dns-webhook.py` answers `/metrics` with 404.
-  Left, a standing `TargetDown` hides a real one for that job. Serve a `/metrics` from the
-  webhook (requests to NetBox and their failures would be worth having), or drop that
-  endpoint through the chart's values.
-
 - **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
   plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
   DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected
@@ -163,13 +156,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   Nothing here reads the change log by API today; a script that does would fail until NetBox's
   housekeeping drops those rows at the retention limit. Report it upstream, or patch the
   serializer in `docker/netbox/Dockerfile` until a release fixes it.
-
-- **ExternalDNS's NetBox pod restarts once on every start** (found 2026-10-20): in
-  `helmrelease-netbox.yaml` the `external-dns` container dials the webhook sidecar
-  (`netbox-dns-webhook.py`, 127.0.0.1:8888) before it listens, exits with "failed to connect
-  to webhook", and works on the restart. Harmless now, but each rollout counts a restart, so a
-  restart alert would fire on a real crash loop and this alike. Make the webhook a native
-  sidecar with a startup probe if the chart allows, or have ExternalDNS wait for it.
 
 - **`test-script-health`'s standard-library check only knows the platform it runs on**
   (found 2026-10-20): `t.probe` asks the running Python whether each called name exists, so a
