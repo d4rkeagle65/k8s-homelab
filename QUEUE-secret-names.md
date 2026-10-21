@@ -406,9 +406,10 @@ against today's value by hash.
       `VAULTWARDEN_ADMIN_TOKEN`, `OWNER_EMAIL`, `ENTRA_VAULTWARDEN_SMTP_*`,
       `AUTHENTIK_VAULTWARDEN_OIDC_CLIENT_*`, `GARAGE_S3_ENDPOINT` and
       `VAULTWARDEN_BACKUP_S3_*`; no variable keeps its name, so nothing goes from Dockhand
-      before the merge. `BACKUP_ZIP_PASSWORD` stays blank (`QUEUE.md`). Dockhand hands
-      resolved references to compose as its environment (`stacks.ts`: they join the secret
-      variables, `Object.assign(spawnEnv, secretVars)`), so the argon2 admin token's `$`s
+      before the merge. `BACKUP_ZIP_PASSWORD` stayed blank; it's now
+      `VAULTWARDEN_BACKUP_ZIP_PASSWORD` (`QUEUE.md`). Dockhand hands resolved references to
+      compose as its environment (`stacks.ts`: they join the secret variables,
+      `Object.assign(spawnEnv, secretVars)`), so the argon2 admin token's `$`s
       arrive as they do now. Rendered as compose does, its compose file gave exactly the old
       one's. Before: `vaultwarden` running since 2026-10-16 17:35Z, `vaultwarden-backup` since
       10-20 08:03Z; port 443 open on the production address and refused on the management
@@ -485,13 +486,9 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
   `SMTP_HOST`, `SSO_AUTHORITY`, `ADMIN_TOKEN`, `SMTP_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
   `SSO_CLIENT_ID`, `SSO_CLIENT_SECRET`, `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY_ID` and
   `BACKUP_S3_SECRET_ACCESS_KEY`: now `DOCKER_VM_1_PROD_ADDRESS`, values built from
-  `BASE_DOMAIN`, and the standard names in its `.env` (#188)
-
-**Files:**
-
-- The owner's Dockhand export, in plain text: on the owner's PC, `dockhand_secrets.json` and
-  its redacted copy in Downloads. Every value it holds is in Key Vault now, so step 5 of
-  `scripts/README.md`'s recipe applies: delete it
+  `BASE_DOMAIN`, and the standard names in its `.env` (#188); and its blank
+  `BACKUP_ZIP_PASSWORD`, now `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, once that reads back
+- To come: each stack's old names once it has moved (`docker/secret-names.yaml` lists them)
 
 ## Resuming
 
