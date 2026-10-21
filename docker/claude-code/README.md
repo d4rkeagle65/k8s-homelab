@@ -30,10 +30,12 @@ Every lane is a Claude Code process within the stack's `mem_limit`
 
 Everything it keeps is in `/opt/claude-code/home` on the host, which is its
 home folder: its login, settings and conversations, the repo clone, and the
-credentials below. None of those are in git or in Dockhand.
+credentials below. None of those are in git or in Dockhand, but for its Key
+Vault sign-in, which Key Vault holds and Dockhand puts in its environment.
 
 What it can do with those credentials: administer the cluster, push to this
-repo, read Proxmox, and change DHCP through Kea's API. Anyone who can steer
+repo, read Proxmox, change DHCP through Kea's API, and read every secret in
+Key Vault. Anyone who can steer
 the Remote Control session can do the same, so consider turning on **Require
 trusted devices** in your claude.ai settings.
 
@@ -151,6 +153,38 @@ credentials file Kea reads (`docker/kea/README.md`).
    ```sh
    docker exec claude-code sh -c 'curl -s -u "$(cat ~/.kea-api)" -H "Content-Type: application/json" -d "{\"command\": \"version-get\"}" http://127.0.0.1:8000/'
    ```
+
+### Key Vault sign-in
+
+The `k8s-homelab-claude-code` service principal, with "Key Vault Secrets User" on
+the vault: it reads every secret and writes none. Its ID, secret and tenant are
+Key Vault's `ENTRA-CLAUDE-CODE-CLIENT-ID`, `ENTRA-CLAUDE-CODE-CLIENT-SECRET` and
+`ENTRA-TENANT-ID`, and the stack's `.env` references them, so Dockhand sets
+`AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` at each deploy, with
+the vault bound as the stack's secret provider (selector empty).
+`scripts/keyvault_copy.py` signs in with those three when they're all set.
+
+1. On the PC (PowerShell, at the repo root), add the three from the service
+   principal's file, without showing them:
+
+   ```powershell
+   $sp = Get-Content kubernetes/.local/azure-keyvault-sp-claude-code.json -Raw | ConvertFrom-Json
+   ./scripts/keyvault-secrets.ps1 ENTRA_CLAUDE_CODE_CLIENT_ID -New -Raw -NoSync -Value $sp.appId
+   ./scripts/keyvault-secrets.ps1 ENTRA_CLAUDE_CODE_CLIENT_SECRET -New -Raw -NoSync -Value $sp.password
+   ./scripts/keyvault-secrets.ps1 ENTRA_TENANT_ID -New -Raw -NoSync -Value $sp.tenant
+   ```
+
+2. Bind the vault as the stack's secret provider in Dockhand, and redeploy it
+   (which restarts the session running in it).
+3. In the container, a dry run of the copy reads the vault (`already the same`
+   for each name means it works):
+
+   ```sh
+   docker exec -u claude claude-code sh -c 'cd ~/k8s-homelab && python3 scripts/keyvault_copy.py --vault <the vault>'
+   ```
+
+To replace the client secret, make a new one for the app in Entra, set
+`ENTRA_CLAUDE_CODE_CLIENT_SECRET` in Key Vault to it, and redeploy.
 
 ### GitHub token
 

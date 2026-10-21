@@ -8,14 +8,21 @@
 # Everything it keeps is in /opt/claude-code/home on the host (its home
 # folder): its login, settings and conversations (~/.claude, ~/.claude.json),
 # the repo clone, and the credentials it works with (~/.kube/config, the
-# Proxmox and Kea API credentials, the GitHub CLI's token). None of them are
-# in git or in Dockhand; README.md says how each one gets there.
+# Proxmox and Kea API credentials, the GitHub CLI's token), none of them in
+# git or in Dockhand; README.md says how each one gets there. Its Key Vault
+# sign-in is the exception: Key Vault holds it, and Dockhand puts it in the
+# environment (below).
 #
 # Host networking: it only makes outbound connections, and this way it
 # reaches the cluster, the management network and the tailnet exactly as
 # the host does. It has no access to Docker itself.
 #
-# Variables (set in the stack's environment in Dockhand), all optional:
+# Variables, from Key Vault (references in .env):
+#   ENTRA_CLAUDE_CODE_CLIENT_ID, ENTRA_CLAUDE_CODE_CLIENT_SECRET
+#              the k8s-homelab-claude-code service principal ("Key Vault
+#              Secrets User": it reads every secret, and writes none)
+#   ENTRA_TENANT_ID  its tenant
+# Optional, blank in .env:
 #   REPO_URL   the repo it clones on the first start; this repo by default
 services:
   claude-code:
@@ -36,5 +43,10 @@ services:
       # The lanes besides Main, space-separated: each a worktree at
       # .claude/worktrees/<name> with a Claude Code process of its own.
       CLAUDE_LANES: netbox
+      # Key Vault's sign-in, under the names the Azure tools and
+      # scripts/keyvault_copy.py read.
+      AZURE_CLIENT_ID: ${ENTRA_CLAUDE_CODE_CLIENT_ID}
+      AZURE_CLIENT_SECRET: ${ENTRA_CLAUDE_CODE_CLIENT_SECRET}
+      AZURE_TENANT_ID: ${ENTRA_TENANT_ID}
     volumes:
     - /opt/claude-code/home:/home/claude
