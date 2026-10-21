@@ -417,19 +417,12 @@ against today's value by hash.
       `template` entry, and its manifest written once the value is in Key Vault and mapped
       with that entry. A row still base64 for a value that is text means capture's
       `secret_data` mark didn't reach `varsub.pending_rows`
-- [ ] Nothing held base64, enforced: #193, open and passing its suite (2026-10-21), for the
-      owner to merge. `scripts/keyvault-secrets.ps1` stops encoding and decoding: a name the
-      ExternalSecret doesn't map yet goes in plain (today it can go in base64, which its
-      `{{ .NAME | b64enc }}` entry then encodes twice), and a mapped one a Secret's `data:`
-      reads without its live entry is refused. `test_cluster_secrets_encodes_what_a_secrets_data_reads`
-      requires that entry for every variable a Secret's `data:` reads, and keeps an encoded
-      one out of every other file. The script is proved only on a mock vault and a fake
-      kubectl (no suite in the repo covers it), so its first real listing (no `NEEDS b64enc`)
-      and set are its live check. On the merge, Resuming's `Where-Object Encoding -eq base64`
-      becomes `-eq 'NEEDS b64enc'`
-- [ ] A promoted Secret's value that isn't text has no supported form once #193 merges: Key
-      Vault holds only text, and the structure test refuses a Secret's variable without its
-      template entry (capture's pending note says so). None exists today. One route, untried:
+- [ ] Nothing held base64 (#193, merged 2026-10-21), checked live only by
+      `scripts/keyvault-secrets.ps1`'s first real runs, since it was proved on a mock vault and
+      a fake kubectl: a listing with no `NEEDS b64enc`, then a set read back by hash and synced
+- [ ] A promoted Secret's value that isn't text has no supported form: Key Vault holds only
+      text, and the structure test refuses a Secret's variable without its template entry
+      (capture's pending note says so). None exists today. One route, untried:
       Key Vault holds its base64, and its entry adds `decodingStrategy: Base64` to `remoteRef`,
       so the usual template line gives the Secret that base64 back. The structure test's
       `remoteRef == {key: ...}` check, and `keyvault-secrets.ps1`'s listing, would need to
@@ -489,7 +482,7 @@ any of them now unless its line says so. A deleted Key Vault name stays reserved
 ## Resuming
 
 `scripts/keyvault-secrets.ps1` lists each cluster variable with its Key Vault name and
-encoding (`| Where-Object Encoding -eq base64` gives the switch's variables still to move); a
+encoding (`| Where-Object Encoding -eq 'NEEDS b64enc'` gives any lacking its template entry); a
 Dockhand stack's `.env` names its variables. The first unticked box is next.
 
 ## Done when
