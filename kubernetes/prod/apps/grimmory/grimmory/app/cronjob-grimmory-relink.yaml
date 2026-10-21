@@ -1,0 +1,81 @@
+# Points Grimmory's books at their files again after Bookshelf moves or renames
+# them, before Grimmory's nightly library scan (SYNC_LIBRARY_FILES, 01:00) would
+# delete each moved book with its locked metadata, shelves and reading progress
+# (relink/grimmory-relink.py says how it matches a file and what it changes).
+# Hourly, so a rescan started by hand also rarely finds a move unrelinked.
+#
+# With DRY_RUN "true" it lists each file it would relink and changes nothing. A
+# run between schedules:
+#   kubectl -n grimmory create job --from=cronjob/grimmory-relink grimmory-relink-now
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: grimmory-relink
+spec:
+  schedule: "50 * * * *"
+  timeZone: ${TIMEZONE}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 1800
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # The next hour's run looks again; a retry would race the scan.
+      backoffLimit: 0
+      activeDeadlineSeconds: 1200
+      template:
+        spec:
+          restartPolicy: Never
+          priorityClassName: homelab-low
+          # The media user, as Grimmory reads the share.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: ${MEDIA_PUID}
+            runAsGroup: ${MEDIA_PGID}
+            seccompProfile: {type: RuntimeDefault}
+          initContainers:
+            - name: deps
+              image: python:3.14.8-alpine
+              command: [pip, install, --quiet, --no-cache-dir, --target, /deps, pymysql==1.1.1]
+              env:
+                - {name: HOME, value: /tmp}
+              resources:
+                requests: {cpu: 10m, memory: 64Mi}
+                limits: {cpu: 500m, memory: 256Mi}
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              volumeMounts:
+                - {name: deps, mountPath: /deps}
+          containers:
+            - name: relink
+              image: python:3.14.8-alpine
+              command: [python, /etc/grimmory-relink/grimmory-relink.py]
+              env:
+                - {name: PYTHONPATH, value: /deps}
+                - {name: DRY_RUN, value: "true"}
+                - {name: DB_HOST, value: grimmory-db-primary}
+                - {name: DB_NAME, value: grimmory}
+                - {name: DB_USER, value: grimmory}
+                - name: DB_PASSWORD
+                  valueFrom: {secretKeyRef: {name: grimmory-db, key: password}}
+              # Unmeasured: it holds one row per book file and reads 12 KiB of
+              # each file no book claims.
+              resources:
+                requests: {cpu: 10m, memory: 64Mi}
+                limits: {cpu: 500m, memory: 256Mi}
+              securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+              volumeMounts:
+                - {name: deps, mountPath: /deps}
+                - {name: script, mountPath: /etc/grimmory-relink}
+                # The path Grimmory mounts it at, which its database's paths start with.
+                - {name: books, mountPath: /books, readOnly: true}
+          volumes:
+            - name: deps
+              emptyDir: {}
+            - name: script
+              configMap:
+                name: grimmory-relink
+            - name: books
+              nfs:
+                server: ${NAS_HOSTNAME}
+                path: /volume1/media/media/books
+                readOnly: true

@@ -37,15 +37,20 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the folder nightly and uploads nothing. Immich's server peaked at 5.3 GiB of its 6 GiB
   limit in the first import (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and
   the Job's retry carries on from what Immich already holds.
-- **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
-  library scan matches files by path, so a renamed or moved file is a deleted book and a new
-  one; the old one's locked metadata (titles, authors, series), shelf entries and reading
-  progress go with it. Its folder watching (`watch: true` in `sync/grimmory.yaml`) sees only
-  changes made from its own pod, since the share is NFS, so it catches up at the nightly
-  `SYNC_LIBRARY_FILES` task. On 2026-10-19 titles, authors and series were copied from
-  Bookshelf into Grimmory and locked by a one-off script, not kept; after a Bookshelf rename
-  pass the moved books lose that and need it again (Grimmory's metadata API, `PUT
-  /books/{id}/metadata?replaceMode=REPLACE_WHEN_PROVIDED`), and re-shelving.
+- **Turn on Grimmory's relink job once a dry run has been read** (2026-10-21): Grimmory's
+  library scan (`SYNC_LIBRARY_FILES`, 01:00) matches files by path, so a file Bookshelf moved
+  is a deleted book and a new one, and the deleted book's locked metadata, shelves, reading
+  progress, notes and Kobo state go with it (hard-deleted: `BookDeletionService` in 3.5.0).
+  Grimmory recognises a move by its content hash only when its folder watcher sees it, and
+  the watcher sees only its own pod's changes, not Bookshelf's over NFS. The
+  `grimmory-relink` CronJob (`kubernetes/prod/apps/grimmory/grimmory/app/`, hourly at :50)
+  does what the watcher would: a database file missing on the share whose hash belongs to
+  exactly one unclaimed file gets that file's folder and name, so the book keeps its id and
+  everything on it. It starts with `DRY_RUN` "true". Left: after a Bookshelf rename, run it
+  by hand (the command is in the CronJob's comment) before 01:00 and read its "would move"
+  lines; then a pull request sets `DRY_RUN` "false". Not covered, and reported only: an upgrade
+  (Bookshelf replacing a book's file with a different one) is new content, so the scan still
+  replaces that book. Left as is, every Bookshelf rename pass costs the moved books their edits.
 - **The nightly Proxmox backup could make the HA master's watchdog reset its host** (found
   2026-10-19, cause 2026-10-21, Run Command tasks 1010-1016): on 2026-10-18 every host's vzdump
   wrote to the TerraMaster's `tm-nfs` (mounted `hard`) at once; the NAS fell behind, the first
