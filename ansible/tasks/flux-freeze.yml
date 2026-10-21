@@ -1,0 +1,53 @@
+# Holds Flux on the revision it has for a run that reboots everything: the
+# flux-system GitRepository is suspended, so a commit merged meanwhile isn't
+# deployed onto a cluster missing a node (a database restart mid-drain, an
+# operator upgrade mid-switchover). Flux still reconciles that revision, so
+# drift is still repaired. It covers the whole cluster or nothing: every
+# Kustomization reads that one source. Already suspended stops the run, as
+# that hold is someone else's to lift. Sets flux_frozen for flux-thaw.yml,
+# which the caller runs however the run ends. kubectl runs on kubectl_host,
+# as kubectl_cmd (kubectl-local.yml).
+- name: Read whether Flux's source is suspended
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} -n flux-system get gitrepositories.source.toolkit.fluxcd.io flux-system
+    -o jsonpath={.spec.suspend}|{.status.artifact.revision}
+  delegate_to: "{{ kubectl_host }}"
+  register: flux_source
+  changed_when: false
+  check_mode: false
+
+- name: Flux's source isn't already suspended
+  ansible.builtin.assert:
+    that: flux_source.stdout.split('|')[0] != 'true'
+    fail_msg: >-
+      The flux-system GitRepository is already suspended, by hand or by a run that died before
+      lifting it. Resume it (flux resume source git flux-system) or rerun once whoever holds
+      it is done. Nothing was rebooted.
+    quiet: true
+
+- name: Suspend it
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} -n flux-system patch gitrepositories.source.toolkit.fluxcd.io flux-system
+    --type=merge -p '{"spec": {"suspend": true}}'
+  delegate_to: "{{ kubectl_host }}"
+  changed_when: true
+
+- name: Mark it for flux-thaw.yml, before anything else can fail
+  ansible.builtin.set_fact:
+    flux_frozen: "{{ not ansible_check_mode }}"
+
+- name: Read it back
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} -n flux-system get gitrepositories.source.toolkit.fluxcd.io flux-system
+    -o jsonpath={.spec.suspend}
+  delegate_to: "{{ kubectl_host }}"
+  register: flux_suspended
+  failed_when: flux_suspended.stdout != 'true'
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Say what's held
+  ansible.builtin.debug:
+    msg: >-
+      Flux {{ 'would be' if ansible_check_mode else 'is' }} held at {{ flux_source.stdout.split('|')[1] }}
+      until the run ends; anything merged meanwhile deploys then.
