@@ -10,6 +10,11 @@ metadata:
 spec:
   instances: 2
   primaryUpdateMethod: switchover
+  # WAL to Garage at least hourly (scripts/tests/test_structure.py,
+  # test_databases_archive_hourly, says why).
+  postgresql:
+    parameters:
+      archive_timeout: 1h
   # Scheduled before ordinary pods when nodes are short (cluster-policy).
   priorityClassName: homelab-critical
   affinity:

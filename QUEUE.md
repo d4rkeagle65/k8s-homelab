@@ -53,11 +53,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   CRM master change at 21:00-23:30); if the NAS still falls behind, run the hosts one after
   another. The workers' old archives stay on `tm-nfs`, since the job no longer prunes them:
   delete them once the owner no longer wants them.
-- **Containers on the first Docker VM can't resolve local names** (found 2026-10-19): the
-  claude-code container's resolver isn't a Pi-hole and forwards to public DNS, which answers
-  NXDOMAIN for anything only the Pi-holes hold (an Ingress hostname, a host's name). Any
-  container there that needs a local name fails the same way; check the others and the Docker
-  daemon's `dns` setting (`ansible/docker-host.yml`, `ansible/tasks/resolver-cache.yml`).
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
   found 2026-10-18): its first load of an author gets every work from Hardcover, but attaches
   them in batches that each start from the pre-refresh snapshot (`getAuthor` serves the
@@ -135,6 +130,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   drives write 40 to 70 GB a day on lifetime average, far more than Prometheus did: once a few
   days of `node_disk_written_bytes_total` and `pve_disk_written_bytes` exist, find the writers
   (etcd, the workers' databases, images and logs, Proxmox's own files) and cut what can be.
+  Found 2026-10-21 (7-day rates): the hosts' guest drives write 40 to 147 GB a day; the guests
+  about 280 of the 470, the rest Proxmox's own. The CloudNativePG instances were the largest,
+  about 4.5 GB a day each from forced 5-minute WAL switches (now hourly, `archive_timeout: 1h`).
+  Left: each control plane writes 26 to 30 GB a day (its kube-apiserver about 5, the rest
+  etcd, which isn't a pod: its metrics come with the etcd scrape below); both Prometheus
+  replicas about 7 each; the first Docker VM 21; and the hosts' own share. Remeasure a week
+  after the archive change.
   Alerts on wear and spare capacity are phase 5 of `QUEUE-monitoring.md`.
 
 - **Kubernetes 1.37, when its patches settle:** `kubernetes_version` in

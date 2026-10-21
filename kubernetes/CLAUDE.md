@@ -29,7 +29,9 @@ the main network (default route) and `eth1` on the management network (no gatewa
 can reach management-only hosts such as dockhand's.
 
 Every CloudNativePG cluster archives WAL and takes a nightly base backup to Garage through the
-Barman Cloud plugin (an `ObjectStore` named `garage` in its namespace). A restore test is a
+Barman Cloud plugin (an `ObjectStore` named `garage` in its namespace), at least hourly
+(`archive_timeout: 1h`; `test_databases_archive_hourly` in `scripts/tests/test_structure.py`
+says why). A restore test is a
 one-instance Cluster recovered from that store in the same namespace, compared table by table
 with the live one; `old-queues/QUEUE-restore-tests.md` has the method. A change to a Cluster's
 spec restarts its instances, and so, separately, does a change to its `ObjectStore`'s
@@ -48,7 +50,8 @@ next reconcile, which takes the annotation away mid-roll and leaves the restart 
   reconciliation loop", and isn't retried once the store appears; annotate it to reconcile.
   `ContinuousArchiving: True` before a pod has the plugin's sidecar proves nothing. A Backup
   says `completed` before its last segment is archived: until `last_archived_wal` reaches its
-  `status.endWal` (up to `archive_timeout`, 5 minutes), recovering from it fails with "could
+  `status.endWal` (up to `archive_timeout`, an hour; `SELECT pg_switch_wal()` on the
+  primary forces it), recovering from it fails with "could
   not locate required checkpoint record". Wait for that before relying on it.
 
 - **Respect what the nodes are: Talos VMs, with two networks.** Calico takes each node's
