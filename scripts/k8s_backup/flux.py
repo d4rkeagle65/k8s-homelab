@@ -79,7 +79,7 @@ def helm_release(
 
 def substitute_from() -> list[dict]:
     """postBuild.substituteFrom entries: the plain settings committed in git,
-    and the private values External Secrets builds from Vaultwarden (see
+    and the private values External Secrets builds from Azure Key Vault (see
     varsub.py). Optional, so a Kustomization doesn't hard-fail if one is
     briefly missing (a new cluster, before External Secrets has synced).
     https://fluxcd.io/flux/components/kustomize/kustomizations/#post-build-variable-substitution

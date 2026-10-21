@@ -1,6 +1,6 @@
 # Plain settings every Flux Kustomization substitutes as variables. Only values
-# that are fine to be public belong here; anything private is a field of the
-# `cluster-secrets` Vaultwarden item instead (kubernetes/secrets/).
+# that are fine to be public belong here; anything private is a Key Vault
+# secret instead, which `cluster-secrets` maps (kubernetes/secrets/).
 apiVersion: v1
 kind: ConfigMap
 metadata:
