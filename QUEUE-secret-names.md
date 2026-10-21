@@ -452,16 +452,19 @@ all ten soft-deleted (kept 90 days by purge protection) and none active, `cluste
 refreshed after and `SecretSynced`, and every ExternalSecret Ready.
 
 **Dockhand stack variables:** the listing of every one at 22:40 EDT on 2026-10-20, after the
-queue had recorded them all deleted, still holds six:
+queue had recorded them all deleted, still holds three that nothing reads:
 
 - semaphore's `TZ` (now `TIMEZONE`, #172), vaultwarden's `VAULTWARDEN_BIND_ADDRESS` (now
   `DOCKER_VM_1_PROD_ADDRESS`, #188) and `BACKUP_ZIP_PASSWORD` (now
-  `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, #195; another value, never deployed): nothing reads them
-- cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's `DOCKER_VM_2_MGMT_ADDRESS` and
-  `DOCKER_VM_2_PROD_ADDRESS`: copies of their `.env`s' references, made by Dockhand's import
-  from `.env` (Populate), which brings them back after each delete. Dockhand reads the `.env`
-  at every deploy without it, and a copy overrides the file, so it would keep an old reference
-  once the `.env` changed: delete them, and don't import
+  `VAULTWARDEN_BACKUP_ZIP_PASSWORD`, #195; another value, never deployed)
+
+It holds three more that stay: cadvisor's `DOCKER_VM_1_MGMT_ADDRESS` and kea-standby's
+`DOCKER_VM_2_MGMT_ADDRESS` and `DOCKER_VM_2_PROD_ADDRESS`, the same references as their `.env`s.
+Dockhand fills a stack's variables from its `.env` on its own (its env editor,
+`previewRepoEnvFiles` in its `git.ts`), so they come back after a delete. Each `.env` checked
+2026-10-21: every variable its compose file reads, as its own `azurekv://` reference to a secret
+Key Vault holds, enabled; blank only claude-code's `REPO_URL` (its default is this repo) and
+netbox's `CONFIG_DIFF_*` (unused)
 
 **Files:**
 
