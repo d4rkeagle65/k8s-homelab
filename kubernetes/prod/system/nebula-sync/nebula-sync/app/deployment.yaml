@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: nebula-sync
-        image: ghcr.io/lovelaze/nebula-sync:v0.11.2
+        image: ghcr.io/lovelaze/nebula-sync:v0.11.3
         env:
         - name: PRIMARY_URL
           value: ${PIHOLE_1_URL}
