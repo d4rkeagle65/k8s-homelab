@@ -185,7 +185,14 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       The Proxmox hosts' node-exporters, down since their reboots that day, start once the
       network is up and retry (`ansible/tasks/host-exporters.yml`, run on every Debian host)
 - [ ] Phase 4
-- [ ] Phase 5
+- [ ] Phase 5. Done: alerts go to Zammad through `zammad-bridge` (a hand-sent warning became
+      a ticket, 2026-10-20); the drives' wear, spare and critical-warning alerts; the
+      TerraMaster's SNMP alert. In PR: `DriveMediaErrorsRising` (NVMe) and `DriveSectorsFailing`
+      (SATA reallocated, pending, uncorrectable) on a count that grew in a day, compared per
+      serial number, since a host's drives swap `nvme0n1`/`nvme1n1` names at a reboot (the
+      fifth host did twice on 2026-10-21); `DriveSMARTUnhealthy`. Left: the control-plane
+      metrics (the scheduler and controller-manager bind 127.0.0.1 on Talos too; etcd and
+      kube-proxy likewise off), and a dead-man's switch outside the cluster (where: the owner)
 - [x] Phase 6 (in phase 1)
 - [ ] Phase 7
 - [ ] Phase 8
