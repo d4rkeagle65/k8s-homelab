@@ -3,7 +3,7 @@ ${VAR} placeholder, which Flux fills from the cluster-secrets Secret with
 the value's base64, as the Secret stores it. Key Vault holds the value
 plain, and cluster-secrets' template encodes it. Until that Secret holds
 exactly those values, capture lists them, plain and with their template
-entries, in the gitignored kubernetes/.local/vaultwarden-pending.yaml and
+entries, in the gitignored kubernetes/.local/keyvault-pending.yaml and
 holds the manifest back -- applying it early would overwrite the real
 Secret with empty (or stale) strings.
 
@@ -251,7 +251,7 @@ def test_capture_keeps_its_cache_and_lists_pending_values(tmp_path, monkeypatch)
     live = ({"data": {"BASE_DOMAIN": _b64("example.org")}}, None)
     _fake_cluster(monkeypatch, live)
     cache = tmp_path / "kubernetes/.local/substitutions-cache.yaml"
-    pending = tmp_path / "kubernetes/.local/vaultwarden-pending.yaml"
+    pending = tmp_path / "kubernetes/.local/keyvault-pending.yaml"
 
     report, _ = capture.run(tmp_path, None, False, False)
     assert any("aren't in cluster-secrets yet (ACME_EMAIL)" in w for w in report.warnings)
@@ -273,6 +273,18 @@ def test_capture_keeps_its_cache_and_lists_pending_values(tmp_path, monkeypatch)
     assert cache.is_file() and not pending.exists()
 
 
+def test_capture_deletes_the_pending_file_under_its_old_name(tmp_path, monkeypatch):
+    # vaultwarden-pending.yaml was its name before; a checkout can still hold one, values and all.
+    _fake_cluster(monkeypatch, ({"data": {"BASE_DOMAIN": _b64("example.org")}}, None))
+    old = tmp_path / "kubernetes/.local/vaultwarden-pending.yaml"
+    old.parent.mkdir(parents=True)
+    old.write_text("- name: ACME_EMAIL\n  value: ops@example.org\n", encoding="utf-8")
+    report, _ = capture.run(tmp_path, None, False, False)
+    assert not old.exists()
+    assert "kubernetes/.local/vaultwarden-pending.yaml" in report.removed
+    assert (tmp_path / "kubernetes/.local/keyvault-pending.yaml").is_file()
+
+
 def test_capture_lists_a_promoted_secrets_values_plain_with_their_template(tmp_path, monkeypatch):
     _mark(tmp_path)
     _fake_cluster(monkeypatch, ({"data": {"BASE_DOMAIN": _b64("example.org"), "ACME_EMAIL": _b64("ops@example.org")}}, None))
@@ -280,7 +292,7 @@ def test_capture_lists_a_promoted_secrets_values_plain_with_their_template(tmp_p
     monkeypatch.setattr(kube, "get_namespace", lambda c, ns: {
         "apiVersion": "v1", "kind": "Namespace", "metadata": {"name": ns, "labels": {layout.CATEGORY_LABEL: "system"}}})
     capture.run(tmp_path, None, False, False)
-    rows = _yaml.load((tmp_path / "kubernetes/.local/vaultwarden-pending.yaml").read_text())
+    rows = _yaml.load((tmp_path / "kubernetes/.local/keyvault-pending.yaml").read_text())
     assert {r["name"]: (r["value"], r.get("template")) for r in rows} == {
         "NOIP_DUC_CREDENTIALS_NOIP_PASSWORD": ("pw-" + "one", "{{ .NOIP_DUC_CREDENTIALS_NOIP_PASSWORD | b64enc }}"),
         "NOIP_DUC_CREDENTIALS_NOIP_USERNAME": ("someone", "{{ .NOIP_DUC_CREDENTIALS_NOIP_USERNAME | b64enc }}"),

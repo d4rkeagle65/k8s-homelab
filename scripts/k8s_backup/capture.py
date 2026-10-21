@@ -111,7 +111,7 @@ def run(root: Path, context: str | None, dry_run: bool, verbose: bool) -> tuple[
         names = ", ".join(sorted(varsub._var_name(e["placeholder"]) for e in pending))
         warnings.append(
             f"{len(pending)} private value(s) aren't in cluster-secrets yet ({names}): add each to Key Vault "
-            "exactly as kubernetes/.local/vaultwarden-pending.yaml lists it, plain but for a value that isn't "
+            "exactly as kubernetes/.local/keyvault-pending.yaml lists it, plain but for a value that isn't "
             "text, and map a new one in kubernetes/secrets/cluster-secrets.yaml with the template entry its "
             "row gives (scripts/README.md, \"A new private value\")."
         )
@@ -806,7 +806,7 @@ def _write_promoted_release(
                 warnings.append(
                     f"{rel}/app/{filename}: not written yet -- the live '{varsub.SECRETS_SECRET_NAME}' "
                     "Secret in flux-system doesn't hold its values. Add them to Key Vault (see "
-                    "kubernetes/.local/vaultwarden-pending.yaml), then re-run capture once it has synced."
+                    "kubernetes/.local/keyvault-pending.yaml), then re-run capture once it has synced."
                 )
     if not docs:
         warnings.append(f"{rel}: marked {PROMOTE_MARKER}, but namespace '{ns}' has nothing to promote")
