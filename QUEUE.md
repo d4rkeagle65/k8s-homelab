@@ -162,6 +162,9 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **`dockhand_variables.json` is still in the owner's Downloads** (2026-10-21): the listing of
+  every Dockhand stack variable, names and SHA-256s of their values. Delete it: a short
+  password's hash can be guessed.
 - **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
   plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
   DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected
@@ -223,6 +226,25 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   they hold disk space on the workers.
 
 ## Later
+
+- **A new private value's first promotion is #189's live check** (`scripts/promote.py`,
+  `varsub.pending_rows`): the next Secret capture promotes should list its row in
+  `kubernetes/.local/vaultwarden-pending.yaml` plain, with its `template` entry, and its
+  manifest be written once the value is in Key Vault and mapped with that entry. A row still
+  base64 for a value that is text means capture's `secret_data` mark didn't reach
+  `varsub.pending_rows`. Left, a new value can go into Key Vault base64 and reach its app
+  encoded twice.
+- **`scripts/keyvault-secrets.ps1`'s first real runs are #193's live check**, since it was
+  proved only on a mock vault and a fake kubectl: a listing with no `NEEDS b64enc`, then a set
+  read back by hash and synced. Left, a fault in it shows only when a value is set for real.
+- **A promoted Secret's value that isn't text has no supported form**: Key Vault holds only
+  text, and `scripts/tests/test_structure.py`'s `test_every_substituted_variable_is_defined`
+  refuses a Secret's variable without its `{{ .NAME | b64enc }}` template entry (capture's
+  pending note says so). None exists today. One route, untried: Key Vault holds its base64,
+  and its `cluster-secrets.yaml` entry adds `decodingStrategy: Base64` to `remoteRef`, so the
+  usual template line gives the Secret that base64 back; the structure test's
+  `remoteRef == {key: ...}` check and `keyvault-secrets.ps1`'s listing would need to allow it.
+  Left, the first such Secret can't be promoted.
 
 - **Lidarr back to stable tags** (from 2026-10-18 it runs the nightly channel, pinned, for
   qBittorrent's API key; Renovate's `linuxserver/lidarr` rule follows nightlies only): once a
@@ -329,8 +351,7 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
-- [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 65%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
-- [QUEUE-secret-names.md](QUEUE-secret-names.md) (about 10%): one naming standard for Key Vault's secrets, and one secret wherever the cluster and Dockhand touch the same thing.
+- [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 75%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
 - [QUEUE-mariadb.md](QUEUE-mariadb.md) (about 90%): MariaDB through mariadb-operator; Grimmory and Youtarr on it, backed up without a script. Left: Grimmory's old database removed, and point-in-time recovery on a later operator release.
 - [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
