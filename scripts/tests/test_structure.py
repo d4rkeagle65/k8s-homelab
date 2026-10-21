@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from ruamel.yaml import YAML
+from ruamel.yaml.error import YAMLError
 from k8s_backup import derived, layout
 from k8s_backup.ownership import handwritten_protected_paths, is_handwritten, is_promoted
 
@@ -685,6 +686,76 @@ def test_cluster_secrets_maps_each_variable_once(repo_root, load_yaml):
     assert keys, "cluster-secrets.yaml maps no variables"
     twice = sorted({k for k in keys if keys.count(k) > 1})
     assert not twice, f"mapped more than once in kubernetes/secrets/cluster-secrets.yaml: {twice}"
+
+
+def _variable_uses(text: str) -> tuple[set[str], set[str]]:
+    """(the ${VAR}s a Secret's data: reads, the ${VAR}s read anywhere else) in one YAML file,
+    from its parsed documents: a comment naming one is no use, since kustomize drops it before
+    Flux substitutes. A Secret nested in another object (a chart's values) counts too. A file
+    that isn't plain YAML (an app's config a generator reads, with its own tags) is read as
+    text, every variable in it read elsewhere."""
+    try:
+        docs = list(_yaml.load_all(text))
+    except YAMLError:
+        return set(), set(_VARIABLE_RE.findall(text))
+    in_data: set[str] = set()
+    elsewhere: set[str] = set()
+
+    def visit(node, found: set[str]) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                visit(key, found)
+                secret_data = key == "data" and node.get("kind") == "Secret" and isinstance(value, dict)
+                visit(value, in_data if secret_data else found)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value, found)
+        elif isinstance(node, str):
+            found.update(_VARIABLE_RE.findall(node))
+
+    for doc in docs:
+        visit(doc, elsewhere)
+    return in_data, elsewhere
+
+
+def test_cluster_secrets_encodes_what_a_secrets_data_reads(repo_root, load_yaml):
+    """Key Vault holds every value plain, and a Secret's data: takes base64, so cluster-secrets'
+    template encodes each variable a Secret's data: reads, as exactly {{ .NAME | b64enc }}.
+    Without that entry the Secret gets the plain value where base64 belongs: the API server
+    refuses it, or, where it happens to decode, the app gets a wrong value. With it, every file
+    using the variable gets base64, so an encoded variable is read only by a Secret's data:.
+    """
+    sample = ("kind: Secret\ndata:\n  a: ${A}\nstringData:\n  b: ${B}\n---\n"
+              "kind: HelmRelease\nspec:\n  values:\n    extra:\n      - kind: Secret\n        data:\n          c: x${C}\n"
+              "---\nkind: ConfigMap\ndata:\n  d: ${D}  # ${E}\n  f: $${F}\n")
+    assert _variable_uses(sample) == ({"A", "C"}, {"B", "D"})
+    assert _variable_uses("packages: !include_dir_named packages\nkey: ${G}\n") == (set(), {"G"})
+
+    external = load_yaml(repo_root / "kubernetes/secrets/cluster-secrets.yaml")
+    mapped = {d["secretKey"] for d in external["spec"]["data"]}
+    template = (external["spec"]["target"].get("template") or {}).get("data") or {}
+    encoded = {name for name, text in template.items() if name in mapped and text == f"{{{{ .{name} | b64enc }}}}"}
+
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes/*.yaml"], cwd=repo_root,
+                             capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    in_data: dict[str, set[str]] = {}
+    elsewhere: dict[str, set[str]] = {}
+    for rel in filter(None, tracked):
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        if "${" not in text:
+            continue
+        data_vars, other_vars = _variable_uses(text)
+        for name in data_vars:
+            in_data.setdefault(name, set()).add(rel)
+        for name in other_vars:
+            elsewhere.setdefault(name, set()).add(rel)
+    assert in_data, "no Secret's data: reads a variable, so nothing was checked"
+    unencoded = {name: sorted(paths)[:3] for name, paths in in_data.items() if name in mapped and name not in encoded}
+    assert not unencoded, (
+        f"read by a Secret's data: but not encoded by cluster-secrets' template, which needs "
+        f"NAME: \"{{{{ .NAME | b64enc }}}}\" for each: {unencoded}")
+    misread = {name: sorted(paths)[:3] for name, paths in elsewhere.items() if name in encoded}
+    assert not misread, f"encoded by cluster-secrets' template, so these files get base64, not the value: {misread}"
 
 
 _PRIORITY_RE = re.compile(r"(?m)^\s*priorityClassName:\s*[\"']?([A-Za-z0-9.-]+)[\"']?\s*(?:#.*)?$")

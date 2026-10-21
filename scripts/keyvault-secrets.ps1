@@ -12,14 +12,14 @@ With no -Name, outputs one object per variable (never the values), with:
   Name          the variable's name. For a Key Vault secret the ExternalSecret
                 doesn't map, its name with "-" turned back into "_".
   KeyVaultName  its secret's name in Key Vault.
-  Encoding      the form Key Vault should hold the value in. base64 when the
-                variable is used in a Secret's `data:` (Flux substitutes it as
-                is, so the secret must hold the base64 form), plain when used
-                elsewhere, empty when nothing uses it. plain (b64enc) when the
-                cluster-secrets template encodes it, as exactly
-                {{ .NAME | b64enc }}: Key Vault holds it plain and the Secret
-                base64. UNKNOWN (template) when the template builds it any
-                other way.
+  Encoding      how the variable reaches what uses it. Key Vault holds every
+                value plain. plain (b64enc) when the cluster-secrets template
+                encodes it, as exactly {{ .NAME | b64enc }}, for a Secret's
+                `data:`, which takes base64; plain when only other files use
+                it; empty when nothing uses it. NEEDS b64enc when a Secret's
+                `data:` uses it and the template doesn't encode it: add
+                NAME: "{{ .NAME | b64enc }}" to the template. UNKNOWN
+                (template) when the template builds it any other way.
   Synced        yes when the ExternalSecret maps it and Key Vault holds it; no
                 when Key Vault holds it but the ExternalSecret doesn't map it
                 (so it never reaches the cluster); DISABLED when Key Vault holds
@@ -32,21 +32,20 @@ any other objects.
 
 With -Name (a variable's name, with "_"), sets its secret. The value is asked
 for without echoing it (or taken from -Value, which leaves it in your shell
-history), base64-encoded when Key Vault holds the variable base64 (Encoding),
-then written as a new version of the secret and read back, compared by SHA-256.
-The script then force-syncs the ExternalSecret, waits for the cluster-secrets
-Secret to hold the new value, and prints the Flux reconcile commands to run.
+history), then written exactly as given as a new version of the secret and
+read back, compared by SHA-256. The script then force-syncs the ExternalSecret,
+waits for the cluster-secrets Secret to hold the new value, and prints the Flux
+reconcile commands to run.
 
 With -Name and -Get, outputs the secret's current value instead, the only
-path that shows one: decoded from base64 when Key Vault holds the variable
-base64 (-Raw gives the form Key Vault holds), as a string, so it can go to a
+path that shows one, as Key Vault holds it and as a string, so it can go to a
 variable or Set-Clipboard rather than the screen.
 
 A variable whose Encoding is UNKNOWN (template) is set or read only with -Raw.
-
--New, which adds a secret, runs only with -Raw: Key Vault holds a new value
-plain, and the cluster-secrets template encodes one a Secret's data: reads
-({{ .NAME | b64enc }}, scripts/README.md's "A new private value").
+One the ExternalSecret maps whose Encoding is NEEDS b64enc is never set: the
+cluster would get the plain value where base64 belongs, so its template entry
+comes first. -New, which adds a secret, runs only with -Raw (scripts/README.md's
+"A new private value").
 
 It signs in as the Azure CLI's current account (az login), which needs "Key
 Vault Secrets Officer" on the vault to set a secret, or "Key Vault Secrets
@@ -86,8 +85,8 @@ param(
     [string]$Value,
     # Output the secret's current value instead of setting it.
     [switch]$Get,
-    # Store the value exactly as given, even for a variable used in a Secret;
-    # with -Get, output it as Key Vault holds it, without decoding.
+    # Set or read a variable the cluster-secrets template builds other than as
+    # {{ .NAME | b64enc }}, whose form isn't known. -New needs it too.
     [switch]$Raw,
     # Allow adding a secret that doesn't exist yet; only with -Raw. It also needs
     # an entry in kubernetes/secrets/cluster-secrets.yaml before it reaches the cluster.
@@ -100,9 +99,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
 
-# Without -Raw, a new value a Secret's data: in this checkout reads would go in base64,
-# and its {{ .NAME | b64enc }} template entry would then encode it twice. Checked before
-# anything is read, so a refused run touches nothing.
+# Adding a secret states that it goes in exactly as given. Checked before anything is
+# read, so a refused run touches nothing.
 if ($New -and -not $Raw -and -not $Get) {
     throw "-New needs -Raw: Key Vault holds a new value plain, as given, and cluster-secrets' template encodes it where a Secret's data: reads it."
 }
@@ -268,7 +266,7 @@ if (-not $Name) {
             KeyVaultName = $secretName
             Encoding     = if ($templated[$variable] -eq 'b64enc') { 'plain (b64enc)' }
                            elseif ($templated[$variable]) { 'UNKNOWN (template)' }
-                           elseif (-not $files) { '' } elseif ($files.Values -contains $true) { 'base64' } else { 'plain' }
+                           elseif (-not $files) { '' } elseif ($files.Values -contains $true) { 'NEEDS b64enc' } else { 'plain' }
             Synced       = $synced
             UsedBy       = [string[]]@(if ($files) { $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique })
         }
@@ -293,16 +291,28 @@ if ($secretName -notmatch '^[A-Za-z0-9-]{1,127}$') { throw "$secretName isn't a 
 
 $files = $usage[$Name]
 $inSecret = $files -and ($files.Values -contains $true)
+$plainUses = @(if ($files) { $files.Keys | Where-Object { -not $files[$_] } | Sort-Object })
 $encodes = $templated[$Name]
 if ($encodes -eq 'other' -and -not $Raw) {
     throw "cluster-secrets' template builds $Name other than as {{ .$Name | b64enc }}, so the form Key Vault should hold it in isn't known. -Raw sets or reads it as Key Vault holds it."
 }
-if ($encodes -eq 'b64enc' -and $files -and ($files.Values -contains $false)) {
-    Write-Warning "cluster-secrets' template encodes $Name, so the files that use it outside a Secret's data get base64: $(@($files.Keys | Where-Object { -not $files[$_] }) -join ', ')"
+# Key Vault holds every value plain. A Secret's data: takes base64, which only the
+# template's {{ .NAME | b64enc }} entry gives it, and that entry gives every other file
+# using the variable base64 too.
+$needsEntry = $inSecret -and -not $encodes
+if ($encodes -eq 'b64enc' -and $plainUses) {
+    Write-Warning "cluster-secrets' template encodes $Name, so the files that use it outside a Secret's data get base64: $($plainUses -join ', ')"
 }
-# Key Vault holds base64 where a Secret's data uses the variable and the template doesn't
-# encode it.
-$heldBase64 = $inSecret -and -not $encodes
+elseif ($needsEntry -and $plainUses) {
+    Write-Warning "A Secret's data: uses $Name, so cluster-secrets' template is to encode it, and then the files that use it outside a Secret's data get base64 too: $($plainUses -join ', ')"
+}
+# Once mapped, a value set now would reach that Secret plain. The template read is the
+# live one, so an entry merged but not yet applied by Flux doesn't count.
+if ($needsEntry -and $mapped.Contains($Name)) {
+    $missing = "A Secret's data: uses $Name, but cluster-secrets' template doesn't encode it, so the cluster gets the plain value where base64 belongs. Add $Name`: `"{{ .$Name | b64enc }}`" to its template in kubernetes/secrets/cluster-secrets.yaml first; if that's merged, wait for Flux to apply cluster-secrets."
+    if (-not $Get) { throw $missing }
+    Write-Warning $missing
+}
 
 if ($Get) {
     if ($PSBoundParameters.ContainsKey('Value') -or $New -or $NoSync) { throw '-Get only reads: leave out -Value, -New and -NoSync.' }
@@ -310,22 +320,9 @@ if ($Get) {
     if ($current.Status -eq 404) { throw "Key Vault has no secret named $secretName." }
     # A disabled secret's read is refused (403), so it lands here too.
     if ($current.Status -ne 200) { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
-    $held = [string]$current.Body.value
-    if (-not $heldBase64 -or $Raw) { return $held }
-    if ($files.Values -contains $false) {
-        Write-Warning "$Name is used both in a Secret's data (base64) and elsewhere (plain); this is the value as Key Vault holds it, not decoded."
-        return $held
-    }
-    try { return ([Text.UTF8Encoding]::new($false, $true)).GetString([Convert]::FromBase64String($held)) }
-    catch {
-        Write-Warning "$secretName should hold base64 (a Secret's data: uses $Name), but doesn't decode to text; this is the value as Key Vault holds it."
-        return $held
-    }
+    return [string]$current.Body.value
 }
 
-if ($heldBase64 -and ($files.Values -contains $false) -and -not $Raw) {
-    throw "$Name is used both in a Secret's data (base64) and elsewhere (plain), so no one value fits both. Files: $($files.Keys -join ', ')"
-}
 if (-not $files) { Write-Warning "Nothing under kubernetes/ uses `${$Name}` in this checkout." }
 
 # Its current value, by hash only. A read Key Vault refuses stops the run: it
@@ -348,27 +345,26 @@ if (-not $PSBoundParameters.ContainsKey('Value')) {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
 }
 if ($Value -eq '') { throw 'Empty value; nothing changed.' }
-$stored = if ($heldBase64 -and -not $Raw) { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Value)) } else { $Value }
-$how = if ($stored -ne $Value) { ' (base64-encoded)' } else { '' }
 
-if ($currentHash -eq (Get-Sha256 $stored)) {
-    Write-Host "$secretName already holds that value$how; nothing written."
+if ($currentHash -eq (Get-Sha256 $Value)) {
+    Write-Host "$secretName already holds that value; nothing written."
 }
 else {
-    $put = Invoke-KeyVault PUT (Get-SecretUrl $secretName) @{ value = $stored; tags = @{ source = 'cluster-secrets' } }
+    $put = Invoke-KeyVault PUT (Get-SecretUrl $secretName) @{ value = $Value; tags = @{ source = 'cluster-secrets' } }
     if ($put.Status -eq 409 -and (Get-ErrorCode $put) -eq 'Conflict') {
         throw "$secretName is deleted but recoverable: recover or purge it in Key Vault first."
     }
     if ($put.Status -ne 200) { throw "Key Vault refused to set $secretName`: HTTP $($put.Status) $(Get-ErrorCode $put)" }
     $back = Invoke-KeyVault GET (Get-SecretUrl $secretName) $null
-    if ($back.Status -ne 200 -or (Get-Sha256 $back.Body.value) -ne (Get-Sha256 $stored)) {
+    if ($back.Status -ne 200 -or (Get-Sha256 $back.Body.value) -ne (Get-Sha256 $Value)) {
         throw "Read back, $secretName doesn't hold the value just set (HTTP $($back.Status)): check it in Key Vault."
     }
-    Write-Host "$(if ($null -eq $currentHash) { 'Added' } else { 'Updated' }) $secretName for $Name$how, read back."
+    Write-Host "$(if ($null -eq $currentHash) { 'Added' } else { 'Updated' }) $secretName for $Name, read back."
 }
 
 if (-not $mapped.Contains($Name)) {
-    Write-Warning "The ExternalSecret doesn't map $Name yet. Add it to kubernetes/secrets/cluster-secrets.yaml (remoteRef key $secretName) and merge that before anything uses it."
+    $entry = if ($needsEntry) { ", with $Name`: `"{{ .$Name | b64enc }}`" in its template since a Secret's data: uses it," } else { '' }
+    Write-Warning "The ExternalSecret doesn't map $Name yet. Add it to kubernetes/secrets/cluster-secrets.yaml (remoteRef key $secretName)$entry and merge that before anything uses it."
     return
 }
 if (-not $NoSync) {
@@ -378,7 +374,7 @@ if (-not $NoSync) {
     }
     else {
         # The Secret's value is what Key Vault holds, encoded once more where the template encodes it.
-        $inCluster = if ($encodes) { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($stored)) } else { $stored }
+        $inCluster = if ($encodes) { [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Value)) } else { $Value }
         $want = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($inCluster))
         $deadline = (Get-Date).AddSeconds(60)
         do {

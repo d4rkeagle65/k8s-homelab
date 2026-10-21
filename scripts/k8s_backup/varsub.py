@@ -362,7 +362,8 @@ def pending_rows(entries: list[dict]) -> list[dict]:
         if e.get("secret_data"):
             plain = _decoded_text(e["literal"])
             if plain is None:
-                note += "; not text, so Key Vault holds it base64, as given here, with no template entry"
+                note += ("; not text, so Key Vault can't hold it plain, and the structure test refuses it "
+                         "without a template entry: it has no supported form yet (scripts/README.md)")
             else:
                 row["value"] = plain
                 row["template"] = f"{{{{ .{name} | b64enc }}}}"
