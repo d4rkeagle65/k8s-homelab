@@ -94,12 +94,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
   defaults, read each Job and CronJob template in the namespaces (and their past peaks in
   Prometheus), not only the running pods.
-- **Containers still without health probes** (2026-10-16): NetBox's worker on the Docker VM
-  (no port: an exec probe on the rq worker, in `docker/netbox/compose.yaml`). n8n's task
-  runners (the launcher's `/healthz` on 5680) and External Secrets' controller (its chart's
-  probes) got theirs; cert-manager's cainjector has no health endpoint (its 1.21 chart offers
-  no probe); the config-reloader and dashboard sidecars, Calico, kube-proxy, Authentik's
-  outposts and the tunnel connector belong to their charts and operators.
 - **Pod Security: `restricted` for the rest.** `pod-security.kubernetes.io/enforce` in each
   `namespace.yaml`: 14 namespaces enforce `restricted` (cert-manager, cluster-access,
   cnpg-system, external-dns, external-secrets, external-services, headlamp, kea, nebula-sync,
