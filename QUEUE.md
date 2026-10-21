@@ -18,10 +18,10 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 - **Homepage's Dockhand login is Dockhand's admin** (`DOCKHAND_HOMEPAGE_USERNAME`/`_PASSWORD`,
   `services/homepage/`): Dockhand drives Docker through its socket, so its admin is root on the
-  Docker host, and Homepage holds the password. Make a limited Dockhand user for the widget and
-  put it in those two fields.
-- **Sonarr: "Ms Rachel (2025)" was removed from TheTVDB** (its health page, 2026-10-19):
-  re-point it to the new entry or remove it, or it stays an error and gets no updates.
+  Docker host, and Homepage holds the password. A limited Dockhand user needs a paid license
+  (role-based access, the owner, 2026-10-21). Recommended: drop the Dockhand widget and give
+  Homepage the containers' state from a read-only Docker socket proxy on each host (containers
+  only, no POST); or keep it and accept that whoever reads Homepage's secret has the host.
 7. **Docker's live-restore, then Docker upgrades from Semaphore:** built 2026-10-16 in
    `ansible/docker-vm-update.yml`, both off until set (its header says what each does). The
    owner sets `docker_live_restore: true` on "Node: Docker Update" and runs it; then
