@@ -27,11 +27,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   runs on the first Docker VM only. The TerraMaster (Garage's card) and the second VM
   (kea-standby) would each need the stack with their own address variable, and a server in
   Homepage's `docker.yaml`; left, those cards show no container state.
-- **mariadb-operator's webhook is one pod** (found 2026-10-21): draining its node fails every
-  MariaDB reconcile ("failed calling webhook vmariadb-v1alpha1.kb.io", Ready=False Failed) until
-  the replacement is ready, about 30 s in task 992. Two replicas with a PodDisruptionBudget, if
-  the chart allows, or the drain waits it out. `mariadb-free-node.yml` patches before the drain,
-  so its switchover fails only if an earlier drain left the webhook rescheduling.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
