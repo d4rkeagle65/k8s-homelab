@@ -62,6 +62,13 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   between-hosts health check waits for every MariaDB to be Ready too; switch the primary off a
   node before draining it; and the capacity check counts the recovery Job's room on the
   replica's node, or the run would deadlock the same way.
+  After that, the rebuild stalls for good: the Pending Job was gone by 06:44 while the
+  `grimmory-db-pb-recovery` PhysicalBackup still read `Scheduled` (Complete=False,
+  JobNotComplete), so the operator never made another one, and `grimmory-db-1` sat in
+  CrashLoopBackOff with the cluster `Recovering replicas`. Deleting that PhysicalBackup (the
+  MariaDB owns it) should make the operator start a fresh one. Also wanted: an alert for a
+  MariaDB not Ready for over an hour, or for a PhysicalBackup `Scheduled` with no Job, since
+  nothing reported this one.
 - **mariadb-operator's webhook is one pod** (found 2026-10-21): draining its node fails every
   MariaDB reconcile ("failed calling webhook vmariadb-v1alpha1.kb.io", Ready=False Failed) until
   the replacement is ready, about 30 s in task 992. Two replicas with a PodDisruptionBudget, if
