@@ -61,6 +61,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 | Phase 2 | a Garage bucket `loki-logs` and its key (`LOKI_S3_ACCESS_KEY_ID`, `LOKI_S3_SECRET_ACCESS_KEY`) | present (2026-10-10) |
 | Phase 3 | a read-only Proxmox token for the exporter (`PVEAuditor`); SNMP on, read-only, on both NASes | present (2026-10-10) |
 | Phase 5 | where alerts go | Zammad tickets through `zammad-bridge` (the owner, 2026-10-20; Alertmanager already routes warning and critical there) |
+| Phase 5 | the dead-man's switch: a Healthchecks.io check (period 5 minutes, grace 10), its ping URL as `HEALTHCHECKS_WATCHDOG_URL` | present (2026-10-21) |
 | Phase 9 | a read-only Garage key `backup-monitor` (read on `cnpg-backups`, `docker-backups` and `mariadb-backups`) as `GARAGE_BACKUP_MONITOR_S3_ACCESS_KEY_ID` and `GARAGE_BACKUP_MONITOR_S3_SECRET_ACCESS_KEY` | present (2026-10-20) |
 | Phase 9 | how the Synology copies to the TerraMaster (Hyper Backup, rsync, Snapshot Replication, or a pull), its folder there, and whether a Proxmox host or SSH reaches it | asked 2026-10-18 |
 
