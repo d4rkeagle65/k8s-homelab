@@ -55,8 +55,10 @@ continue what you can."
   output (not git) can't practically be cracked; rotating would cost a Grimmory restart.
 - **#258 (database placement rule) restarts every database once:** when to merge; then a
   go-ahead to move about eight replicas, one at a time.
-- **Pod Security:** 14 namespaces enforce `restricted`, 21 `baseline` (live, 2026-10-21). Keep
-  the 21 on `baseline` (drop the `QUEUE.md` entry), or raise them one app at a time?
+- ~~**Pod Security:** 14 namespaces enforce `restricted`, 21 `baseline`.~~ Split (the owner,
+  2026-10-22): elastic-system, mesh-mini and zammad to `restricted` (they lacked only seccomp
+  and dropped capabilities), PR #303; the other 18 stay `baseline` by decision (their images
+  would have to run as non-root, app by app). Left in `QUEUE.md`: the merge and read-back.
 - **#260 (Dockhand backup):** `DOCKHAND-BACKUP-ZIP-PASSWORD` in Key Vault, then the stack in
   Dockhand, and its ID for the webhook.
 - **The old Grimmory dump folder on the Synology**: delete it.
@@ -76,8 +78,8 @@ continue what you can."
 - **The eight Released `local-db` PVs and their folders** from the replica moves (R): delete
   them (the PVs by `kubectl delete pv`, the folders as in the earlier cleanup), each database
   being healthy on its rebuilt replica.
-- **Pod Security for the remaining 21 namespaces** stays a decision (the owner said it was
-  done; 21 still enforce `baseline` live).
+- ~~**Pod Security for the remaining 21 namespaces**~~: decided above (three raised, #303; 18
+  stay `baseline`).
 - **The workers' old vzdump archives on `tm-nfs`**, and the retired Dockhand stacks' leftovers
   on VM1: delete them.
 
