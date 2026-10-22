@@ -27,7 +27,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 - **Delete two orphan iSCSI LUNs on the Synology** (found 2026-10-22): `k8s-pvc-b71edef3-...`
   from the 2026-10-14 `iscsi-move-test7` claim, and `k8s-pvc-9afd3fcf-...`, Zammad's first
-  Elasticsearch volume (`QUEUE-zammad.md`). Neither has a PV any more; delete each LUN and its
+  Elasticsearch volume (`old-queues/QUEUE-zammad.md`). Neither has a PV any more; delete each LUN and its
   target in DSM's SAN Manager. Left, they hold NAS space nothing reads.
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
@@ -283,7 +283,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (about 75%): Kea's reservations on CloudNativePG, then a hot-standby partner.
 - [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 85%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
-- [QUEUE-zammad.md](QUEUE-zammad.md) (about 80%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 

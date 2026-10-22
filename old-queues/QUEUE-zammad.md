@@ -73,7 +73,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
 - [x] Mail out: Zammad's notifications go through `smtp-oauth-relay` as the shared mailbox
       (its Notification Sender, `M365_SHARED_MAILBOX_ADDRESS`), read back as sent in the relay's
       log 2026-10-22; its default sender, `noreply@` its own hostname, was refused by Graph
-- [ ] Mail in: an incoming channel, if tickets by email are wanted (the owner's call)
+- [x] Mail in: not wanted for now (the owner, 2026-10-22). If it is later: Zammad 7.2's
+      "Microsoft 365 Graph Email" channel on the shared mailbox (an Entra app with the delegated
+      Mail.ReadWrite(.Shared) and Mail.Send(.Shared) permissions; the signing-in user given Full
+      Access and Send As on the mailbox; Zammad's own sending address left unchanged)
 - [x] Elasticsearch through the ECK operator (2026-10-16): zammad-init-8 rebuilt the index in
       3 minutes; a search through it finds the open drive-wear ticket. Health is yellow, as one
       node can't hold its indices' replicas. How it got there:
