@@ -126,7 +126,7 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
       Users group left unchecked by the owner's call); the job is in `old-queues/QUEUE-organizr.md`
 - [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address
       (2026-10-16, through the bitwarden-cli pod; checked in Grimmory's sync Secret)
-- [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), the second Pi-hole on the DMZ's static clients, the TerraMaster SNMP bug
+- [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), the TerraMaster SNMP bug
       reported
 
 ## Resuming

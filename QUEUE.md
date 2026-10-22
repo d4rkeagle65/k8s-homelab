@@ -284,9 +284,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   from `a0fc448` (2026-10-08) until `tests/test-identifying-data.py` caught them. The tree is
   clean; every clone and GitHub's history still have them. Private addresses, so low risk;
   rewriting history (as was done before) is the owner's call, and a no keeps them there.
-- **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
-  static clients still list only Pi-hole 1's DMZ address and lose DNS while Pi-hole 1's host
-  reboots. Add Pi-hole 2's DMZ address (NetBox has both) on each by hand.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
