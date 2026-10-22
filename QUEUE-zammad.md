@@ -57,7 +57,7 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       `jsons://<the bridge's host>/dockhand/<token>` (Settings > Notifications) carries them; a container's failure is a ticket only for a stack's container that didn't exit 0, read
       from each Docker host's socket proxy (`DOCKER_HOSTS`, 2026-10-22): Databasus's restore
       checks (ticket 324) and the init containers' normal exits open nothing
-- [ ] Semaphore's and Databasus's alerts into tickets (2026-10-22): the bridge's
+- [x] Semaphore's and Databasus's alerts into tickets (2026-10-22): the bridge's
       `/semaphore/<token>` (Semaphore's Slack format: a task's error opens a ticket for its
       template, its next success closes it; a wait for confirmation opens nothing) and
       `/databasus/<token>` (its Webhook notifier's heading and message: a failed backup,
@@ -67,9 +67,9 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       Semaphore's stack builds `SEMAPHORE_SLACK_URL` from Key Vault's `SEMAPHORE-ALERT-TOKEN`.
       Live 2026-10-22 (#326): the owner turned on the project's Alert and set the Webhook
       notifier on every database; Databasus's test made ticket 323 ("Databasus test") and a
-      successful task reached the bridge ("no open tickets found"). Left: a real failed task,
-      then its template's success, read back as one ticket opened and closed; tickets 323 (the
-      test) and 324 (a restore check's container) closed by hand (the owner)
+      successful task reached the bridge ("no open tickets found"); the owner's failed task
+      1236 opened ticket 325 ("Semaphore Setting: Pi-Hole"), and the template's next success
+      (1237, check mode) closed it
 - [x] Mail out: Zammad's notifications go through `smtp-oauth-relay` as the shared mailbox
       (its Notification Sender, `M365_SHARED_MAILBOX_ADDRESS`), read back as sent in the relay's
       log 2026-10-22; its default sender, `noreply@` its own hostname, was refused by Graph
@@ -86,11 +86,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       `QUEUE.md`'s orphan LUNs item
 - [x] `zammad-cronjob-reindex` has room (checked 2026-10-16): its container takes the init job's
       database step's settings, so its 1.5 GiB (live: 1536Mi)
-- [ ] Resources re-measured after a week (`QUEUE-resource-limits.md`'s rules); its database
-      added to the restore tests' method. The restore test is done (2026-10-21,
-      `old-queues/QUEUE-restore-tests-pg18.md`, 131 tables); the 2026-10-18 re-measure had 4.2
-      days. Left: the full week, in `QUEUE-resource-limits.md`'s recheck (Zammad's first week
-      ends 2026-10-23)
+- [x] Resources re-measured after a week; its database added to the restore tests' method.
+      The restore test is done (2026-10-21, `old-queues/QUEUE-restore-tests-pg18.md`, 131
+      tables); the full-week re-measure is `QUEUE-resource-limits.md`'s recheck, which covers
+      Zammad with every other app (its first week ends 2026-10-23)
 
 ## Resuming
 
