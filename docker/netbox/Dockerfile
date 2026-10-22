@@ -3,7 +3,7 @@
 # registry has it. The base image reads every .py in /etc/netbox/config, so
 # plugins.py and sso.py are added beside its own configuration.py, and
 # logging.py replaces its commented-out one.
-FROM ghcr.io/netbox-community/netbox:v4.7.2
+FROM ghcr.io/netbox-community/netbox:v4.7.3
 COPY plugin_requirements.txt /opt/netbox/
 RUN VIRTUAL_ENV=/opt/netbox/venv /usr/local/bin/uv pip install --no-cache -r /opt/netbox/plugin_requirements.txt
 # Topology Views' role-icon serializer breaks the change-log API; the script says why, and

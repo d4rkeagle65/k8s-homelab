@@ -182,9 +182,9 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   `/api/core/object-changes/` answers 500 at the page holding one, "Could not determine
   serializer for dcim.PortTemplateMapping" (NetBox 4.7.2-Docker-5.1.1: the model has no API
   serializer). That's NetBox's own: issue 23280, fixed in NetBox 4.7.3 (2026-10-13; the image
-  `ghcr.io/netbox-community/netbox:v4.7.3` is published, checked 2026-10-22). Left: a pull
-  request moving `docker/netbox/Dockerfile`'s `FROM` from `v4.7.2` to `v4.7.3`, the redeploy
-  its webhook starts, then every page of `/api/core/object-changes/` answering 200.
+  `ghcr.io/netbox-community/netbox:v4.7.3` is published, checked 2026-10-22); the image now
+  builds on it. Left: the redeploy the merge's webhook starts, then every page of
+  `/api/core/object-changes/` answering 200.
   `?fields=` without `changed_object` works meanwhile. Left, a script reading the change log
   by API fails until housekeeping drops those rows. Also report the plugin's two faults
   upstream (the text is in #266).
