@@ -165,11 +165,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   monitoring stack's own change), or Calico's native v3 CRDs, which retire the aggregated API
   server (preview since Calico 3.32; this is 3.33.0), a Calico change for the owner to choose.
   Left as is, the lines fill the Logs dashboard's error table and hide real errors there.
-- **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
-  delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
-  nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
-  by `grimmory-db`'s physical backups). Left, 14 days of stale dumps take NAS space.
-
 - **Delete the Released `local-db` volumes the replica moves left** (2026-10-22): eight replicas
   were rebuilt off the two crowded workers (instances now 8, 7, 8 and 8 per worker), each
   leaving its old PV Released and its folder under `/var/mnt/local-db` on the old worker
