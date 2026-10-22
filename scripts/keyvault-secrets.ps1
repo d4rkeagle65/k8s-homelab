@@ -20,12 +20,15 @@ With no -Name, outputs one object per variable (never the values), with:
                 `data:` uses it and the template doesn't encode it: add
                 NAME: "{{ .NAME | b64enc }}" to the template. UNKNOWN
                 (template) when the template builds it any other way.
-  Synced        yes when the ExternalSecret maps it and Key Vault holds it; no
-                when Key Vault holds it but the ExternalSecret doesn't map it
-                (so it never reaches the cluster); DISABLED when Key Vault holds
+  Synced        yes when the ExternalSecret maps it and Key Vault holds it;
+                Dockhand when the ExternalSecret doesn't map it and only Dockhand
+                stacks read it (docker/secret-names.yaml), rightly outside the
+                cluster; no when Key Vault holds it but neither reads it (so it
+                never reaches the cluster); DISABLED when Key Vault holds
                 it disabled (External Secrets can't read it); MISSING IN KEY
                 VAULT for a name the ExternalSecret maps but the vault lacks.
-  UsedBy        the Flux Kustomizations whose files use the variable, as an
+  UsedBy        the Flux Kustomizations whose files use the variable, and
+                docker/<stack> for each Dockhand stack that reads it, as an
                 array (empty when unused).
 They show as a table (keyvault-secrets.format.ps1xml), and filter and sort like
 any other objects.
@@ -59,8 +62,8 @@ folder of this checkout. Run `git pull` first.
 Lists the variables.
 
 .EXAMPLE
-./scripts/keyvault-secrets.ps1 | Where-Object Synced -ne 'yes'
-The secrets that don't reach the cluster, and the names Key Vault lacks.
+./scripts/keyvault-secrets.ps1 | Where-Object Synced -notin 'yes', 'Dockhand'
+The secrets nothing reads, and the names Key Vault lacks.
 
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1 | Where-Object UsedBy -contains 'mealie'
@@ -138,6 +141,31 @@ function Get-VariableUsage {
         }
     }
     $usage
+}
+
+# Key Vault secret name (lower case) -> the Dockhand stacks that read it, from
+# docker/secret-names.yaml: each "  VARIABLE: NAME" under a "stack:" line, and each
+# ${NAME} in a {built: "..."} template. A {none: ...} entry reads nothing.
+function Get-DockhandUsage {
+    $map = Join-Path (Join-Path $PSScriptRoot '..') 'docker/secret-names.yaml'
+    if (-not (Test-Path -LiteralPath $map -PathType Leaf)) { throw "No $map, so which secrets Dockhand reads is unknown." }
+    $readers = @{}
+    $stack = ''
+    foreach ($line in Get-Content -Encoding UTF8 -LiteralPath $map) {
+        if ($line -match '^([A-Za-z0-9_.-]+):\s*$') { $stack = $Matches[1]; continue }
+        if (-not $stack -or $line -notmatch '^\s+[A-Za-z0-9_]+:\s*(.+?)\s*$') { continue }
+        $value = $Matches[1]
+        $names = if ($value -match '^[A-Z0-9_]+$') { @($value) }
+                 elseif ($value -match '^\{\s*built:') { @([regex]::Matches($value, '\$\{([A-Z0-9_]+)\}') | ForEach-Object { $_.Groups[1].Value }) }
+                 else { @() }
+        foreach ($n in $names) {
+            $key = ($n -replace '_', '-').ToLowerInvariant()
+            if (-not $readers[$key]) { $readers[$key] = [Collections.Generic.List[string]]::new() }
+            if (-not $readers[$key].Contains("docker/$stack")) { $readers[$key].Add("docker/$stack") }
+        }
+    }
+    if ($readers.Count -eq 0) { throw "$map lists no secrets, so it wasn't read as expected." }
+    $readers
 }
 
 # The Flux Kustomization that applies a file, from its path under kubernetes/
@@ -257,9 +285,11 @@ if (-not $Name) {
     foreach ($k in $inVault.Keys) { $held[$k.ToLowerInvariant()] = $inVault[$k] }
     $mappedNames = @{}
     foreach ($v in $mapped.Keys) { $mappedNames[$mapped[$v].ToLowerInvariant()] = $true }
+    $dockhand = Get-DockhandUsage
     $row = {
         param($variable, $secretName, $synced)
         $files = $usage[$variable]
+        $stacks = $dockhand[$secretName.ToLowerInvariant()]
         [pscustomobject]@{
             PSTypeName   = 'Homelab.KeyVaultSecret'
             Name         = $variable
@@ -268,7 +298,7 @@ if (-not $Name) {
                            elseif ($templated[$variable]) { 'UNKNOWN (template)' }
                            elseif (-not $files) { '' } elseif ($files.Values -contains $true) { 'NEEDS b64enc' } else { 'plain' }
             Synced       = $synced
-            UsedBy       = [string[]]@(if ($files) { $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique })
+            UsedBy       = [string[]]@(@(if ($files) { $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique }) + @(if ($stacks) { $stacks | Sort-Object }))
         }
     }
     $rows = @(foreach ($variable in $mapped.Keys) {
@@ -279,7 +309,8 @@ if (-not $Name) {
     })
     $rows += @(foreach ($secretName in $inVault.Keys) {
         if ($mappedNames.ContainsKey($secretName.ToLowerInvariant())) { continue }
-        & $row ($secretName -replace '-', '_') $secretName $(if ($inVault[$secretName]) { 'no' } else { 'DISABLED' })
+        $synced = if (-not $inVault[$secretName]) { 'DISABLED' } elseif ($dockhand.ContainsKey($secretName.ToLowerInvariant())) { 'Dockhand' } else { 'no' }
+        & $row ($secretName -replace '-', '_') $secretName $synced
     })
     $rows | Sort-Object Name
     return
