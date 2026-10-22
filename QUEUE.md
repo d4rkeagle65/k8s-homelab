@@ -106,24 +106,19 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   headers, 2026-10-19): 5,000 lookups a day, reset at 00:00 UTC, and 60 a minute with bursts
   of 10; a re-fetched work costs about one, so keep a day's repairs to about 1,000. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
-- **Pod Security: `restricted` for the rest.** `pod-security.kubernetes.io/enforce` in each
-  `namespace.yaml`: 14 namespaces enforce `restricted` (cert-manager, cluster-access,
-  cnpg-system, external-dns, external-secrets, external-services, headlamp, kea, nebula-sync,
-  redis-ha, renovate, smtp-relay, both Traefiks), 21 `baseline`. Left unlabelled, and so
-  `privileged` (the control planes' cluster-wide default): calico-system, tigera-operator,
-  monitoring, metallb-system, metrics-server, democratic-csi, homeassistant (host network,
-  host paths, NET_RAW) and local-path-storage (its provisioner's helper pods mount host
-  paths). The `baseline` ones fail `restricted` on their containers' security contexts
-  (`allowPrivilegeEscalation`, capabilities not dropped, `runAsNonRoot`, seccomp), Grimmory on
-  a volume type too, and Immich while `immich-import` exists (an inline NFS volume, as
-  Grimmory's): each needs its app's own settings changed, one app at a time. Check a
-  namespace both ways before raising it: a server-side dry run of the label (`kubectl label
-  --dry-run=server --overwrite ns <ns> pod-security.kubernetes.io/enforce=restricted`), which
-  judges only the pods running; and every pod template it can start, each made a Pod and
-  dry-run created in a throwaway namespace enforcing `restricted`: Deployments, StatefulSets
-  (claim templates as volumes), DaemonSets, Jobs, CronJobs, Helm hooks (`helm get hooks`, Jobs
-  that exist only during an upgrade) and an operator's Jobs (CloudNativePG's share its
-  instance pods' security contexts).
+- **Pod Security: three more namespaces to `restricted`, the rest stay `baseline`** (the owner,
+  2026-10-22). In PR: elastic-system, mesh-mini and zammad, whose pods lacked only a seccomp
+  profile (and dropped capabilities on Zammad's memcached); their new pod templates, dry-run
+  as Pods under `restricted`, pass, and the live ones fail on exactly those fields. Zammad's
+  Helm test hook `zammad-test-connection` fails `restricted`, but runs only on `helm test`.
+  The other 18 `baseline` namespaces stay there by decision: their images would have to run
+  as a non-root user, a per-app change that risks breaking each for a modest gain. The eight
+  unlabelled (`privileged`) ones need host access. Left: the merge, then each of the three
+  read back (`kubectl label --dry-run=server` warns of nothing, its pods restarted and ready).
+  Before raising any namespace later, check every pod template it can start, not only the
+  running pods: Deployments, StatefulSets, DaemonSets, Jobs, CronJobs, Helm hooks and an
+  operator's Jobs, each dry-run as a Pod in a namespace that enforces `restricted` (its
+  `serviceAccountName` removed, or the dry run fails on that instead).
 - **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
   rated wear** (`nvme_percentage_used_ratio`, 2026-10-10). The owner knows, decides when it's
   replaced, and chose what runs on it (a control plane and Pi-hole 1 since 2026-10-20): don't

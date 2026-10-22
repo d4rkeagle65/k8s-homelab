@@ -36,3 +36,8 @@ spec:
     # No usage data gathered for Kibana's telemetry (there's no Kibana).
     telemetry:
       disabled: true
+    # Pod Security restricted (the namespace enforces it): the chart's own
+    # settings, plus the runtime's default seccomp profile.
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile: {type: RuntimeDefault}
