@@ -218,7 +218,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       app, SSH logins and failures, both log streams with a text filter). Every query run
       against Loki first. Left: the merge and its read-back (the rule loaded in Loki's rules
       API, `pod` gone from the label list for new streams, the dashboard's panels filled).
-      Found on the way: calico-apiserver logs about 145 real errors an hour, "Handler timeout"
+      Found on the way: calico-apiserver logs about 860 error lines an hour, "Handler timeout"
       and "http2: stream closed" on its aggregated API (long requests timing out or dropped by
       their clients); read which client holds them open, if it isn't the usual watch churn
 - [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
