@@ -110,7 +110,7 @@ services:
 
   semaphore:
     mem_limit: 3g
-    image: semaphoreui/semaphore:v2.19.16
+    image: semaphoreui/semaphore:v2.19.17
     container_name: semaphore
     restart: unless-stopped
     depends_on:
