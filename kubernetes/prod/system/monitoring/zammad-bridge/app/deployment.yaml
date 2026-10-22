@@ -34,12 +34,23 @@ spec:
             secretKeyRef:
               name: zammad-bridge
               key: ZAMMAD_URL
-        # Dockhand's notifications, at /dockhand/<this token> (ingress-dockhand.yaml).
+        # Dockhand's, Semaphore's and Databasus's notifications, each at
+        # /<route>/<its token> (ingress-dockhand.yaml).
         - name: DOCKHAND_TOKEN
           valueFrom:
             secretKeyRef:
               name: zammad-bridge
               key: DOCKHAND_TOKEN
+        - name: SEMAPHORE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: zammad-bridge
+              key: SEMAPHORE_TOKEN
+        - name: DATABASUS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: zammad-bridge
+              key: DATABASUS_TOKEN
         # Asked which members of a group alert are down (zammad-bridge.py).
         - name: PROMETHEUS_URL
           value: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
