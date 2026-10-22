@@ -148,14 +148,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
-- **Run, then retire, `ansible/talos-credentials-to-host.yml`** (2026-10-22): it writes the
-  talosconfig Semaphore holds and `TALOS_SECRETS`, rebuilt from a control plane and checked
-  against that talosconfig's CA, to `/root/talosconfig.b64` and `/root/talos_secrets.b64` on
-  one host, for the owner's own Vaultwarden login (`talos/README.md`). Left: a template for
-  it (Run Command's inventory, "k8s and Talos Connection", a `target_hosts` survey), one run,
-  both values saved, `shred -u` on the host, the template deleted, and a pull request
-  removing the playbook. Left, nothing but Semaphore holds either credential.
-
 - **calico-apiserver logs about 860 error lines an hour** (found 2026-10-22, the Logs
   dashboard's error table; cause read 2026-10-22): every one is a `GET
   /apis/projectcalico.org/v3` through the kube-apiserver's aggregation that the caller cut
