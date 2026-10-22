@@ -112,6 +112,19 @@ def calls_our_hook(text, hook="pre-commit"):
                if not re.match(r"\s*#", l))
 
 
+def another_checkouts_hooks(hooks_set, tops):
+    """Whether core.hooksPath names the .githooks of another checkout of this repository (one of
+    `tops`, the worktrees' top folders): this repository's own hooks, which run the committing
+    worktree's from its top (`git rev-parse --show-toplevel`), so they count as ours. The Claude
+    desktop app points each worktree it makes at the main checkout's."""
+    return bool(hooks_set) and any(hooks_set == os.path.join(top, ".githooks") for top in tops)
+
+
+t.check("  SELF-TEST: another checkout's .githooks counts as ours",
+        another_checkouts_hooks(os.path.join("r", "main", ".githooks"), [os.path.join("r", "main"), os.path.join("r", "wt")]), True)
+t.check("  and a hooks folder outside the checkouts, or one not named .githooks, does not",
+        "%s %s" % (another_checkouts_hooks(os.path.join("r", "hooks"), [os.path.join("r", "main")]),
+                   another_checkouts_hooks(os.path.join("r", "main", "hooks"), [os.path.join("r", "main")])), "False False")
 t.check("  SELF-TEST: a hook that runs ours is seen",
         calls_our_hook('#!/bin/sh\nnpx lint-staged\nsh .githooks/pre-commit "$@"\n'), True)
 t.check("  and one that only mentions it, or a longer name, is not",
@@ -133,6 +146,10 @@ else:
     folder = lambda p: os.path.normcase(os.path.normpath(os.path.join(top, p)))
     ours = folder(".githooks")
     hooks_set = folder(hooks_path) if hooks_path else ""
+    tops = [folder(l[len("worktree "):]) for l in t.run(["git", "-C", t.root(), "worktree", "list", "--porcelain"],
+                                                       merge=False).out.splitlines() if l.startswith("worktree ")]
+    if another_checkouts_hooks(hooks_set, tops):
+        hooks_set = ours
     # Another hooks folder, as the installer leaves one, counts when its hooks call ours. Where
     # that folder holds generated stubs, HookSource names the folder of the hooks written by hand.
     hook_source = folder(cfg["HookSource"]) if cfg.get("HookSource") else hooks_set
