@@ -18,7 +18,12 @@ info close it. The ticket's key is the title with its state words taken out, so
 "Container unhealthy: x" and "Container healthy: x" are one ticket; a container
 event is keyed by the container its message names. One-shot services carry the
 label dockhand.notify: "false" in their compose files, so Dockhand sends nothing
-when they exit.
+when they exit. A container's failure opens a ticket only for a container of a
+stack (its com.docker.compose.project label), read from each Docker host's
+read-only socket proxy (DOCKER_HOSTS): one another program starts and removes
+(Databasus's restore checks), one outside every stack, and a stack's container
+that exited 0 (a one-shot's normal finish) open nothing. When a host can't be
+asked, the ticket opens and says so.
 
 Semaphore's task alerts arrive at /semaphore/<token>, in its Slack format (the
 stack's SEMAPHORE_SLACK_URL): a task that ends in error opens a ticket for its
@@ -179,9 +184,36 @@ STATE_WORDS = re.compile(r"\b(un)?healthy\b|\b(re)?start(ed|ing)?\b|\bstop(ped|p
 DOCKHAND_STATES = {"failure": "CRITICAL", "error": "CRITICAL", "warning": "WARNING", "success": "OK", "info": "OK"}
 
 
-def dockhand_to_checkmk(note: dict) -> dict | None:
+def docker_containers(host: str) -> list[dict]:
+    """Every container on one Docker host, stopped ones too, through its proxy."""
+    with urllib.request.urlopen(f"http://{host}/containers/json?all=1", timeout=5) as r:
+        return json.load(r)
+
+
+def stack_failure(name: str, hosts: list[str]) -> tuple[bool, str]:
+    """Whether a container's failure is a ticket: (ticket, why). A stack's
+    container that didn't exit 0 is; one gone, outside every stack, or exited 0
+    isn't. A host that can't be asked never turns a ticket into none."""
+    found, unasked = [], 0
+    for host in hosts:
+        try:
+            found += [c for c in docker_containers(host) if f"/{name}" in (c.get("Names") or [])]
+        except (urllib.error.URLError, OSError, ValueError):
+            unasked += 1
+    stack = [c for c in found if (c.get("Labels") or {}).get("com.docker.compose.project")]
+    if stack:
+        if all(c.get("State") == "exited" and str(c.get("Status", "")).startswith("Exited (0)") for c in stack):
+            return False, "exited 0, a normal finish"
+        return True, ""
+    if unasked:
+        return True, f"{unasked} of {len(hosts)} Docker hosts couldn't be asked whether it belongs to a stack"
+    return (False, "not part of a stack") if found else (False, "gone, removed by what started it")
+
+
+def dockhand_to_checkmk(note: dict, hosts: list[str] | tuple = ()) -> dict | None:
     """Zammad's Checkmk fields for one Dockhand notification (Apprise's JSON), or
-    None when it carries no title to key a ticket by."""
+    None when it carries no title to key a ticket by, or is a failure of a
+    container that isn't a stack's (asked of the hosts, when given)."""
     title = str(note.get("title") or "").strip()
     if not title:
         return None
@@ -194,12 +226,18 @@ def dockhand_to_checkmk(note: dict) -> dict | None:
         key = re.sub(r"\s+([:,|])", r"\1", re.sub(r"\s+", " ", STATE_WORDS.sub("", title))).strip(" :-|") or title
         key = re.sub(r"^dockhand\b[\s:-]*", "", key, flags=re.IGNORECASE) or key  # its titles often start "Dockhand"
     state = DOCKHAND_STATES.get(str(note.get("type") or "info").lower(), "WARNING")
+    why = ""
+    if named and state != "OK" and hosts:
+        ticket, why = stack_failure(named.group(1), list(hosts))
+        if not ticket:
+            log(f"dockhand: {named.group(1)}: no ticket, {why}")
+            return None
     return {
         "event_id": "dockhand " + key,
         "host": ("Dockhand " + key)[:250],
         "service": "dockhand",
         "state": state,
-        "text": "\n".join(x for x in (title, str(note.get("message") or "").strip()) if x),
+        "text": "\n".join(x for x in (title, str(note.get("message") or "").strip(), why) if x),
     }
 
 
@@ -266,7 +304,7 @@ def databasus_to_checkmk(note: dict) -> dict | None:
 # The token routes: path prefix, the Handler attribute holding its token, and
 # what turns its JSON into Zammad's fields.
 ROUTES = {
-    "dockhand": ("dockhand_token", dockhand_to_checkmk),
+    "dockhand": ("dockhand_token", lambda note: dockhand_to_checkmk(note, Handler.docker_hosts)),
     "semaphore": ("semaphore_token", semaphore_to_checkmk),
     "databasus": ("databasus_token", databasus_to_checkmk),
 }
@@ -306,6 +344,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     dockhand_token = ""
+    docker_hosts: list[str] = []
     semaphore_token = ""
     databasus_token = ""
 
@@ -383,6 +422,9 @@ def main() -> None:
     Handler.prometheus = os.environ.get("PROMETHEUS_URL", "").strip()
     if not Handler.prometheus:
         log("PROMETHEUS_URL unset: tickets won't list the members of a group alert")
+    Handler.docker_hosts = [h.strip() for h in os.environ.get("DOCKER_HOSTS", "").split(",") if h.strip()]
+    if not Handler.docker_hosts:
+        log("DOCKER_HOSTS unset: every container failure Dockhand sends is a ticket")
     for route, (attr, _) in ROUTES.items():
         setattr(Handler, attr, os.environ.get(f"{route.upper()}_TOKEN", "").strip())
         if not getattr(Handler, attr):
