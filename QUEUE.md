@@ -31,6 +31,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **Vaultwarden's mail from a shared mailbox** (2026-10-22): `docker/vaultwarden/compose.yaml`'s
+  `SMTP_FROM` reads `M365_SHARED_MAILBOX_ADDRESS` (branch `vaultwarden-shared-mailbox`). Left, in
+  order: the owner creates the shared mailbox, gives the Entra app behind
+  `ENTRA_VAULTWARDEN_SMTP_USERNAME` send rights on it (RBAC for Applications, 15-30 minutes to
+  take), adds `M365-SHARED-MAILBOX-ADDRESS` to Key Vault, then merges; Vaultwarden redeploys by
+  its webhook; a test mail from its admin page, read back in the shared mailbox's Sent Items;
+  the stack's leftover `OWNER_EMAIL` variable deleted in Dockhand; and Databasus's notifier From
+  changed in its UI (`docker/databasus/README.md`). Merged before the rights take, every mail
+  Vaultwarden sends is refused by Graph, and the relay reports it as a failed transaction.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
