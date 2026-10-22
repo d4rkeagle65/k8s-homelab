@@ -142,7 +142,7 @@ spec:
             # a widget go in groups of their own, more to a row:
             # useEqualHeights stretches them to a stat card's height beside one.
             layout:
-              Quick links: {style: row, columns: 8, header: false, iconsOnly: true}
+              Quick links: {style: row, columns: 9, header: false, iconsOnly: true}
               Status: {style: row, columns: 4, header: false}
               Featured: {tab: Apps, style: row, columns: 3}
               Everyday: {tab: Apps, style: row, columns: 4}
@@ -188,6 +188,9 @@ spec:
                 - Dockhand:
                     - icon: dockhand.png
                       href: https://dockhand.${BASE_DOMAIN}
+                - NetBox:
+                    - icon: netbox.png
+                      href: https://netbox.${BASE_DOMAIN}
                 - Zammad:
                     - icon: zammad.png
                       href: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
