@@ -385,7 +385,7 @@ spec:
           installed, so its guests' backups go unwatched; read
           journalctl -u proxmox-backup-metrics there.
     # Garage's backup buckets (garage-backup-exporter). Only docker-backups alerts
-    # here: Databasus and Vaultwarden's files have no other watch, while the
+    # here: Databasus's, Vaultwarden's and Dockhand's files have no other watch, while the
     # Postgres and MariaDB backups in the other buckets alert from their own
     # metrics above.
     - alert: GarageBackupTooOld
@@ -398,7 +398,8 @@ spec:
         description: >-
           {{ $labels.bucket }}/{{ $labels.prefix }}: newest file
           {{ $value | humanizeDuration }} old. Databasus's backups are its databases'
-          names; vaultwarden/ is the Vaultwarden stack's own backup job.
+          names; vaultwarden/ is the Vaultwarden stack's own backup job, dockhand/
+          the dockhand-backup stack's.
     - alert: GarageBackupExporterFailing
       expr: |
         garage_backup_bucket_up == 0
