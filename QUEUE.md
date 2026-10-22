@@ -173,11 +173,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `target_hosts` the second VM, in check mode, then for real, and a `status-get` from the PC
   answers. Left, a script on the PC that asks the standby gets no answer.
 
-- **`docker/claude-code/README.md`'s "Updating" says to change the image tag in `compose.yaml`**
-  with the Dockerfile's versions, but the tag is always `homelab/claude-code:local` (built on
-  the host, skipped by Renovate). Say instead what makes Dockhand rebuild after a Dockerfile
-  change, once that's read on the host. Left, a version bump merged by Renovate may never
-  reach the running image, and the README points at an edit that shouldn't be made.
+- **Leftovers on the first Docker VM from retired Dockhand stacks** (found 2026-10-22, Run
+  Command tasks 1091-1098, read only): the image `homelab/claude-code:k8s-1.33.3-flux-2.9.5-helm-4.2.2`
+  (the tag scheme before `local`), Dockhand's clones `Local/k8s-homelab` (at a 2026-10-05
+  commit) and `Local/neetbox` under `/opt/dockhand/git-repos`, and `stacks/Local/k8s-homelab`,
+  which no running stack uses. Check Dockhand lists no stack by those names, then remove them
+  by hand. Left, they take disk space and read as live stacks.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 

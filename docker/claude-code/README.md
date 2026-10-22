@@ -280,11 +280,22 @@ Windows paths and PowerShell, and tools that only exist in the desktop app
 
 ## Updating
 
-- **Claude Code:** redeploy the stack with a rebuild, without the build
-  cache. It installs the newest release on the channel set in the
-  Dockerfile (`stable` by default).
-- **kubectl, flux, helm:** change their versions in the Dockerfile and the
-  image tag in `compose.yaml` together, then redeploy.
+The image is built on the host from this folder, always tagged
+`homelab/claude-code:local` (`pull_policy: build`), so every deploy builds it.
+A deploy, by hand or the stack's weekly schedule in Dockhand (it has no
+webhook, since a deploy restarts the sessions running in it), first pulls
+`main` into Dockhand's clone, then builds from that commit with the build
+cache: only the layers from a changed line down are rebuilt.
+
+- **kubectl, flux, helm, OpenTofu:** their versions are the Dockerfile's
+  `ARG`s, which Renovate bumps. A merged bump reaches the image at the next
+  deploy; deploy the stack in Dockhand to have it sooner.
+- **Claude Code:** a package from Anthropic's apt repository that never
+  updates itself. Its install layer follows the version `ARG`s, so a deploy
+  after any version bump reinstalls it at the newest release on the
+  Dockerfile's channel (`stable` by default); otherwise the cache keeps the
+  one installed. Deploy with a rebuild without the build cache to update it
+  alone.
 
 ## Removing it
 
