@@ -114,16 +114,21 @@ args.
    it reads the nodes and may cordon them, evict pods and switch database primaries over,
    for the reboots; it reads no Secrets. The playbooks that drain download a kubectl
    matching the cluster into a private temporary directory and remove it afterwards.
-   **Variable Groups** > New, "Kubernetes", all three as **extra variables** (Ansible
-   variables, not environment variables):
-   - `k8s_api_url`: the API server URL, the same as in your kubeconfig: `https://`, the
+   **Variable Groups** > New, "k8s and Talos Connection": these three and the Talos access
+   below, all as **environment variables (secret)** and no extra variables
+   (`group_vars/all.yml` reads them; Semaphore hands a Python template, the NetBox sync, a
+   group's extra variables as arguments, which it refuses). Attach it to every template
+   that checks the cluster or drains nodes (the Proxmox upgrade and reboot, the Talos
+   upgrade, reboot and Kubernetes upgrade) and to "NetBox: Sync from Proxmox and Kea",
+   beside each one's own group:
+   - `K8S_API_URL`: the API server URL, the same as in your kubeconfig: `https://`, the
      control plane's name and `:6443`, a name its certificate covers. On the PC:
 
      ```powershell
      kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'
      ```
 
-   - `k8s_ca_b64` (a secret): the cluster's CA certificate in base64, one line, as the Secret
+   - `K8S_CA_B64`: the cluster's CA certificate in base64, one line, as the Secret
      stores it (Semaphore's secret fields are one line, and drop a certificate's line breaks).
      On the PC:
 
@@ -131,7 +136,7 @@ args.
      kubectl -n cluster-access get secret semaphore-token -o jsonpath='{.data.ca\.crt}' | Set-Clipboard
      ```
 
-   - `k8s_token` (a secret): the ServiceAccount's token. On the PC:
+   - `K8S_TOKEN`: the ServiceAccount's token. On the PC:
 
      ```powershell
      [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String((kubectl -n cluster-access get secret semaphore-token -o jsonpath='{.data.token}'))) | Set-Clipboard
@@ -139,9 +144,9 @@ args.
 
    Clear the clipboard afterwards (`Set-Clipboard -Value ' '`).
 
-   **The Talos access**, for `talos-upgrade.yml` and `talos-k8s-upgrade.yml`: `talosconfig_b64`,
-   an `os:admin` talosconfig (Talos lets only `os:admin` upgrade or apply configs), base64 on one
-   line, as a secret in the same variable group. `talos/gen-config.py` writes one beside the
+   **The Talos access**, for the Talos templates and the Proxmox reboots' etcd checks:
+   `TALOSCONFIG_B64`, an `os:admin` talosconfig (Talos lets only `os:admin` upgrade or apply
+   configs), base64 on one line, in the same group. `talos/gen-config.py` writes one beside the
    configs (`talos/README.md`); on the PC, from that folder:
 
    ```powershell
@@ -151,7 +156,8 @@ args.
    Keep a copy in Vaultwarden, clear the clipboard, and delete the file as `talos/README.md` says.
 
 5. **A task template "Proxmox upgrade"**, playbook `ansible/proxmox-upgrade.yml`, the
-   inventory from step 3, the repository from step 2 and the "Kubernetes" variable group. A
+   inventory from step 3, the repository from step 2 and the "k8s and Talos Connection" variable
+   group. A
    dry run runs the checks and lists the pending upgrades, changing nothing; it's safe to
    schedule (e.g. weekly, from its own template with `["--check"]`). A real run is started by
    hand.
@@ -171,7 +177,7 @@ args.
   Docker network's gateway as Semaphore's container sees it (`ip route` inside the container:
   the `default via` address).
 - **Templates:** one for each, with the inventory and the repository; none needs the
-  "Kubernetes" variable group.
+  "k8s and Talos Connection" variable group.
 - **The Pi-hole settings** for `pihole-config.yml` live in a variable group of their own
   ("Pi-hole settings"), as extra variables, since they name the site's domains:
   `{"pihole_settings": {"misc.dnsmasq_lines": [...], "webserver.api.app_sudo": true}}`. The
@@ -350,7 +356,7 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 ## Rebooting Talos VMs (`talos-reboot.yml`)
 
 - **Template** "Reboot: Talos VMs", playbook `ansible/talos-reboot.yml`, the Proxmox inventory,
-  the repository and the "Kubernetes" variable group with `talosconfig_b64` in it (as for
+  the repository and the "k8s and Talos Connection" variable group (as for
   `talos-upgrade.yml`), and a survey: `target_hosts` (required). Without a survey, give it as CLI
   args, one per line: `-e` and `target_hosts=110,112,113`.
 - Dry-run it first: it lists each VM's host, whether HA manages it and what Proxmox holds

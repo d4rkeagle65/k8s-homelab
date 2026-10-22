@@ -11,9 +11,9 @@
 # what's merged meanwhile deploys afterwards.
 #
 # Inventory and variables as for proxmox-upgrade.yml: the proxmox group,
-# dns_guest_tag, evacuate (per host), evacuate_return, and the Kubernetes
-# variable group (k8s_api_url, k8s_ca_b64, k8s_token). The ServiceAccount
-# behind k8s_token may cordon nodes, evict pods and switch database primaries
+# dns_guest_tag, evacuate (per host), evacuate_return, and the "k8s and Talos Connection"
+# variable group (tasks/k8s-connection.yml). The ServiceAccount
+# behind K8S_TOKEN may cordon nodes, evict pods and switch database primaries
 # over (kubernetes/prod/system/cluster-access/semaphore/).
 #
 # In check mode (--check) it runs the checks and lists, per host, what it
@@ -28,24 +28,8 @@
   gather_facts: false
   vars_files: [vars/talos.yml]
   tasks:
-    - name: Decode the Kubernetes CA certificate
-      ansible.builtin.set_fact:
-        k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
-
-    - name: The CA certificate is one
-      ansible.builtin.assert:
-        that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
-        fail_msg: >-
-          k8s_ca_b64 doesn't decode to a certificate: it takes the base64 text of the
-          token Secret's ca.crt, as stored, not decoded (ansible/README.md).
-        quiet: true
-
-    - name: Write the Kubernetes CA certificate for the API checks
-      ansible.builtin.copy:
-        content: "{{ k8s_ca_pem }}"
-        dest: "{{ playbook_dir }}/.k8s-ca.pem"
-        mode: "0600"
-      check_mode: false
+    - name: The Kubernetes API's address, token and CA certificate
+      ansible.builtin.include_tasks: tasks/k8s-connection.yml
 
     - name: The Kubernetes cluster is healthy
       ansible.builtin.include_tasks: tasks/kubernetes-healthy.yml
