@@ -41,7 +41,7 @@ spec:
           main:
             image:
               repository: ghcr.io/gethomepage/homepage
-              tag: v2.5.0
+              tag: v2.6.0
             env:
               HOMEPAGE_ALLOWED_HOSTS: home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
               HOMEPAGE_EXTERNAL_URL: https://home${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
