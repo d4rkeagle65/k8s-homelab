@@ -77,8 +77,8 @@ def test_metrics_carry_each_servers_state_and_the_verdict():
 
 
 def test_metrics_without_an_answer_say_only_that():
-    assert m.metrics(None).strip().splitlines()[-1] == "kea_ha_api_up 0"
-    assert "kea_ha_normal" not in m.metrics(None)
+    samples = [x for x in m.metrics(None, None).splitlines() if not x.startswith("#")]
+    assert samples == ["kea_ha_api_up 0", "kea_stats_api_up 0"]
 
 
 def test_a_label_value_cannot_break_out_of_its_quotes():
@@ -117,7 +117,7 @@ def test_status_get_sends_basic_auth_and_unwraps_the_list(monkeypatch, credentia
         return Answer(json.dumps([{"result": 0, "arguments": HEALTHY}]).encode())
 
     monkeypatch.setattr(urllib.request, "urlopen", answer)
-    assert m.status_get("http://kea:8000/", credentials) == HEALTHY
+    assert m.command("http://kea:8000/", credentials, "status-get") == HEALTHY
     (request,) = sent
     assert json.loads(request.data) == {"command": "status-get"}
     assert request.get_header("Authorization").startswith("Basic ")
@@ -136,7 +136,7 @@ def test_a_failed_call_is_unanswered_and_never_names_the_credentials(monkeypatch
 
     monkeypatch.setattr(urllib.request, "urlopen", answer)
     with pytest.raises(m.Unanswered) as raised:
-        m.status_get("http://kea:8000/", credentials)
+        m.command("http://kea:8000/", credentials, "status-get")
     message = str(raised.value)
     encoded = base64.b64encode(FAKE_CREDENTIALS.encode()).decode()
     assert "not-a-real-one" not in message and "homepage" not in message
@@ -145,4 +145,38 @@ def test_a_failed_call_is_unanswered_and_never_names_the_credentials(monkeypatch
 
 def test_a_missing_credentials_file_is_unanswered(tmp_path):
     with pytest.raises(m.Unanswered):
-        m.status_get("http://kea:8000/", str(tmp_path / "absent"))
+        m.command("http://kea:8000/", str(tmp_path / "absent"), "status-get")
+
+
+# statistic-get-all's arguments: each statistic a list of [value, timestamp], newest first.
+STATISTICS = {
+    "subnet[107].assigned-addresses": [[38, "2026-10-22 20:00:00.000"], [37, "2026-10-22 19:00:00.000"]],
+    "subnet[107].total-addresses": [[100, "2026-10-22 12:44:23.000"]],
+    "subnet[227].assigned-addresses": [[6, "2026-10-22 20:00:00.000"]],
+    "subnet[227].total-addresses": [[164, "2026-10-22 12:44:23.000"]],
+    "subnet[227].pool[0].assigned-addresses": [[6, "2026-10-22 20:00:00.000"]],
+    "assigned-addresses": [[44, "2026-10-22 20:00:00.000"]],
+    "pkt4-received": [[9000, "2026-10-22 20:00:00.000"]],
+}
+
+
+def test_lease_counts_sum_each_subnets_newest_sample_once():
+    # The pools' and the global statistics repeat the subnets' counts: only subnet[n] counts.
+    assert m.lease_counts(STATISTICS) == {"assigned": 44, "total": 264}
+
+
+def test_statistics_without_subnets_are_unanswered_not_zero():
+    with pytest.raises(m.Unanswered):
+        m.lease_counts({"pkt4-received": [[1, "t"]]})
+
+
+def test_metrics_carry_the_lease_totals():
+    text = m.metrics(m.ha_status(HEALTHY), m.lease_counts(STATISTICS))
+    assert "kea_stats_api_up 1" in text
+    assert "kea_dhcp4_assigned_addresses 44" in text and "kea_dhcp4_total_addresses 264" in text
+
+
+def test_lease_totals_without_an_answer_say_only_that():
+    text = m.metrics(m.ha_status(HEALTHY), None)
+    assert "kea_stats_api_up 0" in text and "kea_dhcp4_assigned_addresses" not in text
+    assert "kea_ha_normal 1" in text
