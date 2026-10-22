@@ -206,6 +206,17 @@ For each reservation in the site file: `reservation-add` with
 the site file and `config-reload`. Check with `reservation-get-all`, and in
 Stork under **DHCP > Host Reservations**.
 
+## HA state
+
+`kea-ha-exporter` (`ha_exporter.py`) asks this Kea's API for `status-get` on each
+request and answers with the HA part only, on the management address's port 9548:
+`/metrics` for Prometheus (`job="docker-vm"`, `exporter="kea-ha"`; the
+`homelab.dhcp` alerts read `kea_ha_normal` and `kea_ha_api_up`) and `/status` as
+JSON for Homepage's Kea cards. It reads the API's credentials file from the site
+folder, so nothing new is stored anywhere. `normal` means both servers are in the
+mode's own state (`hot-standby`) and in touch; anything else is a failover or a
+recovery, which Stork's HA page shows in full.
+
 ## Changing the site file later
 
 Edit `/opt/kea/site/site.json`, check it (step 2), then reload without a
