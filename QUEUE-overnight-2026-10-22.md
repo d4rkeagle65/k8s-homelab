@@ -43,7 +43,7 @@ continue what you can."
 | P | Dockhand's notifications into tickets: the compose labels (`QUEUE-zammad.md`) | PR #287 (all eight one-shot services already labelled; a test keeps it so) |
 | Q | Read-only rechecks: NetBox `PortTemplateMapping` upstream, Kubernetes 1.37, Python 3.15 (`QUEUE.md`, `QUEUE-updates.md`) | `ba673b8`: Kubernetes 1.37 and Python 3.15 still held; NetBox's `PortTemplateMapping` fixed in 4.7.3: PR #290 |
 | R | Move database replicas off the crowded workers (`QUEUE.md`) | One done: prowlarr-db's replica rebuilt from 04a onto 05a, healthy (2/2); its old PV Released on 04a. The rest wait for the owner (below) |
-| S | Bug scans, several passes, after the pieces above | |
+| S | Bug scans, several passes, after the pieces above | Five passes: (1) a code review of everything merged since 2026-10-21, (2) a repo-wide sweep for the bug classes that bit before, (3) the live systems, (4) each finding tried and fixed only once reproduced, (5) a review of the fixes. Fixes: #292 (NetBox sync retires stale load-balancer records), #293 (KubeJobFailed only for a CronJob's latest run), #294 (primary spreading only after a drain, never skipping clean-up; pass 5 caught its Talos fact on the wrong host, fixed), #297 (Flux held whenever the whole group is named), #298 (Immich import deadline, Grimmory relink NULL path and errors, repair report on stop, Dockhand backup's listing and 7z password off argv), #299 (timezone inside the container and locked containers; the routing script clears its own rules). Refuted: two. Live systems: healthy. The six merge cleanly in any order; #286 and #298 both edit `QUEUE.md` |
 
 ## Decisions for the owner
 
