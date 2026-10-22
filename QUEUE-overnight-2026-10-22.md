@@ -28,7 +28,7 @@ continue what you can."
 | G | kea-standby's API doesn't answer from the owner's PC (read-only diagnosis) | PR #274 (the second VM lacks the first's mark-based management return; the baseline writes it) |
 | H | NetBox has none of MetalLB's addresses (`netbox_seed.py` reads the LoadBalancers) | PR #268 (needs `K8S_API_URL`, `K8S_TOKEN`, `K8S_CA_B64` on the NetBox sync template's environment before merging) |
 | J | Databasus's failures (asked 00:15) | Backups all succeed (5 nightly, 00:00); the 15 verifications fail: the agent holds the deleted Docker socket. PR #272 fixes the post-upgrade check that missed it |
-| I | Morning reads: the Proxmox backup (01:00 UTC), rreading-glasses repair dry run (07:15 UTC), Immich import dry run (08:30 UTC) | |
+| I | Morning reads: the Proxmox backup (01:00 UTC), rreading-glasses repair dry run (07:15 UTC), Immich import dry run (08:30 UTC) | Backup clean (every host OK by 03:12 UTC, no NFS stall, no CRM change); the two dry runs are read after they run |
 
 ## Decisions for the owner
 
