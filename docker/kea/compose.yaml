@@ -15,7 +15,7 @@
 #   DOCKER_VM_1_PROD_ADDRESS  the host address the firewall relays to
 #   DOCKER_VM_1_MGMT_ADDRESS  the host's management address: Kea's API (8000),
 #                       Stork's web UI (8080), Kea's metrics (9547) and its HA
-#                       state (9548)
+#                       state and lease counts (9548)
 #   KEA_POSTGRES_PASSWORD  the database superuser's
 #   KEA_DB_PASSWORD     the kea role's (also in site.json)
 #   STORK_DB_PASSWORD   the stork role's
@@ -199,9 +199,10 @@ services:
     ports:
     - ${DOCKER_VM_1_MGMT_ADDRESS}:8080:8080
 
-  # Kea's HA state, for Prometheus (/metrics) and Homepage (/status): asks the
-  # API's status-get on each request, with the API's credentials file, which
-  # stays on this host (ha_exporter.py says what each figure means). Root
+  # Kea's HA state and lease counts, for Prometheus (/metrics) and Homepage
+  # (/status): asks the API's status-get and statistic-get-all on each request,
+  # with the API's credentials file, which stays on this host (ha_exporter.py
+  # says what each figure means). Root
   # inside, as only root reads that file; no capabilities, read-only.
   kea-ha-exporter:
     mem_limit: 64m
