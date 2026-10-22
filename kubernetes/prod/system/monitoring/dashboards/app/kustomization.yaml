@@ -11,6 +11,7 @@ configMapGenerator:
 - name: dashboards-homelab
   files:
   - json/homelab/overview.json
+  - json/homelab/logs.json
   - json/homelab/drives.json
   - json/homelab/home-assistant.json
   - json/homelab/resources.json
