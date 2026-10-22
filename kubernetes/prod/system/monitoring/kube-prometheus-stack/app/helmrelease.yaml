@@ -1,5 +1,5 @@
 # Metrics and Grafana: the Prometheus Operator, Prometheus, Alertmanager,
-# Grafana, node-exporter and kube-state-metrics. QUEUE-monitoring.md has the
+# Grafana, node-exporter and kube-state-metrics. old-queues/QUEUE-monitoring.md has the
 # decisions behind these values (storage, retention, the memory budget).
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -299,7 +299,7 @@ spec:
           - list
           - watch
         # mariadb-operator's PhysicalBackups and MariaDBs, for the Backups
-        # dashboard and the alerts (QUEUE-monitoring.md, phase 9): the operator
+        # dashboard and the alerts (old-queues/QUEUE-monitoring.md, phase 9): the operator
         # exports no backup or readiness metrics.
         - apiGroups:
           - k8s.mariadb.com

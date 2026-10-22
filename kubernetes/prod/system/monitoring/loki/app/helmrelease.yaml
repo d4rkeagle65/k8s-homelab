@@ -1,7 +1,7 @@
 # Logs: Loki as a single binary, its chunks and index in the Garage bucket
 # loki-logs on the NAS, kept 14 days. Only the write-ahead log and caches are
 # local, on an emptyDir, so the pod can restart on any worker and a host's loss
-# costs at most the few minutes not yet flushed. QUEUE-monitoring.md has the
+# costs at most the few minutes not yet flushed. old-queues/QUEUE-monitoring.md has the
 # decisions.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease

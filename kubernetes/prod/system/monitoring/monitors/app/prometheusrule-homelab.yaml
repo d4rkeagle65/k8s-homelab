@@ -236,8 +236,8 @@ spec:
         description: >-
           Its community is a hand edit to /etc/snmp/snmpd.conf that TOS can rewrite
           (an update, a reboot, saving SNMP in its UI): check line 33
-          (QUEUE-monitoring.md).
-  # Every database's backup (QUEUE-monitoring.md, phase 9; the Backups dashboard):
+          (old-queues/QUEUE-monitoring.md).
+  # Every database's backup (old-queues/QUEUE-monitoring.md, phase 9; the Backups dashboard):
   # a night is missed after 26 hours. Postgres from the Barman Cloud plugin's
   # metrics (CloudNativePG's own backup timestamps stay empty with the plugin);
   # MariaDB from kube-state-metrics' view of each PhysicalBackup.
