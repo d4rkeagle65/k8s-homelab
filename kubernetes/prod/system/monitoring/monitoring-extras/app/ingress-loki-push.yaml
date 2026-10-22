@@ -20,7 +20,7 @@ metadata:
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
     traefik.ingress.kubernetes.io/router.entrypoints: websecure,mgmt
-    external-dns.alpha.kubernetes.io/target: ${TRAEFIK_MGMT_ADDRESS}
+    external-dns.kubernetes.io/target: ${TRAEFIK_MGMT_ADDRESS}
     traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,monitoring_loki-push-auth@kubernetescrd
 spec:
   ingressClassName: traefik
