@@ -51,9 +51,12 @@ spec:
                 - {name: IMMICH_INSTANCE_URL, value: "http://immich-server.immich.svc.${CLUSTER_DOMAIN}:2283/api"}
                 - name: IMMICH_API_KEY
                   valueFrom: {secretKeyRef: {name: immich-import, key: api-key}}
+              # The CLI holds each file in memory while it uploads it, so the limit
+              # is set by the biggest video: one of 2.9 GB was OOM-killed at 1Gi
+              # (2026-10-22). A video over about 3.5 GB needs this raised.
               resources:
-                requests: {cpu: 100m, memory: 256Mi}
-                limits: {cpu: 1000m, memory: 1Gi}
+                requests: {cpu: 100m, memory: 1Gi}
+                limits: {cpu: 1000m, memory: 4Gi}
               securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
               volumeMounts:
                 - {name: photos, mountPath: /import, readOnly: true}
