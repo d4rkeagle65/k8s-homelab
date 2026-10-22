@@ -35,6 +35,8 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        # Pod Security restricted (the namespace enforces it).
+        seccompProfile: {type: RuntimeDefault}
       # AMT can't be reached from its own host (it answers only what arrives
       # over the wire), so mesh-mini prefers the worker on the one host
       # without AMT, from where every other host's AMT is reachable.
