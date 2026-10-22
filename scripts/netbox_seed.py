@@ -13,6 +13,13 @@ cluster no longer has is set Deprecated, never deleted; a later Service on that 
 makes it active again. A range moved within a pool can't be recorded until the old one is
 deleted by hand, since NetBox refuses overlapping ranges whatever their status.
 
+Kea's reservations (every subnet's, from its config and its hosts database) each become an
+address with status DHCP, described "Kea reservation <hostname> (<identifier>)". Its DNS
+name is left alone: NetBox DNS would turn it into a record, and whether DHCP names go into
+DNS is the owner's decision (QUEUE-kea-ha.md). An address something else already holds (a
+device's or VM's interface, a VIP, any other description) is reported, never changed. One
+this script recorded that Kea no longer reserves is set Deprecated, never deleted.
+
 It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
 access points). A primary address NetBox already has is kept while the host
@@ -240,10 +247,10 @@ class NetBox:
             if self.find(path, id=obj["id"]) is not None:
                 raise SystemExit(f"FAIL: {label} is still in NetBox after its delete")
 
-    def retire(self, path: str, obj: dict, label: str):
+    def retire(self, path: str, obj: dict, label: str, gone_from: str = "the cluster"):
         """Set obj Deprecated, never deleted (an address chosen from NetBox should still see it
         was in use), reading it back."""
-        print(f"  deprecate {path.split('/')[-1]}: {label} (no longer in the cluster)")
+        print(f"  deprecate {path.split('/')[-1]}: {label} (no longer in {gone_from})")
         self._note("deprecate " + path)
         if self.apply:
             http("PATCH", f"{self.base}{path}/{obj['id']}/", self.headers, {"status": "deprecated"})
@@ -377,6 +384,81 @@ def kea_networks(url: str, cred: str):
     return [s["subnet"] for s in subnets], pools
 
 
+# A host reservation's identifier, in the order Kea checks them.
+KEA_IDENTIFIERS = ("hw-address", "client-id", "duid", "circuit-id", "flex-id")
+
+
+def kea_reservations(url: str, cred: str, page_size: int = 100) -> dict[str, dict]:
+    """Every IPv4 reservation Kea holds, by address: {identifier, hostname, subnet-id}. Read
+    with host_cmds' reservation-get-page across all subnets and sources (its config, then
+    its hosts database), copying each page's "next" into the following request until Kea
+    answers result 3 (empty). Any other answer stops the run: a failed read is no answer."""
+    auth = {"Authorization": "Basic " + base64.b64encode(cred.encode()).decode()}
+    args: dict = {"limit": page_size}
+    out: dict[str, dict] = {}
+    for _ in range(10000):
+        r = http("POST", url, auth, {"command": "reservation-get-page", "service": ["dhcp4"], "arguments": args})
+        r = r[0] if isinstance(r, list) else r
+        if r.get("result") == 3:
+            return out
+        if r.get("result") != 0:
+            raise SystemExit(f"FAIL: Kea's reservation-get-page answered {r.get('result')}: {r.get('text')}")
+        a = r.get("arguments") or {}
+        for h in a.get("hosts") or []:
+            ip = h.get("ip-address")
+            if not ip or ip == "0.0.0.0":
+                continue
+            kind = next((k for k in KEA_IDENTIFIERS if h.get(k)), None)
+            entry = {"identifier": f"{kind} {h[kind]}" if kind else "no identifier",
+                     "hostname": (h.get("hostname") or "").strip(), "subnet-id": h.get("subnet-id")}
+            if ip in out and out[ip] != entry:
+                print(f"  note: {ip} is reserved twice in Kea; recording the first")
+                continue
+            out.setdefault(ip, entry)
+        nxt = a.get("next")
+        if not nxt:
+            return out
+        args = {"limit": page_size, "from": nxt.get("from", 0), "source-index": nxt.get("source-index", 0)}
+    raise SystemExit("FAIL: Kea's reservation pages never ended (10000 pages)")
+
+
+def reservation_label(r: dict) -> str:
+    return "Kea reservation " + (f"{r['hostname']} ({r['identifier']})" if r["hostname"] else r["identifier"])
+
+
+def plan_reservations(addresses: list[dict], reserved: dict[str, dict]) -> tuple[list[str], list[tuple[str, str]], list[dict]]:
+    """What the reservations need in NetBox, given its addresses: the reserved addresses to
+    record (new, or this script's own record of them), those something else holds (address,
+    what holds it), and this script's records Kea no longer reserves. This script's own: its
+    description starts "Kea reservation ", on no interface and no VIP."""
+    def value(field):
+        return field.get("value") if isinstance(field, dict) else field
+
+    def holder(a: dict) -> str | None:
+        if a.get("assigned_object_id"):
+            obj = a.get("assigned_object") or {}
+            host = obj.get("device") or obj.get("virtual_machine") or {}
+            return f"on {host.get('name') or 'an interface'}"
+        if value(a.get("role")) == "vip":
+            return "a VIP"
+        if not (a.get("description") or "").startswith("Kea reservation "):
+            return f"recorded as '{a.get('description') or 'no description'}'"
+        return None
+
+    by_ip = {a["address"].split("/")[0]: a for a in addresses}
+    record, held = [], []
+    for ip in sorted(reserved, key=lambda i: tuple(int(x) for x in i.split("."))):
+        have = by_ip.get(ip)
+        why = holder(have) if have else None
+        if why:
+            held.append((ip, why))
+        else:
+            record.append(ip)
+    stale = [a for ip, a in by_ip.items()
+             if ip not in reserved and holder(a) is None and value(a.get("status")) != "deprecated"]
+    return record, held, stale
+
+
 def proxmox_state(url: str, token: str):
     """The cluster's name, its nodes (with each bridge's address), and its guests (with
     their config and addresses per interface)."""
@@ -490,10 +572,12 @@ def main() -> None:
     cfg = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_WRITE_TOKEN"), args.apply)
     kea_subnets, kea_pools = kea_networks(args.kea_url, read_secret(".kea-api", "KEA_API"))
+    kea_reserved = kea_reservations(args.kea_url, read_secret(".kea-api", "KEA_API"))
     cluster_name, nodes, guests = proxmox_state(args.proxmox_url, read_secret(".proxmox-token", "PROXMOX_TOKEN"))
     lb_ips, lb_pools = cluster_load_balancers(args.k8s_url, read_secret(".k8s-token", "K8S_TOKEN"),
                                               read_secret(".k8s-ca-b64", "K8S_CA_B64"))
-    print(f"read: {len(kea_subnets)} Kea subnets, {len(nodes)} Proxmox nodes, {len(guests)} guests, "
+    print(f"read: {len(kea_subnets)} Kea subnets, {len(kea_reserved)} Kea reservations, "
+          f"{len(nodes)} Proxmox nodes, {len(guests)} guests, "
           f"{len(lb_ips)} LoadBalancer addresses, {len(lb_pools)} MetalLB ranges")
     print("dry run: nothing is written" if not args.apply else "applying")
 
@@ -721,6 +805,18 @@ def main() -> None:
                     primary = ip
         if primary:
             nb.set_ref("virtualization/virtual-machines", vm, "primary_ip4", primary, g["name"])
+
+    # Kea's reservations, after the VMs, so an address one of them holds is seen as theirs.
+    print("reservations:")
+    record, held, stale = plan_reservations(nb.all("ipam/ip-addresses"), kea_reserved)
+    for a in stale:
+        nb.retire("ipam/ip-addresses", a, f"{a['address']} ({a['description']})", "Kea")
+    for ip, why in held:
+        print(f"  held elsewhere: {ip}, reserved in Kea ({reservation_label(kea_reserved[ip])}), is {why}")
+        nb._note("held-elsewhere ipam/ip-addresses")
+    for ip in record:
+        label = reservation_label(kea_reserved[ip])
+        nb.ensure("ipam/ip-addresses", {"address": with_len(ip)}, {"status": "dhcp", "description": label}, label)
 
     # Each device's and VM's addresses named in their prefix's zone; NetBox DNS's
     # DNSsync turns each name into the zone's record.

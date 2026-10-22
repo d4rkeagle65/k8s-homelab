@@ -281,3 +281,83 @@ def test_retire_writes_only_with_apply_and_reads_back(monkeypatch):
     m.NetBox("https://netbox.example", "nbt_x", apply=True).retire("ipam/ip-addresses", {"id": 4}, "x")
     assert calls[0] == ("PATCH", "ipam/ip-addresses/4/", {"status": "deprecated"})
     assert calls[1][0] == "GET"
+
+
+# Kea's reservations. The MACs are from the documentation range (00:00:5e:00:53:xx).
+
+def kea_host(ip, mac, hostname="", subnet=1):
+    return {"ip-address": ip, "hw-address": mac, "hostname": hostname, "subnet-id": subnet}
+
+
+def kea_pages(pages):
+    """A fake http answering reservation-get-page with pages in turn (each a list of hosts),
+    then result 3, recording each request's arguments."""
+    seen = []
+
+    def fake_http(method, url, headers, body=None, **kw):
+        assert body["command"] == "reservation-get-page" and body["service"] == ["dhcp4"]
+        seen.append(dict(body["arguments"]))
+        i = len(seen) - 1
+        if i >= len(pages):
+            return [{"result": 3, "text": "0 IPv4 host(s) found.", "arguments": {"count": 0, "hosts": []}}]
+        return [{"result": 0, "arguments": {"count": len(pages[i]), "hosts": pages[i],
+                                            "next": {"from": 100 + i, "source-index": 1}}}]
+    return fake_http, seen
+
+
+def test_reservations_are_read_page_by_page_until_kea_says_empty(monkeypatch):
+    fake, seen = kea_pages([[kea_host("192.0.2.10", "00:00:5e:00:53:01", "printer")],
+                            [kea_host("192.0.2.11", "00:00:5e:00:53:02"), {"ip-address": "0.0.0.0", "hw-address": "x"}]])
+    monkeypatch.setattr(m, "http", fake)
+    got = m.kea_reservations("http://127.0.0.1:8000/", "user:pw", page_size=1)
+    assert sorted(got) == ["192.0.2.10", "192.0.2.11"]
+    assert got["192.0.2.10"] == {"identifier": "hw-address 00:00:5e:00:53:01", "hostname": "printer", "subnet-id": 1}
+    # The first page has no position; each later one copies the previous page's "next".
+    assert seen[0] == {"limit": 1}
+    assert seen[1] == {"limit": 1, "from": 100, "source-index": 1}
+    assert seen[2] == {"limit": 1, "from": 101, "source-index": 1}
+
+
+def test_a_failed_kea_read_stops_the_run(monkeypatch):
+    import pytest
+    monkeypatch.setattr(m, "http", lambda *a, **k: [{"result": 1, "text": "unknown command"}])
+    with pytest.raises(SystemExit, match="reservation-get-page answered 1"):
+        m.kea_reservations("http://127.0.0.1:8000/", "user:pw")
+
+
+def nb_addr(i, address, description, status="dhcp", assigned=None, role=None):
+    return {"id": i, "address": address, "description": description, "status": {"value": status},
+            "role": {"value": role} if role else None, "assigned_object_id": assigned,
+            "assigned_object": {"virtual_machine": {"name": "vm1"}} if assigned else None}
+
+
+def test_new_and_own_reservations_are_recorded_and_others_are_reported():
+    reserved = {"192.0.2.10": {"identifier": "hw-address 00:00:5e:00:53:01", "hostname": "printer", "subnet-id": 1},
+                "192.0.2.11": {"identifier": "hw-address 00:00:5e:00:53:02", "hostname": "", "subnet-id": 1},
+                "192.0.2.12": {"identifier": "hw-address 00:00:5e:00:53:03", "hostname": "nas", "subnet-id": 1},
+                "192.0.2.13": {"identifier": "hw-address 00:00:5e:00:53:04", "hostname": "", "subnet-id": 1},
+                "192.0.2.14": {"identifier": "hw-address 00:00:5e:00:53:05", "hostname": "", "subnet-id": 1}}
+    addresses = [nb_addr(1, "192.0.2.11/24", "Kea reservation hw-address 00:00:5e:00:53:02"),   # ours already
+                 nb_addr(2, "192.0.2.12/24", "", status="active", assigned=7),                  # a VM's
+                 nb_addr(3, "192.0.2.13/24", "LoadBalancer kea/kea-db-lan", status="active", role="vip"),
+                 nb_addr(4, "192.0.2.14/24", "the printer, by hand", status="active")]          # someone's note
+    record, held, stale = m.plan_reservations(addresses, reserved)
+    assert record == ["192.0.2.10", "192.0.2.11"]
+    assert held == [("192.0.2.12", "on vm1"), ("192.0.2.13", "a VIP"),
+                    ("192.0.2.14", "recorded as 'the printer, by hand'")]
+    assert stale == []
+
+
+def test_a_removed_reservation_is_stale_but_only_this_scripts_own():
+    addresses = [nb_addr(1, "192.0.2.20/24", "Kea reservation hw-address 00:00:5e:00:53:09"),   # gone from Kea
+                 nb_addr(2, "192.0.2.21/24", "Kea reservation old", status="deprecated"),     # already retired
+                 nb_addr(3, "192.0.2.22/24", "Kea reservation vm", status="active", assigned=7),  # a VM took it
+                 nb_addr(4, "192.0.2.23/24", "a static address", status="active")]
+    _, _, stale = m.plan_reservations(addresses, {})
+    assert [a["id"] for a in stale] == [1]
+
+
+def test_a_reservations_label_has_its_hostname_when_it_has_one():
+    assert m.reservation_label({"identifier": "hw-address 00:00:5e:00:53:01", "hostname": "printer"}) == \
+        "Kea reservation printer (hw-address 00:00:5e:00:53:01)"
+    assert m.reservation_label({"identifier": "client-id 01:02", "hostname": ""}) == "Kea reservation client-id 01:02"
