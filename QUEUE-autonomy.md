@@ -26,140 +26,27 @@ here so a later session, after a compaction, knows where things stand.
   (`QUEUE.md`, Kea phase 3); VLAN 9 comes out of Proxmox (`old-queues/QUEUE-netbox.md`); Immich's
   PostgreSQL move isn't due (`QUEUE-updates.md`); `guests` is out of `TF_VAR_site`.
 
-## Approved (the owner, 2026-10-16)
+## Where the batches went
 
-**Every batch below, and `zammad-bridge` and `elasticsearch`, is approved.** Work through them
-in this order, a pull request for each piece once the commit hook's suite passes, reporting
-as I go, and stopping only for a real decision
-or a step that needs the owner in person or in a UI: zammad-bridge, released-volumes,
+Every batch the owner approved on 2026-10-16 (zammad-bridge, released-volumes,
 monitoring-fixes, talos-cleanup, resource-limits, alerts, hardening, small-cleanups,
-netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, elasticsearch.
-
-- [x] **zammad-bridge:** Alertmanager to Zammad's Checkmk endpoint (the owner enabled it, group
-      "Alerts"; its URL is `ZAMMAD_ALERT_WEBHOOK_URL` in Vaultwarden): severities `warning` and
-      `critical` only (never `Watchdog`, `InfoInhibitor` or `info`), a ticket per alert, a note on
-      repeats, closed with a note on recovery. A small translator in the cluster, with tests
-- [x] **elasticsearch** (done 2026-10-16, after cluster-policy's LimitRange OOM-killed its init): the ECK operator 3.5.0 and the chart's one node
-      (512 MiB heap in 1 GiB, the chart's sizes rather than the 1 GiB heap first planned, which
-      Zammad's handful of tickets doesn't need; 5 GiB on `nas-iscsi`); checked in
-      `old-queues/QUEUE-zammad.md`
-
-## Batches I can do on my own
-
-Each is a name the owner can approve, to be carried through to its pull requests. Where a
-batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it.
-
-- [x] **postgres-retire** (2026-10-17): the old `<app>-postgres` clusters and `manictime-pg`
-      out of git, each app checked a day on 18, then the Clusters and their claims deleted
-      (`old-queues/QUEUE-postgres18.md`). Their last backups in Garage were deleted 2026-10-18,
-      their `local-db` folders 2026-10-22
-- [x] **released-volumes** (2026-10-16): the owner deleted the 38 checked PVs, and the old
-      NetBox data on the NAS (2026-10-19); no NetBox folder is left on the workers' local-db
-      disks (read 2026-10-22)
-- [x] **talos-cleanup** (2026-10-16): `gen-config.py` reads `TF_VAR_site`, `kubeadm-config`
-      deleted, the LXC workers out of local-path, `nas-block`'s class gone. Left with the
-      owner: `nas-block` off the hosts and the NAS (`QUEUE-talos.md`)
-- [ ] **resource-limits:** batches 5 and 6, the LimitRanges, the PriorityClass, the 2026-10-18
-      risk fixes and the alerts are done, and every running container has limits; re-measured
-      2026-10-18 from 4.2 days (raising only, six pull requests). Left: the full-week recheck,
-      Immich's server, and the owner's call on the 1000m CPU cap (`QUEUE-resource-limits.md`).
-      Both waits are over: Prometheus has a full week since 2026-10-21 12:48, and the OneDrive
-      import finished 2026-10-21 21:58
-- [x] **monitoring-fixes:** done 2026-10-16: the Proxmox hosts' node-exporters (a boot race,
-      fixed in `host-exporters.yml` and run), Pi-hole 1's hung exporter (restarted, probed by
-      `/metrics`). Whisparr's exportarr was already up. etcd scraping 2026-10-21
-      (`talos/patches/controlplane-etcd-metrics.yaml`, OpenTofu task 1026; all three targets up,
-      `old-queues/QUEUE-monitoring.md` phase 5)
-- [x] **alerts** (2026-10-16): `monitors/app/prometheusrule-homelab.yaml`: a container near
-      its memory limit, a Docker VM container restarting in a loop, NVMe wear (80% warning, 90%
-      critical), spare capacity and critical-warning flags, the TerraMaster's SNMP target down.
-      Each ran against live data first; only H3's NVMe (86%) fires, as known
-- [x] **hardening** (2026-10-16): Pod Security's `baseline` enforced on 31 namespaces (Zammad's
-      privileged init container gone first); probes for n8n's runners and External Secrets'
-      controller. Left with the owner: node-loss timing (a Talos control-plane change, `QUEUE.md`),
-      as for etcd scraping
-- [x] **small-cleanups** (2026-10-16): Lidarr's `migrations/` out; Garage's config written into
-      a volume at each deploy (checked on the NAS); the Docker live-restore and upgrade
-      switches in `docker-vm-update.yml` (off until the owner sets them); and found on the way,
-      Run Command's `run_command_b64` for commands holding braces
-- [x] **cluster-policy** (2026-10-16): `kubernetes/prod/system/cluster-policy/cluster-policy/`
-      holds the PriorityClass `homelab-critical` and a `container-defaults` LimitRange per apps
-      and services namespace (`test_every_app_and_service_namespace_has_its_limitrange` keeps
-      the list whole). The class is on the 14 PostgreSQL 18 clusters (CloudNativePG applies it
-      at each pod's next recreation, without a roll), Authentik's server and worker, Traefik,
-      Prometheus, Alertmanager and zammad-bridge. Authentik's outposts don't carry it: a class
-      there goes in the outpost's `config`, owned in Authentik's UI, and a blueprint setting it
-      would own all twenty keys
-- [x] **netbox-shape** (2026-10-16): built and proved up to the template, which is the
-      owner's; done 2026-10-20 (`old-queues/QUEUE-netbox-shape.md`)
-- [x] **netbox-dns** (2026-10-19): NetBox owns local DNS, both Pi-holes synced from it
-      (`old-queues/QUEUE-netbox-dns.md`)
-- [x] **ssh-keys** (2026-10-16): `ansible/retire-ssh-keys.yml` and `proxmox-host.yml`'s
-      retired-interfaces play, built and checked; their runs are the owner's (below)
-- [ ] **kea-ha:** `QUEUE-kea-ha.md`: `kea-db`, the copy and the cutover (2026-10-16, 10-17), the
-      second Docker VM, the HA pair with the relay to both and its failover test (10-18), and
-      verify-ca (10-22) are done. Left: the Stork agent on the standby, lease names into DNS, and
-      `kea` dropped from `kea-postgres` (from 2026-10-24)
-
-## Waiting on the owner
-
-- [x] `claude-code` made a Task Runner in Semaphore (2026-10-16, checked by `/api/project/1/role`)
-- [x] Decision 10, the test folders: both kept, the split explained in each `CLAUDE.md` (2026-10-16)
-- [x] A fine-grained GitHub token for this repository, in Semaphore's "Netbox Sync" group
-- [x] Worker w05 (VM 115) drained and rebooted (task 919, 2026-10-20): #15's 11264 MB in effect.
-      Decommissioning settled the same day: the generator keeps `main`'s entry, the sync skips it
-      "Plain container"
-- [x] Delete task 713 in Semaphore (it holds two replaced tokens): gone, read 2026-10-22
-- [ ] Two Talos control-plane changes, rolled node by node with `talosctl` and then an
-      OpenTofu apply you confirm: etcd's metrics (done 2026-10-21), and a 60-second node-loss
-      timing (`QUEUE.md`'s "Faster recovery from a node loss")
-- [ ] `nas-block` off the hosts and the NAS, together (`QUEUE-talos.md`)
-- [x] Where the PriorityClass and LimitRanges live (2026-10-16): a hand-written release,
-      `kubernetes/prod/system/cluster-policy/`, owning both (batch **cluster-policy** below)
-- [x] Your real run of "Retire: Old SSH Keys" (its dry run, task 745, was clean): tasks 750
-      (2026-10-16) and 896 (10-19). VLAN 9's `vmbr9` and `eth5.9` interfaces are gone from NetBox
-- [x] Kea's three variables in Vaultwarden (2026-10-16)
-- [x] Dockhand's environment for the second Docker VM, connected (2026-10-17: the 429 was
-      Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
-- [x] `NETBOX_READ_TOKEN` without its "Bearer " prefix: done 2026-10-22 (the owner, through
-      `scripts/keyvault-secrets.ps1`); `proxmox-endpoints`, its one cluster user, restarted and
-      read NetBox with it (5 of 5 hypervisors). node-exporter's targets for both Docker VMs
-      now come from NetBox's Prometheus SD plugin (`scrapeconfig-docker-vm*.yaml`, by each
-      VM's vmid custom field, at its primary address, which is the management one Ansible
-      logs in to: no tag needed), keeping the jobs `docker-vm` and `docker-vm-2`, and
-      `DockerVMNodeExporterMissing` fires if NetBox stops listing one. Live after #330: both
-      node targets discovered and up at the same addresses as before; VM1's static cAdvisor
-      and Kea targets unchanged
-- [x] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answered every network from
-      Production; fixed and checked from a VPN and an IoT/Work client (Run Command tasks 1194,
-      1204, 2026-10-22)
-- [x] Organizr's checks (2026-10-18: tabs, Admin login, the homepage and `#noredirect`; the
-      Users group left unchecked by the owner's call); the job is in `old-queues/QUEUE-organizr.md`
-- [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address
-      (2026-10-16, through the bitwarden-cli pod; checked in Grimmory's sync Secret)
-- [ ] In person: the failover test (a host's power cut, `QUEUE-talos.md`), the TerraMaster SNMP bug
-      reported
+cluster-policy, netbox-shape, ssh-keys, kea-ha, postgres-retire, netbox-dns, elasticsearch)
+is done, recorded in git history and `old-queues/`, or carried on in its own queue file:
+resource-limits in `QUEUE-resource-limits.md`, kea-ha in `QUEUE-kea-ha.md`. The owner's items
+left are held where their work is: the node-loss timing in `QUEUE.md` ("Faster recovery from
+a node loss"), `nas-block` and the power-cut failover test in `QUEUE-talos.md`, the
+TerraMaster SNMP report in `QUEUE.md`.
 
 ## Resuming
 
-**Where the run stands (2026-10-16, late, the owner away):** done and pushed today beyond the
-batches above: Docker VMs from NetBox (VM 120 built, Docker and Hawser on it), kea-db with the
-reservations copied (the cutover and partner wait for the owner), Zammad's search, the Ansible
-task counter, the baseline's management routing, the NetBox DNS sidecar (waiting on zones), the
-Talos queue's hostnames gone and the hook's word list extended. Next in order: kea-ha's partner
-(with the owner: Dockhand's environment first), postgres-retire (from 2026-10-17), the owner's
-list below. Each piece: its own branch and pull request, opened once the commit hook's suite
-passed; the owner merges. Semaphore: dry runs and plans in `params`; the owner runs anything
-that installs or changes hosts; never a Proxmox host reboot unasked.
-
-Read this file first, then `QUEUE.md`. An approved batch is named in the conversation or in a
-commit message; without one, ask before starting it. The first unticked batch the owner has
-approved is next.
+Read this file for the standing permissions above, then `QUEUE.md`. An approved piece of work
+is named in the conversation or in a commit message; without one, ask before starting it.
 
 ## Done when
 
-Every batch is done or moved to its own queue file, and the owner's list is empty; then this
-file moves to `old-queues/`.
+Every batch is done or moved to its own queue file, and the owner's list is empty (both since
+2026-10-22). What's left is the standing permissions under "Settled", which are rules, not
+work: this file moves to `old-queues/` once they live in `CLAUDE.md` (the owner's call).
 
 ## Checked and negative
 

@@ -88,8 +88,10 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       the others did (`old-queues/QUEUE-postgres18.md`'s rules: a new cluster beside it, the
       data copied with the app stopped, rows, objects and sequences compared, the old one
       retired a day later), on a VectorChord image of the new major, since Immich needs it.
-- [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd): by
-      `ansible/talos-k8s-upgrade.yml`, as `QUEUE.md`'s 1.37 entry says. Held (2026-10-15)
+- [ ] **Kubernetes 1.36.5 -> 1.37.1** (with CoreDNS and etcd; Renovate's #9):
+      `kubernetes_version` in `tofu/proxmox/talos-config.tf` in a commit, then
+      `ansible/talos-k8s-upgrade.yml` (its dry run first), then the OpenTofu job; once the
+      cluster is on it, the claude-code image's `KUBECTL_VERSION`. Held (2026-10-15)
       until these list 1.37 as supported: Flux (2.9.6 says 1.34-1.36; its unreleased main
       adds 1.37), cert-manager (1.21.2 says 1.33-1.36; 1.22 due about 2026-11), External
       Secrets (2.12.0 says 1.36), CloudNativePG (1.30.1 supports 1.34-1.36, "tested, but not
