@@ -1,7 +1,7 @@
 # Log collection: Grafana Alloy on every node, reading the container logs of
 # the pods on its own node from /var/log/pods and pushing them to Loki.
 # Labels stay few (namespace, app, container, pod, node); log search tuning is
-# a later phase of QUEUE-monitoring.md.
+# a later phase of old-queues/QUEUE-monitoring.md.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
