@@ -118,6 +118,12 @@ spec:
         kubeApiserverSlos: false
         kubeProxy: false
         windows: false
+      # The chart's KubeJobFailed fires for as long as a failed Job is kept, so one
+      # failure a later run of its CronJob made good stays an open ticket until
+      # failedJobsHistoryLimit pushes it out: the homelab rules' KubeJobFailed
+      # replaces it (monitors/app/prometheusrule-homelab.yaml).
+      disabled:
+        KubeJobFailed: true
 
     prometheusOperator:
       resources:
