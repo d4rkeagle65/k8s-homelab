@@ -191,12 +191,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   reach the running image, and the README points at an edit that shouldn't be made.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
-- **The retired databases' files may still be on the workers' `local-db` disks** (found
-  2026-10-18): deleting a Retain PV leaves its folder on the node. The old clusters' PVs are
-  gone, but nobody has looked for their folders, nor for NetBox's old database files
-  (`QUEUE-autonomy.md`, released-volumes). Find each worker's `local-db` folders that no PV
-  names, check the new cluster is healthy, then remove them with the owner's go-ahead. Left,
-  they hold disk space on the workers.
 
 ## Later
 

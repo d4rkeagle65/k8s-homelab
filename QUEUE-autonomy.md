@@ -52,10 +52,10 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] **postgres-retire** (2026-10-17): the old `<app>-postgres` clusters and `manictime-pg`
       out of git, each app checked a day on 18, then the Clusters and their claims deleted
       (`old-queues/QUEUE-postgres18.md`). Left in `QUEUE.md`'s Cleanup: their last backups in
-      Garage, and their files on the workers' `local-db` disks
+      Garage (their `local-db` folders were deleted 2026-10-22)
 - [x] **released-volumes** (2026-10-16): the owner deleted the 38 checked PVs. Left on disk,
-      unreferenced: the old NetBox media folder on the NAS and its database files on four Talos
-      workers' local-db disks
+      unreferenced: the old NetBox media folder on the NAS (no NetBox folder is left on the
+      workers' local-db disks, read 2026-10-22)
 - [x] **talos-cleanup** (2026-10-16): `gen-config.py` reads `TF_VAR_site`, `kubeadm-config`
       deleted, the LXC workers out of local-path, `nas-block`'s class gone. Left with the
       owner: `nas-block` off the hosts and the NAS (`QUEUE-talos.md`)
