@@ -67,8 +67,17 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       reservations served before and after, its connection TLS 1.3 (`pg_stat_ssl`). The previous
       site file is beside it as `site.json.before-kea-db`
 - [ ] The CA: `ssl-mode` is `require`, not `verify-ca`, because CloudNativePG renews its own CA
-      about every 90 days and a copy on the hosts would go stale. A long-lived CA (cert-manager,
-      `spec.certificates.serverCASecret`) or a job copying the CA to both hosts, then `verify-ca`
+      about every 90 days and a copy on the hosts would go stale. kea-db's server certificate
+      now comes from a ten-year CA, `kea-db-root-ca` (cert-manager,
+      `kubernetes/prod/services/kea/kea/app/certificates-db.yaml`); replication keeps
+      CloudNativePG's own client CA. Left, after that merge, with kea-db healthy and its
+      `pg_stat_ssl` showing the new certificate: the CA's `ca.crt` (public; `kubectl -n kea get
+      secret kea-db-root-ca -o jsonpath='{.data.ca\.crt}'`) into each host's site folder as
+      `kea-db-ca.pem` (`ansible/kea-ha.yml`, which writes the site files); the site file's
+      `hosts-databases` with `"ssl-mode": "verify-ca"` and `"trust-anchor":
+      "/etc/kea/site/kea-db-ca.pem"` (Kea 3.2's PostgreSQL backend); `kea-db-init` given
+      `PGSSLROOTCERT` the same, as its `PGSSLMODE` follows `ssl-mode`; then both Keas
+      restarted one at a time, each serving reservations before the other
 - [x] `kea-db-init` reads its database from the site file's `hosts-databases` (2026-10-17):
       `kea-db`, with its `ssl-mode`; checked in its image (task 824, schema 34.0)
 - [x] The HA pair (2026-10-18): `docker/kea/kea-dhcp4.conf` carries the HA hook (its

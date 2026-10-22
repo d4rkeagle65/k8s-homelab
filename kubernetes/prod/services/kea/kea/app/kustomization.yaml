@@ -4,5 +4,6 @@ resources:
 - secret-cnpg-backup-s3.yaml
 - objectstore.yaml
 - secret-kea-db-credentials.yaml
+- certificates-db.yaml
 - db.yaml
 - scheduledbackup-db.yaml

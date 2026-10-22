@@ -1,0 +1,82 @@
+# kea-db's server certificate from a CA that lasts ten years, so a copy of the CA on each
+# Kea host stays valid and Kea can check the server (ssl-mode verify-ca) instead of only
+# encrypting (require). CloudNativePG's own CA, which it renews about every 90 days, would
+# go stale on the hosts (QUEUE-kea-ha.md, "The CA"). The server certificate itself is
+# renewed by cert-manager and reloaded by CloudNativePG; the CA, which the hosts hold,
+# keeps its key on renewal. Replication's client certificates stay CloudNativePG's own
+# (db.yaml sets only the server's).
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kea-db-selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kea-db-root-ca
+spec:
+  isCA: true
+  commonName: kea-db CA
+  secretName: kea-db-root-ca
+  duration: 87600h    # ten years
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  issuerRef:
+    kind: Issuer
+    name: kea-db-selfsigned
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: kea-db-ca
+spec:
+  ca:
+    secretName: kea-db-root-ca
+---
+# The names CloudNativePG gives its own server certificate (its status'
+# serverAltDNSNames), and the LoadBalancer address the Kea hosts use.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kea-db-server-tls
+spec:
+  secretName: kea-db-server-tls
+  commonName: kea-db-rw
+  dnsNames:
+  - kea-db-rw
+  - kea-db-rw.kea
+  - kea-db-rw.kea.svc
+  - kea-db-rw.kea.svc.cluster.local
+  - kea-db-r
+  - kea-db-r.kea
+  - kea-db-r.kea.svc
+  - kea-db-r.kea.svc.cluster.local
+  - kea-db-ro
+  - kea-db-ro.kea
+  - kea-db-ro.kea.svc
+  - kea-db-ro.kea.svc.cluster.local
+  - kea-db-lan
+  - kea-db-lan.kea
+  - kea-db-lan.kea.svc
+  - kea-db-lan.kea.svc.cluster.local
+  ipAddresses:
+  - ${KEA_DB_ADDRESS}
+  duration: 2160h     # 90 days
+  renewBefore: 720h
+  usages:
+  - server auth
+  - digital signature
+  - key encipherment
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  issuerRef:
+    kind: Issuer
+    name: kea-db-ca
