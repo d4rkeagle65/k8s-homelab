@@ -31,12 +31,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **The shared mailbox's last steps** (2026-10-22): Vaultwarden, Databasus and Zammad send as
-  `M365_SHARED_MAILBOX_ADDRESS` (#316), read back in the relay's log: each accepted by Graph,
-  its sender equal by hash to Key Vault's; in the log's 25 hours nothing else sent, and the
-  owner's own address only from Databasus before its switch. Left: the "SMTP OAuth Relay" app's
-  Exchange management scope narrowed to the shared mailbox alone (the owner), then the next
-  mail of each read back as sent. Left wide, the app can still send as the owner.
+- **The shared mailbox's scope, read back** (2026-10-22): Vaultwarden, Databasus and Zammad send
+  as `M365_SHARED_MAILBOX_ADDRESS` (#316), and the owner narrowed the "SMTP OAuth Relay" app's
+  Exchange management scope to it alone (about 20:05Z). Zammad's mails since have all been sent,
+  but within Exchange's 15-30 minutes to take a change, and which app Zammad signs in with isn't
+  known. Left: a Vaultwarden test mail (its admin page) after 20:35Z, read back as sent in the
+  relay's log. A typo in the new filter would refuse every mail from all three.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
