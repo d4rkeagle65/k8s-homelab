@@ -1,4 +1,4 @@
-# Kea's high-availability pair (QUEUE-kea-ha.md): the primary on one Docker VM,
+# Kea's high-availability pair (old-queues/QUEUE-kea-ha.md): the primary on one Docker VM,
 # the hot-standby partner on another (docker/kea-standby/). Writes each host's
 # site files, the part of Kea's configuration that never goes in git:
 #
@@ -18,7 +18,7 @@
 # the two hosts' inventory names. Secrets are read and written with no_log.
 #
 # With kea_db_verify_ca: true it also makes both Keas verify kea-db's server
-# certificate (QUEUE-kea-ha.md): the kea-db CA's public certificate, read from the
+# certificate (old-queues/QUEUE-kea-ha.md): the kea-db CA's public certificate, read from the
 # cluster (a cert-manager CertificateRequest's status.ca in the kea namespace, which
 # holds no key; the Role is kubernetes/prod/services/kea/kea/app/rbac-semaphore.yaml),
 # goes to /opt/kea/site/kea-db-ca.pem on each host, and the site file's

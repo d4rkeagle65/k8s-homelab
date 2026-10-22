@@ -1,7 +1,7 @@
 # kea-db's server certificate from a CA that lasts ten years, so a copy of the CA on each
 # Kea host stays valid and Kea can check the server (ssl-mode verify-ca) instead of only
 # encrypting (require). CloudNativePG's own CA, which it renews about every 90 days, would
-# go stale on the hosts (QUEUE-kea-ha.md, "The CA"). The server certificate itself is
+# go stale on the hosts (old-queues/QUEUE-kea-ha.md, "The CA"). The server certificate itself is
 # renewed by cert-manager and reloaded by CloudNativePG; the CA, which the hosts hold,
 # keeps its key on renewal. Replication's client certificates stay CloudNativePG's own
 # (db.yaml sets only the server's).

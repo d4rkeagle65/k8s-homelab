@@ -526,7 +526,7 @@ def test_no_namespace_is_defined_twice(repo_root):
 
 _VARIABLE_RE = re.compile(r"(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
-# The azure-keyvault-bootstrap Secret's variables, applied by hand (QUEUE-azure-keyvault.md):
+# The azure-keyvault-bootstrap Secret's variables, applied by hand (old-queues/QUEUE-azure-keyvault.md):
 # the store that builds cluster-secrets can't take its own address from cluster-secrets. Only
 # the azure-keyvault folder may use them, and its Kustomization substitutes from that Secret.
 _BOOTSTRAP_SECRET_NAME = "azure-keyvault-bootstrap"

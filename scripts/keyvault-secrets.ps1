@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
 Lists or updates the Azure Key Vault secrets that hold the cluster-secrets
-variables (QUEUE-azure-keyvault.md).
+variables (old-queues/QUEUE-azure-keyvault.md).
 
 .DESCRIPTION
 Each cluster-secrets variable is one Key Vault secret, named after it with "_"

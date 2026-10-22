@@ -1,4 +1,4 @@
-# Kea's host reservations (QUEUE-kea-ha.md), read by both Keas: the Docker VM's
+# Kea's host reservations (old-queues/QUEUE-kea-ha.md), read by both Keas: the Docker VM's
 # and its hot-standby partner, so either serves them while the other's host is
 # down. Kea's own tool makes the schema (kea-admin, from docker/kea/), never
 # this file.

@@ -103,7 +103,7 @@ def check_issuer(context, endpoint):
                    if a.startswith("--service-account-issuer=")]
         if not issuers or issuers[0] != want:
             fail(f"{pod['spec'].get('nodeName')}'s first service-account issuer isn't {want} "
-                 "(QUEUE-talos.md, Phase 1): Talos control planes issue tokens for it")
+                 "(old-queues/QUEUE-talos.md, Phase 1): Talos control planes issue tokens for it")
 
 
 def node_network(context, prefix):
