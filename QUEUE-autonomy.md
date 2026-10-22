@@ -42,7 +42,7 @@ netbox-shape, ssh-keys, kea-ha, postgres-retire (from 2026-10-17), netbox-dns, e
 - [x] **elasticsearch** (done 2026-10-16, after cluster-policy's LimitRange OOM-killed its init): the ECK operator 3.5.0 and the chart's one node
       (512 MiB heap in 1 GiB, the chart's sizes rather than the 1 GiB heap first planned, which
       Zammad's handful of tickets doesn't need; 5 GiB on `nas-iscsi`); checked in
-      `QUEUE-zammad.md`
+      `old-queues/QUEUE-zammad.md`
 
 ## Batches I can do on my own
 
