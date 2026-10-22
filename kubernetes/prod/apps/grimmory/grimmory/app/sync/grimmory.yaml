@@ -52,9 +52,22 @@ settings:
 
 # Authentik groups (the blueprint admits only these two) to Grimmory's rights.
 groupMappings:
+  # admin alone doesn't pass every check: Refresh Metadata's task
+  # (LibraryRescanTask in 3.5.0) asks for permissionAccessTaskManager itself, and
+  # ON_LOGIN sets each flag from these mappings at every sign-in. So the admin
+  # group lists every permission the mapping can grant.
   - group: Grimmory Admins
     admin: true
     libraries: [Books]
+    permissions: [permissionUpload, permissionDownload, permissionEditMetadata, permissionManageLibrary,
+                  permissionEmailBook, permissionDeleteBook, permissionSyncKoreader, permissionAccessOpds,
+                  permissionSyncKobo, permissionManageMetadataConfig, permissionAccessBookdrop,
+                  permissionAccessLibraryStats, permissionAccessUserStats, permissionAccessTaskManager,
+                  permissionManageGlobalPreferences, permissionManageIcons, permissionManageFonts,
+                  permissionBulkAutoFetchMetadata, permissionBulkCustomFetchMetadata, permissionBulkEditMetadata,
+                  permissionBulkRegenerateCover, permissionMoveOrganizeFiles, permissionBulkLockUnlockMetadata,
+                  permissionBulkResetBookloreReadProgress, permissionBulkResetKoReaderReadProgress,
+                  permissionBulkResetBookReadStatus]
     description: Everything
   - group: Grimmory Users
     libraries: [Books]
