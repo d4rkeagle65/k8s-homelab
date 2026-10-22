@@ -198,11 +198,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   base64 for a value that is text means capture's `secret_data` mark didn't reach
   `varsub.pending_rows`. Left, a new value can go into Key Vault base64 and reach its app
   encoded twice.
-- **`scripts/keyvault-secrets.ps1` shows Dockhand's secrets as `Synced` `no`** (found 2026-10-21):
-  the 39 names only Dockhand stacks read (`docker/secret-names.yaml`) aren't mapped into
-  `cluster-secrets`, rightly, and the listing marks them as it marks a cluster variable that
-  never reaches the cluster. Read the map and say `Dockhand` for them. Left, the listing reads as
-  39 faults, which hides a real one among them.
 - **A promoted Secret's value that isn't text has no supported form**: Key Vault holds only
   text, and `scripts/tests/test_structure.py`'s `test_every_substituted_variable_is_defined`
   refuses a Secret's variable without its `{{ .NAME | b64enc }}` template entry (capture's
