@@ -59,10 +59,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       closes it; WAL alerts have no recovery, so closed by hand), read from Semaphore
       v2.19.17's `alert.go`/`slack.tmpl` and Databasus v3.61.0's notifier and heading code.
       Semaphore's stack builds `SEMAPHORE_SLACK_URL` from Key Vault's `SEMAPHORE-ALERT-TOKEN`.
-      Left, the owner's: the Homelab project's **Alert** switch on (Semaphore, Project
-      settings); in Databasus, the Webhook notifier on every database and each backup
-      sending on success too (`docker/databasus/README.md`). Done when a failed task, then its
-      success, opens and closes a ticket, and Databasus's test message makes "Databasus test"
+      Live 2026-10-22 (#326): the owner turned on the project's Alert and set the Webhook
+      notifier on every database; Databasus's test made ticket 323 ("Databasus test") and a
+      successful task reached the bridge ("no open tickets found"). Left: a real failed task,
+      then its template's success, read back as one ticket opened and closed
 - [x] Mail out: Zammad's notifications go through `smtp-oauth-relay` as the shared mailbox
       (its Notification Sender, `M365_SHARED_MAILBOX_ADDRESS`), read back as sent in the relay's
       log 2026-10-22; its default sender, `noreply@` its own hostname, was refused by Graph
