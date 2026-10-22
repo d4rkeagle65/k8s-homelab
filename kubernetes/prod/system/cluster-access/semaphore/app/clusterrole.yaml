@@ -5,7 +5,9 @@
 # DaemonSets), switch CloudNativePG primaries over and open maintenance
 # windows, switch mariadb-operator primaries over, and suspend and resume
 # Flux's flux-system source for a run that reboots everything
-# (flux-freeze.yml). Nothing else: no Secrets, no deleting, no other writes.
+# (flux-freeze.yml); and list the Services and MetalLB's address pools, whose
+# LoadBalancer addresses the NetBox sync records (scripts/netbox_seed.py).
+# Nothing else: no Secrets, no deleting, no other writes.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -20,6 +22,12 @@ rules:
 - apiGroups: [""]
   resources: ["pods/eviction"]
   verbs: ["create"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["list"]
+- apiGroups: ["metallb.io"]
+  resources: ["ipaddresspools"]
+  verbs: ["list"]
 - apiGroups: ["apps"]
   resources: ["daemonsets"]
   verbs: ["get", "list"]

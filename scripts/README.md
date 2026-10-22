@@ -290,7 +290,8 @@ it up after the next sync. capture reads the live Secret, so from then on it
 replaces the new value.
 
 `scripts/keyvault-secrets.ps1` lists the `cluster-secrets` variables with their
-Key Vault secrets (never the values), and with a variable's name sets its
+Key Vault secrets (never the values), the ones only Dockhand stacks read marked
+`Dockhand` from `docker/secret-names.yaml`, and with a variable's name sets its
 value as given, read back by hash, then force-synced into the cluster. It
 refuses to set a mapped variable a Secret's `data:` uses while the live
 template doesn't encode it, since the cluster would get it plain. With `-Get`

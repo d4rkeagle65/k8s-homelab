@@ -121,6 +121,12 @@ def help_gaps(tree):
 t.section("the scanners, proven against injected violations")
 P = ast.parse
 count = lambda finder, code: len(finder(P(code)))
+t.check("SELF-TEST: a script listed as POSIX-only runs only there",
+        sorted(t.script_platforms("ansible/files/x.py", ["ansible/*"], [])), ["posix"])
+t.check("  one listed as Windows-only runs only there", sorted(t.script_platforms("tools/w.py", [], ["tools/*"])), ["nt"])
+t.check("  one not listed runs on both", sorted(t.script_platforms("scripts/backup.py", ["ansible/*"], ["tools/*"])), ["nt", "posix"])
+t.check("  the match ignores case and the path's separator",
+        sorted(t.script_platforms("Ansible\\Files\\X.py", ["ansible/*"], [])), ["posix"])
 t.check("SELF-TEST: an empty except is CAUGHT", count(find_empty_catch, "try:\n    x()\nexcept OSError:\n    pass\n"), 1)
 t.check("  one that logs is not", count(find_empty_catch, "try:\n    x()\nexcept OSError as e:\n    log(e)\n"), 0)
 t.check("  continue, ... and None alone are CAUGHT",
@@ -196,8 +202,13 @@ h = collect(find_open_without_encoding)
 t.ratchet("OpenWithoutEncoding", len(h), "text opened with no encoding", h, "pass encoding=\"utf-8\"")
 
 t.section("each target Python compiles the scripts and has what they import")
+here = t.this_platform()
+elsewhere = sorted(t.rel(s) for s in parsed if here not in t.script_platforms(s))
 modules, names, calls = set(), set(), {}
 for s, tree in parsed.items():
+    # Every script compiles everywhere; what it imports and calls is judged where it runs.
+    if t.rel(s) in elsewhere:
+        continue
     imp = t.imports_of(tree)
     modules |= {m for m in imp.modules if m not in imp.guarded}
     names |= {p for p in imp.names if p not in imp.guarded}
@@ -237,5 +248,8 @@ for version, exe in t.target_pythons():
     unread = [q for q, c in r["calls"].items() if c["status"] == "Unreadable"]
     t.detail("%d standard-library call(s) checked; %d whose signature this Python does not publish"
              % (len(judged), len(unread)))
+if elsewhere:
+    t.detail("%d script(s) never run on %s, so their imports and calls are judged on the other platform: %s"
+             % (len(elsewhere), here, ", ".join(elsewhere[:5]) + (" ..." if len(elsewhere) > 5 else "")))
 
 t.complete()

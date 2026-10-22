@@ -1,0 +1,70 @@
+# Dockhand's own data, backed up to the Garage bucket docker-backups on the NAS
+# (under dockhand/), at each start and nightly. Deployed by Dockhand from this
+# folder (a Git stack), on the Docker host Dockhand runs on; Dockhand itself
+# stays outside this repo (docker/CLAUDE.md), and this stack only reads it.
+#
+# Each archive (backup.sh) holds Dockhand's SQLite database, copied with
+# SQLite's online backup while Dockhand runs, its .encryption_key, without
+# which the secrets in that database can't be read, and Dockhand's own
+# compose.yaml (and .env) from the host. It's one 7z archive, file list
+# included, encrypted with DOCKHAND_BACKUP_ZIP_PASSWORD: keep that password
+# OUTSIDE Dockhand. The copy, the key and the archive are each checked before
+# the upload, and the upload is read back. Archives older than
+# BACKUP_KEEP_DAYS are deleted. GarageBackupTooOld alerts when dockhand/'s newest
+# file is over 26 hours old; the container's healthcheck says the same locally.
+#
+# Restore check, changing nothing (downloads the newest archive, opens it,
+# checks its database and key):
+#   docker exec dockhand-backup backup.sh check
+# Restore: README.md.
+#
+# Variables, from Key Vault:
+#   GARAGE_S3_ENDPOINT  Garage's S3 API
+#   VAULTWARDEN_BACKUP_S3_ACCESS_KEY_ID, VAULTWARDEN_BACKUP_S3_SECRET_ACCESS_KEY
+#                       the docker-backups key (Vaultwarden's and Databasus's too)
+#   DOCKHAND_BACKUP_ZIP_PASSWORD  the archive's password; blank, nothing is written
+services:
+  dockhand-backup:
+    mem_limit: 256m  # unmeasured: SQLite, 7-Zip and rclone on a few MB
+    build: .
+    image: homelab/dockhand-backup:local
+    pull_policy: build
+    container_name: dockhand-backup
+    restart: unless-stopped
+    # Dockhand's user, which owns its files: a root process opening the database
+    # could create its -wal or -shm file as root, and Dockhand couldn't write it.
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs:
+    - /tmp
+    # Folders, not single files: a file mounted alone stays the old one when it's
+    # replaced on the host.
+    volumes:
+    - /opt/dockhand:/src/dockhand:ro
+    # Read-write: SQLite's reader takes the shared-memory lock beside the WAL.
+    - /opt/dockhand/db:/src/dockhand/db
+    - /opt/compose/dockhand:/src/compose:ro
+    environment:
+      # 03:45 UTC: after Vaultwarden's backup (03:30) and the Proxmox backup.
+      BACKUP_AT: "03:45"
+      BACKUP_KEEP_DAYS: "30"
+      DOCKHAND_BACKUP_ZIP_PASSWORD: ${DOCKHAND_BACKUP_ZIP_PASSWORD}
+      HOME: /tmp
+      # rclone's remote, wholly from the environment: Garage over S3, path-style,
+      # its region name; the bucket exists, so rclone doesn't try to create it.
+      RCLONE_CONFIG: /tmp/rclone.conf
+      RCLONE_CONFIG_GARAGE_TYPE: s3
+      RCLONE_CONFIG_GARAGE_PROVIDER: Other
+      RCLONE_CONFIG_GARAGE_ENDPOINT: ${GARAGE_S3_ENDPOINT}
+      RCLONE_CONFIG_GARAGE_ACCESS_KEY_ID: ${VAULTWARDEN_BACKUP_S3_ACCESS_KEY_ID}
+      RCLONE_CONFIG_GARAGE_SECRET_ACCESS_KEY: ${VAULTWARDEN_BACKUP_S3_SECRET_ACCESS_KEY}
+      RCLONE_CONFIG_GARAGE_REGION: garage
+      RCLONE_CONFIG_GARAGE_FORCE_PATH_STYLE: "true"
+      RCLONE_CONFIG_GARAGE_NO_CHECK_BUCKET: "true"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/backup.sh", "healthy"]
+      interval: 5m
+      timeout: 10s
+      retries: 1

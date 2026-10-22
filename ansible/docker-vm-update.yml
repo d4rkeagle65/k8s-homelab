@@ -235,22 +235,21 @@
                 missing: "{{ before_names | difference(after_names) }}"
 
             # Docker's restart makes a new docker.sock; a container that mounts the
-            # file (Dockhand, Hawser) keeps the old one, alive but refused. Restart
-            # each whose socket, seen through /proc/<pid>/root, isn't the host's.
+            # file (Dockhand, Hawser, Databasus's agent) keeps the old one, alive but
+            # refused. Its mount table says so: the bind's root reads
+            # /docker.sock//deleted. It's read from the host, so it works whatever
+            # the image holds (a path through /proc/<pid>/root doesn't: in an image
+            # whose /var/run links to /run, it resolves to the host's /run).
             - name: Restart the containers holding the old daemon's socket
               ansible.builtin.shell: |
                 {% raw %}
                 set -eu
                 stale() {
-                  sock=$(stat -c %i /var/run/docker.sock)
                   for id in $(docker ps -q); do
-                    docker inspect -f '{{.State.Pid}} {{.Name}} {{range .Mounts}}{{.Source}}={{.Destination}} {{end}}' "$id"
-                  done | while read -r pid name mounts; do
-                    for m in $mounts; do
-                      case "${m%%=*}" in /var/run/docker.sock|/run/docker.sock) ;; *) continue ;; esac
-                      [ "$(stat -L -c %i "/proc/$pid/root${m#*=}" 2>/dev/null)" = "$sock" ] || echo "${name#/}"
-                      break
-                    done
+                    docker inspect -f '{{.State.Pid}} {{.Name}}' "$id"
+                  done | while read -r pid name; do
+                    awk '$5 ~ /\/docker\.sock$/ && $4 ~ /docker\.sock\/\/deleted$/ { f = 1 } END { exit !f }' \
+                      "/proc/$pid/mountinfo" && echo "${name#/}"
                   done
                 }
                 for n in $(stale); do docker restart "$n" >/dev/null; echo "$n"; done
