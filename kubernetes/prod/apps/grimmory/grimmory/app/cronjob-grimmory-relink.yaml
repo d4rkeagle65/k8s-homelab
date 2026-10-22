@@ -4,8 +4,8 @@
 # (relink/grimmory-relink.py says how it matches a file and what it changes).
 # Hourly, so a rescan started by hand also rarely finds a move unrelinked.
 #
-# With DRY_RUN "true" it lists each file it would relink and changes nothing. A
-# run between schedules:
+# It relinks (DRY_RUN "false"); with DRY_RUN "true" it lists each file it would
+# relink and changes nothing. A run between schedules:
 #   kubectl -n grimmory create job --from=cronjob/grimmory-relink grimmory-relink-now
 apiVersion: batch/v1
 kind: CronJob
@@ -54,7 +54,7 @@ spec:
                 # pymysql asks getpass for a user name when imported, and the
                 # media user's ID has no passwd entry in the image.
                 - {name: USER, value: grimmory-relink}
-                - {name: DRY_RUN, value: "true"}
+                - {name: DRY_RUN, value: "false"}
                 - {name: DB_HOST, value: grimmory-db-primary}
                 - {name: DB_NAME, value: grimmory}
                 - {name: DB_USER, value: grimmory}

@@ -52,20 +52,16 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   failed to restart"). Redeploy kea instead, which runs `compose up`. Left: report it to Dockhand
   (github.com/Finsys/dockhand) with that log line; until then, a Restart leaves Stork blind to
   Kea while DHCP runs on.
-- **Turn on Grimmory's relink job once a dry run has been read** (2026-10-21): Grimmory's
-  library scan (`SYNC_LIBRARY_FILES`, 01:00) matches files by path, so a file Bookshelf moved
-  is a deleted book and a new one, and the deleted book's locked metadata, shelves, reading
-  progress, notes and Kobo state go with it (hard-deleted: `BookDeletionService` in 3.5.0).
-  Grimmory recognises a move by its content hash only when its folder watcher sees it, and
-  the watcher sees only its own pod's changes, not Bookshelf's over NFS. The
+- **Read the Grimmory relink job's first real relink** (on since 2026-10-22): the
   `grimmory-relink` CronJob (`kubernetes/prod/apps/grimmory/grimmory/app/`, hourly at :50)
-  does what the watcher would: a database file missing on the share whose hash belongs to
-  exactly one unclaimed file gets that file's folder and name, so the book keeps its id and
-  everything on it. It starts with `DRY_RUN` "true". Left: after a Bookshelf rename, run it
-  by hand (the command is in the CronJob's comment) before 01:00 and read its "would move"
-  lines; then a pull request sets `DRY_RUN` "false". Not covered, and reported only: an upgrade
-  (Bookshelf replacing a book's file with a different one) is new content, so the scan still
-  replaces that book. Left as is, every Bookshelf rename pass costs the moved books their edits.
+  points a book at its file again when Bookshelf moves it, before Grimmory's 01:00 scan would
+  delete the book with its shelves, progress and notes. Proved before it was turned on: its
+  hash equals Grimmory's stored one on all 214 files, none shared, and a file renamed by hand
+  on the share gave one "would move" line with the right book and new path. Left: after
+  Bookshelf's next rename or move pass, read the job's log ("relinked", then the read-back)
+  and check the book kept its shelves. Not covered, and reported only: an upgrade (Bookshelf
+  replacing a book's file with a different one) is new content, so the scan still replaces
+  that book.
 - **The nightly Proxmox backup could make the HA master's watchdog reset its host** (found
   2026-10-19, cause 2026-10-21, Run Command tasks 1010-1016): on 2026-10-18 every host's vzdump
   wrote to the TerraMaster's `tm-nfs` (mounted `hard`) at once; the NAS fell behind, the first
