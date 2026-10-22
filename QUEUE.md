@@ -88,14 +88,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   `rreading-glasses-repair` CronJob (`kubernetes/prod/apps/media/rreading-glasses/app/`, its
   script's docstring says how) finds every Bookshelf author missing works it has cached,
   without a Hardcover lookup, and repairs them through upstream's own path (`DELETE` then
-  `GET /work/<id>`), paced to Hardcover's daily budget. It starts with `DRY_RUN` "true"; a
-  dry run from a session on 2026-10-21 found 4 authors short by 27 works in all. Left, in
-  order: the owner merges it; a night's run (or one started by hand, the command is in the
-  CronJob's comment) is read: each short author and its count; a pull request sets `DRY_RUN`
-  "false", and the next run's log shows each work attached and the budget it spent (its
-  `DELETE` path has never been run here: the script stops if the work doesn't expire, and
-  fails if a work doesn't attach). Left in dry run, a new author's missing works are only
-  listed in the log.
+  `GET /work/<id>`), paced to Hardcover's daily budget. Its first nightly dry run
+  (2026-10-22 07:15 UTC) listed 4 authors short by 27 works, as the session's check had; it
+  now repairs (`DRY_RUN` "false"). Left: the next run's log shows each work attached and the
+  budget it spent (its `DELETE` path has never run here: the script stops if a work doesn't
+  expire, and fails if one doesn't attach), and Bookshelf shows those authors' books.
   **Pace any repair by hand to Hardcover's daily budget** (2026-10-18: about 2,000 repair
   lookups in an afternoon spent the token's whole day, and every uncached Bookshelf lookup
   failed for hours): read `rg_gql_ratelimit_remaining{bucket="daily"}` before and during a
