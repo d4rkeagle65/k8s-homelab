@@ -7,7 +7,11 @@ VLANs, prefixes and DHCP ranges; the Proxmox cluster with its hosts as devices
 (ports, VLAN subinterfaces and bridges) and its guests as virtual machines (each
 NIC with its MAC, VLAN and address, each disk a virtual disk); and each
 LoadBalancer address (role VIP, described by the Services holding it) and each
-MetalLB pool's range, so an address chosen from NetBox can't collide with one.
+MetalLB pool's range, so an address chosen from NetBox can't collide with one. One this
+script recorded (its description starts "LoadBalancer " or "MetalLB pool ") that the
+cluster no longer has is set Deprecated, never deleted; a later Service on that address
+makes it active again. A range moved within a pool can't be recorded until the old one is
+deleted by hand, since NetBox refuses overlapping ranges whatever their status.
 
 It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
@@ -235,6 +239,39 @@ class NetBox:
             http("DELETE", f"{self.base}{path}/{obj['id']}/", self.headers)
             if self.find(path, id=obj["id"]) is not None:
                 raise SystemExit(f"FAIL: {label} is still in NetBox after its delete")
+
+    def retire(self, path: str, obj: dict, label: str):
+        """Set obj Deprecated, never deleted (an address chosen from NetBox should still see it
+        was in use), reading it back."""
+        print(f"  deprecate {path.split('/')[-1]}: {label} (no longer in the cluster)")
+        self._note("deprecate " + path)
+        if self.apply:
+            http("PATCH", f"{self.base}{path}/{obj['id']}/", self.headers, {"status": "deprecated"})
+            back = self.find(path, id=obj["id"])
+            if back is None or (back.get("status") or {}).get("value") != "deprecated":
+                raise SystemExit(f"FAIL: {label} isn't Deprecated after its update")
+
+
+def stale_load_balancers(addresses: list[dict], ranges: list[dict], lb_ips: dict[str, list[str]],
+                         lb_pools: list[tuple[str, str, str]]) -> tuple[list[dict], list[dict]]:
+    """The VIP addresses and IP ranges this script recorded for the cluster (their description
+    starts "LoadBalancer " or "MetalLB pool ") that the cluster no longer has and that aren't
+    Deprecated yet: an address no Service holds, a range no pool has (a single-address pool
+    is recorded only as its address)."""
+    def value(field):
+        return field.get("value") if isinstance(field, dict) else field
+
+    def plain(addr: str) -> str:
+        return addr.split("/")[0]
+
+    live_ranges = {(first, last) for _, first, last in lb_pools if first != last}
+    old_ips = [a for a in addresses
+               if (a.get("description") or "").startswith("LoadBalancer ") and value(a.get("role")) == "vip"
+               and value(a.get("status")) != "deprecated" and plain(a["address"]) not in lb_ips]
+    old_ranges = [r for r in ranges
+                  if (r.get("description") or "").startswith("MetalLB pool ") and value(r.get("status")) != "deprecated"
+                  and (plain(r["start_address"]), plain(r["end_address"])) not in live_ranges]
+    return old_ips, old_ranges
 
 
 def stale_interfaces(have: list[dict], names: set[str]) -> tuple[list[dict], list[tuple[dict, str]]]:
@@ -509,6 +546,12 @@ def main() -> None:
     # MetalLB's: each pool's range (a single address is only its address below), and each
     # address a Service holds, as a VIP named for the Services.
     print("load balancers:")
+    old_ips, old_ranges = stale_load_balancers(nb.all("ipam/ip-addresses", role="vip"), nb.all("ipam/ip-ranges"),
+                                               lb_ips, lb_pools)
+    for r in old_ranges:
+        nb.retire("ipam/ip-ranges", r, r["description"])
+    for a in old_ips:
+        nb.retire("ipam/ip-addresses", a, f"{a['address']} ({a['description']})")
     for pool, first, last in lb_pools:
         if first != last:
             plen = with_len(first).split("/")[1]
