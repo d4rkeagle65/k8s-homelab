@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
-"""Kea's HA state, for Prometheus and Homepage.
+"""Kea's HA state and lease counts, for Prometheus and Homepage.
 
-On each request it asks Kea's API for status-get, with the credentials file the
-API checks (one "user:password" line), and answers with the HA part only:
+On each request it asks Kea's API for status-get and statistic-get-all, with the
+credentials file the API checks (one "user:password" line), and answers with the
+HA state and two lease totals only:
 
   /metrics  Prometheus text: kea_ha_api_up, kea_ha_state (1 for each server's
             current state, as this server sees it), kea_ha_partner_age_seconds,
-            kea_ha_partner_in_touch, kea_ha_clock_skew_seconds and kea_ha_normal
-            (1 when both servers are in the mode's own state and in touch)
-  /status   JSON: the mode, each server's role and state, the partner's age and
-            whether all of it is normal; 503 when Kea gives no usable answer
+            kea_ha_partner_in_touch, kea_ha_clock_skew_seconds, kea_ha_normal
+            (1 when both servers are in the mode's own state and in touch);
+            kea_stats_api_up, kea_dhcp4_assigned_addresses and
+            kea_dhcp4_total_addresses (every subnet's, summed: Kea's own counts,
+            whatever Stork's agent exports)
+  /status   JSON: the mode, each server's role and state, the partner's age,
+            whether all of it is normal, and the lease totals; 503 when Kea gives
+            no usable HA answer
 
-The credentials never leave this process, nor does anything else status-get
-says. Environment: KEA_API_URL, KEA_API_CREDENTIALS, LISTEN_PORT (9548).
+The credentials never leave this process, nor does anything else Kea says.
+Environment: KEA_API_URL, KEA_API_CREDENTIALS, LISTEN_PORT (9548).
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,6 +34,7 @@ API_URL = os.environ.get("KEA_API_URL", "http://kea-dhcp4:8000/")
 CREDENTIALS_FILE = os.environ.get("KEA_API_CREDENTIALS", "/run/secrets/kea-api-credentials")
 PORT = int(os.environ.get("LISTEN_PORT", "9548"))
 TIMEOUT_SECONDS = 5
+SUBNET_STATISTIC = re.compile(r"^subnet\[\d+\]\.(assigned|total)-addresses$")
 
 
 class Unanswered(Exception):
@@ -35,8 +42,8 @@ class Unanswered(Exception):
     credentials or the request."""
 
 
-def status_get(url: str, credentials_file: str) -> dict:
-    """status-get's arguments from Kea's API."""
+def command(url: str, credentials_file: str, name: str) -> dict:
+    """One API command's arguments from Kea."""
     try:
         with open(credentials_file, encoding="utf-8") as f:
             user_password = f.read().strip()
@@ -44,21 +51,21 @@ def status_get(url: str, credentials_file: str) -> dict:
         raise Unanswered(f"credentials file unreadable ({type(error).__name__})") from None
     auth = base64.b64encode(user_password.encode("utf-8")).decode("ascii")
     request = urllib.request.Request(
-        url, data=json.dumps({"command": "status-get"}).encode("utf-8"), method="POST",
+        url, data=json.dumps({"command": name}).encode("utf-8"), method="POST",
         headers={"Content-Type": "application/json", "Authorization": f"Basic {auth}"})
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             answer = json.loads(response.read() or b"null")
     except urllib.error.HTTPError as error:
-        raise Unanswered(f"HTTP {error.code}") from None
+        raise Unanswered(f"{name}: HTTP {error.code}") from None
     except (urllib.error.URLError, TimeoutError, ConnectionError, ValueError) as error:
-        raise Unanswered(f"no answer ({type(error).__name__})") from None
+        raise Unanswered(f"{name}: no answer ({type(error).__name__})") from None
     # Kea's HTTP socket wraps its answer in a list, as its control agent did.
     first = answer[0] if isinstance(answer, list) and answer else answer
     if not isinstance(first, dict):
-        raise Unanswered("an answer that isn't a JSON object")
+        raise Unanswered(f"{name}: an answer that isn't a JSON object")
     if first.get("result") != 0:
-        raise Unanswered(f"result {first.get('result')}")
+        raise Unanswered(f"{name}: result {first.get('result')}")
     return first.get("arguments") or {}
 
 
@@ -87,12 +94,28 @@ def ha_status(arguments: dict) -> dict:
     return status
 
 
+def lease_counts(arguments: dict) -> dict:
+    """Assigned and total addresses, every subnet's summed, from statistic-get-all's
+    arguments: each statistic is a list of [value, timestamp] samples, newest first."""
+    counts = {"assigned": 0, "total": 0}
+    seen = False
+    for name, samples in arguments.items():
+        match = SUBNET_STATISTIC.match(name)
+        if match and samples:
+            counts[match.group(1)] += int(samples[0][0])
+            seen = True
+    if not seen:
+        raise Unanswered("no subnet statistics in statistic-get-all")
+    return counts
+
+
 def _label(value: object) -> str:
     return str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
-def metrics(status: dict | None) -> str:
-    """Prometheus text for an HA status, or for none when Kea didn't answer."""
+def metrics(status: dict | None, leases: dict | None = None) -> str:
+    """Prometheus text for an HA status and lease totals, either None when Kea didn't
+    answer for it."""
     lines = ["# HELP kea_ha_api_up Whether Kea's API answered status-get with its HA state.",
              "# TYPE kea_ha_api_up gauge",
              f"kea_ha_api_up {0 if status is None else 1}"]
@@ -118,7 +141,31 @@ def metrics(status: dict | None) -> str:
         lines += ["# HELP kea_ha_normal 1 when both servers are in the mode's own state and in touch.",
                   "# TYPE kea_ha_normal gauge",
                   f"kea_ha_normal {int(status['normal'])}"]
+    lines += ["# HELP kea_stats_api_up Whether Kea's API answered statistic-get-all with subnet statistics.",
+              "# TYPE kea_stats_api_up gauge",
+              f"kea_stats_api_up {0 if leases is None else 1}"]
+    if leases is not None:
+        lines += ["# HELP kea_dhcp4_assigned_addresses Addresses Kea has leased, every subnet's summed.",
+                  "# TYPE kea_dhcp4_assigned_addresses gauge",
+                  f"kea_dhcp4_assigned_addresses {leases['assigned']}",
+                  "# HELP kea_dhcp4_total_addresses Addresses in Kea's pools, every subnet's summed.",
+                  "# TYPE kea_dhcp4_total_addresses gauge",
+                  f"kea_dhcp4_total_addresses {leases['total']}"]
     return "\n".join(lines) + "\n"
+
+
+def collect() -> tuple[dict | None, dict | None, str | None]:
+    """The HA status and the lease totals, each None when Kea didn't answer for it,
+    and the HA failure's reason."""
+    try:
+        status, error = ha_status(command(API_URL, CREDENTIALS_FILE, "status-get")), None
+    except Unanswered as unanswered:
+        status, error = None, str(unanswered)
+    try:
+        leases = lease_counts(command(API_URL, CREDENTIALS_FILE, "statistic-get-all"))
+    except Unanswered:
+        leases = None
+    return status, leases, error
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -126,16 +173,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.path not in ("/metrics", "/status"):
             self._send(404, "text/plain", "not found\n")
             return
-        try:
-            status, error = ha_status(status_get(API_URL, CREDENTIALS_FILE)), None
-        except Unanswered as unanswered:
-            status, error = None, str(unanswered)
+        status, leases, error = collect()
         if self.path == "/metrics":
-            self._send(200, "text/plain; version=0.0.4", metrics(status))
+            self._send(200, "text/plain; version=0.0.4", metrics(status, leases))
         elif status is None:
             self._send(503, "application/json", json.dumps({"error": error}))
         else:
-            self._send(200, "application/json", json.dumps(status))
+            self._send(200, "application/json", json.dumps({**status, "leases": leases}))
 
     def _send(self, code: int, content_type: str, body: str) -> None:
         data = body.encode("utf-8")
