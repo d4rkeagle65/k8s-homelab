@@ -1,7 +1,16 @@
 # Takes node k8s_node out of service: cordon, move its databases off
 # (cnpg-free-node.yml, mariadb-free-node.yml), drain. kubectl runs on kubectl_host, as kubectl_cmd
 # (kubectl-local.yml). Undone by proxmox-host-reboot.yml for a whole host,
-# or talos-node-upgrade.yml for one node.
+# or talos-node-upgrade.yml for one node. Marks the run as one that drained
+# (cnpg_drained on the host semaphore, where every drain playbook's clean-up play
+# reads it; not kubectl_host, which the Talos plays set to the node itself), so it
+# spreads the primaries back at its end (cnpg-spread-primaries.yml).
+- name: Mark the run as one that drains
+  ansible.builtin.set_fact:
+    cnpg_drained: true
+  delegate_to: semaphore
+  delegate_facts: true
+
 - name: Cordon the node
   ansible.builtin.command: "{{ kubectl_cmd }} cordon {{ k8s_node }}"
   delegate_to: "{{ kubectl_host }}"
