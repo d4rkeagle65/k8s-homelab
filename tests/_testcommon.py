@@ -63,7 +63,7 @@ KNOWN_CONFIG_KEYS = (
     "Scripts", "ExcludeScripts", "TargetPythons", "SuiteTimeoutSeconds", "EnvironmentSuites",
     "ExtraSuites", "RequireHelp", "LineEndings", "TextExtensions", "DocExclude",
     "ReadmeCatalogue", "StrictRatchets", "Ratchets", "Budgets", "Floors", "Prerequisites",
-    "HookSource",
+    "HookSource", "PosixOnlyScripts", "WindowsOnlyScripts",
 )
 
 # The framework's own keys in test_config.toml's tables. A key in Ratchets or Floors is valid
@@ -280,6 +280,29 @@ def scripts_under_test():
         files = [f for f in tracked_files("*.py") if not rel(f).startswith("tests/")]
     excl = [x.lower() for x in (cfg.get("ExcludeScripts") or []) if x]
     return [f for f in files if not any(fnmatch.fnmatchcase(rel(f).lower(), x) for x in excl)]
+
+
+def script_platforms(path, posix_only=None, windows_only=None):
+    """The platforms a script runs on, of 'posix' and 'nt'. PosixOnlyScripts and
+    WindowsOnlyScripts in test_config.toml name by glob the scripts that run on one only (a
+    Linux container or host; the PC alone); every other runs on both. A check of what the
+    running Python has judges a script only where it runs: os.uname is absent on Windows,
+    which is no fault in a script Windows never runs."""
+    cfg = config()
+    posix_only = cfg.get("PosixOnlyScripts") or [] if posix_only is None else posix_only
+    windows_only = cfg.get("WindowsOnlyScripts") or [] if windows_only is None else windows_only
+    name = rel(path).lower() if os.path.isabs(path) else path.replace("\\", "/").lower()
+    match = lambda globs: any(fnmatch.fnmatchcase(name, g.lower()) for g in globs if g)
+    if match(posix_only):
+        return {"posix"}
+    if match(windows_only):
+        return {"nt"}
+    return {"posix", "nt"}
+
+
+def this_platform():
+    """'nt' on Windows, 'posix' elsewhere: script_platforms' names."""
+    return "nt" if os.name == "nt" else "posix"
 
 
 def _scratch_base():
