@@ -121,9 +121,15 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] Kea's three variables in Vaultwarden (2026-10-16)
 - [x] Dockhand's environment for the second Docker VM, connected (2026-10-17: the 429 was
       Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
-- [ ] `NETBOX_READ_TOKEN` in Vaultwarden without its "Bearer " prefix (its users accept either),
-      so Prometheus can discover the Docker VMs from NetBox's Prometheus SD plugin (it adds its
-      own "Bearer "); then node-exporter's targets come from the `docker_vm` tag
+- [ ] `NETBOX_READ_TOKEN` in Key Vault (`NETBOX-READ-TOKEN`, through `scripts/keyvault-secrets.ps1`)
+      without its "Bearer " prefix: its one cluster user, `proxmox-endpoints`, accepts either;
+      Ansible and OpenTofu use their own copies. Then Prometheus could discover the Docker VMs
+      from NetBox's Prometheus SD plugin (it adds its own "Bearer "), but the plugin gives each
+      VM's primary (Production) address, where node-exporter doesn't answer, and nothing in
+      NetBox marks the management one: a tag on those addresses (set by the NetBox sync), then
+      the scrape relabels to them. That switch also touches `scrapeconfig-docker-vm.yaml`,
+      `scrapeconfig-docker-vm-2.yaml`, Homepage's two Docker VM cards and the
+      `DockerContainerRestarting` rule, which use today's job names
 - [x] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answered every network from
       Production; fixed and checked from a VPN and an IoT/Work client (Run Command tasks 1194,
       1204, 2026-10-22)
