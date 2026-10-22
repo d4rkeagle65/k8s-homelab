@@ -176,3 +176,65 @@ def test_a_container_event_is_keyed_by_the_container_its_message_names():
     other = m.dockhand_to_checkmk({"title": "Container Die", "message": 'Container "netbox" die', "type": "error"})
     assert die["host"] == start["host"] == "Dockhand Container kea-dhcp4" and other["host"] == "Dockhand Container netbox"
     assert die["state"] == "CRITICAL" and start["state"] == "OK"
+
+
+def semaphore(name="Host: Proxmox Upgrade", status="❌ ERROR"):
+    """Semaphore v2.19's Slack alert, as its slack.tmpl renders it."""
+    return {"attachments": [{"title": f"Task: {name}", "title_link": "https://semaphore.example/project/1/templates/2?t=1185",
+                             "text": f"execution #1185, status: {status}!", "color": "danger", "mrkdwn_in": ["text"],
+                             "fields": [{"title": "Author", "value": "—", "short": True}]}]}
+
+
+def test_a_semaphore_failure_opens_and_the_templates_next_success_closes_it():
+    down = m.semaphore_to_checkmk(semaphore())
+    up = m.semaphore_to_checkmk(semaphore(status="✅ SUCCESS"))
+    assert down["host"] == up["host"] == "Semaphore Host: Proxmox Upgrade" and down["service"] == "semaphore"
+    assert down["state"] == "CRITICAL" and up["state"] == "OK"
+    assert "execution #1185" in down["text"] and "?t=1185" in down["text"]
+
+
+def test_a_semaphore_confirmation_wait_or_an_empty_alert_opens_nothing():
+    assert m.semaphore_to_checkmk(semaphore(status="⚠️ WAITING_CONFIRMATION")) is None
+    assert m.semaphore_to_checkmk({}) is None and m.semaphore_to_checkmk({"attachments": "x"}) is None
+
+
+def test_databasus_keys_a_ticket_by_database_and_kind_and_success_closes_it():
+    fail = m.databasus_to_checkmk({"heading": '❌ Backup failed for database "kea" (workspace "home")', "message": "pg_dump: timeout"})
+    ok = m.databasus_to_checkmk({"heading": '✅ Backup completed for database "kea" (workspace "home")', "message": "12 MB"})
+    assert fail["host"] == ok["host"] == "Databasus backup kea" and fail["service"] == "databasus"
+    assert fail["state"] == "CRITICAL" and ok["state"] == "OK" and "pg_dump: timeout" in fail["text"]
+
+
+def test_databasus_health_verification_and_physical_kinds_stay_apart():
+    cases = {
+        "❌ [kea] DB is unavailable": ("Databasus health kea", "CRITICAL"),
+        "✅ [kea] DB is online": ("Databasus health kea", "OK"),
+        'backup verification failed after 3 attempts for "kea"': ("Databasus verification kea", "CRITICAL"),
+        'backup verification passed for "kea"': ("Databasus verification kea", "OK"),
+        'Physical FULL failed for "kea" (workspace "home")': ("Databasus backup kea", "CRITICAL"),
+        'Physical INCR completed for "kea" (workspace "home")': ("Databasus backup kea", "OK"),
+        'Physical WAL gap detected for "kea"': ("Databasus WAL kea", "CRITICAL"),
+        "Test message": ("Databasus test", "WARNING"),
+    }
+    for heading, (host, state) in cases.items():
+        f = m.databasus_to_checkmk({"heading": heading})
+        assert (f["host"], f["state"]) == (host, state), heading
+    assert m.databasus_to_checkmk({"message": "no heading"}) is None
+
+
+def test_each_token_route_wants_its_own_token_and_is_off_without_one(monkeypatch):
+    import json
+    sent = []
+    monkeypatch.setattr(m, "send", lambda url, fields: sent.append(fields) or "ok")
+    bodies = {"semaphore": json.dumps(semaphore()).encode(),
+              "databasus": b'{"heading": "\\u274c [kea] DB is unavailable", "message": ""}'}
+    for route, body in bodies.items():
+        monkeypatch.setattr(m.Handler, f"{route}_token", "")
+        assert dockhand_post(f"/{route}/anything", body) == 404
+        monkeypatch.setattr(m.Handler, f"{route}_token", "s3cr3t-token")
+        monkeypatch.setattr(m.Handler, "dockhand_token", "other-token")
+        assert dockhand_post(f"/{route}/wrong", body) == 404
+        assert dockhand_post(f"/{route}/other-token", body) == 404
+        assert dockhand_post(f"/{route}/s3cr3t-token", body) == 200 and sent[-1]["state"] == "CRITICAL"
+    assert dockhand_post("/semaphore/s3cr3t-token", json.dumps(semaphore(status="⚠️ WAITING_CONFIRMATION")).encode()) == 200
+    assert len(sent) == 2

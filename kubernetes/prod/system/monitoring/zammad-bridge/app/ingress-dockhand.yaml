@@ -1,7 +1,10 @@
-# Dockhand's notifications into the bridge (Dockhand: Settings, Notifications,
-# an Apprise channel jsons://zammad-bridge.<domain>/dockhand/<DOCKHAND_ALERT_TOKEN>).
-# Only /dockhand is routed, from private networks only (LAN, cluster, tailnet;
-# never the tunnel); Alertmanager reaches the bridge inside the cluster.
+# The Docker host's notifications into the bridge, each route with its own token:
+# Dockhand (Settings, Notifications, an Apprise channel
+# jsons://zammad-bridge.<domain>/dockhand/<DOCKHAND_ALERT_TOKEN>), Semaphore (its
+# stack's SEMAPHORE_SLACK_URL, .../semaphore/<SEMAPHORE_ALERT_TOKEN>) and Databasus
+# (a Webhook notifier, POST, .../databasus/<DATABASUS_ALERT_TOKEN>). Only these
+# routes, from private networks only (LAN, cluster, tailnet; never the tunnel);
+# Alertmanager reaches the bridge inside the cluster.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -17,6 +20,20 @@ spec:
     http:
       paths:
       - path: /dockhand/
+        pathType: Prefix
+        backend:
+          service:
+            name: zammad-bridge
+            port:
+              name: http
+      - path: /semaphore/
+        pathType: Prefix
+        backend:
+          service:
+            name: zammad-bridge
+            port:
+              name: http
+      - path: /databasus/
         pathType: Prefix
         backend:
           service:
