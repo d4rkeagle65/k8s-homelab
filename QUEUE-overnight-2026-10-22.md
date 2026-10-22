@@ -76,7 +76,7 @@ role-icon rows render; rebased onto #298 with `QUEUE.md` resolved), #290 (NetBox
   would have to run as non-root, app by app). Left in `QUEUE.md`: the merge and read-back.
 - **#260 (Dockhand backup):** `DOCKHAND-BACKUP-ZIP-PASSWORD` in Key Vault, then the stack in
   Dockhand, and its ID for the webhook.
-- **The old Grimmory dump folder on the Synology**: delete it.
+- ~~**The old Grimmory dump folder on the Synology**~~: deleted by the owner, 2026-10-22 (15 dumps, 2.1 MB, of the retired database; read back gone, `grimmory-data` untouched).
 - **The `evacuate` override in NetBox's Proxmox config context**: drop it (a NetBox write).
 - **DMZ clients' second Pi-hole address**, by hand on each.
 - **The Pi-holes' DMZ addresses in git history:** rewrite history, or leave them.
