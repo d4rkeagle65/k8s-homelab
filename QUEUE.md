@@ -52,13 +52,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   failed to restart"). Redeploy kea instead, which runs `compose up`. Left: report it to Dockhand
   (github.com/Finsys/dockhand) with that log line; until then, a Restart leaves Stork blind to
   Kea while DHCP runs on.
-- **Read the Grimmory author cleanup's first scheduled run** (2026-10-22): Grimmory 3.5.0
-  never removes an author its metadata lookup moved every book away from, so the Authors page
-  listed "Clare, Cassandra" beside "Cassandra Clare". The 34 authors with no books were deleted
-  through its API on 2026-10-22 (read back: 24 authors, the 178 book links unchanged, no live
-  book without an author); the `grimmory-authors` CronJob (`kubernetes/prod/apps/grimmory/grimmory/app/`,
-  04:30) deletes new ones. Left: its first run's log ends "Nothing to delete." or "Deleted N;
-  read back: ..., none without books."
 - **Read the Grimmory relink job's first real relink** (on since 2026-10-22): the
   `grimmory-relink` CronJob (`kubernetes/prod/apps/grimmory/grimmory/app/`, hourly at :50)
   points a book at its file again when Bookshelf moves it, before Grimmory's 01:00 scan would
