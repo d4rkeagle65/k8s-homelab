@@ -13,6 +13,13 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **Delete the old single-version Hyper Backup copy on the TerraMaster** (2026-10-22): the
+  cancelled first run of the single-version `k8s-to-tnas` task left `k8sData_synology/` in the
+  `k8sBackups` share; the multi-version task's `k8sData_synology.hbk` beside it succeeded on
+  2026-10-21, so nothing reads the old folder. Delete only that folder, never `garage/` (every
+  database backup) or `k8sData_synology.hbk`. Left, it holds a partial copy of the Synology's
+  `k8sData` taking TerraMaster space.
+
 - **Report the TerraMaster's SNMP setting to TerraMaster** (from the monitoring work): TOS's SNMP
   page doesn't reach `/etc/snmp/snmpd.conf` (snmpd kept `rocommunity public`), so line 33 holds
   a hand-edited community limited to the management network. An update, a reboot or saving SNMP
