@@ -3,18 +3,24 @@
 # line "<interface> <table> <gateway>" of /etc/homelab-source-routing.conf, table
 # <table> holds the interface's network and a default route via <gateway>, and a
 # rule (priority 5000 + <table>) sends what leaves from its address there.
-# "stop" removes the rules and empties the tables. Written by Ansible
+# The tables are 201-299 (management-routing.yml numbers them): every rule and
+# table of that range is cleared first, so an interface dropped from the config,
+# or renumbered, leaves nothing behind. "stop" only clears. Written by Ansible
 # (ansible/tasks/management-routing.yml) and run by homelab-source-routing.service;
 # running it again changes nothing.
 set -eu
 conf=/etc/homelab-source-routing.conf
+t=201
+while [ "$t" -le 299 ]; do
+    while ip rule del priority $((5000 + t)) 2>/dev/null; do :; done
+    ip route flush table "$t" 2>/dev/null || true
+    t=$((t + 1))
+done
+[ "${1:-start}" = stop ] && exit 0
 [ -r "$conf" ] || exit 0
 rc=0
 while read -r ifname table gw; do
     case "$ifname" in '' | '#'*) continue ;; esac
-    while ip rule del priority $((5000 + table)) 2>/dev/null; do :; done
-    ip route flush table "$table" 2>/dev/null || true
-    [ "${1:-start}" = stop ] && continue
     addr=$(ip -o -4 addr show dev "$ifname" | awk '{split($4, a, "/"); print a[1]; exit}')
     net=$(ip -o -4 route show table main dev "$ifname" scope link | awk '{print $1; exit}')
     if [ -z "$addr" ] || [ -z "$net" ]; then
