@@ -121,9 +121,9 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] Kea's three variables in Vaultwarden (2026-10-16)
 - [x] Dockhand's environment for the second Docker VM, connected (2026-10-17: the 429 was
       Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
-- [ ] `NETBOX_READ_TOKEN` in Key Vault (`NETBOX-READ-TOKEN`, through `scripts/keyvault-secrets.ps1`)
-      without its "Bearer " prefix: its one cluster user, `proxmox-endpoints`, accepts either;
-      Ansible and OpenTofu use their own copies. Then Prometheus could discover the Docker VMs
+- [ ] `NETBOX_READ_TOKEN` without its "Bearer " prefix: done 2026-10-22 (the owner, through
+      `scripts/keyvault-secrets.ps1`); `proxmox-endpoints`, its one cluster user, restarted and
+      read NetBox with it (5 of 5 hypervisors). Left: Prometheus could discover the Docker VMs
       from NetBox's Prometheus SD plugin (it adds its own "Bearer "), but the plugin gives each
       VM's primary (Production) address, where node-exporter doesn't answer, and nothing in
       NetBox marks the management one: a tag on those addresses (set by the NetBox sync), then
