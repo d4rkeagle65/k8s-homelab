@@ -13,6 +13,9 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **Set the `claude-code` Semaphore user back to Task Runner** (2026-10-22): raised to Manager
+  for the weekly check schedules, which are done.
+
 - **Delete the old single-version Hyper Backup copy on the TerraMaster** (2026-10-22): the
   cancelled first run of the single-version `k8s-to-tnas` task left `k8sData_synology/` in the
   `k8sBackups` share; the multi-version task's `k8sData_synology.hbk` beside it succeeded on
@@ -296,8 +299,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
     `/etc/pve/priv/authorized_keys`), and set `sshd` to `PasswordAuthentication no` and
     `PermitRootLogin prohibit-password` (never `no`: the Proxmox hosts and Semaphore log in
     as root by key), from a playbook that first checks the named login works.
-  - **Scheduled check-mode runs in Semaphore** (weekly, failure alerts on),
-    reporting pending updates and drift without changing anything.
+  - **Scheduled check-mode runs in Semaphore:** weekly since 2026-10-22 (schedules 14-17, the
+    Setting templates with `dry_run`; pending updates daily already). Left: Semaphore's alerts
+    are off (project `alert` unset, no channel in its server config), so a failed run notifies
+    no one; and a run that finds drift still succeeds, its `changed=` count only in the log.
+    Give Semaphore an alert channel (email through the cluster's relay, or a webhook into
+    Zammad), and consider failing a check run that would change something.
 
   The inventory and every address stay out of this public repo (a
   gitignored inventory, or values from Vaultwarden).
