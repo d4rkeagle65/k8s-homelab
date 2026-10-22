@@ -147,6 +147,24 @@ spec:
         protocol: TCP
         http:
           aliasHeadersStrategy: delete
+      # Traefik on the management network, for the hosts that are only there
+      # (the Proxmox hosts, the TerraMaster): reaching INGRESS_IP crosses the
+      # router, the nodes answer over their own management leg, and the router
+      # resets the connection. Only on the mgmt Service, and not a default:
+      # just the routes that name it (Loki's push route) are served there.
+      mgmt:
+        port: 8444
+        expose:
+          default: false
+          mgmt: true
+        exposedPort: 443
+        protocol: TCP
+        http:
+          tls:
+            enabled: true
+          aliasHeadersStrategy: delete
+          middlewares:
+          - traefik_strip-authentik-headers@kubernetescrd
     # Prometheus metrics on the internal metrics entry point, scraped through a
     # ClusterIP Service of their own.
     metrics:
@@ -166,7 +184,37 @@ spec:
         type: LoadBalancer
         # As ingress-nginx: keep the client's source address.
         externalTrafficPolicy: Local
+      # The mgmt entry point alone, at TRAEFIK_MGMT_ADDRESS (the traefik-mgmt
+      # MetalLB pool below, announced on the nodes' management interface).
+      additionalServices:
+        mgmt:
+          annotations:
+            metallb.io/loadBalancerIPs: ${TRAEFIK_MGMT_ADDRESS}
+          spec:
+            type: LoadBalancer
+            externalTrafficPolicy: Local
     extraObjects:
+    # TRAEFIK_MGMT_ADDRESS alone, announced on eth1 (the management network),
+    # for the mgmt Service above; nothing else is given it.
+    - apiVersion: metallb.io/v1beta1
+      kind: IPAddressPool
+      metadata:
+        name: traefik-mgmt
+        namespace: metallb-system
+      spec:
+        addresses:
+        - ${TRAEFIK_MGMT_ADDRESS}/32
+        autoAssign: false
+    - apiVersion: metallb.io/v1beta1
+      kind: L2Advertisement
+      metadata:
+        name: traefik-mgmt
+        namespace: metallb-system
+      spec:
+        interfaces:
+        - eth1
+        ipAddressPools:
+        - traefik-mgmt
     # HTTP to HTTPS, as ingress-nginx did for every Ingress with TLS. Per
     # Ingress, not on the whole `web` entry point: the Cloudflare tunnel
     # reaches bb and bb-mcp over plain HTTP. Used as

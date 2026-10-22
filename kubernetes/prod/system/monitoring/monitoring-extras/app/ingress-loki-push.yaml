@@ -1,6 +1,9 @@
 # Loki's push API for logs from outside the cluster (Alloy on the Debian hosts,
-# ansible/tasks/host-alloy.yml): private networks only, behind a login, and
-# only the push path; nothing reads logs through it.
+# ansible/tasks/host-alloy.yml, and on the TerraMaster): private networks only,
+# behind a login, and only the push path; nothing reads logs through it. On
+# Traefik's mgmt entry point too, and its name resolves there: every sender has
+# a management address, and the ones with nothing else can't keep a connection
+# to INGRESS_IP (traefik's helmrelease.yaml says why).
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
@@ -16,7 +19,8 @@ metadata:
   name: loki-push
   annotations:
     cert-manager.io/cluster-issuer: cloudflare-letsencrypt
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure,mgmt
+    external-dns.alpha.kubernetes.io/target: ${TRAEFIK_MGMT_ADDRESS}
     traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,monitoring_loki-push-auth@kubernetescrd
 spec:
   ingressClassName: traefik
