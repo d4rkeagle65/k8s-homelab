@@ -149,14 +149,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the workers, or moving replicas one at a time onto the emptier ones), and end a run that
   drains every worker by switching primaries back out.
 
-- **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
-  plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
-  DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected
-  keyword argument 'nested'" and `/api/core/object-changes/` answers 500 for any page holding a
-  role-icon change (eight, from setting the icons). `?fields=` without `changed_object` works.
-  Nothing here reads the change log by API today; a script that does would fail until NetBox's
-  housekeeping drops those rows at the retention limit. Report it upstream, or patch the
-  serializer in `docker/netbox/Dockerfile` until a release fixes it.
+- **Redeploy NetBox for the change-log fix** (found 2026-10-21): `netbox-topology-views`'
+  `RoleImageSerializer` is a plain DRF `ModelSerializer` (unchanged in 5.0.0), so NetBox 4.7
+  rendering a role-icon change with `nested=True` raised, and `/api/core/object-changes/`
+  answered 500 for any page holding one. The image now patches it at build time
+  (`docker/netbox/patch_topology_views.py`, which fails the build if a plugin release changes
+  the class). Left: the merge's webhook redeploys the stack, rebuilding the image (or the owner
+  redeploys it in Dockhand), then `GET /api/core/object-changes/` answers 200; and the fix reported upstream (the text is
+  in the pull request).
 
 - **kea-standby's API doesn't answer an HTTP request from the owner's PC** (found 2026-10-20):
   on the second Docker VM's management address, port 8000 accepts the connection, then the
