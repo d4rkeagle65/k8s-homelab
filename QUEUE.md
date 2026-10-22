@@ -218,11 +218,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   password on its standard input instead (`docker/dockhand-backup/backup.sh`, `with_password`;
   7-Zip 24.09 reads it there). Report it upstream, or wrap the image the same way. Left, the
   vault's backup password is readable by whatever runs on that host during each backup.
-- **`netbox-topology-views` 5.0.0 carries security fixes** (found 2026-10-22): an XSS and a
-  path traversal in the role-image settings, released 2026-10-19; `docker/netbox/` pins 4.7.0.
-  Check 5.0.0 supports NetBox 4.7, then bump it (`patch_topology_views.py` from #266 refuses
-  5.0.0's class only if its text changed; its serializer is unchanged). Left, the plugin's
-  settings pages keep those holes.
+- **Redeploy NetBox for Topology Views 5.0.0** (2026-10-22): it fixes an XSS and a path
+  traversal in the role-image settings; it requires NetBox 4.7.0 or later (no maximum), needs
+  nothing new, and its serializer file is 4.7.0's byte for byte, so `patch_topology_views.py`
+  applies unchanged. Its two migrations (0014, 0015) rework each user's saved view options
+  (to a user foreign key and JSON fields, dropping options of deleted users) and run at
+  NetBox's start. Left: the merge's webhook rebuilds the image; then NetBox starts with the
+  migrations applied (its log), the topology view opens, and a role-icon change still renders
+  in `/api/core/object-changes/`.
 - **Databasus's two alert emails on 2026-10-21 at 08:03 were refused** ("554 Transaction
   failed" from the cluster's SMTP relay); none failed before or since, and the relay's logs
   from then are gone (its pods restarted). If it recurs, read `smtp-oauth-relay`'s log at the
