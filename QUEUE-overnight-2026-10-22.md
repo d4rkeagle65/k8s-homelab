@@ -45,6 +45,21 @@ continue what you can."
 | R | Move database replicas off the crowded workers (`QUEUE.md`) | All eight done (prowlarr, then with the owner's go-ahead radarr, n8n, sonarr, manictime, bookshelf, whisparr-v3, authentik; 31-62 s each, every cluster healthy): instances 8, 7, 8, 8 per worker, from 13, 3, 4, 11. Eight Released `local-db` PVs and folders left on the old workers |
 | S | Bug scans, several passes, after the pieces above | Five passes: (1) a code review of everything merged since 2026-10-21, (2) a repo-wide sweep for the bug classes that bit before, (3) the live systems, (4) each finding tried and fixed only once reproduced, (5) a review of the fixes. Fixes: #292 (NetBox sync retires stale load-balancer records), #293 (KubeJobFailed only for a CronJob's latest run), #294 (primary spreading only after a drain, never skipping clean-up; pass 5 caught its Talos fact on the wrong host, fixed), #297 (Flux held whenever the whole group is named), #298 (Immich import deadline, Grimmory relink NULL path and errors, repair report on stop, Dockhand backup's listing and 7z password off argv), #299 (timezone inside the container and locked containers; the routing script clears its own rules). Refuted: two. Live systems: healthy. The six merge cleanly in any order; #286 and #298 both edit `QUEUE.md` |
 
+### Merged and validated (the owner's go-ahead, 2026-10-22 ~13:00 UTC), one at a time
+
+#302 (docs), #287 (its suite passes on main), #289 (its script, live: exit 0, nothing flagged),
+#293 (only the repo's KubeJobFailed rule loaded; the four stale alerts cleared to 0), #292 (28
+tests pass on main; the nightly sync is its live check), #297 (dry run 1148 with `proxmox`
+held Flux), #294 (dry run 1149 drained and planned the spread, 4/4/4/4; 1150 with nothing to
+drain skipped it; clean-up ran in both), #299 (dry runs 1151: only test container 199 would
+change zone; 1152: the new routing script installs at the next real run), #298 (CronJobs carry
+the fixes; the rebuilt Dockhand backup wrote and `backup.sh check` restored a new archive),
+#288 (every pod on its new resources; both databases healthy), #291 (both Certificates Ready,
+kea-db serving the new CA's certificate without a restart, both Keas without a database
+error), #286 (NetBox with Topology Views 5.0.0, its migrations 0014 and 0015 applied, the
+role-icon rows render; rebased onto #298 with `QUEUE.md` resolved), #290 (NetBox 4.7.3: all
+16 change-log pages answer 200). #295 skipped, as the owner asked.
+
 ## Decisions for the owner
 
 - **`TALOS_SECRETS`:** the owner regenerates it from a control plane (`talos/README.md`) and
