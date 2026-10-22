@@ -103,7 +103,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   record, yet the record (295 works) lacks it, so the job failed as designed. Left: read the
   next nightly run (it tries that work again, one lookup); if it still won't attach, look at
   how rreading-glasses attaches a work whose author record was refreshed after it (upstream
-  issue 602's area). Until then the job fails each night on it, and KubeJobFailed tickets it.
+  issue 602's area). Until then the job fails each night on it, and KubeJobFailed tickets it
+  (the hand-started job's ticket was cleared by deleting it, 2026-10-22).
   **Pace any repair by hand to Hardcover's daily budget** (2026-10-18: about 2,000 repair
   lookups in an afternoon spent the token's whole day, and every uncached Bookshelf lookup
   failed for hours): read `rg_gql_ratelimit_remaining{bucket="daily"}` before and during a
