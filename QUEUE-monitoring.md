@@ -204,7 +204,11 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       none failed)
 - [x] Phase 6 (in phase 1)
 - [ ] Phase 7
-- [ ] Phase 8
+- [ ] Phase 8. Also: an alert when a host that normally sends logs goes silent for an hour
+      (`absent_over_time` per `host` in a Loki ruler rule, or a recording rule on Alloy's
+      counters). The TerraMaster's Alloy stalled once (2026-10-22: reading its files, sending
+      nothing, no error logged, after half an hour of failed pushes) and only a manual check
+      found it; a restart cleared it
 - [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
       (Grafana, Homelab folder, `json/homelab/backups.json`) and the `homelab.backups` alerts:
       Postgres from the Barman Cloud plugin's metrics (CloudNativePG's own backup timestamps
@@ -224,7 +228,20 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       Vaultwarden; the other buckets alert from their own metrics) and
       `GarageBackupExporterFailing`; read back 2026-10-20, all three buckets up. A suspended
       PhysicalBackup (a replica recovery's template) is skipped by `MariaDBBackupNotComplete`.
-      Left: the Synology copy (its answer)
+      Left: the Synology-to-TerraMaster copy. It's Hyper Backup on the Synology, task
+      `k8s-to-tnas` (`task_5` in its config), multi-version, nightly 05:30, to the TerraMaster's
+      rsync daemon on its management address (module `k8sBackups`, user `tnasrsync`, no transfer
+      encryption), into `k8sBackups/k8sData_synology.hbk`. Its first full run started
+      2026-10-21 23:38 local; once it succeeds, the owner deletes the old single-version copy
+      (`k8sBackups/k8sData_synology/`, a cancelled partial run), never `garage/`. The plan,
+      settled with the owner: a small exporter stack on the Synology (`docker/`, Dockhand through
+      its Hawser agent, standard-library Python) reading `/var/synobackup/config/task_state.conf`
+      and `/usr/syno/etc/synobackup.conf` read-only, serving each task's last run time and result;
+      `SynologyBackupTooOld` (26 h), `SynologyBackupFailed` and an exporter-down alert; a row on
+      the Backups dashboard. Wait for the first run to finish before writing it: until a run
+      completes, `task_state.conf` holds only `last_state="Initial"`, and its completion fields'
+      names are to be read, not guessed. File modification times on the TerraMaster are no
+      signal: rsync keeps the source files' times
 
 ## Resuming
 
