@@ -161,13 +161,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   monitoring stack's own change), or Calico's native v3 CRDs, which retire the aggregated API
   server (preview since Calico 3.32; this is 3.33.0), a Calico change for the owner to choose.
   Left as is, the lines fill the Logs dashboard's error table and hide real errors there.
-- **Delete the Released `local-db` volumes the replica moves left** (2026-10-22): eight replicas
-  were rebuilt off the two crowded workers (instances now 8, 7, 8 and 8 per worker), each
-  leaving its old PV Released and its folder under `/var/mnt/local-db` on the old worker
-  (prowlarr, radarr, n8n, sonarr, manictime, bookshelf, whisparr-v3, authentik). Every
-  database is healthy on its new replica, so the old copies are spare. Left: `kubectl delete
-  pv` for each, then its folder, as the 2026-10-22 cleanup did. Left, about 6 GB of the
-  workers' disks hold stale copies.
 - **NetBox's change-log API fails on a `dcim.PortTemplateMapping` change** (found 2026-10-22):
   with the Topology Views patch live (#266, #277; the role-icon rows now render), paging
   `/api/core/object-changes/` answers 500 at the page holding one, "Could not determine
