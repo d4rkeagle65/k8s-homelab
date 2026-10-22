@@ -35,13 +35,13 @@ continue what you can."
 
 | Piece | Entry (file) | Result |
 |---|---|---|
-| K | calico-apiserver logs about 860 error lines an hour (`QUEUE.md`) | |
-| L | `netbox-topology-views` 5.0.0 carries security fixes (`QUEUE.md`) | |
-| M | Bookshelf, its database and rreading-glasses sized (`QUEUE-resource-limits.md`) | |
-| N | A LimitRange's defaults reach a Job's pods only when they run: a check (`QUEUE.md`) | |
-| O | Kea's database CA, `verify-ca` prepared (`QUEUE-kea-ha.md`) | |
-| P | Dockhand's notifications into tickets: the compose labels (`QUEUE-zammad.md`) | |
-| Q | Read-only rechecks: NetBox `PortTemplateMapping` upstream, Kubernetes 1.37, Python 3.15 (`QUEUE.md`, `QUEUE-updates.md`) | |
+| K | calico-apiserver logs about 860 error lines an hour (`QUEUE.md`) | No PR: benign. Aborted aggregated-API requests logged as errors, expected upstream (calico 7791, 13079); options recorded in `QUEUE.md` (`ba673b8`) |
+| L | `netbox-topology-views` 5.0.0 carries security fixes (`QUEUE.md`) | PR #286 (5.0.0 supports NetBox >= 4.7.0; the serializer patch applies unchanged, retested) |
+| M | Bookshelf, its database and rreading-glasses sized (`QUEUE-resource-limits.md`) | PR #288 (7.4 days of data; merging restarts bookshelf-db by switchover, rreading-glasses-db in place) |
+| N | A LimitRange's defaults reach a Job's pods only when they run: a check (`QUEUE.md`) | PR #289 (`scripts/limitrange_jobs.py`; live: 23 namespaces, 20 Job templates, nothing flagged) |
+| O | Kea's database CA, `verify-ca` prepared (`QUEUE-kea-ha.md`) | PR #291 (cert-manager CA and server certificate for kea-db; clients stay `require` until the host steps in `QUEUE-kea-ha.md`) |
+| P | Dockhand's notifications into tickets: the compose labels (`QUEUE-zammad.md`) | PR #287 (all eight one-shot services already labelled; a test keeps it so) |
+| Q | Read-only rechecks: NetBox `PortTemplateMapping` upstream, Kubernetes 1.37, Python 3.15 (`QUEUE.md`, `QUEUE-updates.md`) | `ba673b8`: Kubernetes 1.37 and Python 3.15 still held; NetBox's `PortTemplateMapping` fixed in 4.7.3: PR #290 |
 | R | Move database replicas off the crowded workers (`QUEUE.md`) | One done: prowlarr-db's replica rebuilt from 04a onto 05a, healthy (2/2); its old PV Released on 04a. The rest wait for the owner (below) |
 | S | Bug scans, several passes, after the pieces above | |
 
