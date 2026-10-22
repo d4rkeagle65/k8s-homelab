@@ -173,15 +173,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the PC to reach its published ports; check the second has it. Left, a script on the PC
   that asks the standby (as `netbox_seed.py` asks the primary) gets no answer.
 
-- **`test-harness` reads red when the suite is run by hand in a Claude desktop worktree**
-  (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
-  checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
-  worktree's top, but `other_calls_ours("pre-merge-commit")` in `tests/test-harness.py` accepts
-  only a line naming `.githooks/pre-merge-commit`. The commit hook's own run passes, since it
-  runs only the suites for the staged files. Left, a manual `run-all-tests.py` there fails for
-  a hook that works. So does the post-rewrite hook after every rebase that rewrites a commit,
-  which prints "the rebased branch is red" for a clean change and invites a needless
-  `git reset --keep ORIG_HEAD`.
 - **`docker/claude-code/README.md`'s "Updating" says to change the image tag in `compose.yaml`**
   with the Dockerfile's versions, but the tag is always `homelab/claude-code:local` (built on
   the host, skipped by Renovate). Say instead what makes Dockhand rebuild after a Dockerfile
