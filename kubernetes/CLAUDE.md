@@ -15,11 +15,13 @@ in each `ks.yaml` and HelmRelease; Namespaces also carry `data` and `exposure`
   Change its source (`app/values.yaml`, or the generator in `scripts/`), then run
   `python scripts/backup.py generate` from the repo root. Helm values are nested YAML,
   never dotted keys like `controller.service.x`, which Helm ignores.
-- **Keep `kustomize.toolkit.fluxcd.io/prune: disabled`** on promoted PVCs,
-  database `Cluster`s and Secrets. It stops Flux deleting their data.
-  generate also sets it on every Namespace (a patch in `prod/` and
-  `cluster/kustomization.yaml`), since deleting a Namespace deletes everything
-  in it. A Namespace that's no longer wanted is deleted by hand.
+- **Keep `kustomize.toolkit.fluxcd.io/prune: disabled`** on promoted PVCs, database
+  `Cluster`s and Secrets. It stops Flux deleting their data. generate also sets it on every
+  Namespace (a patch in `prod/` and `cluster/kustomization.yaml`), since deleting a Namespace
+  deletes everything in it. A Namespace that's no longer wanted is deleted by hand. A
+  Released PV or a retired database cluster I delete myself, only after proving its data
+  exists elsewhere (a healthy live copy, its data checked), and I report each with that
+  evidence; a prune-protected object goes by hand only once git no longer lists it.
 
 ## Nodes and storage
 

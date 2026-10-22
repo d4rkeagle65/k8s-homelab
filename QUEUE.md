@@ -262,7 +262,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Working queue files
 
-- [QUEUE-autonomy.md](QUEUE-autonomy.md): read first: the owner's standing permissions. Its batches are done or carried on in their own files, and the owner's list is empty.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (about 75%): Kea's reservations on CloudNativePG, then a hot-standby partner.
