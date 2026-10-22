@@ -1,4 +1,4 @@
-# The Talos VMs (QUEUE-talos.md): one per local.talos_nodes entry
+# The Talos VMs (old-queues/QUEUE-talos.md): one per local.talos_nodes entry
 # (talos-config.tf), each booted from the Image Factory's nocloud image, given
 # its address by cloud-init, and sent its machine config. One node per apply,
 # so control planes join etcd one at a time (tofu/CLAUDE.md).

@@ -1,5 +1,5 @@
 # ManicTime's databases on PostgreSQL 18 (Debian trixie), taking over from
-# manictime-pg (15, Debian bullseye; QUEUE-updates.md). Created empty with both
+# manictime-pg (15, Debian bullseye; old-queues/QUEUE-updates.md). Created empty with both
 # databases owned by manictime; the data is copied in with pg_dump and
 # pg_restore while ManicTime is stopped, then ManicTime is pointed here.
 apiVersion: postgresql.cnpg.io/v1

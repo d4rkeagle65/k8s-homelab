@@ -1,4 +1,4 @@
-# The Talos nodes' machine configs (QUEUE-talos.md): what talos/gen-config.py
+# The Talos nodes' machine configs (old-queues/QUEUE-talos.md): what talos/gen-config.py
 # builds by hand, built here for the nodes talos.tf creates. Nothing in this
 # file touches Proxmox.
 #

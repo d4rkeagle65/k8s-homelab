@@ -50,9 +50,9 @@ its own databases. Two Pi-hole containers serve DNS.
 
 ### Kubernetes
 
-- **Nodes:** three Talos Linux VMs form the control plane, sharing one API address. The
-  workers are moving from LXC containers to Talos VMs, one host at a time; `QUEUE-talos.md`
-  has the plan and where it stands.
+- **Nodes:** three Talos Linux VMs form the control plane, sharing one API address, and the
+  workers are Talos VMs too; `old-queues/QUEUE-talos.md` has how they moved from LXC
+  containers.
 - **Networking:** Calico for pods, MetalLB for LoadBalancer addresses, Traefik for ingress,
   and ExternalDNS writing the Ingress hostnames to the Pi-holes. The few public routes go out
   through a Cloudflare tunnel; everything else stays private.

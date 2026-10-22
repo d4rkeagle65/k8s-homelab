@@ -28,7 +28,28 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - **Delete two orphan iSCSI LUNs on the Synology** (found 2026-10-22): `k8s-pvc-b71edef3-...`
   from the 2026-10-14 `iscsi-move-test7` claim, and `k8s-pvc-9afd3fcf-...`, Zammad's first
   Elasticsearch volume (`old-queues/QUEUE-zammad.md`). Neither has a PV any more; delete each LUN and its
-  target in DSM's SAN Manager. Left, they hold NAS space nothing reads.
+  target in DSM's SAN Manager. Left, they hold NAS space nothing reads (both still listed by
+  the Synology's SNMP, hex-encoded, 2026-10-22).
+- **Dockhand's Key Vault principal down to "Key Vault Secrets User"** (from
+  `old-queues/QUEUE-azure-keyvault.md`): its provider only lists and reads secrets
+  (`azure-kv.ts`), yet "Dockhand Key Vault Access" holds "Key Vault Secrets Officer"; the role
+  change run 2026-10-21 didn't take (Claude Code's, run alongside, did), and it still held only
+  Officer on 2026-10-22. Left, anything that reaches Dockhand's credential can write every secret.
+- **`nas-block` off the hosts and the NAS** (from `old-queues/QUEUE-talos.md`), in this order:
+  the Proxmox storage removed (`pvesm remove nas-block`, cluster-wide); on each host, its iSCSI
+  session logged out, its node record deleted (`iscsiadm`) and its volume group removed; the
+  LUNs (`metrics-1` to `-5`) and targets deleted in DSM; then `ansible/tasks/proxmox-nas-block.yml`,
+  its include in `proxmox-host.yml`, the `nas_block_*` variables in Semaphore and the Drives
+  dashboard's LUN-writes panel. Read 2026-10-22: no PV or class uses it; the storage is still
+  defined on all five hosts (0 used) and the five LUNs are still on the Synology.
+- **The power-cut failover test** (from `old-queues/QUEUE-talos.md`): one host at a time, its
+  power cut in a quiet window, everything back on the others; for H4, the Docker VM and the DC
+  VM back on H5 within about three minutes, then on H4 again once it's up. Check the room first:
+  without H5 the other workers hold about 43 GiB against about 48 GiB of memory requests
+  (2026-10-22), so some pods would wait for it.
+- **Wipe H5's old `HDD` volume group** (from `old-queues/QUEUE-talos.md`, Phase 0): the 2 TB
+  HDD still holds it; wipe it once its two old VM disks (111, 117) are confirmed backed up.
+  Unverified 2026-10-22 (no Proxmox storage lists it, which doesn't show the group is gone).
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 10 are all done (7, Docker's upgrade from
@@ -126,7 +147,23 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   replicas about 7 each; the first Docker VM 21; and the hosts' own share. Remeasure a week
   after the archive change.
   Alerts on wear and spare capacity are phase 5 of `old-queues/QUEUE-monitoring.md`.
-
+- **Retire `bitwarden-cli`: merge #205 from 2026-10-26** (from
+  `old-queues/QUEUE-azure-keyvault.md`): a week on Key Vault by then, and `cluster-secrets` is
+  the only ExternalSecret, reading `azure-keyvault`, so nothing reads the three `bitwarden-*`
+  stores. Read back after it: the `bitwarden-cli` Flux Kustomization and its objects gone,
+  `cluster-secrets` Ready and `SecretSynced`, every Kustomization Ready. Then the owner deletes
+  the CLI's hand-applied `bitwarden-cli` Secret in `external-secrets`,
+  `kubernetes/.local/bitwarden-cli.env`, and the `vaultwarden-direct.<domain>` record, which
+  only the CLI used. Vaultwarden stays the password manager for people.
+- **Claude Code's Key Vault sign-in, checked from inside its container** (from
+  `old-queues/QUEUE-azure-keyvault.md`): deployed 2026-10-21 (#206), Dockhand resolving 3/3
+  references, but Entra has no sign-in by `k8s-homelab-claude-code` since. Left:
+  `docker/claude-code/README.md`'s dry run from inside the container, `already the same` for
+  each name.
+- **Kea: the Stork agent on the standby** (from `old-queues/QUEUE-kea-ha.md`):
+  `docker/kea-standby/` runs Kea alone; the agent's image (`homelab/kea-tools`, built on the
+  host by the primary's stack) has to be built on the second Docker VM first. Until then Stork
+  sees only the primary.
 
 ## Cleanup
 
@@ -151,8 +188,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   filed on netbox-community/netbox-topology-views yet. Left unreported, every plugin release
   needs the patch checked again.
 
-- **`test/media/jackett`** stays as a test-only app for now; not listed in
-  `test/kustomization.yaml`.
+- **Drop `kea` from `kea-postgres` from 2026-10-24** (from `old-queues/QUEUE-kea-ha.md`): both
+  Keas read `kea-db` since the 2026-10-17 cutover, and the old copy stays a week. Then the
+  database goes from the first Docker VM's `kea-postgres`, `docker/kea/initdb/00-databases.sh`
+  stops creating it, and Databasus stops dumping it (it still did on 2026-10-21).
 
 ## Later
 
@@ -270,14 +309,33 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   duplicate review. Left, those files stay where they were uploaded, outside the template's
   layout.
 
+- **Lease names into DNS** (from `old-queues/QUEUE-kea-ha.md`): Kea's DDNS to the Pi-holes, or
+  a sync; its own decision when it's taken up. Until then a device is reachable by name only
+  if NetBox has it.
+- **Immich's PostgreSQL, when an Immich release calls for it** (from
+  `old-queues/QUEUE-updates.md`): `immich-postgres` runs `cloudnative-vectorchord:16-1.1.1`
+  (Debian 12), which is supported; it moves when an Immich release's notes ask for a newer
+  PostgreSQL or VectorChord, as the others did (`old-queues/QUEUE-postgres18.md`), on a
+  VectorChord image of the new major. Immich 3.3.5's notes, read 2026-10-22, ask for neither.
+- **Kubernetes 1.36.5 -> 1.37.1** (Renovate's #9, held since 2026-10-15; from
+  `old-queues/QUEUE-updates.md`): until Flux (2.9.6 lists 1.34-1.36), cert-manager (1.21.2,
+  1.33-1.36; 1.22 due about 2026-11), External Secrets (2.13.0 lists 1.36) and CloudNativePG
+  (1.30.1, 1.34-1.36) support it; Talos 1.14 and Calico 3.33 already do, and no removed API is
+  in use. Then `kubernetes_version` in `tofu/proxmox/talos-config.tf` in a commit,
+  `ansible/talos-k8s-upgrade.yml` (its dry run first), the OpenTofu job, and afterwards the
+  claude-code image's `KUBECTL_VERSION`.
+- **Python 3.14.8 -> 3.15** (Renovate's #14, now to 3.15.1, and #300 for
+  `docker/netbox/dns-sync`; held since 2026-10-21; from `old-queues/QUEUE-updates.md`): until
+  PyYAML publishes Python 3.15 wheels (6.0.3 has none, 2026-10-22), since four workloads `pip
+  install` it at every start (Baby Buddy's MCP pod, and the Grimmory, media and Organizr sync
+  jobs, pinned `pyyaml==6.0.3`) and would build it from source each time. Then the jobs' pin
+  moves in the same pull request (Renovate can't see it), the wheels are checked again (`pip
+  download --only-binary=:all: --python-version 3.15`, for `musllinux_1_2_x86_64` and the
+  `manylinux` tags), and each workload is read back after the merge.
+
 ## Working queue files
 
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
-- [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
-- [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (about 75%): Kea's reservations on CloudNativePG, then a hot-standby partner.
-- [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 85%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
-- [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
-  Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 
 The percentages are estimates as of 2026-10-22, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
