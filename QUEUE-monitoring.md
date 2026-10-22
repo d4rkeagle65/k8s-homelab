@@ -13,10 +13,15 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
 - **Layout:** namespace `monitoring` (category `system`), one `.handwritten` release folder per
   chart holding **only** its HelmRelease (values inline), and `monitoring-extras`
   (`.handwritten`, stays that way) for everything else: Secrets, dashboards, datasources the
-  charts don't make. That keeps the later conversion to captured releases clean.
-- **Conversion to captured** (last phase), per release: remove `.handwritten`, `capture`,
-  `generate`, then check that the captured `values.yaml` matches what was in git and that
-  Flux has nothing to change. Write the recipe into `scripts/README.md` the first time.
+  charts don't make.
+- **The releases stay `.handwritten`** (the owner, 2026-10-22; this replaced a planned
+  conversion to captured releases, phase 7). A captured release's generated HelmRelease
+  carries only its interval, chart and values, and its `ks.yaml` only operator `dependsOn`, so
+  converting would drop kube-prometheus-stack's `install.crds: Create` / `upgrade.crds:
+  CreateReplace` (chart upgrades would stop updating the Prometheus Operator's CRDs), the 15-
+  and 10-minute timeouts, and the start-up order on `monitoring-extras` and
+  `kube-prometheus-stack`, as Traefik and mariadb-operator stay hand-written for the same kind
+  of setting.
 - **Storage:** Prometheus and Alertmanager on the NAS's iSCSI, so their constant writes land on
   the NAS's hard drives, not the hosts' SSDs; a block device, since Prometheus's docs rule out NFS.
   Prometheus's and Alertmanager's templates are `nas-iscsi` (a LUN per replica, Talos nodes
@@ -96,7 +101,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
    wear figure says little on its own (the fifth host's 61%-worn root has a decade left at its
    write rate).
 6. (Folded into phase 1: Grafana's Authentik login.)
-7. **Convert the three releases to captured** (Settled, above).
+7. (Dropped, 2026-10-22: the releases stay `.handwritten`; Settled, above.)
 8. **Log search tuning:** labels kept few (namespace, app, node, stream), the rest as
    structured metadata; saved queries and dashboards for the common questions.
 9. **Backups, one dashboard:** each backup's age and last result in one Grafana dashboard
@@ -203,7 +208,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       `Watchdog` to a Healthchecks.io check every 5 minutes (read back: sends every 5 minutes,
       none failed)
 - [x] Phase 6 (in phase 1)
-- [ ] Phase 7
+- [x] Phase 7 (dropped, 2026-10-22: the releases stay `.handwritten`, Settled)
 - [ ] Phase 8. Also: an alert when a host that normally sends logs goes silent for an hour
       (`absent_over_time` per `host` in a Loki ruler rule, or a recording rule on Alloy's
       counters). The TerraMaster's Alloy stalled once (2026-10-22: reading its files, sending
@@ -251,4 +256,12 @@ ones.
 
 ## Done when
 
-Every phase is ticked, the three releases are captured, and this file moves to `old-queues/`.
+Every phase is ticked and this file moves to `old-queues/`.
+
+## Checked and negative
+
+- **Converting kube-prometheus-stack, Loki and Alloy to captured releases** (2026-10-22): the
+  generator writes a HelmRelease with interval, chart and values only, and a `ks.yaml` whose
+  `dependsOn` covers operator API groups only (`scripts/k8s_backup/flux.py`,
+  `dependencies.py`); none of the CRD policy, timeouts or start-up order these releases need
+  survives. Teaching the tool per-release overrides was the alternative, set aside.
