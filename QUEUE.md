@@ -24,19 +24,17 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 ## Next
 
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
-  OneDrive pictures (~50 GB) down into the media share's `oneDrive` folder, and
+  OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
-  Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Left, in order: the
-  owner adds `IMMICH-IMPORT-API-KEY` to Key Vault (an API key of the owner's own Immich
-  account) and merges its `cluster-secrets` mapping, then the CronJob, which runs with
-  `--dry-run`; a run started by hand (the command is in the CronJob's comment) and its log
-  read: the CLI's "Found N new files and M duplicates", and any file it couldn't read; once
-  Cloud Sync's first download is done, a pull request removes `--dry-run`, and a run started
-  by hand does the bulk upload; then the owner reviews Immich's duplicates, and the run's
-  length is read, since every run hashes the whole folder. Left with `--dry-run`, it reads
-  the folder nightly and uploads nothing. Immich's server peaked at 5.3 GiB of its 6 GiB
-  limit in the first import (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and
-  the Job's retry carries on from what Immich already holds.
+  Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Its dry run
+  (2026-10-21, 9 minutes): 9,264 files (52.4 GB), 4,193 already in Immich byte for byte, 5,071
+  new (23.1 GB), none unreadable. Left: `--dry-run` removed (branch `immich-import-upload`),
+  then a run started by hand (the CronJob's comment) for the bulk upload, its log read to the
+  end; once Immich's job queues are empty, the owner reviews Immich's duplicates (re-encoded
+  copies the hash can't match), and a nightly run's length is read, since every run hashes the
+  whole folder. Immich's server peaked at 5.3 GiB of its 6 GiB limit in the first import
+  (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and the Job's retry carries on
+  from what Immich already holds.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
