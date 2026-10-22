@@ -62,12 +62,9 @@ role-icon rows render; rebased onto #298 with `QUEUE.md` resolved), #290 (NetBox
 
 ## Decisions for the owner
 
-- **`TALOS_SECRETS`:** the owner regenerates it from a control plane (`talos/README.md`) and
-  keeps it in a Vaultwarden login of its own, not `cluster-secrets`; Semaphore's
-  `TF_VAR_talos_secrets` (OpenTofu) stays as it is.
-- ~~**Rotate `grimmory-db`'s login password?**~~ Left as is (the owner, 2026-10-22): the
-  password is 24+ characters and mixed, so the hash printed into the 2026-10-21 session's
-  output (not git) can't practically be cracked; rotating would cost a Grimmory restart.
+- ~~`TALOS_SECRETS`~~: done 2026-10-22. The owner rebuilt it from a control plane's running
+  config (checked against the talosconfig's CA) and keeps it, with `TALOSCONFIG_B64`, in a
+  Vaultwarden login of its own (`talos/README.md`). The one-off playbooks are retired.
 - **#258 (database placement rule) restarts every database once:** when to merge; then a
   go-ahead to move about eight replicas, one at a time.
 - ~~**Pod Security:** 14 namespaces enforce `restricted`, 21 `baseline`.~~ Split (the owner,
