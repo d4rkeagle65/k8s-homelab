@@ -1,0 +1,103 @@
+# One timezone for every container on this host: the container config's
+# `timezone` option, which Proxmox writes into the container's /etc/localtime
+# at each start, so a zone set inside a container is undone at its next start
+# and only this option holds. A running container whose zone differs gets the
+# same zone inside it now (/etc/localtime and /etc/timezone, through pct exec),
+# rather than waiting for its next start. Off until lxc_timezone is set (the
+# Proxmox hosts' variable group, a name from /usr/share/zoneinfo). Needs
+# proxmox-guests.yml first (pve_node, pve_guests).
+- name: Containers' timezone
+  when: lxc_timezone | default('') | length > 0
+  block:
+    - name: The zone exists
+      ansible.builtin.stat:
+        path: /usr/share/zoneinfo/{{ lxc_timezone }}
+      register: tz_file
+
+    - name: lxc_timezone names a zone
+      ansible.builtin.assert:
+        that: tz_file.stat.exists and not tz_file.stat.isdir
+        fail_msg: "lxc_timezone is '{{ lxc_timezone }}', which isn't a zone in /usr/share/zoneinfo; nothing was changed."
+        quiet: true
+
+    - name: Read each container's config on this host
+      ansible.builtin.command: pvesh get /nodes/{{ pve_node }}/lxc/{{ item.vmid }}/config --output-format json
+      loop: "{{ tz_cts }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: tz_configs
+      changed_when: false
+      check_mode: false
+      vars:
+        tz_cts: "{{ pve_guests | selectattr('type', 'equalto', 'lxc') | selectattr('node', 'equalto', pve_node) | list }}"
+
+    - name: Set the zone in each container's config that differs
+      ansible.builtin.command: pct set {{ item.item.vmid }} --timezone {{ lxc_timezone }}
+      loop: "{{ tz_configs.results }}"
+      loop_control:
+        label: "{{ item.item.name }}: {{ (item.stdout | from_json).timezone | default('unset') }} -> {{ lxc_timezone }}"
+      when: (item.stdout | from_json).timezone | default('') != lxc_timezone
+      changed_when: true
+
+    - name: Read the configs back
+      ansible.builtin.command: pvesh get /nodes/{{ pve_node }}/lxc/{{ item.item.vmid }}/config --output-format json
+      loop: "{{ tz_configs.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      register: tz_configs_after
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Every container's config holds the zone
+      ansible.builtin.assert:
+        that: (item.stdout | from_json).timezone | default('') == lxc_timezone
+        fail_msg: "{{ item.item.item.name }}'s config says {{ (item.stdout | from_json).timezone | default('unset') }} after pct set."
+        quiet: true
+      loop: "{{ tz_configs_after.results | rejectattr('skipped', 'defined') | list }}"
+      loop_control:
+        label: "{{ item.item.item.name }}"
+      when: not ansible_check_mode
+
+    - name: Read the zone inside each running container
+      ansible.builtin.command: pct exec {{ item.vmid }} -- readlink /etc/localtime
+      loop: "{{ pve_guests | selectattr('type', 'equalto', 'lxc') | selectattr('node', 'equalto', pve_node)
+                | selectattr('status', 'equalto', 'running') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: tz_inside
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Set it inside each running container that differs, for now
+      ansible.builtin.command: >-
+        pct exec {{ item.item.vmid }} -- sh -c
+        'ln -sf /usr/share/zoneinfo/{{ lxc_timezone }} /etc/localtime && echo {{ lxc_timezone }} > /etc/timezone'
+      loop: "{{ tz_inside.results }}"
+      loop_control:
+        label: "{{ item.item.name }}: {{ item.stdout | default('') | regex_replace('^.*zoneinfo/', '') or 'unread' }} -> {{ lxc_timezone }}"
+      when: item.stdout | default('') | regex_replace('^.*zoneinfo/', '') != lxc_timezone
+      changed_when: true
+
+    - name: Read the zone inside each running container back
+      ansible.builtin.command: pct exec {{ item.item.vmid }} -- readlink /etc/localtime
+      loop: "{{ tz_inside.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      register: tz_inside_after
+      changed_when: false
+      failed_when: tz_inside_after.stdout | regex_replace('^.*zoneinfo/', '') != lxc_timezone
+      when: not ansible_check_mode
+
+    - name: Report the containers' timezone
+      ansible.builtin.debug:
+        msg: >-
+          {{ pve_node }}: {{ tz_configs.results | map(attribute='item.name') | list | join(', ') or 'no containers' }}
+          {{ 'would be' if ansible_check_mode else 'are' }} on {{ lxc_timezone }}
+          (were: {{ tz_configs.results | map(attribute='stdout') | map('from_json') |
+                    map(attribute='timezone', default='unset') | list | join(', ') or 'none' }})
+
+- name: Containers' timezone not managed
+  ansible.builtin.debug:
+    msg: "{{ pve_node }}: lxc_timezone is unset, so the containers' timezone isn't set here."
+  when: lxc_timezone | default('') | length == 0

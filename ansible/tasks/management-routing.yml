@@ -4,7 +4,9 @@
 # SSH banner that never comes). Every host is checked and reported; a host with
 # management_gateway set (its NetBox local context) and netplan gets the fix the
 # first Docker VM has by hand: routing table 250 for that address, the gateway
-# its default (/etc/netplan/60-management.yaml), applied and read back.
+# its default (/etc/netplan/60-management.yaml), applied and read back; on a
+# Docker host also the mark that sends containers' answers on published ports
+# the same way (below).
 #
 # A host without netplan (the Pi-hole containers, whose interfaces Proxmox
 # writes) takes interface_gateways instead, in its NetBox local context: each
@@ -50,6 +52,68 @@
         fail_msg: "Set management_gateway (the management network's gateway, directly on {{ mgmt_if | default('the interface holding ' ~ ansible_host) }}) for {{ inventory_hostname }}; nothing was changed."
         quiet: true
 
+    # A container's answer on a published port is routed while its source is
+    # still the container's address (Docker rewrites it to ansible_host only
+    # afterwards), so the rule on ansible_host never matches it and it leaves
+    # by the default route. On a Docker host, a connection arriving on the
+    # management interface is marked (conntrack mark 250) and its answers get
+    # fwmark 250, which the netplan rule below sends through table 250: the
+    # nft table in /etc/mgmt-return.nft, loaded at boot by mgmt-return.service.
+    - name: Does it run Docker
+      ansible.builtin.stat:
+        path: /usr/bin/dockerd
+      register: mgmt_dockerd
+
+    - name: Mark management connections so containers' answers leave through it too
+      when: mgmt_dockerd.stat.exists
+      block:
+        - name: The nft table
+          ansible.builtin.copy:
+            dest: /etc/mgmt-return.nft
+            mode: "0644"
+            content: |
+              # Written by ansible/tasks/management-routing.yml.
+              # Connections that arrive on {{ mgmt_if }} (management) get conntrack mark 250;
+              # their answers from Docker containers get fwmark 250, which netplan's
+              # "mark: 250" rule (60-management.yaml) routes through table 250.
+              add table inet mgmt_return
+              delete table inet mgmt_return
+              table inet mgmt_return {
+                  chain prerouting {
+                      type filter hook prerouting priority mangle; policy accept;
+                      iifname "{{ mgmt_if }}" ct state new ct mark set 250
+                      iifname != "{{ mgmt_if }}" ct mark 250 meta mark set 250
+                  }
+              }
+          register: mgmt_nft
+
+        - name: Its unit, loading it at boot
+          ansible.builtin.copy:
+            dest: /etc/systemd/system/mgmt-return.service
+            mode: "0644"
+            content: |
+              # Written by ansible/tasks/management-routing.yml.
+              [Unit]
+              Description=Mark management-interface connections so replies leave by {{ mgmt_if }}
+
+              [Service]
+              Type=oneshot
+              RemainAfterExit=yes
+              ExecStart=/usr/sbin/nft -f /etc/mgmt-return.nft
+
+              [Install]
+              WantedBy=multi-user.target
+          register: mgmt_unit
+
+        - name: Enable it, and load the table now if either changed
+          ansible.builtin.systemd_service:
+            name: mgmt-return.service
+            enabled: true
+            state: "{{ 'restarted' if (mgmt_nft is changed or mgmt_unit is changed) else 'started' }}"
+            daemon_reload: "{{ mgmt_unit is changed }}"
+          # In check mode the unit isn't written yet, so there's nothing to enable.
+          when: not ansible_check_mode
+
     - name: Answers on the management address leave through it
       ansible.builtin.copy:
         dest: /etc/netplan/60-management.yaml
@@ -71,6 +135,12 @@
                   - from: {{ ansible_host }}
                     table: 250
                     priority: 5300
+          {% if mgmt_dockerd.stat.exists %}
+                  - to: 0.0.0.0/0
+                    mark: 250
+                    table: 250
+                    priority: 5301
+          {% endif %}
       register: mgmt_netplan
 
     - name: Apply it
@@ -89,6 +159,26 @@
         fail_msg: "netplan applied, but no rule sends {{ ansible_host }}'s answers through table 250."
         quiet: true
       when: not ansible_check_mode
+
+    - name: Read the mark's table back
+      ansible.builtin.command: nft list table inet mgmt_return
+      register: mgmt_nft_live
+      changed_when: false
+      failed_when: false
+      when: mgmt_dockerd.stat.exists and not ansible_check_mode
+
+    - name: Containers' answers are marked and routed through table 250
+      ansible.builtin.assert:
+        that:
+          - mgmt_nft_live.rc == 0
+          - mgmt_nft_live.stdout is search('iifname "' ~ mgmt_if ~ '" ct state new ct mark set 0x000000fa')
+          - rules.stdout is search('fwmark 0xfa lookup 250')
+        fail_msg: >-
+          The mark for containers' answers isn't in place on {{ inventory_hostname }}
+          (nft table inet mgmt_return, and a rule 'fwmark 0xfa lookup 250'); read
+          `systemctl status mgmt-return` and `ip rule`.
+        quiet: true
+      when: mgmt_dockerd.stat.exists and not ansible_check_mode
 
 - name: The fix, where interface_gateways is set and there's no netplan
   when: interface_gateways is defined and not (netplan_dir.stat.isdir | default(false))
