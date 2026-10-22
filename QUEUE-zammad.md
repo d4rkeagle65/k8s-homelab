@@ -26,9 +26,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       server, scheduler and websocket restarted two or three times while the database and
       migrations came up), the init Job's migrations done, `zammad-db`'s password 64 letters
       and digits, its first backup completed, the web UI 200 with its certificate
-- [ ] The first visit runs the auto wizard: the admin exists, `fqdn` and `http_type` set, OIDC
+- [x] The first visit runs the auto wizard: the admin exists, `fqdn` and `http_type` set, OIDC
       on; the owner logs in through Authentik and lands on the admin account (not a new
-      customer)
+      customer). Read 2026-10-22: set 2026-10-16 11:18; the only user is the owner's (Admin and
+      Agent), linked to OpenID Connect at 11:32 and logged in through it since; no customer made
 - [x] Homepage's tile (Tools, with a site monitor) and Organizr's tab (Infrastructure, admins), 2026-10-16
 - [x] Alerts into tickets (2026-10-16): Alertmanager's route sends `warning` and `critical`
       (never `Watchdog`, `InfoInhibitor` or `info`), each alert on its own, to
@@ -36,10 +37,13 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       (`ZAMMAD_ALERT_WEBHOOK_URL`, group "Alerts"): a ticket per alert titled "<alert> <target> is
       <STATE>", a note on each repeat (12 hours), closed on recovery. Proved against Zammad
       before the deploy: open, note, close (ticket 3, "BridgeTest")
-- [ ] A group alert's ticket names its members (owner's ask, 2026-10-16): for `TargetDown`,
+- [x] A group alert's ticket names its members (owner's ask, 2026-10-16): for `TargetDown`,
       `AlertmanagerClusterDown` and the Deployment, StatefulSet and DaemonSet alerts the bridge
       asks Prometheus which are down at that moment (`MEMBERS` in `zammad-bridge.py`) and lists
-      them with node and address. Done when a real one has fired and its ticket shows the list
+      them with node and address. Done when a real one has fired and its ticket shows the list:
+      done, read 2026-10-22: "Down now (N):" lists on `TargetDown` tickets 7 (the first,
+      2026-10-16 17:19), 25, 125, 179 and 309, StatefulSet tickets 111 and 173, Deployment
+      tickets 312 and 313
 - [x] Dockhand's notifications into tickets (the owner, 2026-10-17; the channel set and ticket 8 closed by the owner, 2026-10-22): the bridge's `/dockhand/<token>`
       endpoint is in (failure/warning open a ticket, success/info close it, keyed by the title
       without its state words), off until `DOCKHAND_TOKEN` is set. The token (`DOCKHAND_ALERT_TOKEN`)
@@ -74,13 +78,16 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       was OOM-killed: cluster-policy's LimitRange gave it the namespace's 512 MiB default (its peak
       is 729 MiB), and every upgrade since timed out and rolled back, deleting the node (its empty
       volume is Released). The init steps now have 1.5 GiB (zammad-init-7 done in 79 s with search
-      off); search on again (`enabled` and `initialisation` together). Left: the first node's empty Released
-      `nas-iscsi` volume: deleting its PV record leaves its LUN on the NAS (Retain), to remove
-      there too
+      off); search on again (`enabled` and `initialisation` together). The first node's empty
+      volume's PV is deleted; its LUN, `k8s-pvc-9afd3fcf-...`, is left on the NAS (Retain), in
+      `QUEUE.md`'s orphan LUNs item
 - [x] `zammad-cronjob-reindex` has room (checked 2026-10-16): its container takes the init job's
       database step's settings, so its 1.5 GiB (live: 1536Mi)
 - [ ] Resources re-measured after a week (`QUEUE-resource-limits.md`'s rules); its database
-      added to the restore tests' method
+      added to the restore tests' method. The restore test is done (2026-10-21,
+      `old-queues/QUEUE-restore-tests-pg18.md`, 131 tables); the 2026-10-18 re-measure had 4.2
+      days. Left: the full week, in `QUEUE-resource-limits.md`'s recheck (Zammad's first week
+      ends 2026-10-23)
 
 ## Resuming
 

@@ -159,8 +159,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] The Docker VM's containers, re-measured 2026-10-18 from the 4.2 days of cAdvisor data:
       NetBox 2g -> 4g (1525Mi, its steady use), Semaphore 2g -> 3g (1311Mi, a task run),
       cAdvisor 768m -> 1g (421Mi); the rest were at two to seven times their peak. Left: again
-      from a week, with the cluster's; the second Docker VM (`kea-standby`), whose cAdvisor isn't
-      scraped; Garage, whose metrics have no memory figure
+      from a week, with the cluster's (cAdvisor has more than a week since 2026-10-21); the
+      second Docker VM (`kea-standby`), scraped for node-exporter only since 2026-10-22 (#315),
+      no cAdvisor; Garage, whose metrics have no memory figure. Dockhand's own container has no
+      memory limit (it isn't a `docker/` stack, so the stacks' rule doesn't reach it)
 - [ ] Recheck at a full week, **from 2026-10-21 16:48** (Prometheus's history starts 2026-10-14
       16:48). The 2026-10-18 pass (each batch's "Re-measured" above) had 4.2 days and only
       raised, so this one:
@@ -173,15 +175,14 @@ Queries (Prometheus, `kube-prometheus-stack`):
         linkwarden, mealie, n8n, media; media's also serves the Bookshelf and rreading-glasses
         databases, so with the session working on those; each restarts that namespace's
         instances, the primaries in place, so with the owner: Authentik's takes every login
-        with it). Their pods predate the LimitRanges,
-        so they have none until recreated, and `ContainerWithoutLimits` doesn't see them: it
-        reads `kube_pod_container_resource_limits`, not the init containers' series;
-      - sizes Immich's machine learning again once the imports are done: its 2304Mi and 620m
-        are the first's, and the second, from OneDrive (`immich-import`, from 2026-10-21), is
-        to come.
-      - reads the control planes' memory: 6Gi each since 2026-10-19 (VMs rebooted by
-        `talos-reboot.yml`), 2.2-3.1GiB available just after; their lowest over the week says
-        whether that's enough.
+        with it). Their live sidecars have the LimitRange defaults (64Mi, 512Mi) since their
+        pods were recreated; `ContainerWithoutLimits` wouldn't see one without: it reads
+        `kube_pod_container_resource_limits`, not the init containers' series;
+      - sizes Immich's machine learning again: its 2304Mi and 620m are the first import's; the
+        OneDrive import finished 2026-10-21 21:58, and its peak since is 1346Mi.
+      - reads the control planes' memory: 6Gi each since 2026-10-19 18:50 (VMs rebooted by
+        `talos-reboot.yml`), 2.2-3.1GiB available just after; their lowest over the week (a week
+        from about 2026-10-26; 2.0, 2.2 and 2.6GiB by 2026-10-22) says whether that's enough.
       - expects no room from it: read 2026-10-20, the workers' pods request 47.8 GiB against
         40.1 GiB of their peaks summed, 31.3 at the median, so the rule as written lands near
         where they are, higher with Immich's server sized on its import (5.3 GiB peak, 1.3
@@ -197,9 +198,11 @@ Queries (Prometheus, `kube-prometheus-stack`):
       needs the node-fit check above; CPU requests 34%, use 29%
 - [ ] Immich's server, with the owner (asked in its pull request, the apps batch): its 4.2 days
       are the import (5401Mi peak in the 6Gi limit set for it, p95 992m at the 1000m cap,
-      throttled in 26% of periods) against requests of 1376Mi and 30m. Sized once the second
-      import, from OneDrive (`immich-import`, from 2026-10-21), is done too, as it sets its own
-      peaks, or now with a limit above 6Gi (3Gi was OOM-killed within 30 seconds of each start)
+      throttled in 26% of periods) against requests of 1376Mi and 30m. The OneDrive import, which
+      it waited for, finished 2026-10-21 21:58: since 2026-10-21 16:48 it peaked at 5574Mi in the
+      6Gi limit and reached the 1000m cap (its two restarts at 21:41 were its database
+      restarting, not OOM kills). Ready to size (3Gi was OOM-killed within 30 seconds of each
+      start)
 - [x] `primaryUpdateMethod: switchover` on every Cluster with a replica (the owner, 2026-10-18),
       after the re-measure's in-place restarts took Authentik down for about 3.5 minutes: all 15
       (`kubernetes/CLAUDE.md`; `test_replicated_databases_switch_over` holds new ones to it).
@@ -212,7 +215,8 @@ Queries (Prometheus, `kube-prometheus-stack`):
       split-brain check 13%. Those figures span the time at 500m; in the hour after the raise
       to 1000m most fell to 0-6%. democratic-csi's driver (27%) and Grafana's dashboard sidecar
       (32%) stayed throttled while averaging 3-7m: short bursts across cores within one 100ms
-      period, which a higher cap would barely change. Judge the cap on a week at 1000m
+      period, which a higher cap would barely change. Judge the cap on a week at 1000m (from
+      about 2026-10-25)
 - [x] Bookshelf, its database and rreading-glasses (2026-10-22, 7.4 days on both replicas):
       Bookshelf 864Mi in 1792Mi, 500m to 1000m (peak 700Mi, p95 500m at its 500m limit,
       throttled 12%); rreading-glasses 256Mi requested, its 256Mi limit kept as its cache
@@ -230,7 +234,7 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [x] The eight database clusters still at priority 0 (their pods predated the class)
       restarted one at a time on 2026-10-19 with the owner's go-ahead: each switched over to
       its replica, every instance recreated at `homelab-critical`; rreading-glasses-db's spec
-      names it from 2026-10-22, so all 16 are once that deploys. Each took 70s to
+      names it from 2026-10-22, and all 16 are (read 2026-10-22). Each took 70s to
       6 minutes, longer than "seconds": Lidarr, Radarr, n8n and Baby Buddy's apps stayed
       ready; Bookshelf's and Mealie's went unready for a while; Linkwarden's restarted three
       times (it exits when its database goes, as Authentik does)

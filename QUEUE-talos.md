@@ -97,9 +97,9 @@ Control planes on H1, H3, H5: losing any one keeps etcd's quorum.
   selector; the service-account issuer `https://<API name>:6443` first on all three kubeadm
   API servers, the old in-cluster one kept second so existing tokens stay valid, both in
   `kubeadm-config` too. `k8s-upgrade.yml` skips kubeadm's kube-proxy phase and sets its image
-  itself, since kubeadm's own DaemonSet has the old selector. Left: the API address handover
-  (kube-vip on the kubeadm control planes today; Talos has its own shared VIP, which takes over
-  once the last kubeadm control plane leaves; the API name stays, so no client changes).
+  itself, since kubeadm's own DaemonSet has the old selector. The API address handover, from
+  kube-vip on the kubeadm control planes to Talos's own shared VIP, came with Phase 2; the API
+  name stayed, so no client changed.
 - Calico's address detection: `kubernetes: NodeInternalIP` (2026-10-12), the kubelet's address,
   which the Talos configs pin to the main network (`KubeNodeConfig` `nodeIP.validSubnets`)
   and which equals what `interface: eth0` picked on every LXC node, so the switch moved no
@@ -191,15 +191,15 @@ goes once the retired guests are destroyed.
       the Talos worker for its first start, restored and counted (Grimmory's MariaDB); a
       Prometheus or Alertmanager replica onto `nas-iscsi` (its claim deleted, then its pod, with
       the LXC workers cordoned so a Talos worker is the only place left); drain; the VM ID into
-      `k8s_retired`. Left for each: its node object deleted once stopped, and with 101-103
-      (~2026-10-20) the container destroyed, then removed from `k8s_nodes` and its
-      local-path entries. The third Talos worker, VM 116 (H2, 3 vCPU, 16 GiB,
+      `k8s_retired`. Each node object is deleted, and with 101-103 the containers are
+      destroyed and gone from `k8s_nodes` and local-path's entries (read 2026-10-22: only
+      Talos nodes, no `k8s_nodes`, `k8s_retired` or `WORKER_NODE_1`-`3` left). The third Talos worker, VM 116 (H2, 3 vCPU, 16 GiB,
       local-db, `WORKER_NODE_6`), in `talos_nodes` since 2026-10-14. The fourth, VM 117
       (H1, 4 vCPU, 16 GiB, 80G system disk, local-db, `WORKER_NODE_7`), in
       `talos_nodes` since 2026-10-14, so any one worker can drain. Every worker's system
       disk is 80G (2026-10-14: grown in place, then a drained host reboot by
-      proxmox-reboot.yml, and Talos extends EPHEMERAL to 75.9G at boot); 116's waits for
-      H2's reboot. The
+      proxmox-reboot.yml, and Talos extends EPHEMERAL to 75.9G at boot; all four read 75.9G of
+      ephemeral storage, 2026-10-22). The
       iSCSI driver is democratic-csi
       (`kubernetes/prod/system/democratic-csi/`, class `nas-iscsi`, LUNs on volume1, node
       plugin on Talos nodes only): mount, detach, reattach and a move between Talos workers
@@ -222,7 +222,7 @@ goes once the retired guests are destroyed.
         and capacity-checked first) and `talos-k8s-upgrade.yml` (`talosctl upgrade-k8s`),
         2026-10-15, with Semaphore templates and an os:admin `talosconfig_b64`; check-mode
         runs from Semaphore (tasks 685, 686) reached Talos and found nothing to do. The first
-        real talosctl upgrade comes with the next Talos or Kubernetes release
+        real one, Talos 1.14.4, ran 2026-10-20 (tasks 951-967, `QUEUE-updates.md`)
   - [x] The kubeadm playbooks and tasks removed (2026-10-15), with the LXC node rules in
         `kubernetes/CLAUDE.md`, the queue items only they needed, and the drain and database
         tasks' admin.conf default (`kubectl_cmd` is now required)
@@ -240,7 +240,9 @@ goes once the retired guests are destroyed.
         deleted (`iscsiadm`), and its volume group removed; the LUNs and targets deleted in
         DSM; then `tasks/proxmox-nas-block.yml`, its include in `proxmox-host.yml`, the
         `nas_block_*` variables in Semaphore, and the Drives dashboard's "writes to each host's
-        LUN" panel
+        LUN" panel. Read 2026-10-22: the PVs and the class are gone; the Proxmox storage is still
+        defined on all five hosts (0 used), and the tasks file, its include and the panel are
+        still in git
 
 ## Resuming
 

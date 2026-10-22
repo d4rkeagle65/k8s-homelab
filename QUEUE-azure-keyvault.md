@@ -47,8 +47,10 @@ references).
    reads (`azure-kv.ts`), and it holds "Key Vault Secrets Officer". Its client secret expires
    2028-10-05. Read 2026-10-21 05:01Z, after the owner's run: still Officer only, no Secrets
    User at any scope, so the role change didn't take (Claude Code's, run alongside, did).
+   Read again 2026-10-22 16:32 EDT: still Officer only.
 2. **Vaultwarden afterwards:** stays the password manager for people; it stops being the
-   cluster's store once the cutover has run a week.
+   cluster's store once the cutover has run a week (`cluster-secrets` reads only Key Vault
+   already; the `bitwarden-cli` pod and stores go with #205, from 2026-10-26).
 
 ## Rules
 
@@ -86,8 +88,10 @@ references).
       `claude-code-keyvault`). Before its merge, read back 2026-10-21: the principal holds
       "Key Vault Secrets User" only at the vault (Officer gone at 04:59:51Z), and the three names
       are in Key Vault, enabled, each equal by hash to its field of
-      `azure-keyvault-sp-claude-code.json`. Left after its merge: the stack's provider bound
-      and a redeploy, then `docker/claude-code/README.md`'s dry run from inside the container
+      `azure-keyvault-sp-claude-code.json`. Merged (#206) and deployed 2026-10-21 01:05-01:08
+      EDT with the provider bound: Dockhand resolved 3/3 references from the `.env`. Left:
+      `docker/claude-code/README.md`'s dry run from inside the container (Entra's sign-in log
+      has no sign-in by the principal since the redeploy)
 - [x] The copy script, `scripts/keyvault_copy.py`: the 141 mapped variables from the live
       `cluster-secrets` Secret into Key Vault under their mapped names, read back by hash; a dry
       run by default (2026-10-19: 141 missing, nothing written)
