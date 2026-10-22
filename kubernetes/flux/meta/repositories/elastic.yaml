@@ -1,4 +1,4 @@
-# Elastic's charts: the ECK operator (QUEUE-zammad.md, Zammad's search).
+# Elastic's charts: the ECK operator (old-queues/QUEUE-zammad.md, Zammad's search).
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:

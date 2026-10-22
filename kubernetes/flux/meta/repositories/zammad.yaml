@@ -1,4 +1,4 @@
-# Zammad's own chart (QUEUE-zammad.md).
+# Zammad's own chart (old-queues/QUEUE-zammad.md).
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:

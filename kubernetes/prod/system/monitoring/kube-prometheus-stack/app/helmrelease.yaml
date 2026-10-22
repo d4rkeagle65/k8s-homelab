@@ -188,7 +188,7 @@ spec:
       # dead-man's switch outside the cluster that notifies the owner when the
       # pings stop (the cluster, Prometheus, Alertmanager or the internet down);
       # and warning and critical alerts to Zammad through zammad-bridge
-      # (QUEUE-zammad.md), each alert on its own (group_by '...') so a ticket
+      # (old-queues/QUEUE-zammad.md), each alert on its own (group_by '...') so a ticket
       # opens, gets a note every repeat_interval while it fires, and closes on
       # recovery. Setting this replaces the chart's default whole, so its parts
       # are repeated here.

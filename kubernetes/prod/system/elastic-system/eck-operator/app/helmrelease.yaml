@@ -1,6 +1,6 @@
 # Elastic Cloud on Kubernetes: runs the Elasticsearch that Zammad's chart
 # declares (its eck-elasticsearch subchart), for Zammad's search
-# (QUEUE-zammad.md). It manages only the zammad namespace.
+# (old-queues/QUEUE-zammad.md). It manages only the zammad namespace.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
