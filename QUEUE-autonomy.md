@@ -51,24 +51,25 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 
 - [x] **postgres-retire** (2026-10-17): the old `<app>-postgres` clusters and `manictime-pg`
       out of git, each app checked a day on 18, then the Clusters and their claims deleted
-      (`old-queues/QUEUE-postgres18.md`). Left in `QUEUE.md`'s Cleanup: their last backups in
-      Garage (their `local-db` folders were deleted 2026-10-22)
-- [x] **released-volumes** (2026-10-16): the owner deleted the 38 checked PVs. Left on disk,
-      unreferenced: the old NetBox media folder on the NAS (no NetBox folder is left on the
-      workers' local-db disks, read 2026-10-22)
+      (`old-queues/QUEUE-postgres18.md`). Their last backups in Garage were deleted 2026-10-18,
+      their `local-db` folders 2026-10-22
+- [x] **released-volumes** (2026-10-16): the owner deleted the 38 checked PVs, and the old
+      NetBox data on the NAS (2026-10-19); no NetBox folder is left on the workers' local-db
+      disks (read 2026-10-22)
 - [x] **talos-cleanup** (2026-10-16): `gen-config.py` reads `TF_VAR_site`, `kubeadm-config`
       deleted, the LXC workers out of local-path, `nas-block`'s class gone. Left with the
       owner: `nas-block` off the hosts and the NAS (`QUEUE-talos.md`)
 - [ ] **resource-limits:** batches 5 and 6, the LimitRanges, the PriorityClass, the 2026-10-18
       risk fixes and the alerts are done, and every running container has limits; re-measured
-      2026-10-18 from 4.2 days (raising only, six pull requests). Left: the full-week recheck from
-      2026-10-21, Immich's server after the OneDrive import (`immich-import`), and the owner's call
-      on the 1000m CPU cap (`QUEUE-resource-limits.md`)
-- [ ] **monitoring-fixes:** done 2026-10-16: the Proxmox hosts' node-exporters (a boot race,
+      2026-10-18 from 4.2 days (raising only, six pull requests). Left: the full-week recheck,
+      Immich's server, and the owner's call on the 1000m CPU cap (`QUEUE-resource-limits.md`).
+      Both waits are over: Prometheus has a full week since 2026-10-21 12:48, and the OneDrive
+      import finished 2026-10-21 21:58
+- [x] **monitoring-fixes:** done 2026-10-16: the Proxmox hosts' node-exporters (a boot race,
       fixed in `host-exporters.yml` and run), Pi-hole 1's hung exporter (restarted, probed by
-      `/metrics`). Whisparr's exportarr was already up. Left, needing the owner: etcd scraping, a change to every
-      control plane's Talos config, rolled node by node with `talosctl patch mc --mode=no-reboot`
-      (tofu/CLAUDE.md), then an OpenTofu apply the owner confirms
+      `/metrics`). Whisparr's exportarr was already up. etcd scraping 2026-10-21
+      (`talos/patches/controlplane-etcd-metrics.yaml`, OpenTofu task 1026; all three targets up,
+      `old-queues/QUEUE-monitoring.md` phase 5)
 - [x] **alerts** (2026-10-16): `monitors/app/prometheusrule-homelab.yaml`: a container near
       its memory limit, a Docker VM container restarting in a loop, NVMe wear (80% warning, 90%
       critical), spare capacity and critical-warning flags, the TerraMaster's SNMP target down.
@@ -95,8 +96,10 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
       (`old-queues/QUEUE-netbox-dns.md`)
 - [x] **ssh-keys** (2026-10-16): `ansible/retire-ssh-keys.yml` and `proxmox-host.yml`'s
       retired-interfaces play, built and checked; their runs are the owner's (below)
-- [ ] **kea-ha:** `QUEUE-kea-ha.md`: `kea-db` up and proved (2026-10-16); next the copy, then
-      the owner's cutover; the second Docker VM waits on its host and NetBox entry
+- [ ] **kea-ha:** `QUEUE-kea-ha.md`: `kea-db`, the copy and the cutover (2026-10-16, 10-17), the
+      second Docker VM, the HA pair with the relay to both and its failover test (10-18), and
+      verify-ca (10-22) are done. Left: the Stork agent on the standby, lease names into DNS, and
+      `kea` dropped from `kea-postgres` (from 2026-10-24)
 
 ## Waiting on the owner
 
@@ -106,22 +109,24 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] Worker w05 (VM 115) drained and rebooted (task 919, 2026-10-20): #15's 11264 MB in effect.
       Decommissioning settled the same day: the generator keeps `main`'s entry, the sync skips it
       "Plain container"
-- [ ] Delete task 713 in Semaphore (it holds two replaced tokens)
+- [x] Delete task 713 in Semaphore (it holds two replaced tokens): gone, read 2026-10-22
 - [ ] Two Talos control-plane changes, rolled node by node with `talosctl` and then an
-      OpenTofu apply you confirm: etcd's metrics, and a 60-second node-loss timing
+      OpenTofu apply you confirm: etcd's metrics (done 2026-10-21), and a 60-second node-loss
+      timing (`QUEUE.md`'s "Faster recovery from a node loss")
 - [ ] `nas-block` off the hosts and the NAS, together (`QUEUE-talos.md`)
 - [x] Where the PriorityClass and LimitRanges live (2026-10-16): a hand-written release,
       `kubernetes/prod/system/cluster-policy/`, owning both (batch **cluster-policy** below)
-- [ ] Your real run of "Retire: Old SSH Keys" (its dry run, task 745, was clean). VLAN 9 is out
-      of Proxmox (task 748); delete its `vmbr9` and `eth5.9` interfaces in NetBox
+- [x] Your real run of "Retire: Old SSH Keys" (its dry run, task 745, was clean): tasks 750
+      (2026-10-16) and 896 (10-19). VLAN 9's `vmbr9` and `eth5.9` interfaces are gone from NetBox
 - [x] Kea's three variables in Vaultwarden (2026-10-16)
 - [x] Dockhand's environment for the second Docker VM, connected (2026-10-17: the 429 was
       Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
 - [ ] `NETBOX_READ_TOKEN` in Vaultwarden without its "Bearer " prefix (its users accept either),
       so Prometheus can discover the Docker VMs from NetBox's Prometheus SD plugin (it adds its
       own "Bearer "); then node-exporter's targets come from the `docker_vm` tag
-- [ ] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answer every network from
-      Production
+- [x] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answered every network from
+      Production; fixed and checked from a VPN and an IoT/Work client (Run Command tasks 1194,
+      1204, 2026-10-22)
 - [x] Organizr's checks (2026-10-18: tabs, Admin login, the homepage and `#noredirect`; the
       Users group left unchecked by the owner's call); the job is in `old-queues/QUEUE-organizr.md`
 - [x] Vaultwarden's `GRIMMORY_ADMIN_EMAIL` set to the local admin's `+grimmory` address

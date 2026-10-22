@@ -25,6 +25,11 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   a hand-edited community limited to the management network. An update, a reboot or saving SNMP
   in TOS's UI can rewrite it; `TerraMasterSNMPDown` then alerts, and the line is edited again.
 
+- **Delete two orphan iSCSI LUNs on the Synology** (found 2026-10-22): `k8s-pvc-b71edef3-...`
+  from the 2026-10-14 `iscsi-move-test7` claim, and `k8s-pvc-9afd3fcf-...`, Zammad's first
+  Elasticsearch volume (`QUEUE-zammad.md`). Neither has a PV any more; delete each LUN and its
+  target in DSM's SAN Manager. Left, they hold NAS space nothing reads.
+
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 10 are all done (7, Docker's upgrade from
 Semaphore, with the first VM's reboot on 2026-10-22).
@@ -33,20 +38,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
-  `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
-  Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Its dry run
-  (2026-10-21, 9 minutes): 9,264 files (52.4 GB), 4,193 already in Immich byte for byte, 5,071
-  new (23.1 GB), none unreadable. The bulk upload (2026-10-22, #273 took `--dry-run` off): all
-  5,071 accounted for, in about 46 minutes from 01:13 to 01:58 UTC with two restarts between.
-  The first Job uploaded 4,201 before its own container was OOM-killed at 1Gi after about 25
-  minutes, 13.5 of 23.1 GB sent (the CLI holds each file in memory while it uploads it, and
-  the folder has videos of 2.9 GB, 1.1 GB and 933 MB). A one-off Job at 4Gi lost its retries in
-  a minute to Immich's database restarting under #258's spread, and a second ran clean in 15
-  minutes: 861 uploaded (6.1 GB), 9 skipped as content Immich already had, peak 2.13 GiB.
-  Immich's server didn't OOM. Left: #276 (the CronJob at 4Gi) merged; once Immich's job queues
-  are empty, the owner reviews Immich's duplicates (re-encoded copies the hash can't match);
-  and a nightly run's length read, since every run hashes the whole folder (about 10 minutes
-  here).
+  `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly at
+  04:30 (the Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service, at 4Gi:
+  the CLI holds each file in memory while it uploads it). The bulk upload (2026-10-22) accounted
+  for all 5,071 new files; a nightly run hashes the whole folder, 7m53s for 9,264 files
+  (2026-10-22, none new), and Immich's job queues are empty. Left: the owner reviews Immich's
+  duplicates (Utilities, Review duplicates: 734 assets in 211 groups on 2026-10-22), the
+  re-encoded copies the hash couldn't match.
 - **Dockhand's Restart of `kea` leaves `stork-agent` stopped** (found 2026-10-22): after compose
   has started the stack, Dockhand restarts its containers once more, and `stork-agent`, which
   shares `kea-dhcp4`'s network and PID namespaces, dies with it and fails to come back ("cannot
@@ -107,19 +105,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   headers, 2026-10-19): 5,000 lookups a day, reset at 00:00 UTC, and 60 a minute with bursts
   of 10; a re-fetched work costs about one, so keep a day's repairs to about 1,000. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
-- **Pod Security: three more namespaces to `restricted`, the rest stay `baseline`** (the owner,
-  2026-10-22). In PR: elastic-system, mesh-mini and zammad, whose pods lacked only a seccomp
-  profile (and dropped capabilities on Zammad's memcached); their new pod templates, dry-run
-  as Pods under `restricted`, pass, and the live ones fail on exactly those fields. Zammad's
-  Helm test hook `zammad-test-connection` fails `restricted`, but runs only on `helm test`.
-  The other 18 `baseline` namespaces stay there by decision: their images would have to run
-  as a non-root user, a per-app change that risks breaking each for a modest gain. The eight
-  unlabelled (`privileged`) ones need host access. Left: the merge, then each of the three
-  read back (`kubectl label --dry-run=server` warns of nothing, its pods restarted and ready).
-  Before raising any namespace later, check every pod template it can start, not only the
-  running pods: Deployments, StatefulSets, DaemonSets, Jobs, CronJobs, Helm hooks and an
-  operator's Jobs, each dry-run as a Pod in a namespace that enforces `restricted` (its
-  `serviceAccountName` removed, or the dry run fails on that instead).
 - **The second Proxmox host's NVMe drive (512 GB, the one carrying its guests) is at 86% of its
   rated wear** (`nvme_percentage_used_ratio`, 2026-10-10). The owner knows, decides when it's
   replaced, and chose what runs on it (a control plane and Pi-hole 1 since 2026-10-20): don't
@@ -136,7 +121,9 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   after the archive change.
   Alerts on wear and spare capacity are phase 5 of `old-queues/QUEUE-monitoring.md`.
 
-- **Kubernetes 1.37, when its patches settle:** `kubernetes_version` in
+- **Kubernetes 1.37, when its patches settle:** held (Renovate's #9) until Flux, cert-manager,
+  External Secrets and CloudNativePG support it (`QUEUE-updates.md` says which versions, last
+  read 2026-10-22). Then `kubernetes_version` in
   `tofu/proxmox/talos-config.tf` in a commit, then `ansible/talos-k8s-upgrade.yml` (its dry run
   first), then the OpenTofu job. Check first that Talos 1.14 supports 1.37 (its support
   matrix) and the add-ons' ranges: Calico 3.33 is the one that covers 1.37 (3.33.0 tested on
@@ -144,8 +131,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
-- **calico-apiserver logs about 860 error lines an hour** (found 2026-10-22, the Logs
-  dashboard's error table; cause read 2026-10-22): every one is a `GET
+- **calico-apiserver logs about 860 to 1,250 error lines an hour** (found 2026-10-22, the Logs
+  dashboard's error table; cause read 2026-10-22; 1,250 by that afternoon): every one is a `GET
   /apis/projectcalico.org/v3` through the kube-apiserver's aggregation that the caller cut
   short ("Timeout or abort while handling", then three "Unhandled Error" lines for the same
   request: http2 stream closed, Handler timeout), about 350 such requests an hour, most on the
@@ -158,44 +145,18 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   monitoring stack's own change), or Calico's native v3 CRDs, which retire the aggregated API
   server (preview since Calico 3.32; this is 3.33.0), a Calico change for the owner to choose.
   Left as is, the lines fill the Logs dashboard's error table and hide real errors there.
-- **NetBox's change-log API fails on a `dcim.PortTemplateMapping` change** (found 2026-10-22):
-  with the Topology Views patch live (#266, #277; the role-icon rows now render), paging
-  `/api/core/object-changes/` answers 500 at the page holding one, "Could not determine
-  serializer for dcim.PortTemplateMapping" (NetBox 4.7.2-Docker-5.1.1: the model has no API
-  serializer). That's NetBox's own: issue 23280, fixed in NetBox 4.7.3 (2026-10-13; the image
-  `ghcr.io/netbox-community/netbox:v4.7.3` is published, checked 2026-10-22); the image now
-  builds on it. Left: the redeploy the merge's webhook starts, then every page of
-  `/api/core/object-changes/` answering 200.
-  `?fields=` without `changed_object` works meanwhile. Left, a script reading the change log
-  by API fails until housekeeping drops those rows. Also report the plugin's two faults
-  upstream (the text is in #266).
-- **Run the baseline on the second Docker VM, for its published ports' answers** (found
-  2026-10-20, cause 2026-10-22, Run Command tasks 1102 and 1104): its management address has
-  only the rule `from <address> lookup 250`, which a container's answer on a published port
-  (kea-standby's API on 8000, the Docker proxy on 9339) never matches: it's routed while its
-  source is still the container's, so it leaves by Production's default route and the
-  firewall drops it. The first VM has, by hand, an nft table marking management connections
-  (`/etc/mgmt-return.nft`, `mgmt-return.service`) and a rule `fwmark 0xfa lookup 250`;
-  `tasks/management-routing.yml` now writes the same on a Docker host with
-  `management_gateway` set. Left: the owner runs "Setting: Debian Baseline" with
-  `target_hosts` the second VM, in check mode, then for real, and a `status-get` from the PC
-  answers. Left, a script on the PC that asks the standby gets no answer.
+- **Report Topology Views' two faults upstream** (found 2026-10-22; the text is in #266): NetBox's
+  change-log API failed on the plugin's role-icon rows, fixed here by `patch_topology_views.py`
+  in NetBox's image (#266, #277), and on `dcim.PortTemplateMapping`, fixed by NetBox 4.7.3
+  (#290); every page of `/api/core/object-changes/` answers 200 since 2026-10-22. Nothing is
+  filed on netbox-community/netbox-topology-views yet. Left unreported, every plugin release
+  needs the patch checked again.
 
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 
 ## Later
 
-- **Check the NetBox inventory's last-good copy is written** (2026-10-22): Semaphore's inventory
-  is NetBox, and the collection's plugin can't answer from an expired cache, so NetBox's
-  two-minute rebuild for #290 failed every task. `ansible/inventory_plugins/netbox_fallback.py`
-  now keeps every NetBox answer in `/var/lib/semaphore/netbox-inventory-last-good.json`
-  (Semaphore's data volume, writable by its uid 1001) and answers from it when NetBox is
-  unreachable or answers 5xx, with a warning; a 401 or 403 never falls back. Left: after the
-  merge, the first run that reads the inventory writes the copy; check it's there (`docker
-  exec semaphore ls -l /var/lib/semaphore/netbox-inventory-last-good.json`, mode 600) and that
-  run's log has no "Couldn't keep the last-good NetBox copy" warning. Left unchecked, the next
-  NetBox outage may still stop every task.
 - **Vaultwarden's backup puts its archive password on 7z's command line** (found 2026-10-22):
   `ttionya/vaultwarden-backup` 1.27.2's `scripts/backup.sh` runs `7z a ... -p"${ZIP_PASSWORD}"`,
   so for the seconds the nightly archive takes, any process on the first Docker VM that lists
@@ -203,18 +164,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   password on its standard input instead (`docker/dockhand-backup/backup.sh`, `with_password`;
   7-Zip 24.09 reads it there). Report it upstream, or wrap the image the same way. Left, the
   vault's backup password is readable by whatever runs on that host during each backup.
-- **Redeploy NetBox for Topology Views 5.0.0** (2026-10-22): it fixes an XSS and a path
-  traversal in the role-image settings; it requires NetBox 4.7.0 or later (no maximum), needs
-  nothing new, and its serializer file is 4.7.0's byte for byte, so `patch_topology_views.py`
-  applies unchanged. Its two migrations (0014, 0015) rework each user's saved view options
-  (to a user foreign key and JSON fields, dropping options of deleted users) and run at
-  NetBox's start. Left: the merge's webhook rebuilds the image; then NetBox starts with the
-  migrations applied (its log), the topology view opens, and a role-icon change still renders
-  in `/api/core/object-changes/`.
 - **Databasus's two alert emails on 2026-10-21 at 08:03 were refused** ("554 Transaction
-  failed" from the cluster's SMTP relay); none failed before or since, and the relay's logs
-  from then are gone (its pods restarted). If it recurs, read `smtp-oauth-relay`'s log at the
-  time. Left, an alert can be lost without a trace.
+  failed" from the cluster's SMTP relay): the relay's log (Loki, namespace `smtp-relay`) has
+  Microsoft Graph answering 429 `ApplicationThrottled` at 08:03:52 and 08:04:51 UTC; none failed
+  before or since. Left: if it recurs, a retry of a throttled send, in the relay or the sender.
+  Left as is, an alert in a burst can be lost.
 
 - **Point-in-time recovery for Grimmory's MariaDB** (`old-queues/QUEUE-mariadb.md`): on
   mariadb-operator 26.10.1 the agent logged "Starting binary log archiver" and archived nothing
@@ -251,33 +205,27 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   patch mc --mode=no-reboot` (tofu/CLAUDE.md), then the OpenTofu apply the owner confirms.
 - **Proxmox host cleanup.**
   - Once kernel 7.0 has run cleanly for a couple of weeks (from about 2026-10-16), set
-    `remove_old_kernels: true` on the Proxmox inventory and run the upgrade template: with the
-    default `keep_kernels: 2` it removes `6.14.11-4` and keeps `6.14.11-9` as the fallback.
-    Every run already lists what it would remove.
+    `remove_old_kernels: true` on the Proxmox inventory and run the upgrade template. Read
+    2026-10-22: `6.14.11-4` is already gone; four hosts have `6.14.11-9`, `7.0.14-20` and
+    `7.0.14-22` (running), the fifth only 7.0 kernels, and the daily check lists nothing to
+    remove. Every run lists what it would remove.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
-- **The sshd retry drop-in isn't proven yet** (`ansible/tasks/ssh-listen-retry.yml`, in
-  `baseline.yml`): Pi-hole 1's sshd failed its bind at a container start (exit 255, which
-  Debian's `ssh.service` never retries) and stayed down until restarted by hand. Run the
-  baseline, then restart Pi-hole 1's container: `journalctl -b -u ssh` should show the failed
-  bind, then "Server listening" with no one touching it. Left unproven, a Pi-hole restart
-  can still cut Semaphore off from it.
-- **Kea phase 3** (`QUEUE-kea-ha.md`; decision 5, the owner 2026-10-16: (b)): Kea's reservations move from
-  PostgreSQL on the Docker VM to a CloudNativePG cluster reached through a LoadBalancer
-  address, so a partner can read them while the Docker VM is down; then a second Kea on the
-  second Pi-hole's host as a hot-standby partner (the firewall's relay can point at both), and
-  lease names into DNS.
-- **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
-  HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
+- **Kea phase 3** (`QUEUE-kea-ha.md`; decision 5, the owner 2026-10-16: (b)): the reservations on
+  a CloudNativePG cluster through a LoadBalancer address, and a hot-standby partner on the
+  second Docker VM with the firewall relaying to both, are done (2026-10-16 to 10-18; verify-ca
+  2026-10-22). Left: the Stork agent on the standby, lease names into DNS, and `kea` dropped
+  from `kea-postgres` after a week on the new database (from 2026-10-24).
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule
-    priorities), the nft scripts and their systemd units (management return
-    path, DMZ marks, the `DOCKER-USER` rules for Tailscale), sysctls, Docker,
-    Dockhand's own compose file and the certificate-sync cron.
+    priorities), the nft scripts and their systemd units for the DMZ marks and the
+    `DOCKER-USER` rules for Tailscale, sysctls, Dockhand's own compose file and the
+    certificate-sync cron. Docker (`docker-host.yml`) and the management return path
+    (`tasks/management-routing.yml`) are done.
   - **Proxmox hosts:** `ansible/proxmox-host.yml` holds the ZFS ARC cap, the ACME
-    certificates and the NAS block storage (all applied), and `baseline.yml` the common
-    packages. Still to add there: repositories and kernel cleanup.
+    certificates and the NAS block storage (all applied), `baseline.yml` the common
+    packages, and `proxmox-upgrade.yml` the kernel cleanup. Still to add there: repositories.
   - **Pi-hole:** `ansible/pihole-config.yml` sets what nebula-sync can't copy
     (`misc.dnsmasq_lines`) on both, from Semaphore. Everything else (local
     records such as `vaultwarden-direct`, CNAMEs, lists, `bogusPriv`) lives on
@@ -318,24 +266,28 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - **Stork's agent exports only some subnets' lease figures after a restart** (found 2026-10-22):
   since the kea stack's redeploy recreated `stork-agent` (2.5.1) that afternoon,
   `kea_dhcp4_addresses_assigned_total` exists for subnets 227 and 237 only, not 107 (38 leases)
-  or 250, though Kea's own `statistic-get-all` has all four. Homepage and the overview dashboard
-  read Kea's own counts from `kea-ha-exporter` instead (`docker/kea/README.md`), so nothing here
-  reads Stork's figures now. Left: whether every agent restart drops subnets (an upstream report
-  if so) before anything is built on Stork's metrics again.
+  or 250, though Kea's own `statistic-get-all` has all four; after the next restart (16:25 EDT)
+  it was 237 and 250, so each restart drops a different set. Homepage and the overview
+  dashboard read Kea's own counts from `kea-ha-exporter` instead (`docker/kea/README.md`), so
+  nothing here reads Stork's figures now. Left: an upstream report to Stork, before anything is
+  built on its metrics again.
+- **Immich's storage-template migration fails for some files** (found 2026-10-22: 19 failures
+  beside 42 successes in 12 hours of its log, after the OneDrive import): read why before the
+  duplicate review. Left, those files stay where they were uploaded, outside the template's
+  layout.
 
 ## Working queue files
 
-- [QUEUE-overnight-2026-10-22.md](QUEUE-overnight-2026-10-22.md) (0%): what needs no owner input, worked overnight, with the decisions saved for the owner.
 - [QUEUE-autonomy.md](QUEUE-autonomy.md): read first: the owner's standing permissions, the batches I can do on my own, and what waits on the owner.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
-- [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
-- [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 75%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
-- [QUEUE-zammad.md](QUEUE-zammad.md) (about 25%): Zammad, the helpdesk, with alerts becoming tickets.
+- [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (about 75%): Kea's reservations on CloudNativePG, then a hot-standby partner.
+- [QUEUE-azure-keyvault.md](QUEUE-azure-keyvault.md) (about 85%): the cluster's and Dockhand's secrets from Azure Key Vault, one secret per variable.
+- [QUEUE-zammad.md](QUEUE-zammad.md) (about 80%): Zammad, the helpdesk, with alerts becoming tickets.
 - [QUEUE-updates.md](QUEUE-updates.md) (about 70%): version updates that change behaviour (Mealie, MetalLB,
   Calico, Authentik, app-template, PostgreSQL majors, Kubernetes), one at a time.
 
-The percentages are estimates as of 2026-10-16, from each file's checklist weighed by the
+The percentages are estimates as of 2026-10-22, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
 the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks
