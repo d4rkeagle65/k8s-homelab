@@ -47,9 +47,9 @@ continue what you can."
 
 ## Decisions for the owner
 
-- **`TALOS_SECRETS` isn't where `talos/README.md` says** (Vaultwarden `cluster-secrets`): found
-  elsewhere (Key Vault `TALOS-SECRETS`, an old file), or regenerate it from a control plane's
-  machine config while Semaphore's talosconfig still works?
+- **`TALOS_SECRETS`:** the owner regenerates it from a control plane (`talos/README.md`) and
+  keeps it in a Vaultwarden login of its own, not `cluster-secrets`; Semaphore's
+  `TF_VAR_talos_secrets` (OpenTofu) stays as it is.
 - **Rotate `grimmory-db`'s login password?** A `SHOW GRANTS` printed its hash into the
   2026-10-21 session's output (not git).
 - **#258 (database placement rule) restarts every database once:** when to merge; then a
