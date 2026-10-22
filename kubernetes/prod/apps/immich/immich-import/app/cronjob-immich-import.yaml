@@ -7,9 +7,9 @@
 # replace the schedule: a pod's NFS mount gets no event for a file the NAS
 # writes, and polling would stat every photo every 300ms.
 #
-# With --dry-run it uploads nothing and logs how many files are new and how many
-# Immich has. A run between schedules:
-#   kubectl -n immich create job --from=cronjob/immich-import immich-import-now
+# --dry-run in the args makes a run upload nothing and log how many files are new
+# and how many Immich has. A run between schedules, under a Job name not used yet:
+#   kubectl -n immich create job --from=cronjob/immich-import immich-import-<n>
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -41,7 +41,6 @@ spec:
               args:
                 - upload
                 - --recursive
-                - --dry-run
                 # Synology's thumbnails, in an @eaDir folder beside each photo.
                 - --ignore
                 - "@eaDir/**"

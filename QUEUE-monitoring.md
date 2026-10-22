@@ -196,7 +196,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       network (the five Proxmox hosts, the TerraMaster's `docker/terramaster-logs`) reach
       `INGRESS_IP` through the router and the nodes answer over their management leg, so the
       router resets the connection (task 1064, `status_code=-1`). Left: the merge, the
-      Proxmox hosts' and the TerraMaster's lines read back, and the TerraMaster stack's webhook
+      Proxmox hosts' and the TerraMaster's lines read back
 - [x] Phase 5 (2026-10-21): alerts to Zammad through `zammad-bridge`; the drives' wear, spare,
       critical-warning, rising-error (per serial number) and SMART alerts; the TerraMaster's
       SNMP alert; the control plane's metrics (`talos/patches/controlplane-metrics.yaml` and

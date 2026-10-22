@@ -24,19 +24,17 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 ## Next
 
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
-  OneDrive pictures (~50 GB) down into the media share's `oneDrive` folder, and
+  OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
-  Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Left, in order: the
-  owner adds `IMMICH-IMPORT-API-KEY` to Key Vault (an API key of the owner's own Immich
-  account) and merges its `cluster-secrets` mapping, then the CronJob, which runs with
-  `--dry-run`; a run started by hand (the command is in the CronJob's comment) and its log
-  read: the CLI's "Found N new files and M duplicates", and any file it couldn't read; once
-  Cloud Sync's first download is done, a pull request removes `--dry-run`, and a run started
-  by hand does the bulk upload; then the owner reviews Immich's duplicates, and the run's
-  length is read, since every run hashes the whole folder. Left with `--dry-run`, it reads
-  the folder nightly and uploads nothing. Immich's server peaked at 5.3 GiB of its 6 GiB
-  limit in the first import (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and
-  the Job's retry carries on from what Immich already holds.
+  Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Its dry run
+  (2026-10-21, 9 minutes): 9,264 files (52.4 GB), 4,193 already in Immich byte for byte, 5,071
+  new (23.1 GB), none unreadable. Left: `--dry-run` removed (branch `immich-import-upload`),
+  then a run started by hand (the CronJob's comment) for the bulk upload, its log read to the
+  end; once Immich's job queues are empty, the owner reviews Immich's duplicates (re-encoded
+  copies the hash can't match), and a nightly run's length is read, since every run hashes the
+  whole folder. Immich's server peaked at 5.3 GiB of its 6 GiB limit in the first import
+  (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and the Job's retry carries on
+  from what Immich already holds.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
@@ -163,14 +161,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   housekeeping drops those rows at the retention limit. Report it upstream, or patch the
   serializer in `docker/netbox/Dockerfile` until a release fixes it.
 
-- **`test-script-health`'s standard-library check only knows the platform it runs on**
-  (found 2026-10-20): `t.probe` asks the running Python whether each called name exists, so a
-  POSIX-only name (`os.uname`, in #168's `ansible/files/proxmox-backup-metrics.py`) passes in
-  the Linux container and refuses every commit on the owner's Windows PC, and a Windows-only
-  one would do the reverse. Give it a list of names that exist on only one platform, or let a
-  script that runs only on Linux hosts say so. Left, the next one again blocks commits on
-  whichever machine didn't write it.
-
 - **kea-standby's API doesn't answer an HTTP request from the owner's PC** (found 2026-10-20):
   on the second Docker VM's management address, port 8000 accepts the connection, then the
   `status-get` is reset after about 20 seconds, though the primary's HA heartbeats reach it
@@ -178,15 +168,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the PC to reach its published ports; check the second has it. Left, a script on the PC
   that asks the standby (as `netbox_seed.py` asks the primary) gets no answer.
 
-- **`test-harness` reads red when the suite is run by hand in a Claude desktop worktree**
-  (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
-  checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
-  worktree's top, but `other_calls_ours("pre-merge-commit")` in `tests/test-harness.py` accepts
-  only a line naming `.githooks/pre-merge-commit`. The commit hook's own run passes, since it
-  runs only the suites for the staged files. Left, a manual `run-all-tests.py` there fails for
-  a hook that works. So does the post-rewrite hook after every rebase that rewrites a commit,
-  which prints "the rebased branch is red" for a clean change and invites a needless
-  `git reset --keep ORIG_HEAD`.
 - **`docker/claude-code/README.md`'s "Updating" says to change the image tag in `compose.yaml`**
   with the Dockerfile's versions, but the tag is always `homelab/claude-code:local` (built on
   the host, skipped by Renovate). Say instead what makes Dockhand rebuild after a Dockerfile
@@ -196,6 +177,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `test/kustomization.yaml`.
 
 ## Later
+
+- **`netbox-topology-views` 5.0.0 carries security fixes** (found 2026-10-22): an XSS and a
+  path traversal in the role-image settings, released 2026-10-19; `docker/netbox/` pins 4.7.0.
+  Check 5.0.0 supports NetBox 4.7, then bump it (`patch_topology_views.py` from #266 refuses
+  5.0.0's class only if its text changed; its serializer is unchanged). Left, the plugin's
+  settings pages keep those holes.
+- **Databasus's two alert emails on 2026-10-21 at 08:03 were refused** ("554 Transaction
+  failed" from the cluster's SMTP relay); none failed before or since, and the relay's logs
+  from then are gone (its pods restarted). If it recurs, read `smtp-oauth-relay`'s log at the
+  time. Left, an alert can be lost without a trace.
 
 - **Point-in-time recovery for Grimmory's MariaDB** (`old-queues/QUEUE-mariadb.md`): on
   mariadb-operator 26.10.1 the agent logged "Starting binary log archiver" and archived nothing
