@@ -10,6 +10,12 @@ Scripts = []
 # docker/kea/tools converted dnsmasq's config and leases once, and is kept only for reference.
 ExcludeScripts = ["scripts/tests/*", "docker/kea/tools/*"]
 
+# Scripts that run on one platform only, as glob patterns on the relative path. The check of
+# what each Python has judges a script only on a platform it runs on (os.uname is absent on
+# Windows); every script not listed runs on both. Linux only: the hosts' and containers'.
+PosixOnlyScripts = ["ansible/*", "docker/*", "kubernetes/*"]
+WindowsOnlyScripts = []
+
 # Pythons the scripts must run under, as "3.N" strings - unquoted, 3.10 is the number 3.1. Each
 # one listed is compiled against and has its standard-library imports checked, in a child of
 # that Python; one not installed here is a SKIP. Empty means the Python that runs the suites.
