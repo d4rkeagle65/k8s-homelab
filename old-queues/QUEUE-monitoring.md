@@ -137,9 +137,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       to `loki-logs` (about 600 in the first hour, the start-up backlog included) and searchable;
       a test client with Loki's key reads chunks back. The first start's backlog (log files
       reaching back to 2025) was rejected as older than 7 days, as configured, and stopped.
-- [ ] Loki's 10 failed reads from Garage at its first start (`loki_s3_request_duration_seconds_count`,
-      `S3.GetObject`, status 500), with no log line naming them: if the count grows, read
-      Garage's log on the NAS for the same minute. Reads by a test client succeed.
+- [x] Loki's 10 failed reads from Garage at its first start (`S3.GetObject`, status 500): a
+      one-off; none since (2026-10-22: no 5xx in 7 days, of about 60,000 S3 requests).
 - [x] Kubernetes events into Loki: one collector for the cluster (`alloy-events`, a
       one-replica Alloy Deployment with `loki.source.kubernetes_events`), running since
       2026-10-10.
@@ -173,11 +172,8 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       SNMPv3 logins; SNMPv3 on both NASes would take it out).
 - [x] Phase 3D live (2026-10-10): 121 of 121 targets up, among them both NASes over SNMP,
       Garage, the Pi-holes, cAdvisor and Kea on the Docker VM, and the *arr apps.
-- [ ] The TerraMaster's SNMP community is a hand edit: TOS's SNMP setting doesn't reach
-      `/etc/snmp/snmpd.conf` (snmpd kept `rocommunity public`), so its line 33 was changed by hand
-      to the community limited to the management network, and snmpd restarted. TOS may rewrite
-      the file (an update, a reboot, saving SNMP in its UI): the `snmp` target for the TerraMaster
-      then goes down. An alert on that is phase 5; report the bug to TerraMaster.
+- [x] The TerraMaster's SNMP community, a hand edit TOS may rewrite: `TerraMasterSNMPDown`
+      alerts when it does (phase 5); reporting the bug to TerraMaster moved to QUEUE.md.
 - [x] Confirm the Synology's snmp target stays up (2026-10-16: every snmp target up for the
       whole of the last three days): its agent can take over 20 seconds to answer
       the UCD memory and load tables after a while idle, so the Synology uses copies of those
@@ -214,7 +210,7 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       `loki_rule`, alerts to the same Alertmanager) with `HostLogsSilent`; the Logs dashboard
       in the Homelab folder. Read back: the rule loaded and healthy, new streams without `pod`,
       the dashboard loaded. Left from it, in QUEUE.md: calico-apiserver's error lines
-- [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
+- [x] Phase 9 (the owner, 2026-10-20: this phase first; done 2026-10-22): the Backups dashboard
       (Grafana, Homelab folder, `json/homelab/backups.json`) and the `homelab.backups` alerts:
       Postgres from the Barman Cloud plugin's metrics (CloudNativePG's own backup timestamps
       stay empty with the plugin), through recording rules `cnpg:backup_last_available_timestamp:max`,
@@ -233,17 +229,11 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       Vaultwarden; the other buckets alert from their own metrics) and
       `GarageBackupExporterFailing`; read back 2026-10-20, all three buckets up. A suspended
       PhysicalBackup (a replica recovery's template) is skipped by `MariaDBBackupNotComplete`.
-      In PR: the Synology-to-TerraMaster copy, Hyper Backup's task `k8s-to-tnas` (multi-version,
-      nightly 05:30, to the TerraMaster's rsync daemon on its management address, module
-      `k8sBackups`, into `k8sData_synology.hbk`; first full run and a second one succeeded
-      2026-10-21). Watched from its own log lines, which the Synology sends to Loki by syslog
-      (`app="Backup"`): Loki rules `SynologyBackupTooOld` (no "finished successfully" in 26 h)
-      and `SynologyBackupFailed` (a "Failed to run backup task" or "Exception occurred" line,
-      by task), and a Hyper Backup row on the Backups dashboard. The exporter first planned has
-      nothing to read: `task_state.conf` stays `last_state="Initial"` after runs, and the
-      TerraMaster's file times are the sources' (rsync keeps them). Left: the merge and its
-      read-back; the owner deletes the old single-version copy (`k8sBackups/k8sData_synology/`,
-      a cancelled partial run), never `garage/`
+      The Synology-to-TerraMaster copy (Hyper Backup's `k8s-to-tnas`, multi-version, nightly
+      05:30, into `k8sBackups/k8sData_synology.hbk` on the TerraMaster) from its own log lines in
+      Loki (`app="Backup"`): `SynologyBackupTooOld` and `SynologyBackupFailed`, a Hyper Backup
+      row on the Backups dashboard; read back healthy. Hyper Backup keeps no result an exporter
+      could read (`task_state.conf` stays `"Initial"`)
 
 ## Resuming
 

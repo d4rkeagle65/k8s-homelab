@@ -13,6 +13,11 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **Report the TerraMaster's SNMP setting to TerraMaster** (from the monitoring work): TOS's SNMP
+  page doesn't reach `/etc/snmp/snmpd.conf` (snmpd kept `rocommunity public`), so line 33 holds
+  a hand-edited community limited to the management network. An update, a reboot or saving SNMP
+  in TOS's UI can rewrite it; `TerraMasterSNMPDown` then alerts, and the line is edited again.
+
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 10 are all done (7, Docker's upgrade from
 Semaphore, with the first VM's reboot on 2026-10-22).
@@ -119,10 +124,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   about 280 of the 470, the rest Proxmox's own. The CloudNativePG instances were the largest,
   about 4.5 GB a day each from forced 5-minute WAL switches (now hourly, `archive_timeout: 1h`).
   Left: each control plane writes 26 to 30 GB a day (its kube-apiserver about 5, the rest
-  etcd, which isn't a pod: read it from the etcd scrape, `QUEUE-monitoring.md` phase 5); both Prometheus
+  etcd, which isn't a pod: read it from the etcd scrape, `old-queues/QUEUE-monitoring.md` phase 5); both Prometheus
   replicas about 7 each; the first Docker VM 21; and the hosts' own share. Remeasure a week
   after the archive change.
-  Alerts on wear and spare capacity are phase 5 of `QUEUE-monitoring.md`.
+  Alerts on wear and spare capacity are phase 5 of `old-queues/QUEUE-monitoring.md`.
 
 - **Kubernetes 1.37, when its patches settle:** `kubernetes_version` in
   `tofu/proxmox/talos-config.tf` in a commit, then `ansible/talos-k8s-upgrade.yml` (its dry run
@@ -317,7 +322,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 - [QUEUE-overnight-2026-10-22.md](QUEUE-overnight-2026-10-22.md) (0%): what needs no owner input, worked overnight, with the decisions saved for the owner.
 - [QUEUE-autonomy.md](QUEUE-autonomy.md): read first: the owner's standing permissions, the batches I can do on my own, and what waits on the owner.
-- [QUEUE-monitoring.md](QUEUE-monitoring.md) (about 80%): Prometheus, Loki and Grafana, in eight phases.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (0%): Kea's reservations on CloudNativePG, then a hot-standby partner.
