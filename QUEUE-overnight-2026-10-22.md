@@ -22,10 +22,10 @@ continue what you can."
 | A | `test-script-health`'s standard-library check only knows the platform it runs on | PR #267 (stacked on #264: merge that first) |
 | B | `test-harness` reads red in a Claude desktop worktree | PR #264 |
 | C | `keyvault-secrets.ps1` shows Dockhand's secrets as `Synced` `no` | PR #263 |
-| D | Nothing owns the Pi-holes' timezone | |
+| D | Nothing owns the Pi-holes' timezone | PR #265 (the zone is each container's Proxmox `timezone` option; needs `lxc_timezone` in the Proxmox hosts' variables) |
 | E | NetBox's change-log API fails on Topology Views' role icons | PR #266 (upstream 5.0.0 has the same serializer; a patch at build) |
-| F | `docker/claude-code/README.md`'s "Updating" | |
-| G | kea-standby's API doesn't answer from the owner's PC (read-only diagnosis) | |
+| F | `docker/claude-code/README.md`'s "Updating" | PR #271 (README only; leftovers of retired stacks added to `QUEUE.md`) |
+| G | kea-standby's API doesn't answer from the owner's PC (read-only diagnosis) | PR #274 (the second VM lacks the first's mark-based management return; the baseline writes it) |
 | H | NetBox has none of MetalLB's addresses (`netbox_seed.py` reads the LoadBalancers) | PR #268 (needs `K8S_API_URL`, `K8S_TOKEN`, `K8S_CA_B64` on the NetBox sync template's environment before merging) |
 | J | Databasus's failures (asked 00:15) | Backups all succeed (5 nightly, 00:00); the 15 verifications fail: the agent holds the deleted Docker socket. PR #272 fixes the post-upgrade check that missed it |
 | I | Morning reads: the Proxmox backup (01:00 UTC), rreading-glasses repair dry run (07:15 UTC), Immich import dry run (08:30 UTC) | |
