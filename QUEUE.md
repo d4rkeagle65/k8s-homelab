@@ -158,12 +158,17 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   redeploys it in Dockhand), then `GET /api/core/object-changes/` answers 200; and the fix reported upstream (the text is
   in the pull request).
 
-- **kea-standby's API doesn't answer an HTTP request from the owner's PC** (found 2026-10-20):
-  on the second Docker VM's management address, port 8000 accepts the connection, then the
-  `status-get` is reset after about 20 seconds, though the primary's HA heartbeats reach it
-  (in touch, every few seconds). The first VM needed management-network return routing for
-  the PC to reach its published ports; check the second has it. Left, a script on the PC
-  that asks the standby (as `netbox_seed.py` asks the primary) gets no answer.
+- **Run the baseline on the second Docker VM, for its published ports' answers** (found
+  2026-10-20, cause 2026-10-22, Run Command tasks 1102 and 1104): its management address has
+  only the rule `from <address> lookup 250`, which a container's answer on a published port
+  (kea-standby's API on 8000, the Docker proxy on 9339) never matches: it's routed while its
+  source is still the container's, so it leaves by Production's default route and the
+  firewall drops it. The first VM has, by hand, an nft table marking management connections
+  (`/etc/mgmt-return.nft`, `mgmt-return.service`) and a rule `fwmark 0xfa lookup 250`;
+  `tasks/management-routing.yml` now writes the same on a Docker host with
+  `management_gateway` set. Left: the owner runs "Setting: Debian Baseline" with
+  `target_hosts` the second VM, in check mode, then for real, and a `status-get` from the PC
+  answers. Left, a script on the PC that asks the standby gets no answer.
 
 - **`docker/claude-code/README.md`'s "Updating" says to change the image tag in `compose.yaml`**
   with the Dockerfile's versions, but the tag is always `homelab/claude-code:local` (built on
