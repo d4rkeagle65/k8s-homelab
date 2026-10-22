@@ -4,17 +4,24 @@
 # <table> holds the interface's network and a default route via <gateway>, and a
 # rule (priority 5000 + <table>) sends what leaves from its address there.
 # The tables are 201-299 (management-routing.yml numbers them): every rule and
-# table of that range is cleared first, so an interface dropped from the config,
+# route of that range is cleared first, so an interface dropped from the config,
 # or renumbered, leaves nothing behind. "stop" only clears. Written by Ansible
 # (ansible/tasks/management-routing.yml) and run by homelab-source-routing.service;
 # running it again changes nothing.
+#
+# Never `ip route flush table N`: for a table that doesn't exist the kernel answers
+# "FIB table does not exist" and the flush empties every table, main and local
+# included. The clearing lists what's there and deletes only rules at priorities
+# 5201-5299 and routes labelled "table 201" to "table 299", each by its own
+# specification; nothing else is ever named.
 set -eu
 conf=/etc/homelab-source-routing.conf
-t=201
-while [ "$t" -le 299 ]; do
-    while ip rule del priority $((5000 + t)) 2>/dev/null; do :; done
-    ip route flush table "$t" 2>/dev/null || true
-    t=$((t + 1))
+ip rule show | awk -F: '$1 >= 5201 && $1 <= 5299 {print $1}' | while read -r pref; do
+    ip rule del priority "$pref"
+done
+ip route show table all | grep -E ' table (20[1-9]|2[1-9][0-9])( |$)' | while read -r route; do
+    # shellcheck disable=SC2086 # each word of the listed route is an argument
+    ip route del $route
 done
 [ "${1:-start}" = stop ] && exit 0
 [ -r "$conf" ] || exit 0
