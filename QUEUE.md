@@ -57,6 +57,18 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **Read back Kea's reservations in NetBox after the next sync** (2026-10-22):
+  `scripts/netbox_seed.py` now reads every reservation Kea holds (host_cmds'
+  `reservation-get-page`, all subnets, its config and kea-db) and records each as an address
+  with status DHCP, described "Kea reservation <hostname> (<identifier>)"; an address a VM's
+  interface, a VIP or another description already holds is reported, never changed; one Kea
+  no longer reserves goes Deprecated. Its DNS name is left alone, since NetBox DNS would make
+  it a record, and DHCP names in DNS is the owner's open decision (`QUEUE-kea-ha.md`). Read
+  on 2026-10-22: 51 reservations in kea-db over 3 subnets, none in NetBox yet, none held
+  elsewhere, all inside NetBox's prefixes. Left: the next run of "NetBox: Sync from
+  Proxmox/Kea/k8s" (nightly, or started by hand) shows "reservations:" creating 51
+  addresses, read back in NetBox (IPAM > IP Addresses, status DHCP). Left, NetBox shows
+  reserved addresses as free, and one picked from it can collide.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly at
