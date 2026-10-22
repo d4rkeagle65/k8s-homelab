@@ -186,7 +186,7 @@ Queries (Prometheus, `kube-prometheus-stack`):
       - expects no room from it: read 2026-10-20, the workers' pods request 47.8 GiB against
         40.1 GiB of their peaks summed, 31.3 at the median, so the rule as written lands near
         where they are, higher with Immich's server sized on its import (5.3 GiB peak, 1.3
-        requested). Room to drain a worker (Talos upgrades, `QUEUE-updates.md`) comes from
+        requested). Room to drain a worker (Talos upgrades, `old-queues/QUEUE-updates.md`) comes from
         another basis for the lower tiers, which is the owner's call, or more worker memory.
       Init containers that run once at start have none: babybuddy's check-db-ready and mealie's
       wait-for-db take their namespace's defaults; the Bitwarden CLI's fetch-cli gets nothing

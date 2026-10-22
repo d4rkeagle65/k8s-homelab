@@ -1,4 +1,4 @@
-"""Copy the cluster-secrets variables into Azure Key Vault: QUEUE-azure-keyvault.md.
+"""Copy the cluster-secrets variables into Azure Key Vault: old-queues/QUEUE-azure-keyvault.md.
 
 Reads the variables the cluster-secrets ExternalSecret maps (its spec.data, never the ones its
 template builds) and their values from the Secret it keeps in flux-system. Each becomes one

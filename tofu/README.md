@@ -58,7 +58,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
    `semaphore` with privilege separation off, and the user given `PVEAuditor` on `/`. Reading
    the Docker VM's disks needs `VM.Config.Disk`, and any update to it needs
    `VM.Config.Options` (the provider sends the VM's name with every update). To change and
-   create guests (the Talos VMs, QUEUE-talos.md), the user has a role `TofuGuests` on `/`
+   create guests (the Talos VMs, old-queues/QUEUE-talos.md), the user has a role `TofuGuests` on `/`
    beside `PVEAuditor`, with only what the guests need: `VM.Allocate`, `VM.Audit`,
    `VM.Config.*` (CDROM, CPU, Cloudinit, Disk, HWType, Memory, Network, Options),
    `VM.PowerMgmt`, `VM.Migrate`, `VM.GuestAgent.Audit`, `Datastore.AllocateSpace`,

@@ -21,7 +21,7 @@ spec:
   dependsOn:
   - name: external-secrets
   # The vault's address and tenant come only from azure-keyvault-bootstrap, applied by hand
-  # (QUEUE-azure-keyvault.md), never from cluster-secrets, which this store is to build: a
+  # (old-queues/QUEUE-azure-keyvault.md), never from cluster-secrets, which this store is to build: a
   # rebuilt cluster would wait on itself. Optional like the others; without it, strict
   # substitution fails on ${AZURE_KEYVAULT_URL} here.
   postBuild:

@@ -183,7 +183,7 @@ spec:
           keeps the last values, so a changed or new variable doesn't arrive: read
           `kubectl -n {{ $labels.exported_namespace }} describe externalsecret {{ $labels.name }}`.
           For cluster-secrets, check the azure-keyvault ClusterSecretStore and the
-          azure-keyvault-bootstrap Secret in flux-system (QUEUE-azure-keyvault.md).
+          azure-keyvault-bootstrap Secret in flux-system (old-queues/QUEUE-azure-keyvault.md).
   # Bookshelf's metadata comes from Hardcover through rreading-glasses, on one
   # API token with a daily budget; once it's spent, every lookup rreading-glasses
   # hasn't cached fails until the budget resets (about midnight UTC).

@@ -1,4 +1,4 @@
-# Kea's hot-standby partner (QUEUE-kea-ha.md), on the second Docker VM, deployed
+# Kea's hot-standby partner (old-queues/QUEUE-kea-ha.md), on the second Docker VM, deployed
 # by Dockhand through that VM's Hawser agent. It runs the same configuration as
 # the primary (docker/kea/kea-dhcp4.conf), fetched from this repo's main
 # branch at every deploy by kea-config into the kea-config volume: a Hawser
