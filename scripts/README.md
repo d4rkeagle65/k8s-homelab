@@ -298,8 +298,6 @@ template doesn't encode it, since the cluster would get it plain. With `-Get`
 it outputs a variable's current value instead, as Key Vault holds it, for a
 variable or `Set-Clipboard`. It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
-`scripts/vaultwarden-fields.ps1` did the same for the Vaultwarden item, which
-`cluster-secrets` no longer reads, so it no longer works on it.
 `scripts/keyvault_copy.py` copies every `cluster-secrets` variable into Key
 Vault and compares by hash, a variable the template encodes as its plain value.
 
@@ -423,7 +421,6 @@ before the switchover.
 | `azure-keyvault-sp-external-secrets.json` | The cluster's Key Vault service principal (read only): the `azure-keyvault-bootstrap` Secret in `flux-system` is built from it, by hand. |
 | `azure-keyvault-sp-claude-code.json` | The Docker VM's Claude Code service principal (read only), which Key Vault holds for its stack (`docker/claude-code/README.md`). |
 | `dockhand-secrets.json` | Dockhand's secret stack variables in plain text, from `dockhand-export-secrets.cjs`, only while they move into Key Vault. |
-| `bitwarden-cli.env` | The Bitwarden CLI pod's Vaultwarden login, for recreating its Secret until the pod is retired. |
 | `variable-substitutions.yaml` | Legacy: where the values lived before Vaultwarden. Only read if `cluster-secrets` is missing from the cluster. |
 | `cluster/` | Full backup of built-in and operator-owned cluster objects, not committed. |
 

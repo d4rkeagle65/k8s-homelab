@@ -1,2 +1,0 @@
-Hand-written release: k8s-backup-repo-gen never captures into, generates, or sweeps this folder.
-See scripts/k8s_backup/ownership.py (HANDWRITTEN_MARKER).

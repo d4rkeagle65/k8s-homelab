@@ -135,7 +135,15 @@ references).
 - [x] An alert on an ExternalSecret that stops syncing: `ExternalSecretNotSynced`
       (`monitors/app/prometheusrule-homelab.yaml`, 30 minutes, warning, so a ticket; #116),
       read back 2026-10-19: loaded on both Prometheus replicas, inactive, health `ok`
-- [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired
+- [ ] A week on Key Vault, then `bitwarden-cli` and the three `bitwarden-*` stores retired:
+      the pull request (branch `retire-bitwarden-cli`) merges from 2026-10-26. Checked
+      2026-10-21: `cluster-secrets` is the only ExternalSecret, reading `azure-keyvault`, so
+      nothing reads the three stores. It also moves `cluster-secrets`' `dependsOn` from
+      `bitwarden-cli` to `azure-keyvault`. Read back after it: the `bitwarden-cli` Flux
+      Kustomization and its objects gone, `cluster-secrets` Ready and `SecretSynced`, and every
+      Kustomization Ready. Then the owner deletes the CLI's hand-applied `bitwarden-cli` Secret
+      in `external-secrets` and `kubernetes/.local/bitwarden-cli.env`.
+      `vaultwarden-direct.<domain>` stays: Traefik's Service for Vaultwarden points at it
 
 ## Resuming
 
