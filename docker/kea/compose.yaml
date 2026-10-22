@@ -209,19 +209,22 @@ services:
   # inside, as only root reads that file; no capabilities, read-only.
   kea-ha-exporter:
     mem_limit: 64m
-    image: python:3.14.8-alpine
+    # Built here with the script in it (ha-exporter.Dockerfile says why).
+    build:
+      context: .
+      dockerfile: ha-exporter.Dockerfile
+    image: homelab/kea-ha-exporter:local
+    pull_policy: build
     container_name: kea-ha-exporter
     restart: unless-stopped
     depends_on:
     - kea-dhcp4
-    command: ["python", "-I", "/app/ha_exporter.py"]
     environment:
       KEA_API_URL: http://kea-dhcp4:8000/
       KEA_API_CREDENTIALS: /run/secrets/kea-api-credentials
     ports:
     - ${DOCKER_VM_1_MGMT_ADDRESS}:9548:9548
     volumes:
-    - ./ha_exporter.py:/app/ha_exporter.py:ro
     - /opt/kea/site/api-credentials:/run/secrets/kea-api-credentials:ro
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
