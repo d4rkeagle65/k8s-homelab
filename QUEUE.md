@@ -245,12 +245,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   baseline, then restart Pi-hole 1's container: `journalctl -b -u ssh` should show the failed
   bind, then "Server listening" with no one touching it. Left unproven, a Pi-hole restart
   can still cut Semaphore off from it.
-- **Nothing owns the Pi-holes' timezone** (found 2026-10-19, Run Command task 874): CT 100
-  and CT 109 differed until the owner set CT 109 to match by hand (`pct set`, both
-  the `TIMEZONE` value since, task 887). Proxmox writes the zone into each container at start,
-  but neither OpenTofu (the provider can't, `guests.tf`) nor a playbook sets it, so a rebuilt
-  Pi-hole comes back with whatever its template had: `baseline.yml` or `pihole-config.yml`
-  should own one zone for both.
+- **Set the containers' timezone from `proxmox-host.yml`** (2026-10-22): each container's
+  `timezone` option is what holds, since Proxmox writes it into the container at every start
+  (both Pi-holes read `America/Detroit` inside and in their configs, Run Command tasks 1086-1088;
+  the stopped test container 199 has none). `tasks/proxmox-lxc-timezone.yml` sets every
+  container's option to `lxc_timezone`, and inside a running one now. Left: the owner adds
+  `lxc_timezone` (the zone `TIMEZONE` holds) to the Proxmox hosts' variable group, then runs
+  "Setting: Proxmox Host" in check mode, then for real. Left unset, a rebuilt Pi-hole comes back
+  with whatever zone its template had.
 - **Kea phase 3** (`QUEUE-kea-ha.md`; decision 5, the owner 2026-10-16: (b)): Kea's reservations move from
   PostgreSQL on the Docker VM to a CloudNativePG cluster reached through a LoadBalancer
   address, so a partner can read them while the Docker VM is down; then a second Kea on the
