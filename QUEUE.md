@@ -47,6 +47,18 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   are empty, the owner reviews Immich's duplicates (re-encoded copies the hash can't match);
   and a nightly run's length read, since every run hashes the whole folder (about 10 minutes
   here).
+- **Dockhand's auto-update recreates the Docker hosts' containers outside Git** (found
+  2026-10-22): it's on for the `Local` and `TerraMaster NAS` environments (off for the
+  second Docker VM's), so its 04:00 EDT check recreates any container whose tag has a new digest.
+  On 2026-10-22 the rebuilt `postgres:17.11-alpine` and `postgres:18.6-alpine` recreated kea's,
+  netbox's and semaphore's databases unattended, and the init containers on the same image
+  (`databasus-role-init`, semaphore's `tfstate-db-init`) were recreated but left `Created`,
+  never run, which Dockhand counts as down: all three stacks read "partial". The owner's call:
+  auto-update off for both, since Renovate owns versions in Git and a new digest then waits for
+  a deploy. Separately, Dockhand's Restart of `kea` leaves `stork-agent` stopped ("cannot join
+  network namespace of a non running container": it shares `kea-dhcp4`'s network and PID
+  namespaces, and Dockhand restarts `kea-dhcp4` again after compose has started both); redeploy
+  kea instead, which runs `compose up`.
 - **Turn on Grimmory's relink job once a dry run has been read** (2026-10-21): Grimmory's
   library scan (`SYNC_LIBRARY_FILES`, 01:00) matches files by path, so a file Bookshelf moved
   is a deleted book and a new one, and the deleted book's locked metadata, shelves, reading
