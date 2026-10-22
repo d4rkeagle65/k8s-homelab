@@ -6,7 +6,7 @@
 # (tasks/proxmox-host-reboot.yml, which proxmox-upgrade.yml uses too).
 #
 # Which hosts: target_hosts (select-hosts.yml), ALL or empty for every host in
-# the proxmox group; in inventory order, one at a time either way. Rebooting every host holds Flux on its
+# the proxmox group; in inventory order, one at a time either way. Rebooting every host, however named, holds Flux on its
 # current revision until the run ends, however it ends (tasks/flux-freeze.yml):
 # what's merged meanwhile deploys afterwards.
 #
