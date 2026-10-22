@@ -385,6 +385,15 @@ The test apps' volumes are `Retain`, so their PVs are left `Released`, and the
 data stays on the NAS. Clean them up as in the `QUEUE.md` PV cleanup: save each
 PV's path, delete the PV, then move the folder aside before deleting it.
 
+### Change a LimitRange's defaults
+
+The defaults in `kubernetes/prod/system/cluster-policy/cluster-policy/app/limitranges.yaml`
+reach a container only when its pod is created, so a check of the running pods misses every
+Job that isn't running. Before changing them, `python scripts/limitrange_jobs.py` lists every
+CronJob, Job and Helm hook Job template in those namespaces that leaves a request or limit to
+the defaults, with its peak memory over Prometheus's retention, and flags one at 80% or more
+of the limit it would run under (exit 1). It only reads; `--no-peaks` skips Prometheus.
+
 ### Move a CloudNativePG database onto `local-db`
 
 `migrate-cnpg-to-local-db.ps1` rebuilds a database's instances on local disk
