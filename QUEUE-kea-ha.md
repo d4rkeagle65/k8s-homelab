@@ -69,15 +69,21 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
 - [ ] The CA: `ssl-mode` is `require`, not `verify-ca`, because CloudNativePG renews its own CA
       about every 90 days and a copy on the hosts would go stale. kea-db's server certificate
       now comes from a ten-year CA, `kea-db-root-ca` (cert-manager,
-      `kubernetes/prod/services/kea/kea/app/certificates-db.yaml`); replication keeps
-      CloudNativePG's own client CA. Left, after that merge, with kea-db healthy and its
-      `pg_stat_ssl` showing the new certificate: the CA's `ca.crt` (public; `kubectl -n kea get
-      secret kea-db-root-ca -o jsonpath='{.data.ca\.crt}'`) into each host's site folder as
-      `kea-db-ca.pem` (`ansible/kea-ha.yml`, which writes the site files); the site file's
+      `kubernetes/prod/services/kea/kea/app/certificates-db.yaml`, live since #291, served by
+      kea-db); replication keeps CloudNativePG's own client CA. `ansible/kea-ha.yml` with
+      `kea_db_verify_ca: true` now does the rest: the CA's public certificate from the
+      cluster (kea-db-server-tls's CertificateRequest `status.ca`, which holds no key: the
+      `semaphore-kea-db-ca` Role reads only CertificateRequests, never the CA's or the
+      server's Secret) into each site folder as `kea-db-ca.pem`; the site file's
       `hosts-databases` with `"ssl-mode": "verify-ca"` and `"trust-anchor":
-      "/etc/kea/site/kea-db-ca.pem"` (Kea 3.2's PostgreSQL backend); `kea-db-init` given
-      `PGSSLROOTCERT` the same, as its `PGSSLMODE` follows `ssl-mode`; then both Keas
-      restarted one at a time, each serving reservations before the other
+      "/etc/kea/site/kea-db-ca.pem"` (Kea 3.2's PostgreSQL backend); `kea-db-init` takes
+      `PGSSLROOTCERT` from that `trust-anchor` (`docker/kea/compose.yaml`); one host at a
+      time, each reloading and then reading a reservation page from the database, or getting
+      its previous site file back and stopping the run. Left, for the owner: the "k8s and
+      Talos Connection" variable group and an optional `kea_db_verify_ca` survey variable on
+      "Setting: Kea HA Config"; a check-mode run, then a real one with
+      `kea_db_verify_ca: true`; then kea-db's `pg_stat_ssl` read for both hosts' connections,
+      and the primary's stack redeployed once so `kea-db-init` runs with `verify-ca`
 - [x] `kea-db-init` reads its database from the site file's `hosts-databases` (2026-10-17):
       `kea-db`, with its `ssl-mode`; checked in its image (task 824, schema 34.0)
 - [x] The HA pair (2026-10-18): `docker/kea/kea-dhcp4.conf` carries the HA hook (its
