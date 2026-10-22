@@ -31,13 +31,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **Run the baseline on Pi-hole 2, for the fixed routing script** (2026-10-22): #299's
-  `homelab-source-routing` emptied every routing table on Pi-hole 1 (a flush of a table that
-  doesn't exist; Pi-hole 2 carried DNS); #309 deletes only its own rules and routes, tested
-  with real iproute2. Pi-hole 1 runs it (task 1194: main 6 routes, local 13, default present,
-  tables and rules in place; DNS 28 of 30, the firewall's two as ever). Pi-hole 2 still runs
-  the earlier script. Left: "Setting: Debian Baseline" on Pi-hole 2 alone, then the same
-  checks. Left, Pi-hole 2 keeps a script whose next change is untested on it.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
