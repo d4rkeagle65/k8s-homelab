@@ -9,7 +9,7 @@ netbox-floorplan-plugin==0.10.0
 netbox-data-flows==1.5.4
 netbox-kea==2.0.1
 netbox-plugin-dhcp==0.2.0
-netbox-topology-views==4.7.0
+netbox-topology-views==5.0.0
 netbox-security==1.6.8
 netboxlabs-netbox-custom-objects==0.7.0
 netbox-routing==0.5.0
