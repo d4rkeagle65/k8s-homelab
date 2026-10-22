@@ -169,3 +169,39 @@ def test_stale_interfaces_keeps_a_bridge_a_present_port_still_names():
 def test_stale_interfaces_leaves_what_proxmox_has_even_when_down():
     have = [iface(1, "eth3")]
     assert m.stale_interfaces(have, {"eth3"}) == ([], [])
+
+
+def pool(name, *addresses):
+    return {"metadata": {"name": name}, "spec": {"addresses": list(addresses)}}
+
+
+def test_pool_ranges_reads_a_range_as_given_and_a_cidr_as_its_ends():
+    pools = [pool("mgmt", "198.51.100.50/32"), pool("production", "192.0.2.50-192.0.2.70", "203.0.113.0/30")]
+    assert m.pool_ranges(pools) == [("production", "192.0.2.50", "192.0.2.70"),
+                                    ("mgmt", "198.51.100.50", "198.51.100.50"),
+                                    ("production", "203.0.113.0", "203.0.113.3")]
+
+
+def test_pool_ranges_leaves_out_ipv6():
+    assert m.pool_ranges([pool("v6", "2001:db8::/126")]) == []
+
+
+def svc(ns, name, kind, *ips):
+    return {"metadata": {"namespace": ns, "name": name}, "spec": {"type": kind},
+            "status": {"loadBalancer": {"ingress": [{"ip": ip} for ip in ips]}}}
+
+
+def test_load_balancer_ips_names_every_service_on_a_shared_address():
+    services = [svc("traefik", "traefik", "LoadBalancer", "192.0.2.50"),
+                svc("kea", "kea-db-lan", "LoadBalancer", "192.0.2.53"),
+                svc("dns", "tcp", "LoadBalancer", "192.0.2.52"), svc("dns", "udp", "LoadBalancer", "192.0.2.52"),
+                svc("app", "web", "ClusterIP"), svc("app", "pending", "LoadBalancer")]
+    assert m.load_balancer_ips(services) == {"192.0.2.50": ["traefik/traefik"],
+                                             "192.0.2.52": ["dns/tcp", "dns/udp"],
+                                             "192.0.2.53": ["kea/kea-db-lan"]}
+
+
+def test_a_ca_that_isnt_base64_stops_before_any_request():
+    import pytest
+    with pytest.raises(SystemExit, match="K8S_CA_B64"):
+        m.cluster_load_balancers("https://192.0.2.1:6443", "token", "not base64!")

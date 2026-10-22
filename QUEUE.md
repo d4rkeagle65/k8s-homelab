@@ -24,19 +24,17 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 ## Next
 
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
-  OneDrive pictures (~50 GB) down into the media share's `oneDrive` folder, and
+  OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
-  Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Left, in order: the
-  owner adds `IMMICH-IMPORT-API-KEY` to Key Vault (an API key of the owner's own Immich
-  account) and merges its `cluster-secrets` mapping, then the CronJob, which runs with
-  `--dry-run`; a run started by hand (the command is in the CronJob's comment) and its log
-  read: the CLI's "Found N new files and M duplicates", and any file it couldn't read; once
-  Cloud Sync's first download is done, a pull request removes `--dry-run`, and a run started
-  by hand does the bulk upload; then the owner reviews Immich's duplicates, and the run's
-  length is read, since every run hashes the whole folder. Left with `--dry-run`, it reads
-  the folder nightly and uploads nothing. Immich's server peaked at 5.3 GiB of its 6 GiB
-  limit in the first import (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and
-  the Job's retry carries on from what Immich already holds.
+  Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Its dry run
+  (2026-10-21, 9 minutes): 9,264 files (52.4 GB), 4,193 already in Immich byte for byte, 5,071
+  new (23.1 GB), none unreadable. Left: `--dry-run` removed (branch `immich-import-upload`),
+  then a run started by hand (the CronJob's comment) for the bulk upload, its log read to the
+  end; once Immich's job queues are empty, the owner reviews Immich's duplicates (re-encoded
+  copies the hash can't match), and a nightly run's length is read, since every run hashes the
+  whole folder. Immich's server peaked at 5.3 GiB of its 6 GiB limit in the first import
+  (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and the Job's retry carries on
+  from what Immich already holds.
 - **Grimmory loses a book's edits when Bookshelf moves its file** (found 2026-10-19): its
   library scan matches files by path, so a renamed or moved file is a deleted book and a new
   one; the old one's locked metadata (titles, authors, series), shelf entries and reading
@@ -128,12 +126,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
-- **NetBox has none of MetalLB's addresses** (found 2026-10-21): `scripts/netbox_seed.py` reads
-  Proxmox and Kea only, so the LoadBalancer addresses (`INGRESS_IP`, `ISOLATED_INGRESS_IP`,
-  `KEA_DB_ADDRESS`, `ALLOY_SYSLOG_ADDRESS`, `TRAEFIK_MGMT_ADDRESS`, and the `production` pool's
-  range) are in NetBox only if added by hand. Left, NetBox shows them free, and the next one
-  chosen from it can collide. Have the sync read the cluster's LoadBalancer Services (and the
-  pools) and record each address with its Service as the description.
+- **The NetBox sync's Kubernetes credentials** (2026-10-22): `scripts/netbox_seed.py` now reads
+  the cluster's LoadBalancer Services and MetalLB pools and records each address (role VIP,
+  the Services as its description) and each pool's range, and stops without
+  `K8S_API_URL`, `K8S_TOKEN` and `K8S_CA_B64`. Left: the owner adds those three to the
+  "NetBox: Sync from Proxmox and Kea" template's environment as environment variables (secret:
+  the values the Ansible jobs' `k8s_api_url`, `k8s_token` and `k8s_ca_b64` hold), before the
+  pull request is merged; then the next run's log (it applies: its arguments hold `--apply`)
+  shows five LoadBalancer addresses and the `production` range under "load balancers:", read
+  back in NetBox. Left, the nightly sync fails from the merge on.
 
 - **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
   delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
@@ -151,39 +152,27 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the workers, or moving replicas one at a time onto the emptier ones), and end a run that
   drains every worker by switching primaries back out.
 
-- **NetBox's change-log API fails on Topology Views' role icons** (found 2026-10-21): the
-  plugin's `RoleImageSerializer` (`netbox-topology-views` 4.7.0, `api/serializers.py`) is a plain
-  DRF `ModelSerializer`, so NetBox 4.7 rendering a change's `changed_object` raises "unexpected
-  keyword argument 'nested'" and `/api/core/object-changes/` answers 500 for any page holding a
-  role-icon change (eight, from setting the icons). `?fields=` without `changed_object` works.
-  Nothing here reads the change log by API today; a script that does would fail until NetBox's
-  housekeeping drops those rows at the retention limit. Report it upstream, or patch the
-  serializer in `docker/netbox/Dockerfile` until a release fixes it.
+- **Redeploy NetBox for the change-log fix** (found 2026-10-21): `netbox-topology-views`'
+  `RoleImageSerializer` is a plain DRF `ModelSerializer` (unchanged in 5.0.0), so NetBox 4.7
+  rendering a role-icon change with `nested=True` raised, and `/api/core/object-changes/`
+  answered 500 for any page holding one. The image now patches it at build time
+  (`docker/netbox/patch_topology_views.py`, which fails the build if a plugin release changes
+  the class). Left: the merge's webhook redeploys the stack, rebuilding the image (or the owner
+  redeploys it in Dockhand), then `GET /api/core/object-changes/` answers 200; and the fix reported upstream (the text is
+  in the pull request).
 
-- **`test-script-health`'s standard-library check only knows the platform it runs on**
-  (found 2026-10-20): `t.probe` asks the running Python whether each called name exists, so a
-  POSIX-only name (`os.uname`, in #168's `ansible/files/proxmox-backup-metrics.py`) passes in
-  the Linux container and refuses every commit on the owner's Windows PC, and a Windows-only
-  one would do the reverse. Give it a list of names that exist on only one platform, or let a
-  script that runs only on Linux hosts say so. Left, the next one again blocks commits on
-  whichever machine didn't write it.
+- **Run the baseline on the second Docker VM, for its published ports' answers** (found
+  2026-10-20, cause 2026-10-22, Run Command tasks 1102 and 1104): its management address has
+  only the rule `from <address> lookup 250`, which a container's answer on a published port
+  (kea-standby's API on 8000, the Docker proxy on 9339) never matches: it's routed while its
+  source is still the container's, so it leaves by Production's default route and the
+  firewall drops it. The first VM has, by hand, an nft table marking management connections
+  (`/etc/mgmt-return.nft`, `mgmt-return.service`) and a rule `fwmark 0xfa lookup 250`;
+  `tasks/management-routing.yml` now writes the same on a Docker host with
+  `management_gateway` set. Left: the owner runs "Setting: Debian Baseline" with
+  `target_hosts` the second VM, in check mode, then for real, and a `status-get` from the PC
+  answers. Left, a script on the PC that asks the standby gets no answer.
 
-- **kea-standby's API doesn't answer an HTTP request from the owner's PC** (found 2026-10-20):
-  on the second Docker VM's management address, port 8000 accepts the connection, then the
-  `status-get` is reset after about 20 seconds, though the primary's HA heartbeats reach it
-  (in touch, every few seconds). The first VM needed management-network return routing for
-  the PC to reach its published ports; check the second has it. Left, a script on the PC
-  that asks the standby (as `netbox_seed.py` asks the primary) gets no answer.
-
-- **`test-harness` reads red when the suite is run by hand in a Claude desktop worktree**
-  (found 2026-10-18): the app's `config.worktree` points `core.hooksPath` at the main
-  checkout's `.githooks`, whose `pre-merge-commit` runs `.githooks/pre-commit` from the
-  worktree's top, but `other_calls_ours("pre-merge-commit")` in `tests/test-harness.py` accepts
-  only a line naming `.githooks/pre-merge-commit`. The commit hook's own run passes, since it
-  runs only the suites for the staged files. Left, a manual `run-all-tests.py` there fails for
-  a hook that works. So does the post-rewrite hook after every rebase that rewrites a commit,
-  which prints "the rebased branch is red" for a clean change and invites a needless
-  `git reset --keep ORIG_HEAD`.
 - **Leftovers on the first Docker VM from retired Dockhand stacks** (found 2026-10-22, Run
   Command tasks 1091-1098, read only): the image `homelab/claude-code:k8s-1.33.3-flux-2.9.5-helm-4.2.2`
   (the tag scheme before `local`), Dockhand's clones `Local/k8s-homelab` (at a 2026-10-05
@@ -194,6 +183,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `test/kustomization.yaml`.
 
 ## Later
+
+- **`netbox-topology-views` 5.0.0 carries security fixes** (found 2026-10-22): an XSS and a
+  path traversal in the role-image settings, released 2026-10-19; `docker/netbox/` pins 4.7.0.
+  Check 5.0.0 supports NetBox 4.7, then bump it (`patch_topology_views.py` from #266 refuses
+  5.0.0's class only if its text changed; its serializer is unchanged). Left, the plugin's
+  settings pages keep those holes.
+- **Databasus's two alert emails on 2026-10-21 at 08:03 were refused** ("554 Transaction
+  failed" from the cluster's SMTP relay); none failed before or since, and the relay's logs
+  from then are gone (its pods restarted). If it recurs, read `smtp-oauth-relay`'s log at the
+  time. Left, an alert can be lost without a trace.
 
 - **Point-in-time recovery for Grimmory's MariaDB** (`old-queues/QUEUE-mariadb.md`): on
   mariadb-operator 26.10.1 the agent logged "Starting binary log archiver" and archived nothing
@@ -208,11 +207,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   base64 for a value that is text means capture's `secret_data` mark didn't reach
   `varsub.pending_rows`. Left, a new value can go into Key Vault base64 and reach its app
   encoded twice.
-- **`scripts/keyvault-secrets.ps1` shows Dockhand's secrets as `Synced` `no`** (found 2026-10-21):
-  the 39 names only Dockhand stacks read (`docker/secret-names.yaml`) aren't mapped into
-  `cluster-secrets`, rightly, and the listing marks them as it marks a cluster variable that
-  never reaches the cluster. Read the map and say `Dockhand` for them. Left, the listing reads as
-  39 faults, which hides a real one among them.
 - **A promoted Secret's value that isn't text has no supported form**: Key Vault holds only
   text, and `scripts/tests/test_structure.py`'s `test_every_substituted_variable_is_defined`
   refuses a Secret's variable without its `{{ .NAME | b64enc }}` template entry (capture's
@@ -246,12 +240,14 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   baseline, then restart Pi-hole 1's container: `journalctl -b -u ssh` should show the failed
   bind, then "Server listening" with no one touching it. Left unproven, a Pi-hole restart
   can still cut Semaphore off from it.
-- **Nothing owns the Pi-holes' timezone** (found 2026-10-19, Run Command task 874): CT 100
-  and CT 109 differed until the owner set CT 109 to match by hand (`pct set`, both
-  the `TIMEZONE` value since, task 887). Proxmox writes the zone into each container at start,
-  but neither OpenTofu (the provider can't, `guests.tf`) nor a playbook sets it, so a rebuilt
-  Pi-hole comes back with whatever its template had: `baseline.yml` or `pihole-config.yml`
-  should own one zone for both.
+- **Set the containers' timezone from `proxmox-host.yml`** (2026-10-22): each container's
+  `timezone` option is what holds, since Proxmox writes it into the container at every start
+  (both Pi-holes read `America/Detroit` inside and in their configs, Run Command tasks 1086-1088;
+  the stopped test container 199 has none). `tasks/proxmox-lxc-timezone.yml` sets every
+  container's option to `lxc_timezone`, and inside a running one now. Left: the owner adds
+  `lxc_timezone` (the zone `TIMEZONE` holds) to the Proxmox hosts' variable group, then runs
+  "Setting: Proxmox Host" in check mode, then for real. Left unset, a rebuilt Pi-hole comes back
+  with whatever zone its template had.
 - **Kea phase 3** (`QUEUE-kea-ha.md`; decision 5, the owner 2026-10-16: (b)): Kea's reservations move from
   PostgreSQL on the Docker VM to a CloudNativePG cluster reached through a LoadBalancer
   address, so a partner can read them while the Docker VM is down; then a second Kea on the
