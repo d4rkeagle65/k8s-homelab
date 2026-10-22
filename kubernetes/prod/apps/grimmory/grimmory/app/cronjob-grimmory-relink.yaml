@@ -51,6 +51,9 @@ spec:
               command: [python, /etc/grimmory-relink/grimmory-relink.py]
               env:
                 - {name: PYTHONPATH, value: /deps}
+                # pymysql asks getpass for a user name when imported, and the
+                # media user's ID has no passwd entry in the image.
+                - {name: USER, value: grimmory-relink}
                 - {name: DRY_RUN, value: "true"}
                 - {name: DB_HOST, value: grimmory-db-primary}
                 - {name: DB_NAME, value: grimmory}
