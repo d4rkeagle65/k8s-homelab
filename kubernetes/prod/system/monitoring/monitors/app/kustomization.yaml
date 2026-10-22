@@ -6,6 +6,7 @@ resources:
 - prometheusrule-homelab.yaml
 - podmonitor-flux.yaml
 - scrapeconfig-docker-vm.yaml
+- scrapeconfig-docker-vm-2.yaml
 - scrapeconfig-etcd.yaml
 - scrapeconfig-garage.yaml
 - scrapeconfig-homeassistant.yaml

@@ -151,7 +151,7 @@ spec:
               Library: {tab: Media, style: row, columns: 4}
               More: {tab: Media, style: row, columns: 2}
               Upcoming: {tab: Media, style: row, columns: 1}
-              Hosts: {tab: Infrastructure, style: row, columns: 3}
+              Hosts: {tab: Infrastructure, style: row, columns: 4}
               Storage: {tab: Infrastructure, style: row, columns: 3}
               Observability: {tab: Infrastructure, style: row, columns: 3}
               Tools: {tab: Infrastructure, style: row, columns: 5}
@@ -702,7 +702,7 @@ spec:
                         - label: SSD wear
                           query: 100 * max(nvme_percentage_used_ratio{job="proxmox-hosts"})
                           format: {type: percent, options: {maximumFractionDigits: 0}}
-                - Docker host:
+                - Docker VM 1:
                     icon: docker.png
                     href: https://dockhand.${BASE_DOMAIN}
                     description: Stacks through Dockhand
@@ -719,6 +719,25 @@ spec:
                           format: {type: percent, options: {maximumFractionDigits: 0}}
                         - label: Free memory
                           query: node_memory_MemAvailable_bytes{job="docker-vm"}
+                          format: {type: bytes}
+                - Docker VM 2:
+                    icon: docker.png
+                    href: https://dockhand.${BASE_DOMAIN}
+                    description: DHCP's standby, through Hawser
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        # No cAdvisor there, so no container count: its node-exporter only.
+                        - label: Up
+                          query: max(up{job="docker-vm-2"}) or vector(0)
+                          format: {type: number}
+                        - label: CPU
+                          query: 100 * (1 - avg(rate(node_cpu_seconds_total{job="docker-vm-2", mode="idle"}[5m])))
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: Free memory
+                          query: node_memory_MemAvailable_bytes{job="docker-vm-2"}
                           format: {type: bytes}
             - Storage:
                 - Synology:
