@@ -162,6 +162,13 @@ spec:
       resources:
         requests: {cpu: 10m, memory: 64Mi}
         limits: {cpu: 500m, memory: 128Mi}
+      # Pod Security restricted (the namespace enforces it): the subchart
+      # already runs it as a non-root user without escalation; it adds the
+      # default seccomp profile and drops every capability.
+      podSecurityContext:
+        seccompProfile: {type: RuntimeDefault}
+      containerSecurityContext:
+        capabilities: {drop: [ALL]}
 
     ingress:
       enabled: true
