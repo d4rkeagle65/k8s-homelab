@@ -53,14 +53,10 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       a notification channel `jsons://<the bridge's host>/dockhand/<token>` (Settings >
       Notifications), with the token from `DOCKHAND_ALERT_TOKEN`; then ticket 8 (a one-shot
       service's exit, before the labels) closed by hand
-- [ ] Mail: Zammad's outgoing mail reaches `smtp-oauth-relay` and signs in, but Graph refuses
-      every message (404 `ErrorInvalidUser`, read in the relay's log 2026-10-22): it sends as
-      Zammad's default notification sender, `noreply@` its own `zammad.` hostname, which is no
-      mailbox. Left: the Notification Sender (Channels > Email > Settings) set to the shared
-      mailbox (`M365_SHARED_MAILBOX_ADDRESS`), with send rights on it for the Entra app its relay
-      login uses; then a notification read back as sent in the relay's log. Until then, every
-      notification Zammad mails is lost. And an incoming channel if tickets by email are wanted
-      (the owner's call)
+- [x] Mail out: Zammad's notifications go through `smtp-oauth-relay` as the shared mailbox
+      (its Notification Sender, `M365_SHARED_MAILBOX_ADDRESS`), read back as sent in the relay's
+      log 2026-10-22; its default sender, `noreply@` its own hostname, was refused by Graph
+- [ ] Mail in: an incoming channel, if tickets by email are wanted (the owner's call)
 - [x] Elasticsearch through the ECK operator (2026-10-16): zammad-init-8 rebuilt the index in
       3 minutes; a search through it finds the open drive-wear ticket. Health is yellow, as one
       node can't hold its indices' replicas. How it got there:
