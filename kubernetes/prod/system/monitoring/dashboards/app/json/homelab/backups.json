@@ -26,7 +26,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "Each backup's newest copy. **Green** under 26 hours; **red** when older, or when the last attempt failed. The same conditions alert into Zammad (`homelab.backups` rules).\n\n**Covered:** Postgres (CloudNativePG, base backups and WAL to Garage), MariaDB (mariadb-operator, physical backups to Garage) Proxmox's nightly vzdump of every guest (each host's `proxmox-backup-metrics`), and the Docker host's backups in Garage (Databasus and Vaultwarden, `garage-backup-exporter`). **Still to come** (QUEUE-monitoring.md, phase 9): the Synology-to-TerraMaster copy."
+        "content": "Each backup's newest copy. **Green** under 26 hours; **red** when older, or when the last attempt failed. The same conditions alert into Zammad (`homelab.backups` rules).\n\n**Covered:** Postgres (CloudNativePG, base backups and WAL to Garage), MariaDB (mariadb-operator, physical backups to Garage) Proxmox's nightly vzdump of every guest (each host's `proxmox-backup-metrics`), the Docker host's backups in Garage (Databasus and Vaultwarden, `garage-backup-exporter`), and the Synology's Hyper Backup to the TerraMaster (its own log lines in Loki)."
       }
     },
     {
@@ -823,6 +823,98 @@
       }
     },
     {
+      "id": 9,
+      "title": "Hyper Backup: successful runs, last 26 h",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 6,
+        "h": 8
+      },
+      "description": "The Synology's Hyper Backup tasks to the TerraMaster (nightly 05:30), counted from their \"finished successfully\" log lines. 0 is a missed or failed night (SynologyBackupTooOld).",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "sum(count_over_time({source=\"syslog\", app=\"Backup\"} |= \"Backup task finished successfully\" [26h])) or vector(0)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 10,
+      "title": "Hyper Backup's results",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 40,
+        "w": 18,
+        "h": 8
+      },
+      "description": "Each run's start, result and warnings, as the Synology logs them.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "refId": "A",
+          "queryType": "range",
+          "expr": "{source=\"syslog\", app=\"Backup\"} |~ \"started|finished|Failed|Exception|Incomplete|cancel\""
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": false,
+        "dedupStrategy": "none"
+      }
+    },
+    {
       "id": 4,
       "title": "Hours since each newest backup",
       "type": "timeseries",
@@ -832,7 +924,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 48,
         "w": 24,
         "h": 9
       },
@@ -921,7 +1013,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 49,
+        "y": 57,
         "w": 24,
         "h": 9
       },
@@ -965,7 +1057,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 58,
+        "y": 66,
         "w": 24,
         "h": 9
       },

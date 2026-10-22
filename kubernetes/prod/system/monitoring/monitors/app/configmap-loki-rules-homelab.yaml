@@ -32,3 +32,37 @@ data:
             {{ $labels.host }} sent logs to Loki the day before but none in the last
             6 hours. Check its log shipper: Alloy (systemctl status alloy; on the
             TerraMaster the terramaster-logs container), or the Synology's Log Center.
+    # The Synology's Hyper Backup (to the TerraMaster), from its own log lines,
+    # which the Synology sends by syslog: Hyper Backup keeps no result anywhere an
+    # exporter could read (task_state.conf isn't updated after a run). A night
+    # missed, failed, or not logged at all leaves no success line for 26 hours.
+    # The "Incomplete file backup (The file is a special file.)" warning (a socket
+    # in a config volume, every run) is neither.
+    - name: homelab.backups
+      rules:
+      - alert: SynologyBackupTooOld
+        expr: |
+          absent_over_time({source="syslog", app="Backup"} |= "Backup task finished successfully" [26h])
+        for: 30m
+        labels:
+          severity: warning
+          namespace: monitoring
+        annotations:
+          summary: The Synology's Hyper Backup hasn't finished successfully in 26 hours.
+          description: >-
+            No "Backup task finished successfully" line from Hyper Backup in 26 hours:
+            the nightly run to the TerraMaster failed, didn't run, or the Synology's
+            log sending stopped. Read Hyper Backup's log on the Synology, or the Logs
+            dashboard with app "Backup".
+      # A failure stays for 26 hours after its line, whatever runs after it.
+      - alert: SynologyBackupFailed
+        expr: |
+          sum by (task) (count_over_time({source="syslog", app="Backup"} |~ "Failed to run backup task|Exception occurred" | regexp `\]\[(?P<task>[^\]]+)\]` [26h])) > 0
+        labels:
+          severity: warning
+          namespace: monitoring
+        annotations:
+          summary: A Hyper Backup task on the Synology failed.
+          description: >-
+            Hyper Backup task {{ $labels.task }} logged a failure in the last 26 hours.
+            Read its log on the Synology (Hyper Backup, the task's Log).
