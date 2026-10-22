@@ -199,13 +199,16 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Later
 
-- **Every Semaphore task fails while NetBox is down** (found 2026-10-22): Semaphore's inventory is
-  NetBox (`ansible/inventory/netbox.yml`), so during NetBox's two-minute rebuild for #290 a
-  read-only Run Command failed outright ("exit status 2"). That includes the jobs needed to
-  recover NetBox's own host. Consider a fallback: the inventory plugin's cache
-  (`cache: true` with a file cache under Semaphore's data), or a static inventory for the
-  Docker VMs. Left, a NetBox outage takes Semaphore's every job with it.
-
+- **Check the NetBox inventory's last-good copy is written** (2026-10-22): Semaphore's inventory
+  is NetBox, and the collection's plugin can't answer from an expired cache, so NetBox's
+  two-minute rebuild for #290 failed every task. `ansible/inventory_plugins/netbox_fallback.py`
+  now keeps every NetBox answer in `/var/lib/semaphore/netbox-inventory-last-good.json`
+  (Semaphore's data volume, writable by its uid 1001) and answers from it when NetBox is
+  unreachable or answers 5xx, with a warning; a 401 or 403 never falls back. Left: after the
+  merge, the first run that reads the inventory writes the copy; check it's there (`docker
+  exec semaphore ls -l /var/lib/semaphore/netbox-inventory-last-good.json`, mode 600) and that
+  run's log has no "Couldn't keep the last-good NetBox copy" warning. Left unchecked, the next
+  NetBox outage may still stop every task.
 - **Vaultwarden's backup puts its archive password on 7z's command line** (found 2026-10-22):
   `ttionya/vaultwarden-backup` 1.27.2's `scripts/backup.sh` runs `7z a ... -p"${ZIP_PASSWORD}"`,
   so for the seconds the nightly archive takes, any process on the first Docker VM that lists
