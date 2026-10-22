@@ -109,11 +109,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   headers, 2026-10-19): 5,000 lookups a day, reset at 00:00 UTC, and 60 a minute with bursts
   of 10; a re-fetched work costs about one, so keep a day's repairs to about 1,000. The
   HardcoverDailyBudget alerts (homelab.bookshelf) ticket both the low and the spent budget.
-- **A LimitRange's defaults reach a Job's pods only when they run** (found 2026-10-16): the
-  check before `cluster-policy` read the pods present, so Zammad's init job, gone by then, met
-  the 512 MiB default only at its next upgrade and was OOM-killed. Before a change to the
-  defaults, read each Job and CronJob template in the namespaces (and their past peaks in
-  Prometheus), not only the running pods.
 - **Pod Security: `restricted` for the rest.** `pod-security.kubernetes.io/enforce` in each
   `namespace.yaml`: 14 namespaces enforce `restricted` (cert-manager, cluster-access,
   cnpg-system, external-dns, external-secrets, external-services, headlamp, kea, nebula-sync,
