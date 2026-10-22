@@ -160,14 +160,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   housekeeping drops those rows at the retention limit. Report it upstream, or patch the
   serializer in `docker/netbox/Dockerfile` until a release fixes it.
 
-- **`test-script-health`'s standard-library check only knows the platform it runs on**
-  (found 2026-10-20): `t.probe` asks the running Python whether each called name exists, so a
-  POSIX-only name (`os.uname`, in #168's `ansible/files/proxmox-backup-metrics.py`) passes in
-  the Linux container and refuses every commit on the owner's Windows PC, and a Windows-only
-  one would do the reverse. Give it a list of names that exist on only one platform, or let a
-  script that runs only on Linux hosts say so. Left, the next one again blocks commits on
-  whichever machine didn't write it.
-
 - **kea-standby's API doesn't answer an HTTP request from the owner's PC** (found 2026-10-20):
   on the second Docker VM's management address, port 8000 accepts the connection, then the
   `status-get` is reset after about 20 seconds, though the primary's HA heartbeats reach it
