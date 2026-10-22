@@ -31,16 +31,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **Pi-hole 1 has no per-address routing until the baseline runs it again** (2026-10-22): #299's
-  `homelab-source-routing` flushed tables 201-299 by number, and flushing one that doesn't
-  exist emptied every table on the Pi-hole (main and local included; reproduced with real
-  iproute2). Pi-hole 1 lost its routes (Pi-hole 2 carried DNS); the owner restarted CT 100,
-  and its service is disabled, so its replies leave by Production as before #247. Pi-hole 2
-  still runs the earlier script, untouched. Left: the fixed script merged, then "Setting:
-  Debian Baseline" on one Pi-hole at a time (it installs and enables the script), each read
-  back (`ip route show table main` keeps its routes; the DNS check from the first Docker
-  VM). Left, a VPN or IoT client can't reach Pi-hole 1's non-Production addresses.
-
+- **Run the baseline on Pi-hole 2, for the fixed routing script** (2026-10-22): #299's
+  `homelab-source-routing` emptied every routing table on Pi-hole 1 (a flush of a table that
+  doesn't exist; Pi-hole 2 carried DNS); #309 deletes only its own rules and routes, tested
+  with real iproute2. Pi-hole 1 runs it (task 1194: main 6 routes, local 13, default present,
+  tables and rules in place; DNS 28 of 30, the firewall's two as ever). Pi-hole 2 still runs
+  the earlier script. Left: "Setting: Debian Baseline" on Pi-hole 2 alone, then the same
+  checks. Left, Pi-hole 2 keeps a script whose next change is untested on it.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
@@ -292,14 +289,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   baseline, then restart Pi-hole 1's container: `journalctl -b -u ssh` should show the failed
   bind, then "Server listening" with no one touching it. Left unproven, a Pi-hole restart
   can still cut Semaphore off from it.
-- **Set the containers' timezone from `proxmox-host.yml`** (2026-10-22): each container's
-  `timezone` option is what holds, since Proxmox writes it into the container at every start
-  (both Pi-holes read `America/Detroit` inside and in their configs, Run Command tasks 1086-1088;
-  the stopped test container 199 has none). `tasks/proxmox-lxc-timezone.yml` sets every
-  container's option to `lxc_timezone`, and inside a running one now. Left: the owner adds
-  `lxc_timezone` (the zone `TIMEZONE` holds) to the Proxmox hosts' variable group, then runs
-  "Setting: Proxmox Host" in check mode, then for real. Left unset, a rebuilt Pi-hole comes back
-  with whatever zone its template had.
 - **Kea phase 3** (`QUEUE-kea-ha.md`; decision 5, the owner 2026-10-16: (b)): Kea's reservations move from
   PostgreSQL on the Docker VM to a CloudNativePG cluster reached through a LoadBalancer
   address, so a partner can read them while the Docker VM is down; then a second Kea on the
