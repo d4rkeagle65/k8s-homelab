@@ -1,0 +1,26 @@
+# Semaphore's ServiceAccount (kubernetes/prod/system/cluster-access/semaphore/) may
+# read this namespace's cert-manager CertificateRequests, whose status.ca is the
+# kea-db CA's public certificate: ansible/kea-ha.yml copies it to the Kea hosts for
+# verify-ca. A CertificateRequest holds no private key; the CA's own Secret
+# (kea-db-root-ca) and the server's (kea-db-server-tls) stay unreadable to it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: semaphore-kea-db-ca
+rules:
+- apiGroups: ["cert-manager.io"]
+  resources: ["certificaterequests"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: semaphore-kea-db-ca
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: semaphore-kea-db-ca
+subjects:
+- kind: ServiceAccount
+  name: semaphore
+  namespace: cluster-access

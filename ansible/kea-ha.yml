@@ -17,7 +17,70 @@
 # Inputs (the template's survey, target "Variable"): kea_primary and kea_standby,
 # the two hosts' inventory names. Secrets are read and written with no_log.
 #
+# With kea_db_verify_ca: true it also makes both Keas verify kea-db's server
+# certificate (QUEUE-kea-ha.md): the kea-db CA's public certificate, read from the
+# cluster (a cert-manager CertificateRequest's status.ca in the kea namespace, which
+# holds no key; the Role is kubernetes/prod/services/kea/kea/app/rbac-semaphore.yaml),
+# goes to /opt/kea/site/kea-db-ca.pem on each host, and the site file's
+# hosts-databases get "ssl-mode": "verify-ca" and "trust-anchor" pointing at it
+# (kea-db-init takes its PGSSLROOTCERT from the same entry, docker/kea/compose.yaml).
+# That needs the "k8s and Talos Connection" variable group on the template. The
+# hosts then go one at a time: a Kea whose files changed reloads them, then must
+# read a reservation page from the database; one that can't gets its previous site
+# file back, reloads again, and the run stops before the other host.
+#
 # In check mode (--check) it reports what it would write and changes nothing.
+
+- ansible.builtin.import_playbook: semaphore-host.yml
+
+- name: The kea-db CA's certificate, from the cluster
+  hosts: semaphore
+  gather_facts: false
+  tasks:
+    - name: Read it, removing the API's CA file whatever happens
+      when: kea_db_verify_ca | default(false) | bool
+      block:
+        - name: The Kubernetes API's address, token and CA certificate
+          ansible.builtin.include_tasks: tasks/k8s-connection.yml
+
+        - name: Read the kea namespace's CertificateRequests
+          ansible.builtin.uri:
+            url: "{{ k8s_api_url }}/apis/cert-manager.io/v1/namespaces/kea/certificaterequests"
+            headers:
+              Authorization: "Bearer {{ k8s_token }}"
+            ca_path: "{{ playbook_dir }}/.k8s-ca.pem"
+            return_content: true
+          register: kea_crs
+          check_mode: false
+          no_log: true
+
+        # The newest ready request for kea-db's server certificate: its status.ca is
+        # the CA that signed what kea-db serves.
+        - name: Settle the CA's certificate
+          ansible.builtin.set_fact:
+            kea_db_ca_pem: >-
+              {% set found = [] %}{%
+              for c in kea_crs.json['items']
+                if (c.metadata.annotations | default({}))['cert-manager.io/certificate-name'] | default('') == 'kea-db-server-tls'
+                and (c.status | default({})).ca | default('') | length > 0
+                and ((c.status | default({})).conditions | default([]) | selectattr('type', 'equalto', 'Ready')
+                     | selectattr('status', 'equalto', 'True') | list) %}{%
+                set _ = found.append(c) %}{% endfor %}{{
+              ((found | sort(attribute='metadata.creationTimestamp') | last).status.ca | b64decode)
+              if found else '' }}
+
+        - name: It's one certificate, and no key
+          ansible.builtin.assert:
+            that:
+              - kea_db_ca_pem is search('^-----BEGIN CERTIFICATE-----')
+              - kea_db_ca_pem.split('-----BEGIN CERTIFICATE-----') | length == 2
+              - kea_db_ca_pem is not search('PRIVATE KEY')
+            fail_msg: kea-db-server-tls has no ready CertificateRequest with one CA certificate; nothing was written.
+            quiet: true
+      always:
+        - name: Remove the Kubernetes CA certificate file
+          ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
+          when: kea_db_verify_ca | default(false) | bool
 
 - name: The pair is named and the primary's files read
   hosts: "{{ kea_primary | default('none') }}"
@@ -50,6 +113,28 @@
         quiet: true
       no_log: true
 
+    # The site file is a JSON fragment Kea includes inside Dhcp4 (docker/kea/
+    # kea-dhcp4.conf). With kea_db_verify_ca, every hosts-databases entry verifies
+    # kea-db's certificate against the CA file the next play writes.
+    - name: The site file, with verify-ca if asked for
+      ansible.builtin.set_fact:
+        kea_site_obj: "{{ ('{' ~ ((site_json.content | b64decode) | trim | regex_replace(',\\s*$', '')) ~ '}') | from_json }}"
+      no_log: true
+
+    - name: Render it
+      ansible.builtin.set_fact:
+        kea_site_new: >-
+          {% if kea_db_verify_ca | default(false) | bool %}{%
+            set dbs = [] %}{% for d in kea_site_obj['hosts-databases'] %}{%
+              set _ = dbs.append(d | combine({'ssl-mode': 'verify-ca',
+                                              'trust-anchor': '/etc/kea/site/kea-db-ca.pem'})) %}{% endfor %}{{
+            (kea_site_obj | combine({'hosts-databases': dbs})
+             | to_nice_json(indent=2, sort_keys=False))[2:-2] }}{{
+            ',' if (site_json.content | b64decode | trim).endswith(',') else '' }}{%
+          else %}{{ site_json.content | b64decode }}{% endif %}
+        kea_first_subnet: "{{ (kea_site_obj['subnet4'] | default([{}]) | first).id | default(0) }}"
+      no_log: true
+
     - name: Settle the pair
       ansible.builtin.set_fact:
         kea_pair:
@@ -59,12 +144,18 @@
           standby_ip: "{{ hostvars[kea_standby].primary_ip4 | string | split('/') | first }}"
           api_user: "{{ (api_credentials.content | b64decode | trim).split(':', 1)[0] }}"
           api_password: "{{ (api_credentials.content | b64decode | trim).split(':', 1)[1] }}"
-          site_json: "{{ site_json.content | b64decode }}"
+          site_json: "{{ kea_site_new }}"
+          verify_ca: "{{ kea_db_verify_ca | default(false) | bool }}"
+          first_subnet: "{{ kea_first_subnet }}"
       no_log: true
 
 - name: Each host's site files
   hosts: "{{ (kea_primary | default('none')) ~ ',' ~ (kea_standby | default('none')) }}"
   gather_facts: false
+  # One host at a time, the run stopping at the first that fails: a database TLS
+  # change one Kea can't use is found, and undone, before the other runs it.
+  serial: 1
+  max_fail_percentage: 0
   vars:
     pair: "{{ hostvars[kea_primary].kea_pair }}"
     role: "{{ 'primary' if inventory_hostname == pair.primary else 'standby' }}"
@@ -79,12 +170,23 @@
         - {path: /opt/kea/site, mode: "0700"}
         - {path: /opt/kea/lib, mode: "0755"}
 
-    - name: The standby's site file, the primary's
+    - name: The kea-db CA's certificate
+      ansible.builtin.copy:
+        dest: /opt/kea/site/kea-db-ca.pem
+        content: "{{ hostvars['semaphore'].kea_db_ca_pem | trim }}\n"
+        mode: "0644"
+      when: pair.verify_ca | bool
+      register: ca_written
+
+    # The standby's is the primary's; the primary's changes only for verify-ca. The
+    # copy replaced is kept beside it (backup), for the check after the reload.
+    - name: The site file
       ansible.builtin.copy:
         dest: /opt/kea/site/site.json
         content: "{{ pair.site_json }}"
         mode: "0644"
-      when: role == 'standby'
+        backup: true
+      when: role == 'standby' or pair.verify_ca | bool
       register: site_written
       no_log: true
 
@@ -199,7 +301,7 @@
       when:
         - not ansible_check_mode
         - kea_running.stdout | default('') == 'true'
-        - site_written is changed or password_written is changed or ha_written is changed
+        - site_written is changed or password_written is changed or ha_written is changed or ca_written is changed
       changed_when: true
       no_log: true
 
@@ -209,3 +311,58 @@
         fail_msg: "Kea on {{ inventory_hostname }} refused config-reload: {{ (reload.json | first).text | default('?') }}"
         quiet: true
       when: reload is not skipped
+
+    # With verify-ca, a reload succeeds even when the database refuses the new TLS
+    # (Kea serves on and retries it), so the database itself is asked: a page of the
+    # first subnet's reservations answers 0 (found) or 3 (none), never 1 (no database).
+    - name: Kea reads its reservations from the database
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8000/
+        method: POST
+        body_format: json
+        body: "{{ {'command': 'reservation-get-page', 'arguments': {'subnet-id': pair.first_subnet | int, 'limit': 1}} }}"
+        url_username: "{{ pair.api_user }}"
+        url_password: "{{ pair.api_password }}"
+        force_basic_auth: true
+        return_content: true
+      register: db_read
+      when: pair.verify_ca | bool and reload is not skipped
+      failed_when: false
+      no_log: true
+
+    - name: If it can't, the previous site file back, and stop
+      when: db_read is not skipped and ((db_read.json | default([{}]) | first).result | default(1)) not in [0, 3]
+      block:
+        - name: Restore the site file it ran before
+          ansible.builtin.copy:
+            src: "{{ site_written.backup_file }}"
+            dest: /opt/kea/site/site.json
+            remote_src: true
+            mode: "0644"
+          when: site_written.backup_file is defined
+
+        - name: Reload it
+          ansible.builtin.uri:
+            url: http://127.0.0.1:8000/
+            method: POST
+            body_format: json
+            body: {command: config-reload}
+            url_username: "{{ pair.api_user }}"
+            url_password: "{{ pair.api_password }}"
+            force_basic_auth: true
+          no_log: true
+
+        - name: Stop before the other host
+          ansible.builtin.fail:
+            msg: >-
+              Kea on {{ inventory_hostname }} couldn't read its reservations with verify-ca
+              ({{ (db_read.json | default([{}]) | first).text | default('no answer') }}); its previous
+              site file is back and reloaded. Its log says why: docker logs kea-dhcp4.
+
+    - name: Report the database's TLS
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: {{ 'verify-ca; its reservations read from the database'
+             if db_read is not skipped else ('verify-ca would be set (check mode)' if ansible_check_mode
+             else 'not reloaded (its files were already so, or its Kea is not running)') }}
+      when: pair.verify_ca | bool

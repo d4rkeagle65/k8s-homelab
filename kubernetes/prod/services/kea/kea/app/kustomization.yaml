@@ -5,5 +5,6 @@ resources:
 - objectstore.yaml
 - secret-kea-db-credentials.yaml
 - certificates-db.yaml
+- rbac-semaphore.yaml
 - db.yaml
 - scheduledbackup-db.yaml
