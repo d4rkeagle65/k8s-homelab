@@ -52,6 +52,16 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   failed to restart"). Redeploy kea instead, which runs `compose up`. Left: report it to Dockhand
   (github.com/Finsys/dockhand) with that log line; until then, a Restart leaves Stork blind to
   Kea while DHCP runs on.
+- **Grimmory's Refresh Metadata, once the owner has the task-manager flag** (2026-10-22): it
+  failed to start for the owner ("Failed to start Refresh Metadata", nothing logged) because
+  its task checks `permissionAccessTaskManager` itself, without the admin fallback the other
+  tasks have, and the `ON_LOGIN` group sync cleared that flag at each sign-in; the Grimmory
+  Admins mapping now lists every permission (`sync/grimmory.yaml`). Left: the owner signs out
+  and in, then runs it. The one earlier run (2026-10-11, the local admin) failed "Transaction
+  silently rolled back because it has been marked as rollback-only": the whole library is one
+  transaction (`LibraryRescanHelper.handleRescanOptions` in 3.5.0), so one book's error undoes
+  every book's. If that recurs, the log's "Failed to update metadata for book id=..." names
+  the book; fix or replace its file, and report the transaction scope upstream.
 - **Read the Grimmory relink job's first real relink** (on since 2026-10-22): the
   `grimmory-relink` CronJob (`kubernetes/prod/apps/grimmory/grimmory/app/`, hourly at :50)
   points a book at its file again when Bookshelf moves it, before Grimmory's 01:00 scan would
