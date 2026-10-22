@@ -43,9 +43,8 @@ KEA_API or ~/.kea-api ("user:password"), K8S_TOKEN or ~/.k8s-token (the
 semaphore ServiceAccount's token, which may list Services and MetalLB's pools:
 kubernetes/prod/system/cluster-access/semaphore/), K8S_CA_B64 or ~/.k8s-ca-b64
 (the cluster's CA certificate, PEM in base64 on one line). The URLs default to
-NETBOX_API, PROXMOX_URL, KEA_URL and K8S_API_URL. The Kubernetes values are the
-ones the Ansible jobs take as k8s_token, k8s_ca_b64 and k8s_api_url; this script
-needs them as environment variables.
+NETBOX_API, PROXMOX_URL, KEA_URL and K8S_API_URL. The K8S_* values come from the
+"Kubernetes API" variable group the Ansible jobs read too (ansible/README.md).
 """
 from __future__ import annotations
 
