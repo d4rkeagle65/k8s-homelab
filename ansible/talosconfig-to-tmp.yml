@@ -1,0 +1,29 @@
+# One-off: writes the TALOSCONFIG_B64 Semaphore holds ("k8s and Talos Connection",
+# read by group_vars/all.yml) to /tmp/talosconfig.b64 (root:root 0600) on the one host
+# target_hosts names, so the owner can save it (`ssh <host> sudo cat
+# /tmp/talosconfig.b64 | clip.exe`, then `sudo shred -u` it). Nothing is printed.
+- ansible.builtin.import_playbook: select-hosts.yml
+  vars:
+    select_from: all
+    select_required: true
+    select_one: true
+
+- name: Write the talosconfig on the host
+  hosts: targets
+  gather_facts: false
+  become: true
+  tasks:
+    - name: The talosconfig is set
+      ansible.builtin.assert:
+        that: hostvars['semaphore'].talosconfig_b64 | default('') | length > 0
+        fail_msg: TALOSCONFIG_B64 is unset; the template needs "k8s and Talos Connection".
+        quiet: true
+
+    - name: Write /tmp/talosconfig.b64 (mode 0600)
+      ansible.builtin.copy:
+        content: "{{ hostvars['semaphore'].talosconfig_b64 | regex_replace('\\s', '') }}\n"
+        dest: /tmp/talosconfig.b64
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
