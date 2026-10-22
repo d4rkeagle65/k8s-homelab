@@ -91,11 +91,12 @@
         DEBIAN_FRONTEND: noninteractive
       when: not ansible_check_mode
 
-    # The journal's readers, and Docker's socket on the Docker VMs.
-    - name: Alloy may read the journal{{ ' and Docker' if ha_docker else '' }}
+    # The journal's readers, Docker's socket on the Docker VMs, and on the
+    # Pi-holes FTL.log (0640, pihole:pihole).
+    - name: Alloy may read the journal{{ ' and Docker' if ha_docker else '' }}{{ ' and Pi-hole' if ha_pihole else '' }}
       ansible.builtin.user:
         name: alloy
-        groups: "{{ ['systemd-journal', 'adm'] + (['docker'] if ha_docker else []) }}"
+        groups: "{{ ['systemd-journal', 'adm'] + (['docker'] if ha_docker else []) + (['pihole'] if ha_pihole else []) }}"
         append: true
       register: ha_groups
       when: not ansible_check_mode
