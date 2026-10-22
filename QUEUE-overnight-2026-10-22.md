@@ -93,9 +93,11 @@ role-icon rows render; rebased onto #298 with `QUEUE.md` resolved), #290 (NetBox
   next scan). Longer term the disk grows in OpenTofu. Full, the next image pull or backup
   temp file fails (Databasus's health checks did on 2026-10-21 08:01).
 
-- **The eight Released `local-db` PVs and their folders** from the replica moves (R): delete
-  them (the PVs by `kubectl delete pv`, the folders as in the earlier cleanup), each database
-  being healthy on its rebuilt replica.
+- ~~**The eight Released `local-db` PVs and their folders**~~: deleted 2026-10-22, each after
+  a read-only comparison with its live replica (table data equal, or the old copy slightly
+  larger from bloat; the rest of each old folder was 570-640 MB of stale WAL), then its folder
+  and its PV, one at a time. Read back: no Released PVs; each worker's folders match its
+  `local-db` PVs (8, 9, 9, 9); all 16 clusters healthy.
 - ~~**Pod Security for the remaining 21 namespaces**~~: decided above (three raised, #303; 18
   stay `baseline`).
 - ~~**The workers' old vzdump archives on `tm-nfs`**, and the retired Dockhand stacks' leftovers
