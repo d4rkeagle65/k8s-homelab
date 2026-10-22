@@ -205,3 +205,79 @@ def test_a_ca_that_isnt_base64_stops_before_any_request():
     import pytest
     with pytest.raises(SystemExit, match="K8S_CA_B64"):
         m.cluster_load_balancers("https://192.0.2.1:6443", "token", "not base64!")
+
+
+def vip(i, address, description, status="active", role="vip"):
+    return {"id": i, "address": address, "description": description,
+            "status": {"value": status}, "role": {"value": role} if role else None}
+
+
+def iprange(i, first, last, description, status="active"):
+    return {"id": i, "start_address": first, "end_address": last, "description": description,
+            "status": {"value": status}}
+
+
+def test_a_removed_services_address_is_stale_and_a_live_one_isnt():
+    addresses = [vip(1, "192.0.2.50/24", "LoadBalancer traefik/traefik"),
+                 vip(2, "192.0.2.53/24", "LoadBalancer kea/kea-db-lan")]
+    old_ips, _ = m.stale_load_balancers(addresses, [], {"192.0.2.50": ["traefik/traefik"]}, [])
+    assert [a["id"] for a in old_ips] == [2]
+
+
+def test_a_changed_address_retires_the_old_one():
+    # The Service moved from .53 to .55: .55 is recorded by ensure, .53 is stale.
+    addresses = [vip(2, "192.0.2.53/24", "LoadBalancer kea/kea-db-lan")]
+    old_ips, _ = m.stale_load_balancers(addresses, [], {"192.0.2.55": ["kea/kea-db-lan"]}, [])
+    assert [a["id"] for a in old_ips] == [2]
+
+
+def test_a_removed_pools_range_is_stale_and_a_single_address_pool_has_none():
+    ranges = [iprange(7, "192.0.2.50/24", "192.0.2.70/24", "MetalLB pool production"),
+              iprange(8, "192.0.2.80/24", "192.0.2.90/24", "MetalLB pool old")]
+    pools = [("production", "192.0.2.50", "192.0.2.70"), ("mgmt", "198.51.100.50", "198.51.100.50")]
+    _, old_ranges = m.stale_load_balancers([], ranges, {}, pools)
+    assert [r["id"] for r in old_ranges] == [8]
+
+
+def test_only_this_scripts_own_and_not_yet_deprecated_objects_are_stale():
+    addresses = [vip(1, "192.0.2.60/24", "a host's own address"),                       # not ours
+                 vip(2, "192.0.2.61/24", "LoadBalancer gone/svc", status="deprecated"),  # already retired
+                 vip(3, "192.0.2.62/24", "LoadBalancer gone/svc", role="anycast"),      # not a VIP
+                 vip(4, "192.0.2.63/24", "LoadBalancer gone/svc")]
+    ranges = [iprange(7, "192.0.2.10/24", "192.0.2.20/24", "lan: Kea DHCP pool"),
+              iprange(8, "192.0.2.80/24", "192.0.2.90/24", "MetalLB pool old", status="deprecated")]
+    old_ips, old_ranges = m.stale_load_balancers(addresses, ranges, {}, [])
+    assert [a["id"] for a in old_ips] == [4]
+    assert old_ranges == []
+
+
+def test_a_failed_cluster_read_stops_the_run_before_anything_is_retired(monkeypatch):
+    # The cluster is read before any NetBox write; a failed read raises, so main() never
+    # reaches stale_load_balancers with an empty answer.
+    import base64
+    import pytest
+
+    def refused(*args, **kwargs):
+        raise SystemExit("FAIL: GET https://192.0.2.1:6443/api/v1/services: no answer (refused)")
+
+    monkeypatch.setattr(m, "http", refused)
+    ca = base64.b64encode(b"-----BEGIN CERTIFICATE-----\nx\n-----END CERTIFICATE-----\n").decode()
+    with pytest.raises(SystemExit, match="no answer"):
+        m.cluster_load_balancers("https://192.0.2.1:6443", "token", ca)
+
+
+def test_retire_writes_only_with_apply_and_reads_back(monkeypatch):
+    calls = []
+
+    def fake_http(method, url, headers, body=None, **kw):
+        calls.append((method, url.split("/api/", 1)[1], body))
+        if method == "GET":
+            return {"results": [{"id": 4, "status": {"value": "deprecated"}}]}
+        return {}
+
+    monkeypatch.setattr(m, "http", fake_http)
+    m.NetBox("https://netbox.example", "nbt_x", apply=False).retire("ipam/ip-addresses", {"id": 4}, "x")
+    assert calls == []
+    m.NetBox("https://netbox.example", "nbt_x", apply=True).retire("ipam/ip-addresses", {"id": 4}, "x")
+    assert calls[0] == ("PATCH", "ipam/ip-addresses/4/", {"status": "deprecated"})
+    assert calls[1][0] == "GET"
