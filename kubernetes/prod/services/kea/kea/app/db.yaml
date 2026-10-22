@@ -6,8 +6,9 @@
 # Reached from outside the cluster through its own LoadBalancer address
 # (KEA_DB_ADDRESS, on the primary), which only the two Kea hosts may reach
 # (KEA_DB_CLIENTS: one CIDR holding both, as both the Service and pg_hba take
-# one), and only over TLS: Kea checks the server against this cluster's CA
-# (kea-db-ca), copied to each Kea host.
+# one), and only over TLS. Its server certificate comes from a ten-year CA,
+# kea-db-root-ca (certificates-db.yaml), so a Kea host holding that CA can check
+# the server (ssl-mode verify-ca, the site file's hosts-databases).
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -33,6 +34,11 @@ spec:
           namespaceSelector: {}
           topologyKey: kubernetes.io/hostname
   enablePDB: true
+  # The server's certificate and CA from cert-manager (certificates-db.yaml); the
+  # client CA and replication certificate stay CloudNativePG's own.
+  certificates:
+    serverTLSSecret: kea-db-server-tls
+    serverCASecret: kea-db-root-ca
   resources:
     requests:
       cpu: 20m
