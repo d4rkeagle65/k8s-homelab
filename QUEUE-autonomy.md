@@ -121,14 +121,15 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
 - [x] Kea's three variables in Vaultwarden (2026-10-16)
 - [x] Dockhand's environment for the second Docker VM, connected (2026-10-17: the 429 was
       Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
-- [ ] `NETBOX_READ_TOKEN` without its "Bearer " prefix: done 2026-10-22 (the owner, through
+- [x] `NETBOX_READ_TOKEN` without its "Bearer " prefix: done 2026-10-22 (the owner, through
       `scripts/keyvault-secrets.ps1`); `proxmox-endpoints`, its one cluster user, restarted and
       read NetBox with it (5 of 5 hypervisors). node-exporter's targets for both Docker VMs
       now come from NetBox's Prometheus SD plugin (`scrapeconfig-docker-vm*.yaml`, by each
       VM's vmid custom field, at its primary address, which is the management one Ansible
       logs in to: no tag needed), keeping the jobs `docker-vm` and `docker-vm-2`, and
-      `DockerVMNodeExporterMissing` fires if NetBox stops listing one. Left: after the merge,
-      both node targets up in Prometheus at the same addresses as before
+      `DockerVMNodeExporterMissing` fires if NetBox stops listing one. Live after #330: both
+      node targets discovered and up at the same addresses as before; VM1's static cAdvisor
+      and Kea targets unchanged
 - [x] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answered every network from
       Production; fixed and checked from a VPN and an IoT/Work client (Run Command tasks 1194,
       1204, 2026-10-22)
