@@ -5,6 +5,7 @@ resources:
 - podmonitor-cnpg-instances.yaml
 - prometheusrule-homelab.yaml
 - podmonitor-flux.yaml
+- secret-netbox-sd.yaml
 - scrapeconfig-docker-vm.yaml
 - scrapeconfig-docker-vm-2.yaml
 - scrapeconfig-etcd.yaml
