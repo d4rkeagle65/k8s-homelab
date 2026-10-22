@@ -1,10 +1,13 @@
 """Seed NetBox from the homelab's live sources: old-queues/QUEUE-netbox.md.
 
 Reads the networks from Kea (subnets and pools) and from Proxmox (each bridge's
-addresses), and the hosts and guests from Proxmox, then makes NetBox match: the
-site, VLANs, prefixes and DHCP ranges; the Proxmox cluster with its hosts as
-devices (ports, VLAN subinterfaces and bridges) and its guests as virtual
-machines (each NIC with its MAC, VLAN and address, each disk a virtual disk).
+addresses), the hosts and guests from Proxmox, and the Kubernetes cluster's
+LoadBalancer addresses and MetalLB pools, then makes NetBox match: the site,
+VLANs, prefixes and DHCP ranges; the Proxmox cluster with its hosts as devices
+(ports, VLAN subinterfaces and bridges) and its guests as virtual machines (each
+NIC with its MAC, VLAN and address, each disk a virtual disk); and each
+LoadBalancer address (role VIP, described by the Services holding it) and each
+MetalLB pool's range, so an address chosen from NetBox can't collide with one.
 
 It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
@@ -36,8 +39,13 @@ set (Semaphore's variable group), else from a file in the home folder:
 NETBOX_WRITE_TOKEN or ~/.netbox-token (a write-enabled NetBox token, "nbt_...";
 never NETBOX_TOKEN, the inventory's read-only one), PROXMOX_TOKEN or
 ~/.proxmox-token (the full "PVEAPIToken=..." header; read-only is enough),
-KEA_API or ~/.kea-api ("user:password"). The URLs default to NETBOX_API,
-PROXMOX_URL and KEA_URL.
+KEA_API or ~/.kea-api ("user:password"), K8S_TOKEN or ~/.k8s-token (the
+semaphore ServiceAccount's token, which may list Services and MetalLB's pools:
+kubernetes/prod/system/cluster-access/semaphore/), K8S_CA_B64 or ~/.k8s-ca-b64
+(the cluster's CA certificate, PEM in base64 on one line). The URLs default to
+NETBOX_API, PROXMOX_URL, KEA_URL and K8S_API_URL. The Kubernetes values are the
+ones the Ansible jobs take as k8s_token, k8s_ca_b64 and k8s_api_url; this script
+needs them as environment variables.
 """
 from __future__ import annotations
 
@@ -68,13 +76,14 @@ def read_secret(name: str, env: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def http(method: str, url: str, headers: dict, body=None, insecure: bool = False):
-    """JSON in, JSON out. Raises on any HTTP error, with the server's message."""
+def http(method: str, url: str, headers: dict, body=None, insecure: bool = False, ca_pem: str | None = None):
+    """JSON in, JSON out. Raises on any HTTP error, with the server's message. ca_pem
+    trusts that CA alone (the Kubernetes API's own)."""
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method,
                                  headers={**headers, "Content-Type": "application/json",
                                           "Accept": "application/json"})
-    ctx = ssl._create_unverified_context() if insecure else None
+    ctx = ssl._create_unverified_context() if insecure else (ssl.create_default_context(cadata=ca_pem) if ca_pem else None)
     try:
         with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
             raw = r.read()
@@ -373,6 +382,49 @@ def proxmox_state(url: str, token: str):
     return cluster, nodes, guests
 
 
+def pool_ranges(pools: list[dict]) -> list[tuple[str, str, str]]:
+    """Each MetalLB IPAddressPool's IPv4 ranges as (pool name, first, last): "a-b" as given,
+    a CIDR as its first and last address."""
+    out = []
+    for p in pools:
+        name = p["metadata"]["name"]
+        for a in (p.get("spec") or {}).get("addresses") or []:
+            if "-" in a:
+                first, _, last = a.partition("-")
+                first, last = ipaddress.ip_address(first.strip()), ipaddress.ip_address(last.strip())
+            else:
+                net = ipaddress.ip_network(a.strip(), strict=False)
+                first, last = net[0], net[-1]
+            if first.version == 4:
+                out.append((name, str(first), str(last)))
+    return sorted(out, key=lambda r: ipaddress.ip_address(r[1]))
+
+
+def load_balancer_ips(services: list[dict]) -> dict[str, list[str]]:
+    """Each address a LoadBalancer Service holds, with the Services holding it (namespace/name,
+    sorted: MetalLB lets Services share one)."""
+    out: dict[str, set[str]] = {}
+    for s in services:
+        if (s.get("spec") or {}).get("type") != "LoadBalancer":
+            continue
+        who = f"{s['metadata']['namespace']}/{s['metadata']['name']}"
+        for i in ((s.get("status") or {}).get("loadBalancer") or {}).get("ingress") or []:
+            if i.get("ip"):
+                out.setdefault(i["ip"], set()).add(who)
+    return {ip: sorted(who) for ip, who in sorted(out.items(), key=lambda kv: ipaddress.ip_address(kv[0]))}
+
+
+def cluster_load_balancers(url: str, token: str, ca_b64: str):
+    """The LoadBalancer addresses and MetalLB pool ranges, from the Kubernetes API."""
+    try:
+        ca_pem = base64.b64decode(re.sub(r"\s", "", ca_b64), validate=True).decode()
+    except ValueError:
+        raise SystemExit("FAIL: K8S_CA_B64 isn't base64 on one line")
+    def get(p):
+        return http("GET", url.rstrip("/") + p, {"Authorization": "Bearer " + token}, ca_pem=ca_pem)["items"]
+    return load_balancer_ips(get("/api/v1/services")), pool_ranges(get("/apis/metallb.io/v1beta1/ipaddresspools"))
+
+
 def unexpected(extras: list[str]) -> str:
     """The message for arguments the script doesn't take, naming each without its
     value: an argument can carry a credential (Semaphore passes a variable group's
@@ -393,6 +445,7 @@ def main() -> None:
     url("--netbox-url", "NETBOX_API", "https://netbox.<domain>")
     url("--proxmox-url", "PROXMOX_URL", "https://<a Proxmox host>:8006")
     url("--kea-url", "KEA_URL", "Kea's control agent, e.g. http://127.0.0.1:8000/")
+    url("--k8s-url", "K8S_API_URL", "the Kubernetes API, e.g. https://<address>:6443")
     ap.add_argument("--apply", action="store_true", help="write to NetBox (default: report only)")
     args, extras = ap.parse_known_args()
     if extras:
@@ -402,7 +455,10 @@ def main() -> None:
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_WRITE_TOKEN"), args.apply)
     kea_subnets, kea_pools = kea_networks(args.kea_url, read_secret(".kea-api", "KEA_API"))
     cluster_name, nodes, guests = proxmox_state(args.proxmox_url, read_secret(".proxmox-token", "PROXMOX_TOKEN"))
-    print(f"read: {len(kea_subnets)} Kea subnets, {len(nodes)} Proxmox nodes, {len(guests)} guests")
+    lb_ips, lb_pools = cluster_load_balancers(args.k8s_url, read_secret(".k8s-token", "K8S_TOKEN"),
+                                              read_secret(".k8s-ca-b64", "K8S_CA_B64"))
+    print(f"read: {len(kea_subnets)} Kea subnets, {len(nodes)} Proxmox nodes, {len(guests)} guests, "
+          f"{len(lb_ips)} LoadBalancer addresses, {len(lb_pools)} MetalLB ranges")
     print("dry run: nothing is written" if not args.apply else "applying")
 
     site = nb.ensure("dcim/sites", {"slug": slug(cfg["site"])}, {"name": cfg["site"], "status": "active"}, cfg["site"])
@@ -450,6 +506,20 @@ def main() -> None:
             if ip in ipaddress.ip_network(subnet):
                 return f"{ip}/{subnet.split('/')[1]}"
         return addr if "/" in addr else f"{ip}/32"
+
+    # MetalLB's: each pool's range (a single address is only its address below), and each
+    # address a Service holds, as a VIP named for the Services.
+    print("load balancers:")
+    for pool, first, last in lb_pools:
+        if first != last:
+            plen = with_len(first).split("/")[1]
+            nb.ensure("ipam/ip-ranges", {"start_address": f"{first}/{plen}"},
+                      {"end_address": f"{last}/{plen}", "status": "active", "description": f"MetalLB pool {pool}"},
+                      f"MetalLB pool {pool}")
+    for ip, holders in lb_ips.items():
+        nb.ensure("ipam/ip-addresses", {"address": with_len(ip)},
+                  {"status": "active", "role": "vip", "description": "LoadBalancer " + ", ".join(holders)},
+                  f"LoadBalancer {', '.join(holders)}")
 
     print("kinds:")
     maker = nb.ensure("dcim/manufacturers", {"slug": "generic"}, {"name": "Generic"}, "Generic")

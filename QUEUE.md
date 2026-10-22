@@ -128,12 +128,15 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
-- **NetBox has none of MetalLB's addresses** (found 2026-10-21): `scripts/netbox_seed.py` reads
-  Proxmox and Kea only, so the LoadBalancer addresses (`INGRESS_IP`, `ISOLATED_INGRESS_IP`,
-  `KEA_DB_ADDRESS`, `ALLOY_SYSLOG_ADDRESS`, `TRAEFIK_MGMT_ADDRESS`, and the `production` pool's
-  range) are in NetBox only if added by hand. Left, NetBox shows them free, and the next one
-  chosen from it can collide. Have the sync read the cluster's LoadBalancer Services (and the
-  pools) and record each address with its Service as the description.
+- **The NetBox sync's Kubernetes credentials** (2026-10-22): `scripts/netbox_seed.py` now reads
+  the cluster's LoadBalancer Services and MetalLB pools and records each address (role VIP,
+  the Services as its description) and each pool's range, and stops without
+  `K8S_API_URL`, `K8S_TOKEN` and `K8S_CA_B64`. Left: the owner adds those three to the
+  "NetBox: Sync from Proxmox and Kea" template's environment as environment variables (secret:
+  the values the Ansible jobs' `k8s_api_url`, `k8s_token` and `k8s_ca_b64` hold), before the
+  pull request is merged; then the next run's log (it applies: its arguments hold `--apply`)
+  shows five LoadBalancer addresses and the `production` range under "load balancers:", read
+  back in NetBox. Left, the nightly sync fails from the merge on.
 
 - **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
   delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
