@@ -14,12 +14,8 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 ## Waiting on the owner
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
-assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a setting.
-
-7. **Docker upgrades from Semaphore:** done for the packages: task 1043 upgraded Docker on both
-   VMs with live-restore on (every container ran before and after: 20 and 3), and the packages
-   are held again. Left: the owner reboots the first VM, which reports a reboot due, when
-   Vaultwarden, Kea, Dockhand and Semaphore can be down.
+assigned (items below refer to them); 1 to 10 are all done (7, Docker's upgrade from
+Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
@@ -60,8 +56,9 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   armed) it was reset, taking its worker with it. Changed 2026-10-21 in the hand-made job
   (Datacenter, Backup; not in git): the four Talos workers (VMs 114-117) are excluded, their
   data being replicated and in Garage, and each host's limit is 25 MiB/s, down from 50; the
-  owner set its retention to 7 daily, 4 weekly, 3 monthly, 1 yearly. Left: check the next
-  nights' runs (each host's vzdump task OK, no "nfs: server not responding" on any host, no
+  owner set its retention to 7 daily, 4 weekly, 3 monthly, 1 yearly. The first night after
+  (2026-10-22, 01:00-03:12 UTC) was clean on every host. Left: check a few more nights' runs
+  (each host's vzdump task OK, no "nfs: server not responding" on any host, no
   CRM master change at 21:00-23:30); if the NAS still falls behind, run the hosts one after
   another. The workers' old archives stay on `tm-nfs`, since the job no longer prunes them:
   delete them once the owner no longer wants them.

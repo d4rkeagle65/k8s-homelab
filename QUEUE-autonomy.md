@@ -107,7 +107,6 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
       Decommissioning settled the same day: the generator keeps `main`'s entry, the sync skips it
       "Plain container"
 - [ ] Delete task 713 in Semaphore (it holds two replaced tokens)
-- [ ] Reboot the first Docker VM (Docker upgraded in task 1043; `QUEUE.md`, decision 7)
 - [ ] Two Talos control-plane changes, rolled node by node with `talosctl` and then an
       OpenTofu apply you confirm: etcd's metrics, and a 60-second node-loss timing
 - [ ] `nas-block` off the hosts and the NAS, together (`QUEUE-talos.md`)
