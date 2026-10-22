@@ -153,15 +153,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   by `grimmory-db`'s physical backups). Left, 14 days of stale dumps take NAS space.
 
 - **The CloudNativePG instances crowd two of the four workers** (found 2026-10-21): of 31
-  instances, one worker runs 13 and another 11, the other two 3 and 4, since each cluster's
-  anti-affinity only keeps its own two apart. Each drain also moves primaries off and nothing
-  moves them back: after the Talos 1.14.4 run one worker held 13 of the 16 primaries. Seven
-  were switched back on 2026-10-21 (20-30 s each, only Zammad's scheduler restarted), to 6, 3,
-  3 and 4: as even as the instances allow, since a primary can only move to its replica's node.
-  Left, losing the busiest worker fails over six databases and restarts 13 instances, and the
-  next full drain piles the primaries up again. Spread the instances (a topology spread across
-  the workers, or moving replicas one at a time onto the emptier ones), and end a run that
-  drains every worker by switching primaries back out.
+  instances, one worker runs 13 and another 11, the other two 3 and 4: each cluster's
+  anti-affinity is only `preferred` and keeps its own two apart, so the scheduler places by
+  memory. No pair shares a node, but 10 of the 15 pairs sit on the same two workers, so losing
+  either fails over about six databases and restarts 11 to 13 instances. The primaries piled up
+  after each full drain are now spread back at the end of the four drain jobs
+  (`ansible/tasks/cnpg-spread-primaries.yml`). Left: a placement rule in every Cluster
+  (anti-affinity `required`, plus a preferred anti-affinity counting every instance in every
+  namespace) so new instances land on the emptier workers, then the existing replicas moved one
+  at a time (each instance is held to its node by its `local-db` volume, so moving one means
+  rebuilding it from its primary).
 
 - **Redeploy NetBox for the change-log fix** (found 2026-10-21): `netbox-topology-views`'
   `RoleImageSerializer` is a plain DRF `ModelSerializer` (unchanged in 5.0.0), so NetBox 4.7

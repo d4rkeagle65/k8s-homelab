@@ -224,5 +224,11 @@
                        map(attribute='dns_guests') | first | default([]) | length) == 1
                    else 'none') }}
 
+    - name: Spread the database primaries back over the nodes
+      ansible.builtin.include_tasks: tasks/cnpg-spread-primaries.yml
+      vars:
+        kubectl_host: semaphore
+      when: kubectl_cmd is defined
+
     - name: Remove the CA certificate, and kubectl and talosctl with their configs
       ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml
