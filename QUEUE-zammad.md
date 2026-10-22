@@ -40,7 +40,7 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       `AlertmanagerClusterDown` and the Deployment, StatefulSet and DaemonSet alerts the bridge
       asks Prometheus which are down at that moment (`MEMBERS` in `zammad-bridge.py`) and lists
       them with node and address. Done when a real one has fired and its ticket shows the list
-- [ ] Dockhand's notifications into tickets (the owner, 2026-10-17): the bridge's `/dockhand/<token>`
+- [x] Dockhand's notifications into tickets (the owner, 2026-10-17; the channel set and ticket 8 closed by the owner, 2026-10-22): the bridge's `/dockhand/<token>`
       endpoint is in (failure/warning open a ticket, success/info close it, keyed by the title
       without its state words), off until `DOCKHAND_TOKEN` is set. The token (`DOCKHAND_ALERT_TOKEN`)
       and the private-only route (`ingress-dockhand.yaml`, `/dockhand/` only) are in, proved 2026-10-17: a wrong token 404,
@@ -49,10 +49,8 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       "Container Die"; read from its source, 2026-10-17). Every one-shot service carries
       `dockhand.notify: "false"` (Dockhand sends no exit code, so a normal exit would be a
       ticket; `dockhand.notify` read again in its `container-labels.ts`, 2026-10-22), and
-      `tests/test-docker-stacks.py` refuses a one-shot without it. Left, the owner's in Dockhand:
-      a notification channel `jsons://<the bridge's host>/dockhand/<token>` (Settings >
-      Notifications), with the token from `DOCKHAND_ALERT_TOKEN`; then ticket 8 (a one-shot
-      service's exit, before the labels) closed by hand
+      `tests/test-docker-stacks.py` refuses a one-shot without it. Dockhand's channel
+      `jsons://<the bridge's host>/dockhand/<token>` (Settings > Notifications) carries them
 - [x] Mail out: Zammad's notifications go through `smtp-oauth-relay` as the shared mailbox
       (its Notification Sender, `M365_SHARED_MAILBOX_ADDRESS`), read back as sent in the relay's
       log 2026-10-22; its default sender, `noreply@` its own hostname, was refused by Graph
