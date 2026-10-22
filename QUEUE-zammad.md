@@ -45,11 +45,14 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       without its state words), off until `DOCKHAND_TOKEN` is set. The token (`DOCKHAND_ALERT_TOKEN`)
       and the private-only route (`ingress-dockhand.yaml`, `/dockhand/` only) are in, proved 2026-10-17: a wrong token 404,
       the right one 200 (Zammad: "no open tickets found" for an info note), `/alertmanager` 404
-      from outside. Left:
-      Dockhand's channel `jsons://<the bridge's host>/dockhand/<token>`; keyed by the container its
-      message names (Dockhand's title is only "Container Die"; read from its source, 2026-10-17);
-      one-shot services labelled `dockhand.notify: "false"`, as Dockhand sends no exit code.
-      Ticket 8 (a one-shot service's exit, before the labels) can be closed by hand
+      from outside. Keyed by the container its message names (Dockhand's title is only
+      "Container Die"; read from its source, 2026-10-17). Every one-shot service carries
+      `dockhand.notify: "false"` (Dockhand sends no exit code, so a normal exit would be a
+      ticket; `dockhand.notify` read again in its `container-labels.ts`, 2026-10-22), and
+      `tests/test-docker-stacks.py` refuses a one-shot without it. Left, the owner's in Dockhand:
+      a notification channel `jsons://<the bridge's host>/dockhand/<token>` (Settings >
+      Notifications), with the token from `DOCKHAND_ALERT_TOKEN`; then ticket 8 (a one-shot
+      service's exit, before the labels) closed by hand
 - [ ] Mail: Zammad's outgoing mail through `smtp-oauth-relay` (notifications), and an incoming
       channel if tickets by email are wanted (the owner's call)
 - [x] Elasticsearch through the ECK operator (2026-10-16): zammad-init-8 rebuilt the index in
