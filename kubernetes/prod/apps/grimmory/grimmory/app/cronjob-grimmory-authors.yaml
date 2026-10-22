@@ -1,0 +1,55 @@
+# Deletes the authors no book names, which Grimmory leaves behind when its
+# metadata lookup renames a book's author (authors/grimmory-authors.py says how
+# and what it keeps). Daily, after the 01:00 library scan and the 03:40 backup.
+#
+# With DRY_RUN "true" it lists each author it would delete and changes nothing.
+# A run between schedules:
+#   kubectl -n grimmory create job --from=cronjob/grimmory-authors grimmory-authors-now
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: grimmory-authors
+spec:
+  schedule: "30 4 * * *"
+  timeZone: ${TIMEZONE}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          priorityClassName: homelab-low
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: authors
+              image: python:3.14.8-alpine
+              command: [python, /etc/grimmory-authors/grimmory-authors.py]
+              env:
+                - {name: DRY_RUN, value: "false"}
+                - {name: GRIMMORY_URL, value: "http://grimmory.grimmory.svc.${CLUSTER_DOMAIN}:6060"}
+                - name: GRIMMORY_ADMIN_USERNAME
+                  valueFrom: {secretKeyRef: {name: grimmory-sync, key: GRIMMORY_ADMIN_USERNAME}}
+                - name: GRIMMORY_ADMIN_PASSWORD
+                  valueFrom: {secretKeyRef: {name: grimmory-sync, key: GRIMMORY_ADMIN_PASSWORD}}
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {cpu: 500m, memory: 128Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - {name: script, mountPath: /etc/grimmory-authors}
+          volumes:
+            - name: script
+              configMap:
+                name: grimmory-authors
