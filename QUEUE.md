@@ -167,12 +167,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 - **Redeploy NetBox for the change-log fix** (found 2026-10-21): `netbox-topology-views`'
   `RoleImageSerializer` is a plain DRF `ModelSerializer` (unchanged in 5.0.0), so NetBox 4.7
   rendering a role-icon change with `nested=True` raised, and `/api/core/object-changes/`
-  answered 500 for any page holding one. The image now patches it at build time
-  (`docker/netbox/patch_topology_views.py`, which fails the build if a plugin release changes
-  the class). Left: the merge's webhook redeploys the stack, rebuilding the image (or the owner
-  redeploys it in Dockhand), then `GET /api/core/object-changes/` answers 200; and the fix reported upstream (the text is
-  in the pull request).
-
+  answered 500 for any page holding one. #266's build-time patch fixed that, and the endpoint
+  then failed on the next fault (2026-10-22 01:45, still 500): the serializer's `role` is the
+  plugin's own `Role` dataclass, which JSON can't encode. The patch now renders it as its slug
+  and name (`docker/netbox/patch_topology_views.py`). Left: the merge's webhook rebuilds the
+  image, then `GET /api/core/object-changes/` answers 200; and the fix reported upstream (the
+  text is in #266).
 - **Run the baseline on the second Docker VM, for its published ports' answers** (found
   2026-10-20, cause 2026-10-22, Run Command tasks 1102 and 1104): its management address has
   only the rule `from <address> lookup 250`, which a container's answer on a published port
