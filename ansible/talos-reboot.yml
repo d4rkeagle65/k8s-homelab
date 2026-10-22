@@ -16,8 +16,9 @@
 # separated by commas or spaces, rebooted in that order; ALL (any case) for every Talos VM,
 # control planes first. They're found in Proxmox and the cluster, not the inventory, so this
 # reads target_hosts itself rather than through select-hosts.yml. Each must be a
-# Proxmox VM whose name is a Talos node's. ALL holds Flux on its current revision until the run
-# ends, however it ends (tasks/flux-freeze.yml): what's merged meanwhile deploys afterwards.
+# Proxmox VM whose name is a Talos node's. Every Talos VM (ALL, or each named) holds Flux on
+# its current revision until the run ends, however it ends (tasks/flux-freeze.yml): what's
+# merged meanwhile deploys afterwards.
 #
 # Inventory: the proxmox group (its first host makes the pvesh calls, for the whole Proxmox
 # cluster). Variables: the "k8s and Talos Connection" variable group (tasks/k8s-connection.yml,
@@ -169,11 +170,16 @@
             label: "{{ item.vmid }} {{ item.name }}"
           changed_when: false
 
+        # Every Talos VM, however named (ALL, or each by name or ID).
         - name: Hold Flux while every Talos VM reboots
           ansible.builtin.include_tasks: tasks/flux-freeze.yml
           vars:
             kubectl_host: semaphore
-          when: vm_selection | lower == 'all'
+          when: >-
+            vm_selection | lower == 'all'
+            or (reboot_plan | map(attribute='name') | unique | sort | list)
+               == (reboot_qemu | selectattr('name', 'in', talos_by_name.keys() | list)
+                   | map(attribute='name') | unique | sort | list)
 
       rescue:
         - name: Lift the hold on Flux

@@ -18,8 +18,8 @@
 # It runs as semaphore (semaphore-host.yml), which is never a target. It stops the
 # run when select_from has no hosts: an inventory Ansible can't parse (a tab in
 # Semaphore's YAML) only draws warnings, then every play matches nothing and the
-# run exits 0. It leaves select_all on semaphore, true when every host was asked
-# for (proxmox-reboot.yml then holds Flux).
+# run exits 0. It leaves select_all on semaphore, true when the hosts asked for
+# are every host in select_from, however named (proxmox-reboot.yml then holds Flux).
 
 - ansible.builtin.import_playbook: semaphore-host.yml
 
@@ -54,7 +54,12 @@
 
     - name: Settle the targets
       ansible.builtin.set_fact:
-        select_all: "{{ every and not (select_required | default(false) | bool and names | length == 0) }}"
+        # Every host of the group, however it was asked for: ALL, empty, the group's
+        # name, or each host named (proxmox-reboot.yml holds Flux on it).
+        select_all: >-
+          {{ (every and not (select_required | default(false) | bool and names | length == 0))
+             or (not every and allowed | length > 0
+                 and allowed | difference(select_matched) | length == 0) }}
         select_targets: "{{ allowed if every else allowed | select('in', select_matched) | list }}"
         select_outside: "{{ [] if every else select_matched | difference(allowed) }}"
 
