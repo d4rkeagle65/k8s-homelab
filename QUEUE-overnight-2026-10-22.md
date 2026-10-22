@@ -19,14 +19,15 @@ continue what you can."
 
 | Piece | `QUEUE.md` entry | Result |
 |---|---|---|
-| A | `test-script-health`'s standard-library check only knows the platform it runs on | |
-| B | `test-harness` reads red in a Claude desktop worktree | |
-| C | `keyvault-secrets.ps1` shows Dockhand's secrets as `Synced` `no` | |
+| A | `test-script-health`'s standard-library check only knows the platform it runs on | PR #267 (stacked on #264: merge that first) |
+| B | `test-harness` reads red in a Claude desktop worktree | PR #264 |
+| C | `keyvault-secrets.ps1` shows Dockhand's secrets as `Synced` `no` | PR #263 |
 | D | Nothing owns the Pi-holes' timezone | |
-| E | NetBox's change-log API fails on Topology Views' role icons | |
+| E | NetBox's change-log API fails on Topology Views' role icons | PR #266 (upstream 5.0.0 has the same serializer; a patch at build) |
 | F | `docker/claude-code/README.md`'s "Updating" | |
 | G | kea-standby's API doesn't answer from the owner's PC (read-only diagnosis) | |
-| H | NetBox has none of MetalLB's addresses (`netbox_seed.py` reads the LoadBalancers) | |
+| H | NetBox has none of MetalLB's addresses (`netbox_seed.py` reads the LoadBalancers) | PR #268 (needs `K8S_API_URL`, `K8S_TOKEN`, `K8S_CA_B64` on the NetBox sync template's environment before merging) |
+| J | Databasus's failures (asked 00:15) | Backups all succeed (5 nightly, 00:00); the 15 verifications fail: the agent holds the deleted Docker socket. PR #272 fixes the post-upgrade check that missed it |
 | I | Morning reads: the Proxmox backup (01:00 UTC), rreading-glasses repair dry run (07:15 UTC), Immich import dry run (08:30 UTC) | |
 
 ## Decisions for the owner
@@ -47,6 +48,15 @@ continue what you can."
 - **DMZ clients' second Pi-hole address**, by hand on each.
 - **The Pi-holes' DMZ addresses in git history:** rewrite history, or leave them.
 - **Scheduled weekly check-mode runs in Semaphore** need a template schedule (Manager role).
+- **Restart `databasus-verification-agent` on the first Docker VM** (`docker restart
+  databasus-verification-agent`), then a verification from Databasus's UI: until then every
+  verification fails. Approve and I run it through Run Command.
+- **The first Docker VM's root disk is 99% full** (30 of 32 GB, 492 MB free, 2026-10-22): what
+  reclaims without touching a running container: `docker builder prune -af` (6.7 GB build
+  cache), `docker image prune -af` (8.4 GB of images no container uses), and Dockhand's scanner
+  caches `docker volume rm dockhand-grype-db dockhand-trivy-db` (5 GB, downloaded again at the
+  next scan). Longer term the disk grows in OpenTofu. Full, the next image pull or backup
+  temp file fails (Databasus's health checks did on 2026-10-21 08:01).
 
 Pieces that end in a decision add it here.
 
