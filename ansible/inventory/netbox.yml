@@ -6,7 +6,13 @@
 # NETBOX_API (https://netbox.<domain>) and NETBOX_TOKEN (a read-only NetBox
 # token, "Bearer nbt_...") come from the template's environment in Semaphore,
 # never from git. The file's name must end in netbox.yml for the plugin.
-plugin: netbox.netbox.nb_inventory
+#
+# The plugin is netbox_fallback (ansible/inventory_plugins/, found through the repo
+# root's ansible.cfg): the collection's nb_inventory, plus a last-good copy that answers
+# when NetBox is down or answering 5xx, so Semaphore's jobs (and the ones that recover
+# NetBox's own host) still find their hosts. The copy is a file on Semaphore's data
+# volume, NETBOX_INVENTORY_FALLBACK, holding addresses: never in git.
+plugin: netbox_fallback
 validate_certs: true
 # NetBox 4.7's tokens are sent as "Bearer nbt_..." (the plugin's default header is
 # the old "Token ..."); NETBOX_TOKEN may hold the value with or without "Bearer ".
@@ -34,7 +40,9 @@ interfaces: false
 services: false
 # For five minutes after a listing, answer from it without asking NetBox, so a burst
 # of runs shares one listing. The plugin reads a valid cache whether or not NetBox
-# is up, so this is also how stale a NetBox change can be when a run starts.
+# is up, so this is also how stale a NetBox change can be when a run starts. An
+# expired entry is fetched again, and with NetBox down that fetch fails: the
+# last-good copy above, not this cache, is what answers then.
 cache: true
 cache_plugin: ansible.builtin.jsonfile
 cache_connection: /tmp/ansible-netbox-inventory
