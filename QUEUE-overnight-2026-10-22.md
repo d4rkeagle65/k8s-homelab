@@ -48,10 +48,9 @@ continue what you can."
 - **DMZ clients' second Pi-hole address**, by hand on each.
 - **The Pi-holes' DMZ addresses in git history:** rewrite history, or leave them.
 - **Scheduled weekly check-mode runs in Semaphore** need a template schedule (Manager role).
-- **Restart `databasus-verification-agent` on the first Docker VM** (`docker restart
-  databasus-verification-agent`), then a verification from Databasus's UI: until then every
-  verification fails. Approve and I run it through Run Command.
-- **The first Docker VM's root disk is 99% full** (30 of 32 GB, 492 MB free, 2026-10-22): what
+- ~~Restart `databasus-verification-agent`~~: done 2026-10-22 01:53 (approved; it reaches Docker
+  again). Left: a verification from Databasus's UI, or tonight's at 00:00 UTC.
+- ~~The first Docker VM's root disk was 99% full~~: 41% (18 GB free) at 01:53, cleaned by the owner. Was: (30 of 32 GB, 492 MB free, 2026-10-22): what
   reclaims without touching a running container: `docker builder prune -af` (6.7 GB build
   cache), `docker image prune -af` (8.4 GB of images no container uses), and Dockhand's scanner
   caches `docker volume rm dockhand-grype-db dockhand-trivy-db` (5 GB, downloaded again at the
