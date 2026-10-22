@@ -79,8 +79,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   (2026-10-22, 01:00-03:12 UTC) was clean on every host. Left: check a few more nights' runs
   (each host's vzdump task OK, no "nfs: server not responding" on any host, no
   CRM master change at 21:00-23:30); if the NAS still falls behind, run the hosts one after
-  another. The workers' old archives stay on `tm-nfs`, since the job no longer prunes them:
-  delete them once the owner no longer wants them.
+  another. (The workers' old archives, and those of every guest that no longer exists, were
+  deleted on 2026-10-22: `tm-nfs` went from 4.1 to 2.2 TB.)
 - **rreading-glasses keeps only some of a new author's works** (upstream issue 602, open;
   found 2026-10-18): its first load of an author attaches the works in batches that each start
   from the pre-refresh snapshot (the `ra<id>` key, by design per the declined PR 509), so the
@@ -198,12 +198,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   `target_hosts` the second VM, in check mode, then for real, and a `status-get` from the PC
   answers. Left, a script on the PC that asks the standby gets no answer.
 
-- **Leftovers on the first Docker VM from retired Dockhand stacks** (found 2026-10-22, Run
-  Command tasks 1091-1098, read only): the image `homelab/claude-code:k8s-1.33.3-flux-2.9.5-helm-4.2.2`
-  (the tag scheme before `local`), Dockhand's clones `Local/k8s-homelab` (at a 2026-10-05
-  commit) and `Local/neetbox` under `/opt/dockhand/git-repos`, and `stacks/Local/k8s-homelab`,
-  which no running stack uses. Check Dockhand lists no stack by those names, then remove them
-  by hand. Left, they take disk space and read as live stacks.
 - **`test/media/jackett`** stays as a test-only app for now; not listed in
   `test/kustomization.yaml`.
 

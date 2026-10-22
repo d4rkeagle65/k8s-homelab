@@ -95,8 +95,14 @@ role-icon rows render; rebased onto #298 with `QUEUE.md` resolved), #290 (NetBox
   being healthy on its rebuilt replica.
 - ~~**Pod Security for the remaining 21 namespaces**~~: decided above (three raised, #303; 18
   stay `baseline`).
-- **The workers' old vzdump archives on `tm-nfs`**, and the retired Dockhand stacks' leftovers
-  on VM1: delete them.
+- ~~**The workers' old vzdump archives on `tm-nfs`**, and the retired Dockhand stacks' leftovers
+  on VM1~~: deleted, 2026-10-22, by the owner. On `tm-nfs`, 314 archives of the Talos workers
+  (114-117), the retired kubeadm cluster's LXCs (101-106) and two LXCs retired in March (111,
+  118), then the 245 logs and interrupted runs' temporary folders Proxmox didn't list
+  (`systemd-run` unit `tm-nfs-cleanup`): none left for those IDs, the nine current guests'
+  archives untouched, 4.1 to 2.2 TB used. On VM1, Dockhand's orphan `Local/k8s-homelab` and
+  `Local/neetbox` clones and `stacks/Local/k8s-homelab` (in no Dockhand stack; its 17 stacks and
+  21 containers unchanged); the old `claude-code` image tag was already gone.
 
 Pieces that end in a decision add it here.
 
