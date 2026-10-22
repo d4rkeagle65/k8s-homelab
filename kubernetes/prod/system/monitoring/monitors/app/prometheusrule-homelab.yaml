@@ -59,6 +59,30 @@ spec:
         description: >-
           {{ $labels.name }} started {{ $value }} times in 30 minutes: read its log
           in Dockhand.
+  - name: homelab.dhcp
+    rules:
+    # docker/kea's kea-ha-exporter, as the primary sees the pair (docker/kea/README.md).
+    - alert: KeaHANotNormal
+      expr: kea_ha_normal == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: Kea's HA pair has left its normal state.
+        description: >-
+          For 10 minutes the primary has seen its partner other than in touch and in
+          {{ $labels.mode }}: one server may be serving DHCP alone. Stork's HA page
+          shows each server's state; kea_ha_state has them as this server sees them.
+    - alert: KeaHAStateUnknown
+      expr: kea_ha_api_up == 0 or up{job="docker-vm", exporter="kea-ha"} == 0
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: Kea's HA state can't be read.
+        description: >-
+          For 10 minutes kea-ha-exporter on the Docker VM hasn't answered, or Kea's API
+          hasn't answered it: its /status says why. Until then a failover goes unseen.
   - name: homelab.jobs
     rules:
     # The chart's KubeJobFailed, disabled in its HelmRelease, fires for every failed Job
