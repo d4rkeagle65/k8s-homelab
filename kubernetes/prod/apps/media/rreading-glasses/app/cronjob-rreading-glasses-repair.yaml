@@ -51,7 +51,7 @@ spec:
               command: [python, /etc/rreading-glasses-repair/rreading-glasses-repair.py]
               env:
                 - {name: PYTHONPATH, value: /deps}
-                - {name: DRY_RUN, value: "true"}
+                - {name: DRY_RUN, value: "false"}
                 - {name: RG_URL, value: "http://rreading-glasses:8788"}
                 - {name: BOOKSHELF_URL, value: "http://bookshelf:8787"}
                 - name: BOOKSHELF_API_KEY
