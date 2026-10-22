@@ -64,10 +64,16 @@ account: the first one administers the instance. Keep its password in Vaultwarde
   (`DATABASUS_NETBOX_DB_PASSWORD`): `netbox-postgres:5432` / `netbox`.
 - **Schedule:** daily at 03:30 UTC, after the cluster's database backups and the 01:00
   Proxmox backup. **Retention:** 30 days.
-- **Notifier:** email through the cluster's SMTP relay, as Vaultwarden sends: host `smtp-relay.<domain>`,
-  **port 8025** with STARTTLS, and the Vaultwarden stack's `SMTP_USERNAME`, `SMTP_PASSWORD`
-  and `SMTP_FROM`; failures only. Traefik takes SMTP on 8025 only: 465 and 587 there answer
-  "no route to host", which looks like a network fault but is the wrong port.
+- **Notifiers, both on every database:**
+  - **Zammad:** a Webhook notifier, method POST, URL
+    `https://zammad-bridge.<domain>/databasus/<DATABASUS-ALERT-TOKEN>`, body template empty,
+    every notification type. A failed backup, health check or verification opens a ticket and
+    the matching success closes it (`zammad-bridge.py`), so each database's backup sends on
+    success as well as failure.
+  - **Email,** failures only, through the cluster's SMTP relay, as Vaultwarden sends: host
+    `smtp-relay.<domain>`, **port 8025** with STARTTLS, and the Vaultwarden stack's
+    `SMTP_USERNAME`, `SMTP_PASSWORD` and `SMTP_FROM`. Traefik takes SMTP on 8025 only: 465 and
+    587 there answer "no route to host", which looks like a network fault but is the wrong port.
 - **Run one backup of each by hand** and check it lands in the bucket.
 
 ## Restore verification

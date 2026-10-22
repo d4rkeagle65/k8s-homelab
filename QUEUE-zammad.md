@@ -51,6 +51,18 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       ticket; `dockhand.notify` read again in its `container-labels.ts`, 2026-10-22), and
       `tests/test-docker-stacks.py` refuses a one-shot without it. Dockhand's channel
       `jsons://<the bridge's host>/dockhand/<token>` (Settings > Notifications) carries them
+- [ ] Semaphore's and Databasus's alerts into tickets (2026-10-22): the bridge's
+      `/semaphore/<token>` (Semaphore's Slack format: a task's error opens a ticket for its
+      template, its next success closes it; a wait for confirmation opens nothing) and
+      `/databasus/<token>` (its Webhook notifier's heading and message: a failed backup,
+      health check or verification opens one per database and kind, the matching success
+      closes it; WAL alerts have no recovery, so closed by hand), read from Semaphore
+      v2.19.17's `alert.go`/`slack.tmpl` and Databasus v3.61.0's notifier and heading code.
+      Semaphore's stack builds `SEMAPHORE_SLACK_URL` from Key Vault's `SEMAPHORE-ALERT-TOKEN`.
+      Left, the owner's: the Homelab project's **Alert** switch on (Semaphore, Project
+      settings); in Databasus, the Webhook notifier on every database and each backup
+      sending on success too (`docker/databasus/README.md`). Done when a failed task, then its
+      success, opens and closes a ticket, and Databasus's test message makes "Databasus test"
 - [x] Mail out: Zammad's notifications go through `smtp-oauth-relay` as the shared mailbox
       (its Notification Sender, `M365_SHARED_MAILBOX_ADDRESS`), read back as sent in the relay's
       log 2026-10-22; its default sender, `noreply@` its own hostname, was refused by Graph
