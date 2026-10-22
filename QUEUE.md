@@ -276,10 +276,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   address, so a partner can read them while the Docker VM is down; then a second Kea on the
   second Pi-hole's host as a hot-standby partner (the firewall's relay can point at both), and
   lease names into DNS.
-- **Both Pi-holes' DMZ addresses are in git history** (found 2026-10-19): QUEUE.md held them
-  from `a0fc448` (2026-10-08) until `tests/test-identifying-data.py` caught them. The tree is
-  clean; every clone and GitHub's history still have them. Private addresses, so low risk;
-  rewriting history (as was done before) is the owner's call, and a no keeps them there.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Ansible for the hosts outside the cluster**, so their hand-made setup

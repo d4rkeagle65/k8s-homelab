@@ -76,7 +76,7 @@ role-icon rows render; rebased onto #298 with `QUEUE.md` resolved), #290 (NetBox
 - ~~**The old Grimmory dump folder on the Synology**~~: deleted by the owner, 2026-10-22 (15 dumps, 2.1 MB, of the retired database; read back gone, `grimmory-data` untouched).
 - ~~**The `evacuate` override in NetBox's Proxmox config context**~~: already gone (2026-10-22): the owner found no `evacuate` in any config context, and the reboot run task 1148 planned every move itself (`evacuate-pick.yml`: the Docker VM by its HA rule, the others by most memory free).
 - ~~**DMZ clients' second Pi-hole address**~~: closed, nothing to change (the owner, 2026-10-22): in the 7 days before, both Pi-holes' query logs show one DMZ client, the first Docker VM's DMZ leg, which already asks both.
-- **The Pi-holes' DMZ addresses in git history:** rewrite history, or leave them.
+- ~~**The Pi-holes' DMZ addresses in git history**~~: left (the owner, 2026-10-22): two private addresses, and a rewrite would disrupt every working session's clone and still leave them in GitHub's PR refs and caches.
 - **Scheduled weekly check-mode runs in Semaphore** need a template schedule (Manager role).
 - ~~Restart `databasus-verification-agent`~~: done 2026-10-22 01:53 (approved; it reaches Docker
   again). Left: a verification from Databasus's UI, or tonight's at 00:00 UTC.
