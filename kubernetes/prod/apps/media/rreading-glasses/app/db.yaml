@@ -28,13 +28,15 @@ spec:
   postgresql:
     parameters:
       archive_timeout: 1h
+  # Scheduled before ordinary pods when nodes are short (cluster-policy).
+  priorityClassName: homelab-critical
   resources:
     requests:
-      cpu: 10m
-      memory: 128Mi
+      cpu: 120m
+      memory: 384Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 1000m
+      memory: 1536Mi
   storage:
     size: 5Gi
     storageClass: local-db

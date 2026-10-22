@@ -84,11 +84,12 @@ spec:
                   timeoutSeconds: 5
                   failureThreshold: 5
             # It caches in memory up to whatever it's given (its README), so the
-            # limit is its cache size.
+            # limit is its cache size; the request matches it, since it fills
+            # that cache (a 215Mi peak).
             resources:
               requests:
-                cpu: 10m
-                memory: 64Mi
+                cpu: 80m
+                memory: 256Mi
               limits:
                 cpu: 500m
                 memory: 256Mi
