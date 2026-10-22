@@ -19,9 +19,14 @@ holds what isn't secret:
   API address, and every output with `talosctl validate`.
 
 The secrets (`talosctl gen secrets --from-kubernetes-pki`, so the cluster's own CAs) are
-`TALOS_SECRETS` in the Vaultwarden item `cluster-secrets` reads, base64 on one line; git
-maps it nowhere. The generated configs hold the CA keys too: make them, apply them, delete
-them.
+`TALOS_SECRETS`, base64 on one line, in a Vaultwarden login of its own (not `cluster-secrets`,
+which the cluster no longer reads), beside the talosconfig's copy; git maps it nowhere, and
+OpenTofu holds the same value as `TF_VAR_talos_secrets` (`tofu/README.md`). Lost, it comes
+back from a running control plane while a talosconfig still works:
+`talosctl -n <control plane> read /system/state/config.yaml` into a private folder, then
+`talosctl gen secrets --from-controlplane-config <that file>`; its `certs.os.crt` must equal
+the talosconfig's `ca`. The generated configs hold the CA keys too: make them, apply them,
+delete them.
 
 ## A node by hand
 
