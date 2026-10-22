@@ -151,6 +151,34 @@ t.check("there are socket-proxy stacks to compare", len(proxies) > 0, True)
 t.check("  every one has the same image and command",
         sorted(f for f in proxies if proxies[f] != proxies.get("docker/docker-socket-proxy")), [])
 
+def noisy_one_shots(text):
+    """One-shot services (restart "no") without the label dockhand.notify: "false". Dockhand
+    reports each container that stops as "Container Die", with no exit code, so a one-shot
+    step's normal exit would open a Zammad ticket through the bridge (QUEUE-zammad.md)."""
+    out = []
+    for name, svc in ((YAML(typ="safe").load(text) or {}).get("services") or {}).items():
+        svc = svc or {}
+        labels = svc.get("labels") or {}
+        if isinstance(labels, list):
+            labels = dict(str(l).split("=", 1) for l in labels if "=" in str(l))
+        if str(svc.get("restart", "")).lower() == "no" and str(labels.get("dockhand.notify", "")).lower() != "false":
+            out.append(name)
+    return out
+
+
+t.check("SELF-TEST: a one-shot service without dockhand.notify is CAUGHT",
+        noisy_one_shots('services:\n  a:\n    restart: "no"\n'), ["a"])
+t.check("  one with the label passes",
+        noisy_one_shots('services:\n  a:\n    restart: "no"\n    labels:\n      dockhand.notify: "false"\n'), [])
+t.check("  so does the list form",
+        noisy_one_shots('services:\n  a:\n    restart: "no"\n    labels: ["dockhand.notify=false"]\n'), [])
+t.check("  a long-running service needs none", noisy_one_shots("services:\n  a:\n    restart: always\n"), [])
+
+t.section("every one-shot service is silent in Dockhand's notifications")
+for compose in stacks:
+    t.check("%s: every one-shot service has dockhand.notify \"false\"" % os.path.dirname(t.rel(compose)),
+            noisy_one_shots(t.source(compose)), [])
+
 t.section("every long-running service has a memory limit")
 for compose in stacks:
     t.check("%s: every running service has mem_limit" % os.path.dirname(t.rel(compose)),
