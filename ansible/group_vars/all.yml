@@ -1,9 +1,10 @@
-# The cluster's API, for the jobs that check the cluster or drain nodes
-# (tasks/k8s-connection.yml), read from the run's environment: the "Kubernetes API"
-# variable group holds them as environment variables (secret) and nothing else, so
-# the NetBox sync, a Python template, shares the one copy (scripts/netbox_seed.py;
-# a Python template would get a group's extra variables as arguments). An extra
-# variable of the same name still takes precedence.
+# The cluster's API (tasks/k8s-connection.yml) and Talos's (tasks/talosctl-local.yml),
+# read from the run's environment: the "k8s and Talos Connection" variable group
+# holds them as environment variables (secret) and no extra variables, so the NetBox
+# sync, a Python template, shares it (scripts/netbox_seed.py reads the K8S_* ones;
+# Semaphore hands a Python template a group's extra variables as arguments, which it
+# refuses). An extra variable of the same name still takes precedence.
 k8s_api_url: "{{ lookup('ansible.builtin.env', 'K8S_API_URL') }}"
 k8s_ca_b64: "{{ lookup('ansible.builtin.env', 'K8S_CA_B64') }}"
 k8s_token: "{{ lookup('ansible.builtin.env', 'K8S_TOKEN') }}"
+talosconfig_b64: "{{ lookup('ansible.builtin.env', 'TALOSCONFIG_B64') }}"

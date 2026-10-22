@@ -19,9 +19,9 @@
 # certificate, kubectl and talosctl whatever happened, then fails the run if a node
 # did.
 #
-# Variables (Semaphore): the "Kubernetes API" variable group
-# (tasks/k8s-connection.yml) and talosconfig_b64, an os:admin talosconfig
-# (ansible/README.md). Optional: target_hosts, node names to limit the run to
+# Variables (Semaphore): the "k8s and Talos Connection" variable group
+# (tasks/k8s-connection.yml, and TALOSCONFIG_B64, an os:admin talosconfig;
+# ansible/README.md). Optional: target_hosts, node names to limit the run to
 # (separated by commas or spaces; each must be a Talos node; empty or ALL for
 # every node). The nodes are found in the cluster, not the inventory, so this
 # reads target_hosts itself rather than through select-hosts.yml.

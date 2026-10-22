@@ -9,7 +9,7 @@
       - k8s_ca_b64 | default('') | length > 0
     fail_msg: >-
       K8S_API_URL, K8S_TOKEN or K8S_CA_B64 is unset: they're environment variables
-      (secret) in the "Kubernetes API" variable group (ansible/README.md).
+      (secret) in the "k8s and Talos Connection" variable group (ansible/README.md).
     quiet: true
   no_log: true
 

@@ -20,8 +20,8 @@
 # ends, however it ends (tasks/flux-freeze.yml): what's merged meanwhile deploys afterwards.
 #
 # Inventory: the proxmox group (its first host makes the pvesh calls, for the whole Proxmox
-# cluster). Variables: the "Kubernetes API" variable group (tasks/k8s-connection.yml) and
-# talosconfig_b64, as for talos-upgrade.yml. Optional: reboot_shutdown_timeout, the seconds
+# cluster). Variables: the "k8s and Talos Connection" variable group (tasks/k8s-connection.yml,
+# TALOSCONFIG_B64), as for talos-upgrade.yml. Optional: reboot_shutdown_timeout, the seconds
 # Proxmox waits for the guest to shut down before failing the reboot (default 300).
 #
 # In check mode (--check) it reports each VM's node, host, HA state and pending changes, runs

@@ -9,9 +9,9 @@
 # version and changes nothing. The OpenTofu job first would push the new
 # version to every control plane at once.
 #
-# Variables (Semaphore): the "Kubernetes API" variable group
-# (tasks/k8s-connection.yml) and talosconfig_b64, an os:admin talosconfig
-# (ansible/README.md).
+# Variables (Semaphore): the "k8s and Talos Connection" variable group
+# (tasks/k8s-connection.yml, and TALOSCONFIG_B64, an os:admin talosconfig;
+# ansible/README.md).
 #
 # In check mode (--check) it runs upgrade-k8s with --dry-run, which reports
 # what it would change, and changes nothing.

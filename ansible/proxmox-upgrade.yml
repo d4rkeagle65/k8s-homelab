@@ -20,7 +20,7 @@
 #              [{vmid: 107, to: <inventory host>}]; moved back afterwards
 #              unless evacuate_return is false. The Docker VM, where Semaphore
 #              runs, needs this or no_reboot on its host.
-# Variables: the "Kubernetes API" variable group (K8S_API_URL, K8S_CA_B64 and
+# Variables: the "k8s and Talos Connection" variable group (K8S_API_URL, K8S_CA_B64 and
 # K8S_TOKEN, tasks/k8s-connection.yml).
 #
 # In check mode (--check) it runs the checks and lists the pending upgrades,
