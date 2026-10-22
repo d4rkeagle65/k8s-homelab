@@ -154,7 +154,7 @@ t.check("  every one has the same image and command",
 def noisy_one_shots(text):
     """One-shot services (restart "no") without the label dockhand.notify: "false". Dockhand
     reports each container that stops as "Container Die", with no exit code, so a one-shot
-    step's normal exit would open a Zammad ticket through the bridge (QUEUE-zammad.md)."""
+    step's normal exit would open a Zammad ticket through the bridge (old-queues/QUEUE-zammad.md)."""
     out = []
     for name, svc in ((YAML(typ="safe").load(text) or {}).get("services") or {}).items():
         svc = svc or {}

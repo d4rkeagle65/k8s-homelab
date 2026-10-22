@@ -1,4 +1,4 @@
-# Zammad, the helpdesk: alerts become tickets here (QUEUE-zammad.md). Zammad's
+# Zammad, the helpdesk: alerts become tickets here (old-queues/QUEUE-zammad.md). Zammad's
 # own chart, with its database on CloudNativePG (db.yaml) instead of the
 # chart's PostgreSQL, and the chart's own Redis and Memcached. Search is the
 # chart's Elasticsearch (one node), run by the ECK operator
