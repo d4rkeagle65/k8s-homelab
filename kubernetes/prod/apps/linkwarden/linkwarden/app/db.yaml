@@ -17,8 +17,19 @@ spec:
       archive_timeout: 1h
   # Scheduled before ordinary pods when nodes are short (cluster-policy).
   priorityClassName: homelab-critical
+  # Spread over the workers (scripts/tests/test_structure.py,
+  # test_databases_spread, says why).
   affinity:
-    podAntiAffinityType: preferred
+    podAntiAffinityType: required
+    additionalPodAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              cnpg.io/podRole: instance
+          namespaceSelector: {}
+          topologyKey: kubernetes.io/hostname
   enablePDB: true
   resources:
     requests:
