@@ -106,11 +106,11 @@ spec:
                   failureThreshold: 5
             resources:
               requests:
-                cpu: 10m
-                memory: 224Mi
-              limits:
                 cpu: 500m
-                memory: 1Gi
+                memory: 864Mi
+              limits:
+                cpu: 1000m
+                memory: 1792Mi
     service:
       main:
         controller: main

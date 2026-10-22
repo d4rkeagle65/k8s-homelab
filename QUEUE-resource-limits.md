@@ -213,11 +213,14 @@ Queries (Prometheus, `kube-prometheus-stack`):
       to 1000m most fell to 0-6%. democratic-csi's driver (27%) and Grafana's dashboard sidecar
       (32%) stayed throttled while averaging 3-7m: short bursts across cores within one 100ms
       period, which a higher cap would barely change. Judge the cap on a week at 1000m
-- [ ] Bookshelf, its database and rreading-glasses, once the session working on them is done
-      (2026-10-18 data): Bookshelf 700Mi peak for a 224Mi request, p95 499m at its 500m limit
-      (throttled 14%; the rules give 864Mi, 500m, 1000m), rreading-glasses 215Mi in 256Mi (64Mi
-      requested), rreading-glasses-db 305Mi for 128Mi and p95 52m for 10m, bookshelf-db p95 53m
-      for 20m
+- [x] Bookshelf, its database and rreading-glasses (2026-10-22, 7.4 days on both replicas):
+      Bookshelf 864Mi in 1792Mi, 500m to 1000m (peak 700Mi, p95 500m at its 500m limit,
+      throttled 12%); rreading-glasses 256Mi requested, its 256Mi limit kept as its cache
+      size (peak 215Mi, no OOM kill), 80m (p95 77m); rreading-glasses-db 384Mi in 1536Mi, 120m
+      to 1000m (peak 305Mi, p95 118m, 27 connections: 128 + 4 x 64 + 54 x 20 + 64), now at
+      `homelab-critical` like the other 15; bookshelf-db 40m (p95 34m), its memory unchanged
+      (peak 171Mi; 12 connections give 1Gi). The worker holding rreading-glasses-db had the
+      room (1.1 GiB unrequested). A Cluster's change restarts its instances
 - [x] Priority tiers (the owner, 2026-10-18), so a node short of memory sheds the media apps
       first: `homelab-important` (100000) on Home Assistant, Immich (server, machine learning,
       power tools), Obsidian, Mealie, Baby Buddy, Linkwarden, n8n, Grimmory, Homepage and
@@ -226,8 +229,8 @@ Queries (Prometheus, `kube-prometheus-stack`):
       keeps every name pointing at a class
 - [x] The eight database clusters still at priority 0 (their pods predated the class)
       restarted one at a time on 2026-10-19 with the owner's go-ahead: each switched over to
-      its replica, every instance recreated at `homelab-critical`. 15 of 16 clusters now are;
-      rreading-glasses-db's spec names no class (the session working on it). Each took 70s to
+      its replica, every instance recreated at `homelab-critical`; rreading-glasses-db's spec
+      names it from 2026-10-22, so all 16 are once that deploys. Each took 70s to
       6 minutes, longer than "seconds": Lidarr, Radarr, n8n and Baby Buddy's apps stayed
       ready; Bookshelf's and Mealie's went unready for a while; Linkwarden's restarted three
       times (it exits when its database goes, as Authentik does)
