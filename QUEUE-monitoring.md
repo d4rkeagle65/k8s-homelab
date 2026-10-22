@@ -209,11 +209,17 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       none failed)
 - [x] Phase 6 (in phase 1)
 - [x] Phase 7 (dropped, 2026-10-22: the releases stay `.handwritten`, Settled)
-- [ ] Phase 8. Also: an alert when a host that normally sends logs goes silent for an hour
-      (`absent_over_time` per `host` in a Loki ruler rule, or a recording rule on Alloy's
-      counters). The TerraMaster's Alloy stalled once (2026-10-22: reading its files, sending
-      nothing, no error logged, after half an hour of failed pushes) and only a manual check
-      found it; a restart cleared it
+- [ ] Phase 8. In PR: `pod` moved from a label to structured metadata in the cluster's Alloy
+      (639 pod names a day, each a stream of its own; searched with `| pod="..."`); Loki's
+      ruler on (rules from ConfigMaps labelled `loki_rule`, alerts to the same Alertmanager)
+      with `HostLogsSilent`, a machine outside the cluster that logged the day before and not
+      in the last 6 hours (the TerraMaster's Alloy once stalled with no error of its own); and
+      a Logs dashboard (Homelab folder: lines per machine and per namespace, error lines by
+      app, SSH logins and failures, both log streams with a text filter). Every query run
+      against Loki first. Left: the merge and its read-back (the rule loaded in Loki's rules
+      API, `pod` gone from the label list for new streams, the dashboard's panels filled).
+      Found on the way: calico-apiserver logs about 9,750 error-looking lines in 6 hours, ten
+      times the next app; read what they are
 - [ ] Phase 9 (the owner, 2026-10-20: this phase first). Done: the Backups dashboard
       (Grafana, Homelab folder, `json/homelab/backups.json`) and the `homelab.backups` alerts:
       Postgres from the Barman Cloud plugin's metrics (CloudNativePG's own backup timestamps
