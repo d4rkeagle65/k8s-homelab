@@ -290,10 +290,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - **DMZ clients don't know about the second Pi-hole**: Kea doesn't serve the DMZ, so its
   static clients still list only Pi-hole 1's DMZ address and lose DNS while Pi-hole 1's host
   reboots. Add Pi-hole 2's DMZ address (NetBox has both) on each by hand.
-- **The Proxmox inventory's `evacuate` can point back at the host with the most free memory:**
-  VT-x is on in every host (Run Command task 755, 2026-10-16: `vmx`, `kvm_intel` and `/dev/kvm`
-  on all five), so the override that steered the Docker VM's evacuation away from the third host
-  is no longer needed. Check the config context in NetBox, then drop it.
 - **The Docker VM's host still carries DNS, DHCP, the VPN and Vaultwarden together**: a Kea
   HA partner on another host (decision 5) is what's left once both Pi-holes are in use.
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
