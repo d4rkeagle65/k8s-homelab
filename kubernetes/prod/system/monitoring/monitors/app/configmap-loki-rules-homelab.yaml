@@ -1,0 +1,34 @@
+# Loki's own alert rules (LogQL), loaded by Loki's rules sidecar from ConfigMaps
+# labelled loki_rule and sent to the same Alertmanager as Prometheus's, so they
+# reach Zammad. Prometheus's rules are in prometheusrule-homelab.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-rules-homelab
+  labels:
+    loki_rule: "1"
+data:
+  homelab.yaml: |
+    groups:
+    - name: homelab.logs
+      rules:
+      # A machine outside the cluster that sent logs in the day before but none
+      # in the last 6 hours: its Alloy, its syslog or the push route stopped
+      # (the TerraMaster's Alloy once stalled with no error of its own). Six
+      # hours, since the quietest (the Synology) sends a few lines an hour. The
+      # read-back test streams are left out.
+      - alert: HostLogsSilent
+        expr: |
+          count by (host) (count_over_time({source=~"journal|docker|pihole|syslog", host!="readback-host"}[1d] offset 6h))
+          unless
+          count by (host) (count_over_time({source=~"journal|docker|pihole|syslog", host!="readback-host"}[6h]))
+        for: 30m
+        labels:
+          severity: warning
+          namespace: monitoring
+        annotations:
+          summary: A machine outside the cluster has sent no logs for 6 hours.
+          description: >-
+            {{ $labels.host }} sent logs to Loki the day before but none in the last
+            6 hours. Check its log shipper: Alloy (systemctl status alloy; on the
+            TerraMaster the terramaster-logs container), or the Synology's Log Center.

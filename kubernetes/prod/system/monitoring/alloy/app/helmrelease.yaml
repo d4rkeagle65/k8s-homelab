@@ -110,8 +110,14 @@ spec:
           loki.process "pod_logs" {
             // CRI-O's log format: timestamp, stream, the line.
             stage.cri {}
+            // pod as structured metadata, not a label: each restart is a new pod
+            // name, which as a label starts a new stream (639 in a day). Search it
+            // with | pod="..." after the selector.
+            stage.structured_metadata {
+              values = {pod = ""}
+            }
             stage.label_drop {
-              values = ["filename"]
+              values = ["filename", "pod"]
             }
             forward_to = [loki.write.default.receiver]
           }
