@@ -14,7 +14,8 @@
 # Variables, from Key Vault (references in .env):
 #   DOCKER_VM_1_PROD_ADDRESS  the host address the firewall relays to
 #   DOCKER_VM_1_MGMT_ADDRESS  the host's management address: Kea's API (8000),
-#                       Stork's web UI (8080) and Kea's metrics (9547)
+#                       Stork's web UI (8080), Kea's metrics (9547) and its HA
+#                       state (9548)
 #   KEA_POSTGRES_PASSWORD  the database superuser's
 #   KEA_DB_PASSWORD     the kea role's (also in site.json)
 #   STORK_DB_PASSWORD   the stork role's
@@ -197,3 +198,27 @@ services:
       STORK_OIDC_GROUP_SUPER_ADMIN: authentik Admins
     ports:
     - ${DOCKER_VM_1_MGMT_ADDRESS}:8080:8080
+
+  # Kea's HA state, for Prometheus (/metrics) and Homepage (/status): asks the
+  # API's status-get on each request, with the API's credentials file, which
+  # stays on this host (ha_exporter.py says what each figure means). Root
+  # inside, as only root reads that file; no capabilities, read-only.
+  kea-ha-exporter:
+    mem_limit: 64m
+    image: python:3.14.8-alpine
+    container_name: kea-ha-exporter
+    restart: unless-stopped
+    depends_on:
+    - kea-dhcp4
+    command: ["python", "-I", "/app/ha_exporter.py"]
+    environment:
+      KEA_API_URL: http://kea-dhcp4:8000/
+      KEA_API_CREDENTIALS: /run/secrets/kea-api-credentials
+    ports:
+    - ${DOCKER_VM_1_MGMT_ADDRESS}:9548:9548
+    volumes:
+    - ./ha_exporter.py:/app/ha_exporter.py:ro
+    - /opt/kea/site/api-credentials:/run/secrets/kea-api-credentials:ro
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
