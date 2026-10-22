@@ -228,7 +228,7 @@
         "w": 12,
         "h": 9
       },
-      "description": "Lines that look like errors (level=error/fatal, \"error\", \"panic\"), counted per app over the dashboard's time range, inside and outside the cluster.",
+      "description": "Lines that look like errors (level=error/fatal, \"error\", \"panic\"; not a request log's empty error=\"<nil>\" field), counted per app over the dashboard's time range, inside and outside the cluster.",
       "targets": [
         {
           "datasource": {
@@ -237,7 +237,7 @@
           },
           "refId": "A",
           "queryType": "instant",
-          "expr": "topk(20, sum by (namespace, app) (count_over_time({namespace=~\"$namespace\"} |~ `(?i)(level=(error|fatal|crit)|\"level\":\"(error|fatal)\"|\\berror\\b|\\bfatal\\b|\\bpanic\\b)` [$__range])) or sum by (host, app) (count_over_time({source=~\"journal|docker|pihole|syslog\", host=~\"$host\"} |~ `(?i)(level=(error|fatal|crit)|\"level\":\"(error|fatal)\"|\\berror\\b|\\bfatal\\b|\\bpanic\\b)` [$__range])))",
+          "expr": "topk(20, sum by (namespace, app) (count_over_time({namespace=~\"$namespace\"} |~ `(?i)(level=(error|fatal|crit)|\"level\":\"(error|fatal)\"|\\berror\\b|\\bfatal\\b|\\bpanic\\b)` !~ `error=\"<nil>\"|\"error\":null` [$__range])) or sum by (host, app) (count_over_time({source=~\"journal|docker|pihole|syslog\", host=~\"$host\"} |~ `(?i)(level=(error|fatal|crit)|\"level\":\"(error|fatal)\"|\\berror\\b|\\bfatal\\b|\\bpanic\\b)` !~ `error=\"<nil>\"|\"error\":null` [$__range])))",
           "legendFormat": ""
         }
       ],
