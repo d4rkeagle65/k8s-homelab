@@ -5,7 +5,10 @@
 # same zone inside it now (/etc/localtime and /etc/timezone, through pct exec),
 # rather than waiting for its next start. Off until lxc_timezone is set (the
 # Proxmox hosts' variable group, a name from /usr/share/zoneinfo). Needs
-# proxmox-guests.yml first (pve_node, pve_guests).
+# proxmox-guests.yml first (pve_node, pve_guests). A container locked (a backup
+# running, say) is left as it is and named in the report; the next run sets it. A
+# running container without that zone's file isn't linked to it (the link would
+# dangle): that fails the run, naming it.
 - name: Containers' timezone
   when: lxc_timezone | default('') | length > 0
   block:
@@ -31,12 +34,20 @@
       vars:
         tz_cts: "{{ pve_guests | selectattr('type', 'equalto', 'lxc') | selectattr('node', 'equalto', pve_node) | list }}"
 
-    - name: Set the zone in each container's config that differs
+    - name: Note the containers locked (a backup running, say)
+      ansible.builtin.set_fact:
+        tz_locked_ids: >-
+          {{ tz_configs.results | selectattr('stdout', 'search', '"lock"')
+             | map(attribute='item.vmid') | map('string') | list }}
+
+    - name: Set the zone in each container's config that differs (not a locked one)
       ansible.builtin.command: pct set {{ item.item.vmid }} --timezone {{ lxc_timezone }}
       loop: "{{ tz_configs.results }}"
       loop_control:
         label: "{{ item.item.name }}: {{ (item.stdout | from_json).timezone | default('unset') }} -> {{ lxc_timezone }}"
-      when: (item.stdout | from_json).timezone | default('') != lxc_timezone
+      when:
+        - (item.stdout | from_json).timezone | default('') != lxc_timezone
+        - (item.stdout | from_json).lock is not defined
       changed_when: true
 
     - name: Read the configs back
@@ -48,7 +59,7 @@
       changed_when: false
       when: not ansible_check_mode
 
-    - name: Every container's config holds the zone
+    - name: Every unlocked container's config holds the zone
       ansible.builtin.assert:
         that: (item.stdout | from_json).timezone | default('') == lxc_timezone
         fail_msg: "{{ item.item.item.name }}'s config says {{ (item.stdout | from_json).timezone | default('unset') }} after pct set."
@@ -56,7 +67,7 @@
       loop: "{{ tz_configs_after.results | rejectattr('skipped', 'defined') | list }}"
       loop_control:
         label: "{{ item.item.item.name }}"
-      when: not ansible_check_mode
+      when: not ansible_check_mode and (item.item.stdout | from_json).lock is not defined
 
     - name: Read the zone inside each running container
       ansible.builtin.command: pct exec {{ item.vmid }} -- readlink /etc/localtime
@@ -72,30 +83,40 @@
     - name: Set it inside each running container that differs, for now
       ansible.builtin.command: >-
         pct exec {{ item.item.vmid }} -- sh -c
-        'ln -sf /usr/share/zoneinfo/{{ lxc_timezone }} /etc/localtime && echo {{ lxc_timezone }} > /etc/timezone'
+        'test -f /usr/share/zoneinfo/{{ lxc_timezone }} || { echo "no /usr/share/zoneinfo/{{ lxc_timezone }} in it (tzdata?)" >&2; exit 1; };
+        ln -sf /usr/share/zoneinfo/{{ lxc_timezone }} /etc/localtime && echo {{ lxc_timezone }} > /etc/timezone'
       loop: "{{ tz_inside.results }}"
       loop_control:
         label: "{{ item.item.name }}: {{ item.stdout | default('') | regex_replace('^.*zoneinfo/', '') or 'unread' }} -> {{ lxc_timezone }}"
-      when: item.stdout | default('') | regex_replace('^.*zoneinfo/', '') != lxc_timezone
+      when:
+        - item.stdout | default('') | regex_replace('^.*zoneinfo/', '') != lxc_timezone
+        - item.item.vmid | string not in tz_locked_ids
       changed_when: true
 
+    # test -e follows the link, so a dangling one isn't read as set; readlink then reads
+    # the zone's name itself (readlink -f would resolve an alias zone to another name).
     - name: Read the zone inside each running container back
-      ansible.builtin.command: pct exec {{ item.item.vmid }} -- readlink /etc/localtime
+      ansible.builtin.command: pct exec {{ item.item.vmid }} -- sh -c 'test -e /etc/localtime && readlink /etc/localtime'
       loop: "{{ tz_inside.results }}"
       loop_control:
         label: "{{ item.item.name }}"
       register: tz_inside_after
       changed_when: false
       failed_when: tz_inside_after.stdout | regex_replace('^.*zoneinfo/', '') != lxc_timezone
-      when: not ansible_check_mode
+      when: not ansible_check_mode and item.item.vmid | string not in tz_locked_ids
 
     - name: Report the containers' timezone
       ansible.builtin.debug:
         msg: >-
-          {{ pve_node }}: {{ tz_configs.results | map(attribute='item.name') | list | join(', ') or 'no containers' }}
+          {{ pve_node }}: {{ tz_unlocked | join(', ') or 'no unlocked containers' }}
           {{ 'would be' if ansible_check_mode else 'are' }} on {{ lxc_timezone }}
           (were: {{ tz_configs.results | map(attribute='stdout') | map('from_json') |
-                    map(attribute='timezone', default='unset') | list | join(', ') or 'none' }})
+                    map(attribute='timezone', default='unset') | list | join(', ') or 'none' }}){{
+          ('; locked, so left for the next run: ' ~ tz_locked | join(', ')) if tz_locked else '' }}
+      vars:
+        tz_locked: >-
+          {{ tz_configs.results | selectattr('stdout', 'search', '"lock"') | map(attribute='item.name') | list }}
+        tz_unlocked: "{{ tz_configs.results | map(attribute='item.name') | reject('in', tz_locked) | list }}"
 
 - name: Containers' timezone not managed
   ansible.builtin.debug:
