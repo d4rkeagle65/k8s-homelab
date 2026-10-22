@@ -1,0 +1,87 @@
+# Spreads the CloudNativePG primaries back over the nodes after a run that
+# drained some: each drain switches the primaries off its node
+# (cnpg-free-node.yml) and nothing moves them back, so a run over every node
+# leaves most of them on the last one drained. A primary moves to its ready
+# replica (the status patch `kubectl cnpg promote` makes) when its node holds at
+# least two more primaries than the replica's; one pass, in name order, so a
+# cluster moves once at most. Each switchover is a few seconds without a
+# primary for that database. In check mode it lists the moves and makes none.
+# kubectl runs on kubectl_host, as kubectl_cmd (kubectl-local.yml).
+- name: Read the database clusters and their pods, to spread the primaries
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} get {{ item }} -A -o json
+  delegate_to: "{{ kubectl_host }}"
+  loop:
+    - clusters.postgresql.cnpg.io
+    - pods -l cnpg.io/cluster,cnpg.io/podRole=instance
+  register: spread_reads
+  changed_when: false
+  check_mode: false
+
+- name: Work out which primaries to move
+  ansible.builtin.set_fact:
+    cnpg_spread: >-
+      {% set pods = (spread_reads.results[1].stdout | from_json)['items'] %}{%
+      set clusters = (spread_reads.results[0].stdout | from_json)['items']
+         | sort(attribute='metadata.namespace') | list %}{%
+      set count = {} %}{% for p in pods %}{%
+        set _ = count.update({p.spec.nodeName: count.get(p.spec.nodeName, 0)}) %}{% endfor %}{%
+      for c in clusters %}{% for p in pods if p.metadata.name == c.status.currentPrimary | default('')
+          and p.metadata.namespace == c.metadata.namespace %}{%
+        set _ = count.update({p.spec.nodeName: count[p.spec.nodeName] + 1}) %}{% endfor %}{% endfor %}{%
+      set out = [] %}{% for c in clusters if c.spec.instances > 1 %}{%
+        set members = [] %}{% for p in pods if p.metadata.namespace == c.metadata.namespace
+            and p.metadata.labels['cnpg.io/cluster'] | default('') == c.metadata.name %}{%
+          set _ = members.append(p) %}{% endfor %}{%
+        set primary = members | selectattr('metadata.name', 'equalto', c.status.currentPrimary | default('')) | list %}{%
+        if primary and c.status.phase | default('') == 'Cluster in healthy state' %}{%
+          set from_node = primary[0].spec.nodeName %}{%
+          set best = {'pod': '', 'node': '', 'n': count[from_node] - 1} %}{%
+          for p in members if p.metadata.name != c.status.currentPrimary
+               and (p.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') |
+                    selectattr('status', 'equalto', 'True') | list)
+               and count[p.spec.nodeName] < best.n %}{%
+            set _ = best.update({'pod': p.metadata.name, 'node': p.spec.nodeName, 'n': count[p.spec.nodeName]}) %}{%
+          endfor %}{%
+          if best.pod %}{%
+            set _ = count.update({from_node: count[from_node] - 1, best.node: count[best.node] + 1}) %}{%
+            set _ = out.append({'namespace': c.metadata.namespace, 'name': c.metadata.name,
+                                'from': c.status.currentPrimary, 'to': best.pod,
+                                'nodes': from_node ~ ' -> ' ~ best.node}) %}{%
+          endif %}{% endif %}{% endfor %}{{ {'moves': out, 'after': count} }}
+
+- name: Show the primaries' spread
+  ansible.builtin.debug:
+    msg:
+      - "Primaries per node after: {{ cnpg_spread.after | dictsort | map('join', ': ') | join(', ') }}"
+      - "{{ 'Would switch over' if ansible_check_mode else 'Switch over' }}: {{ cnpg_spread.moves |
+           map(attribute='name') | list or ['none, already spread'] }}"
+
+- name: Switch each primary over, to spread them
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} patch --field-manager=homelab-ansible clusters.postgresql.cnpg.io
+    -n {{ item.namespace }} {{ item.name }} --subresource=status --type=merge
+    -p '{{ {"status": {"targetPrimary": item.to,
+                       "targetPrimaryTimestamp": now(utc=true).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+                       "phase": "Switchover in progress",
+                       "phaseReason": "Switching over to " ~ item.to}} | to_json }}'
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_spread.moves }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}: {{ item.nodes }}"
+  changed_when: true
+
+- name: Wait for each switchover, to spread them
+  ansible.builtin.command: >-
+    {{ kubectl_cmd }} get clusters.postgresql.cnpg.io
+    -n {{ item.namespace }} {{ item.name }} -o jsonpath={.status.currentPrimary}|{.status.phase}
+  delegate_to: "{{ kubectl_host }}"
+  loop: "{{ cnpg_spread.moves }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}"
+  register: spread_switched
+  until: spread_switched.stdout == item.to ~ '|Cluster in healthy state'
+  retries: 40
+  delay: 15
+  changed_when: false
+  when: not ansible_check_mode
