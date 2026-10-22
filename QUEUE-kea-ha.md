@@ -66,7 +66,7 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       `hosts-databases` on `kea-db` (`ssl-mode: require`), reloaded without a restart, 51
       reservations served before and after, its connection TLS 1.3 (`pg_stat_ssl`). The previous
       site file is beside it as `site.json.before-kea-db`
-- [ ] The CA: `ssl-mode` is `require`, not `verify-ca`, because CloudNativePG renews its own CA
+- [x] The CA (done 2026-10-22): `ssl-mode` was `require`, not `verify-ca`, because CloudNativePG renews its own CA
       about every 90 days and a copy on the hosts would go stale. kea-db's server certificate
       now comes from a ten-year CA, `kea-db-root-ca` (cert-manager,
       `kubernetes/prod/services/kea/kea/app/certificates-db.yaml`, live since #291, served by
@@ -81,9 +81,9 @@ Docker VM, on another host, as a hot-standby partner, the firewall relays to bot
       time, each reloading and then reading a reservation page from the database, or getting
       its previous site file back and stopping the run. Live 2026-10-22: dry run 1227, then
       task 1230 set `verify-ca` on both hosts, each reading its reservations from the database
-      afterwards; kea-db's `pg_stat_ssl` shows both Keas' connections on TLS 1.3. Left: the
-      primary's Kea stack redeployed once in Dockhand, so `kea-db-init` runs with `verify-ca`
-      (its log ends without a connection error)
+      afterwards; kea-db's `pg_stat_ssl` shows both Keas' connections on TLS 1.3. The
+      primary's stack redeployed: `kea-db-init` (`PGSSLMODE` and `PGSSLROOTCERT` from that site
+      file) connected and exited 0 at schema 34.0
 - [x] `kea-db-init` reads its database from the site file's `hosts-databases` (2026-10-17):
       `kea-db`, with its `ssl-mode`; checked in its image (task 824, schema 34.0)
 - [x] The HA pair (2026-10-18): `docker/kea/kea-dhcp4.conf` carries the HA hook (its
