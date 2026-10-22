@@ -1,6 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+- cronjob-grimmory-authors.yaml
 - cronjob-grimmory-relink.yaml
 - helmrelease.yaml
 - job-grimmory-sync.yaml
@@ -22,3 +23,7 @@ configMapGenerator:
 - name: grimmory-relink
   files:
   - relink/grimmory-relink.py
+# The author cleanup's script (cronjob-grimmory-authors.yaml).
+- name: grimmory-authors
+  files:
+  - authors/grimmory-authors.py
