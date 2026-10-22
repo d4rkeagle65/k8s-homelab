@@ -163,18 +163,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
   by `grimmory-db`'s physical backups). Left, 14 days of stale dumps take NAS space.
 
-- **Move database replicas off the two crowded workers** (found 2026-10-21): of 31
-  CloudNativePG instances, one worker runs 13 and another 11, the other two 3 and 4, so losing
-  either busy one fails over about six databases. Every Cluster now keeps its two instances apart
-  and prefers the workers with the fewest instances (`scripts/tests/test_structure.py`,
-  `test_databases_spread`), and the primaries piled up by a full drain are spread back at the
-  end of the four drain jobs (`ansible/tasks/cnpg-spread-primaries.yml`), but a `local-db`
-  volume holds each existing instance to its node, so the rule only places new ones. Left: move
-  about eight replicas, one at a time, each with the owner's go-ahead: delete the replica's pod
-  and PVC so CloudNativePG rebuilds it from its primary on the worker the rule picks, wait for
-  "Cluster in healthy state", then the next. Each leaves a Released `local-db` PV and its folder
-  on the old worker to clean up. Left as is, the next worker lost takes six primaries with it.
-
+- **Delete the Released `local-db` volumes the replica moves left** (2026-10-22): eight replicas
+  were rebuilt off the two crowded workers (instances now 8, 7, 8 and 8 per worker), each
+  leaving its old PV Released and its folder under `/var/mnt/local-db` on the old worker
+  (prowlarr, radarr, n8n, sonarr, manictime, bookshelf, whisparr-v3, authentik). Every
+  database is healthy on its new replica, so the old copies are spare. Left: `kubectl delete
+  pv` for each, then its folder, as the 2026-10-22 cleanup did. Left, about 6 GB of the
+  workers' disks hold stale copies.
 - **NetBox's change-log API fails on a `dcim.PortTemplateMapping` change** (found 2026-10-22):
   with the Topology Views patch live (#266, #277; the role-icon rows now render), paging
   `/api/core/object-changes/` answers 500 at the page holding one, "Could not determine

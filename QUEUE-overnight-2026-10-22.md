@@ -42,7 +42,7 @@ continue what you can."
 | O | Kea's database CA, `verify-ca` prepared (`QUEUE-kea-ha.md`) | PR #291 (cert-manager CA and server certificate for kea-db; clients stay `require` until the host steps in `QUEUE-kea-ha.md`) |
 | P | Dockhand's notifications into tickets: the compose labels (`QUEUE-zammad.md`) | PR #287 (all eight one-shot services already labelled; a test keeps it so) |
 | Q | Read-only rechecks: NetBox `PortTemplateMapping` upstream, Kubernetes 1.37, Python 3.15 (`QUEUE.md`, `QUEUE-updates.md`) | `ba673b8`: Kubernetes 1.37 and Python 3.15 still held; NetBox's `PortTemplateMapping` fixed in 4.7.3: PR #290 |
-| R | Move database replicas off the crowded workers (`QUEUE.md`) | One done: prowlarr-db's replica rebuilt from 04a onto 05a, healthy (2/2); its old PV Released on 04a. The rest wait for the owner (below) |
+| R | Move database replicas off the crowded workers (`QUEUE.md`) | All eight done (prowlarr, then with the owner's go-ahead radarr, n8n, sonarr, manictime, bookshelf, whisparr-v3, authentik; 31-62 s each, every cluster healthy): instances 8, 7, 8, 8 per worker, from 13, 3, 4, 11. Eight Released `local-db` PVs and folders left on the old workers |
 | S | Bug scans, several passes, after the pieces above | Five passes: (1) a code review of everything merged since 2026-10-21, (2) a repo-wide sweep for the bug classes that bit before, (3) the live systems, (4) each finding tried and fixed only once reproduced, (5) a review of the fixes. Fixes: #292 (NetBox sync retires stale load-balancer records), #293 (KubeJobFailed only for a CronJob's latest run), #294 (primary spreading only after a drain, never skipping clean-up; pass 5 caught its Talos fact on the wrong host, fixed), #297 (Flux held whenever the whole group is named), #298 (Immich import deadline, Grimmory relink NULL path and errors, repair report on stop, Dockhand backup's listing and 7z password off argv), #299 (timezone inside the container and locked containers; the routing script clears its own rules). Refuted: two. Live systems: healthy. The six merge cleanly in any order; #286 and #298 both edit `QUEUE.md` |
 
 ## Decisions for the owner
@@ -72,11 +72,9 @@ continue what you can."
   next scan). Longer term the disk grows in OpenTofu. Full, the next image pull or backup
   temp file fails (Databasus's health checks did on 2026-10-21 08:01).
 
-- **Database replica moves (R):** the first, prowlarr-db, went cleanly; the permission check
-  refused carrying on without an explicit go-ahead. Approve the other seven (authentik,
-  manictime, bookshelf and whisparr-v3 off 04a; radarr, sonarr and n8n off 07a), one at a
-  time with a health check between (`move_replica.py` in the session's scratchpad). Each
-  leaves a Released `local-db` PV and its folder on the old worker.
+- **The eight Released `local-db` PVs and their folders** from the replica moves (R): delete
+  them (the PVs by `kubectl delete pv`, the folders as in the earlier cleanup), each database
+  being healthy on its rebuilt replica.
 - **Pod Security for the remaining 21 namespaces** stays a decision (the owner said it was
   done; 21 still enforce `baseline` live).
 - **The workers' old vzdump archives on `tm-nfs`**, and the retired Dockhand stacks' leftovers
