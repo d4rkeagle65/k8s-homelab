@@ -51,6 +51,10 @@ spec:
             secretKeyRef:
               name: zammad-bridge
               key: DATABASUS_TOKEN
+        # Each Docker host's read-only socket proxy (docker/docker-socket-proxy*),
+        # asked whether a container Dockhand reports is a stack's (zammad-bridge.py).
+        - name: DOCKER_HOSTS
+          value: ${DOCKHAND_ADDRESS}:9339,${DOCKER_VM_2_MGMT_ADDRESS}:9339,${TERRAMASTER_MGMT_ADDRESS}:9339
         # Asked which members of a group alert are down (zammad-bridge.py).
         - name: PROMETHEUS_URL
           value: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090

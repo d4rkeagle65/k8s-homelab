@@ -238,3 +238,45 @@ def test_each_token_route_wants_its_own_token_and_is_off_without_one(monkeypatch
         assert dockhand_post(f"/{route}/s3cr3t-token", body) == 200 and sent[-1]["state"] == "CRITICAL"
     assert dockhand_post("/semaphore/s3cr3t-token", json.dumps(semaphore(status="⚠️ WAITING_CONFIRMATION")).encode()) == 200
     assert len(sent) == 2
+
+
+def container(name, state="exited", status="Exited (1) 2 seconds ago", project="kea"):
+    labels = {"com.docker.compose.project": project} if project else {"databasus.verification.agent_id": "a1"}
+    return {"Names": [f"/{name}"], "State": state, "Status": status, "Labels": labels}
+
+
+def died(name):
+    return {"title": "Container Die", "message": f'Container "{name}" die (some/image:1)', "type": "error"}
+
+
+HOSTS = ["192.0.2.10:9339", "192.0.2.20:9339"]
+
+
+def test_a_stack_containers_failure_is_a_ticket_and_the_others_are_not(monkeypatch):
+    lists = {HOSTS[0]: [container("kea-dhcp4"), container("kea-db-init", status="Exited (0) 3 seconds ago"),
+                        container("loose", project=None)],
+             HOSTS[1]: []}
+    monkeypatch.setattr(m, "docker_containers", lambda host: lists[host])
+    assert m.dockhand_to_checkmk(died("kea-dhcp4"), HOSTS)["state"] == "CRITICAL"
+    assert m.dockhand_to_checkmk(died("kea-db-init"), HOSTS) is None        # a one-shot's normal finish
+    assert m.dockhand_to_checkmk(died("loose"), HOSTS) is None              # outside every stack
+    assert m.dockhand_to_checkmk(died("databasus-verif-1f2e"), HOSTS) is None  # removed by what started it
+    up = {"title": "Container Start", "message": 'Container "kea-dhcp4" start (some/image:1)', "type": "success"}
+    assert m.dockhand_to_checkmk(up, HOSTS)["state"] == "OK"                # a recovery is never asked about
+
+
+def test_a_host_that_cant_be_asked_never_drops_a_ticket(monkeypatch):
+    def flaky(host):
+        if host == HOSTS[1]:
+            raise OSError("timed out")
+        return []
+    monkeypatch.setattr(m, "docker_containers", flaky)
+    f = m.dockhand_to_checkmk(died("kea-dhcp4"), HOSTS)
+    assert f["state"] == "CRITICAL" and "1 of 2 Docker hosts couldn't be asked" in f["text"]
+    monkeypatch.setattr(m, "docker_containers", lambda host: [container("kea-dhcp4")] if host == HOSTS[0] else flaky(host))
+    assert m.dockhand_to_checkmk(died("kea-dhcp4"), HOSTS)["text"].count("couldn't be asked") == 0
+
+
+def test_without_hosts_every_container_failure_is_a_ticket(monkeypatch):
+    monkeypatch.setattr(m, "docker_containers", lambda host: (_ for _ in ()).throw(AssertionError("asked")))
+    assert m.dockhand_to_checkmk(died("databasus-verif-1f2e"))["state"] == "CRITICAL"
