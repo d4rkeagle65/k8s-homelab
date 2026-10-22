@@ -30,6 +30,21 @@ continue what you can."
 | J | Databasus's failures (asked 00:15) | Backups all succeed (5 nightly, 00:00); the 15 verifications fail: the agent holds the deleted Docker socket. PR #272 fixes the post-upgrade check that missed it |
 | I | Morning reads: the Proxmox backup (01:00 UTC), rreading-glasses repair dry run (07:15 UTC), Immich import dry run (08:30 UTC) | Backup clean (every host OK by 03:12 UTC, no NFS stall, no CRM change); the two dry runs are read after they run |
 
+
+### Round 2 (asked 2026-10-22 ~04:00 UTC: "go through all of the queue files ... do as much as you can", then bug scans)
+
+| Piece | Entry (file) | Result |
+|---|---|---|
+| K | calico-apiserver logs about 860 error lines an hour (`QUEUE.md`) | |
+| L | `netbox-topology-views` 5.0.0 carries security fixes (`QUEUE.md`) | |
+| M | Bookshelf, its database and rreading-glasses sized (`QUEUE-resource-limits.md`) | |
+| N | A LimitRange's defaults reach a Job's pods only when they run: a check (`QUEUE.md`) | |
+| O | Kea's database CA, `verify-ca` prepared (`QUEUE-kea-ha.md`) | |
+| P | Dockhand's notifications into tickets: the compose labels (`QUEUE-zammad.md`) | |
+| Q | Read-only rechecks: NetBox `PortTemplateMapping` upstream, Kubernetes 1.37, Python 3.15 (`QUEUE.md`, `QUEUE-updates.md`) | |
+| R | Move database replicas off the crowded workers (`QUEUE.md`) | One done: prowlarr-db's replica rebuilt from 04a onto 05a, healthy (2/2); its old PV Released on 04a. The rest wait for the owner (below) |
+| S | Bug scans, several passes, after the pieces above | |
+
 ## Decisions for the owner
 
 - **`TALOS_SECRETS` isn't where `talos/README.md` says** (Vaultwarden `cluster-secrets`): found
@@ -56,6 +71,16 @@ continue what you can."
   caches `docker volume rm dockhand-grype-db dockhand-trivy-db` (5 GB, downloaded again at the
   next scan). Longer term the disk grows in OpenTofu. Full, the next image pull or backup
   temp file fails (Databasus's health checks did on 2026-10-21 08:01).
+
+- **Database replica moves (R):** the first, prowlarr-db, went cleanly; the permission check
+  refused carrying on without an explicit go-ahead. Approve the other seven (authentik,
+  manictime, bookshelf and whisparr-v3 off 04a; radarr, sonarr and n8n off 07a), one at a
+  time with a health check between (`move_replica.py` in the session's scratchpad). Each
+  leaves a Released `local-db` PV and its folder on the old worker.
+- **Pod Security for the remaining 21 namespaces** stays a decision (the owner said it was
+  done; 21 still enforce `baseline` live).
+- **The workers' old vzdump archives on `tm-nfs`**, and the retired Dockhand stacks' leftovers
+  on VM1: delete them.
 
 Pieces that end in a decision add it here.
 
