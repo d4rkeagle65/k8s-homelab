@@ -23,12 +23,6 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Next
 
-- **Check Dockhand's first backup** (`docker/dockhand-backup/`, Dockhand stack 18, deployed
-  2026-10-22): Dockhand's SQLite database, its `.encryption_key` and its own compose file, in
-  an encrypted 7z archive to `docker-backups/dockhand/` at each start and nightly at 03:45 UTC,
-  kept 30 days. Left: the container healthy, `docker exec dockhand-backup backup.sh check` says
-  OK, and the archive opens by hand with the password (`7z t`). Until then, Dockhand's
-  environments, stacks and variables are proven only in the Proxmox backup of the VM's disk.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
