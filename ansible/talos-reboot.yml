@@ -228,11 +228,23 @@
       vars:
         kubectl_host: semaphore
 
+    # Only after a drain, and never in the way of the clean-up below: a failure
+    # here is reported and the run carries on.
     - name: Spread the database primaries back over the nodes
-      ansible.builtin.include_tasks: tasks/cnpg-spread-primaries.yml
-      vars:
-        kubectl_host: semaphore
-      when: kubectl_cmd is defined
+      when: kubectl_cmd is defined and cnpg_drained | default(false)
+      block:
+        - name: Spread them
+          ansible.builtin.include_tasks: tasks/cnpg-spread-primaries.yml
+          vars:
+            kubectl_host: semaphore
+      rescue:
+        - name: Say the spread failed, and carry on to the clean-up
+          ansible.builtin.debug:
+            msg: >-
+              Spreading the database primaries failed
+              ({{ ansible_failed_result.msg | default('a step failed') | truncate(200) }}).
+              The run's own work is done; the next run that drains spreads them, or switch
+              them by hand.
 
     - name: Remove the CA certificate, and kubectl and talosctl with their configs
       ansible.builtin.include_tasks: tasks/local-tools-cleanup.yml

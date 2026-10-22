@@ -5,8 +5,11 @@
 # replica (the status patch `kubectl cnpg promote` makes) when its node holds at
 # least two more primaries than the replica's; one pass, in name order, so a
 # cluster moves once at most. Each switchover is a few seconds without a
-# primary for that database. In check mode it lists the moves and makes none.
-# kubectl runs on kubectl_host, as kubectl_cmd (kubectl-local.yml).
+# primary for that database. An instance not yet placed on a node (Pending) is
+# left out of the counts; its cluster isn't healthy, so it isn't moved. In check
+# mode it lists the moves and makes none. The playbooks run it only after a drain
+# (cnpg_drained, set by k8s-node-drain.yml), and carry on to their clean-up if it
+# fails. kubectl runs on kubectl_host, as kubectl_cmd (kubectl-local.yml).
 - name: Read the database clusters and their pods, to spread the primaries
   ansible.builtin.command: >-
     {{ kubectl_cmd }} get {{ item }} -A -o json
@@ -21,7 +24,8 @@
 - name: Work out which primaries to move
   ansible.builtin.set_fact:
     cnpg_spread: >-
-      {% set pods = (spread_reads.results[1].stdout | from_json)['items'] %}{%
+      {% set pods = (spread_reads.results[1].stdout | from_json)['items']
+           | selectattr('spec.nodeName', 'defined') | list %}{%
       set clusters = (spread_reads.results[0].stdout | from_json)['items']
          | sort(attribute='metadata.namespace') | list %}{%
       set count = {} %}{% for p in pods %}{%
