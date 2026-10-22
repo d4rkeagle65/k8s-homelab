@@ -234,7 +234,7 @@ goes once the retired guests are destroyed.
         `tofu/proxmox`, local-path's maps (`WORKER_NODE_1`-`3`, their mappings out of
         `cluster-secrets` too; the Vaultwarden fields can go) and the `nas-block` class
   - [ ] `nas-block` off the hosts and the NAS, nothing using it (2026-10-16), with the owner,
-        in this order: the 38 Released PVs deleted (`QUEUE-autonomy.md`, released-volumes);
+        in this order: the 38 Released PVs deleted (`old-queues/QUEUE-autonomy.md`, released-volumes);
         the Proxmox storage `nas-block` removed (`pvesm remove nas-block`, a cluster-wide
         setting); on each host, the iSCSI session to its LUN logged out and its node record
         deleted (`iscsiadm`), and its volume group removed; the LUNs and targets deleted in

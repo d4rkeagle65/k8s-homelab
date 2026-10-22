@@ -7,7 +7,7 @@ the Flux files. **This repo is public.**
 Read before changing anything:
 
 - `scripts/README.md`: how the tool works, which files it owns, and recipes.
-- `QUEUE.md`: the work list, most important first; `QUEUE-autonomy.md`: what I may do on my own and what waits on the owner.
+- `QUEUE.md`: the work list, most important first.
 - The `CLAUDE.md` in `kubernetes/`, `docker/`, `scripts/` or `tests/` before working there.
 
 ## Layout
@@ -53,11 +53,11 @@ Read before changing anything:
 
 - **Commit without running the suite first - the pre-commit hook runs it**, and a failure
   aborts cleanly. While iterating, run only the suite covering what you touched. Never
-  `--no-verify`: fix the cause, or raise it.
-- **Run `tests/run-all-tests.py --include-environment` when you change which modules,
-  packages or tools a script uses**, and list what it needs in a `# /// script` block or in
-  `test_config.toml` Prerequisites. The gate leaves the environment suites out because they
-  track the machine, and only they catch a package that is missing or below its minimum.
+  `--no-verify`: fix the cause, or raise it. The gate leaves out the environment suites, which
+  track the machine and alone catch a package missing or below its minimum: when you change
+  which modules, packages or tools a script uses, run `tests/run-all-tests.py
+  --include-environment`, and list what it needs in a `# /// script` block or in
+  `test_config.toml` Prerequisites.
 - **Windows and Linux differ in ways that bite, so proving a change on one proves less than it
   looks.** On Windows, `open()` with no `encoding=` reads and writes the locale's code page,
   and so does `subprocess` with `text=True`; a text-mode write turns `\n` into `\r\n` unless
@@ -104,12 +104,19 @@ Read before changing anything:
   adds the Key Vault secret, then its `cluster-secrets.yaml` entry lands in a pull request of its
   own, merged before anything uses it. An empty value is fine.
 - **Every change reaches `main` through a pull request the owner merges; a merge is a
-  deploy.** Flux applies whatever reaches `main`, and the owner's review is what keeps a wrong
-  change from a session working on its own out of the cluster. One branch per change: commit
-  to it, push it and open its pull request. Never merge one, push `main` or turn on auto-merge.
-  The one exception: a commit touching only the queue files (`QUEUE.md`, `QUEUE-*.md`,
-  `old-queues/`) is pushed straight to `main`, since Flux applies none of them; any other
-  file in it makes it a pull request.
+  deploy.** Flux applies whatever reaches `main`, and the owner's review keeps a wrong change
+  from a session working on its own out of the cluster. One branch per change: commit to it,
+  push it and open its pull request; never merge one, push `main` or turn on auto-merge. Work
+  the owner names is carried through to its pull requests without asking again; anything
+  outside it, or a change of plan inside it, waits for the owner's go-ahead. The one
+  exception: a commit touching only the queue files (`QUEUE.md`, `QUEUE-*.md`, `old-queues/`)
+  is pushed straight to `main`, since Flux applies none of them; any other file makes it a PR.
+- **On Semaphore I start only runs that change nothing; the owner asks for each that does.**
+  Mine: dry runs, OpenTofu plans (then rejected), read-only "Tool: Run Command" checks and
+  the NetBox sync. A dry run goes in the task's `"params": {"dry_run": true}`: a top-level
+  `dry_run` is ignored, and the task runs for real. Never mine unless the owner asks for that
+  run, even inside approved work: confirming an OpenTofu apply, a template that changes hosts,
+  or a physical Proxmox host's reboot (the reboot template, an upgrade that reboots, a command).
 
 ## In a cloud session
 
