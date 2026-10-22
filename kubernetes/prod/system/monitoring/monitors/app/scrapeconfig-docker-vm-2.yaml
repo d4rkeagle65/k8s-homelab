@@ -1,0 +1,23 @@
+# The second Docker VM, at its management address: node-exporter
+# (ansible/tasks/host-exporters.yml). A job of its own, so the first VM's
+# queries (job="docker-vm": Homepage's card, the restart-loop rule) stay one
+# host's.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: docker-vm-2
+spec:
+  staticConfigs:
+  - targets:
+    - ${DOCKER_VM_2_MGMT_ADDRESS}:9100
+    labels:
+      exporter: node
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: docker-vm-2
+  # Only failed units' state, as in scrapeconfig-proxmox-hosts.yaml.
+  metricRelabelings:
+  - action: drop
+    sourceLabels: [__name__, state]
+    regex: node_systemd_unit_state;(active|activating|deactivating|inactive)
