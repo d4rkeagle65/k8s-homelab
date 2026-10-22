@@ -54,7 +54,9 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       `dockhand.notify: "false"` (Dockhand sends no exit code, so a normal exit would be a
       ticket; `dockhand.notify` read again in its `container-labels.ts`, 2026-10-22), and
       `tests/test-docker-stacks.py` refuses a one-shot without it. Dockhand's channel
-      `jsons://<the bridge's host>/dockhand/<token>` (Settings > Notifications) carries them
+      `jsons://<the bridge's host>/dockhand/<token>` (Settings > Notifications) carries them; a container's failure is a ticket only for a stack's container that didn't exit 0, read
+      from each Docker host's socket proxy (`DOCKER_HOSTS`, 2026-10-22): Databasus's restore
+      checks (ticket 324) and the init containers' normal exits open nothing
 - [ ] Semaphore's and Databasus's alerts into tickets (2026-10-22): the bridge's
       `/semaphore/<token>` (Semaphore's Slack format: a task's error opens a ticket for its
       template, its next success closes it; a wait for confirmation opens nothing) and
@@ -66,7 +68,8 @@ and recoveries update them, and anything else worth tracking gets a ticket too.
       Live 2026-10-22 (#326): the owner turned on the project's Alert and set the Webhook
       notifier on every database; Databasus's test made ticket 323 ("Databasus test") and a
       successful task reached the bridge ("no open tickets found"). Left: a real failed task,
-      then its template's success, read back as one ticket opened and closed
+      then its template's success, read back as one ticket opened and closed; tickets 323 (the
+      test) and 324 (a restore check's container) closed by hand (the owner)
 - [x] Mail out: Zammad's notifications go through `smtp-oauth-relay` as the shared mailbox
       (its Notification Sender, `M365_SHARED_MAILBOX_ADDRESS`), read back as sent in the relay's
       log 2026-10-22; its default sender, `noreply@` its own hostname, was refused by Graph
