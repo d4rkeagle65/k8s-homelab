@@ -322,6 +322,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   so one token serves two machines, and revoking it cuts off both. Make a Semaphore user and
   a NetBox token for the PC sessions instead, each revocable on its own, as the cluster
   access already is (`claude-code` ServiceAccount vs the PC's admin kubeconfig).
+- **Stork's agent exports only some subnets' lease figures after a restart** (found 2026-10-22):
+  since the kea stack's redeploy recreated `stork-agent` (2.5.1) that afternoon,
+  `kea_dhcp4_addresses_assigned_total` exists for subnets 227 and 237 only, not 107 (38 leases)
+  or 250, though Kea's own `statistic-get-all` has all four. Homepage and the overview dashboard
+  read Kea's own counts from `kea-ha-exporter` instead (`docker/kea/README.md`), so nothing here
+  reads Stork's figures now. Left: whether every agent restart drops subnets (an upstream report
+  if so) before anything is built on Stork's metrics again.
 
 ## Working queue files
 

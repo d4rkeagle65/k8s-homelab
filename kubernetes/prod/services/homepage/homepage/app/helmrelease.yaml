@@ -143,7 +143,7 @@ spec:
             # useEqualHeights stretches them to a stat card's height beside one.
             layout:
               Quick links: {style: row, columns: 8, header: false, iconsOnly: true}
-              Status: {style: row, columns: 5, header: false}
+              Status: {style: row, columns: 4, header: false}
               Featured: {tab: Apps, style: row, columns: 3}
               Everyday: {tab: Apps, style: row, columns: 4}
               Watch: {tab: Media, style: row, columns: 3}
@@ -152,7 +152,7 @@ spec:
               More: {tab: Media, style: row, columns: 2}
               Upcoming: {tab: Media, style: row, columns: 1}
               Hosts: {tab: Infrastructure, style: row, columns: 4}
-              Storage: {tab: Infrastructure, style: row, columns: 3}
+              Storage: {tab: Infrastructure, style: row, columns: 4}
               Observability: {tab: Infrastructure, style: row, columns: 3}
               Tools: {tab: Infrastructure, style: row, columns: 5}
               DNS and DHCP: {tab: Network, style: row, columns: 4}
@@ -407,25 +407,6 @@ spec:
                         - label: Errors 1h
                           query: round(sum(increase(controller_runtime_reconcile_errors_total{namespace="flux-system"}[1h]))) or vector(0)
                           format: {type: number}
-                - Databases:
-                    icon: sh-cloudnativepg.png
-                    description: CloudNativePG, backed up to Garage
-                    namespace: cnpg-system
-                    app: cloudnative-pg
-                    widget:
-                      type: prometheusmetric
-                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
-                      refreshInterval: 60000
-                      metrics:
-                        - label: Clusters
-                          query: count(count by (namespace, cluster) (cnpg_collector_up)) or vector(0)
-                          format: {type: number}
-                        - label: Instances up
-                          query: sum(cnpg_collector_up) or vector(0)
-                          format: {type: number}
-                        - label: Oldest backup
-                          query: time() - min(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp)
-                          format: {type: duration}
             - Featured:
                 - Home Assistant:
                     icon: home-assistant.png
@@ -812,6 +793,25 @@ spec:
                         - label: Free
                           query: sum(garage_local_disk_avail{volume="data"})
                           format: {type: bytes}
+                - Databases:
+                    icon: sh-cloudnativepg.png
+                    description: CloudNativePG, backed up to Garage
+                    namespace: cnpg-system
+                    app: cloudnative-pg
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Clusters
+                          query: count(count by (namespace, cluster) (cnpg_collector_up)) or vector(0)
+                          format: {type: number}
+                        - label: Instances up
+                          query: sum(cnpg_collector_up) or vector(0)
+                          format: {type: number}
+                        - label: Oldest backup
+                          query: time() - min(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp)
+                          format: {type: duration}
             - Observability:
                 - Grafana:
                     icon: grafana.png
@@ -910,7 +910,7 @@ spec:
                 - Kea DHCP:
                     icon: isc-kea.png
                     href: https://stork.${BASE_DOMAIN}
-                    description: Leases, through Stork
+                    description: Leases, from Kea's own counts
                     siteMonitor: https://stork.${BASE_DOMAIN}
                     server: docker-vm-1
                     container: kea-dhcp4
@@ -920,13 +920,13 @@ spec:
                       refreshInterval: 60000
                       metrics:
                         - label: Leases
-                          query: sum(kea_dhcp4_addresses_assigned_total) or vector(0)
+                          query: sum(kea_dhcp4_assigned_addresses) or vector(0)
                           format: {type: number}
                         - label: Pool
-                          query: sum(kea_dhcp4_addresses_total)
+                          query: sum(kea_dhcp4_total_addresses)
                           format: {type: number}
                         - label: Used
-                          query: 100 * sum(kea_dhcp4_addresses_assigned_total) / sum(kea_dhcp4_addresses_total)
+                          query: 100 * sum(kea_dhcp4_assigned_addresses) / sum(kea_dhcp4_total_addresses)
                           format: {type: percent, options: {maximumFractionDigits: 0}}
                 - Kea standby:
                     icon: isc-kea.png
