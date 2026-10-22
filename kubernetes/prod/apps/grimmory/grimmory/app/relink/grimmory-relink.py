@@ -59,6 +59,19 @@ def main():
                              autocommit=False, connect_timeout=20)
     except Exception as e:  # noqa: BLE001 - any failure here means no answer
         fail(f"database: {e}")
+    try:
+        return relink(db)
+    except pymysql.MySQLError as e:
+        # The updates share one transaction, so an error before its commit changes
+        # nothing; one in the read-back after it leaves the moves made, unconfirmed.
+        try:
+            db.rollback()
+        except pymysql.MySQLError as rb:
+            print(f"  rollback failed too ({rb}); the server drops the uncommitted changes with the connection")
+        fail(f"database: {e}")
+
+
+def relink(db):
     cur = db.cursor()
 
     cur.execute(BUSY_SQL)
@@ -139,8 +152,9 @@ def main():
         print("Skipped: a library task started meanwhile; the next run looks again.")
         return 0
     for fid, bid, sub, name, fhash, new_lpid, new_sub, new_name, _, _ in plans:
+        # <=>: a file at a library's root may hold NULL, which = never matches.
         cur.execute("UPDATE book_file SET file_sub_path = %s, file_name = %s WHERE id = %s AND "
-                    "file_sub_path = %s AND file_name = %s AND current_hash = %s",
+                    "file_sub_path <=> %s AND file_name = %s AND current_hash = %s",
                     (new_sub, new_name, fid, sub, name, fhash))
         if cur.rowcount != 1:
             db.rollback()

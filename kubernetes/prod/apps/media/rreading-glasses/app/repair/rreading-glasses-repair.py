@@ -150,6 +150,9 @@ class Cache:
         rows = self.db.run("SELECT expires <= now() FROM cache WHERE key = :k", k=key)
         return bool(rows and rows[0][0])
 
+    def close(self):
+        self.db.close()
+
 
 def works_by_author(works) -> dict[int, set[int]]:
     """Each author's works among the cached ones: those with editions, by their first author."""
@@ -209,6 +212,13 @@ def main() -> int:
 
     authors = {int(a["foreignAuthorId"]): a for a in bookshelf("GET", "author")}
     cache = Cache()
+    try:
+        return repair(authors, m, left, busy, cache)
+    finally:
+        cache.close()
+
+
+def repair(authors: dict, m: dict[str, float], left: float | None, busy: list[str], cache: "Cache") -> int:
     records = {}
     for key, value, ttl in cache.rows([f"a{i}" for i in authors] + [f"ra{i}" for i in authors]):
         records[key] = (decode(value), float(ttl))
@@ -243,37 +253,41 @@ def main() -> int:
         tried = []
         for wid in works:
             left = daily_remaining(metrics())
+            # Every stop first checks the works already fetched for this author, and has
+            # Bookshelf refresh it: they were expired and fetched again.
             if left is None and done:
                 print("STOP: no budget reading after a lookup, so what is left can't be told")
+                report(aid, tried, authors, failed, cache)
                 return 2
             if left is not None and left < MIN_DAILY_REMAINING:
                 print(f"STOP: budget down to {int(left)}")
-                return report(aid, tried, authors, failed)
+                return report(aid, tried, authors, failed, cache)
             status, _ = http("DELETE", f"{RG_URL}/work/{wid}")
             if status != 200 or not cache.expired(f"w{wid}"):
                 print(f"FAIL: DELETE /work/{wid} didn't expire it (HTTP {status})")
+                report(aid, tried, authors, failed, cache)
                 return 1
             status, _ = http("GET", f"{RG_URL}/work/{wid}", timeout=120)
             done += 1
             if status != 200:
                 print(f"STOP: GET /work/{wid}: HTTP {status}")
-                return report(aid, tried, authors, failed) or 1
+                return report(aid, tried, authors, failed, cache) or 1
             tried.append(wid)
             time.sleep(PACE_SECONDS)
-        failed = report(aid, tried, authors, failed)
+        failed = report(aid, tried, authors, failed, cache)
     left = daily_remaining(metrics())
     print(f"Done: {done} lookup(s); budget left {'unknown' if left is None else int(left)}")
     return 1 if failed else 0
 
 
-def report(aid: int, tried: list[int], authors: dict, failed: int) -> int:
+def report(aid: int, tried: list[int], authors: dict, failed: int, cache: Cache) -> int:
     """Waits for the attachments, reads the author again, refreshes it in Bookshelf."""
     if not tried:
         return failed
     if not wait_settled():
         print(f"FAIL: author {aid}: rreading-glasses still busy after 5 minutes; not checked")
         return failed + 1
-    rows = Cache().rows([f"a{aid}"])
+    rows = cache.rows([f"a{aid}"])
     rec = decode(rows[0][1]) if rows else None
     have = {int(w["ForeignId"]) for w in (rec or {}).get("Works") or []}
     lost = [w for w in tried if w not in have]

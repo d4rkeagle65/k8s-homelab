@@ -202,6 +202,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Later
 
+- **Vaultwarden's backup puts its archive password on 7z's command line** (found 2026-10-22):
+  `ttionya/vaultwarden-backup` 1.27.2's `scripts/backup.sh` runs `7z a ... -p"${ZIP_PASSWORD}"`,
+  so for the seconds the nightly archive takes, any process on the first Docker VM that lists
+  processes reads `VAULTWARDEN_BACKUP_ZIP_PASSWORD`. Dockhand's backup feeds 7-Zip the
+  password on its standard input instead (`docker/dockhand-backup/backup.sh`, `with_password`;
+  7-Zip 24.09 reads it there). Report it upstream, or wrap the image the same way. Left, the
+  vault's backup password is readable by whatever runs on that host during each backup.
 - **`netbox-topology-views` 5.0.0 carries security fixes** (found 2026-10-22): an XSS and a
   path traversal in the role-image settings, released 2026-10-19; `docker/netbox/` pins 4.7.0.
   Check 5.0.0 supports NetBox 4.7, then bump it (`patch_topology_views.py` from #266 refuses
