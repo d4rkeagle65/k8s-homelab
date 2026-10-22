@@ -1,5 +1,5 @@
 """Alertmanager's webhook into Zammad's Checkmk endpoint: an alert opens a ticket,
-a repeat adds a note to it, and its recovery closes it (QUEUE-zammad.md).
+a repeat adds a note to it, and its recovery closes it (old-queues/QUEUE-zammad.md).
 
 Zammad keys an open ticket by `host` and `service`, and titles it "<host> is
 <state>". So `service` is the alert's name, and `host` the alert's name with
