@@ -117,13 +117,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   after the archive change.
   Alerts on wear and spare capacity are phase 5 of `old-queues/QUEUE-monitoring.md`.
 
-- **Kubernetes 1.37, when its patches settle:** held (Renovate's #9) until Flux, cert-manager,
-  External Secrets and CloudNativePG support it (`QUEUE-updates.md` says which versions, last
-  read 2026-10-22). Then `kubernetes_version` in
-  `tofu/proxmox/talos-config.tf` in a commit, then `ansible/talos-k8s-upgrade.yml` (its dry run
-  first), then the OpenTofu job. Check first that Talos 1.14 supports 1.37 (its support
-  matrix) and the add-ons' ranges: Calico 3.33 is the one that covers 1.37 (3.33.0 tested on
-  1.35-1.37). Bump the claude-code image's `KUBECTL_VERSION` once the cluster is on it.
 
 ## Cleanup
 
@@ -207,11 +200,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
     remove. Every run lists what it would remove.
   - Don't run `zpool upgrade` unless a new ZFS feature is needed.
 
-- **Kea phase 3** (`QUEUE-kea-ha.md`; decision 5, the owner 2026-10-16: (b)): the reservations on
-  a CloudNativePG cluster through a LoadBalancer address, and a hot-standby partner on the
-  second Docker VM with the firewall relaying to both, are done (2026-10-16 to 10-18; verify-ca
-  2026-10-22). Left: the Stork agent on the standby, lease names into DNS, and `kea` dropped
-  from `kea-postgres` after a week on the new database (from 2026-10-24).
 - **Ansible for the hosts outside the cluster**, so their hand-made setup
   can be rebuilt from git instead of from notes:
   - **Docker VM:** netplan (its three network legs, routing tables and rule
@@ -274,7 +262,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Working queue files
 
-- [QUEUE-autonomy.md](QUEUE-autonomy.md): read first: the owner's standing permissions, the batches I can do on my own, and what waits on the owner.
+- [QUEUE-autonomy.md](QUEUE-autonomy.md): read first: the owner's standing permissions. Its batches are done or carried on in their own files, and the owner's list is empty.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 - [QUEUE-talos.md](QUEUE-talos.md) (about 93%): the nodes onto Talos VMs, surviving the loss of any host.
 - [QUEUE-kea-ha.md](QUEUE-kea-ha.md) (about 75%): Kea's reservations on CloudNativePG, then a hot-standby partner.
