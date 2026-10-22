@@ -135,6 +135,12 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Cleanup
 
+- **Retire the one-off `ansible/talosconfig-to-host.yml`** (2026-10-22): it copies Semaphore's
+  secret `talosconfig_b64` to `/root/talosconfig.b64` on one host, so the value can be saved and
+  re-entered as `TALOSCONFIG_B64`. Left, once that's done: `shred -u /root/talosconfig.b64` on
+  the host, its Semaphore template deleted, and a pull request removing the playbook. Left,
+  a template that writes the Talos admin credential to disk stays one click away.
+
 - **The NetBox sync's Kubernetes credentials** (2026-10-22): `scripts/netbox_seed.py` now reads
   the cluster's LoadBalancer Services and MetalLB pools and records each address (role VIP,
   the Services as its description) and each pool's range, and stops without
