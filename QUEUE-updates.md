@@ -99,10 +99,12 @@ not just grepped: MetalLB and Calico keep theirs in the repo (`website/content/r
       1.37's notes touch nothing here (no SELinux, IPVS mode or cAdvisor flags). Renovate's
       pull request for it is ready to merge once they do. Rechecked 2026-10-19: Flux,
       cert-manager and CloudNativePG have no newer release; External Secrets 2.13.0
-      (2026-10-16) is unread.
+      (2026-10-16) is unread. Rechecked 2026-10-22: still held. Flux 2.9.6, cert-manager
+      1.21.2 and CloudNativePG 1.30.1 are still each one's newest; External Secrets 2.13.0's
+      support table lists Kubernetes 1.36 only.
 - [ ] **Python 3.14.8 -> 3.15.0** (Renovate's pull request #14; held 2026-10-21): every
       `python:` image here and `renovate.json`'s Python constraint; Baby Buddy's MCP pod
-      jumps from 3.12.15. Held until PyYAML publishes Python 3.15 wheels: 6.0.3, its newest,
+      jumps from 3.12.15. Held until PyYAML publishes Python 3.15 wheels: 6.0.3, its newest (still, rechecked 2026-10-22),
       has none, and four workloads `pip install` it at every start (the MCP pod, through its
       requirements; the Grimmory, media and Organizr sync jobs, pinned `pyyaml==6.0.3`), so
       on 3.15 each would build it from source every time. Everything else the MCP pod

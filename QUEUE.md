@@ -138,12 +138,19 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 ## Cleanup
 
 - **calico-apiserver logs about 860 error lines an hour** (found 2026-10-22, the Logs
-  dashboard's error table): "Handler timeout" and "http2: stream closed" on Calico's
-  aggregated API, requests timing out or dropped by their clients. Left, it is most of the
-  cluster's error lines and hides real ones in that table; find which client holds the
-  requests open (the kube-apiserver's aggregator, a controller's watch), and whether it's the
-  usual watch churn or something misconfigured.
-
+  dashboard's error table; cause read 2026-10-22): every one is a `GET
+  /apis/projectcalico.org/v3` through the kube-apiserver's aggregation that the caller cut
+  short ("Timeout or abort while handling", then three "Unhandled Error" lines for the same
+  request: http2 stream closed, Handler timeout), about 350 such requests an hour, most on the
+  replica running on a control-plane node. Benign, by Calico's maintainers (projectcalico/calico
+  issues 7791 and 13079): aborted long-running requests through an aggregated API are logged
+  as errors where a plain resource logs nothing; the Kubernetes fix (kubernetes/kubernetes PR
+  131245) was closed unmerged. The APIService is Available, nothing is throttled
+  (`calico-apiserver` at 10m CPU, no CFS throttling) and Calico works. Two ways to quiet it,
+  neither done: drop those four messages from `calico-system` in Alloy before Loki (the
+  monitoring stack's own change), or Calico's native v3 CRDs, which retire the aggregated API
+  server (preview since Calico 3.32; this is 3.33.0), a Calico change for the owner to choose.
+  Left as is, the lines fill the Logs dashboard's error table and hide real errors there.
 - **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
   delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
@@ -165,7 +172,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   with the Topology Views patch live (#266, #277; the role-icon rows now render), paging
   `/api/core/object-changes/` answers 500 at the page holding one, "Could not determine
   serializer for dcim.PortTemplateMapping" (NetBox 4.7.2-Docker-5.1.1: the model has no API
-  serializer). That's NetBox's own; look for it upstream and take the release that fixes it.
+  serializer). That's NetBox's own: issue 23280, fixed in NetBox 4.7.3 (2026-10-13; the image
+  `ghcr.io/netbox-community/netbox:v4.7.3` is published, checked 2026-10-22). Left: a pull
+  request moving `docker/netbox/Dockerfile`'s `FROM` from `v4.7.2` to `v4.7.3`, the redeploy
+  its webhook starts, then every page of `/api/core/object-changes/` answering 200.
   `?fields=` without `changed_object` works meanwhile. Left, a script reading the change log
   by API fails until housekeeping drops those rows. Also report the plugin's two faults
   upstream (the text is in #266).
