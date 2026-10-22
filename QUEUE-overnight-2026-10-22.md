@@ -77,7 +77,13 @@ role-icon rows render; rebased onto #298 with `QUEUE.md` resolved), #290 (NetBox
 - ~~**The `evacuate` override in NetBox's Proxmox config context**~~: already gone (2026-10-22): the owner found no `evacuate` in any config context, and the reboot run task 1148 planned every move itself (`evacuate-pick.yml`: the Docker VM by its HA rule, the others by most memory free).
 - ~~**DMZ clients' second Pi-hole address**~~: closed, nothing to change (the owner, 2026-10-22): in the 7 days before, both Pi-holes' query logs show one DMZ client, the first Docker VM's DMZ leg, which already asks both.
 - ~~**The Pi-holes' DMZ addresses in git history**~~: left (the owner, 2026-10-22): two private addresses, and a rewrite would disrupt every working session's clone and still leave them in GitHub's PR refs and caches.
-- **Scheduled weekly check-mode runs in Semaphore** need a template schedule (Manager role).
+- ~~**Scheduled weekly check-mode runs in Semaphore**~~: set up 2026-10-22 (the owner granted
+  `claude-code` Manager for it): schedules 14-17, Sundays 10:00-10:45 local, run Debian Baseline,
+  Proxmox Host, Pi-Hole and Synology Baseline with `dry_run` and `diff` (read back on each
+  schedule); a first run of each, unattended and without inputs, passed with `changed=0`
+  everywhere (tasks 1222-1225). Pending Proxmox updates were already checked daily (schedule
+  7, also `dry_run`). Left in `QUEUE.md`: Semaphore's alerts, off, so a failed run notifies no
+  one; and the Manager role back to Task Runner (the owner).
 - ~~Restart `databasus-verification-agent`~~: done 2026-10-22 01:53 (approved; it reaches Docker
   again). Left: a verification from Databasus's UI, or tonight's at 00:00 UTC.
 - ~~The first Docker VM's root disk was 99% full~~: 41% (18 GB free) at 01:53, cleaned by the owner. Was: (30 of 32 GB, 492 MB free, 2026-10-22): what
