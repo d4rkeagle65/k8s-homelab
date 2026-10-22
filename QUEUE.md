@@ -194,6 +194,16 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
 
 ## Later
 
+- **`netbox-topology-views` 5.0.0 carries security fixes** (found 2026-10-22): an XSS and a
+  path traversal in the role-image settings, released 2026-10-19; `docker/netbox/` pins 4.7.0.
+  Check 5.0.0 supports NetBox 4.7, then bump it (`patch_topology_views.py` from #266 refuses
+  5.0.0's class only if its text changed; its serializer is unchanged). Left, the plugin's
+  settings pages keep those holes.
+- **Databasus's two alert emails on 2026-10-21 at 08:03 were refused** ("554 Transaction
+  failed" from the cluster's SMTP relay); none failed before or since, and the relay's logs
+  from then are gone (its pods restarted). If it recurs, read `smtp-oauth-relay`'s log at the
+  time. Left, an alert can be lost without a trace.
+
 - **Point-in-time recovery for Grimmory's MariaDB** (`old-queues/QUEUE-mariadb.md`): on
   mariadb-operator 26.10.1 the agent logged "Starting binary log archiver" and archived nothing
   to Garage, added to a running MariaDB or configured from creation. Retry on a later operator
