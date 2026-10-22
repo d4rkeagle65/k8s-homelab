@@ -90,9 +90,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   without a Hardcover lookup, and repairs them through upstream's own path (`DELETE` then
   `GET /work/<id>`), paced to Hardcover's daily budget. Its first nightly dry run
   (2026-10-22 07:15 UTC) listed 4 authors short by 27 works, as the session's check had; it
-  now repairs (`DRY_RUN` "false"). Left: the next run's log shows each work attached and the
-  budget it spent (its `DELETE` path has never run here: the script stops if a work doesn't
-  expire, and fails if one doesn't attach), and Bookshelf shows those authors' books.
+  now repairs (`DRY_RUN` "false"). The first repair, started by hand 2026-10-22, attached 26
+  of the 27 (27 lookups; 4,973 of the day's budget left), so `DELETE` then `GET` works. One
+  didn't: work 2813965 of Hardcover author 132049 (Bookshelf author 10). Its cached record
+  names that author on all 99 editions, and no work of the same title is on the author's
+  record, yet the record (295 works) lacks it, so the job failed as designed. Left: read the
+  next nightly run (it tries that work again, one lookup); if it still won't attach, look at
+  how rreading-glasses attaches a work whose author record was refreshed after it (upstream
+  issue 602's area). Until then the job fails each night on it, and KubeJobFailed tickets it.
   **Pace any repair by hand to Hardcover's daily budget** (2026-10-18: about 2,000 repair
   lookups in an afternoon spent the token's whole day, and every uncached Bookshelf lookup
   failed for hours): read `rg_gql_ratelimit_remaining{bucket="daily"}` before and during a
