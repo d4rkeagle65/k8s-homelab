@@ -78,7 +78,8 @@ services:
   # Creates Kea's tables on an empty database, and upgrades them to match
   # this Kea version otherwise; runs on every deploy, then exits. The database
   # is the one Kea itself uses: hosts-databases in the site file (kea-db on
-  # CloudNativePG since 2026-10-17), with its ssl-mode.
+  # CloudNativePG since 2026-10-17), with its ssl-mode and, for verify-ca, its
+  # trust-anchor (the CA's certificate in the site folder, ansible/kea-ha.yml).
   kea-db-init:
     # Built here from the Dockerfile, which holds the versions; never pulled,
     # since no registry has it.
@@ -101,10 +102,12 @@ services:
       raw = open("/etc/kea/site/site.json").read()
       db = json.loads("{" + raw.strip().rstrip(",") + "}")["hosts-databases"][0]
       for k, v in (("HOST", db["host"]), ("PORT", db.get("port", 5432)), ("USER", db["user"]),
-                   ("NAME", db["name"]), ("PASS", db["password"]), ("SSL", db.get("ssl-mode", "prefer"))):
+                   ("NAME", db["name"]), ("PASS", db["password"]), ("SSL", db.get("ssl-mode", "prefer")),
+                   ("CA", db.get("trust-anchor", ""))):
           print("DB_%s=%s" % (k, shlex.quote(str(v))))
       ')"
       export PGSSLMODE="$$DB_SSL"
+      if [ -n "$$DB_CA" ]; then export PGSSLROOTCERT="$$DB_CA"; fi
       args="pgsql -h $$DB_HOST -P $$DB_PORT -u $$DB_USER -p $$DB_PASS -n $$DB_NAME"
       if kea-admin db-version $$args >/dev/null 2>&1; then
         kea-admin db-upgrade $$args
