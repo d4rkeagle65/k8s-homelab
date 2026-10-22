@@ -136,22 +136,29 @@ spec:
             hideVersion: true
             useEqualHeights: true
             target: _blank
+            # Each group fills whole rows: its card count is a multiple of its
+            # columns. A row style group spans the page, so a group of 4 in 3
+            # columns leaves one card alone on a row of its own. Cards without
+            # a widget go in groups of their own, more to a row:
+            # useEqualHeights stretches them to a stat card's height beside one.
             layout:
-              Quick links: {style: row, columns: 8, header: false}
-              Hosts: {tab: Systems, style: row, columns: 3, header: false}
-              Network: {tab: Systems, style: row, columns: 3, header: false}
-              Wi-Fi: {tab: Systems, style: row, columns: 3, header: false}
-              Storage: {tab: Systems, style: row, columns: 3, header: false}
-              Tools: {tab: Systems, style: row, columns: 3, header: false}
-              Health: {tab: Cluster, style: row, columns: 4, header: false}
-              Observability: {tab: Cluster, style: row, columns: 3, header: false}
-              Featured: {tab: Apps, style: row, columns: 4, header: false}
-              Everyday: {tab: Apps, style: row, columns: 4, header: false}
-              Watch: {tab: Media, style: row, columns: 3, header: false}
-              Download: {tab: Media, style: row, columns: 2, header: false}
-              Indexers: {tab: Media, style: row, columns: 1, header: false}
-              Library: {tab: Media, style: row, columns: 2, header: false}
-              Upcoming: {tab: Media, style: row, columns: 1, header: false}
+              Quick links: {style: row, columns: 8, header: false, iconsOnly: true}
+              Hosts: {tab: Systems, style: row, columns: 3}
+              Storage: {tab: Systems, style: row, columns: 3}
+              DNS and DHCP: {tab: Systems, style: row, columns: 4}
+              Edge: {tab: Systems, style: row, columns: 3}
+              Network: {tab: Systems, style: row, columns: 3}
+              Wi-Fi: {tab: Systems, style: row, columns: 3}
+              Tools: {tab: Systems, style: row, columns: 6}
+              Health: {tab: Cluster, style: row, columns: 3}
+              Observability: {tab: Cluster, style: row, columns: 3}
+              Featured: {tab: Apps, style: row, columns: 3}
+              Everyday: {tab: Apps, style: row, columns: 4}
+              Watch: {tab: Media, style: row, columns: 3}
+              Downloads: {tab: Media, style: row, columns: 3}
+              Library: {tab: Media, style: row, columns: 4}
+              More: {tab: Media, style: row, columns: 2}
+              Upcoming: {tab: Media, style: row, columns: 1}
               Cluster docs: {tab: Reference, style: column}
               Infrastructure docs: {tab: Reference, style: column}
               Observability docs: {tab: Reference, style: column}
@@ -271,7 +278,69 @@ spec:
                         - label: Free memory
                           query: node_memory_MemAvailable_bytes{job="docker-vm"}
                           format: {type: bytes}
-            - Network:
+            - Storage:
+                - Synology:
+                    icon: synology.png
+                    href: https://${NAS_MGMT_HOSTNAME}:5001
+                    description: Main NAS
+                    widgets:
+                    - type: diskstation
+                      url: https://${NAS_MGMT_HOSTNAME}:5001
+                      username: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_USERNAME}}" }}"
+                      password: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_PASSWORD}}" }}"
+                    - type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Pools healthy
+                          query: count(raidStatus{nas="synology"} == 1) or vector(0)
+                          format: {type: number}
+                        - label: Disks OK
+                          query: count(diskStatus{nas="synology"} == 1) or vector(0)
+                          format: {type: number}
+                        - label: Temp
+                          query: temperature{nas="synology"}
+                          format: {type: number, suffix: " °C"}
+                - TerraMaster:
+                    icon: terramaster.png
+                    href: http://${TERRAMASTER_MGMT_ADDRESS}:8181
+                    description: Second NAS
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Up
+                          # The exporter's own up series carries no nas label; a failed scrape
+                          # leaves this series absent.
+                          query: count(ssCpuIdle{nas="terramaster"}) or vector(0)
+                          format: {type: number}
+                        - label: CPU
+                          query: 100 - ssCpuIdle{nas="terramaster"}
+                          format: {type: percent, options: {maximumFractionDigits: 0}}
+                        - label: Free memory
+                          query: memAvailReal{nas="terramaster"}
+                          format: {type: bytes, scale: 1024}
+                - Garage:
+                    icon: garage.png
+                    description: S3 for backups and logs
+                    server: terramaster
+                    container: garage
+                    widget:
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Healthy
+                          query: max(cluster_healthy{job="garage"}) or vector(0)
+                          format: {type: number}
+                        - label: Requests
+                          query: sum(rate(api_s3_request_counter[5m]))
+                          format: {type: number, suffix: /s, options: {maximumFractionDigits: 2}}
+                        - label: Free
+                          query: sum(garage_local_disk_avail{volume="data"})
+                          format: {type: bytes}
+            - DNS and DHCP:
                 - Pi-hole 1:
                     icon: pi-hole.png
                     href: https://pihole.${BASE_DOMAIN}/admin
@@ -317,6 +386,10 @@ spec:
                     description: DHCP's hot standby, on the second Docker VM
                     server: docker-vm-2
                     container: kea-dhcp4
+                    # Its container's CPU, memory and traffic, read through the
+                    # socket proxy: Kea's HA state isn't in Prometheus.
+                    showStats: true
+            - Edge:
                 - Traefik:
                     icon: traefik.png
                     description: Ingress and certificates
@@ -358,6 +431,7 @@ spec:
                       deviceid: "{{ "{{HOMEPAGE_VAR_TAILSCALE_DEVICE}}" }}"
                       key: "{{ "{{HOMEPAGE_VAR_TAILSCALE_KEY}}" }}"
                       fields: [address, last_seen, expires, update_available]
+            - Network:
                 - Switch:
                     icon: tp-link.png
                     href: https://grafana${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/dashboards
@@ -399,16 +473,27 @@ spec:
                         - label: 04 ping
                           query: 1000 * max(probe_icmp_duration_seconds{switch="04", phase="rtt"})
                           format: {type: number, suffix: " ms", options: {maximumFractionDigits: 1}}
-                - Dockhand:
-                    icon: dockhand.png
-                    href: https://dockhand.${BASE_DOMAIN}
-                    description: Docker stacks
-                    siteMonitor: https://dockhand.${BASE_DOMAIN}
-                    # No widget: Dockhand's needs its admin login (a limited user is
-                    # a paid licence), root on every Docker host. Its own container's
-                    # state comes from docker/docker-socket-proxy instead.
+                - NetBox:
+                    icon: netbox.png
+                    href: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Hosts, addresses and networks
+                    siteMonitor: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/login/
                     server: docker-vm-1
-                    container: dockhand
+                    container: netbox
+                    # NetBox runs on the Docker host (docker/netbox/), through
+                    # Traefik. A read-only API token of NetBox's own; its field
+                    # holds the whole header value as NetBox shows it
+                    # ("Bearer nbt_<key>.<token>").
+                    widget:
+                      type: customapi
+                      url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/status/
+                      headers:
+                        Authorization: "{{ "{{HOMEPAGE_VAR_NETBOX_TOKEN}}" }}"
+                      mappings:
+                        - field: netbox-version
+                          label: Version
+                        - field: rq-workers-running
+                          label: Workers
             - Wi-Fi:
                 - Production AP:
                     icon: openwrt.png
@@ -476,67 +561,17 @@ spec:
                         - label: Load
                           query: node_load1{ap="3"}
                           format: {type: number, options: {maximumFractionDigits: 2}}
-            - Storage:
-                - Synology:
-                    icon: synology.png
-                    href: https://${NAS_MGMT_HOSTNAME}:5001
-                    description: Main NAS
-                    widgets:
-                    - type: diskstation
-                      url: https://${NAS_MGMT_HOSTNAME}:5001
-                      username: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_USERNAME}}" }}"
-                      password: "{{ "{{HOMEPAGE_VAR_SYNOLOGY_PASSWORD}}" }}"
-                    - type: prometheusmetric
-                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
-                      refreshInterval: 60000
-                      metrics:
-                        - label: Pools healthy
-                          query: count(raidStatus{nas="synology"} == 1) or vector(0)
-                          format: {type: number}
-                        - label: Disks OK
-                          query: count(diskStatus{nas="synology"} == 1) or vector(0)
-                          format: {type: number}
-                        - label: Temp
-                          query: temperature{nas="synology"}
-                          format: {type: number, suffix: " °C"}
-                - TerraMaster:
-                    icon: terramaster.png
-                    href: http://${TERRAMASTER_MGMT_ADDRESS}:8181
-                    description: Second NAS
-                    widget:
-                      type: prometheusmetric
-                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
-                      refreshInterval: 60000
-                      metrics:
-                        - label: Up
-                          query: max(up{job="snmp-exporter-prometheus-snmp-exporter", nas="terramaster"}) or vector(0)
-                          format: {type: number}
-                        - label: CPU
-                          query: 100 - ssCpuIdle{nas="terramaster"}
-                          format: {type: percent, options: {maximumFractionDigits: 0}}
-                        - label: Free memory
-                          query: memAvailReal{nas="terramaster"}
-                          format: {type: bytes, scale: 1024}
-                - Garage:
-                    icon: garage.png
-                    description: S3 for backups and logs
-                    server: terramaster
-                    container: garage
-                    widget:
-                      type: prometheusmetric
-                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
-                      refreshInterval: 60000
-                      metrics:
-                        - label: Healthy
-                          query: max(cluster_healthy{job="garage"}) or vector(0)
-                          format: {type: number}
-                        - label: Requests
-                          query: sum(rate(api_s3_request_counter[5m]))
-                          format: {type: number, suffix: /s, options: {maximumFractionDigits: 2}}
-                        - label: Free
-                          query: sum(garage_local_disk_avail{volume="data"})
-                          format: {type: bytes}
             - Tools:
+                - Dockhand:
+                    icon: dockhand.png
+                    href: https://dockhand.${BASE_DOMAIN}
+                    description: Docker stacks
+                    siteMonitor: https://dockhand.${BASE_DOMAIN}
+                    # No widget: Dockhand's needs its admin login (a limited user is
+                    # a paid licence), root on every Docker host. Its own container's
+                    # state comes from docker/docker-socket-proxy instead.
+                    server: docker-vm-1
+                    container: dockhand
                 - Semaphore:
                     icon: semaphore.png
                     href: https://semaphore.${BASE_DOMAIN}
@@ -551,38 +586,23 @@ spec:
                     siteMonitor: https://databasus.${BASE_DOMAIN}
                     server: docker-vm-1
                     container: databasus
+                - Zammad:
+                    icon: zammad.png
+                    href: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Helpdesk, alerts as tickets
+                    siteMonitor: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                 - mesh-mini:
                     icon: meshcentral.png
                     href: https://mesh${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                     description: Intel AMT consoles
                     namespace: mesh-mini
                     app: mesh-mini
-                - NetBox:
-                    icon: netbox.png
-                    href: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
-                    description: Hosts, addresses and networks
-                    siteMonitor: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/login/
-                    server: docker-vm-1
-                    container: netbox
-                    # NetBox runs on the Docker host (docker/netbox/), through
-                    # Traefik. A read-only API token of NetBox's own; its field
-                    # holds the whole header value as NetBox shows it
-                    # ("Bearer nbt_<key>.<token>").
-                    widget:
-                      type: customapi
-                      url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/status/
-                      headers:
-                        Authorization: "{{ "{{HOMEPAGE_VAR_NETBOX_TOKEN}}" }}"
-                      mappings:
-                        - field: netbox-version
-                          label: Version
-                        - field: rq-workers-running
-                          label: Workers
-                - Zammad:
-                    icon: zammad.png
-                    href: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
-                    description: Helpdesk, alerts as tickets
-                    siteMonitor: https://zammad${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                - Headlamp:
+                    icon: headlamp.png
+                    href: https://headlamp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Kubernetes web UI, read-only
+                    namespace: headlamp
+                    app: headlamp
             - Health:
                 - Kubernetes:
                     icon: kubernetes.png
@@ -605,12 +625,6 @@ spec:
                         - label: Restarts 24h
                           query: round(sum(increase(kube_pod_container_status_restarts_total[1d])))
                           format: {type: number}
-                - Headlamp:
-                    icon: headlamp.png
-                    href: https://headlamp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
-                    description: Kubernetes web UI, read-only
-                    namespace: headlamp
-                    app: headlamp
                 - Flux:
                     icon: flux-cd.png
                     description: GitOps from the repo
@@ -718,7 +732,6 @@ spec:
                     description: E-books
                     namespace: grimmory
                     app: grimmory
-                    podSelector: app.kubernetes.io/component=grimmory
                     # Grimmory keeps Booklore's API, so Booklore's widget reads it.
                     widget:
                       type: booklore
@@ -749,14 +762,6 @@ spec:
                       type: linkwarden
                       url: http://linkwarden.linkwarden.svc.${CLUSTER_DOMAIN}:3000
                       key: "{{ "{{HOMEPAGE_VAR_LINKWARDEN_KEY}}" }}"
-            - Everyday:
-                - Vaultwarden:
-                    icon: vaultwarden.png
-                    href: https://vaultwarden.${BASE_DOMAIN}
-                    description: Passwords
-                    siteMonitor: https://vaultwarden.${BASE_DOMAIN}
-                    server: docker-vm-1
-                    container: vaultwarden
                 - Authentik:
                     icon: authentik.png
                     href: https://auth.${BASE_DOMAIN}
@@ -768,6 +773,14 @@ spec:
                       version: 2
                       url: http://authentik-server.authentik.svc.${CLUSTER_DOMAIN}:80
                       key: "{{ "{{HOMEPAGE_VAR_AUTHENTIK_KEY}}" }}"
+            - Everyday:
+                - Vaultwarden:
+                    icon: vaultwarden.png
+                    href: https://vaultwarden.${BASE_DOMAIN}
+                    description: Passwords
+                    siteMonitor: https://vaultwarden.${BASE_DOMAIN}
+                    server: docker-vm-1
+                    container: vaultwarden
                 - n8n:
                     icon: n8n.png
                     href: https://n8n.${BASE_DOMAIN}
@@ -843,7 +856,7 @@ spec:
                     widget:
                       type: tdarr
                       url: http://tdarr.media.svc.${CLUSTER_DOMAIN}:8265
-            - Download:
+            - Downloads:
                 - qBittorrent:
                     icon: qbittorrent.png
                     href: https://qbittorrent.${BASE_DOMAIN}
@@ -865,7 +878,6 @@ spec:
                       type: sabnzbd
                       url: http://sabnzbd.media.svc.${CLUSTER_DOMAIN}:8080
                       key: "{{ "{{HOMEPAGE_VAR_SABNZBD_KEY}}" }}"
-            - Indexers:
                 - Prowlarr:
                     icon: prowlarr.png
                     href: https://prowlarr.${BASE_DOMAIN}
@@ -919,6 +931,7 @@ spec:
                       type: readarr
                       url: http://bookshelf.media.svc.${CLUSTER_DOMAIN}:8787
                       key: "{{ "{{HOMEPAGE_VAR_BOOKSHELF_KEY}}" }}"
+            - More:
                 - Whisparr:
                     icon: whisparr.png
                     href: https://whisparr.${BASE_DOMAIN}
