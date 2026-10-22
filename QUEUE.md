@@ -34,13 +34,17 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly (the
   Immich CLI, as the media apps' user, 1028:100, to the in-cluster Service). Its dry run
   (2026-10-21, 9 minutes): 9,264 files (52.4 GB), 4,193 already in Immich byte for byte, 5,071
-  new (23.1 GB), none unreadable. Left: `--dry-run` removed (branch `immich-import-upload`),
-  then a run started by hand (the CronJob's comment) for the bulk upload, its log read to the
-  end; once Immich's job queues are empty, the owner reviews Immich's duplicates (re-encoded
-  copies the hash can't match), and a nightly run's length is read, since every run hashes the
-  whole folder. Immich's server peaked at 5.3 GiB of its 6 GiB limit in the first import
-  (`QUEUE-resource-limits.md`): an OOM kill fails the CLI's run, and the Job's retry carries on
-  from what Immich already holds.
+  new (23.1 GB), none unreadable. The bulk upload (2026-10-22, #273 took `--dry-run` off): all
+  5,071 accounted for, in about 46 minutes from 01:13 to 01:58 UTC with two restarts between.
+  The first Job uploaded 4,201 before its own container was OOM-killed at 1Gi after about 25
+  minutes, 13.5 of 23.1 GB sent (the CLI holds each file in memory while it uploads it, and
+  the folder has videos of 2.9 GB, 1.1 GB and 933 MB). A one-off Job at 4Gi lost its retries in
+  a minute to Immich's database restarting under #258's spread, and a second ran clean in 15
+  minutes: 861 uploaded (6.1 GB), 9 skipped as content Immich already had, peak 2.13 GiB.
+  Immich's server didn't OOM. Left: #276 (the CronJob at 4Gi) merged; once Immich's job queues
+  are empty, the owner reviews Immich's duplicates (re-encoded copies the hash can't match);
+  and a nightly run's length read, since every run hashes the whole folder (about 10 minutes
+  here).
 - **Turn on Grimmory's relink job once a dry run has been read** (2026-10-21): Grimmory's
   library scan (`SYNC_LIBRARY_FILES`, 01:00) matches files by path, so a file Bookshelf moved
   is a deleted book and a new one, and the deleted book's locked metadata, shelves, reading
