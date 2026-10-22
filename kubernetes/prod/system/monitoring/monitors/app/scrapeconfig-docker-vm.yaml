@@ -1,17 +1,27 @@
-# The first Docker VM, at its management name: node-exporter
-# (ansible/tasks/host-exporters.yml), cAdvisor's per-container metrics
-# (docker/cadvisor), Kea's statistics through Stork's agent and Kea's HA state
-# (docker/kea).
+# The first Docker VM: node-exporter (ansible/tasks/host-exporters.yml), cAdvisor's
+# per-container metrics (docker/cadvisor), Kea's statistics through Stork's agent and
+# Kea's HA state (docker/kea).
+#
+# node-exporter's address comes from NetBox: its Prometheus SD plugin lists the VM by
+# its Proxmox VM ID (custom field vmid, 107) with its primary address, the management
+# one Ansible logs in to (scripts/netbox_seed.py keeps it), and port 9100 is added. If
+# NetBox can't be read, Prometheus keeps the targets it last found; a VM missing from
+# NetBox raises DockerVMNodeExporterMissing. The other exporters are the VM's services
+# at its management name.
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
   name: docker-vm
 spec:
+  httpSDConfigs:
+  - url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/plugins/prometheus-sd/virtual-machines/?tag=docker_vm&status=active&cf_vmid=107
+    refreshInterval: 5m
+    authorization:
+      type: Bearer
+      credentials:
+        name: netbox-sd
+        key: token
   staticConfigs:
-  - targets:
-    - ${DOCKHAND_ADDRESS}:9100
-    labels:
-      exporter: node
   - targets:
     - ${DOCKHAND_ADDRESS}:9338
     labels:
@@ -26,6 +36,16 @@ spec:
       exporter: kea-ha
   scrapeInterval: 60s
   relabelings:
+  # NetBox's target is the VM's name: scrape its primary address instead. Only the
+  # discovered target has the label, so the static ones pass unchanged.
+  - sourceLabels: [__meta_netbox_primary_ip4]
+    regex: (.+)
+    targetLabel: __address__
+    replacement: $${1}:9100
+  - sourceLabels: [__meta_netbox_primary_ip4]
+    regex: .+
+    targetLabel: exporter
+    replacement: node
   - targetLabel: job
     replacement: docker-vm
   # Only failed units' state, as in scrapeconfig-proxmox-hosts.yaml.

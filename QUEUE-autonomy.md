@@ -123,13 +123,12 @@ batch needs a Semaphore run, it needs the Task Runner role, or the owner runs it
       Hawser blocking a token it didn't match; Standard mode takes the agent's own token)
 - [ ] `NETBOX_READ_TOKEN` without its "Bearer " prefix: done 2026-10-22 (the owner, through
       `scripts/keyvault-secrets.ps1`); `proxmox-endpoints`, its one cluster user, restarted and
-      read NetBox with it (5 of 5 hypervisors). Left: Prometheus could discover the Docker VMs
-      from NetBox's Prometheus SD plugin (it adds its own "Bearer "), but the plugin gives each
-      VM's primary (Production) address, where node-exporter doesn't answer, and nothing in
-      NetBox marks the management one: a tag on those addresses (set by the NetBox sync), then
-      the scrape relabels to them. That switch also touches `scrapeconfig-docker-vm.yaml`,
-      `scrapeconfig-docker-vm-2.yaml`, Homepage's two Docker VM cards and the
-      `DockerContainerRestarting` rule, which use today's job names
+      read NetBox with it (5 of 5 hypervisors). node-exporter's targets for both Docker VMs
+      now come from NetBox's Prometheus SD plugin (`scrapeconfig-docker-vm*.yaml`, by each
+      VM's vmid custom field, at its primary address, which is the management one Ansible
+      logs in to: no tag needed), keeping the jobs `docker-vm` and `docker-vm-2`, and
+      `DockerVMNodeExporterMissing` fires if NetBox stops listing one. Left: after the merge,
+      both node targets up in Prometheus at the same addresses as before
 - [x] The Pi-holes' routing (`QUEUE.md`, found 2026-10-16): they answered every network from
       Production; fixed and checked from a VPN and an IoT/Work client (Run Command tasks 1194,
       1204, 2026-10-22)

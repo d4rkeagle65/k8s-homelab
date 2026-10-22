@@ -59,6 +59,21 @@ spec:
         description: >-
           {{ $labels.name }} started {{ $value }} times in 30 minutes: read its log
           in Dockhand.
+    # node-exporter's targets come from NetBox (scrapeconfig-docker-vm*.yaml): a VM
+    # missing there, or its VM ID or tag changed, leaves no target and so no "up" at all.
+    - alert: DockerVMNodeExporterMissing
+      expr: |
+        absent(up{job="docker-vm", exporter="node"})
+        or absent(up{job="docker-vm-2", exporter="node"})
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: A Docker VM's node-exporter isn't being scraped.
+        description: >-
+          Prometheus has no node-exporter target for a Docker VM: NetBox's Prometheus SD
+          plugin doesn't list it (its tag docker_vm, status or vmid custom field), or its
+          primary address is gone. Check the VM in NetBox and the netbox-sd Secret.
   - name: homelab.dhcp
     rules:
     # docker/kea's kea-ha-exporter, as the primary sees the pair (docker/kea/README.md).
