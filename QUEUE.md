@@ -53,8 +53,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   join network namespace of a non running container"; Dockhand logs "1 orphan container(s)
   failed to restart"). Redeploy kea instead, which runs `compose up`. Left: report it to Dockhand
   (github.com/Finsys/dockhand) with that log line; until then, a Restart leaves Stork blind to
-  Kea while DHCP runs on. (Dockhand's auto-update, which recreated three stacks' databases
-  outside Git that morning, is off on all four environments, read back from its database.)
+  Kea while DHCP runs on.
 - **Turn on Grimmory's relink job once a dry run has been read** (2026-10-21): Grimmory's
   library scan (`SYNC_LIBRARY_FILES`, 01:00) matches files by path, so a file Bookshelf moved
   is a deleted book and a new one, and the deleted book's locked metadata, shelves, reading
