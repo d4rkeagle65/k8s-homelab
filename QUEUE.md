@@ -141,16 +141,18 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   the host, its Semaphore template deleted, and a pull request removing the playbook. Left,
   a template that writes the Talos admin credential to disk stays one click away.
 
-- **The NetBox sync's Kubernetes credentials** (2026-10-22): `scripts/netbox_seed.py` now reads
-  the cluster's LoadBalancer Services and MetalLB pools and records each address (role VIP,
-  the Services as its description) and each pool's range, and stops without
-  `K8S_API_URL`, `K8S_TOKEN` and `K8S_CA_B64`. Left: the owner adds those three to the
-  "NetBox: Sync from Proxmox and Kea" template's environment as environment variables (secret:
-  the values the Ansible jobs' `k8s_api_url`, `k8s_token` and `k8s_ca_b64` hold), before the
-  pull request is merged; then the next run's log (it applies: its arguments hold `--apply`)
-  shows five LoadBalancer addresses and the `production` range under "load balancers:", read
-  back in NetBox. Left, the nightly sync fails from the merge on.
-
+- **Move "k8s and Talos Connection" to environment variables** (2026-10-22): `scripts/netbox_seed.py`
+  reads the cluster's LoadBalancer Services and MetalLB pools (#268) and stops without
+  `K8S_API_URL`, `K8S_TOKEN` and `K8S_CA_B64`; the Ansible jobs now read those and
+  `TALOSCONFIG_B64` from the environment (`ansible/group_vars/all.yml`), so one group serves
+  both. Left, for the owner in Semaphore: those four in "k8s and Talos Connection" as
+  environment variables (secret; `ansible/README.md`, step 4; the talosconfig's value from
+  `ansible/talosconfig-to-host.yml`, since Semaphore won't show it back), its four extra
+  variables deleted, and the group attached to "NetBox: Sync from Proxmox and Kea" beside its
+  own; then a dry run of "Reboot: Proxmox Hosts" and of "Node: Upgrade Talos", and the next
+  sync's log shows five LoadBalancer addresses and the `production` range under "load
+  balancers:", read back in NetBox. Left, the nightly sync fails (from #268's merge on), and
+  Semaphore warns the talosconfig can show in Ansible's logs.
 - **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
   delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded

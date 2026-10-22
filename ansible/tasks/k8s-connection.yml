@@ -1,0 +1,33 @@
+# The Kubernetes API's address, token and CA certificate are set, and the CA is
+# written beside the playbook for the API checks (tasks/kubernetes-healthy.yml,
+# tasks/kubectl-local.yml). Where they come from: group_vars/all.yml.
+- name: The Kubernetes API's address, token and CA certificate are set
+  ansible.builtin.assert:
+    that:
+      - k8s_api_url | default('') | length > 0
+      - k8s_token | default('') | length > 0
+      - k8s_ca_b64 | default('') | length > 0
+    fail_msg: >-
+      K8S_API_URL, K8S_TOKEN or K8S_CA_B64 is unset: they're environment variables
+      (secret) in the "k8s and Talos Connection" variable group (ansible/README.md).
+    quiet: true
+  no_log: true
+
+- name: Decode the Kubernetes CA certificate
+  ansible.builtin.set_fact:
+    k8s_ca_pem: "{{ k8s_ca_b64 | regex_replace('\\s', '') | b64decode }}"
+
+- name: The CA certificate is one
+  ansible.builtin.assert:
+    that: k8s_ca_pem is search('-----BEGIN CERTIFICATE-----')
+    fail_msg: >-
+      K8S_CA_B64 doesn't decode to a certificate: it takes the base64 text of the
+      token Secret's ca.crt, as stored, not decoded (ansible/README.md).
+    quiet: true
+
+- name: Write the Kubernetes CA certificate for the API checks
+  ansible.builtin.copy:
+    content: "{{ k8s_ca_pem }}"
+    dest: "{{ playbook_dir }}/.k8s-ca.pem"
+    mode: "0600"
+  check_mode: false
