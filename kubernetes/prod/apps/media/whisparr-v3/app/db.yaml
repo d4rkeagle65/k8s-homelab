@@ -8,6 +8,19 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   instances: 2
+  # Spread over the workers (scripts/tests/test_structure.py,
+  # test_databases_spread, says why).
+  affinity:
+    podAntiAffinityType: required
+    additionalPodAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              cnpg.io/podRole: instance
+          namespaceSelector: {}
+          topologyKey: kubernetes.io/hostname
   primaryUpdateMethod: switchover
   # WAL to Garage at least hourly (scripts/tests/test_structure.py,
   # test_databases_archive_hourly, says why).

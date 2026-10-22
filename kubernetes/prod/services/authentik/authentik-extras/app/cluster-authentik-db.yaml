@@ -9,8 +9,19 @@ metadata:
   name: authentik-db
   namespace: authentik
 spec:
+  # Spread over the workers (scripts/tests/test_structure.py,
+  # test_databases_spread, says why).
   affinity:
-    podAntiAffinityType: preferred
+    podAntiAffinityType: required
+    additionalPodAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              cnpg.io/podRole: instance
+          namespaceSelector: {}
+          topologyKey: kubernetes.io/hostname
   bootstrap:
     initdb:
       database: authentik

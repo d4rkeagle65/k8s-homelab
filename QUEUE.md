@@ -157,17 +157,17 @@ assigned (items below refer to them); 1 to 6 and 8 to 10 are done, 7 waits on a 
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
   by `grimmory-db`'s physical backups). Left, 14 days of stale dumps take NAS space.
 
-- **The CloudNativePG instances crowd two of the four workers** (found 2026-10-21): of 31
-  instances, one worker runs 13 and another 11, the other two 3 and 4: each cluster's
-  anti-affinity is only `preferred` and keeps its own two apart, so the scheduler places by
-  memory. No pair shares a node, but 10 of the 15 pairs sit on the same two workers, so losing
-  either fails over about six databases and restarts 11 to 13 instances. The primaries piled up
-  after each full drain are now spread back at the end of the four drain jobs
-  (`ansible/tasks/cnpg-spread-primaries.yml`). Left: a placement rule in every Cluster
-  (anti-affinity `required`, plus a preferred anti-affinity counting every instance in every
-  namespace) so new instances land on the emptier workers, then the existing replicas moved one
-  at a time (each instance is held to its node by its `local-db` volume, so moving one means
-  rebuilding it from its primary).
+- **Move database replicas off the two crowded workers** (found 2026-10-21): of 31
+  CloudNativePG instances, one worker runs 13 and another 11, the other two 3 and 4, so losing
+  either busy one fails over about six databases. Every Cluster now keeps its two instances apart
+  and prefers the workers with the fewest instances (`scripts/tests/test_structure.py`,
+  `test_databases_spread`), and the primaries piled up by a full drain are spread back at the
+  end of the four drain jobs (`ansible/tasks/cnpg-spread-primaries.yml`), but a `local-db`
+  volume holds each existing instance to its node, so the rule only places new ones. Left: move
+  about eight replicas, one at a time, each with the owner's go-ahead: delete the replica's pod
+  and PVC so CloudNativePG rebuilds it from its primary on the worker the rule picks, wait for
+  "Cluster in healthy state", then the next. Each leaves a Released `local-db` PV and its folder
+  on the old worker to clean up. Left as is, the next worker lost takes six primaries with it.
 
 - **Redeploy NetBox for the change-log fix** (found 2026-10-21): `netbox-topology-views`'
   `RoleImageSerializer` is a plain DRF `ModelSerializer` (unchanged in 5.0.0), so NetBox 4.7

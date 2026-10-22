@@ -10,6 +10,19 @@ metadata:
 spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
   instances: 1
+  # Spread over the workers (scripts/tests/test_structure.py,
+  # test_databases_spread, says why).
+  affinity:
+    podAntiAffinityType: required
+    additionalPodAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              cnpg.io/podRole: instance
+          namespaceSelector: {}
+          topologyKey: kubernetes.io/hostname
   # WAL to Garage at least hourly (scripts/tests/test_structure.py,
   # test_databases_archive_hourly, says why).
   postgresql:
