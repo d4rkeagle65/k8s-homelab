@@ -25,6 +25,11 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 3
+      # Every try together, then the Job fails: a hung upload (an NFS read or a
+      # server restart the CLI waits on forever) would otherwise run on, and
+      # Forbid would skip every night after it. The first bulk upload took 14
+      # minutes (2026-10-22), and a run's hashing of the whole folder about 9.
+      activeDeadlineSeconds: 21600
       template:
         spec:
           restartPolicy: OnFailure

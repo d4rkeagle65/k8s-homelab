@@ -19,6 +19,11 @@ fail() { log "FAILED: $*"; exit 1; }
 # Blank, 7z would write the archive unencrypted, and it holds every stack's secrets.
 need_password() { [ -n "$PASS" ] || fail "DOCKHAND_BACKUP_ZIP_PASSWORD is blank: nothing is written unencrypted"; }
 
+# 7z with the password on its standard input, never its command line, where the host's
+# process list would show it: -p with no value has "7z a" read it there, and "7z t" and
+# "7z x" ask for it there (7-Zip 24.09, Alpine's; printf is the shell's own, no process).
+with_password() { printf '%s\n' "$PASS" | 7z "$@"; }
+
 # The archive's contents, each checked: the database whole, the key the size Dockhand
 # writes (without it the database's secrets can't be read).
 check_contents() {
@@ -42,11 +47,12 @@ run() (
     check_contents "$work"
     name="dockhand.$(date -u +%Y%m%d-%H%M%S).7z"
     # -mhe=on encrypts the file list too.
-    (cd "$work" && 7z a -t7z -mhe=on -p"$PASS" "$name" dockhand.db .encryption_key compose.yaml \
+    (cd "$work" && with_password a -t7z -mhe=on -p "$name" dockhand.db .encryption_key compose.yaml \
         $( [ -f compose.env ] && echo compose.env ) >/dev/null)
-    7z t -p"$PASS" "$work/$name" >/dev/null || fail "the new archive doesn't open with the password"
+    with_password t "$work/$name" >/dev/null || fail "the new archive doesn't open with the password"
     rclone copyto "$work/$name" "$REMOTE/$name"
-    rclone lsf "$REMOTE/$name" | grep -qx "$name" || fail "$name isn't in $REMOTE after the upload"
+    uploaded=$(rclone lsf "$REMOTE/$name") || fail "couldn't list $REMOTE to read the upload back"
+    printf '%s\n' "$uploaded" | grep -qx "$name" || fail "$name isn't in $REMOTE after the upload"
     rclone delete --min-age "${BACKUP_KEEP_DAYS:-30}d" "$REMOTE"
     mkdir -p "$STATE"
     date -u +%s > "$STATE/last-ok"
@@ -57,12 +63,14 @@ check() (
     need_password
     work=$(mktemp -d /tmp/dockhand-check.XXXXXX)
     trap 'rm -rf "$work"' EXIT
-    newest=$(rclone lsf --include 'dockhand.*.7z' "$REMOTE" | sort | tail -n 1)
+    # The listing on its own: through a pipe, a failed one would read as no archive.
+    archives=$(rclone lsf --include 'dockhand.*.7z' "$REMOTE") || fail "couldn't list $REMOTE: no answer, not no archive"
+    newest=$(printf '%s\n' "$archives" | sort | tail -n 1)
     [ -n "$newest" ] || fail "no archive in $REMOTE"
     rclone copyto "$REMOTE/$newest" "$work/$newest"
-    (cd "$work" && 7z x -p"$PASS" "$newest" >/dev/null) || fail "$newest doesn't open with the password"
+    (cd "$work" && with_password x "$newest" >/dev/null) || fail "$newest doesn't open with the password"
     check_contents "$work"
-    log "OK: $newest restores ($(rclone lsf --include 'dockhand.*.7z' "$REMOTE" | wc -l) archives kept)"
+    log "OK: $newest restores ($(printf '%s\n' "$archives" | grep -c .) archives kept)"
 )
 
 # Seconds until the next BACKUP_AT, UTC.
