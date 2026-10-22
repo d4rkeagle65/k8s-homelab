@@ -132,6 +132,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
+- **calico-apiserver logs about 860 error lines an hour** (found 2026-10-22, the Logs
+  dashboard's error table): "Handler timeout" and "http2: stream closed" on Calico's
+  aggregated API, requests timing out or dropped by their clients. Left, it is most of the
+  cluster's error lines and hides real ones in that table; find which client holds the
+  requests open (the kube-apiserver's aggregator, a controller's watch), and whether it's the
+  usual watch churn or something misconfigured.
+
 - **The old Grimmory database's dump folder on the Synology** (2026-10-21, the owner's to
   delete): `grimmory-grimmory-db-backup-pvc-5df26534-…` under the NFS share's `k8sData`, the
   nightly `mariadb-dump`s of the database #225 retired (its PV is gone; the data is superseded
