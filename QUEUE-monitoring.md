@@ -233,20 +233,17 @@ comes with it. Proxmox forwards metrics and logs too, and so does every applicat
       Vaultwarden; the other buckets alert from their own metrics) and
       `GarageBackupExporterFailing`; read back 2026-10-20, all three buckets up. A suspended
       PhysicalBackup (a replica recovery's template) is skipped by `MariaDBBackupNotComplete`.
-      Left: the Synology-to-TerraMaster copy. It's Hyper Backup on the Synology, task
-      `k8s-to-tnas` (`task_5` in its config), multi-version, nightly 05:30, to the TerraMaster's
-      rsync daemon on its management address (module `k8sBackups`, user `tnasrsync`, no transfer
-      encryption), into `k8sBackups/k8sData_synology.hbk`. Its first full run started
-      2026-10-21 23:38 local; once it succeeds, the owner deletes the old single-version copy
-      (`k8sBackups/k8sData_synology/`, a cancelled partial run), never `garage/`. The plan,
-      settled with the owner: a small exporter stack on the Synology (`docker/`, Dockhand through
-      its Hawser agent, standard-library Python) reading `/var/synobackup/config/task_state.conf`
-      and `/usr/syno/etc/synobackup.conf` read-only, serving each task's last run time and result;
-      `SynologyBackupTooOld` (26 h), `SynologyBackupFailed` and an exporter-down alert; a row on
-      the Backups dashboard. Wait for the first run to finish before writing it: until a run
-      completes, `task_state.conf` holds only `last_state="Initial"`, and its completion fields'
-      names are to be read, not guessed. File modification times on the TerraMaster are no
-      signal: rsync keeps the source files' times
+      In PR: the Synology-to-TerraMaster copy, Hyper Backup's task `k8s-to-tnas` (multi-version,
+      nightly 05:30, to the TerraMaster's rsync daemon on its management address, module
+      `k8sBackups`, into `k8sData_synology.hbk`; first full run and a second one succeeded
+      2026-10-21). Watched from its own log lines, which the Synology sends to Loki by syslog
+      (`app="Backup"`): Loki rules `SynologyBackupTooOld` (no "finished successfully" in 26 h)
+      and `SynologyBackupFailed` (a "Failed to run backup task" or "Exception occurred" line,
+      by task), and a Hyper Backup row on the Backups dashboard. The exporter first planned has
+      nothing to read: `task_state.conf` stays `last_state="Initial"` after runs, and the
+      TerraMaster's file times are the sources' (rsync keeps them). Left: the merge and its
+      read-back; the owner deletes the old single-version copy (`k8sBackups/k8sData_synology/`,
+      a cancelled partial run), never `garage/`
 
 ## Resuming
 
