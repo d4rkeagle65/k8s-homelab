@@ -82,16 +82,17 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   failed to restart"). Redeploy kea instead, which runs `compose up`. Left: report it to Dockhand
   (github.com/Finsys/dockhand) with that log line; until then, a Restart leaves Stork blind to
   Kea while DHCP runs on.
-- **Grimmory's Refresh Metadata, once the owner has the task-manager flag** (2026-10-22): it
-  failed to start for the owner ("Failed to start Refresh Metadata", nothing logged) because
-  its task checks `permissionAccessTaskManager` itself, without the admin fallback the other
-  tasks have, and the `ON_LOGIN` group sync cleared that flag at each sign-in; the Grimmory
-  Admins mapping now lists every permission (`sync/grimmory.yaml`). Left: the owner signs out
-  and in, then runs it. The one earlier run (2026-10-11, the local admin) failed "Transaction
-  silently rolled back because it has been marked as rollback-only": the whole library is one
-  transaction (`LibraryRescanHelper.handleRescanOptions` in 3.5.0), so one book's error undoes
-  every book's. If that recurs, the log's "Failed to update metadata for book id=..." names
-  the book; fix or replace its file, and report the transaction scope upstream.
+- **Report two Grimmory 3.5.0 bugs upstream** (found 2026-10-22, worked around here):
+  Refresh Metadata's task (`LibraryRescanTask.validatePermissions`) checks
+  `permissionAccessTaskManager` without the admin fallback the other tasks have (fixed here by
+  listing every permission on the admin group, #332); and it copies a file's "ASIN" unchecked
+  into the 20-character `book_metadata.asin`, where Calibre's 36-character UUIDs (MOBI EXTH
+  113) fail the save, and because the whole library is one transaction
+  (`LibraryRescanHelper.handleRescanOptions`) that one book undoes every book's refresh. 27
+  books had their ASIN locked through Grimmory's field lock (`asinLocked`), and the refresh
+  then completed (2026-10-23, 179 books, 47 s). Posting the issues needs the owner's go-ahead.
+  Left as is, a new book whose file carries such an ID fails the next refresh again: lock its
+  ASIN the same way.
 - **Read the Grimmory relink job's first real relink** (on since 2026-10-22): the
   `grimmory-relink` CronJob (`kubernetes/prod/apps/grimmory/grimmory/app/`, hourly at :50)
   points a book at its file again when Bookshelf moves it, before Grimmory's 01:00 scan would
