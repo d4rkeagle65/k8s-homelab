@@ -63,8 +63,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   and puts devices in rooms from their NetBox Location (this branch's pull request moves rooms
   there, adds --attended for the TVs' setups, and lets one device's timeout not stop the run;
   Semaphore task 1275 stopped on the Fire Stick's ADB prompt, creating nothing). NetBox has a
-  Location per room, and 46 of the 49 IoT devices are in theirs (read back); the Furbo, the
-  front-door lock and the photo frame have none yet, waiting for the owner's rooms. Left:
+  Location per room, and all 49 IoT devices are in theirs (read back). Left:
   merge it; a second Semaphore template with --apply --attended beside template 32; then a run of each.
   HA's Nursery area stays for Baby Buddy. The Tapo plugs need TPLINK_USERNAME and
   TPLINK_PASSWORD in the group (or the UI). The cloud integrations (Tuya, VeSync, Whirlpool;
