@@ -59,13 +59,16 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
   the IoT prefix on the devices' ports (HA is hostNetwork, so devices are added by IP, without
-  discovery); setup goes through HA's REST API with the token in `~/.ha-token`. Done: the 15 Kasa
-  devices with a lease (TP-Link integration, 45 entities, read back). Left: the 3 Tapo plugs need
-  the owner's TP-Link login in their flow (once one is in the UI, try the other two by API);
-  the bedroom Fire Stick (Android TV, ADB is on; the owner approves the prompt on the TV); the
-  Samsung TV and the rest once powered on (the "livcor" Kasa device has no lease); the cloud
-  integrations (Tuya, VeSync, Whirlpool; HACS' Alexa Media Player, Govee, Hatch, eufy) take
-  the owner's own logins in the HA UI. Revoke the HA token when this is done.
+  discovery). `scripts/ha_iot_setup.py` (this branch's pull request) adds each local device
+  from NetBox by its setup flow and puts devices in rooms from a map kept outside git; its
+  dry run here would add 6 and place 14. Left: merge it, then a Semaphore Python template
+  and variable group for it (the owner; its docstring lists them), then a dry run and an
+  --apply run. The Tapo plugs need TPLINK_USERNAME and TPLINK_PASSWORD in that group (or the
+  UI); the Fire TVs need the ADB prompt approved on screen, the Samsung TV its PIN, both in
+  the UI. The cloud integrations (Tuya, VeSync, Whirlpool; HACS' Alexa Media Player, Govee
+  Cloud Integration, Hatch, eufy) take the owner's logins in the UI; run the script again
+  after to place their devices that carry a MAC. Then pin the HACS add-ons in the repo
+  (offered, its own pull request). Revoke the token in ~/.ha-token when this is done.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
