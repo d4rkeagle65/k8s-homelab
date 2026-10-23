@@ -66,10 +66,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   IoT hostnames go in, for their DNS names (the owner wants them there: the IoT prefix is in
   NetBox DNS's default view, so a DNS name becomes a Pi-hole record). Left, every IoT
   switch reads HS200, and the hostnames sit in the descriptions. Kea holds 49 IoT
-  reservations and NetBox has a device for each (sync task 1254, read back). Left by hand in
-  NetBox: the Echo Spot's device (its name has "echospot") reads Echo Dot 4th Gen Clock, made by
-  the scheduled sync before #341's rule landed, so set its type to Echo Spot; the two bulb
-  devices ("sllb") are Offline with their reservations gone, so delete them. The two Hatch
+  reservations and NetBox has a device for each (sync task 1254, read back). The two Hatch
   Rest 2nd Gens are still on Production: their reservations wait for the owner to move them
   to IoT.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
