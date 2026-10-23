@@ -165,3 +165,37 @@ def test_a_timed_out_call_comes_back_as_no_answer_not_an_exit(monkeypatch):
     ha = m.HomeAssistant.__new__(m.HomeAssistant)
     ha.base, ha.headers = "https://ha.example", {}
     assert ha.flow("/F", {"host": "192.0.2.10"})["type"] == "no_answer"
+
+
+class FakeSocket:
+    """A WebSocket whose calls fail as closed the first `closed` times."""
+
+    def __init__(self, closed=0):
+        self.closed, self.calls = closed, []
+
+    def call(self, kind, **args):
+        self.calls.append(kind)
+        if self.closed:
+            self.closed -= 1
+            raise m.SocketClosed("no more data")
+        return [{"id": "a"}]
+
+
+def ha_with(first, opened, monkeypatch):
+    monkeypatch.setattr(m, "HomeAssistantSocket", lambda url, token: opened.pop(0))
+    ha = m.HomeAssistant.__new__(m.HomeAssistant)
+    ha.url, ha.token, ha.ws = "https://ha.example", "t", first
+    return ha
+
+
+def test_a_websocket_dropped_while_idle_is_reopened_and_the_call_sent_again(monkeypatch):
+    fresh = FakeSocket()
+    ha = ha_with(FakeSocket(closed=1), [fresh], monkeypatch)
+    assert ha.devices() == [{"id": "a"}]
+    assert ha.ws is fresh and fresh.calls == ["config/device_registry/list"]
+
+
+def test_a_websocket_closed_again_after_reopening_stops_the_run(monkeypatch):
+    ha = ha_with(FakeSocket(closed=1), [FakeSocket(closed=1)], monkeypatch)
+    with pytest.raises(SystemExit):
+        ha.areas()
