@@ -8,15 +8,16 @@ device's type or manufacturer names the integration, and the script runs its set
 flow by address, as the UI's "Add integration" would. A flow that asks for what the
 script can't give (a login it has no variables for, a PIN shown on a TV) is closed
 and the device reported as waiting; the owner finishes it in the UI or supplies the
-login and runs again. Devices no entry matches are the cloud integrations' and are
+login and runs again. A flow ha_iot_setup.yaml marks attended (someone approves a
+prompt or reads a PIN at the device) runs only with --attended; without it, those
+devices are listed as waiting for an attended run. Devices no entry matches are the cloud integrations' and are
 only placed in rooms.
 
-Rooms: HA_IOT_AREAS (else ~/.ha-iot-areas.json), a JSON list of [pattern, area name]
-pairs, the first pattern found in the part of the hostname after "iot" deciding. The
-map names the household's rooms, so it lives with the credentials and never in this
-repo. A device in no area is put in its room's area (made if missing); one already in
-an area keeps it, since an area chosen in Home Assistant is the owner's, and a
-difference is reported. Without the map, rooms are skipped and that is said.
+Rooms: each device's Location in NetBox (a room of the site) names its area in Home
+Assistant, so NetBox is where a room is set. A device in no area is put in its
+Location's area (made if missing); one already in an area keeps it, since an area
+chosen in Home Assistant is the owner's, and a difference is reported. A device with
+no Location is listed.
 
 A dry run (the default) reports what it would add and place; --apply does it and
 reads Home Assistant's device registry back. It removes nothing. Names are printed,
@@ -27,9 +28,10 @@ administrator's long-lived token), NETBOX_TOKEN or ~/.netbox-token (read access 
 enough), and each integration's login variables from ha_iot_setup.yaml. The URLs are
 HA_URL (else ~/.ha-url) and NETBOX_API.
 
-In Semaphore it is a Python template like the NetBox sync: script
-scripts/ha_iot_setup.py, argument --apply, and a variable group holding all of the
-above as environment variables (secret), HA_IOT_AREAS among them.
+In Semaphore it is two Python templates like the NetBox sync, on one variable group
+holding all of the above as environment variables (secret): script
+scripts/ha_iot_setup.py with argument --apply, safe to schedule, and the same with
+--apply --attended, run by hand while someone is at the TVs.
 """
 from __future__ import annotations
 
@@ -47,7 +49,7 @@ from urllib.parse import urlsplit
 from ruamel.yaml import YAML
 
 # netbox_seed.py sits beside this script, so Python finds it when it runs the script.
-from netbox_seed import IOT_DEVICE_MARK, NetBox, http, iot_name, read_secret, unexpected
+from netbox_seed import IOT_DEVICE_MARK, NetBox, http, read_secret, unexpected
 
 
 class HomeAssistantSocket:
@@ -127,6 +129,9 @@ class HomeAssistantSocket:
                 return r["result"]
 
 
+FLOW_TIMEOUT = 90
+
+
 class HomeAssistant:
     """Config flows over REST, registries over the WebSocket."""
 
@@ -136,7 +141,15 @@ class HomeAssistant:
         self.ws = HomeAssistantSocket(url, token)
 
     def flow(self, path: str, body=None, method: str = "POST"):
-        return http(method, f"{self.base}/api/config/config_entries/flow{path}", self.headers, body)
+        """One call of a setup flow. A step can wait on the device (an ADB connection
+        waits for its prompt on the TV), so it gets FLOW_TIMEOUT seconds; one that
+        fails or doesn't answer comes back as {"type": "no_answer"}, so that device
+        fails and the others still run."""
+        try:
+            return http(method, f"{self.base}/api/config/config_entries/flow{path}", self.headers, body,
+                        timeout=FLOW_TIMEOUT)
+        except SystemExit as e:
+            return {"type": "no_answer", "reason": str(e).removeprefix("FAIL: ")}
 
     def devices(self) -> list[dict]:
         return self.ws.call("config/device_registry/list")
@@ -151,8 +164,8 @@ def norm_mac(mac: str) -> str:
 
 def netbox_iot_devices(devices: list[dict], interfaces: list[dict]) -> list[dict]:
     """NetBox's IoT devices (those netbox_seed.py made) as {name, type, manufacturer,
-    host, mac}: the address from the device's primary IPv4, the MAC from its wifi0's
-    primary MAC. A device lacking either is kept with None, and reported."""
+    host, mac, room}: the address from the device's primary IPv4, the MAC from its
+    wifi0's primary MAC, the room its Location's name. Any of them missing is None."""
     macs = {i["device"]["id"]: (i.get("primary_mac_address") or {}).get("mac_address")
             for i in interfaces if i["name"] == "wifi0"}
     out = []
@@ -162,7 +175,8 @@ def netbox_iot_devices(devices: list[dict], interfaces: list[dict]) -> list[dict
         ip = (d.get("primary_ip4") or {}).get("address")
         out.append({"name": d["name"], "type": d["device_type"]["slug"],
                     "manufacturer": d["device_type"]["manufacturer"]["slug"],
-                    "host": ip.split("/")[0] if ip else None, "mac": macs.get(d["id"])})
+                    "host": ip.split("/")[0] if ip else None, "mac": macs.get(d["id"]),
+                    "room": (d.get("location") or {}).get("name")})
     return sorted(out, key=lambda d: d["name"])
 
 
@@ -172,13 +186,18 @@ def integration_for(device: dict, integrations: list[dict]) -> dict | None:
                  if i.get("type") == device["type"] or i.get("manufacturer") == device["manufacturer"]), None)
 
 
-def area_for(hostname: str, rooms: list) -> str | None:
-    """The area of the first [pattern, area] whose pattern is found in the hostname's
-    part after "iot", or None."""
-    name = iot_name(hostname)
-    if name is None:
-        return None
-    return next((area for pattern, area in rooms if re.search(pattern, name)), None)
+def plan_device(device: dict, integrations: list[dict], by_mac: dict, attended: bool) -> tuple[str, dict | None]:
+    """What a run does with one NetBox device, and its ha_iot_setup.yaml entry: "present"
+    (Home Assistant has its MAC), "cloud" (no entry: set up by hand), "attended" (its
+    flow needs someone at the device and this run isn't attended) or "add"."""
+    entry = integration_for(device, integrations)
+    if norm_mac(device["mac"]) in by_mac:
+        return "present", entry
+    if entry is None:
+        return "cloud", None
+    if entry.get("attended") and not attended:
+        return "attended", entry
+    return "add", entry
 
 
 def ha_device_by_mac(ha_devices: list[dict]) -> dict[str, dict]:
@@ -208,6 +227,7 @@ def run_flow(ha, entry: dict, host: str, environ=os.environ) -> tuple[str, str]:
     closed, so nothing half-made stays open in Home Assistant."""
     r = ha.flow("", {"handler": entry["handler"], "show_advanced_options": False})
     answered_host = False
+    flow_id = None
     for _ in range(5):
         kind = r.get("type")
         if kind == "create_entry":
@@ -215,8 +235,13 @@ def run_flow(ha, entry: dict, host: str, environ=os.environ) -> tuple[str, str]:
         if kind == "abort":
             reason = r.get("reason", "")
             return ("present" if reason in ("already_configured", "already_in_progress") else "failed"), reason
+        if kind == "no_answer":
+            if r.get("flow_id") is None and flow_id:
+                ha.flow(f"/{flow_id}", method="DELETE")
+            return "failed", r.get("reason") or "no answer"
         if kind != "form":
             return "failed", f"flow answered {kind}"
+        flow_id = r["flow_id"]
         schema = r.get("data_schema") or []
         names = {f["name"] for f in schema}
         if r.get("errors"):
@@ -241,20 +266,6 @@ def run_flow(ha, entry: dict, host: str, environ=os.environ) -> tuple[str, str]:
     return "failed", "too many steps"
 
 
-def load_rooms(environ=os.environ) -> list | None:
-    """HA_IOT_AREAS, else ~/.ha-iot-areas.json, else None."""
-    text = environ.get("HA_IOT_AREAS", "").strip()
-    path = Path.home() / ".ha-iot-areas.json"
-    if not text and path.is_file():
-        text = path.read_text(encoding="utf-8")
-    if not text:
-        return None
-    rooms = json.loads(text)
-    if not (isinstance(rooms, list) and all(isinstance(r, list) and len(r) == 2 for r in rooms)):
-        raise SystemExit("FAIL: HA_IOT_AREAS isn't a JSON list of [pattern, area] pairs")
-    return rooms
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -267,12 +278,13 @@ def main() -> None:
     ap.add_argument("--ha-url", default=ha_url, required=not ha_url,
                     help="Home Assistant's URL (default: $HA_URL, else ~/.ha-url)")
     ap.add_argument("--apply", action="store_true", help="add devices and set areas (default: report only)")
+    ap.add_argument("--attended", action="store_true",
+                    help="also run the setups that need someone at the device (ha_iot_setup.yaml's attended)")
     args, extras = ap.parse_known_args()
     if extras:
         raise SystemExit(unexpected(extras))
 
     integrations = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))["integrations"]
-    rooms = load_rooms()
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_TOKEN"), apply=False)
     nb_devices = nb.all("dcim/devices", description=IOT_DEVICE_MARK)
     devices = netbox_iot_devices(nb_devices, nb.all("dcim/interfaces", name="wifi0") if nb_devices else [])
@@ -291,10 +303,11 @@ def main() -> None:
             print(f"  {d['name']}: NetBox has no {'address' if not d['host'] else 'MAC'} for it")
             failed += 1
             continue
-        entry = integration_for(d, integrations)
-        if norm_mac(d["mac"]) in by_mac:
+        action, entry = plan_device(d, integrations, by_mac, args.attended)
+        if action in ("present", "cloud"):
             continue
-        if entry is None:
+        if action == "attended":
+            print(f"  waiting: {d['name']} ({entry['handler']}): needs someone at the device; run with --attended")
             continue
         if not args.apply:
             print(f"  would add {d['name']} ({entry['handler']})")
@@ -313,40 +326,37 @@ def main() -> None:
         print(f"  read back: {sum(norm_mac(d['mac']) in by_mac for d in added)} of {len(added)} added devices found")
 
     print("areas:")
-    if rooms is None:
-        print("  skipped: no room map (HA_IOT_AREAS, or ~/.ha-iot-areas.json)")
-    else:
-        areas = {a["name"].casefold(): a for a in ha.areas()}
-        placed = []
-        for d in devices:
-            ha_dev = by_mac.get(norm_mac(d["mac"] or ""))
-            if ha_dev is None:
-                continue
-            want = area_for(d["name"], rooms)
-            if want is None:
-                print(f"  {d['name']}: no room in the map matches it")
-                continue
-            have = ha_dev.get("area_id")
-            area = areas.get(want.casefold())
-            if have:
-                if area is None or have != area["area_id"]:
-                    print(f"  kept: {d['name']} stays in the area set in Home Assistant, not {want}")
-                continue
-            if not args.apply:
-                print(f"  would put {d['name']} in {want}" + ("" if area else " (a new area)"))
-                continue
-            if area is None:
-                area = ha.ws.call("config/area_registry/create", name=want)
-                areas[want.casefold()] = area
-                print(f"  made area {want}")
-            ha.ws.call("config/device_registry/update", device_id=ha_dev["id"], area_id=area["area_id"])
-            placed.append((ha_dev["id"], area["area_id"], d["name"], want))
-        if placed:
-            now = {x["id"]: x.get("area_id") for x in ha.devices()}
-            for dev_id, area_id, name, want in placed:
-                ok = now.get(dev_id) == area_id
-                print(f"  {'put' if ok else 'FAIL: not in its area after the update:'} {name} in {want}")
-                failed += not ok
+    areas = {a["name"].casefold(): a for a in ha.areas()}
+    placed = []
+    for d in devices:
+        ha_dev = by_mac.get(norm_mac(d["mac"] or ""))
+        if ha_dev is None:
+            continue
+        want = d["room"]
+        if want is None:
+            print(f"  {d['name']}: no Location in NetBox")
+            continue
+        have = ha_dev.get("area_id")
+        area = areas.get(want.casefold())
+        if have:
+            if area is None or have != area["area_id"]:
+                print(f"  kept: {d['name']} stays in the area set in Home Assistant, not {want}")
+            continue
+        if not args.apply:
+            print(f"  would put {d['name']} in {want}" + ("" if area else " (a new area)"))
+            continue
+        if area is None:
+            area = ha.ws.call("config/area_registry/create", name=want)
+            areas[want.casefold()] = area
+            print(f"  made area {want}")
+        ha.ws.call("config/device_registry/update", device_id=ha_dev["id"], area_id=area["area_id"])
+        placed.append((ha_dev["id"], area["area_id"], d["name"], want))
+    if placed:
+        now = {x["id"]: x.get("area_id") for x in ha.devices()}
+        for dev_id, area_id, name, want in placed:
+            ok = now.get(dev_id) == area_id
+            print(f"  {'put' if ok else 'FAIL: not in its area after the update:'} {name} in {want}")
+            failed += not ok
     if failed:
         raise SystemExit(f"FAIL: {failed} device(s) failed; see above")
 

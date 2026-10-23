@@ -97,7 +97,8 @@ def read_secret(name: str, env: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def http(method: str, url: str, headers: dict, body=None, insecure: bool = False, ca_pem: str | None = None):
+def http(method: str, url: str, headers: dict, body=None, insecure: bool = False, ca_pem: str | None = None,
+         timeout: int = 30):
     """JSON in, JSON out. Raises on any HTTP error, with the server's message. ca_pem
     trusts that CA alone (the Kubernetes API's own)."""
     data = json.dumps(body).encode() if body is not None else None
@@ -106,7 +107,7 @@ def http(method: str, url: str, headers: dict, body=None, insecure: bool = False
                                           "Accept": "application/json"})
     ctx = ssl._create_unverified_context() if insecure else (ssl.create_default_context(cadata=ca_pem) if ca_pem else None)
     try:
-        with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
             raw = r.read()
             return json.loads(raw) if raw else None
     except urllib.error.HTTPError as e:

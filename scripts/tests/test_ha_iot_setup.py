@@ -30,14 +30,15 @@ m = load()
 INTEGRATIONS = YAML(typ="safe").load(SCRIPT.with_suffix(".yaml").read_text(encoding="utf-8"))["integrations"]
 
 
-def nb_device(id_, name, type_, maker, ip="192.0.2.10/24", mark=True):
+def nb_device(id_, name, type_, maker, ip="192.0.2.10/24", mark=True, room=None):
     return {"id": id_, "name": name, "description": m.IOT_DEVICE_MARK if mark else "",
             "device_type": {"slug": type_, "manufacturer": {"slug": maker}},
-            "primary_ip4": {"address": ip} if ip else None}
+            "primary_ip4": {"address": ip} if ip else None,
+            "location": {"name": room} if room else None}
 
 
-def test_netbox_devices_are_the_syncs_own_with_their_address_and_wifi0_mac():
-    devices = [nb_device(1, "zziotkalihall", "kasa-hs200", "kasa"),
+def test_netbox_devices_are_the_syncs_own_with_their_address_wifi0_mac_and_room():
+    devices = [nb_device(1, "zziotkalihall", "kasa-hs200", "kasa", room="Hallway"),
                nb_device(2, "printer", "x", "y", mark=False),
                nb_device(3, "zziotkaplnoip", "kasa-hs103p2", "kasa", ip=None)]
     interfaces = [{"name": "wifi0", "device": {"id": 1}, "primary_mac_address": {"mac_address": "00:00:5E:00:53:01"}},
@@ -45,7 +46,8 @@ def test_netbox_devices_are_the_syncs_own_with_their_address_and_wifi0_mac():
     got = m.netbox_iot_devices(devices, interfaces)
     assert [d["name"] for d in got] == ["zziotkalihall", "zziotkaplnoip"]
     assert got[0]["host"] == "192.0.2.10" and got[0]["mac"] == "00:00:5E:00:53:01"
-    assert got[1]["host"] is None and got[1]["mac"] is None
+    assert got[0]["room"] == "Hallway"
+    assert got[1]["host"] is None and got[1]["mac"] is None and got[1]["room"] is None
 
 
 def test_integration_by_type_or_manufacturer_and_none_for_the_cloud_ones():
@@ -57,13 +59,16 @@ def test_integration_by_type_or_manufacturer_and_none_for_the_cloud_ones():
     assert m.integration_for(echo, INTEGRATIONS) is None
 
 
-def test_area_is_the_first_room_pattern_found_after_iot():
-    rooms = [["nur", "Nursery"], ["liv", "Living Room"], ["bed", "Bedroom"]]
-    assert m.area_for("zziotgopurnurs", rooms) == "Nursery"
-    assert m.area_for("zzaaiotkalilivend", rooms) == "Living Room"
-    assert m.area_for("zziotkalibednur", rooms) == "Nursery"  # first pattern wins
-    assert m.area_for("zziotazthermost", rooms) is None
-    assert m.area_for("livingroomtv", rooms) is None  # not an IoT hostname
+def test_attended_setups_run_only_on_an_attended_run_and_known_macs_never():
+    fire = {"type": "amazon-fire-stick-4k", "manufacturer": "amazon", "mac": "00:00:5E:00:53:02"}
+    kasa = {"type": "kasa-hs200", "manufacturer": "kasa", "mac": "00:00:5E:00:53:03"}
+    echo = {"type": "amazon-echo-dot", "manufacturer": "amazon", "mac": "00:00:5E:00:53:04"}
+    assert m.plan_device(fire, INTEGRATIONS, {}, attended=False)[0] == "attended"
+    assert m.plan_device(fire, INTEGRATIONS, {}, attended=True)[0] == "add"
+    assert m.plan_device(kasa, INTEGRATIONS, {}, attended=False)[0] == "add"
+    assert m.plan_device(echo, INTEGRATIONS, {}, attended=True) == ("cloud", None)
+    known = {m.norm_mac(fire["mac"]): {"id": "a"}}
+    assert m.plan_device(fire, INTEGRATIONS, known, attended=True)[0] == "present"
 
 
 def test_home_assistant_devices_by_mac_whatever_its_format():
@@ -140,7 +145,23 @@ def test_already_configured_is_present_and_another_abort_fails():
     assert m.run_flow(ha, TPLINK, "192.0.2.10", environ={})[0] == "failed"
 
 
-def test_the_room_map_comes_from_the_environment_and_must_be_pairs():
-    assert m.load_rooms({"HA_IOT_AREAS": json.dumps([["nur", "Nursery"]])}) == [["nur", "Nursery"]]
-    with pytest.raises(SystemExit):
-        m.load_rooms({"HA_IOT_AREAS": json.dumps({"nur": "Nursery"})})
+def test_a_step_that_does_not_answer_fails_that_device_and_closes_its_flow():
+    ha = FakeHA(form("host"), {"type": "no_answer", "reason": "no answer (timed out)"})
+    status, detail = m.run_flow(ha, {"handler": "androidtv"}, "192.0.2.10", environ={})
+    assert (status, detail) == ("failed", "no answer (timed out)")
+    assert ha.sent[-1] == ("DELETE", "/F", None)
+
+
+def test_a_flow_that_does_not_start_fails_without_closing_anything():
+    ha = FakeHA({"type": "no_answer", "reason": "no answer"})
+    assert m.run_flow(ha, TPLINK, "192.0.2.10", environ={})[0] == "failed"
+    assert [s[0] for s in ha.sent] == ["POST"]
+
+
+def test_a_timed_out_call_comes_back_as_no_answer_not_an_exit(monkeypatch):
+    def timed_out(*a, **k):
+        raise SystemExit("FAIL: POST https://ha.example/api/x: no answer (timed out)")
+    monkeypatch.setattr(m, "http", timed_out)
+    ha = m.HomeAssistant.__new__(m.HomeAssistant)
+    ha.base, ha.headers = "https://ha.example", {}
+    assert ha.flow("/F", {"host": "192.0.2.10"})["type"] == "no_answer"
