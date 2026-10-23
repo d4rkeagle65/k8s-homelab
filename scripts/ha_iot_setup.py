@@ -1,0 +1,355 @@
+"""Add the IoT network's devices to Home Assistant from NetBox, and put each in its room.
+
+The devices are NetBox's on the IoT network (netbox_seed.py makes them from Kea's
+reservations, described "Kea reservation device"), each with its wifi0 MAC and
+address. A device Home Assistant already has is one whose device registry entry
+carries that MAC. For the rest, the first entry of ha_iot_setup.yaml matching the
+device's type or manufacturer names the integration, and the script runs its setup
+flow by address, as the UI's "Add integration" would. A flow that asks for what the
+script can't give (a login it has no variables for, a PIN shown on a TV) is closed
+and the device reported as waiting; the owner finishes it in the UI or supplies the
+login and runs again. Devices no entry matches are the cloud integrations' and are
+only placed in rooms.
+
+Rooms: HA_IOT_AREAS (else ~/.ha-iot-areas.json), a JSON list of [pattern, area name]
+pairs, the first pattern found in the part of the hostname after "iot" deciding. The
+map names the household's rooms, so it lives with the credentials and never in this
+repo. A device in no area is put in its room's area (made if missing); one already in
+an area keeps it, since an area chosen in Home Assistant is the owner's, and a
+difference is reported. Without the map, rooms are skipped and that is said.
+
+A dry run (the default) reports what it would add and place; --apply does it and
+reads Home Assistant's device registry back. It removes nothing. Names are printed,
+never addresses, MACs or credentials.
+
+Credentials are never arguments: HA_TOKEN or ~/.ha-token (a Home Assistant
+administrator's long-lived token), NETBOX_TOKEN or ~/.netbox-token (read access is
+enough), and each integration's login variables from ha_iot_setup.yaml. The URLs are
+HA_URL (else ~/.ha-url) and NETBOX_API.
+
+In Semaphore it is a Python template like the NetBox sync: script
+scripts/ha_iot_setup.py, argument --apply, and a variable group holding all of the
+above as environment variables (secret), HA_IOT_AREAS among them.
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import os
+import re
+import socket
+import ssl
+import struct
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from ruamel.yaml import YAML
+
+# netbox_seed.py sits beside this script, so Python finds it when it runs the script.
+from netbox_seed import IOT_DEVICE_MARK, NetBox, http, iot_name, read_secret, unexpected
+
+
+class HomeAssistantSocket:
+    """Home Assistant's WebSocket API (the device and area registries have no REST
+    form): one connection, authenticated, one command at a time."""
+
+    def __init__(self, url: str, token: str):
+        u = urlsplit(url)
+        port = u.port or (443 if u.scheme == "https" else 80)
+        raw = socket.create_connection((u.hostname, port), timeout=60)
+        self.sock = ssl.create_default_context().wrap_socket(raw, server_hostname=u.hostname) \
+            if u.scheme == "https" else raw
+        key = base64.b64encode(os.urandom(16)).decode()
+        self.sock.sendall(f"GET /api/websocket HTTP/1.1\r\nHost: {u.hostname}\r\nUpgrade: websocket\r\n"
+                          f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+                          "Sec-WebSocket-Version: 13\r\n\r\n".encode())
+        head = b""
+        while b"\r\n\r\n" not in head:
+            head += self._read(1)
+        status = head.split(b"\r\n")[0]
+        if b" 101 " not in status:
+            raise SystemExit(f"FAIL: Home Assistant refused the WebSocket: {status[:80]!r}")
+        self.last = 0
+        self._recv()
+        self._send({"type": "auth", "access_token": token})
+        if self._recv().get("type") != "auth_ok":
+            raise SystemExit("FAIL: Home Assistant refused the token (HA_TOKEN or ~/.ha-token)")
+
+    def _read(self, n: int) -> bytes:
+        out = b""
+        while len(out) < n:
+            chunk = self.sock.recv(n - len(out))
+            if not chunk:
+                raise SystemExit("FAIL: Home Assistant closed the WebSocket")
+            out += chunk
+        return out
+
+    def _send(self, obj: dict):
+        payload = json.dumps(obj).encode()
+        size = len(payload)
+        head = bytes([0x81])
+        if size < 126:
+            head += bytes([0x80 | size])
+        elif size < 65536:
+            head += bytes([0x80 | 126]) + struct.pack(">H", size)
+        else:
+            head += bytes([0x80 | 127]) + struct.pack(">Q", size)
+        mask = os.urandom(4)
+        self.sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+    def _recv(self) -> dict:
+        data = b""
+        while True:
+            b1, b2 = self._read(2)
+            size = b2 & 0x7F
+            if size == 126:
+                size = struct.unpack(">H", self._read(2))[0]
+            elif size == 127:
+                size = struct.unpack(">Q", self._read(8))[0]
+            payload = self._read(size)
+            if b1 & 0x0F in (0x9, 0xA):  # ping, pong
+                continue
+            if b1 & 0x0F == 0x8:
+                raise SystemExit("FAIL: Home Assistant closed the WebSocket")
+            data += payload
+            if b1 & 0x80:
+                return json.loads(data)
+
+    def call(self, kind: str, **args):
+        self.last += 1
+        self._send({"id": self.last, "type": kind, **args})
+        while True:
+            r = self._recv()
+            if r.get("id") == self.last and r.get("type") == "result":
+                if not r.get("success"):
+                    raise SystemExit(f"FAIL: Home Assistant's {kind} answered {r.get('error')}")
+                return r["result"]
+
+
+class HomeAssistant:
+    """Config flows over REST, registries over the WebSocket."""
+
+    def __init__(self, url: str, token: str):
+        self.base = url.rstrip("/")
+        self.headers = {"Authorization": "Bearer " + token}
+        self.ws = HomeAssistantSocket(url, token)
+
+    def flow(self, path: str, body=None, method: str = "POST"):
+        return http(method, f"{self.base}/api/config/config_entries/flow{path}", self.headers, body)
+
+    def devices(self) -> list[dict]:
+        return self.ws.call("config/device_registry/list")
+
+    def areas(self) -> list[dict]:
+        return self.ws.call("config/area_registry/list")
+
+
+def norm_mac(mac: str) -> str:
+    return re.sub(r"[^0-9a-f]", "", mac.lower())
+
+
+def netbox_iot_devices(devices: list[dict], interfaces: list[dict]) -> list[dict]:
+    """NetBox's IoT devices (those netbox_seed.py made) as {name, type, manufacturer,
+    host, mac}: the address from the device's primary IPv4, the MAC from its wifi0's
+    primary MAC. A device lacking either is kept with None, and reported."""
+    macs = {i["device"]["id"]: (i.get("primary_mac_address") or {}).get("mac_address")
+            for i in interfaces if i["name"] == "wifi0"}
+    out = []
+    for d in devices:
+        if (d.get("description") or "") != IOT_DEVICE_MARK:
+            continue
+        ip = (d.get("primary_ip4") or {}).get("address")
+        out.append({"name": d["name"], "type": d["device_type"]["slug"],
+                    "manufacturer": d["device_type"]["manufacturer"]["slug"],
+                    "host": ip.split("/")[0] if ip else None, "mac": macs.get(d["id"])})
+    return sorted(out, key=lambda d: d["name"])
+
+
+def integration_for(device: dict, integrations: list[dict]) -> dict | None:
+    """The first ha_iot_setup.yaml entry matching the device's type or manufacturer."""
+    return next((i for i in integrations
+                 if i.get("type") == device["type"] or i.get("manufacturer") == device["manufacturer"]), None)
+
+
+def area_for(hostname: str, rooms: list) -> str | None:
+    """The area of the first [pattern, area] whose pattern is found in the hostname's
+    part after "iot", or None."""
+    name = iot_name(hostname)
+    if name is None:
+        return None
+    return next((area for pattern, area in rooms if re.search(pattern, name)), None)
+
+
+def ha_device_by_mac(ha_devices: list[dict]) -> dict[str, dict]:
+    """Home Assistant's devices by each MAC in their connections."""
+    out = {}
+    for d in ha_devices:
+        for kind, value in d.get("connections") or []:
+            if kind == "mac":
+                out[norm_mac(value)] = d
+    return out
+
+
+def first_answer(schema: list[dict], host: str, fields: dict) -> dict:
+    """The answer to a flow's first step: the host, the entry's fields the form asks
+    for, and an empty value for each collapsed section (Home Assistant requires them)."""
+    names = {f["name"] for f in schema}
+    answer = {"host": host, **{k: v for k, v in fields.items() if k in names}}
+    for f in schema:
+        if f.get("type") == "expandable" and f["name"] not in answer:
+            answer[f["name"]] = {}
+    return answer
+
+
+def run_flow(ha, entry: dict, host: str, environ=os.environ) -> tuple[str, str]:
+    """Run entry's integration's setup flow for host: ("added", title), ("present",
+    reason), ("waiting", what it asks for) or ("failed", why). A flow left on a form is
+    closed, so nothing half-made stays open in Home Assistant."""
+    r = ha.flow("", {"handler": entry["handler"], "show_advanced_options": False})
+    answered_host = False
+    for _ in range(5):
+        kind = r.get("type")
+        if kind == "create_entry":
+            return "added", r.get("title") or entry["handler"]
+        if kind == "abort":
+            reason = r.get("reason", "")
+            return ("present" if reason in ("already_configured", "already_in_progress") else "failed"), reason
+        if kind != "form":
+            return "failed", f"flow answered {kind}"
+        schema = r.get("data_schema") or []
+        names = {f["name"] for f in schema}
+        if r.get("errors"):
+            ha.flow(f"/{r['flow_id']}", method="DELETE")
+            return "failed", ", ".join(f"{k}: {v}" for k, v in r["errors"].items())
+        if "host" in names and not answered_host:
+            answer = first_answer(schema, host, entry.get("fields") or {})
+            answered_host = True
+        elif {"username", "password"} <= names:
+            login = entry.get("login") or {}
+            user, password = environ.get(login.get("username", ""), ""), environ.get(login.get("password", ""), "")
+            if not (user and password):
+                ha.flow(f"/{r['flow_id']}", method="DELETE")
+                names_ = " and ".join(v for v in (login.get("username"), login.get("password")) if v)
+                return "waiting", f"a login ({names_ or 'none configured'}), or finish it in the UI"
+            answer = {"username": user, "password": password}
+        else:
+            ha.flow(f"/{r['flow_id']}", method="DELETE")
+            return "waiting", f"step {r.get('step_id')} ({', '.join(sorted(names)) or 'a confirmation'}): finish it in the UI"
+        r = ha.flow(f"/{r['flow_id']}", answer)
+    ha.flow(f"/{r['flow_id']}", method="DELETE")
+    return "failed", "too many steps"
+
+
+def load_rooms(environ=os.environ) -> list | None:
+    """HA_IOT_AREAS, else ~/.ha-iot-areas.json, else None."""
+    text = environ.get("HA_IOT_AREAS", "").strip()
+    path = Path.home() / ".ha-iot-areas.json"
+    if not text and path.is_file():
+        text = path.read_text(encoding="utf-8")
+    if not text:
+        return None
+    rooms = json.loads(text)
+    if not (isinstance(rooms, list) and all(isinstance(r, list) and len(r) == 2 for r in rooms)):
+        raise SystemExit("FAIL: HA_IOT_AREAS isn't a JSON list of [pattern, area] pairs")
+    return rooms
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--config", default=str(Path(__file__).with_suffix(".yaml")),
+                    help="which integration adds which device (ha_iot_setup.yaml)")
+    ap.add_argument("--netbox-url", default=os.environ.get("NETBOX_API") or None,
+                    required=not os.environ.get("NETBOX_API"), help="https://netbox.<domain> (default: $NETBOX_API)")
+    ha_url_file = Path.home() / ".ha-url"
+    ha_url = os.environ.get("HA_URL") or (ha_url_file.read_text(encoding="utf-8").strip() if ha_url_file.is_file() else None)
+    ap.add_argument("--ha-url", default=ha_url, required=not ha_url,
+                    help="Home Assistant's URL (default: $HA_URL, else ~/.ha-url)")
+    ap.add_argument("--apply", action="store_true", help="add devices and set areas (default: report only)")
+    args, extras = ap.parse_known_args()
+    if extras:
+        raise SystemExit(unexpected(extras))
+
+    integrations = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))["integrations"]
+    rooms = load_rooms()
+    nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_TOKEN"), apply=False)
+    nb_devices = nb.all("dcim/devices", description=IOT_DEVICE_MARK)
+    devices = netbox_iot_devices(nb_devices, nb.all("dcim/interfaces", name="wifi0") if nb_devices else [])
+    if not devices:
+        raise SystemExit("FAIL: NetBox lists no IoT device (netbox_seed.py's); nothing to compare against")
+    ha = HomeAssistant(args.ha_url, read_secret(".ha-token", "HA_TOKEN"))
+    by_mac = ha_device_by_mac(ha.devices())
+    print(f"read: {len(devices)} IoT devices in NetBox, {len(by_mac)} MACs in Home Assistant's devices")
+    print("dry run: nothing is changed" if not args.apply else "applying")
+
+    failed = 0
+    print("integrations:")
+    added = []
+    for d in devices:
+        if not (d["host"] and d["mac"]):
+            print(f"  {d['name']}: NetBox has no {'address' if not d['host'] else 'MAC'} for it")
+            failed += 1
+            continue
+        entry = integration_for(d, integrations)
+        if norm_mac(d["mac"]) in by_mac:
+            continue
+        if entry is None:
+            continue
+        if not args.apply:
+            print(f"  would add {d['name']} ({entry['handler']})")
+            continue
+        status, detail = run_flow(ha, entry, d["host"])
+        print(f"  {status}: {d['name']} ({entry['handler']}): {detail}")
+        if status == "added":
+            added.append(d)
+        failed += status == "failed"
+    if args.apply and added:
+        by_mac = ha_device_by_mac(ha.devices())
+        for d in added:
+            if norm_mac(d["mac"]) not in by_mac:
+                print(f"  FAIL: {d['name']}: its entry was made, but no Home Assistant device carries its MAC")
+                failed += 1
+        print(f"  read back: {sum(norm_mac(d['mac']) in by_mac for d in added)} of {len(added)} added devices found")
+
+    print("areas:")
+    if rooms is None:
+        print("  skipped: no room map (HA_IOT_AREAS, or ~/.ha-iot-areas.json)")
+    else:
+        areas = {a["name"].casefold(): a for a in ha.areas()}
+        placed = []
+        for d in devices:
+            ha_dev = by_mac.get(norm_mac(d["mac"] or ""))
+            if ha_dev is None:
+                continue
+            want = area_for(d["name"], rooms)
+            if want is None:
+                print(f"  {d['name']}: no room in the map matches it")
+                continue
+            have = ha_dev.get("area_id")
+            area = areas.get(want.casefold())
+            if have:
+                if area is None or have != area["area_id"]:
+                    print(f"  kept: {d['name']} stays in the area set in Home Assistant, not {want}")
+                continue
+            if not args.apply:
+                print(f"  would put {d['name']} in {want}" + ("" if area else " (a new area)"))
+                continue
+            if area is None:
+                area = ha.ws.call("config/area_registry/create", name=want)
+                areas[want.casefold()] = area
+                print(f"  made area {want}")
+            ha.ws.call("config/device_registry/update", device_id=ha_dev["id"], area_id=area["area_id"])
+            placed.append((ha_dev["id"], area["area_id"], d["name"], want))
+        if placed:
+            now = {x["id"]: x.get("area_id") for x in ha.devices()}
+            for dev_id, area_id, name, want in placed:
+                ok = now.get(dev_id) == area_id
+                print(f"  {'put' if ok else 'FAIL: not in its area after the update:'} {name} in {want}")
+                failed += not ok
+    if failed:
+        raise SystemExit(f"FAIL: {failed} device(s) failed; see above")
+
+
+if __name__ == "__main__":
+    main()
