@@ -361,3 +361,113 @@ def test_a_reservations_label_has_its_hostname_when_it_has_one():
     assert m.reservation_label({"identifier": "hw-address 00:00:5e:00:53:01", "hostname": "printer"}) == \
         "Kea reservation printer (hw-address 00:00:5e:00:53:01)"
     assert m.reservation_label({"identifier": "client-id 01:02", "hostname": ""}) == "Kea reservation client-id 01:02"
+
+
+# The IoT network's devices (netbox_seed_iot.yaml). Hostnames follow its scheme with a made-up
+# site code, "zz".
+
+def iot_catalogue():
+    from ruamel.yaml import YAML
+    return YAML(typ="safe").load((SCRIPT.parent / "netbox_seed_iot.yaml").read_text(encoding="utf-8"))
+
+
+def test_the_catalogue_names_only_what_it_defines_and_every_type_has_wifi0():
+    cat = iot_catalogue()
+    makers = {x["slug"] for x in cat["manufacturers"]}
+    types = {t["slug"]: t for t in cat["device_types"]}
+    assert len(types) == len(cat["device_types"])
+    for t in types.values():
+        assert t["manufacturer"] in makers, t["slug"]
+        assert "wifi0" in [i["name"] for i in t["interfaces"]], t["slug"]
+    for r in cat["rules"]:
+        assert r["type"] in types and r["role"] in cat["roles"], r
+    assert len({m.slug(r) for r in cat["roles"]}) == len(cat["roles"])
+
+
+def test_iot_kind_reads_what_follows_iot_and_the_first_matching_rule_wins():
+    rules = iot_catalogue()["rules"]
+    assert m.iot_kind("zziotkalikitchen", rules)["type"] == "kasa-hs200"
+    assert m.iot_kind("ZZIOTKAPLDESK", rules)["role"] == "Smart Power Plug"
+    assert m.iot_kind("zziotazechosbedroom", rules)["type"] == "amazon-echo-dot-4th-gen-clock"
+    assert m.iot_kind("zziotazechodkitchen", rules)["type"] == "amazon-echo-dot"
+    assert m.iot_kind("zziotazfiretliving", rules)["role"] == "TV"
+    assert m.iot_kind("zziotazfiresbedroom", rules)["role"] == "Media Viewer"
+    assert m.iot_kind("zziotqqunknown", rules) is None
+    assert m.iot_kind("printer", rules) is None
+
+
+def test_plan_iot_devices_takes_the_subnets_named_hardware_reservations():
+    rules = iot_catalogue()["rules"]
+    reserved = {
+        "192.0.2.10": {"identifier": "hw-address 00:00:5e:00:53:0a", "hostname": "zziotkalihall", "subnet-id": 6},
+        "192.0.2.11": {"identifier": "hw-address 00:00:5e:00:53:0b", "hostname": "zziotwzcamporch", "subnet-id": 6},
+        "192.0.2.12": {"identifier": "hw-address 00:00:5e:00:53:0c", "hostname": "", "subnet-id": 6},
+        "192.0.2.13": {"identifier": "client-id 01:02", "hostname": "zziotkapldesk", "subnet-id": 6},
+        "192.0.2.14": {"identifier": "hw-address 00:00:5e:00:53:0e", "hostname": "zziotqqthing", "subnet-id": 6},
+        "198.51.100.5": {"identifier": "hw-address 00:00:5e:00:53:0f", "hostname": "zziotkalinas", "subnet-id": 7},
+    }
+    devices, skipped = m.plan_iot_devices(reserved, "192.0.2.0/24", rules, {"zziotkalihall": "kasa-hs210"})
+    assert devices == [
+        {"name": "zziotkalihall", "ip": "192.0.2.10", "mac": "00:00:5E:00:53:0A", "type": "kasa-hs210",
+         "role": "Smart Power Switch"},
+        {"name": "zziotwzcamporch", "ip": "192.0.2.11", "mac": "00:00:5E:00:53:0B", "type": "wyze-cam-v3",
+         "role": "Camera"}]
+    assert [ip for ip, _ in skipped] == ["192.0.2.12", "192.0.2.13", "192.0.2.14"]
+    assert "no hostname" in skipped[0][1] and "client-id" in skipped[1][1] and "no rule" in skipped[2][1]
+
+
+def test_only_this_scripts_iot_devices_whose_reservation_is_gone_go_offline():
+    mark = m.IOT_DEVICE_MARK
+    have = [{"id": 1, "name": "zziotkalihall", "description": mark, "status": {"value": "active"}},
+            {"id": 2, "name": "zziotkaliold", "description": mark, "status": {"value": "active"}},
+            {"id": 3, "name": "zziotkaligone", "description": mark, "status": {"value": "offline"}},
+            {"id": 4, "name": "by-hand", "description": "", "status": {"value": "active"}}]
+    assert [d["id"] for d in m.stale_iot_devices(have, {"zziotkalihall"})] == [2]
+
+
+def test_iot_models_reads_the_environment_then_the_home_file(tmp_path, monkeypatch):
+    import pytest
+    monkeypatch.setattr(m.Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("NETBOX_SEED_IOT_MODELS", raising=False)
+    assert m.iot_models() == {}
+    (tmp_path / ".netbox-seed-iot-models.json").write_text('{"zziotkalihall": "kasa-hs210"}', encoding="utf-8")
+    assert m.iot_models() == {"zziotkalihall": "kasa-hs210"}
+    monkeypatch.setenv("NETBOX_SEED_IOT_MODELS", '{"zziotkalistairs": "kasa-hs210"}')
+    assert m.iot_models() == {"zziotkalistairs": "kasa-hs210"}
+    monkeypatch.setenv("NETBOX_SEED_IOT_MODELS", "not json")
+    with pytest.raises(SystemExit, match="isn't JSON"):
+        m.iot_models()
+    monkeypatch.setenv("NETBOX_SEED_IOT_MODELS", '["kasa-hs210"]')
+    with pytest.raises(SystemExit, match="JSON object"):
+        m.iot_models()
+
+
+def test_an_address_on_this_scripts_own_iot_device_is_still_its_own():
+    reserved = {"192.0.2.10": {"identifier": "hw-address 00:00:5e:00:53:0a", "hostname": "zziotkalihall", "subnet-id": 6}}
+    a = nb_addr(1, "192.0.2.10/24", "Kea reservation zziotkalihall (hw-address 00:00:5e:00:53:0a)", assigned=5)
+    a["assigned_object"] = {"device": {"id": 9, "name": "zziotkalihall"}}
+    assert m.plan_reservations([a], reserved, frozenset({9}))[:2] == (["192.0.2.10"], [])
+    assert m.plan_reservations([a], reserved)[1] == [("192.0.2.10", "on zziotkalihall")]
+    # Once its reservation is gone, the address is stale like any of this script's own.
+    assert [x["id"] for x in m.plan_reservations([a], {}, frozenset({9}))[2]] == [1]
+
+
+def test_this_scripts_iot_devices_addresses_get_no_dns_name():
+    a = _addr(1, "192.0.2.10/24", kind="dcim.interface", name="zziotkalihall")
+    a["assigned_object"]["device"]["id"] = 9
+    assert m.wanted_dns_names([a], PREFIXES, skip_devices=frozenset({9})) == {}
+    assert m.wanted_dns_names([a], PREFIXES) == {1: "zziotkalihall.mgmt.example"}
+
+
+def test_retire_can_set_a_device_offline(monkeypatch):
+    calls = []
+
+    def fake_http(method, url, headers, body=None, **kw):
+        calls.append((method, url.split("/api/", 1)[1], body))
+        return {"results": [{"id": 4, "status": {"value": "offline"}}]} if method == "GET" else {}
+
+    monkeypatch.setattr(m, "http", fake_http)
+    nb = m.NetBox("https://netbox.example", "nbt_x", apply=True)
+    nb.retire("dcim/devices", {"id": 4}, "x", "Kea's reservations", status="offline")
+    assert calls[0] == ("PATCH", "dcim/devices/4/", {"status": "offline"})
+    assert nb.counts == {"set-offline dcim/devices": 1}
