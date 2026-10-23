@@ -57,19 +57,22 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **The IoT devices in Home Assistant** (2026-10-23): HA has no IoT integration yet, and the
-  firewall drops HA (hostNetwork on a worker) to the IoT network: from its pod 2 of 49 devices
-  answer, though 38 hold a lease at their reserved address. The owner chose a firewall rule
-  (the 4 workers to the IoT prefix, on the devices' ports) over a VLAN 6 leg for HA, so
-  devices are added by IP, without discovery. After the rule: re-run the reachability probe
-  from the HA pod, then the local integrations (TP-Link for the Kasa and Tapo devices, Samsung
-  TV, Android TV for the Fire TVs); the cloud ones (Tuya, VeSync, Whirlpool, and HACS' Alexa
-  Media Player, Govee, Hatch, eufy) take the owner's own logins in the HA UI.
+- **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
+  the IoT prefix on the devices' ports (HA is hostNetwork, so devices are added by IP, without
+  discovery); setup goes through HA's REST API with the token in `~/.ha-token`. Done: the 15 Kasa
+  devices with a lease (TP-Link integration, 45 entities, read back). Left: the 3 Tapo plugs need
+  the owner's TP-Link login in their flow (once one is in the UI, try the other two by API);
+  the bedroom Fire Stick (Android TV, ADB is on; the owner approves the prompt on the TV); the
+  Samsung TV and the rest once powered on (the "livcor" Kasa device has no lease); the cloud
+  integrations (Tuya, VeSync, Whirlpool; HACS' Alexa Media Player, Govee, Hatch, eufy) take
+  the owner's own logins in the HA UI. Revoke the HA token when this is done.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
-  Left: the exact models the rules can't tell (the HS210s, the Echo generations, two Kasa
-  devices that may be plugs), by NETBOX_SEED_IOT_MODELS in the "Netbox Sync" variable group or
+  Left: the exact models the rules can't tell, which the Kasa devices report to Home Assistant:
+  set by hand in NetBox the "kalihall" and "kalistairs" switches to HS210, "kalidining" to
+  HS220, "kalilivcou" and "kalilivend" to HS103 plugs ("kalilivcor" is unknown, no lease);
+  and the Echo generations, by NETBOX_SEED_IOT_MODELS in the "Netbox Sync" variable group or
   by hand in NetBox (the sync sets a type only when it creates the device); and the zone the
   IoT hostnames go in, for their DNS names (the owner wants them there: the IoT prefix is in
   NetBox DNS's default view, so a DNS name becomes a Pi-hole record). Left, every IoT
