@@ -65,11 +65,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   by hand in NetBox (the sync sets a type only when it creates the device); and the zone the
   IoT hostnames go in, for their DNS names (the owner wants them there: the IoT prefix is in
   NetBox DNS's default view, so a DNS name becomes a Pi-hole record). Left, every IoT
-  switch reads HS200, and the hostnames sit in the descriptions. Kea now holds 49 IoT
-  reservations (12 added and the 2 bulbs removed on 2026-10-23, through Kea's API); 8 of the
-  new ones need #341's rules (without it the Echo Spot reads as a Dot Clock), so merge #341, then run the sync (template 23) and read
-  back 49 devices. The two Hatch Rest 2nd Gens are still on Production: their reservations
-  wait for the owner to move them to IoT.
+  switch reads HS200, and the hostnames sit in the descriptions. Kea holds 49 IoT
+  reservations and NetBox has a device for each (sync task 1254, read back). Left by hand in
+  NetBox: the Echo Spot's device (its name has "echospot") reads Echo Dot 4th Gen Clock, made by
+  the scheduled sync before #341's rule landed, so set its type to Echo Spot; the two bulb
+  devices ("sllb") are Offline with their reservations gone, so delete them. The two Hatch
+  Rest 2nd Gens are still on Production: their reservations wait for the owner to move them
+  to IoT.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly at
