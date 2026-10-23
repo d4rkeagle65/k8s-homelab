@@ -482,14 +482,19 @@ def plan_reservations(addresses: list[dict], reserved: dict[str, dict],
 IOT_DEVICE_MARK = "Kea reservation device"
 
 
-def iot_kind(hostname: str, rules: list[dict]) -> dict | None:
-    """The first rule whose name pattern matches what follows "<site code>iot" (or
-    "<site code><area code>iot") in a reservation's hostname (netbox_seed_iot.yaml),
-    or None."""
+def iot_name(hostname: str) -> str | None:
+    """What follows "<site code>iot" (or "<site code><area code>iot") in an IoT
+    reservation's hostname (netbox_seed_iot.yaml), lower case, or None."""
     m = re.match(r"^[a-z]{2}(?:[a-z]{2})?iot(.+)$", hostname.lower())
-    if not m:
+    return m.group(1) if m else None
+
+
+def iot_kind(hostname: str, rules: list[dict]) -> dict | None:
+    """The first rule whose name pattern matches a reservation hostname's iot_name, or None."""
+    name = iot_name(hostname)
+    if name is None:
         return None
-    return next((r for r in rules if re.search(r["name"], m.group(1))), None)
+    return next((r for r in rules if re.search(r["name"], name)), None)
 
 
 def plan_iot_devices(reserved: dict[str, dict], subnet: str, rules: list[dict],
