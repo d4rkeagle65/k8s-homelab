@@ -20,6 +20,17 @@ DNS is the owner's decision (QUEUE-kea-ha.md). An address something else already
 device's or VM's interface, a VIP, any other description) is reported, never changed. One
 this script recorded that Kea no longer reserves is set Deprecated, never deleted.
 
+Each reservation on the IoT network (netbox_seed_iot.yaml) also becomes a device named after
+its hostname, described "Kea reservation device": its kind and role from the first rule
+matching the hostname, its wifi0 interface carrying the reservation's MAC and address. The
+manufacturers, device types (with their interface and power-port templates) and roles it
+uses come from the same file. The rule gives a device its starting type and role; NetBox
+owns both after that, unless NETBOX_SEED_IOT_MODELS (else ~/.netbox-seed-iot-models.json),
+a JSON object of hostname: device type slug, names its exact model. A device of the same
+name not described so, or a MAC on another interface, is reported, never changed; one whose
+reservation is gone is set Offline, never deleted. Its addresses get no DNS name, for the
+reason above.
+
 It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
 access points). A primary address NetBox already has is kept while the host
@@ -247,16 +258,17 @@ class NetBox:
             if self.find(path, id=obj["id"]) is not None:
                 raise SystemExit(f"FAIL: {label} is still in NetBox after its delete")
 
-    def retire(self, path: str, obj: dict, label: str, gone_from: str = "the cluster"):
-        """Set obj Deprecated, never deleted (an address chosen from NetBox should still see it
-        was in use), reading it back."""
-        print(f"  deprecate {path.split('/')[-1]}: {label} (no longer in {gone_from})")
-        self._note("deprecate " + path)
+    def retire(self, path: str, obj: dict, label: str, gone_from: str = "the cluster", status: str = "deprecated"):
+        """Set obj's status to status (Deprecated, or Offline for a device), never deleted (an
+        address chosen from NetBox should still see it was in use), reading it back."""
+        verb = "deprecate" if status == "deprecated" else f"set {status}"
+        print(f"  {verb} {path.split('/')[-1]}: {label} (no longer in {gone_from})")
+        self._note(f"{verb.replace(' ', '-')} {path}")
         if self.apply:
-            http("PATCH", f"{self.base}{path}/{obj['id']}/", self.headers, {"status": "deprecated"})
+            http("PATCH", f"{self.base}{path}/{obj['id']}/", self.headers, {"status": status})
             back = self.find(path, id=obj["id"])
-            if back is None or (back.get("status") or {}).get("value") != "deprecated":
-                raise SystemExit(f"FAIL: {label} isn't Deprecated after its update")
+            if back is None or (back.get("status") or {}).get("value") != status:
+                raise SystemExit(f"FAIL: {label} isn't {status} after its update")
 
 
 def stale_load_balancers(addresses: list[dict], ranges: list[dict], lb_ips: dict[str, list[str]],
@@ -341,10 +353,11 @@ def dns_label(name: str) -> str:
     return re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")
 
 
-def wanted_dns_names(addresses: list[dict], prefixes: list[dict], skip_vms: frozenset = frozenset()) -> dict[int, str]:
+def wanted_dns_names(addresses: list[dict], prefixes: list[dict], skip_vms: frozenset = frozenset(),
+                     skip_devices: frozenset = frozenset()) -> dict[int, str]:
     """By address id, the DNS name each device's or VM's address should carry: its
     object's name in the zone of the most specific prefix holding it that names one.
-    A VM in skip_vms (by id) gets none."""
+    A VM in skip_vms or a device in skip_devices (by id) gets none."""
     import ipaddress
     zones = []
     for p in prefixes:
@@ -358,6 +371,8 @@ def wanted_dns_names(addresses: list[dict], prefixes: list[dict], skip_vms: froz
         if a.get("assigned_object_type") not in ("dcim.interface", "virtualization.vminterface") or not obj:
             continue
         if owner.get("virtual_machine") and obj.get("id") in skip_vms:
+            continue
+        if owner.get("device") and obj.get("id") in skip_devices:
             continue
         ip = ipaddress.ip_interface(a["address"]).ip
         held = [(net, z) for net, z in zones if ip in net]
@@ -426,11 +441,13 @@ def reservation_label(r: dict) -> str:
     return "Kea reservation " + (f"{r['hostname']} ({r['identifier']})" if r["hostname"] else r["identifier"])
 
 
-def plan_reservations(addresses: list[dict], reserved: dict[str, dict]) -> tuple[list[str], list[tuple[str, str]], list[dict]]:
+def plan_reservations(addresses: list[dict], reserved: dict[str, dict],
+                      own_devices: frozenset = frozenset()) -> tuple[list[str], list[tuple[str, str]], list[dict]]:
     """What the reservations need in NetBox, given its addresses: the reserved addresses to
     record (new, or this script's own record of them), those something else holds (address,
     what holds it), and this script's records Kea no longer reserves. This script's own: its
-    description starts "Kea reservation ", on no interface and no VIP."""
+    description starts "Kea reservation ", on no interface (or on one of own_devices, the
+    IoT devices this script made, by id) and no VIP."""
     def value(field):
         return field.get("value") if isinstance(field, dict) else field
 
@@ -438,6 +455,9 @@ def plan_reservations(addresses: list[dict], reserved: dict[str, dict]) -> tuple
         if a.get("assigned_object_id"):
             obj = a.get("assigned_object") or {}
             host = obj.get("device") or obj.get("virtual_machine") or {}
+            if (obj.get("device") and host.get("id") in own_devices
+                    and (a.get("description") or "").startswith("Kea reservation ")):
+                return None
             return f"on {host.get('name') or 'an interface'}"
         if value(a.get("role")) == "vip":
             return "a VIP"
@@ -457,6 +477,74 @@ def plan_reservations(addresses: list[dict], reserved: dict[str, dict]) -> tuple
     stale = [a for ip, a in by_ip.items()
              if ip not in reserved and holder(a) is None and value(a.get("status")) != "deprecated"]
     return record, held, stale
+
+
+IOT_DEVICE_MARK = "Kea reservation device"
+
+
+def iot_kind(hostname: str, rules: list[dict]) -> dict | None:
+    """The first rule whose name pattern matches what follows "<site code>iot" in a
+    reservation's hostname (netbox_seed_iot.yaml), or None."""
+    m = re.match(r"^[a-z]{2}iot(.+)$", hostname.lower())
+    if not m:
+        return None
+    return next((r for r in rules if re.search(r["name"], m.group(1))), None)
+
+
+def plan_iot_devices(reserved: dict[str, dict], subnet: str, rules: list[dict],
+                     models: dict[str, str]) -> tuple[list[dict], list[tuple[str, str]]]:
+    """The devices the IoT network's reservations make: [{name, ip, mac, type, role}] for
+    each reservation in subnet with a hostname and a hardware address, its type from models
+    (a hostname's exact model, NETBOX_SEED_IOT_MODELS) else from its rule; and those it
+    can't place (address, why)."""
+    net = ipaddress.ip_network(subnet)
+    devices, skipped = [], []
+    for ip in sorted(reserved, key=lambda i: tuple(int(x) for x in i.split("."))):
+        if ipaddress.ip_address(ip) not in net:
+            continue
+        r = reserved[ip]
+        kind, _, ident = r["identifier"].partition(" ")
+        if not r["hostname"]:
+            skipped.append((ip, "no hostname"))
+            continue
+        if kind != "hw-address":
+            skipped.append((ip, f"{r['hostname']}: no hardware address ({kind})"))
+            continue
+        rule = iot_kind(r["hostname"], rules)
+        if rule is None:
+            skipped.append((ip, f"{r['hostname']}: no rule in netbox_seed_iot.yaml matches"))
+            continue
+        devices.append({"name": r["hostname"], "ip": ip, "mac": ident.upper(),
+                        "type": models.get(r["hostname"], rule["type"]), "role": rule["role"]})
+    return devices, skipped
+
+
+def stale_iot_devices(devices: list[dict], names: set[str]) -> list[dict]:
+    """This script's IoT devices (described IOT_DEVICE_MARK) whose reservation is gone and
+    that aren't Offline yet."""
+    def value(field):
+        return field.get("value") if isinstance(field, dict) else field
+    return [d for d in devices if (d.get("description") or "") == IOT_DEVICE_MARK
+            and d["name"] not in names and value(d.get("status")) != "offline"]
+
+
+def iot_models() -> dict[str, str]:
+    """Exact models known before a device is made, by reservation hostname: the JSON object
+    in NETBOX_SEED_IOT_MODELS, else in ~/.netbox-seed-iot-models.json, else none. Hostnames
+    stay out of this repo, so this is the one place they're named."""
+    raw = os.environ.get("NETBOX_SEED_IOT_MODELS", "").strip()
+    path = Path.home() / ".netbox-seed-iot-models.json"
+    if not raw and path.is_file():
+        raw = path.read_text(encoding="utf-8").strip()
+    if not raw:
+        return {}
+    try:
+        models = json.loads(raw)
+    except ValueError as e:
+        raise SystemExit(f"FAIL: NETBOX_SEED_IOT_MODELS isn't JSON: {e}")
+    if not isinstance(models, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in models.items()):
+        raise SystemExit("FAIL: NETBOX_SEED_IOT_MODELS must be a JSON object of hostname: device type slug")
+    return models
 
 
 def proxmox_state(url: str, token: str):
@@ -557,6 +645,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(Path(__file__).with_suffix(".yaml")), help="the names (netbox_seed.yaml)")
+    ap.add_argument("--iot-config", default=str(Path(__file__).with_name("netbox_seed_iot.yaml")),
+                    help="the IoT devices' kinds and naming rules (netbox_seed_iot.yaml)")
     def url(name: str, env: str, example: str):
         ap.add_argument(name, default=os.environ.get(env) or None, required=not os.environ.get(env),
                         help=f"{example} (default: ${env})")
@@ -570,6 +660,8 @@ def main() -> None:
         raise SystemExit(unexpected(extras))
 
     cfg = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))
+    iot = YAML(typ="safe").load(Path(args.iot_config).read_text(encoding="utf-8"))
+    models = iot_models()
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_WRITE_TOKEN"), args.apply)
     kea_subnets, kea_pools = kea_networks(args.kea_url, read_secret(".kea-api", "KEA_API"))
     kea_reserved = kea_reservations(args.kea_url, read_secret(".kea-api", "KEA_API"))
@@ -808,7 +900,12 @@ def main() -> None:
 
     # Kea's reservations, after the VMs, so an address one of them holds is seen as theirs.
     print("reservations:")
-    record, held, stale = plan_reservations(nb.all("ipam/ip-addresses"), kea_reserved)
+
+    def own_iot_devices() -> list[dict]:
+        return [d for d in nb.all("dcim/devices", site_id=site["id"]) if (d.get("description") or "") == IOT_DEVICE_MARK]
+
+    own_ids = frozenset(d["id"] for d in own_iot_devices()) if site["id"] > 0 else frozenset()
+    record, held, stale = plan_reservations(nb.all("ipam/ip-addresses"), kea_reserved, own_ids)
     for a in stale:
         nb.retire("ipam/ip-addresses", a, f"{a['address']} ({a['description']})", "Kea")
     for ip, why in held:
@@ -818,11 +915,85 @@ def main() -> None:
         label = reservation_label(kea_reserved[ip])
         nb.ensure("ipam/ip-addresses", {"address": with_len(ip)}, {"status": "dhcp", "description": label}, label)
 
+    # The IoT network's reservations as devices (netbox_seed_iot.yaml): each named after its
+    # reservation, its kind from its hostname's rule (NetBox owns it once the device exists,
+    # unless NETBOX_SEED_IOT_MODELS names it), its wifi0 with the MAC and the address.
+    print("iot devices:")
+    iot_subnet = next((s for s, p in prefixes.items() if p.get("description") == iot["network"]), None)
+    if iot_subnet is None:
+        print(f"  SKIP: no prefix for the {iot['network']} network, so no device is made or retired")
+    else:
+        devices, skipped = plan_iot_devices(kea_reserved, iot_subnet, iot["rules"], models)
+        for ip, why in skipped:
+            print(f"  no device: {ip} ({why})")
+            nb._note("no-device dcim/devices")
+        makers = {m["slug"]: nb.ensure("dcim/manufacturers", {"slug": m["slug"]}, {"name": m["name"]}, m["name"])
+                  for m in iot["manufacturers"]}
+        types, wifi_type = {}, {}
+        for t in iot["device_types"]:
+            # The templates first: NetBox gives a new device the components its type has then.
+            dt = nb.ensure("dcim/device-types", {"slug": t["slug"]},
+                           {"model": t["model"], "manufacturer": makers[t["manufacturer"]]["id"], "u_height": 0,
+                            "description": t.get("description", "")}, t["model"])
+            for i in t.get("interfaces", []):
+                nb.ensure("dcim/interface-templates", {"device_type_id": dt["id"], "name": i["name"]},
+                          {"device_type": dt["id"], "type": i["type"]}, f"{t['model']} {i['name']}")
+            for p in t.get("power_ports", []):
+                nb.ensure("dcim/power-port-templates", {"device_type_id": dt["id"], "name": p["name"]},
+                          {"device_type": dt["id"], "type": p["type"]}, f"{t['model']} {p['name']}")
+            types[t["slug"]] = dt
+            wifi_type[t["slug"]] = next((i["type"] for i in t.get("interfaces", []) if i["name"] == "wifi0"), "ieee802.11n")
+        roles = {r: nb.ensure("dcim/device-roles", {"slug": slug(r)}, {"name": r}, r) for r in iot["roles"]}
+        for dev in stale_iot_devices(own_iot_devices() if site["id"] > 0 else [], {d["name"] for d in devices}):
+            nb.retire("dcim/devices", dev, dev["name"], "Kea's reservations", status="offline")
+        recorded = set(record)
+        for d in devices:
+            if d["type"] not in types:
+                print(f"  no device: {d['ip']} ({d['name']}: device type {d['type']} isn't in netbox_seed_iot.yaml)")
+                nb._note("no-device dcim/devices")
+                continue
+            have = nb.find("dcim/devices", name=d["name"], site_id=site["id"]) if site["id"] > 0 else None
+            if have is not None and (have.get("description") or "") != IOT_DEVICE_MARK:
+                print(f"  not this script's: device {d['name']} exists, described "
+                      f"'{have.get('description') or 'nothing'}'; left as it is")
+                nb._note("held-elsewhere dcim/devices")
+                continue
+            fields = {"site": site["id"], "status": "active", "description": IOT_DEVICE_MARK}
+            if have is None:
+                fields.update({"device_type": types[d["type"]]["id"], "role": roles[d["role"]]["id"]})
+            elif d["name"] in models:
+                fields["device_type"] = types[d["type"]]["id"]
+            dev = nb.ensure("dcim/devices", {"name": d["name"], "site_id": site["id"]}, fields, d["name"])
+            itf = nb.find("dcim/interfaces", device_id=dev["id"], name="wifi0") if dev["id"] > 0 else None
+            if itf is None:
+                itf = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": "wifi0"},
+                                {"device": dev["id"], "type": wifi_type[d["type"]]}, f"{d['name']} wifi0")
+            # A MAC already on another interface isn't moved: that's someone else's record.
+            had = nb.find("dcim/mac-addresses", mac_address=d["mac"])
+            if had is not None and had.get("assigned_object_id") not in (None, itf["id"]):
+                print(f"  held elsewhere: {d['name']}'s MAC is on another interface; left as it is")
+                nb._note("held-elsewhere dcim/mac-addresses")
+            else:
+                mac = nb.ensure("dcim/mac-addresses", {"mac_address": d["mac"]},
+                                {"assigned_object_type": "dcim.interface", "assigned_object_id": itf["id"]},
+                                f"{d['name']} wifi0 MAC")
+                nb.set_ref("dcim/interfaces", itf, "primary_mac_address", mac, f"{d['name']} wifi0")
+            if d["ip"] not in recorded:
+                print(f"  no address: {d['ip']} isn't this script's to assign to {d['name']} (see above)")
+                continue
+            label = reservation_label(kea_reserved[d["ip"]])
+            ip = nb.ensure("ipam/ip-addresses", {"address": with_len(d["ip"])},
+                           {"status": "dhcp", "description": label,
+                            "assigned_object_type": "dcim.interface", "assigned_object_id": itf["id"]}, label)
+            nb.set_ref("dcim/devices", dev, "primary_ip4", ip, d["name"])
+
     # Each device's and VM's addresses named in their prefix's zone; NetBox DNS's
-    # DNSsync turns each name into the zone's record.
+    # DNSsync turns each name into the zone's record. Not the IoT devices': whether DHCP
+    # names go into DNS is the owner's decision (QUEUE-kea-ha.md).
     print("dns names:")
     addresses = nb.all("ipam/ip-addresses")
-    wanted = wanted_dns_names(addresses, nb.all("ipam/prefixes"), frozenset(v["id"] for v in retiring))
+    iot_ids = frozenset(d["id"] for d in own_iot_devices()) if site["id"] > 0 else frozenset()
+    wanted = wanted_dns_names(addresses, nb.all("ipam/prefixes"), frozenset(v["id"] for v in retiring), iot_ids)
     for a in sorted(addresses, key=lambda a: a["address"]):
         name = wanted.get(a["id"])
         if name is not None and (a.get("dns_name") or "") != name:

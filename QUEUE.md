@@ -57,18 +57,18 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **Read back Kea's reservations in NetBox after the next sync** (2026-10-22):
-  `scripts/netbox_seed.py` now reads every reservation Kea holds (host_cmds'
-  `reservation-get-page`, all subnets, its config and kea-db) and records each as an address
-  with status DHCP, described "Kea reservation <hostname> (<identifier>)"; an address a VM's
-  interface, a VIP or another description already holds is reported, never changed; one Kea
-  no longer reserves goes Deprecated. Its DNS name is left alone, since NetBox DNS would make
-  it a record, and DHCP names in DNS is the owner's open decision (`QUEUE-kea-ha.md`). Read
-  on 2026-10-22: 51 reservations in kea-db over 3 subnets, none in NetBox yet, none held
-  elsewhere, all inside NetBox's prefixes. Left: the next run of "NetBox: Sync from
-  Proxmox/Kea/k8s" (nightly, or started by hand) shows "reservations:" creating 51
-  addresses, read back in NetBox (IPAM > IP Addresses, status DHCP). Left, NetBox shows
-  reserved addresses as free, and one picked from it can collide.
+- **Read back the IoT network's devices in NetBox after the next sync** (2026-10-23):
+  `scripts/netbox_seed.py`'s "iot devices:" step makes each reservation on the IoT network a
+  device (described "Kea reservation device"), its kind and role from
+  `scripts/netbox_seed_iot.yaml`'s rules, wifi0 carrying the MAC and the address; the
+  manufacturers, device types and roles come from the same file. Gone → Offline, never
+  deleted; the addresses get no DNS name (`wanted_dns_names`' skip_devices), DHCP names in
+  DNS being the owner's open decision (`QUEUE-kea-ha.md`). Planned from 2026-10-23's data: 39
+  reservations, 39 devices, none unplaced. Left: the owner sets NETBOX_SEED_IOT_MODELS (a JSON
+  object of hostname: device type slug; the exact models the rules can't tell, HS210s first)
+  in the "Netbox Sync" variable group if wanted, then a dry run of "NetBox: Sync from
+  Proxmox/Kea/k8s" shows "iot devices:" creating 39 devices, then an applied run, read back
+  (Devices, role filter). Left, the IoT network's devices stay absent from NetBox.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly at
