@@ -59,9 +59,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
   the IoT prefix on the devices' ports (HA is hostNetwork, so devices are added by IP, without
-  discovery). `scripts/ha_iot_setup.py` (this branch's pull request) adds each local device
-  from NetBox by its setup flow and puts devices in rooms from a map kept outside git; its
-  dry run here would add 6 and place 14. Left: merge it, then a Semaphore Python template
+  discovery). `scripts/ha_iot_setup.py` (#349) adds each local device from NetBox by its setup
+  flow and puts devices in rooms from a map kept outside git; its dry run would add 6 and
+  place 14. Left: the room map's nursery devices (the owner says which are in the son's
+  bedroom, the old nursery, and which in the new one, the former office), then a Semaphore Python template
   and variable group for it (the owner; its docstring lists them), then a dry run and an
   --apply run. The Tapo plugs need TPLINK_USERNAME and TPLINK_PASSWORD in that group (or the
   UI); the Fire TVs need the ADB prompt approved on screen, the Samsung TV its PIN, both in
