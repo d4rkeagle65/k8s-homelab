@@ -57,18 +57,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **Read back the IoT network's devices in NetBox after the next sync** (2026-10-23):
-  `scripts/netbox_seed.py`'s "iot devices:" step makes each reservation on the IoT network a
-  device (described "Kea reservation device"), its kind and role from
-  `scripts/netbox_seed_iot.yaml`'s rules, wifi0 carrying the MAC and the address; the
-  manufacturers, device types and roles come from the same file. Gone → Offline, never
-  deleted; the addresses get no DNS name (`wanted_dns_names`' skip_devices), DHCP names in
-  DNS being the owner's open decision (`QUEUE-kea-ha.md`). Planned from 2026-10-23's data: 39
-  reservations, 39 devices, none unplaced. Left: the owner sets NETBOX_SEED_IOT_MODELS (a JSON
-  object of hostname: device type slug; the exact models the rules can't tell, HS210s first)
-  in the "Netbox Sync" variable group if wanted, then a dry run of "NetBox: Sync from
-  Proxmox/Kea/k8s" shows "iot devices:" creating 39 devices, then an applied run, read back
-  (Devices, role filter). Left, the IoT network's devices stay absent from NetBox.
+- **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
+  devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
+  wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
+  Left: the exact models the rules can't tell (the HS210s, the Echo generations, two Kasa
+  devices that may be plugs), by NETBOX_SEED_IOT_MODELS in the "Netbox Sync" variable group or
+  by hand in NetBox (the sync sets a type only when it creates the device); and the zone the
+  IoT hostnames go in, for their DNS names (the owner wants them there: the IoT prefix is in
+  NetBox DNS's default view, so a DNS name becomes a Pi-hole record). Left, every IoT
+  switch reads HS200, and the hostnames sit in the descriptions.
 - **The Immich import from OneDrive** (2026-10-21): Cloud Sync on the NAS brings the owner's
   OneDrive pictures down into the media share's `oneDrive` folder, and
   `kubernetes/prod/apps/immich/immich-import/`'s CronJob uploads what Immich lacks, nightly at
