@@ -49,6 +49,23 @@ settings:
   OPDS_SERVER_ENABLED: true
   # Uploads up to 250 MB (Grimmory's own ceiling is 1 GB; Traefik adds none).
   MAX_FILE_UPLOAD_SIZE_IN_MB: 250
+  # Where a metadata fetch looks (covers, descriptions, IDs). One setting holds
+  # every provider, so all are listed: Grimmory 3.5.0's defaults, with Open
+  # Library added (free, no key; good for older books' covers). A provider's
+  # key or cookie set in the UI is lost at the next sync; give it an env:NAME
+  # here instead.
+  METADATA_PROVIDER_SETTINGS:
+    openLibrary: {enabled: true}
+    amazon: {enabled: true, domain: com}
+    google: {enabled: true}
+    goodReads: {enabled: true}
+    hardcover: {enabled: false}
+    comicvine: {enabled: false}
+    ranobedb: {enabled: false}
+    douban: {enabled: false}
+    lubimyczytac: {enabled: false}
+    audible: {enabled: false}
+    appleBooks: {enabled: false, country: US}
 
 # Authentik groups (the blueprint admits only these two) to Grimmory's rights.
 groupMappings:
