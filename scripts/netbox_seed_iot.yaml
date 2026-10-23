@@ -1,0 +1,139 @@
+# What scripts/netbox_seed.py needs to model the IoT network's devices in NetBox
+# (each Kea reservation on that network becomes a device): the kinds of device,
+# and which kind a reservation is, read from its hostname. Nothing here names a
+# device or holds an address.
+#
+# A reservation's hostname is <site code>iot<brand><device><room>, e.g. a Kasa
+# light switch is "<site>iot" + "kali" + its room. `name` below matches what
+# follows "iot"; the first rule that matches decides. A reservation no rule
+# matches is reported and gets no device.
+#
+# The model a rule gives is where a device starts: NetBox owns it after that, so
+# a device whose exact model is set by hand in NetBox (an HS210 where the rule
+# says HS200, an Echo's generation) keeps it. A model known before the device is
+# made can come from NETBOX_SEED_IOT_MODELS instead (the script's docstring).
+
+# The network whose reservations become devices, by its name in netbox_seed.yaml.
+network: IoT
+
+manufacturers:
+- {name: Amazon, slug: amazon}
+- {name: eufy, slug: eufy}
+- {name: Furbo, slug: furbo}
+- {name: Generic, slug: generic}
+- {name: Govee, slug: govee}
+- {name: Hatch Sleep, slug: hatch-sleep}
+- {name: iView, slug: iview}
+- {name: Kasa, slug: kasa}
+- {name: Levoit, slug: levoit}
+- {name: Maytag, slug: maytag}
+- {name: Ostrich, slug: ostrich}
+- {name: Samsung, slug: samsung}
+- {name: TP-Link, slug: tp-link}
+- {name: Tuya, slug: tuya}
+- {name: ULTRALOQ, slug: ute}
+- {name: Wyze, slug: wyze}
+
+# Each kind of device: its interfaces (wifi0 carries the reservation's MAC and
+# address) and power ports, as NetBox templates, so a device made from it has them.
+device_types:
+- {slug: amazon-echo-dot, manufacturer: amazon, model: Echo Dot,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11ac}],
+   power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: amazon-echo-dot-2nd-gen, manufacturer: amazon, model: Echo Dot 2nd Gen,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
+   power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: amazon-echo-dot-3rd-gen, manufacturer: amazon, model: Echo Dot 3rd Gen,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11ac}],
+   power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: amazon-echo-dot-4th-gen-clock, manufacturer: amazon, model: Echo Dot 4th Gen Clock,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11ac}],
+   power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: amazon-fire-stick-4k, manufacturer: amazon, model: Fire Stick 4K,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11ax}],
+   power_ports: [{name: pIn1, type: usb-micro-a}]}
+- {slug: amazon-fire-tv-4k-43, manufacturer: amazon, model: Fire TV 4K 43,
+   interfaces: [{name: eth0, type: 100base-tx}, {name: wifi0, type: ieee802.11ax}],
+   power_ports: [{name: pIn1, type: nema-1-15p}]}
+- {slug: amazon-s6ed3r, manufacturer: amazon, model: S6ED3R, description: Amazon Smart Thermostat,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
+- {slug: eufy-t8417, manufacturer: eufy, model: T8417, description: Camera,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-c}]}
+- {slug: eufy-baby-monitor, manufacturer: eufy, model: Baby Monitor,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-c}]}
+- {slug: furbo-dog-camera, manufacturer: furbo, model: Dog Camera,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
+- {slug: generic-android-photo-frame, manufacturer: generic, model: Android Photo Frame,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: govee-h60561d1, manufacturer: govee, model: H60561D1, description: RGBICWW Wi-Fi light bars,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
+   power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: hatch-sleep-rest-baby, manufacturer: hatch-sleep, model: Rest Baby,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: iview-isb600, manufacturer: iview, model: ISB600, description: Smart light bulb,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
+- {slug: kasa-hs103p2, manufacturer: kasa, model: HS103P2, description: Smart plug,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: nema-5-15p}]}
+- {slug: kasa-hs200, manufacturer: kasa, model: HS200, description: Smart light switch,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
+- {slug: kasa-hs210, manufacturer: kasa, model: HS210, description: Smart 3-way light switch,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
+- {slug: kasa-hs220, manufacturer: kasa, model: HS220, description: Smart dimmer switch,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
+- {slug: levoit-classic300s, manufacturer: levoit, model: Classic300S, description: Smart humidifier,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: nema-1-15p}]}
+- {slug: maytag-mvw6230hw, manufacturer: maytag, model: MVW6230HW, description: Washer,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: nema-1-15p}]}
+- {slug: maytag-smart-dryer, manufacturer: maytag, model: Smart Dryer,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
+- {slug: ostrich-smart-fan, manufacturer: ostrich, model: Smart Fan, description: Ceiling fan smart controller,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
+- {slug: samsung-un32j5500afxza, manufacturer: samsung, model: UN32J5500AFXZA,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: eth0, type: 1000base-t}, {name: wifi0, type: ieee802.11n}],
+   power_ports: [{name: pIn1, type: nema-1-15p}]}
+- {slug: tp-link-tapo-p115, manufacturer: tp-link, model: Tapo P115, description: Smart plug with energy monitoring,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: nema-5-15p}]}
+- {slug: tuya-ir-blaster, manufacturer: tuya, model: IR Blaster,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
+- {slug: ultraloq-bridge, manufacturer: ute, model: Bridge, description: Wi-Fi bridge for a Bluetooth lock,
+   interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
+   power_ports: [{name: pIn1, type: nema-1-15p}]}
+- {slug: wyze-cam-v3, manufacturer: wyze, model: Cam v3,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
+- {slug: wyze-pan-cam-v3, manufacturer: wyze, model: Pan Cam v3,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
+
+roles: [Camera, Dryer, Humidifier, IR Remote, Media Viewer, Noise Machine, Photo Frame,
+        Smart Fan Controller, Smart Light, Smart Light Bulb, Smart Lock, Smart Power Plug,
+        Smart Power Switch, Thermostat, TV, Voice Interface, Washing Machine]
+
+# Brand codes: ka Kasa, az Amazon, sl Smart Life (Tuya apps), mt Maytag, ut ULTRALOQ,
+# fu Furbo, ha Hatch, ve VeSync (Levoit), go Govee, sm Samsung, wz Wyze, tp Tapo,
+# eu eufy, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere),
+# fire (t TV, s stick), cfan ceiling fan, lb light bulb, cam, noise, humid, tv.
+rules:
+- {name: '^kafan', type: kasa-hs200, role: Smart Power Switch}
+- {name: '^kali', type: kasa-hs200, role: Smart Power Switch}
+- {name: '^kapl', type: kasa-hs103p2, role: Smart Power Plug}
+- {name: '^tp(p115|pl)', type: tp-link-tapo-p115, role: Smart Power Plug}
+- {name: '^azthermo', type: amazon-s6ed3r, role: Thermostat}
+- {name: '^azechos', type: amazon-echo-dot-4th-gen-clock, role: Voice Interface}
+- {name: '^azecho', type: amazon-echo-dot, role: Voice Interface}
+- {name: '^azfiret', type: amazon-fire-tv-4k-43, role: TV}
+- {name: '^azfires', type: amazon-fire-stick-4k, role: Media Viewer}
+- {name: '^slcfan', type: ostrich-smart-fan, role: Smart Fan Controller}
+- {name: '^sllb', type: iview-isb600, role: Smart Light Bulb}
+- {name: '^mtwash', type: maytag-mvw6230hw, role: Washing Machine}
+- {name: '^mtdry', type: maytag-smart-dryer, role: Dryer}
+- {name: '^ut', type: ultraloq-bridge, role: Smart Lock}
+- {name: '^fucam', type: furbo-dog-camera, role: Camera}
+- {name: '^hanoise', type: hatch-sleep-rest-baby, role: Noise Machine}
+- {name: '^vehumid', type: levoit-classic300s, role: Humidifier}
+- {name: '^goli', type: govee-h60561d1, role: Smart Light}
+- {name: '^smtv', type: samsung-un32j5500afxza, role: TV}
+- {name: '^wzpan', type: wyze-pan-cam-v3, role: Camera}
+- {name: '^wzcam', type: wyze-cam-v3, role: Camera}
+- {name: '^eucam', type: eufy-t8417, role: Camera}
+- {name: '^eu(baby|mon)', type: eufy-baby-monitor, role: Camera}
+- {name: '^(pf|frame)', type: generic-android-photo-frame, role: Photo Frame}
+- {name: '^ir', type: tuya-ir-blaster, role: IR Remote}
