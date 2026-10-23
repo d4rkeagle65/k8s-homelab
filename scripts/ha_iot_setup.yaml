@@ -7,13 +7,15 @@
 # `handler` is the integration's domain. `fields` answer the flow's first step beside
 # the host. `login` names the environment variables holding the username and password
 # a later step asks for; unset, the flow is closed and the device is reported as
-# waiting for the login, which the owner enters in Home Assistant's UI.
+# waiting for the login, which the owner enters in Home Assistant's UI. `attended: true`
+# marks a flow that needs someone at the device (a prompt or PIN on a TV): a run
+# skips it unless given --attended.
 
 integrations:
 - {manufacturer: kasa, handler: tplink,
    login: {username: TPLINK_USERNAME, password: TPLINK_PASSWORD}}
 - {manufacturer: tp-link, handler: tplink,
    login: {username: TPLINK_USERNAME, password: TPLINK_PASSWORD}}
-- {type: amazon-fire-stick-4k, handler: androidtv, fields: {device_class: firetv, port: 5555}}
-- {type: amazon-fire-tv-4k-43, handler: androidtv, fields: {device_class: firetv, port: 5555}}
-- {type: samsung-un32j5500afxza, handler: samsungtv}
+- {type: amazon-fire-stick-4k, handler: androidtv, attended: true, fields: {device_class: firetv, port: 5555}}
+- {type: amazon-fire-tv-4k-43, handler: androidtv, attended: true, fields: {device_class: firetv, port: 5555}}
+- {type: samsung-un32j5500afxza, handler: samsungtv, attended: true}
