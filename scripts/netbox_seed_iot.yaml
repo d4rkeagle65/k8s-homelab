@@ -68,6 +68,12 @@ device_types:
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
 - {slug: generic-android-photo-frame, manufacturer: aimor, model: Smart Picture Frame, description: Android-based Wi-Fi photo frame,
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: govee-h5106, manufacturer: govee, model: H5106, description: Air quality monitor (PM2.5),
+   interfaces: [{name: wifi0, type: ieee802.11n}, {name: bt0, type: ieee802.15.1}], power_ports: [{name: pIn1, type: usb-c}]}
+- {slug: govee-h7124, manufacturer: govee, model: H7124, description: Smart air purifier,
+   interfaces: [{name: wifi0, type: ieee802.11n}, {name: bt0, type: ieee802.15.1}], power_ports: [{name: pIn1, type: dc-terminal}]}
+- {slug: govee-h7126, manufacturer: govee, model: H7126, description: Smart air purifier,
+   interfaces: [{name: wifi0, type: ieee802.11n}, {name: bt0, type: ieee802.15.1}], power_ports: [{name: pIn1, type: dc-terminal}]}
 - {slug: govee-h60561d1, manufacturer: govee, model: H60561D1, description: RGBICWW Wi-Fi light bars,
    interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
    power_ports: [{name: pIn1, type: dc-terminal}]}
@@ -108,14 +114,15 @@ device_types:
 - {slug: wyze-pan-cam-v3, manufacturer: wyze, model: Pan Cam v3,
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
 
-roles: [Baby Monitor, Camera, Dryer, Humidifier, IR Remote, Media Viewer, Noise Machine, Photo Frame,
+roles: [Air Purifier, Air Quality Sensor, Baby Monitor, Camera, Dryer, Humidifier, IR Remote, Media Viewer, Noise Machine, Photo Frame,
         Smart Fan Controller, Smart Light, Smart Light Bulb, Smart Lock, Smart Power Plug,
         Smart Power Switch, Thermostat, TV, Voice Interface, Washing Machine]
 
 # Brand codes: ka Kasa, az Amazon, sl Smart Life (Tuya apps), mt Maytag, ut ULTRALOQ,
 # fu Furbo, ha Hatch, ve VeSync (Levoit), go Govee, sm Samsung, wz Wyze, tp Tapo,
 # eu eufy, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere, spot),
-# fire (t TV, s stick), cfan ceiling fan, lb light bulb, cam, noise, humid, tv.
+# fire (t TV, s stick), cfan ceiling fan, lb light bulb, cam, noise, humid, tv, air (sensor),
+# pur (purifier; pur24 the H7124), sock, p115, rest (Hatch 2nd gen), pf photo frame.
 rules:
 - {name: '^kafan', type: kasa-hs200, role: Smart Power Switch}
 - {name: '^kali', type: kasa-hs200, role: Smart Power Switch}
@@ -137,6 +144,9 @@ rules:
 - {name: '^hanoise', type: hatch-sleep-rest-baby, role: Noise Machine}
 - {name: '^vehumid', type: levoit-classic300s, role: Humidifier}
 - {name: '^goli', type: govee-h60561d1, role: Smart Light}
+- {name: '^goair', type: govee-h5106, role: Air Quality Sensor}
+- {name: '^gopur24', type: govee-h7124, role: Air Purifier}
+- {name: '^gopur', type: govee-h7126, role: Air Purifier}
 - {name: '^smtv', type: samsung-un32j5500afxza, role: TV}
 - {name: '^wzpan', type: wyze-pan-cam-v3, role: Camera}
 - {name: '^wzcam', type: wyze-cam-v3, role: Camera}
