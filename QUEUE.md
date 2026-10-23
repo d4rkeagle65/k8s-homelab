@@ -62,11 +62,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   discovery). `scripts/ha_iot_setup.py` adds each local device from NetBox by its setup flow
   and puts devices in rooms from their NetBox Location (this branch's pull request moves rooms
   there, adds --attended for the TVs' setups, and lets one device's timeout not stop the run;
-  Semaphore task 1275 stopped on the Fire Stick's ADB prompt, creating nothing). Left: merge
-  it; the owner creates the Locations in NetBox and sets each IoT device's (the son's room,
-  Bedroom, Living Room with the thermostat, Kitchen, Laundry Room, Bathroom, Balcony, Hallway,
-  Dining Room, Stairs; the front closet, family-room Echo, Furbo and IR blaster undecided);
-  a second Semaphore template with --apply --attended beside template 32; then a run of each.
+  Semaphore task 1275 stopped on the Fire Stick's ADB prompt, creating nothing). NetBox has a
+  Location per room, and 46 of the 49 IoT devices are in theirs (read back); the Furbo, the
+  front-door lock and the photo frame have none yet, waiting for the owner's rooms. Left:
+  merge it; a second Semaphore template with --apply --attended beside template 32; then a run of each.
   HA's Nursery area stays for Baby Buddy. The Tapo plugs need TPLINK_USERNAME and
   TPLINK_PASSWORD in the group (or the UI). The cloud integrations (Tuya, VeSync, Whirlpool;
   HACS' Alexa Media Player, Govee Cloud Integration, Hatch, eufy) take the owner's logins in
