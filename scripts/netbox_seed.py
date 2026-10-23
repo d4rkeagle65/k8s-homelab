@@ -483,9 +483,10 @@ IOT_DEVICE_MARK = "Kea reservation device"
 
 
 def iot_kind(hostname: str, rules: list[dict]) -> dict | None:
-    """The first rule whose name pattern matches what follows "<site code>iot" in a
-    reservation's hostname (netbox_seed_iot.yaml), or None."""
-    m = re.match(r"^[a-z]{2}iot(.+)$", hostname.lower())
+    """The first rule whose name pattern matches what follows "<site code>iot" (or
+    "<site code><area code>iot") in a reservation's hostname (netbox_seed_iot.yaml),
+    or None."""
+    m = re.match(r"^[a-z]{2}(?:[a-z]{2})?iot(.+)$", hostname.lower())
     if not m:
         return None
     return next((r for r in rules if re.search(r["name"], m.group(1))), None)

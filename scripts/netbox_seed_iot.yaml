@@ -4,7 +4,8 @@
 # device or holds an address.
 #
 # A reservation's hostname is <site code>iot<brand><device><room>, e.g. a Kasa
-# light switch is "<site>iot" + "kali" + its room. `name` below matches what
+# light switch is "<site>iot" + "kali" + its room; a two-letter area code may
+# follow the site code ("<site><area>iot"). `name` below matches what
 # follows "iot"; the first rule that matches decides. A reservation no rule
 # matches is reported and gets no device.
 #
@@ -120,9 +121,9 @@ roles: [Air Purifier, Air Quality Sensor, Baby Monitor, Camera, Dryer, Humidifie
 
 # Brand codes: ka Kasa, az Amazon, sl Smart Life (Tuya apps), mt Maytag, ut ULTRALOQ,
 # fu Furbo, ha Hatch, ve VeSync (Levoit), go Govee, sm Samsung, wz Wyze, tp Tapo,
-# eu eufy, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere, spot),
+# eu eufy, am AiMOR, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere, spot),
 # fire (t TV, s stick), cfan ceiling fan, lb light bulb, cam, noise, humid, tv, air (sensor),
-# pur (purifier; pur24 the H7124), sock, p115, rest (Hatch 2nd gen), pf photo frame.
+# pur (purifier; pur24 the H7124), sock, p115, rest (Hatch 2nd gen), pf or yo photo frame.
 rules:
 - {name: '^kafan', type: kasa-hs200, role: Smart Power Switch}
 - {name: '^kali', type: kasa-hs200, role: Smart Power Switch}
@@ -152,5 +153,5 @@ rules:
 - {name: '^wzcam', type: wyze-cam-v3, role: Camera}
 - {name: '^eucam', type: eufy-t8417, role: Camera}
 - {name: '^eu(sock|baby|mon)', type: eufy-baby-monitor, role: Baby Monitor}
-- {name: '^(pf|frame)', type: generic-android-photo-frame, role: Photo Frame}
+- {name: '^(pf|frame|amyo)', type: generic-android-photo-frame, role: Photo Frame}
 - {name: '^ir', type: tuya-ir-blaster, role: IR Remote}
