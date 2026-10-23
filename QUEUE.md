@@ -57,6 +57,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **The IoT devices in Home Assistant** (2026-10-23): HA has no IoT integration yet, and the
+  firewall drops HA (hostNetwork on a worker) to the IoT network: from its pod 2 of 49 devices
+  answer, though 38 hold a lease at their reserved address. The owner chose a firewall rule
+  (the 4 workers to the IoT prefix, on the devices' ports) over a VLAN 6 leg for HA, so
+  devices are added by IP, without discovery. After the rule: re-run the reachability probe
+  from the HA pod, then the local integrations (TP-Link for the Kasa and Tapo devices, Samsung
+  TV, Android TV for the Fire TVs); the cloud ones (Tuya, VeSync, Whirlpool, and HACS' Alexa
+  Media Player, Govee, Hatch, eufy) take the owner's own logins in the HA UI.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
