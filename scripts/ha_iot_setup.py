@@ -52,11 +52,21 @@ from ruamel.yaml import YAML
 from netbox_seed import IOT_DEVICE_MARK, NetBox, http, read_secret, unexpected
 
 
+class SocketClosed(Exception):
+    """The WebSocket was closed under us (an idle connection is dropped on the way)."""
+
+
 class HomeAssistantSocket:
     """Home Assistant's WebSocket API (the device and area registries have no REST
     form): one connection, authenticated, one command at a time."""
 
     def __init__(self, url: str, token: str):
+        try:
+            self._open(url, token)
+        except (SocketClosed, OSError) as e:
+            raise SystemExit(f"FAIL: no WebSocket to Home Assistant: {e}") from e
+
+    def _open(self, url: str, token: str):
         u = urlsplit(url)
         port = u.port or (443 if u.scheme == "https" else 80)
         raw = socket.create_connection((u.hostname, port), timeout=60)
@@ -81,9 +91,12 @@ class HomeAssistantSocket:
     def _read(self, n: int) -> bytes:
         out = b""
         while len(out) < n:
-            chunk = self.sock.recv(n - len(out))
+            try:
+                chunk = self.sock.recv(n - len(out))
+            except OSError as e:
+                raise SocketClosed(str(e)) from e
             if not chunk:
-                raise SystemExit("FAIL: Home Assistant closed the WebSocket")
+                raise SocketClosed("no more data")
             out += chunk
         return out
 
@@ -98,7 +111,10 @@ class HomeAssistantSocket:
         else:
             head += bytes([0x80 | 127]) + struct.pack(">Q", size)
         mask = os.urandom(4)
-        self.sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+        try:
+            self.sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+        except OSError as e:
+            raise SocketClosed(str(e)) from e
 
     def _recv(self) -> dict:
         data = b""
@@ -113,7 +129,7 @@ class HomeAssistantSocket:
             if b1 & 0x0F in (0x9, 0xA):  # ping, pong
                 continue
             if b1 & 0x0F == 0x8:
-                raise SystemExit("FAIL: Home Assistant closed the WebSocket")
+                raise SocketClosed("close frame")
             data += payload
             if b1 & 0x80:
                 return json.loads(data)
@@ -133,12 +149,25 @@ FLOW_TIMEOUT = 90
 
 
 class HomeAssistant:
-    """Config flows over REST, registries over the WebSocket."""
+    """Config flows over REST, registries over the WebSocket. A setup flow can keep
+    the WebSocket idle for minutes, long enough for it to be dropped on the way, so a
+    call that finds it closed opens a new one and is sent again, once."""
 
     def __init__(self, url: str, token: str):
         self.base = url.rstrip("/")
         self.headers = {"Authorization": "Bearer " + token}
+        self.url, self.token = url, token
         self.ws = HomeAssistantSocket(url, token)
+
+    def call(self, kind: str, **args):
+        try:
+            return self.ws.call(kind, **args)
+        except SocketClosed:
+            self.ws = HomeAssistantSocket(self.url, self.token)
+            try:
+                return self.ws.call(kind, **args)
+            except SocketClosed as e:
+                raise SystemExit(f"FAIL: Home Assistant's WebSocket closed twice during {kind}: {e}") from e
 
     def flow(self, path: str, body=None, method: str = "POST"):
         """One call of a setup flow. A step can wait on the device (an ADB connection
@@ -152,10 +181,10 @@ class HomeAssistant:
             return {"type": "no_answer", "reason": str(e).removeprefix("FAIL: ")}
 
     def devices(self) -> list[dict]:
-        return self.ws.call("config/device_registry/list")
+        return self.call("config/device_registry/list")
 
     def areas(self) -> list[dict]:
-        return self.ws.call("config/area_registry/list")
+        return self.call("config/area_registry/list")
 
 
 def norm_mac(mac: str) -> str:
@@ -346,10 +375,10 @@ def main() -> None:
             print(f"  would put {d['name']} in {want}" + ("" if area else " (a new area)"))
             continue
         if area is None:
-            area = ha.ws.call("config/area_registry/create", name=want)
+            area = ha.call("config/area_registry/create", name=want)
             areas[want.casefold()] = area
             print(f"  made area {want}")
-        ha.ws.call("config/device_registry/update", device_id=ha_dev["id"], area_id=area["area_id"])
+        ha.call("config/device_registry/update", device_id=ha_dev["id"], area_id=area["area_id"])
         placed.append((ha_dev["id"], area["area_id"], d["name"], want))
     if placed:
         now = {x["id"]: x.get("area_id") for x in ha.devices()}

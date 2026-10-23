@@ -65,8 +65,9 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Semaphore task 1275 stopped on the Fire Stick's ADB prompt, creating nothing). NetBox has a
   Location per room, and all 49 IoT devices are in theirs (read back). Left:
   merge it; a second Semaphore template with --apply --attended beside template 32; then a run of each.
-  HA's Nursery area stays for Baby Buddy. The Tapo plugs need TPLINK_USERNAME and
-  TPLINK_PASSWORD in the group (or the UI). The cloud integrations (Tuya, VeSync, Whirlpool;
+  HA's Nursery area stays for Baby Buddy. The Tapo plugs' login was refused in task
+  1276 (invalid_auth): the owner checks TPLINK_USERNAME and TPLINK_PASSWORD in the group
+  against the TP-Link account the desk plug signed in with. The cloud integrations (Tuya, VeSync, Whirlpool;
   HACS' Alexa Media Player, Govee Cloud Integration, Hatch, eufy) take the owner's logins in
   the UI; a later run places their devices that carry a MAC. Then pin the HACS add-ons in the
   repo (offered, its own pull request). The son's-room ceiling fan doesn't work: look into it.
