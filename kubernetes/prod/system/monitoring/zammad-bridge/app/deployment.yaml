@@ -51,6 +51,10 @@ spec:
             secretKeyRef:
               name: zammad-bridge
               key: DATABASUS_TOKEN
+        # How long a stack container's failure waits before its ticket
+        # (zammad-bridge.py): a redeploy's restarts are over well within it.
+        - name: DOCKHAND_HOLD_SECONDS
+          value: "180"
         # Each Docker host's read-only socket proxy (docker/docker-socket-proxy*),
         # asked whether a container Dockhand reports is a stack's (zammad-bridge.py).
         - name: DOCKER_HOSTS
