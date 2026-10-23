@@ -73,7 +73,7 @@ spec:
         serviceMonitor: null
     initContainers:
     - name: webhook
-      image: python:3.14.8-alpine
+      image: python:3.15.1-alpine
       restartPolicy: Always
       args: [python, -u, /app/netbox-dns-webhook.py]
       env:
