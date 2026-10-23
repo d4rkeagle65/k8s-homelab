@@ -392,6 +392,7 @@ def test_iot_kind_reads_what_follows_iot_and_the_first_matching_rule_wins():
     assert m.iot_kind("zziotazechodkitchen", rules)["type"] == "amazon-echo-dot"
     assert m.iot_kind("zziotazfiretliving", rules)["role"] == "TV"
     assert m.iot_kind("zziotazfiresbedroom", rules)["role"] == "Media Viewer"
+    assert m.iot_kind("zzaaiotkalikitchen", rules)["type"] == "kasa-hs200"
     assert m.iot_kind("zziotqqunknown", rules) is None
     assert m.iot_kind("printer", rules) is None
 
