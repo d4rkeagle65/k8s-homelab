@@ -124,6 +124,12 @@ spec:
       # replaces it (monitors/app/prometheusrule-homelab.yaml).
       disabled:
         KubeJobFailed: true
+    # etcdMemberCommunicationSlow (99th-percentile peer round trip over 150 ms) fires
+    # on the short slowdowns a busy host or a node's restart brings, each over in 8 to
+    # 20 minutes (2026-10-23); held 30 minutes, it tickets only slowness that stays.
+    customRules:
+      etcdMemberCommunicationSlow:
+        for: 30m
 
     prometheusOperator:
       resources:

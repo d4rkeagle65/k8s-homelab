@@ -23,7 +23,10 @@ stack (its com.docker.compose.project label), read from each Docker host's
 read-only socket proxy (DOCKER_HOSTS): one another program starts and removes
 (Databasus's restore checks), one outside every stack, and a stack's container
 that exited 0 (a one-shot's normal finish) open nothing. When a host can't be
-asked, the ticket opens and says so.
+asked, the ticket opens and says so. A stack container's failure is held
+DOCKHAND_HOLD_SECONDS (180) first and asked about again: one running again by
+then, as after a redeploy, or whose recovery arrives meanwhile, opens nothing.
+A hold lives in memory, so one pending when the bridge restarts is dropped.
 
 Semaphore's task alerts arrive at /semaphore/<token>, in its Slack format (the
 stack's SEMAPHORE_SLACK_URL): a task that ends in error opens a ticket for its
@@ -50,6 +53,7 @@ import os
 import re
 import sys
 import hmac
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -190,10 +194,11 @@ def docker_containers(host: str) -> list[dict]:
         return json.load(r)
 
 
-def stack_failure(name: str, hosts: list[str]) -> tuple[bool, str]:
+def stack_failure(name: str, hosts: list[str], running_ok: bool = False) -> tuple[bool, str]:
     """Whether a container's failure is a ticket: (ticket, why). A stack's
     container that didn't exit 0 is; one gone, outside every stack, or exited 0
-    isn't. A host that can't be asked never turns a ticket into none."""
+    isn't, nor, with running_ok (asked again after the hold), one running again.
+    A host that can't be asked never turns a ticket into none."""
     found, unasked = [], 0
     for host in hosts:
         try:
@@ -202,12 +207,20 @@ def stack_failure(name: str, hosts: list[str]) -> tuple[bool, str]:
             unasked += 1
     stack = [c for c in found if (c.get("Labels") or {}).get("com.docker.compose.project")]
     if stack:
+        if running_ok and any(c.get("State") == "running" for c in stack):
+            return False, "running again"
         if all(c.get("State") == "exited" and str(c.get("Status", "")).startswith("Exited (0)") for c in stack):
             return False, "exited 0, a normal finish"
         return True, ""
     if unasked:
         return True, f"{unasked} of {len(hosts)} Docker hosts couldn't be asked whether it belongs to a stack"
     return (False, "not part of a stack") if found else (False, "gone, removed by what started it")
+
+
+def container_of(note: dict) -> str:
+    """The container a Dockhand event names ('Container "kea-dhcp4" die (...)'), or ""."""
+    named = re.match(r'Container "([^"]+)" ', str(note.get("message") or ""))
+    return named.group(1) if named else ""
 
 
 def dockhand_to_checkmk(note: dict, hosts: list[str] | tuple = ()) -> dict | None:
@@ -310,6 +323,49 @@ ROUTES = {
 }
 
 
+# Stack containers' failures waiting out the hold, by ticket host: a timer each.
+HELD: dict[str, threading.Timer] = {}
+HELD_LOCK = threading.Lock()
+
+
+def hold(fields: dict, container: str, seconds: float, hosts: list[str], url: str) -> None:
+    """Sends the ticket after the hold, unless the container is running again."""
+    def release():
+        with HELD_LOCK:
+            if HELD.get(fields["host"]) is not timer:
+                return
+            del HELD[fields["host"]]
+        ticket, why = stack_failure(container, hosts, running_ok=True) if hosts else (True, "")
+        if not ticket:
+            log(f"dockhand: {container}: no ticket after the hold, {why}")
+            return
+        out = dict(fields, text="\n".join(x for x in (fields["text"], why) if x))
+        try:
+            log(f"{out['host']}: {out['state']}: {send(url, out)}")
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            reason = getattr(e, "code", None) or getattr(e, "reason", None) or type(e).__name__
+            log(f"{out['host']}: {out['state']}: Zammad didn't take it after the hold ({reason})")
+
+    with HELD_LOCK:
+        if fields["host"] in HELD:
+            log(f"dockhand: {container}: already held")
+            return
+        timer = threading.Timer(seconds, release)
+        timer.daemon = True
+        HELD[fields["host"]] = timer
+    log(f"dockhand: {container}: held {seconds:.0f}s before a ticket")
+    timer.start()
+
+
+def unhold(host: str) -> bool:
+    """Drops a held failure whose recovery arrived; whether one was held."""
+    with HELD_LOCK:
+        timer = HELD.pop(host, None)
+    if timer:
+        timer.cancel()
+    return timer is not None
+
+
 def summary(route: str, note: dict) -> str:
     """One log line about a notification: what it says, never its token."""
     if route == "semaphore":
@@ -345,6 +401,7 @@ class Handler(BaseHTTPRequestHandler):
 
     dockhand_token = ""
     docker_hosts: list[str] = []
+    hold_seconds: float = 0
     semaphore_token = ""
     databasus_token = ""
 
@@ -401,6 +458,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             return
+        container = container_of(note) if route == "dockhand" else ""
+        if container and fields["state"] != "OK" and self.hold_seconds > 0:
+            hold(fields, container, self.hold_seconds, self.docker_hosts, self.url)
+            self.send_response(200)
+            self.end_headers()
+            return
+        if container and fields["state"] == "OK" and unhold(fields["host"]):
+            log(f"dockhand: {container}: recovered within the hold, no ticket")
+            self.send_response(200)
+            self.end_headers()
+            return
         try:
             result = send(self.url, fields)
             log(f"{fields['host']}: {fields['state']}: {result}")
@@ -423,6 +491,7 @@ def main() -> None:
     if not Handler.prometheus:
         log("PROMETHEUS_URL unset: tickets won't list the members of a group alert")
     Handler.docker_hosts = [h.strip() for h in os.environ.get("DOCKER_HOSTS", "").split(",") if h.strip()]
+    Handler.hold_seconds = float(os.environ.get("DOCKHAND_HOLD_SECONDS", "180") or 0)
     if not Handler.docker_hosts:
         log("DOCKER_HOSTS unset: every container failure Dockhand sends is a ticket")
     for route, (attr, _) in ROUTES.items():

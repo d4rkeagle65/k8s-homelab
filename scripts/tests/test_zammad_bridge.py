@@ -280,3 +280,78 @@ def test_a_host_that_cant_be_asked_never_drops_a_ticket(monkeypatch):
 def test_without_hosts_every_container_failure_is_a_ticket(monkeypatch):
     monkeypatch.setattr(m, "docker_containers", lambda host: (_ for _ in ()).throw(AssertionError("asked")))
     assert m.dockhand_to_checkmk(died("databasus-verif-1f2e"))["state"] == "CRITICAL"
+
+
+class FakeTimer:
+    """threading.Timer that fires only when the test says so."""
+    made = []
+
+    def __init__(self, seconds, fn):
+        self.seconds, self.fn, self.cancelled, self.daemon = seconds, fn, False, False
+        FakeTimer.made.append(self)
+
+    def start(self):
+        pass
+
+    def cancel(self):
+        self.cancelled = True
+
+
+def held(monkeypatch, lists):
+    """The hold on, a fake clock, Zammad recorded; each host's containers from lists."""
+    import json
+    sent = []
+    FakeTimer.made = []
+    monkeypatch.setattr(m.threading, "Timer", FakeTimer)
+    monkeypatch.setattr(m, "HELD", {})
+    monkeypatch.setattr(m, "send", lambda url, fields: sent.append(fields) or "ok")
+    monkeypatch.setattr(m, "docker_containers", lambda host: lists[host])
+    monkeypatch.setattr(m.Handler, "dockhand_token", "s3cr3t-token")
+    monkeypatch.setattr(m.Handler, "docker_hosts", HOSTS)
+    monkeypatch.setattr(m.Handler, "hold_seconds", 180)
+    post = lambda note: dockhand_post("/dockhand/s3cr3t-token", json.dumps(note).encode())
+    return sent, post
+
+
+def test_a_held_failure_still_failed_after_the_hold_is_a_ticket(monkeypatch):
+    lists = {HOSTS[0]: [container("kea-dhcp4")], HOSTS[1]: []}
+    sent, post = held(monkeypatch, lists)
+    assert post(died("kea-dhcp4")) == 200 and sent == [] and FakeTimer.made[0].seconds == 180
+    FakeTimer.made[0].fn()
+    assert len(sent) == 1 and sent[0]["state"] == "CRITICAL" and sent[0]["host"] == "Dockhand Container kea-dhcp4"
+
+
+def test_a_container_running_again_after_the_hold_opens_nothing(monkeypatch):
+    lists = {HOSTS[0]: [container("netbox")], HOSTS[1]: []}
+    sent, post = held(monkeypatch, lists)
+    post(died("netbox"))
+    lists[HOSTS[0]] = [container("netbox", state="running", status="Up 40 seconds")]
+    FakeTimer.made[0].fn()
+    assert sent == []
+
+
+def test_a_recovery_within_the_hold_cancels_it_and_sends_nothing(monkeypatch):
+    lists = {HOSTS[0]: [container("netbox")], HOSTS[1]: []}
+    sent, post = held(monkeypatch, lists)
+    post(died("netbox"))
+    assert post({"title": "Container Start", "message": 'Container "netbox" start (some/image:1)', "type": "success"}) == 200
+    assert FakeTimer.made[0].cancelled and sent == []
+    FakeTimer.made[0].fn()  # a timer that fires after its cancel does nothing
+    assert sent == []
+
+
+def test_a_die_and_a_kill_for_one_container_hold_once(monkeypatch):
+    lists = {HOSTS[0]: [container("kea-postgres")], HOSTS[1]: []}
+    sent, post = held(monkeypatch, lists)
+    post(died("kea-postgres"))
+    post({"title": "Container Kill", "message": 'Container "kea-postgres" kill (some/image:1)', "type": "error"})
+    assert len(FakeTimer.made) == 1
+
+
+def test_a_host_that_cant_be_asked_after_the_hold_still_opens_the_ticket(monkeypatch):
+    lists = {HOSTS[0]: [container("kea-dhcp4")], HOSTS[1]: []}
+    sent, post = held(monkeypatch, lists)
+    post(died("kea-dhcp4"))
+    monkeypatch.setattr(m, "docker_containers", lambda host: (_ for _ in ()).throw(OSError("timed out")))
+    FakeTimer.made[0].fn()
+    assert len(sent) == 1 and "couldn't be asked" in sent[0]["text"]
