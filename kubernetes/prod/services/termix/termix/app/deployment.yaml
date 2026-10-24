@@ -46,7 +46,10 @@ spec:
             secretKeyRef:
               name: termix-db-app
               key: uri
+        # TLS to the database, verified against CloudNativePG's own CA (termix-db-ca's
+        # ca.crt only, never its ca.key); the server certificate names termix-db-rw.
         - {name: DATABASE_SSL, value: require}
+        - {name: NODE_EXTRA_CA_CERTS, value: /etc/termix-db-ca/ca.crt}
         # Only the pod network (Traefik) may set X-Forwarded-For: its default trusts
         # every private range, and a forged header was 2026-10's authentication bypass.
         - {name: TRUSTED_PROXIES, value: "${CALICO_POD_CIDR}"}
@@ -85,10 +88,16 @@ spec:
             drop: [ALL]
         volumeMounts:
         - {name: data, mountPath: /app/data}
+        - {name: db-ca, mountPath: /etc/termix-db-ca, readOnly: true}
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: termix-data
+      - name: db-ca
+        secret:
+          secretName: termix-db-ca
+          items:
+          - {key: ca.crt, path: ca.crt}
 ---
 apiVersion: v1
 kind: Service
