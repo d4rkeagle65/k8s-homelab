@@ -61,9 +61,15 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
         (`TERMIX_HOSTS_CONFIG`: `name`, `ip`, `port`, `username`, `credential`, `folder`, `tags`)
         are, and step 6 uses one of them.
       - Health: `GET /health`; allow 60 s to start.
-- [ ] 2. The owner's Key Vault values (steps given then): Termix's keys, the Authentik client
-      secret, the bastion key's private half.
-- [ ] 3. Authentik: a blueprint for Termix's OIDC application and its forward-auth provider.
+- [x] 2. The owner's Key Vault values (2026-10-24): `TERMIX-ENCRYPTION-KEY`, `-DATABASE-KEY`,
+      `-GUACAMOLE-ENCRYPTION-KEY`, `-INTERNAL-AUTH-TOKEN`, `-JWT-SECRET`, `-SSH-PRIVATE-KEY`, and
+      `AUTHENTIK-TERMIX-OIDC-CLIENT-SECRET`. The bastion key's public half (not secret):
+      `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILX/HfYILM8HpE2j04mWy1v0Z3EQajp1BlW4RK9+naz/ termix-bastion`.
+- [ ] 3. Authentik, in two pull requests so the worker never references a missing Secret:
+      first the `authentik` namespace opted in to Key Vault (it holds only Authentik) and the
+      `authentik-termix-oidc` ExternalSecret; then the blueprints (an OIDC application and a
+      forward-auth proxy provider on the outpost, a Termix Admins group), the worker's
+      `TERMIX_OIDC_CLIENT_SECRET`, with the app (step 4).
 - [ ] 4. The app: namespace, CloudNativePG cluster and its object store, ExternalSecret,
       Deployment, `guacd`, storage for data and recordings, private Ingress with Authentik's
       forward-auth, Homepage card. Read back: sign-in through both, an SSH session, a recording.

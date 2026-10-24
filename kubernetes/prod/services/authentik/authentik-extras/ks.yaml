@@ -24,6 +24,7 @@ spec:
   dependsOn:
   - name: cert-manager
   - name: cnpg
+  - name: external-secrets
   # Fields Flux leaves as they are live (promote.py, FLUX_IGNORE_RULES).
   ignore:
   - paths:
