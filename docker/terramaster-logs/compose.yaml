@@ -9,7 +9,7 @@
 # Hawser agent; Alloy's position in each file is kept in a volume.
 services:
   alloy:
-    image: grafana/alloy:v1.20.1
+    image: grafana/alloy:v1.21.0
     container_name: terramaster-logs
     restart: unless-stopped
     mem_limit: 256m  # unmeasured: a guess at a few times Alloy's footprint for two files
