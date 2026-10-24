@@ -78,8 +78,14 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       retention; then a pull request turning off password sign-in and registration
       (`ALLOW_PASSWORD_LOGIN`, `ALLOW_REGISTRATION`) once SSO sign-in is proved; then an SSH
       session and its recording read back.
-- [ ] 5. The bastion key's public half on the hosts: which hosts and which user, the owner's call;
-      through the baseline playbooks, check mode first.
+- [ ] 5. The bastion key on everything that takes an SSH login (the owner, 2026-10-24), as the
+      account the playbooks already give a login: the owner's named admin account on the Debian
+      hosts (`tasks/admin-user.yml`, its authorized_keys now the owner's keys plus
+      `bastion_ssh_keys` from `group_vars/all.yml`), root on OpenWrt (`openwrt-aps.yml`, added,
+      never removed). Left after the pull request: check-mode runs of Admin Users (or the
+      Debian baseline) and the OpenWrt template, then real runs; then the NASes (the Synology
+      through `synology-baseline.yml`, the TerraMaster by hand); the Windows DC takes a
+      password credential in Termix; the Talos nodes have no SSH.
 - [ ] 6. The NetBox sync job, dry run first, then on a schedule.
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).
 - [ ] 8. Later: Docker, Kubernetes and cloud, scoped as above.

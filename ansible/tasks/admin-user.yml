@@ -15,6 +15,7 @@
       - admin_ssh_keys is defined and admin_ssh_keys is sequence and admin_ssh_keys is not string
       - admin_ssh_keys | length > 0
       - admin_ssh_keys | reject('match', '^(ssh-|ecdsa-|sk-)[^ ]+ [A-Za-z0-9+/=]+( .*)?$') | list | length == 0
+      - bastion_ssh_keys | default([]) | reject('match', '^(ssh-|ecdsa-|sk-)[^ ]+ [A-Za-z0-9+/=]+( .*)?$') | list | length == 0
       - password_hash == '' or password_hash is match('^[$]')
       - nopasswd or password_hash != ''
     fail_msg: >-
@@ -23,6 +24,11 @@
       starting with $, and it's required unless admin_sudo_nopasswd is true.
     quiet: true
   run_once: true
+
+# The account's keys: the owner's, then the web bastion's (group_vars/all.yml).
+- name: The keys its authorized_keys holds
+  ansible.builtin.set_fact:
+    login_keys: "{{ (admin_ssh_keys + (bastion_ssh_keys | default([]))) | unique | list }}"
 
 - name: This is a Debian machine
   ansible.builtin.assert:
@@ -83,11 +89,11 @@
     mode: "0700"
   when: not ansible_check_mode
 
-# The whole file: a key removed from admin_ssh_keys is removed here too.
+# The whole file: a key removed from admin_ssh_keys or bastion_ssh_keys is removed here too.
 - name: Its authorized_keys holds exactly the given keys
   ansible.builtin.copy:
     dest: "~{{ admin_user }}/.ssh/authorized_keys"
-    content: "{{ admin_ssh_keys | join('\n') }}\n"
+    content: "{{ login_keys | join('\n') }}\n"
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
     mode: "0600"
@@ -164,8 +170,8 @@
 
 - name: authorized_keys holds the given keys and nothing else
   ansible.builtin.assert:
-    that: (keys_back.content | b64decode).splitlines() | reject('equalto', '') | list == admin_ssh_keys
-    fail_msg: "{{ inventory_hostname }}: {{ admin_user }}'s authorized_keys doesn't match admin_ssh_keys."
+    that: (keys_back.content | b64decode).splitlines() | reject('equalto', '') | list == login_keys
+    fail_msg: "{{ inventory_hostname }}: {{ admin_user }}'s authorized_keys doesn't match admin_ssh_keys and bastion_ssh_keys."
     quiet: true
   when: not ansible_check_mode
 
@@ -174,5 +180,5 @@
     msg: >-
       {{ inventory_hostname }}: {{ admin_user }} {{ ('in groups [' ~ admin_groups.stdout ~ ']')
       if admin_groups.rc == 0 else "doesn't exist yet (a real run creates it)" }},
-      {{ admin_ssh_keys | length }} key(s), sudo {{ 'without' if nopasswd else 'with' }} a password,
+      {{ admin_ssh_keys | length }} key(s) and {{ (bastion_ssh_keys | default([])) | length }} bastion key(s), sudo {{ 'without' if nopasswd else 'with' }} a password,
       login password {{ 'set' if password_hash != '' else 'none (key only)' }}.
