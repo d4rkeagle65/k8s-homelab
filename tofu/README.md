@@ -119,22 +119,23 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 
 ## The Tailscale module (`tailscale/`)
 
-- **What's specific to the site** is one JSON value, `TF_VAR_tailnet`: the policy file
-  (HuJSON, exactly as the admin console holds it) and DNS (search paths, and each split-DNS
-  domain with its nameservers). Its **master copy is a Vaultwarden note** ("OpenTofu site
-  (Tailscale)"), handled like the other site notes. The tailnet settings name nothing, so
-  they're in `main.tf`. The policy moves to code built from NetBox's tags in
-  `QUEUE-tailscale.md`'s step 4.
+- **Nothing about the site is stored for it.** What names the site is read from NetBox at
+  every plan (`netbox.tf`): the DNS zones tagged `tailscale-dns`, each split to both
+  Pi-holes (their `net0` address) and searched. The tailnet settings name nothing and are
+  written in `main.tf`. The policy file comes in `QUEUE-tailscale.md`'s step 4, built from
+  NetBox's tags and git. No Vaultwarden note: every secret it needs is in Key Vault.
 - **Credentials:** an OAuth client of its own, which doesn't expire: Key Vault's
   `TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID` and `-SECRET` (write on the policy file, DNS, devices
   and feature settings). Not Homepage's `TAILSCALE_API_KEY`.
-- **Semaphore:** a variable group "OpenTofu: Tailscale", environment variables, all secrets:
-  `TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET`, `PG_CONN_STR` (the same as
-  Proxmox's; the schema differs) and `TF_VAR_tailnet` (the note). A template, type OpenTofu,
-  subdirectory `tofu/tailscale`.
-- **Adopted, not created:** `main.tf`'s import blocks take the policy, DNS and settings over
-  as they are, so the first plan shows no change. A change made in the admin console instead
-  shows in the next plan as a change back.
+- **Semaphore:** a variable group "OpenTofu: Tailscale", environment variables. Secrets:
+  `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_CLIENT_SECRET` (the client above),
+  `PG_CONN_STR` (the same as Proxmox's; the schema differs), `TF_VAR_netbox_token` (Key
+  Vault's `NETBOX-READ-TOKEN`); variable `TF_VAR_netbox_url` = `https://netbox.<domain>`. A
+  template, type OpenTofu, subdirectory `tofu/tailscale`.
+- **Adopted, not created:** `main.tf`'s import blocks take DNS and the settings over. A plan
+  stops when NetBox has no tagged zone or no Pi-hole, rather than empty the tailnet's DNS. A
+  change made in the admin console shows in the next plan as a change back.
+
 ## Checks for a change here
 
 - `tofu fmt -check -recursive` and `tofu validate` (after `tofu init -backend=false`) pass.

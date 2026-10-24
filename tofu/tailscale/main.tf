@@ -1,11 +1,6 @@
-# The tailnet's policy, DNS and settings (QUEUE-tailscale.md). Each is adopted
-# from the tailnet as it was with an import block, so the first plan changes
-# nothing; the imports are no-ops once the state holds them.
-
-import {
-  to = tailscale_acl.this
-  id = "acl"
-}
+# The tailnet's DNS and settings (QUEUE-tailscale.md). Each is adopted with an
+# import block; the imports are no-ops once the state holds them. The policy file
+# comes in the reorganisation (step 4), built from NetBox's tags and git.
 
 import {
   to = tailscale_dns_configuration.this
@@ -17,30 +12,21 @@ import {
   id = "tailnet_settings"
 }
 
-resource "tailscale_acl" "this" {
-  acl = var.tailnet.policy
-}
-
 # All of DNS in one resource; none of the separate tailscale_dns_* resources may
-# be used beside it.
+# be used beside it. Each zone NetBox tags tailscale-dns is split to both Pi-holes
+# and searched; there are no global nameservers, so devices keep their own for
+# everything else.
 resource "tailscale_dns_configuration" "this" {
-  magic_dns          = var.tailnet.dns.magic_dns
-  override_local_dns = var.tailnet.dns.override_local_dns
-  search_paths       = var.tailnet.dns.search_paths
-
-  dynamic "nameservers" {
-    for_each = var.tailnet.dns.nameservers
-    content {
-      address = nameservers.value
-    }
-  }
+  magic_dns          = true
+  override_local_dns = false
+  search_paths       = local.dns_zones
 
   dynamic "split_dns" {
-    for_each = var.tailnet.dns.split_dns
+    for_each = local.dns_zones
     content {
-      domain = split_dns.key
+      domain = split_dns.value
       dynamic "nameservers" {
-        for_each = split_dns.value
+        for_each = local.dns_resolvers
         content {
           address = nameservers.value
         }
