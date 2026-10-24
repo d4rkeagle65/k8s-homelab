@@ -891,6 +891,12 @@ spec:
                     description: Kubernetes web UI, read-only
                     namespace: headlamp
                     app: headlamp
+                - Termix:
+                    icon: termix.png
+                    href: https://termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Web bastion, SSH and remote desktop
+                    namespace: termix
+                    app: termix
             - DNS and DHCP:
                 - Pi-hole 1:
                     icon: pi-hole.png

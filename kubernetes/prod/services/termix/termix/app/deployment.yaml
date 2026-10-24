@@ -1,0 +1,103 @@
+# Termix (QUEUE-bastion.md). The -full image bundles every official plugin (SSO,
+# Session Recording, Import and Export), so the plugins are what the tag says. Run as
+# the image's node user (1000) directly, which skips the entrypoint's root step; the
+# root filesystem stays writable, as the entrypoint rewrites files under /app/html.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: termix
+  labels:
+    app.kubernetes.io/name: termix
+spec:
+  replicas: 1
+  # One writer on the data volume (ReadWriteOnce).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: termix
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: termix
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: termix
+        image: ghcr.io/termix-ssh/termix:26.10.5-full
+        envFrom:
+        - secretRef:
+            name: termix
+        env:
+        - {name: PORT, value: "8080"}
+        - {name: DATA_DIR, value: /app/data}
+        # Start only with the keys from Key Vault; never generate them into /app/data.
+        - {name: TERMIX_REQUIRE_EXTERNAL_SECRETS, value: "true"}
+        - {name: DATABASE_DIALECT, value: postgres}
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: termix-db-app
+              key: uri
+        - {name: DATABASE_SSL, value: require}
+        # Only the pod network (Traefik) may set X-Forwarded-For: its default trusts
+        # every private range, and a forged header was 2026-10's authentication bypass.
+        - {name: TRUSTED_PROXIES, value: "${CALICO_POD_CIDR}"}
+        - {name: EXTERNAL_FORCE_HTTPS, value: "true"}
+        # Remote desktop on Termix's own engine: no guacd.
+        - {name: REMOTE_DESKTOP_ENGINE, value: builtin}
+        # Its own login, through Authentik (the SSO plugin; termix.yaml blueprint).
+        # Termix Admins are its admins, re-read at every sign-in.
+        - {name: OIDC_CLIENT_ID, value: termix}
+        - {name: OIDC_ISSUER_URL, value: "https://auth${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/application/o/termix/"}
+        - {name: OIDC_AUTHORIZATION_URL, value: "https://auth${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/application/o/authorize/"}
+        - {name: OIDC_TOKEN_URL, value: "https://auth${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/application/o/token/"}
+        - {name: OIDC_USERINFO_URL, value: "https://auth${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/application/o/userinfo/"}
+        - {name: OIDC_SCOPES, value: openid email profile}
+        - {name: OIDC_GROUP_CLAIM, value: groups}
+        - {name: OIDC_ADMIN_GROUP, value: Termix Admins}
+        - {name: EXTERNAL_ALLOW_REGISTRATION, value: "true"}
+        ports:
+        - {name: http, containerPort: 8080}
+        startupProbe:
+          httpGet: {path: /health, port: http}
+          periodSeconds: 5
+          failureThreshold: 36
+        readinessProbe:
+          httpGet: {path: /health, port: http}
+          periodSeconds: 15
+        livenessProbe:
+          httpGet: {path: /health, port: http}
+          periodSeconds: 30
+        resources:
+          requests: {cpu: 50m, memory: 256Mi}
+          limits: {cpu: 1000m, memory: 1Gi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - {name: data, mountPath: /app/data}
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: termix-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: termix
+  labels:
+    app.kubernetes.io/name: termix
+spec:
+  selector:
+    app.kubernetes.io/name: termix
+  ports:
+  - {name: http, port: 8080, targetPort: http}

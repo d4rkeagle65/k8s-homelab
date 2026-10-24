@@ -249,6 +249,17 @@ apiVersion: v1
 kind: LimitRange
 metadata:
   name: container-defaults
+  namespace: termix
+spec:
+  limits:
+  - type: Container
+    defaultRequest: {cpu: 10m, memory: 64Mi}
+    default: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: container-defaults
   namespace: zammad
 spec:
   limits:

@@ -1,0 +1,13 @@
+# Termix, the web bastion (QUEUE-bastion.md): SSH and remote desktop to the hosts from
+# the browser, behind Authentik twice, on the private networks and the tailnet only.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- externalsecret.yaml
+- objectstore.yaml
+- db.yaml
+- scheduledbackup-db.yaml
+- pvc.yaml
+- deployment.yaml
+- service-authentik-outpost.yaml
+- ingress.yaml
