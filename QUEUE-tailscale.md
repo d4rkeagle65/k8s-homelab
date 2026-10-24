@@ -44,9 +44,13 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
 
 ## Checklist
 
-- [ ] 1. NetBox: `netbox_seed.py` defines the four tags (pull request). Then the owner applies
-      them: the four home prefixes, the travel router's LAN, the four zones above, and any
-      hosts to reach.
+- [x] 1. NetBox: the four tags, defined by `netbox_seed.py` (#360; `tailscale-host` on IP
+      addresses too, #362) and applied 2026-10-24 with the owner's approval of the lists:
+      `tailscale-route-home` on Management, Production, DMZ and IoT; `tailscale-route-travel` on
+      the travel router's LAN; `tailscale-dns` on the public domain's zone and the production,
+      management and IoT zones; `tailscale-host` on both Pi-holes, the first Docker VM
+      (Vaultwarden), the travel router and Traefik's LoadBalancer address. Read back: every
+      object kept its existing tags.
 - [ ] 2. `cluster-secrets`: the exporter's two variables (pull request of its own).
 - [ ] 3. `tofu/tailscale`, importing today's policy, DNS and settings unchanged: the first plan
       shows no change. Semaphore template and environment, steps for the owner.
