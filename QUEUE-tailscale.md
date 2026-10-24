@@ -69,8 +69,9 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
 - [ ] 4. The policy, built from NetBox and git (#365), applied 2026-10-24 (plan 1291, apply
       1292: Tailscale accepted it, so both tests passed; plan 1293: no changes). Left: the
       travel router retagged `tag:travel-router` in the admin console (the owner), then a
-      pull request dropping `tag:dev-travelrouter` from `policy.tf`; then the owner's call on
-      `acls_externally_managed_on` (the console can't edit the policy once it's on). Was: the reorganisation, its own pull request: the renames, the clean-up below, roles,
+      pull request dropping `tag:dev-travelrouter` from `policy.tf`; `acls_externally_managed_on` is on
+      (the owner, 2026-10-24), the console linking to `policy.tf`; `main.tf` says how to edit
+      in an emergency. Was: the reorganisation, its own pull request: the renames, the clean-up below, roles,
       tests, and `hosts`, routes, `autoApprovers`, split DNS and search paths from NetBox.
 - [ ] 5. A weekly check-mode plan (drift: console edits, NetBox and the tailnet disagreeing).
 - [ ] 6. The exporter, its scrape of `tailscaled`, and the alerts: router offline, key expiring,
