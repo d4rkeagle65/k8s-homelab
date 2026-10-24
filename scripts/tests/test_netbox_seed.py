@@ -480,5 +480,5 @@ def test_the_tailscale_tags_each_go_on_one_kind_of_object():
     # A route tag only on prefixes, so a host can never become an advertised route.
     assert tags["tailscale-route-home"][0] == tags["tailscale-route-travel"][0] == ["ipam.prefix"]
     assert tags["tailscale-dns"][0] == ["netbox_dns.zone"]
-    assert set(tags["tailscale-host"][0]) == {"dcim.device", "virtualization.virtualmachine"}
+    assert set(tags["tailscale-host"][0]) == {"dcim.device", "virtualization.virtualmachine", "ipam.ipaddress"}
     assert all(about for _, about in tags.values())
