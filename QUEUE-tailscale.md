@@ -36,6 +36,8 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
   bridge on the internet. An exporter polls the API (read-only OAuth client) for Prometheus;
   the subnet router's own `tailscaled` metrics (`TS_ENABLE_METRICS`) are scraped too.
   Alerts go Alertmanager to Zammad as every other.
+- **No Vaultwarden** (the owner, 2026-10-24): every secret is Key Vault's, and nothing about
+  the site is stored for the module; it reads NetBox at every plan.
 - **Two OAuth clients**, in Key Vault since 2026-10-24: `TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID` and
   `-SECRET` (write: policy file, DNS, devices core and routes, feature settings, maybe auth
   keys), `TAILSCALE-EXPORTER-OAUTH-CLIENT-ID` and `-SECRET` (read only). Neither expires.
@@ -55,11 +57,14 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       owner, 2026-10-24; #361 closed). The `azure-keyvault` store also serves namespaces
       labelled `homelab.local/keyvault: allowed`; the exporter gets a namespace of its own,
       labelled so, with its own ExternalSecret for its two Key Vault secrets (step 6).
-- [ ] 3. `tofu/tailscale`, importing today's policy, DNS and settings unchanged (the owner's
-      choice, 2026-10-24): the module is in, provider 0.29.2, settings in `main.tf` checked
-      field by field against the tailnet, the policy and DNS from `TF_VAR_tailnet`. Left: the
-      owner's Semaphore setup (`tofu/README.md`, "The Tailscale module") and the Vaultwarden
-      note, then a plan read back as no change, then the apply that records the imports.
+- [ ] 3. `tofu/tailscale`, adopting DNS and the settings (#364): DNS from NetBox's
+      `tailscale-dns` zones and the Pi-holes, checked against live NetBox (the four zones, two
+      resolvers); the settings in `main.tf`, checked field by field. Nothing about the site
+      is stored: no `TF_VAR_` value, no Vaultwarden note (the owner, 2026-10-24: Vaultwarden
+      takes nothing new). The policy waits for step 4. Left: the owner's Semaphore setup
+      (`tofu/README.md`), a plan read back, then its apply. The plan's DNS changes are the
+      review's, already approved: the old search paths and the dropped scheme's split
+      domain go, Pi-hole 2 joins as a second resolver.
 - [ ] 4. The reorganisation, its own pull request: the renames, the clean-up below, roles,
       tests, and `hosts`, routes, `autoApprovers`, split DNS and search paths from NetBox.
 - [ ] 5. A weekly check-mode plan (drift: console edits, NetBox and the tailnet disagreeing).
