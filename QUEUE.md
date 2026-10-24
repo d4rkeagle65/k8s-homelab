@@ -374,6 +374,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Working queue files
 
+- [QUEUE-bastion.md](QUEUE-bastion.md) (just started): Termix, a web-based bastion into every host, its hosts from NetBox.
 - [QUEUE-tailscale.md](QUEUE-tailscale.md) (just started): the tailnet's policy, DNS and alerts from `tofu/tailscale` and NetBox.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 
