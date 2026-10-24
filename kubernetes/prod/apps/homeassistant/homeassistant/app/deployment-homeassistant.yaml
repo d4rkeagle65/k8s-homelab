@@ -22,7 +22,7 @@ spec:
       - env:
         - name: TZ
           value: ${TIMEZONE}
-        image: ghcr.io/home-assistant/home-assistant:2026.10.2
+        image: ghcr.io/home-assistant/home-assistant:2026.10.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
