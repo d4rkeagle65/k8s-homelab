@@ -62,9 +62,9 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       the site is stored (no `TF_VAR_` value, no Vaultwarden note: the owner, 2026-10-24).
       Applied 2026-10-24 from the branch (plan 1288, apply 1289: 2 imported, DNS changed as the
       review approved: the old search paths and split domain gone, Pi-hole 2 added, checked
-      against NetBox); plan 1290 then: no changes. Left: the template (33) still carries the
-      Cloudflare template's name and the branch; after the merge, `main` and "OpenTofu:
-      Tailscale". `tailscale_dns_configuration` is alpha in provider 0.29.2: a provider bump's
+      against NetBox); plan 1290 then: no changes. All three ran on `main` after the merge
+      (5703128). Left: the template (33) still carries the Cloudflare template's name; it is
+      to be "OpenTofu: Tailscale" (the owner). `tailscale_dns_configuration` is alpha in provider 0.29.2: a provider bump's
       plan shows any change to it.
 - [ ] 4. The reorganisation, its own pull request: the renames, the clean-up below, roles,
       tests, and `hosts`, routes, `autoApprovers`, split DNS and search paths from NetBox.
