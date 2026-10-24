@@ -41,7 +41,10 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
 - **Two OAuth clients**, in Key Vault since 2026-10-24: `TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID` and
   `-SECRET` (write: policy file, DNS, devices core and routes, feature settings, maybe auth
   keys), `TAILSCALE-EXPORTER-OAUTH-CLIENT-ID` and `-SECRET` (read only). Neither expires.
-  `TAILSCALE_API_KEY` stays Homepage's.
+  Homepage's card reads the exporter's metrics, not the API (2026-10-24), so
+  `TAILSCALE_API_KEY` and `TAILSCALE_DEVICE_ID` have no user left: remove their
+  `cluster-secrets` entries (a pull request after Homepage's change is live), then the owner
+  deletes the Key Vault secrets and revokes the API key in the admin console.
 - **Devices are added and removed by hand.** The automation reports stale ones, never deletes.
 
 ## Checklist
