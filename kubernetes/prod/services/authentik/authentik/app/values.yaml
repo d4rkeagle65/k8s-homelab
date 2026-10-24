@@ -105,6 +105,13 @@ worker:
       secretKeyRef:
         key: client-secret
         name: authentik-grimmory-oidc
+  # Termix's, from Key Vault through the authentik-termix-oidc ExternalSecret
+  # (authentik-extras), not cluster-secrets.
+  - name: TERMIX_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-termix-oidc
   - name: HOMEPAGE_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:

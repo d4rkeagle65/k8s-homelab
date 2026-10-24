@@ -120,6 +120,11 @@ spec:
           secretKeyRef:
             key: client-secret
             name: authentik-grimmory-oidc
+      - name: TERMIX_OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: client-secret
+            name: authentik-termix-oidc
       - name: HOMEPAGE_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
