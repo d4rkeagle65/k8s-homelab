@@ -66,7 +66,12 @@ spec:
         - {name: OIDC_SCOPES, value: openid email profile}
         - {name: OIDC_GROUP_CLAIM, value: groups}
         - {name: OIDC_ADMIN_GROUP, value: Termix Admins}
+        # A Termix Admins member's account is made at their first SSO sign-in;
+        # there is no other way in: no password sign-in, no self-registration
+        # (proved by the owner's SSO sign-in, 2026-10-24).
         - {name: EXTERNAL_ALLOW_REGISTRATION, value: "true"}
+        - {name: ALLOW_PASSWORD_LOGIN, value: "false"}
+        - {name: ALLOW_REGISTRATION, value: "false"}
         ports:
         - {name: http, containerPort: 8080}
         startupProbe:
