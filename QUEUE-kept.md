@@ -33,12 +33,13 @@ cluster.
 ## Checklist
 
 1. [ ] The owner: the Garage bucket and key, and the 11 Key Vault secrets (below).
-2. [ ] Merge the `cluster-secrets` pull request (branch `kept-cluster-secrets`) only after
+2. [ ] Merge the `cluster-secrets` pull request, #371, only after
    step 1: a mapped secret missing from Key Vault fails the whole `cluster-secrets` sync.
    Check `./scripts/keyvault-secrets.ps1` shows all 11 Synced yes.
-3. [ ] The deployment pull request: Namespace, `kept-db` with its ObjectStore and scheduled
+3. [ ] Merge the deployment pull request, #373 (based on #371's commit): Namespace, `kept-db` with its ObjectStore and scheduled
    backup, Secrets, HelmRelease and its HelmRepository, the Authentik blueprint and its Secret
-   and worker variable, the scrape config.
+   and worker variable, the scrape config, the LimitRange. Its database URLs carry no sslmode
+   (its body says why).
 4. [ ] After its merge: `pg_stat_archiver` on `kept-db` archiving; the migrate Job's log;
    `/readyz` 200; the setup code from the log (`kubectl -n kept logs deploy/kept | grep 'KEPT
    SETUP CODE'`) for the owner's first account; then Authentik sign-in; a first Kept backup
