@@ -1,0 +1,93 @@
+# Kept from its upstream chart (QUEUE-kept.md). Upstream had not installed the
+# chart on a cluster before this one. Its version is Kept's.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kept
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: kept
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  # The first install waits for kept-db to come up before its migrate Job.
+  timeout: 15m
+  chart:
+    spec:
+      chart: kept
+      version: 1.12.5
+      sourceRef:
+        kind: HelmRepository
+        name: keptinventory
+        namespace: flux-system
+  values:
+    publicUrl: https://kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    postgres:
+      bundled: false
+      database: kept
+      external:
+        host: kept-db-rw.kept.svc.${CLUSTER_DOMAIN}
+        port: 5432
+        # No sslmode: Kept's driver (pg 8, pg-connection-string 2.14) takes "require"
+        # as verify-full, which kept-db's own CA fails; the same URL goes to
+        # pg_dump, which refuses the driver-only alternatives.
+    # kept-db makes the logins itself (db.yaml).
+    roles:
+      create: false
+      existingSecret: kept-db-roles
+    keys:
+      existingSecret: kept-keys
+    # Photos, receipts and manuals.
+    storage:
+      mode: local
+      persistence:
+        size: 20Gi
+        storageClass: nfs-retain-rwo
+    backup:
+      enabled: true
+      existingSecret: kept-backup
+      env:
+        KEPT_BACKUP_S3_ENDPOINT: ${GARAGE_S3_ENDPOINT}
+        KEPT_BACKUP_S3_BUCKET: kept-backups
+        # Garage signs requests for its own region name and serves buckets by path.
+        KEPT_BACKUP_S3_REGION: garage
+        KEPT_BACKUP_S3_FORCE_PATH_STYLE: "true"
+    metrics:
+      tokenSecret: kept-metrics
+    # Traefik's pods, so X-Forwarded-For is believed only from them.
+    trustedProxies: ${CALICO_POD_CIDR}
+    # Private only: the websecure entry point (the tunnel reaches port 80) and the
+    # private-networks middleware.
+    ingress:
+      enabled: true
+      className: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+        traefik.ingress.kubernetes.io/router.entrypoints: websecure
+        traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+      tls:
+        enabled: true
+    # Sign-in through Authentik (its blueprint in authentik-extras). A login gets an
+    # account on first sign-in only when its groups claim has Kept Users; anyone
+    # else needs an invitation.
+    extraEnv:
+    - name: KEPT_OIDC_ISSUER
+      value: https://auth.${BASE_DOMAIN}/application/o/kept/
+    - name: KEPT_OIDC_CLIENT_ID
+      value: kept
+    - name: KEPT_OIDC_NAME
+      value: Authentik
+    - name: KEPT_OIDC_AUTOPROVISION_GROUPS
+      value: Kept Users
+    extraEnvFrom:
+    - secretRef:
+        name: kept-oidc
+    resources:
+      requests:
+        cpu: 50m
+        memory: 384Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi

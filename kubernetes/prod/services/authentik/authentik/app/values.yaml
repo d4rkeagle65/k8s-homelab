@@ -110,6 +110,11 @@ worker:
       secretKeyRef:
         key: client-secret
         name: authentik-homepage-oidc
+  - name: KEPT_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-kept-oidc
   - name: LINKWARDEN_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
