@@ -38,10 +38,29 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
 
 ## Checklist
 
-- [ ] 1. Read Termix's docs for the exact settings: which keys `TERMIX_REQUIRE_EXTERNAL_SECRETS`
-      demands, the SSO plugin's variables, plugin installation in a container (Session
-      Recording, Import and Export), `guacd` (sidecar or the `full` image), data and recording
-      paths, the API's host schema and how a key credential is referenced.
+- [x] 1. Termix's docs read (2026-10-24, docs.termix.site and the repo's `docker/`):
+      - Port `PORT` 8080; data `DATA_DIR` `/app/data` (the volume, on the NAS: recordings live in
+        `plugin-data/session-recording`); `/tmp` writable (nginx), `/app/html` rewritten at each
+        start, so no read-only root filesystem. `runAsUser: 1000` skips the entrypoint's root
+        step (gosu); `fsGroup: 1000` for the volume. `restricted` to be checked by a dry run.
+      - `TERMIX_REQUIRE_EXTERNAL_SECRETS=true` demands `JWT_SECRET` (64+ characters),
+        `DATABASE_KEY`, `ENCRYPTION_KEY` (64 hex each) and `INTERNAL_AUTH_TOKEN`; also set
+        `GUACAMOLE_ENCRYPTION_KEY` (64 hex), else it changes each start.
+      - Postgres: `DATABASE_DIALECT=postgres`, `DATABASE_URL`, `DATABASE_SSL`.
+      - Behind Traefik: `TRUSTED_PROXIES` (the pod network), `EXTERNAL_FORCE_HTTPS=true`.
+      - Remote desktop: the built-in engine (`REMOTE_DESKTOP_ENGINE=builtin`), no `guacd`.
+      - Plugins: no setting installs one; the `-full` image bundles every official plugin
+        (Session Recording, SSO, Import and Export), so a pinned `-full` tag is declarative.
+        Recording retention is a UI setting (default 30 days).
+      - SSO: `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_ISSUER_URL`, `OIDC_AUTHORIZATION_URL`,
+        `OIDC_TOKEN_URL`, `OIDC_GROUP_CLAIM`, `OIDC_ADMIN_GROUP`, `OIDC_ROLE_MAP`
+        (`group:role,...`), `EXTERNAL_ALLOW_REGISTRATION`.
+      - API keys are made in the UI only (Settings, API keys): the sync job's key is the owner's
+        step after the deploy. The REST body for hosts isn't documented; the Import and Export
+        JSON (hosts, credentials, `credentialAlias`) and the hosts-config file
+        (`TERMIX_HOSTS_CONFIG`: `name`, `ip`, `port`, `username`, `credential`, `folder`, `tags`)
+        are, and step 6 uses one of them.
+      - Health: `GET /health`; allow 60 s to start.
 - [ ] 2. The owner's Key Vault values (steps given then): Termix's keys, the Authentik client
       secret, the bastion key's private half.
 - [ ] 3. Authentik: a blueprint for Termix's OIDC application and its forward-auth provider.
