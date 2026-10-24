@@ -121,9 +121,13 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 
 - **Nothing about the site is stored for it.** What names the site is read from NetBox at
   every plan (`netbox.tf`): the DNS zones tagged `tailscale-dns`, each split to both
-  Pi-holes (their `net0` address) and searched. The tailnet settings name nothing and are
-  written in `main.tf`. The policy file comes in `QUEUE-tailscale.md`'s step 4, built from
-  NetBox's tags and git. No Vaultwarden note: every secret it needs is in Key Vault.
+  Pi-holes (their `net0` address) and searched; and the policy file (`policy.tf`): the
+  prefixes tagged `tailscale-route-home`/`-travel` as `net-<name>` with their routes
+  auto-approved, and every `tailscale-host` object in an `ipset:svc-<its NetBox role>`.
+  Grants, tags, SSH rules and tests are in `policy.tf` and name roles, never hosts; an
+  invited user's access is `autogroup:member`'s, as no email is in git. The tailnet settings
+  name nothing and are written in `main.tf`. No Vaultwarden note: every secret it needs is
+  in Key Vault.
 - **Credentials:** an OAuth client of its own, which doesn't expire: Key Vault's
   `TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID` and `-SECRET` (write on the policy file, DNS, devices
   and feature settings). Not Homepage's `TAILSCALE_API_KEY`.
@@ -132,7 +136,8 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
   `PG_CONN_STR` (the same as Proxmox's; the schema differs), `TF_VAR_netbox_token` (Key
   Vault's `NETBOX-READ-TOKEN`); variable `TF_VAR_netbox_url` = `https://netbox.<domain>`. A
   template, type OpenTofu, subdirectory `tofu/tailscale`.
-- **Adopted, not created:** `main.tf`'s import blocks take DNS and the settings over. A plan
+- **Adopted, not created:** the import blocks take DNS, the settings and the policy over.
+  Tailscale runs the policy's `tests` on every save and refuses a change that breaks one. A plan
   stops when NetBox has no tagged zone or no Pi-hole, rather than empty the tailnet's DNS. A
   change made in the admin console shows in the next plan as a change back.
 

@@ -1,5 +1,7 @@
-# What the tailnet's DNS is built from, read from NetBox at every plan (QUEUE-tailscale.md):
-# the DNS zones tagged tailscale-dns, and the Pi-holes (the VMs tagged pihole). One
+# What the tailnet's DNS and policy are built from, read from NetBox at every plan
+# (QUEUE-tailscale.md): the zones tagged tailscale-dns and the Pi-holes (the VMs tagged
+# pihole); the prefixes tagged tailscale-route-home or -travel; and the devices, VMs and
+# IP addresses tagged tailscale-host. One
 # GraphQL query with a read-only token; a plan stops when NetBox doesn't answer it in
 # full, rather than plan from a partial list.
 data "http" "netbox" {
@@ -11,7 +13,7 @@ data "http" "netbox" {
     Accept        = "application/json"
   }
   request_body = jsonencode({
-    query = "{ netbox_dns_zone_list { name tags { slug } } virtual_machine_list { name tags { slug } interfaces { name ip_addresses { address } } } }"
+    query = "{ netbox_dns_zone_list { name tags { slug } } prefix_list { prefix description tags { slug } } device_list { name role { name } tags { slug } interfaces { ip_addresses { address } } } virtual_machine_list { name role { name } tags { slug } interfaces { name ip_addresses { address } } } ip_address_list { address description tags { slug } } }"
   })
   lifecycle {
     postcondition {
