@@ -31,7 +31,8 @@ name not described so, or a MAC on another interface, is reported, never changed
 reservation is gone is set Offline, never deleted. Its addresses get no DNS name, for the
 reason above.
 
-It leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
+It defines the tags tofu/tailscale reads (TAILSCALE_TAGS) but never applies them. It
+leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
 access points). A primary address NetBox already has is kept while the host
 still has it. A VM whose role is one of netbox_seed.yaml's vm_roles has its shape
@@ -83,6 +84,16 @@ import urllib.request
 from pathlib import Path
 
 from ruamel.yaml import YAML
+
+
+# The tags tofu/tailscale reads, by slug: the object types each may go on, and what it means.
+TAILSCALE_TAGS = {
+    "tailscale-route-home": (["ipam.prefix"], "Advertised by the home subnet router (tofu/tailscale)"),
+    "tailscale-route-travel": (["ipam.prefix"], "Advertised by the travel router (tofu/tailscale)"),
+    "tailscale-dns": (["netbox_dns.zone"], "Resolved over the tailnet, by both Pi-holes (tofu/tailscale)"),
+    "tailscale-host": (["dcim.device", "virtualization.virtualmachine"],
+                       "Named in the tailnet policy, for grants to reach (tofu/tailscale)"),
+}
 
 
 def read_secret(name: str, env: str) -> str:
@@ -778,6 +789,10 @@ def main() -> None:
               {"type": "text", "object_types": ["virtualization.virtualmachine"], "label": "Proxmox tags",
                "description": "A guest's Proxmox tags, separated by ; (old-queues/QUEUE-netbox-shape.md)"},
               "custom field proxmox_tags")
+    # The tags tofu/tailscale reads (QUEUE-tailscale.md), defined here and applied by hand.
+    for tag, (types, about) in TAILSCALE_TAGS.items():
+        nb.ensure("extras/tags", {"slug": tag}, {"name": tag, "object_types": types, "description": about},
+                  f"tag {tag}")
     vm_roles = {key: nb.ensure("dcim/device-roles", {"slug": slug(name)}, {"name": name, "vm_role": True}, name)
                 for key, name in cfg["vm_roles"].items()}
     owned_roles = {r["id"] for r in vm_roles.values()}
