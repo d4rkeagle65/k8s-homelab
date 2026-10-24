@@ -1,4 +1,5 @@
-# Prometheus's exporter on the OpenWrt access points: OpenWrt's own
+# Prometheus's exporter on the OpenWrt access points, and the web bastion's SSH key
+# (bastion_ssh_keys, group_vars/all.yml) in root's dropbear authorized_keys: OpenWrt's own
 # prometheus-node-exporter-lua, with its Wi-Fi collectors (each radio's
 # networks, and each connected client's signal and traffic), listening on port
 # 9100 of one interface's address. Prometheus scrapes them (the openwrt-aps
@@ -95,3 +96,41 @@
     - name: Report
       ansible.builtin.debug:
         msg: "{{ ap_exporter.stdout_lines }}"
+
+    # The web bastion's keys (QUEUE-bastion.md) in root's authorized_keys, added and
+    # never removed here: dropbear's file holds the owner's keys too, which this
+    # playbook doesn't know. Prints CHANGE per key it adds (or would, in check
+    # mode), then VERIFIED once each is read back in the file.
+    - name: The web bastion's SSH keys for root
+      ansible.builtin.raw: |
+        set -e
+        dry={{ 1 if ansible_check_mode else 0 }}
+        f=/etc/dropbear/authorized_keys
+        [ -e "$f" ] || { [ "$dry" = 1 ] || { touch "$f"; chmod 600 "$f"; }; }
+        {% for key in bastion_ssh_keys | default([]) %}
+        key='{{ key | trim }}'
+        if [ -e "$f" ] && grep -qxF -- "$key" "$f"; then :; else
+          echo "CHANGE add the bastion key ${key##* } to $f"
+          if [ "$dry" = 0 ]; then
+            [ ! -s "$f" ] || [ -z "$(tail -c1 "$f")" ] || echo >> "$f"
+            echo "$key" >> "$f"
+          fi
+        fi
+        {% endfor %}
+        if [ "$dry" = 0 ]; then
+          {% for key in bastion_ssh_keys | default([]) %}
+          grep -qxF -- '{{ key | trim }}' "$f" || { echo "ERROR a bastion key isn't in $f after writing it"; exit 1; }
+          {% endfor %}
+          echo "VERIFIED {{ (bastion_ssh_keys | default([])) | length }} bastion key(s) in $f"
+        else
+          echo "UNVERIFIED (check mode)"
+        fi
+      register: ap_bastion
+      changed_when: "'CHANGE' in ap_bastion.stdout"
+      check_mode: false
+      when: bastion_ssh_keys | default([]) | length > 0
+
+    - name: Report the bastion keys
+      ansible.builtin.debug:
+        msg: "{{ ap_bastion.stdout_lines }}"
+      when: ap_bastion is not skipped
