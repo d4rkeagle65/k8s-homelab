@@ -63,8 +63,29 @@ def test_the_policys_newest_change_names_its_actor():
         {"eventTime": "2026-10-24T20:00:00Z", "target": {"type": "DNS"}, "actor": {"type": "USER"}},
     ]
     lines = m.policy_lines(events)
-    assert metric(lines, "tailscale_policy_changes") == [2]
+    assert metric(lines, "tailscale_policy_changes", actor_type="OAUTH_CLIENT") == [1]
+    assert metric(lines, "tailscale_policy_changes", actor_type="USER") == [1]
     assert metric(lines, "tailscale_policy_last_change_timestamp_seconds", actor_type="USER", actor="someone") == [1792868400]
+
+
+def test_a_policy_change_is_told_from_a_dns_change_as_the_log_records_them():
+    # Both are UPDATEs of the TAILNET (the log's shape on 2026-10-24): the policy's values
+    # are the document as text, DNS's are structured.
+    policy = {"action": "UPDATE", "type": "CONFIG", "target": {"type": "TAILNET"}, "old": "{}", "new": "{ }",
+              "eventTime": "2026-10-24T17:28:18Z", "actor": {"type": "OAUTH_CLIENT", "id": "k1"}}
+    dns = {"action": "UPDATE", "type": "CONFIG", "target": {"type": "TAILNET"},
+           "old": {"Domains": [], "Routes": {}}, "new": {"Domains": [], "Routes": {}},
+           "eventTime": "2026-10-24T17:04:05Z", "actor": {"type": "OAUTH_CLIENT", "id": "k1"}}
+    token = {"action": "CREATE", "target": {"type": "OAUTH_ACCESS_TOKEN"}, "eventTime": "2026-10-24T18:00:00Z"}
+    assert [m.is_policy_change(e) for e in (policy, dns, token)] == [True, False, False]
+
+
+def test_no_keys_is_none_not_a_failed_read():
+    class NoKeys:
+        def get(self, path):
+            return {"devices": []} if path.startswith("devices") else {"keys": None} if path == "keys" else {"logs": None}
+    text = m.read(NoKeys())
+    assert 'tailscale_api_up{endpoint="keys"} 1' in text and 'tailscale_api_up{endpoint="configuration_log"} 1' in text
 
 
 def test_a_read_that_fails_is_reported_and_its_metrics_left_out():
