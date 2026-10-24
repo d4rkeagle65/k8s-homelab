@@ -17,6 +17,7 @@ resources:
 - headlamp.yaml
 - immich.yaml
 - jetstack.yaml
+- keptinventory.yaml
 - local-path-provisioner.yaml
 - mariadb-operator.yaml
 - metallb.yaml

@@ -231,6 +231,59 @@ data:
         order: 0
       attrs:
         group: !Find [authentik_core.group, [name, authentik Admins]]
+  kept.yaml: |
+    # Authentik blueprint: Kept's OIDC login (QUEUE-kept.md). The client secret
+    # is the worker's KEPT_OIDC_CLIENT_SECRET env var, from the
+    # authentik-kept-oidc Secret. Members of Kept Users may log in, and Kept
+    # makes them an account on their first sign-in (its
+    # KEPT_OIDC_AUTOPROVISION_GROUPS, read from the groups claim the profile
+    # scope carries); membership is set in the UI.
+    version: 1
+    metadata:
+      name: Kept
+    entries:
+    - model: authentik_core.group
+      id: users
+      identifiers:
+        name: Kept Users
+    - model: authentik_providers_oauth2.oauth2provider
+      id: provider
+      identifiers:
+        name: Provider for Kept
+      attrs:
+        client_type: confidential
+        client_id: kept
+        client_secret: !Env KEPT_OIDC_CLIENT_SECRET
+        grant_types:
+        - authorization_code
+        - refresh_token
+        redirect_uris:
+        - matching_mode: strict
+          url: https://kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/v1/auth/callback/oidc
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+        signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+        property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        sub_mode: hashed_user_id
+        issuer_mode: per_provider
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: kept
+      attrs:
+        name: Kept
+        provider: !KeyOf provider
+        meta_launch_url: https://kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 0
+      attrs:
+        group: !KeyOf users
   linkwarden.yaml: |
     # Authentik blueprint: Linkwarden's OIDC login, its only one (passwords and
     # sign-up are off in Linkwarden). The client secret is the worker's

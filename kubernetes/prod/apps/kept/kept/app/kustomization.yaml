@@ -1,0 +1,16 @@
+# Kept, a household inventory (QUEUE-kept.md): its upstream chart against a
+# CloudNativePG database, signed in through Authentik, private only.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- secret-cnpg-backup-s3.yaml
+- objectstore.yaml
+- secret-db-logins.yaml
+- db.yaml
+- scheduledbackup-db.yaml
+- secret-kept-db-roles.yaml
+- secret-kept-keys.yaml
+- secret-kept-backup.yaml
+- secret-kept-metrics.yaml
+- secret-kept-oidc.yaml
+- helmrelease.yaml

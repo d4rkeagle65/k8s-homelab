@@ -1,0 +1,92 @@
+# Kept's database. Kept logs in as four roles (its chart's files/roles.sh):
+# kept_owner owns the database and runs migrations and backups; kept_app serves
+# requests; kept_auth and kept_system hold sign-in and the job queue. This
+# Cluster makes them as that script does, so the chart's roles Job, which
+# needs the superuser's password, stays off. Their passwords are in
+# secret-db-logins.yaml.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: kept-db
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  instances: 2
+  primaryUpdateMethod: switchover
+  # WAL to Garage at least hourly (scripts/tests/test_structure.py,
+  # test_databases_archive_hourly, says why).
+  postgresql:
+    parameters:
+      archive_timeout: 1h
+  # Scheduled before ordinary pods when nodes are short (cluster-policy).
+  priorityClassName: homelab-critical
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  # The standard image has the vector, pg_trgm and unaccent extensions Kept uses.
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+  # Spread over the workers (scripts/tests/test_structure.py,
+  # test_databases_spread, says why).
+  affinity:
+    podAntiAffinityType: required
+    additionalPodAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              cnpg.io/podRole: instance
+          namespaceSelector: {}
+          topologyKey: kubernetes.io/hostname
+  enablePDB: true
+  enableSuperuserAccess: false
+  bootstrap:
+    initdb:
+      database: kept
+      owner: kept_owner
+      secret:
+        name: kept-db-owner
+      # Run once, when the database is first made: the other three logins
+      # (their passwords come from managed.roles below), kept_app's timeouts,
+      # the extensions, and the schema handed to kept_owner.
+      postInitSQL:
+      - CREATE ROLE kept_app LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS
+      - CREATE ROLE kept_auth LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS
+      - CREATE ROLE kept_system LOGIN NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS
+      - ALTER ROLE kept_app SET statement_timeout = '15s'
+      - ALTER ROLE kept_app SET idle_in_transaction_session_timeout = '30s'
+      postInitApplicationSQL:
+      - CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public
+      - CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public
+      - CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public
+      - ALTER SCHEMA public OWNER TO kept_owner
+  managed:
+    roles:
+    - name: kept_app
+      ensure: present
+      login: true
+      passwordSecret:
+        name: kept-db-app
+    - name: kept_auth
+      ensure: present
+      login: true
+      passwordSecret:
+        name: kept-db-auth
+    - name: kept_system
+      ensure: present
+      login: true
+      passwordSecret:
+        name: kept-db-system
+  storage:
+    size: 4Gi
+    storageClass: local-db
+  # Continuous WAL archiving and base backups to Garage (objectstore.yaml).
+  plugins:
+  - name: barman-cloud.cloudnative-pg.io
+    isWALArchiver: true
+    parameters:
+      barmanObjectName: garage
