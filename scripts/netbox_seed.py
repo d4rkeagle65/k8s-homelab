@@ -91,7 +91,8 @@ TAILSCALE_TAGS = {
     "tailscale-route-home": (["ipam.prefix"], "Advertised by the home subnet router (tofu/tailscale)"),
     "tailscale-route-travel": (["ipam.prefix"], "Advertised by the travel router (tofu/tailscale)"),
     "tailscale-dns": (["netbox_dns.zone"], "Resolved over the tailnet, by both Pi-holes (tofu/tailscale)"),
-    "tailscale-host": (["dcim.device", "virtualization.virtualmachine"],
+    # An IP address too: a LoadBalancer's (Traefik's) is a service the tailnet reaches.
+    "tailscale-host": (["dcim.device", "virtualization.virtualmachine", "ipam.ipaddress"],
                        "Named in the tailnet policy, for grants to reach (tofu/tailscale)"),
 }
 
