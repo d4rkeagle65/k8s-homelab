@@ -52,9 +52,10 @@ cluster.
 On the NAS, as root:
 
 ```sh
-docker exec garage /garage bucket create kept-backups
-docker exec garage /garage key create kept
-docker exec garage /garage bucket allow --read --write kept-backups --key kept
+g="docker exec garage /garage -c /etc/garage/garage.toml"
+$g bucket create kept-backups
+$g key create kept
+$g bucket allow --read --write kept-backups --key kept
 ```
 
 Then each secret with `./scripts/keyvault-secrets.ps1 NAME -New -Raw` (it asks for the value
