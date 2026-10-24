@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- externalsecret.yaml
+- deployment.yaml
+- prometheusrule.yaml
+configMapGenerator:
+# The exporter itself; the name's hash suffix rolls the pod on every change.
+- name: tailscale-exporter
+  files:
+  - tailscale-exporter.py

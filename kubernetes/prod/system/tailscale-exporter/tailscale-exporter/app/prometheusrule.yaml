@@ -1,0 +1,51 @@
+# The tailnet's alerts (QUEUE-tailscale.md), from tailscale-exporter.py's metrics. Each
+# reaches Zammad as a ticket through Alertmanager, and closes on recovery.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tailscale-exporter
+spec:
+  groups:
+  - name: homelab.tailscale
+    rules:
+    # The exporter can't answer: then none of the alerts below can either.
+    - alert: TailscaleExporterDown
+      expr: absent(up{job="tailscale-exporter"} == 1) or min by (endpoint) (tailscale_api_up) == 0
+      for: 15m
+      labels: {severity: warning}
+      annotations:
+        summary: The Tailscale exporter can't read the tailnet
+        description: "Either its pod isn't scraped, or the API read {{ $labels.endpoint }} fails (its log says why: the OAuth client's secret or scopes, or the API)."
+    # The home subnet router (the Docker VM's Tailscale) is the way into the home networks
+    # from outside, and the exit node.
+    - alert: TailscaleSubnetRouterOffline
+      expr: max(tailscale_device_online{tags=~"(.*,)?tag:subnet-router(,.*)?"}) == 0
+      for: 5m
+      labels: {severity: critical}
+      annotations:
+        summary: No home subnet router is connected to Tailscale
+        description: The tailnet can't reach the home networks or use the exit node. Check the tailscale container on the first Docker VM.
+    # A route a router advertises that isn't approved: a failover partner that can't
+    # take over, or an autoApprovers rule that doesn't cover it.
+    - alert: TailscaleRouteNotApproved
+      expr: tailscale_device_route_enabled == 0
+      for: 30m
+      labels: {severity: warning}
+      annotations:
+        summary: "{{ $labels.device }} advertises a route that isn't approved"
+        description: "Route {{ $labels.route }}: approve it in the admin console, or add it to the policy's autoApprovers (a NetBox tailscale-route tag)."
+    - alert: TailscaleDeviceAwaitingApproval
+      expr: tailscale_device_authorized == 0
+      for: 30m
+      labels: {severity: warning}
+      annotations:
+        summary: "{{ $labels.device }} is waiting for approval"
+        description: Device approval is on; approve or remove it in the admin console.
+    # A person's device key (tagged devices' keys don't expire).
+    - alert: TailscaleKeyExpiringSoon
+      expr: (tailscale_device_key_expiry_timestamp_seconds - time()) < 7 * 86400
+      for: 1h
+      labels: {severity: warning}
+      annotations:
+        summary: "{{ $labels.device }}'s Tailscale key expires within 7 days"
+        description: Re-authenticate it, or disable key expiry for it in the admin console.
