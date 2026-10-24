@@ -55,8 +55,11 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       owner, 2026-10-24; #361 closed). The `azure-keyvault` store also serves namespaces
       labelled `homelab.local/keyvault: allowed`; the exporter gets a namespace of its own,
       labelled so, with its own ExternalSecret for its two Key Vault secrets (step 6).
-- [ ] 3. `tofu/tailscale`, importing today's policy, DNS and settings unchanged: the first plan
-      shows no change. Semaphore template and environment, steps for the owner.
+- [ ] 3. `tofu/tailscale`, importing today's policy, DNS and settings unchanged (the owner's
+      choice, 2026-10-24): the module is in, provider 0.29.2, settings in `main.tf` checked
+      field by field against the tailnet, the policy and DNS from `TF_VAR_tailnet`. Left: the
+      owner's Semaphore setup (`tofu/README.md`, "The Tailscale module") and the Vaultwarden
+      note, then a plan read back as no change, then the apply that records the imports.
 - [ ] 4. The reorganisation, its own pull request: the renames, the clean-up below, roles,
       tests, and `hosts`, routes, `autoApprovers`, split DNS and search paths from NetBox.
 - [ ] 5. A weekly check-mode plan (drift: console edits, NetBox and the tailnet disagreeing).
