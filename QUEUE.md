@@ -225,6 +225,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Later
 
+- **Key Vault per app, with workload identity, so `cluster-secrets` can retire** (the owner,
+  2026-10-24): today one service principal reads the whole vault, and the `azure-keyvault`
+  store serves `flux-system` and namespaces labelled `homelab.local/keyvault: allowed`
+  (opt-in, the first being the Tailscale exporter's). The end state: each app's
+  ServiceAccount federated to an Azure identity holding "Key Vault Secrets User" on only its
+  own secrets, a namespaced `SecretStore` per app, nothing secret stored in the cluster. It
+  needs the Talos service-account issuer's OIDC discovery document and keys at a public URL
+  Azure can fetch. Then move each app off `cluster-secrets` and retire it. A queue file of
+  its own when started.
 - **Vaultwarden's backup puts its archive password on 7z's command line** (found 2026-10-22):
   `ttionya/vaultwarden-backup` 1.27.2's `scripts/backup.sh` runs `7z a ... -p"${ZIP_PASSWORD}"`,
   so for the seconds the nightly archive takes, any process on the first Docker VM that lists
