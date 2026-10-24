@@ -49,3 +49,13 @@ spec:
       annotations:
         summary: "{{ $labels.device }}'s Tailscale key expires within 7 days"
         description: Re-authenticate it, or disable key expiry for it in the admin console.
+    # The policy changes only through OpenTofu (its OAuth client; the console's editor is
+    # locked, tofu/tailscale/main.tf). A change by a person means the lock was lifted and
+    # the next apply will restore git's policy: bring git in line first. Clears once the
+    # change is out of the exporter's 24-hour window.
+    - alert: TailscalePolicyChangedOutsideOpenTofu
+      expr: sum(tailscale_policy_changes{actor_type!="OAUTH_CLIENT"}) > 0
+      labels: {severity: warning}
+      annotations:
+        summary: The tailnet policy was changed outside OpenTofu
+        description: Someone edited the policy in the last 24 hours. Make the same change in tofu/tailscale/policy.tf (and re-lock the console), or the next apply will undo it.

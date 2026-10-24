@@ -79,9 +79,12 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       first opted in to Key Vault (`homelab.local/keyvault: allowed`), an ExternalSecret for its
       two secrets, metrics on devices, routes, keys and the policy's last change, and alerts:
       exporter down, subnet router offline, route not approved, device awaiting approval, key
-      expiring. Left: after its first reads, an alert on a policy change outside OpenTofu (the
-      configuration log's actor fields, read first, not guessed); then the subnet router's
-      own `tailscaled` metrics (`TS_ENABLE_METRICS` in `docker/tailscale`, a scrape config).
+      expiring. Live 2026-10-24 (#368): devices and routes read, the
+      Key Vault ExternalSecret synced. Its first reads showed the keys list comes back null
+      when empty, and the configuration log (version 1.1) records a policy change as an
+      UPDATE of the TAILNET with the document as text: both handled, and the alert on a policy
+      change outside OpenTofu added. Left: the subnet router's own `tailscaled` metrics
+      (`TS_ENABLE_METRICS` in `docker/tailscale`, a scrape config).
 - [ ] 7. Later, the owner's call: a second subnet router on the second Docker VM, failing over;
       the DMZ and the firewall's routes for 100.64.0.0/10 were built for this with the old
       WireGuard LXC and may need changes (a shared DMZ address, keepalived).

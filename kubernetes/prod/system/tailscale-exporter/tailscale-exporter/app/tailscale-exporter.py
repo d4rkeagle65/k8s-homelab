@@ -95,12 +95,27 @@ def key_lines(keys: list[dict]) -> list[str]:
     return out
 
 
+def is_policy_change(e: dict) -> bool:
+    """A change to the policy file. The configuration log (version 1.1, read 2026-10-24)
+    records it as an UPDATE of the TAILNET whose old and new values are the document as
+    text; a DNS change is an UPDATE of the TAILNET too, with structured values. A target
+    named for the policy (POLICY, ACL) counts as well, should the log name it so."""
+    target = str((e.get("target") or {}).get("type", "")).upper()
+    if "POLICY" in target or "ACL" in target:
+        return True
+    return (e.get("action") == "UPDATE" and target == "TAILNET"
+            and isinstance(e.get("old"), str) and isinstance(e.get("new"), str))
+
+
 def policy_lines(events: list[dict]) -> list[str]:
-    """The policy file's newest change in the log window, with who made it: the actor's
-    type (a person, or an OAuth client such as OpenTofu's) and the client's or person's id."""
-    changes = [e for e in events if "POLICY" in str((e.get("target") or {}).get("type", "")).upper()
-               or "ACL" in str((e.get("target") or {}).get("type", "")).upper()]
-    out = [line("tailscale_policy_changes", {}, len(changes))]
+    """The policy file's changes in the log window by who made them (actor_type: USER for
+    a person, OAUTH_CLIENT for a client such as OpenTofu's), and the newest one."""
+    changes = [e for e in events if is_policy_change(e)]
+    by_type: dict[str, int] = {}
+    for e in changes:
+        kind = (e.get("actor") or {}).get("type", "")
+        by_type[kind] = by_type.get(kind, 0) + 1
+    out = [line("tailscale_policy_changes", {"actor_type": k}, n) for k, n in sorted(by_type.items())]
     newest = max(changes, key=lambda e: ts(e.get("eventTime")) or 0, default=None)
     if newest and ts(newest.get("eventTime")):
         actor = newest.get("actor") or {}
@@ -137,8 +152,8 @@ def read(client: Client) -> str:
     reads = {
         "devices": (lambda: client.get("devices?fields=all")["devices"], device_lines),
         "keys": (lambda: [client.get("keys/" + urllib.parse.quote(k["id"]))
-                          for k in client.get("keys").get("keys", [])], key_lines),
-        "configuration_log": (lambda: client.get(f"logging/configuration?start={start}&end={end}").get("logs", []),
+                          for k in client.get("keys").get("keys") or []], key_lines),
+        "configuration_log": (lambda: client.get(f"logging/configuration?start={start}&end={end}").get("logs") or [],
                               policy_lines),
     }
     for endpoint, (fetch, render) in reads.items():
