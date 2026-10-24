@@ -73,9 +73,15 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       (the owner, 2026-10-24), the console linking to `policy.tf`; `main.tf` says how to edit
       in an emergency. Was: the reorganisation, its own pull request: the renames, the clean-up below, roles,
       tests, and `hosts`, routes, `autoApprovers`, split DNS and search paths from NetBox.
-- [ ] 5. A weekly check-mode plan (drift: console edits, NetBox and the tailnet disagreeing).
-- [ ] 6. The exporter, its scrape of `tailscaled`, and the alerts: router offline, key expiring,
-      route not approved, device waiting for approval, policy changed outside an apply.
+- [x] 5. A weekly check-mode plan: Semaphore schedule 18, "Weekly OpenTofu: Tailscale Check",
+      Sundays 11:00 local, `plan: true` (the owner, 2026-10-24; read back).
+- [ ] 6. The exporter (`kubernetes/prod/system/tailscale-exporter/`): its own namespace, the
+      first opted in to Key Vault (`homelab.local/keyvault: allowed`), an ExternalSecret for its
+      two secrets, metrics on devices, routes, keys and the policy's last change, and alerts:
+      exporter down, subnet router offline, route not approved, device awaiting approval, key
+      expiring. Left: after its first reads, an alert on a policy change outside OpenTofu (the
+      configuration log's actor fields, read first, not guessed); then the subnet router's
+      own `tailscaled` metrics (`TS_ENABLE_METRICS` in `docker/tailscale`, a scrape config).
 - [ ] 7. Later, the owner's call: a second subnet router on the second Docker VM, failing over;
       the DMZ and the firewall's routes for 100.64.0.0/10 were built for this with the old
       WireGuard LXC and may need changes (a shared DMZ address, keepalived).
