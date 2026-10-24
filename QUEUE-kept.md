@@ -32,19 +32,24 @@ cluster.
 
 ## Checklist
 
-1. [ ] The owner: the Garage bucket and key, and the 11 Key Vault secrets (below).
-2. [ ] Merge the `cluster-secrets` pull request, #371, only after
+1. [x] The owner: the Garage bucket and key, and the 11 Key Vault secrets (below).
+2. [x] Merge the `cluster-secrets` pull request, #371, only after
    step 1: a mapped secret missing from Key Vault fails the whole `cluster-secrets` sync.
    Check `./scripts/keyvault-secrets.ps1` shows all 11 Synced yes.
-3. [ ] Merge the deployment pull request, #373 (based on #371's commit): Namespace, `kept-db` with its ObjectStore and scheduled
+3. [x] Merge the deployment pull request, #373 (based on #371's commit): Namespace, `kept-db` with its ObjectStore and scheduled
    backup, Secrets, HelmRelease and its HelmRepository, the Authentik blueprint and its Secret
    and worker variable, the scrape config, the LimitRange. Its database URLs carry no sslmode
    (its body says why).
-4. [ ] After its merge: `pg_stat_archiver` on `kept-db` archiving; the migrate Job's log;
-   `/readyz` 200; the setup code from the log (`kubectl -n kept logs deploy/kept | grep 'KEPT
-   SETUP CODE'`) for the owner's first account; then Authentik sign-in; a first Kept backup
-   in Garage; the recovery kit (`kubectl -n kept exec deploy/kept -- kept admin recovery-kit`)
-   kept by the owner off the cluster.
+4. [ ] After its merge. Checked on 2026-10-24: kept-db healthy, archiving (`pg_stat_archiver`
+   6 archived, 0 failed) and its first base backup completed; the four logins, the three
+   extensions, the database owned by `kept_owner`, 163 tables migrated; `/readyz` 200 on
+   1.12.5; `kept-tls` issued; Authentik's discovery for `kept` answers (the blueprint's first
+   apply failed before the worker had the variable, then `ak apply_blueprint` applied it);
+   Prometheus `up{job="kept"}` 1. Left, the owner's: the setup code
+   (`kubectl -n kept logs deploy/kept | grep 'KEPT SETUP CODE'`) and the first account; joining
+   "Kept Users" in Authentik and signing in with it; a first Kept backup in Garage (nightly at
+   02:30 UTC, or Admin > Backups); the recovery kit
+   (`kubectl -n kept exec deploy/kept -- kept admin recovery-kit`) kept off the cluster.
 5. [ ] Homepage link, and a restore test of `kept-db` like the others.
 
 ## The owner's part (step 1)
