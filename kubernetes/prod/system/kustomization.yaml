@@ -20,6 +20,7 @@ resources:
 - nebula-sync
 - nfs-client
 - noip-duc
+- tailscale-exporter
 - tigera-operator
 - traefik
 - traefik-isolated
