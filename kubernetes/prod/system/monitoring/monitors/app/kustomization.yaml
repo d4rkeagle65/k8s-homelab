@@ -11,6 +11,7 @@ resources:
 - scrapeconfig-etcd.yaml
 - scrapeconfig-garage.yaml
 - scrapeconfig-homeassistant.yaml
+- scrapeconfig-kept.yaml
 - scrapeconfig-openwrt-aps.yaml
 - scrapeconfig-pihole-hosts.yaml
 - scrapeconfig-proxmox-api.yaml

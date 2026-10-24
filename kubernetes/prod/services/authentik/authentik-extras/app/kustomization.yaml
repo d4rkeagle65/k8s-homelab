@@ -11,6 +11,7 @@ resources:
 - secret-authentik-grafana-oidc.yaml
 - secret-authentik-grimmory-oidc.yaml
 - secret-authentik-homepage-oidc.yaml
+- secret-authentik-kept-oidc.yaml
 - secret-authentik-linkwarden-oidc.yaml
 - secret-authentik-netbox-oidc.yaml
 - secret-authentik-organizr-oidc.yaml

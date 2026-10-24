@@ -1,0 +1,11 @@
+# Kept's Helm chart, published as an OCI artifact only. A hand-written release
+# (prod/apps/kept/kept) uses it.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: keptinventory
+  namespace: flux-system
+spec:
+  type: oci
+  interval: 1h
+  url: oci://ghcr.io/keptinventory/charts

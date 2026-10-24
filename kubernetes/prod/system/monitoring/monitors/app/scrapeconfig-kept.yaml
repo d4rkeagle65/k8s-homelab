@@ -1,0 +1,20 @@
+# Kept's /metrics (QUEUE-kept.md): its build, memory, database pools, disk use, and
+# its own backup's last success and status. Answers only with its bearer token.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: kept
+spec:
+  staticConfigs:
+  - targets:
+    - kept.kept.svc.${CLUSTER_DOMAIN}:8080
+  metricsPath: /metrics
+  authorization:
+    type: Bearer
+    credentials:
+      name: kept-metrics
+      key: token
+  scrapeInterval: 60s
+  relabelings:
+  - targetLabel: job
+    replacement: kept
