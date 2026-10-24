@@ -57,14 +57,15 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       owner, 2026-10-24; #361 closed). The `azure-keyvault` store also serves namespaces
       labelled `homelab.local/keyvault: allowed`; the exporter gets a namespace of its own,
       labelled so, with its own ExternalSecret for its two Key Vault secrets (step 6).
-- [ ] 3. `tofu/tailscale`, adopting DNS and the settings (#364): DNS from NetBox's
-      `tailscale-dns` zones and the Pi-holes, checked against live NetBox (the four zones, two
-      resolvers); the settings in `main.tf`, checked field by field. Nothing about the site
-      is stored: no `TF_VAR_` value, no Vaultwarden note (the owner, 2026-10-24: Vaultwarden
-      takes nothing new). The policy waits for step 4. Left: the owner's Semaphore setup
-      (`tofu/README.md`), a plan read back, then its apply. The plan's DNS changes are the
-      review's, already approved: the old search paths and the dropped scheme's split
-      domain go, Pi-hole 2 joins as a second resolver.
+- [x] 3. `tofu/tailscale` adopts DNS and the settings (#364): DNS from NetBox's
+      `tailscale-dns` zones and both Pi-holes' `net0`, the settings in `main.tf`. Nothing about
+      the site is stored (no `TF_VAR_` value, no Vaultwarden note: the owner, 2026-10-24).
+      Applied 2026-10-24 from the branch (plan 1288, apply 1289: 2 imported, DNS changed as the
+      review approved: the old search paths and split domain gone, Pi-hole 2 added, checked
+      against NetBox); plan 1290 then: no changes. Left: the template (33) still carries the
+      Cloudflare template's name and the branch; after the merge, `main` and "OpenTofu:
+      Tailscale". `tailscale_dns_configuration` is alpha in provider 0.29.2: a provider bump's
+      plan shows any change to it.
 - [ ] 4. The reorganisation, its own pull request: the renames, the clean-up below, roles,
       tests, and `hosts`, routes, `autoApprovers`, split DNS and search paths from NetBox.
 - [ ] 5. A weekly check-mode plan (drift: console edits, NetBox and the tailnet disagreeing).
