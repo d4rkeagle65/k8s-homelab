@@ -19,13 +19,13 @@ file is the record of what's set there.
    Dockhand's console can't open one; `docker exec` runs the binary directly:
 
    ```sh
-   docker exec garage /garage bucket create docker-backups
+   docker exec garage /garage -c /etc/garage/garage.toml bucket create docker-backups
    ```
    ```sh
-   docker exec garage /garage key create docker-backups
+   docker exec garage /garage -c /etc/garage/garage.toml key create docker-backups
    ```
    ```sh
-   docker exec garage /garage bucket allow --read --write docker-backups --key docker-backups
+   docker exec garage /garage -c /etc/garage/garage.toml bucket allow --read --write docker-backups --key docker-backups
    ```
 
    The key's ID and secret go into Dockhand only (here and in the vaultwarden stack), with a
