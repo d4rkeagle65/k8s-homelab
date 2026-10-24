@@ -65,14 +65,19 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       `-GUACAMOLE-ENCRYPTION-KEY`, `-INTERNAL-AUTH-TOKEN`, `-JWT-SECRET`, `-SSH-PRIVATE-KEY`, and
       `AUTHENTIK-TERMIX-OIDC-CLIENT-SECRET`. The bastion key's public half (not secret):
       `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILX/HfYILM8HpE2j04mWy1v0Z3EQajp1BlW4RK9+naz/ termix-bastion`.
-- [ ] 3. Authentik, in two pull requests (the first, #372, live 2026-10-24: the Secret synced) so the worker never references a missing Secret:
-      first the `authentik` namespace opted in to Key Vault (it holds only Authentik) and the
-      `authentik-termix-oidc` ExternalSecret; then the blueprints (an OIDC application and a
-      forward-auth proxy provider on the outpost, a Termix Admins group), the worker's
-      `TERMIX_OIDC_CLIENT_SECRET`, with the app (step 4).
-- [ ] 4. In the same pull request as step 3's second half. The app: namespace, CloudNativePG cluster and its object store, ExternalSecret,
-      Deployment, `guacd`, storage for data and recordings, private Ingress with Authentik's
-      forward-auth, Homepage card. Read back: sign-in through both, an SSH session, a recording.
+- [x] 3. Authentik: the `authentik` namespace on Key Vault and Termix's client secret (#372),
+      then the `termix.yaml` blueprint (Termix Admins, a forward-auth gate on the outpost, the
+      OIDC application) and the worker's variable (#375).
+- [ ] 4. The app (#375; #376 gave Node.js CloudNativePG's CA, `ca.crt` only, after the first
+      start failed `SELF_SIGNED_CERT_IN_CHAIN`). Live 2026-10-24: both ExternalSecrets synced,
+      `termix-db` 2/2, the pod Ready as user 1000 under `restricted`, `/health` ok, an
+      unauthenticated request turned to Authentik (302). Plugins activated by default include
+      `sso`; `telemetry` and `web-endpoint` (2026-10's unauthenticated-exposure advisory) are
+      loaded but off, and stay off. Left, the owner's: join Termix Admins in Authentik, sign in
+      (the gate, then Termix's SSO), activate Session Recording (Plugins) and set its
+      retention; then a pull request turning off password sign-in and registration
+      (`ALLOW_PASSWORD_LOGIN`, `ALLOW_REGISTRATION`) once SSO sign-in is proved; then an SSH
+      session and its recording read back.
 - [ ] 5. The bastion key's public half on the hosts: which hosts and which user, the owner's call;
       through the baseline playbooks, check mode first.
 - [ ] 6. The NetBox sync job, dry run first, then on a schedule.
