@@ -8,6 +8,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 |---|---|
 | `proxmox/` | The Proxmox guests: the Talos VMs (`talos.tf`, with their machine configs in `talos-config.tf`), both Pi-holes, the Docker VMs (`docker-vms.tf`: a new one from Debian's cloud image, its login from `site.vm_login`) and plain Debian containers (`containers` in `guests.tf`); every guest's shape from `netbox-guests.json` (not the Windows DC). |
 | `cloudflare/` | The hand-made DNS records in both Cloudflare zones (not the tunnel controller's records, the tunnel's public hostnames, or cert-manager's challenges: each has its own owner). |
+| `tailscale/` | The tailnet's policy file, DNS (split DNS, search paths, MagicDNS) and settings (`QUEUE-tailscale.md`). |
 
 ## What lives where
 
@@ -114,6 +115,26 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
   only written out, not looped over a variable (`import { to = cloudflare_dns_record.this["r30"]
   id = "${var.dns.zones[var.dns.records["r30"].zone]}/${var.dns.records["r30"].id}" }`). A new
   record needs none: the apply creates it.
+
+
+## The Tailscale module (`tailscale/`)
+
+- **Nothing about the site is stored for it.** What names the site is read from NetBox at
+  every plan (`netbox.tf`): the DNS zones tagged `tailscale-dns`, each split to both
+  Pi-holes (their `net0` address) and searched. The tailnet settings name nothing and are
+  written in `main.tf`. The policy file comes in `QUEUE-tailscale.md`'s step 4, built from
+  NetBox's tags and git. No Vaultwarden note: every secret it needs is in Key Vault.
+- **Credentials:** an OAuth client of its own, which doesn't expire: Key Vault's
+  `TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID` and `-SECRET` (write on the policy file, DNS, devices
+  and feature settings). Not Homepage's `TAILSCALE_API_KEY`.
+- **Semaphore:** a variable group "OpenTofu: Tailscale", environment variables. Secrets:
+  `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_CLIENT_SECRET` (the client above),
+  `PG_CONN_STR` (the same as Proxmox's; the schema differs), `TF_VAR_netbox_token` (Key
+  Vault's `NETBOX-READ-TOKEN`); variable `TF_VAR_netbox_url` = `https://netbox.<domain>`. A
+  template, type OpenTofu, subdirectory `tofu/tailscale`.
+- **Adopted, not created:** `main.tf`'s import blocks take DNS and the settings over. A plan
+  stops when NetBox has no tagged zone or no Pi-hole, rather than empty the tailnet's DNS. A
+  change made in the admin console shows in the next plan as a change back.
 
 ## Checks for a change here
 
