@@ -66,13 +66,11 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       (5703128). Left: the template (33) still carries the Cloudflare template's name; it is
       to be "OpenTofu: Tailscale" (the owner). `tailscale_dns_configuration` is alpha in provider 0.29.2: a provider bump's
       plan shows any change to it.
-- [ ] 4. The policy, built (`policy.tf`, rendered against live NetBox 2026-10-24: the five
-      networks keep their CIDRs under the new names, the home routes' approvals are
-      unchanged, the travel LAN's route is now auto-approved, the role ipsets hold the tagged
-      hosts' routed addresses). Left: the owner's plan and apply; then the travel router
-      retagged `tag:travel-router` (in the admin console), then a pull request dropping
-      `tag:dev-travelrouter`; then, the owner's call, `acls_externally_managed_on` (the
-      console can't edit the policy once it's on). Was: the reorganisation, its own pull request: the renames, the clean-up below, roles,
+- [ ] 4. The policy, built from NetBox and git (#365), applied 2026-10-24 (plan 1291, apply
+      1292: Tailscale accepted it, so both tests passed; plan 1293: no changes). Left: the
+      travel router retagged `tag:travel-router` in the admin console (the owner), then a
+      pull request dropping `tag:dev-travelrouter` from `policy.tf`; then the owner's call on
+      `acls_externally_managed_on` (the console can't edit the policy once it's on). Was: the reorganisation, its own pull request: the renames, the clean-up below, roles,
       tests, and `hosts`, routes, `autoApprovers`, split DNS and search paths from NetBox.
 - [ ] 5. A weekly check-mode plan (drift: console edits, NetBox and the tailnet disagreeing).
 - [ ] 6. The exporter, its scrape of `tailscaled`, and the alerts: router offline, key expiring,
