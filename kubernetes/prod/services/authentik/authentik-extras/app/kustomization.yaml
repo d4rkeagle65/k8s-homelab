@@ -6,6 +6,7 @@ resources:
 - certificate-ldap-authentik.yaml
 - cluster-authentik-db.yaml
 - configmap-authentik-blueprints.yaml
+- externalsecret-authentik-termix-oidc.yaml
 - ingress-authentik-cloudflared.yaml
 - secret-authentik-dockhand-oidc.yaml
 - secret-authentik-grafana-oidc.yaml
