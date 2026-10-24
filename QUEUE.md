@@ -57,6 +57,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
+  Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
   the IoT prefix on the devices' ports (HA is hostNetwork, so devices are added by IP, without
   discovery). `scripts/ha_iot_setup.py` adds each local device from NetBox by its setup flow
