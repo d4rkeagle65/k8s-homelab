@@ -51,7 +51,10 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       management and IoT zones; `tailscale-host` on both Pi-holes, the first Docker VM
       (Vaultwarden), the travel router and Traefik's LoadBalancer address. Read back: every
       object kept its existing tags.
-- [ ] 2. `cluster-secrets`: the exporter's two variables (pull request of its own).
+- [x] 2. The exporter's credentials: not through `cluster-secrets`, which is to retire (the
+      owner, 2026-10-24; #361 closed). The `azure-keyvault` store also serves namespaces
+      labelled `homelab.local/keyvault: allowed`; the exporter gets a namespace of its own,
+      labelled so, with its own ExternalSecret for its two Key Vault secrets (step 6).
 - [ ] 3. `tofu/tailscale`, importing today's policy, DNS and settings unchanged: the first plan
       shows no change. Semaphore template and environment, steps for the owner.
 - [ ] 4. The reorganisation, its own pull request: the renames, the clean-up below, roles,
