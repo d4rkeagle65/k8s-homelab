@@ -73,10 +73,10 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       `termix-db` 2/2, the pod Ready as user 1000 under `restricted`, `/health` ok, an
       unauthenticated request turned to Authentik (302). Plugins activated by default include
       `sso`; `telemetry` and `web-endpoint` (2026-10's unauthenticated-exposure advisory) are
-      loaded but off, and stay off. Left, the owner's: join Termix Admins in Authentik, sign in
-      (the gate, then Termix's SSO), activate Session Recording (Plugins) and set its
-      retention; then a pull request turning off password sign-in and registration
-      (`ALLOW_PASSWORD_LOGIN`, `ALLOW_REGISTRATION`) once SSO sign-in is proved; then an SSH
+      loaded but off, and stay off. The owner signed in through SSO (2026-10-24, the log's
+      `sso/callback` then a login), so password sign-in and self-registration are off
+      (`ALLOW_PASSWORD_LOGIN`, `ALLOW_REGISTRATION`); the owner uninstalled the login-security
+      plugin. Left: Session Recording activated and its retention set (the owner), then an SSH
       session and its recording read back.
 - [ ] 5. The bastion key on everything that takes an SSH login (the owner, 2026-10-24), as the
       account the playbooks already give a login: the owner's named admin account on the Debian
