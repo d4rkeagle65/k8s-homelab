@@ -472,3 +472,13 @@ def test_retire_can_set_a_device_offline(monkeypatch):
     nb.retire("dcim/devices", {"id": 4}, "x", "Kea's reservations", status="offline")
     assert calls[0] == ("PATCH", "dcim/devices/4/", {"status": "offline"})
     assert nb.counts == {"set-offline dcim/devices": 1}
+
+
+def test_the_tailscale_tags_each_go_on_one_kind_of_object():
+    tags = m.TAILSCALE_TAGS
+    assert set(tags) == {"tailscale-route-home", "tailscale-route-travel", "tailscale-dns", "tailscale-host"}
+    # A route tag only on prefixes, so a host can never become an advertised route.
+    assert tags["tailscale-route-home"][0] == tags["tailscale-route-travel"][0] == ["ipam.prefix"]
+    assert tags["tailscale-dns"][0] == ["netbox_dns.zone"]
+    assert set(tags["tailscale-host"][0]) == {"dcim.device", "virtualization.virtualmachine"}
+    assert all(about for _, about in tags.values())
