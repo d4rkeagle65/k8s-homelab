@@ -1,0 +1,15 @@
+# Termix's data folder (DATA_DIR): session recordings (plugin-data/session-recording),
+# installed plugins and uploads. Its database is termix-db; its keys come from Key Vault.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: termix-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 20Gi

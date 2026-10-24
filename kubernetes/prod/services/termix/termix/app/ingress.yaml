@@ -1,0 +1,58 @@
+# Termix's route: private networks only (LAN, cluster, tailnet; never the Cloudflare
+# tunnel), behind Authentik's forward-auth gate (Termix Admins: the termix.yaml
+# blueprint), then Termix's own Authentik login.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: termix
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd,traefik_authentik@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /outpost.goauthentik.io
+        pathType: Prefix
+        backend:
+          service:
+            name: authentik-outpost
+            port:
+              number: 9000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: termix
+            port:
+              number: 8080
+  tls:
+  - hosts:
+    - termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    secretName: termix-tls
+---
+# Plain http:// to the same host only redirects to https://. It reaches no backend,
+# and the Cloudflare tunnel, which arrives on port 80 too, has no route for this host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: termix-http-redirect
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: termix
+            port:
+              number: 8080

@@ -14,3 +14,4 @@ resources:
 - redis-ha
 - renovate
 - smtp-relay
+- termix

@@ -423,7 +423,7 @@ data:
     #
     # This blueprint owns that outpost's provider list, so it lists every
     # provider the outpost serves: babybuddy's (made in the UI), Headlamp's
-    # (headlamp.yaml) and this one.
+    # (headlamp.yaml), Termix's gate (termix.yaml) and this one.
     version: 1
     metadata:
       name: mesh-mini
@@ -462,6 +462,7 @@ data:
         providers:
         - !Find [authentik_providers_proxy.proxyprovider, [name, babybuddy-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, Provider for Headlamp]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, Provider for Termix gate]]
         - !KeyOf provider
   netbox.yaml: |
     # Authentik blueprint: NetBox's OIDC login. NetBox runs on the Docker host
@@ -733,6 +734,87 @@ data:
         order: 0
       attrs:
         group: !Find [authentik_core.group, [name, authentik Admins]]
+  termix.yaml: |
+    # Authentik blueprint: Termix, the web bastion (QUEUE-bastion.md), signed in to
+    # twice: a forward-auth gate on the outpost in front of everything (the
+    # proxy provider, on mesh-mini.yaml's outpost list), then Termix's own OIDC
+    # login (its SSO plugin), which maps Termix Admins to its admin role at
+    # every sign-in. Only Termix Admins pass either. The client secret is the
+    # worker's TERMIX_OIDC_CLIENT_SECRET, from Key Vault (the authentik-termix-oidc
+    # ExternalSecret). Membership is set in the UI.
+    version: 1
+    metadata:
+      name: termix
+    entries:
+    - model: authentik_core.group
+      id: admins
+      identifiers:
+        name: Termix Admins
+    - model: authentik_providers_proxy.proxyprovider
+      id: gate
+      identifiers:
+        name: Provider for Termix gate
+      attrs:
+        mode: forward_single
+        external_host: https://termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+        access_token_validity: hours=12
+    - model: authentik_core.application
+      id: gate_application
+      identifiers:
+        slug: termix-gate
+      attrs:
+        name: Termix (gate)
+        provider: !KeyOf gate
+        meta_launch_url: blank://blank
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf gate_application
+        order: 0
+      attrs:
+        group: !KeyOf admins
+    - model: authentik_providers_oauth2.oauth2provider
+      id: provider
+      identifiers:
+        name: Provider for Termix
+      attrs:
+        client_type: confidential
+        client_id: termix
+        client_secret: !Env TERMIX_OIDC_CLIENT_SECRET
+        grant_types:
+        - authorization_code
+        - refresh_token
+        redirect_uris:
+        - matching_mode: strict
+          url: https://termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/users/oidc/callback
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+        signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+        property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        sub_mode: hashed_user_id
+        issuer_mode: per_provider
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: termix
+      attrs:
+        name: Termix
+        provider: !KeyOf provider
+        meta_launch_url: https://termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        meta_description: Web bastion (SSH, RDP)
+        icon: https://cdn.jsdelivr.net/gh/selfhst/icons/png/termix.png
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 0
+      attrs:
+        group: !KeyOf admins
 kind: ConfigMap
 metadata:
   name: authentik-blueprints
