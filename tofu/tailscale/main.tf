@@ -37,6 +37,12 @@ resource "tailscale_dns_configuration" "this" {
 
 # The tailnet's settings, as they were on 2026-10-24. None of them names the
 # site, so they are written here.
+#
+# The policy is edited only through policy.tf: the admin console's editor is
+# locked and links here. In an emergency, switch the lock off in the console
+# (Settings, General, policy file management), edit, then make the same change
+# in a pull request; the next apply otherwise restores both the lock and
+# policy.tf's policy. The API (and so OpenTofu) is never locked.
 resource "tailscale_tailnet_settings" "this" {
   devices_approval_on                         = true
   devices_auto_updates_on                     = true
@@ -47,5 +53,6 @@ resource "tailscale_tailnet_settings" "this" {
   posture_identity_collection_on              = true
   https_enabled                               = false
   regional_routing_on                         = false
-  acls_externally_managed_on                  = false
+  acls_externally_managed_on                  = true
+  acls_external_link                          = "https://github.com/d4rkeagle65/k8s-homelab/blob/main/tofu/tailscale/policy.tf"
 }
