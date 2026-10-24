@@ -983,6 +983,8 @@ spec:
                       accountid: "{{ "{{HOMEPAGE_VAR_CLOUDFLARE_ACCOUNT_ID}}" }}"
                       tunnelid: "{{ "{{HOMEPAGE_VAR_CLOUDFLARE_TUNNEL_ID}}" }}"
                       key: "{{ "{{HOMEPAGE_VAR_CLOUDFLARE_TOKEN}}" }}"
+                # The tailnet, from the tailscale-exporter's metrics: no API key or device
+                # id to expire (kubernetes/prod/system/tailscale-exporter/).
                 - Tailscale:
                     icon: tailscale.png
                     href: https://login.tailscale.com/admin/machines
@@ -990,10 +992,22 @@ spec:
                     server: docker-vm-1
                     container: tailscale
                     widget:
-                      type: tailscale
-                      deviceid: "{{ "{{HOMEPAGE_VAR_TAILSCALE_DEVICE}}" }}"
-                      key: "{{ "{{HOMEPAGE_VAR_TAILSCALE_KEY}}" }}"
-                      fields: [address, last_seen, expires, update_available]
+                      type: prometheusmetric
+                      url: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
+                      refreshInterval: 60000
+                      metrics:
+                        - label: Router up
+                          query: max(tailscale_device_online{tags=~"(.*,)?tag:subnet-router(,.*)?"}) or vector(0)
+                          format: {type: number}
+                        - label: Online
+                          query: sum(tailscale_device_online) or vector(0)
+                          format: {type: number}
+                        - label: Routes pending
+                          query: count(tailscale_device_route_enabled == 0) or vector(0)
+                          format: {type: number}
+                        - label: Keys expiring
+                          query: count((tailscale_device_key_expiry_timestamp_seconds - time()) < 7 * 86400) or vector(0)
+                          format: {type: number}
             - Wired:
                 - Switch:
                     icon: tp-link.png
