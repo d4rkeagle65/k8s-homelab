@@ -19,7 +19,7 @@
     group=$(id -gn "$user") || { echo "ERROR id -gn $user failed"; exit 1; }
     f="$home/.ssh/authorized_keys"
     pending=0
-    # Group or others may write: ls's sixth or ninth character is w.
+    # Group or others may write: the sixth or ninth character of ls -ld is w.
     loose() { ls -ld "$1" | cut -c6,9 | grep -q w; }
     if [ ! -d "$home/.ssh" ]; then
       echo "CHANGE make $home/.ssh"
