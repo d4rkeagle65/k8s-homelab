@@ -87,16 +87,17 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       the first): tasks 1297 (the 9 Debian hosts, each authorized_keys read back as the owner's
       key plus the bastion key) and 1298 (both access points and the travel router, VERIFIED).
       The owner's first SSH session through Termix with it worked (2026-10-25, a host made by
-      hand, the key inline). Left: the NASes (the Synology
-      through `synology-baseline.yml`, the TerraMaster by hand); the Windows DC takes a
+      hand, the key inline). Left: the Synology (through
+      `synology-baseline.yml`; the TerraMaster's was added by hand, 2026-10-25); the Windows DC takes a
       password credential in Termix; the Talos nodes have no SSH.
 - [x] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
       hourly, writing since 2026-10-25 (#381–#383): its first run created 14 hosts with the
       `bastion` credential (made by hand in Termix) and read back VERIFIED; the next run, no
-      changes. Left: the owner to confirm the travel router's primary address is the one to
-      reach it by (it has no management address in NetBox); the hand-made "Docker Vm 1" now
-      duplicates the synced Docker VM, the owner's call to delete it; the NASes sign in only
-      once step 5 puts the bastion key on them.
+      changes. The travel router has no management address in NetBox and is reached by its
+      primary address, the right one (the owner, 2026-10-25). Left: the hand-made "Docker
+      Vm 1" duplicates the synced Docker VM, the owner's call to delete it; the Synology signs
+      in only once step 5 puts the bastion key on it (the TerraMaster has it, by hand,
+      2026-10-25).
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).
 - [ ] 8. Later: Docker, Kubernetes and cloud, scoped as above.
 
