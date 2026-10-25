@@ -152,3 +152,15 @@ def test_a_hand_made_host_with_a_synced_name_is_left_alone(monkeypatch, capsys):
     fake = FakeTermix([{"id": 1, "name": "pihole", "tags": ""}], [{"id": 3, "name": "bastion"}])
     assert run(monkeypatch, fake, {"pihole": WANT}, dry_run=False) == 0
     assert fake.calls == [] and "skipped pihole: a host made by hand" in capsys.readouterr().out
+
+
+def test_a_device_given_the_key_by_hand_logs_in_as_its_local_context_says(monkeypatch):
+    switch = obj(6, "switch", ["bastion-key"], "Switch", kind="device")
+    switch["local_context_data"] = {"termix_user": "netadmin"}
+    firewall = obj(7, "firewall", ["bastion-key"], "Firewall", kind="device")
+    addresses = [addr(6, "192.0.2.10/24", "switch.mgmt.example", kind="device"),
+                 addr(7, "192.0.2.11/24", "firewall.mgmt.example", kind="device")]
+    hosts, skipped = m.wanted_hosts([switch, firewall], addresses, PREFIXES, [])
+    assert hosts["switch"]["username"] == "netadmin" and hosts["switch"]["folder"] == "Switch"
+    assert "firewall" not in hosts
+    assert skipped == ["firewall: username not set (bastion-key (local context termix_user not set))"]
