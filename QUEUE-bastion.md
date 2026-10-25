@@ -86,10 +86,21 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       never removed). Done 2026-10-25 (#377, the key replaced by #379 before any host had
       the first): tasks 1297 (the 9 Debian hosts, each authorized_keys read back as the owner's
       key plus the bastion key) and 1298 (both access points and the travel router, VERIFIED).
-      Left: the owner's first SSH session through Termix with it; then the NASes (the Synology
+      The owner's first SSH session through Termix with it worked (2026-10-25, a host made by
+      hand, the key inline). Left: the NASes (the Synology
       through `synology-baseline.yml`, the TerraMaster by hand); the Windows DC takes a
       password credential in Termix; the Talos nodes have no SSH.
-- [ ] 6. The NetBox sync job, dry run first, then on a schedule.
+- [ ] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
+      hourly. First pull request: plan only, DRY_RUN on, printing Termix's host and credential
+      field names, so the writes copy Termix's real record shape. Its NetBox half, run against
+      NetBox 2026-10-25: 11 hosts (5 hypervisors, both Pi-holes, both access points, both
+      Docker VMs). Logins differ by platform (the owner): the admin account on Debian, root on
+      OpenWrt, and Key Vault's `TERMIX-SSH-SYNOLOGY-USER` and `TERMIX-SSH-TERRAMASTER-USER` on
+      the NASes (set 2026-10-25). The travel router has no management address in NetBox, so the
+      sync falls back to a host's primary address: the owner to confirm that's the one to use.
+      Left: merge, run it, read the fields; then the writes: a `bastion` credential from Key
+      Vault's private key, hosts tagged `netbox` using it; DRY_RUN off after the owner reads a
+      plan.
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).
 - [ ] 8. Later: Docker, Kubernetes and cloud, scoped as above.
 

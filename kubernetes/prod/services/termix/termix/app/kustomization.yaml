@@ -11,3 +11,9 @@ resources:
 - deployment.yaml
 - service-authentik-outpost.yaml
 - ingress.yaml
+- cronjob-termix-netbox-sync.yaml
+configMapGenerator:
+# The sync's script; the name's hash brings a change to the next run.
+- name: termix-netbox-sync
+  files:
+  - sync/termix-netbox-sync.py
