@@ -16,4 +16,4 @@ talosconfig_b64: "{{ lookup('ansible.builtin.env', 'TALOSCONFIG_B64') }}"
 # (openwrt-aps.yml). A list, so a new key can overlap the old one in a rotation;
 # removing one here removes it from the admin account at the next run.
 bastion_ssh_keys:
-  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILX/HfYILM8HpE2j04mWy1v0Z3EQajp1BlW4RK9+naz/ termix-bastion
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICp9AkdMyivnEB8URZhPhSJF/NIB1XoRhmUkt5KRl1pG termix-bastion

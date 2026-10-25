@@ -63,8 +63,9 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       - Health: `GET /health`; allow 60 s to start.
 - [x] 2. The owner's Key Vault values (2026-10-24): `TERMIX-ENCRYPTION-KEY`, `-DATABASE-KEY`,
       `-GUACAMOLE-ENCRYPTION-KEY`, `-INTERNAL-AUTH-TOKEN`, `-JWT-SECRET`, `-SSH-PRIVATE-KEY`, and
-      `AUTHENTIK-TERMIX-OIDC-CLIENT-SECRET`. The bastion key's public half (not secret):
-      `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILX/HfYILM8HpE2j04mWy1v0Z3EQajp1BlW4RK9+naz/ termix-bastion`.
+      `AUTHENTIK-TERMIX-OIDC-CLIENT-SECRET`. The bastion key's public half (not secret; replaced
+      2026-10-25 by one without a passphrase, before any host had the first):
+      `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICp9AkdMyivnEB8URZhPhSJF/NIB1XoRhmUkt5KRl1pG termix-bastion`.
 - [x] 3. Authentik: the `authentik` namespace on Key Vault and Termix's client secret (#372),
       then the `termix.yaml` blueprint (Termix Admins, a forward-auth gate on the outpost, the
       OIDC application) and the worker's variable (#375).
