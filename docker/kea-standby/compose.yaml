@@ -42,6 +42,11 @@ services:
       kea-config:
         condition: service_completed_successfully
     command: ["/usr/sbin/kea-dhcp4", "-c", "/etc/kea/conf/kea-dhcp4.conf"]
+    # Kea's PID file and control socket, emptied whenever the container stops: a
+    # PID file left by a power cut or a crash names PID 1, which the restarted
+    # Kea is too, so it refuses to start ("DHCP4_ALREADY_RUNNING") forever.
+    tmpfs:
+    - /var/run/kea
     ports:
     - ${DOCKER_VM_2_PROD_ADDRESS}:67:67/udp
     - ${DOCKER_VM_2_MGMT_ADDRESS}:8000:8000

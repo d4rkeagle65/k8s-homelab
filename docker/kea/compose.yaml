@@ -120,6 +120,11 @@ services:
     image: docker.cloudsmith.io/isc/docker/kea-dhcp4:3.2.1
     container_name: kea-dhcp4
     restart: unless-stopped
+    # Kea's PID file and control socket, emptied whenever the container stops: a
+    # PID file left by a power cut or a crash names PID 1, which the restarted
+    # Kea is too, so it refuses to start ("DHCP4_ALREADY_RUNNING") forever.
+    tmpfs:
+    - /var/run/kea
     depends_on:
       kea-postgres:
         condition: service_healthy
