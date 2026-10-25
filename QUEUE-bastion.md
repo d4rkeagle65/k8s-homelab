@@ -83,8 +83,10 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       account the playbooks already give a login: the owner's named admin account on the Debian
       hosts (`tasks/admin-user.yml`, its authorized_keys now the owner's keys plus
       `bastion_ssh_keys` from `group_vars/all.yml`), root on OpenWrt (`openwrt-aps.yml`, added,
-      never removed). Left after the pull request: check-mode runs of Admin Users (or the
-      Debian baseline) and the OpenWrt template, then real runs; then the NASes (the Synology
+      never removed). Done 2026-10-25 (#377, the key replaced by #379 before any host had
+      the first): tasks 1297 (the 9 Debian hosts, each authorized_keys read back as the owner's
+      key plus the bastion key) and 1298 (both access points and the travel router, VERIFIED).
+      Left: the owner's first SSH session through Termix with it; then the NASes (the Synology
       through `synology-baseline.yml`, the TerraMaster by hand); the Windows DC takes a
       password credential in Termix; the Talos nodes have no SSH.
 - [ ] 6. The NetBox sync job, dry run first, then on a schedule.
