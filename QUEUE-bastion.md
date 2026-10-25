@@ -27,6 +27,11 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
   half in Key Vault and in Termix's credential store only, its public half installed by the
   hosts' baseline playbooks. One key opens every host it's installed on: installed only where
   the owner says, revocable by removing it from the playbooks and rotating it.
+- **An RSA bastion key for devices without Ed25519** (the owner, 2026-10-25): the core
+  switch's SSH takes only RSA or DSA keys, so a second key, RSA 2048 (longer is often refused
+  by such firmware), its private half in Key Vault (`TERMIX-SSH-RSA-PRIVATE-KEY`) and in Termix
+  as the credential `bastion-rsa`, its public half on each such device by hand. The NetBox sync
+  gives a host the credential its local context names in `termix_credential`, else `bastion`.
 - **Session recording on** (the Session Recording plugin), the recordings on the NAS.
 - **Pod Security:** the image starts as root and drops to `node` (gosu, PUID 1000). The
   namespace is `baseline` unless setting the user directly works under `restricted` (checked,
@@ -105,6 +110,13 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       management address on its port 1, its primary, with a DNS name that resolves; the sync
       created both and read back VERIFIED. Left: the owner's first session to each, which shows
       whether each device takes the key as that user.
+      The switch doesn't (it takes no Ed25519 key): its RSA key is imported and a login with
+      it worked (the owner, 2026-10-25). Left, the owner's: that key's private half in Key Vault
+      (`TERMIX_SSH_RSA_PRIVATE_KEY`, `keyvault-secrets.ps1 -New -Raw -Value` from the file);
+      a Termix credential `bastion-rsa` (an SSH key, that private half, no username); and
+      `"termix_credential": "bastion-rsa"` in the switch's NetBox local context beside
+      `termix_user`. Then the sync's next run moves the switch onto it (its log says so). The
+      firewall's session is still to try.
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).
 - [ ] 8. Later: Docker, Kubernetes and cloud, scoped as above.
 

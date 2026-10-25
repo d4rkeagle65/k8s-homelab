@@ -9,9 +9,12 @@ firewall), as the termix_user in its NetBox local context. Each is reached by it
 such as the travel router on its own LAN, by its primary address), on port 22 unless NetBox
 records an SSH service on another port, in a folder named for its NetBox role.
 
-Every host logs in with one Termix credential, the bastion key, named by TERMIX_CREDENTIAL
-(default "bastion") and made by hand in Termix's UI, so the private key never leaves Termix;
-the host's own username overrides the credential's. The sync never writes a credential.
+Every host logs in with a Termix credential made by hand in Termix's UI, so the private key
+never leaves Termix: the bastion key, named by TERMIX_CREDENTIAL (default "bastion"), unless
+the host's NetBox local context names another in termix_credential (the RSA bastion key, for
+a device that takes no Ed25519 key). The host's own username overrides the credential's. A
+host naming a credential Termix doesn't have exactly once is reported and skipped; one the
+sync made before is left as it is, never deleted for it. The sync never writes a credential.
 
 The sync owns only the hosts it made, which carry the tag "netbox" in Termix: it creates
 the ones new in NetBox, updates the ones that differ, and deletes the ones that left it.
@@ -184,8 +187,10 @@ def wanted_hosts(objects: list[dict], addresses: list[dict], prefixes: list[dict
             skipped.append(f"{name}: no address on the management network, and no primary address, in NetBox")
             continue
         port = next((p for (t, i), p in ssh_ports.items() if i == o["id"] and o["_kind"] in t), 22)
+        credential = str((o.get("local_context_data") or {}).get("termix_credential") or "").strip() or CREDENTIAL
         hosts[name] = {"name": name, "ip": found, "port": port, "username": user,
-                       "folder": (o.get("role") or {}).get("name") or "Other", "login": source, "via": via}
+                       "folder": (o.get("role") or {}).get("name") or "Other", "login": source, "via": via,
+                       "credential": credential}
     return hosts, skipped
 
 
@@ -216,7 +221,21 @@ def main() -> int:
                    "(Credentials, an SSH key, the bastion's private key, no username)")
         if not DRY_RUN:
             fail(missing)
-    credential_id = matches[0]["id"] if not missing else None
+    # Each host's credential by name; one Termix lacks (or has twice) holds that host back.
+    cred_ids: dict[str, object] = {}
+    held = set()
+    for name, want in sorted(wanted.items()):
+        cname = want.get("credential", CREDENTIAL)
+        found_c = [c for c in creds if c.get("name") == cname]
+        if len(found_c) == 1:
+            cred_ids[name] = found_c[0]["id"]
+        elif cname == CREDENTIAL:
+            cred_ids[name] = None  # the default's absence is reported above, and refused for writes
+        else:
+            held.add(name)
+            skipped.append(f"{name}: Termix has {len(found_c)} credential(s) named {cname!r} (its local context's "
+                           "termix_credential), not one; make it in Termix's UI. A synced host by that name is left as it is")
+    wanted = {n: w for n, w in wanted.items() if n not in held}
 
     owned = {h.get("name"): h for h in hosts if OWNED_TAG in tags_of(h)}
     by_hand = sorted(h.get("name") for h in hosts if OWNED_TAG not in tags_of(h))
@@ -229,6 +248,7 @@ def main() -> int:
     verb = (lambda v: "would " + v) if DRY_RUN else (lambda v: v)
     plan = []
     for name, want in sorted(wanted.items()):
+        credential_id = cred_ids[name]
         if name in clash:
             print(f"  skipped {name}: a host made by hand has that name; rename or delete it to let the sync own it")
             continue
@@ -241,7 +261,7 @@ def main() -> int:
             if diff:
                 print(f"  {verb('update')} {name}: {', '.join(diff)}")
                 plan.append(("PUT", f"{TERMIX}/host/db/host/{have['id']}", host_body(want, credential_id, have), name))
-    for name in sorted(set(owned) - set(wanted)):
+    for name in sorted(set(owned) - set(wanted) - held):
         print(f"  {verb('delete')} {name}: no longer in NetBox")
         plan.append(("DELETE", f"{TERMIX}/host/db/host/{owned[name]['id']}", None, name))
     for s in skipped:
@@ -268,8 +288,8 @@ def main() -> int:
     except (urllib.error.URLError, OSError, ValueError) as e:
         fail(f"Termix, reading back: {getattr(e, 'code', None) or e}")
     now = {h.get("name"): h for h in after if OWNED_TAG in tags_of(h)}
-    wrong = [n for n, w in wanted.items() if n not in clash and (n not in now or differs(now[n], w, credential_id))]
-    wrong += [n for n in now if n not in wanted]
+    wrong = [n for n, w in wanted.items() if n not in clash and (n not in now or differs(now[n], w, cred_ids[n]))]
+    wrong += [n for n in now if n not in wanted and n not in held]
     for n in sorted(wrong):
         print(f"  NOT AS WANTED after the writes: {n}")
     print("VERIFIED" if not wrong and not failed else f"{failed} write(s) failed, {len(wrong)} host(s) not as wanted")

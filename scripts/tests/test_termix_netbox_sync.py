@@ -164,3 +164,36 @@ def test_a_device_given_the_key_by_hand_logs_in_as_its_local_context_says(monkey
     assert hosts["switch"]["username"] == "netadmin" and hosts["switch"]["folder"] == "Switch"
     assert "firewall" not in hosts
     assert skipped == ["firewall: username not set (bastion-key (local context termix_user not set))"]
+
+
+def test_a_host_takes_the_credential_its_local_context_names_else_the_default():
+    switch = obj(6, "switch", ["bastion-key"], "Switch", kind="device")
+    switch["local_context_data"] = {"termix_user": "netadmin", "termix_credential": "bastion-rsa"}
+    firewall = obj(7, "firewall", ["bastion-key"], "Firewall", kind="device")
+    firewall["local_context_data"] = {"termix_user": "admin"}
+    addresses = [addr(6, "192.0.2.10/24", "switch.mgmt.example", kind="device"),
+                 addr(7, "192.0.2.11/24", "firewall.mgmt.example", kind="device")]
+    hosts, _ = m.wanted_hosts([switch, firewall], addresses, PREFIXES, [])
+    assert hosts["switch"]["credential"] == "bastion-rsa"
+    assert hosts["firewall"]["credential"] == m.CREDENTIAL
+
+
+CREDS = [{"id": 3, "name": "bastion"}, {"id": 4, "name": "bastion-rsa"}]
+
+
+def test_each_host_is_made_with_its_own_credential(monkeypatch):
+    rsa = dict(WANT, name="switch", credential="bastion-rsa")
+    fake = FakeTermix([], list(CREDS))
+    assert run(monkeypatch, fake, {"pihole": WANT, "switch": rsa}, dry_run=False) == 0
+    by_name = {h["name"]: h["credentialId"] for h in fake.hosts}
+    assert by_name == {"pihole": 3, "switch": 4}
+
+
+def test_a_named_credential_termix_lacks_holds_that_host_and_never_deletes_it(monkeypatch, capsys):
+    synced_switch = {"id": 9, "name": "switch", "tags": "netbox", "authType": "credential", "credentialId": 3}
+    rsa = dict(WANT, name="switch", credential="bastion-rsa")
+    fake = FakeTermix([synced_switch], [{"id": 3, "name": "bastion"}])
+    assert run(monkeypatch, fake, {"pihole": WANT, "switch": rsa}, dry_run=False) == 0
+    assert fake.calls == [("POST", "http://termix:8080/host/db/host")]  # pihole made; switch neither changed nor deleted
+    out = capsys.readouterr().out
+    assert "credential(s) named 'bastion-rsa'" in out and "VERIFIED" in out
