@@ -1,0 +1,316 @@
+# Upgrades the lab's Proxmox hosts from Proxmox VE 8 to 9 in place, one host at a
+# time: the latest 8.4 first (pve8to9, the upgrade's own checker, ships with it),
+# then pve8to9 --full, stopping on any FAILURE; the APT sources from bookworm to
+# trixie; the full upgrade; a reboot; and the version read back. Only for the
+# proxmox_lab group, which production's hosts are never in: those reached 9 by
+# reinstalling (old-queues/QUEUE-talos.md) and nothing here knows their cluster,
+# Kubernetes or HA.
+#
+# Inventory: the NetBox tag proxmox_lab beside ansible, and a primary IPv4 (the
+# address Ansible connects to); root over SSH with Semaphore's shared key. A host
+# already on 9 is reported and left.
+#
+# Without a subscription (pvesubscription get), the enterprise repositories answer
+# 401, so they are commented out and Proxmox's no-subscription repository is added
+# instead, as the installer's default does for 9.
+#
+# stop_guests: true (an extra variable) shuts down any running VM or container
+# before the major upgrade, which runs only with none running; off, a running one
+# stops the run before anything major changes, and they are listed.
+#
+# In check mode (--check) it reports each host's version, APT sources, subscription
+# and running guests, the upgrades pending on 8, and the source edits it would
+# make, and changes nothing. pve8to9 runs only once the host is on 8.4.
+
+- ansible.builtin.import_playbook: select-hosts.yml
+  vars:
+    select_from: proxmox_lab
+
+- name: Upgrade the lab's Proxmox hosts to 9
+  hosts: targets
+  serial: 1
+  gather_facts: false
+  vars:
+    ansible_user: root
+    apt_env:
+      DEBIAN_FRONTEND: noninteractive
+      APT_LISTCHANGES_FRONTEND: none
+  tasks:
+    - name: Read the Proxmox version
+      ansible.builtin.command: pveversion
+      register: pve_before
+      changed_when: false
+      check_mode: false
+
+    - name: Settle the major
+      ansible.builtin.set_fact:
+        pve_major: "{{ pve_before.stdout | regex_search('pve-manager/([0-9]+)', '\\1') | first | default('') }}"
+
+    - name: The version was read
+      ansible.builtin.assert:
+        that: pve_major | length > 0
+        fail_msg: "pveversion said \"{{ pve_before.stdout }}\": not a Proxmox host this playbook understands. Nothing was changed."
+        quiet: true
+
+    - name: Leave a host already on 9
+      when: pve_major | int >= 9
+      block:
+        - name: Report it
+          ansible.builtin.debug:
+            msg: "{{ inventory_hostname }} is on {{ pve_before.stdout }}: nothing to do."
+
+        - name: Next host
+          ansible.builtin.meta: end_host
+
+    - name: The host is on 8
+      ansible.builtin.assert:
+        that: pve_major | int == 8
+        fail_msg: "{{ inventory_hostname }} is on {{ pve_before.stdout }}; this playbook goes from 8 to 9 only."
+        quiet: true
+
+    - name: Read the subscription
+      ansible.builtin.command: pvesubscription get
+      register: subscription
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Settle whether it has one
+      ansible.builtin.set_fact:
+        subscribed: "{{ subscription.rc == 0 and (subscription.stdout | regex_search('(?m)^status: active$')) is not none }}"
+
+    - name: Find the APT sources
+      ansible.builtin.find:
+        paths: [/etc/apt/sources.list.d]
+        patterns: ["*.list", "*.sources"]
+      register: source_files
+      check_mode: false
+
+    - name: Settle their paths
+      ansible.builtin.set_fact:
+        apt_sources: "{{ (['/etc/apt/sources.list'] + (source_files.files | map(attribute='path') | list)) | sort }}"
+
+    - name: Read them
+      ansible.builtin.command: grep -H -v -E '^[[:space:]]*(#|$)' {{ apt_sources | join(' ') }}
+      register: sources_read
+      changed_when: false
+      failed_when: sources_read.rc > 1
+      check_mode: false
+
+    - name: Read the running guests
+      ansible.builtin.shell: |
+        set -o pipefail
+        qm list | awk 'NR > 1 && $3 == "running" {print "vm:" $1 " " $2}'
+        pct list | awk 'NR > 1 && $2 == "running" {print "ct:" $1 " " $NF}'
+      args:
+        executable: /bin/bash
+      register: guests_running
+      changed_when: false
+      check_mode: false
+
+    - name: Report what was found
+      ansible.builtin.debug:
+        msg:
+          - "Version: {{ pve_before.stdout }}"
+          - "Subscription: {{ 'active' if subscribed else 'none (the enterprise repositories give way to no-subscription)' }}"
+          - "APT sources: {{ sources_read.stdout_lines }}"
+          - "Running guests: {{ guests_running.stdout_lines | join(', ') or 'none' }}"
+
+    # Without a subscription the enterprise repositories refuse every request (401),
+    # which fails apt's update; Proxmox's free repository serves the same packages.
+    - name: Comment out the enterprise repositories
+      ansible.builtin.replace:
+        path: "{{ item }}"
+        regexp: '^(\s*(deb|URIs:)\s.*enterprise\.proxmox\.com.*)$'
+        replace: '# \1'
+      loop: "{{ apt_sources | select('match', '.*\\.list$') | list }}"
+      when: not subscribed
+
+    - name: Turn off enterprise repositories written as .sources
+      ansible.builtin.lineinfile:
+        path: "{{ item }}"
+        regexp: '^Enabled:'
+        line: 'Enabled: no'
+        insertafter: '^Types:'
+      loop: "{{ source_files.files | map(attribute='path') | select('match', '.*\\.sources$') | list }}"
+      when: not subscribed and sources_read.stdout is search(item | regex_escape ~ ':URIs:.*enterprise\\.proxmox\\.com')
+
+    - name: Proxmox's no-subscription repository, on bookworm for now
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/pve-no-subscription.list
+        content: "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription\n"
+        mode: "0644"
+      when: not subscribed and sources_read.stdout is not search('pve-no-subscription')
+
+    - name: Refresh the package lists on 8
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+      check_mode: false
+      when: not ansible_check_mode or subscribed
+
+    - name: List the upgrades pending on 8
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable_8
+      changed_when: false
+      check_mode: false
+
+    - name: Show them
+      ansible.builtin.debug:
+        msg: "Pending on 8: {{ upgradable_8.stdout_lines | reject('match', '^Listing') | map('regex_replace', '/.*', '') | join(', ') or 'nothing' }}"
+
+    - name: Upgrade to the latest 8.4
+      ansible.builtin.apt:
+        upgrade: dist
+        dpkg_options: force-confold,force-confdef
+      environment: "{{ apt_env }}"
+
+    - name: Stop before the major upgrade in check mode
+      when: ansible_check_mode
+      block:
+        - name: Say what comes next
+          ansible.builtin.debug:
+            msg: >-
+              A real run would now run pve8to9 --full (stopping on a FAILURE), point the APT sources
+              at trixie, upgrade to 9, reboot and read the version back.
+
+        - name: Next host
+          ansible.builtin.meta: end_host
+
+    - name: Run pve8to9
+      ansible.builtin.command: pve8to9 --full
+      register: checker
+      changed_when: false
+      failed_when: checker.rc not in [0, 1]
+
+    - name: Settle its counts
+      ansible.builtin.set_fact:
+        checker_failures: "{{ checker.stdout | regex_search('FAILURES:\\s*([0-9]+)', '\\1') | first | default('?') }}"
+        checker_warnings: "{{ checker.stdout_lines | select('search', '^WARN') | list }}"
+
+    - name: Report its warnings
+      ansible.builtin.debug:
+        msg: "pve8to9: {{ checker_failures }} failure(s); warnings: {{ checker_warnings or ['none'] }}"
+
+    # A running guest is pve8to9's warning, not its failure; here it stops the run
+    # unless stop_guests says they may go down.
+    - name: pve8to9 found no failure
+      ansible.builtin.assert:
+        that: checker_failures == '0'
+        fail_msg: >-
+          pve8to9 reported {{ checker_failures }} failure(s); fix them first. The FAIL lines:
+          {{ checker.stdout_lines | select('search', '^FAIL') | list }}. The host is on the latest 8.4 and
+          otherwise unchanged.
+        quiet: true
+
+    - name: Running guests may go down
+      ansible.builtin.assert:
+        that: guests_running.stdout_lines | length == 0 or stop_guests | default(false) | bool
+        fail_msg: >-
+          Running: {{ guests_running.stdout_lines | join(', ') }}. Set stop_guests: true to shut them down, or
+          stop them by hand. The host is on the latest 8.4 and otherwise unchanged.
+        quiet: true
+
+    - name: Shut down the running guests
+      ansible.builtin.shell: |
+        set -o pipefail
+        for id in $(qm list | awk 'NR > 1 && $3 == "running" {print $1}'); do qm shutdown "$id" --timeout 180 --forceStop 1; done
+        for id in $(pct list | awk 'NR > 1 && $2 == "running" {print $1}'); do pct shutdown "$id" --timeout 180 --forceStop 1; done
+      args:
+        executable: /bin/bash
+      when: guests_running.stdout_lines | length > 0
+
+    - name: Read the running guests again
+      ansible.builtin.shell: |
+        set -o pipefail
+        { qm list | awk 'NR > 1 && $3 == "running"'; pct list | awk 'NR > 1 && $2 == "running"'; } | wc -l
+      args:
+        executable: /bin/bash
+      register: still_running
+      changed_when: false
+
+    - name: No guest is running
+      ansible.builtin.assert:
+        that: still_running.stdout | int == 0
+        fail_msg: "{{ still_running.stdout }} guest(s) still run after their shutdown; nothing major was changed."
+        quiet: true
+
+    - name: Point the APT sources at trixie
+      ansible.builtin.replace:
+        path: "{{ item }}"
+        regexp: '\bbookworm\b'
+        replace: trixie
+      loop: "{{ (apt_sources + ['/etc/apt/sources.list.d/pve-no-subscription.list']) | unique }}"
+      failed_when: false
+      register: to_trixie
+
+    - name: Every source file that exists was rewritten without error
+      ansible.builtin.assert:
+        that: to_trixie.results | selectattr('failed', 'defined') | selectattr('failed') | rejectattr('msg', 'search', 'does not exist') | list | length == 0
+        fail_msg: "{{ to_trixie.results | selectattr('failed', 'defined') | selectattr('failed') | map(attribute='msg') | list }}"
+        quiet: true
+
+    # Ceph's repositories name a release: trixie has only Squid.
+    - name: Ceph's repository on Squid
+      ansible.builtin.replace:
+        path: "{{ item }}"
+        regexp: 'ceph-(quincy|reef)'
+        replace: ceph-squid
+      loop: "{{ apt_sources }}"
+      failed_when: false
+
+    - name: Find the APT sources again, the no-subscription one among them
+      ansible.builtin.find:
+        paths: [/etc/apt/sources.list.d]
+        patterns: ["*.list", "*.sources"]
+      register: source_files_after
+
+    # grep exits 1 for no match (the answer wanted), 0 for a match, 2 for an error.
+    - name: No source still names bookworm
+      ansible.builtin.command: >-
+        grep -l -E '^[^#]*\bbookworm\b' /etc/apt/sources.list
+        {{ source_files_after.files | map(attribute='path') | join(' ') }}
+      register: still_bookworm
+      changed_when: false
+      failed_when: still_bookworm.rc != 1
+
+    - name: Refresh the package lists on trixie
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false
+
+    - name: Upgrade to 9
+      ansible.builtin.apt:
+        upgrade: dist
+        dpkg_options: force-confold,force-confdef
+      environment: "{{ apt_env }}"
+
+    - name: Reboot into 9
+      ansible.builtin.reboot:
+        reboot_timeout: 1200
+        msg: Proxmox VE 9 upgrade (ansible/proxmox-lab-upgrade.yml)
+
+    - name: Read the version back
+      ansible.builtin.command: pveversion
+      register: pve_after
+      changed_when: false
+
+    - name: Read the running kernel and the failed units
+      ansible.builtin.shell: |
+        uname -r
+        systemctl --failed --no-legend --plain | awk '{print $1}'
+      register: after_state
+      changed_when: false
+
+    - name: The host runs 9
+      ansible.builtin.assert:
+        that: pve_after.stdout is search('pve-manager/9\.')
+        fail_msg: "After the reboot pveversion says \"{{ pve_after.stdout }}\"."
+        quiet: true
+
+    - name: Report the result
+      ansible.builtin.debug:
+        msg:
+          - "{{ pve_before.stdout }} -> {{ pve_after.stdout }}"
+          - "Kernel: {{ after_state.stdout_lines | first }}"
+          - "Failed units: {{ after_state.stdout_lines[1:] | join(', ') or 'none' }}"

@@ -57,6 +57,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **The lab's Proxmox hosts onto 9** (2026-10-25): the two test hosts run 8.3.5, production
+  9.2.21. `ansible/proxmox-lab-upgrade.yml` (this pull request) upgrades them in place, one at a
+  time, the group `proxmox_lab` only. Before its first run, the owner: in NetBox, a tag
+  `proxmox_lab`, and on each test host that tag, `ansible`, and its address as primary IPv4;
+  in Semaphore, a template for the playbook on the NetBox inventory with `target_hosts` and
+  `stop_guests` in its survey. Then a dry run (`params: {dry_run: true}`), read for the hosts'
+  APT sources and subscription; then a real run, asked for by the owner. Nothing on them needs
+  keeping (the owner, 2026-10-25).
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
