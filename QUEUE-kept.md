@@ -28,6 +28,9 @@ cluster.
   not generated into the config volume: losing that volume would make every stored secret
   unreadable.
 - **Metrics:** `/metrics` with the bearer `KEPT_METRICS_TOKEN`, scraped by Prometheus.
+- **Allow private addresses is on** (Kept's Admin > Sign-up > Private addresses, kept in its
+  database, read at startup): Authentik's address resolves privately inside the house, and
+  without it Kept turns OIDC off. A rebuilt Kept needs it set again, then a restart.
 - **No mail yet:** `KEPT_SMTP_URL` unset, so invites are logged, not sent.
 
 ## Checklist
