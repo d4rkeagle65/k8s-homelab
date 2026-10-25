@@ -1,0 +1,67 @@
+# The web bastion's SSH keys (bastion_ssh_keys, group_vars/all.yml; QUEUE-bastion.md) on a
+# NAS, for synology-baseline.yml and terramaster-baseline.yml: in the authorized_keys of the
+# account Termix signs in as, nas_bastion_user, by default the playbook's login. Added,
+# never removed: the file holds the owner's keys too. sshd refuses a key when the home
+# folder, ~/.ssh or the file is writable by group or others (DSM makes homes so), so those
+# lose that write bit. One `raw` script, as the NAS has no Python; nas_path is the PATH it
+# runs with. Registers bastion_keys.
+
+# Prints CHANGE per key or permission it changes (or would, in check mode),
+# then VERIFIED once each key reads back and nothing is group or other writable.
+- name: The web bastion's SSH keys
+  ansible.builtin.raw: |
+    PATH={{ nas_path | quote }}; export PATH
+    dry={{ 1 if ansible_check_mode else 0 }}
+    user={{ (nas_bastion_user | default(ansible_user)) | quote }}
+    home=$(awk -F: -v u="$user" '$1 == u {print $6}' /etc/passwd)
+    [ -n "$home" ] || { echo "ERROR no account $user in /etc/passwd (nas_bastion_user)"; exit 1; }
+    [ -d "$home" ] || { echo "ERROR $user's home $home doesn't exist: DSM's user home service makes it"; exit 1; }
+    group=$(id -gn "$user") || { echo "ERROR id -gn $user failed"; exit 1; }
+    f="$home/.ssh/authorized_keys"
+    pending=0
+    # Group or others may write: ls's sixth or ninth character is w.
+    loose() { ls -ld "$1" | cut -c6,9 | grep -q w; }
+    if [ ! -d "$home/.ssh" ]; then
+      echo "CHANGE make $home/.ssh"
+      pending=1
+      [ "$dry" = 1 ] || { mkdir "$home/.ssh" && chown "$user:$group" "$home/.ssh" && chmod 700 "$home/.ssh"; } ||
+        { echo "ERROR making $home/.ssh failed"; exit 1; }
+    fi
+    if [ ! -e "$f" ] && [ "$dry" = 0 ]; then
+      touch "$f" && chown "$user:$group" "$f" && chmod 600 "$f" || { echo "ERROR making $f failed"; exit 1; }
+    fi
+    {% for key in bastion_ssh_keys | default([]) %}
+    key='{{ key | trim }}'
+    if [ -e "$f" ] && grep -qxF -- "$key" "$f"; then :; else
+      echo "CHANGE add the bastion key ${key##* } to $f"
+      pending=1
+      if [ "$dry" = 0 ]; then
+        [ ! -s "$f" ] || [ -z "$(tail -c1 "$f")" ] || echo >> "$f"
+        echo "$key" >> "$f"
+      fi
+    fi
+    {% endfor %}
+    for p in "$home" "$home/.ssh" "$f"; do
+      [ -e "$p" ] || continue
+      if loose "$p"; then
+        echo "CHANGE $p: no write for group or others (was $(ls -ld "$p" | cut -c1-10))"
+        pending=1
+        [ "$dry" = 1 ] || chmod go-w "$p" || { echo "ERROR chmod go-w $p failed"; exit 1; }
+      fi
+    done
+    if [ "$dry" = 1 ] && [ "$pending" = 1 ]; then
+      echo "UNVERIFIED until the changes above are made (check mode)"
+      exit 0
+    fi
+    {% for key in bastion_ssh_keys | default([]) %}
+    grep -qxF -- '{{ key | trim }}' "$f" || { echo "ERROR a bastion key isn't in $f after writing it"; exit 1; }
+    {% endfor %}
+    for p in "$home" "$home/.ssh" "$f"; do
+      ! loose "$p" || { echo "ERROR $p is still group or other writable"; exit 1; }
+    done
+    echo "VERIFIED {{ (bastion_ssh_keys | default([])) | length }} bastion key(s) in $f, none of it group or other writable"
+  become: true
+  register: bastion_keys
+  changed_when: "'CHANGE' in bastion_keys.stdout"
+  failed_when: bastion_keys.rc != 0 or 'ERROR' in bastion_keys.stdout
+  check_mode: false

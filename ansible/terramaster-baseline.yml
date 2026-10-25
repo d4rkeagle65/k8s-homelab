@@ -1,0 +1,100 @@
+# The TerraMaster's own baseline (TOS, an OpenWrt-based system: not Debian, so
+# baseline.yml isn't for it, and not DSM): the web bastion's SSH key, Docker
+# answering, and Dockhand's Hawser agent, which deploys the NAS's stacks
+# (docker/CLAUDE.md: `garage`, `lldpd`).
+#
+# Inventory: the NetBox one; the hosts tagged `nas` and not `synology`. The login
+# and SSH port are the host's ansible_user and ansible_port (its local config
+# context), an administrator with passwordless sudo; the first step says so when
+# sudo asks for a password. TOS has no Python and no apt: every step is one `raw`
+# script.
+#
+# The bastion's keys: tasks/nas-bastion-keys.yml, for the account nas_bastion_user
+# (by default the login).
+#
+# Docker is TOS's own (its App Center), at /usr/local/bin/docker, which isn't on
+# sudo's PATH. This playbook doesn't install it: it reads the daemon's version and
+# stops when it doesn't answer.
+#
+# Hawser: tasks/nas-hawser.yml (docker-host.yml's header says how the token is
+# made), its stacks in terramaster_hawser_stacks, default /opt/hawser-stacks,
+# where it was started by hand; HAWSER_TOKEN is the token Dockhand's environment
+# for the TerraMaster already holds, or the run recreates Hawser with the new one
+# and Dockhand loses it until its environment has the same.
+#
+# In check mode (--check) it reports TOS's version, the keys, whether Docker
+# answers and what Hawser would change, and changes nothing.
+
+- ansible.builtin.import_playbook: select-hosts.yml
+  vars:
+    select_from: "nas:!synology"
+
+- name: The TerraMaster's baseline
+  hosts: targets
+  gather_facts: false
+  vars_files: [vars/hawser.yml]
+  vars:
+    hawser_token: "{{ lookup('ansible.builtin.env', 'HAWSER_TOKEN') }}"
+    hawser_stacks: "{{ terramaster_hawser_stacks | default('/opt/hawser-stacks') }}"
+    nas_docker: /usr/local/bin/docker
+    nas_path: /usr/sbin:/usr/bin:/sbin:/bin:/usr/local/sbin:/usr/local/bin
+  tasks:
+    # Without become: a sudo that asks for a password would otherwise fail
+    # every later step with Ansible's generic "missing sudo password".
+    - name: This is TOS, with passwordless sudo
+      ansible.builtin.raw: |
+        [ -r /etc/openwrt_release ] || { echo "ERROR not TOS: no /etc/openwrt_release"; exit 1; }
+        . /etc/openwrt_release
+        echo "BASE=$DISTRIB_DESCRIPTION"
+        tos=$(cat /etc/tos_version /etc/version 2>/dev/null | head -1)
+        echo "TOS=${tos:-unknown}"
+        echo "MODEL=$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo unknown)"
+        echo "ARCH=$(uname -m)"
+        echo "KERNEL=$(uname -r)"
+        echo "MEM_MB=$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo)"
+        if sudo -n true 2>/dev/null; then echo "SUDO=ok"; else echo "SUDO=password"; fi
+      register: tos_raw
+      changed_when: false
+      check_mode: false
+      failed_when: tos_raw.rc != 0 or 'ERROR' in tos_raw.stdout
+
+    - name: Read TOS's facts
+      ansible.builtin.set_fact:
+        # KEY=value lines; no value holds an "=".
+        tos: "{{ dict(tos_raw.stdout_lines | select('search', '^[A-Z_]+=') | map('split', '=', 1)) }}"
+
+    - name: Sudo needs no password
+      ansible.builtin.assert:
+        that: tos.SUDO == 'ok'
+        fail_msg: >-
+          {{ inventory_hostname }}: sudo asked {{ ansible_user | default('the login') }} for a password:
+          give it passwordless sudo as root, then check with sudo -k; sudo -n true.
+        quiet: true
+
+    - name: The web bastion's SSH keys
+      ansible.builtin.include_tasks: tasks/nas-bastion-keys.yml
+
+    - name: Docker answers
+      ansible.builtin.raw: |
+        PATH={{ nas_path | quote }}; export PATH
+        server=$({{ nas_docker | quote }} version --format '{% raw %}{{.Server.Version}}{% endraw %}' 2>/dev/null) && [ -n "$server" ] ||
+          { echo "ERROR the Docker daemon doesn't answer ({{ nas_docker }} version): install or start Docker from TOS's App Center"; exit 1; }
+        echo "VERIFIED Docker $server answers; data root $({{ nas_docker | quote }} info --format '{% raw %}{{.DockerRootDir}}{% endraw %}' 2>/dev/null)"
+      become: true
+      register: docker_raw
+      changed_when: false
+      check_mode: false
+      failed_when: docker_raw.rc != 0 or 'ERROR' in docker_raw.stdout
+
+    - name: Hawser, Dockhand's agent
+      ansible.builtin.include_tasks: tasks/nas-hawser.yml
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: {{ tos.MODEL }} ({{ tos.ARCH }}, {{ tos.MEM_MB }} MB, kernel {{ tos.KERNEL }})
+          on TOS {{ tos.TOS }} ({{ tos.BASE }});
+          bastion keys: {{ bastion_keys.stdout_lines | select('search', '^(CHANGE|VERIFIED|UNVERIFIED)') | join('; ') }};
+          {{ docker_raw.stdout_lines | select('search', '^VERIFIED') | join('; ') }};
+          Hawser {{ 'not set up (no HAWSER_TOKEN)' if hawser_raw is skipped else
+          (hawser_raw.stdout_lines | select('search', '^(CHANGE|VERIFIED|UNVERIFIED)') | join('; ')) }}
