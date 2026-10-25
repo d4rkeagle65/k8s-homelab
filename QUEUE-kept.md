@@ -53,7 +53,8 @@ cluster.
    "Kept Users" in Authentik and signing in with it; a first Kept backup in Garage (nightly at
    02:30 UTC, or Admin > Backups); the recovery kit
    (`kubectl -n kept exec deploy/kept -- kept admin recovery-kit`) kept off the cluster.
-5. [ ] Homepage link, and a restore test of `kept-db` like the others.
+5. [ ] A restore test of `kept-db` like the others. Homepage's tile and docs link are in
+   (this branch's pull request).
 
 ## The owner's part (step 1)
 
