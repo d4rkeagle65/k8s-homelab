@@ -1,0 +1,79 @@
+# Dockhand's Hawser agent on a NAS, for synology-baseline.yml and terramaster-baseline.yml,
+# as docker-host.yml runs it: the image and port from vars/hawser.yml (the playbook loads
+# it), its stacks in hawser_stacks, at the same path inside the container. It runs only
+# when hawser_token (the run's HAWSER_TOKEN) is set, and is recreated when its image or
+# token differs. The token is never printed. One `raw` script: nas_path is the PATH it runs
+# with, nas_docker the docker binary. Registers hawser_raw.
+
+- name: Without a token, Hawser waits
+  ansible.builtin.debug:
+    msg: "No HAWSER_TOKEN in the run's environment: Hawser was left alone (make the token in Dockhand, then run again)."
+  when: hawser_token | length == 0
+
+# Prints CHANGE lines, then VERIFIED once its container is running on the
+# wanted image and token (UNVERIFIED in check mode before it is). raw takes
+# no environment, so the token is in the script: hence no_log, and the
+# lines are printed by the task after it.
+- name: Hawser, Dockhand's agent
+  ansible.builtin.raw: |
+    PATH={{ nas_path | quote }}; export PATH
+    dry={{ 1 if ansible_check_mode else 0 }}
+    docker={{ nas_docker | quote }}
+    image={{ hawser_image | quote }}
+    stacks={{ hawser_stacks | quote }}
+    TOKEN={{ hawser_token | quote }}
+    export TOKEN
+    if ! $docker version >/dev/null 2>&1; then
+      [ "$dry" = 1 ] && { echo "UNVERIFIED Docker isn't answering yet (check mode)"; exit 0; }
+      echo "ERROR the Docker daemon doesn't answer"; exit 1
+    fi
+    vol=$(echo "$stacks" | cut -d/ -f1-2)
+    [ -d "$vol" ] || { echo "ERROR $vol doesn't exist (the stacks folder)"; exit 1; }
+    if [ ! -d "$stacks" ]; then
+      echo "CHANGE make $stacks"
+      [ "$dry" = 1 ] || mkdir -p "$stacks" || { echo "ERROR mkdir $stacks failed"; exit 1; }
+    fi
+    have_image=$($docker inspect -f '{% raw %}{{.Config.Image}}{% endraw %}' hawser 2>/dev/null || true)
+    have_token=$($docker inspect -f '{% raw %}{{range .Config.Env}}{{println .}}{{end}}{% endraw %}' hawser 2>/dev/null | sed -n 's/^TOKEN=//p')
+    if [ -z "$have_image" ]; then
+      echo "CHANGE run Hawser ($image)"
+    elif [ "$have_image" != "$image" ] || [ "$have_token" != "$TOKEN" ]; then
+      echo "CHANGE recreate Hawser: $([ "$have_image" != "$image" ] && echo "image $have_image -> $image")$([ "$have_token" != "$TOKEN" ] && echo " token differs")"
+      [ "$dry" = 1 ] || $docker rm -f hawser >/dev/null || { echo "ERROR docker rm hawser failed"; exit 1; }
+    else
+      have_image=keep
+    fi
+    if [ "$dry" = 1 ]; then
+      [ "$have_image" = keep ] || { echo "UNVERIFIED until the changes above are made (check mode)"; exit 0; }
+    elif [ "$have_image" != keep ]; then
+      $docker run -d --name hawser --restart unless-stopped -p {{ hawser_port }}:2376 \
+        -v /var/run/docker.sock:/var/run/docker.sock -v "$stacks:$stacks" \
+        -e STACKS_DIR="$stacks" -e TOKEN "$image" >/dev/null || { echo "ERROR docker run hawser failed"; exit 1; }
+      sleep 5
+    fi
+    running=$($docker inspect -f '{% raw %}{{.State.Running}} {{.RestartCount}}{% endraw %}' hawser 2>/dev/null || true)
+    [ "${running%% *}" = true ] || { echo "ERROR Hawser's container isn't running ($running): docker logs hawser says why"; exit 1; }
+    echo "VERIFIED Hawser running on port {{ hawser_port }}, $image, stacks in $stacks, restarts ${running#* }"
+  become: true
+  register: hawser_raw
+  changed_when: "'CHANGE' in hawser_raw.stdout"
+  # Judged by the next two tasks, which can show why: no_log hides a failure's output.
+  failed_when: false
+  check_mode: false
+  no_log: true
+  when: hawser_token | length > 0
+
+# The token never reaches these lines: the script prints none of it.
+- name: What Hawser's step did
+  ansible.builtin.debug:
+    msg: "{{ hawser_raw.stdout_lines | default([]) }}"
+  when: hawser_raw is not skipped
+
+- name: Hawser's step succeeded
+  ansible.builtin.assert:
+    that:
+      - hawser_raw.rc == 0
+      - "'ERROR' not in hawser_raw.stdout"
+    fail_msg: "{{ inventory_hostname }}: Hawser's step failed (rc {{ hawser_raw.rc }}); the lines above say why."
+    quiet: true
+  when: hawser_raw is not skipped

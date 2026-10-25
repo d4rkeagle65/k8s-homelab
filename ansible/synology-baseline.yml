@@ -1,12 +1,16 @@
 # The Synology's own baseline (DSM, not Debian: baseline.yml is for those).
-# For now: Docker, as Synology's own package, and Dockhand's Hawser agent, so
-# Dockhand deploys the NAS's stacks (docker/CLAUDE.md) as it does the Docker VM's.
+# For now: the web bastion's SSH key, Docker, as Synology's own package, and
+# Dockhand's Hawser agent, so Dockhand deploys the NAS's stacks (docker/CLAUDE.md)
+# as it does the Docker VM's.
+#
+# The bastion's keys: tasks/nas-bastion-keys.yml, for the account nas_bastion_user (by
+# default the login below).
 #
 # DSM's Docker is a package from its Package Center: Container Manager from
 # DSM 7.2, Docker before it (synology_docker_package overrides the choice). It's
 # installed with synopkg from Synology's server, started, and read back from the
 # Docker daemon itself. Each step that runs as root sets DSM's own PATH first
-# (synology_path, /etc/profile's): an SSH session that isn't a login has only
+# (nas_path, /etc/profile's): an SSH session that isn't a login has only
 # /usr/bin:/bin:/usr/sbin:/sbin, sudo keeps it (DSM sets no secure_path), and the
 # package's scripts call synoshare and the like by name, so without it Docker's
 # install fails with "failed to create docker share". The package keeps its data
@@ -23,12 +27,10 @@
 # passwordless sudo through a sudoers.d file made by hand, which a DSM update may
 # remove; the first step says so when sudo asks for a password.
 #
-# Hawser: as docker-host.yml runs it (its header says how the token is made),
-# the image and port from vars/hawser.yml, but its stacks on the data volume
-# (synology_hawser_stacks, default /volume1/docker/hawser-stacks), at the same
-# path inside the container: DSM's system partition is small and an update may
-# reset it. It runs only when HAWSER_TOKEN is in the run's environment, and is
-# recreated when its image or token differs. The token is never printed.
+# Hawser: tasks/nas-hawser.yml (docker-host.yml's header says how the token is
+# made), its stacks on the data volume (synology_hawser_stacks, default
+# /volume1/docker/hawser-stacks): DSM's system partition is small and an update
+# may reset it.
 #
 # In check mode (--check) it reports DSM's version, the package, whether
 # Docker answers and what Hawser would change, and changes nothing.
@@ -42,10 +44,11 @@
   gather_facts: false
   vars_files: [vars/hawser.yml]
   vars:
+    nas_docker: /usr/local/bin/docker
     hawser_token: "{{ lookup('ansible.builtin.env', 'HAWSER_TOKEN') }}"
     hawser_stacks: "{{ synology_hawser_stacks | default('/volume1/docker/hawser-stacks') }}"
     # DSM's /etc/profile PATH, which a non-login SSH session lacks.
-    synology_path: /sbin:/bin:/usr/sbin:/usr/bin:/usr/syno/sbin:/usr/syno/bin:/usr/local/sbin:/usr/local/bin
+    nas_path: /sbin:/bin:/usr/sbin:/usr/bin:/usr/syno/sbin:/usr/syno/bin:/usr/local/sbin:/usr/local/bin
   tasks:
     # Without become: a sudo that asks for a password would otherwise fail
     # every later step with Ansible's generic "missing sudo password".
@@ -84,11 +87,14 @@
              if dsm.SUDO != 'ok' else '' }}
         quiet: true
 
+    - name: The web bastion's SSH keys
+      ansible.builtin.include_tasks: tasks/nas-bastion-keys.yml
+
     # Prints one CHANGE line per change, then VERIFIED with the daemon's version
     # (UNVERIFIED in check mode while the package is missing or stopped).
     - name: Docker, as Synology's package
       ansible.builtin.raw: |
-        PATH={{ synology_path | quote }}; export PATH
+        PATH={{ nas_path | quote }}; export PATH
         dry={{ 1 if ansible_check_mode else 0 }}
         pkg='{{ synology_docker_package | default('ContainerManager' if dsm.MAJOR | int > 7 or (dsm.MAJOR | int == 7 and dsm.MINOR | int >= 2) else 'Docker') }}'
         synopkg=/usr/syno/bin/synopkg
@@ -160,84 +166,15 @@
       # changes nothing then.
       check_mode: false
 
-    - name: Without a token, Hawser waits
-      ansible.builtin.debug:
-        msg: "No HAWSER_TOKEN in the run's environment: Hawser was left alone (make the token in Dockhand, then run again)."
-      when: hawser_token | length == 0
-
-    # Prints CHANGE lines, then VERIFIED once its container is running on the
-    # wanted image and token (UNVERIFIED in check mode before it is). raw takes
-    # no environment, so the token is in the script: hence no_log, and the
-    # lines are printed by the task after it.
     - name: Hawser, Dockhand's agent
-      ansible.builtin.raw: |
-        PATH={{ synology_path | quote }}; export PATH
-        dry={{ 1 if ansible_check_mode else 0 }}
-        docker=/usr/local/bin/docker
-        image={{ hawser_image | quote }}
-        stacks={{ hawser_stacks | quote }}
-        TOKEN={{ hawser_token | quote }}
-        export TOKEN
-        if ! $docker version >/dev/null 2>&1; then
-          [ "$dry" = 1 ] && { echo "UNVERIFIED Docker isn't answering yet (check mode)"; exit 0; }
-          echo "ERROR the Docker daemon doesn't answer"; exit 1
-        fi
-        vol=$(echo "$stacks" | cut -d/ -f1-2)
-        [ -d "$vol" ] || { echo "ERROR $vol doesn't exist (synology_hawser_stacks)"; exit 1; }
-        if [ ! -d "$stacks" ]; then
-          echo "CHANGE make $stacks"
-          [ "$dry" = 1 ] || mkdir -p "$stacks" || { echo "ERROR mkdir $stacks failed"; exit 1; }
-        fi
-        have_image=$($docker inspect -f '{% raw %}{{.Config.Image}}{% endraw %}' hawser 2>/dev/null || true)
-        have_token=$($docker inspect -f '{% raw %}{{range .Config.Env}}{{println .}}{{end}}{% endraw %}' hawser 2>/dev/null | sed -n 's/^TOKEN=//p')
-        if [ -z "$have_image" ]; then
-          echo "CHANGE run Hawser ($image)"
-        elif [ "$have_image" != "$image" ] || [ "$have_token" != "$TOKEN" ]; then
-          echo "CHANGE recreate Hawser: $([ "$have_image" != "$image" ] && echo "image $have_image -> $image")$([ "$have_token" != "$TOKEN" ] && echo " token differs")"
-          [ "$dry" = 1 ] || $docker rm -f hawser >/dev/null || { echo "ERROR docker rm hawser failed"; exit 1; }
-        else
-          have_image=keep
-        fi
-        if [ "$dry" = 1 ]; then
-          [ "$have_image" = keep ] || { echo "UNVERIFIED until the changes above are made (check mode)"; exit 0; }
-        elif [ "$have_image" != keep ]; then
-          $docker run -d --name hawser --restart unless-stopped -p {{ hawser_port }}:2376 \
-            -v /var/run/docker.sock:/var/run/docker.sock -v "$stacks:$stacks" \
-            -e STACKS_DIR="$stacks" -e TOKEN "$image" >/dev/null || { echo "ERROR docker run hawser failed"; exit 1; }
-          sleep 5
-        fi
-        running=$($docker inspect -f '{% raw %}{{.State.Running}} {{.RestartCount}}{% endraw %}' hawser 2>/dev/null || true)
-        [ "${running%% *}" = true ] || { echo "ERROR Hawser's container isn't running ($running): docker logs hawser says why"; exit 1; }
-        echo "VERIFIED Hawser running on port {{ hawser_port }}, $image, stacks in $stacks, restarts ${running#* }"
-      become: true
-      register: hawser_raw
-      changed_when: "'CHANGE' in hawser_raw.stdout"
-      # Judged by the next two tasks, which can show why: no_log hides a failure's output.
-      failed_when: false
-      check_mode: false
-      no_log: true
-      when: hawser_token | length > 0
-
-    # The token never reaches these lines: the script prints none of it.
-    - name: What Hawser's step did
-      ansible.builtin.debug:
-        msg: "{{ hawser_raw.stdout_lines | default([]) }}"
-      when: hawser_raw is not skipped
-
-    - name: Hawser's step succeeded
-      ansible.builtin.assert:
-        that:
-          - hawser_raw.rc == 0
-          - "'ERROR' not in hawser_raw.stdout"
-        fail_msg: "{{ inventory_hostname }}: Hawser's step failed (rc {{ hawser_raw.rc }}); the lines above say why."
-        quiet: true
-      when: hawser_raw is not skipped
+      ansible.builtin.include_tasks: tasks/nas-hawser.yml
 
     - name: Report
       ansible.builtin.debug:
         msg: >-
           {{ inventory_hostname }}: {{ dsm.MODEL }} ({{ dsm.ARCH }}, {{ dsm.MEM_MB }} MB) on DSM
           {{ dsm.DSM }} build {{ dsm.BUILD }};
+          bastion keys: {{ bastion_keys.stdout_lines | select('search', '^(CHANGE|VERIFIED|UNVERIFIED)') | join('; ') }};
           {{ docker_pkg.stdout_lines | select('search', '^(CHANGE|PACKAGE|VERIFIED|UNVERIFIED)') | join('; ') }};
           Hawser {{ 'not set up (no HAWSER_TOKEN)' if hawser_raw is skipped else
           (hawser_raw.stdout_lines | select('search', '^(CHANGE|VERIFIED|UNVERIFIED)') | join('; ')) }}
