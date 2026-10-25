@@ -96,9 +96,10 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       NASes, both Docker VMs, the travel router by its primary address, as it has no management
       address in NetBox) and left the hand-made "Docker Vm 1" alone. The write version uses one
       Termix credential, `bastion`, made by hand in the UI (the private key stays in Termix,
-      not Key Vault), each host's own username overriding it. Left: the owner makes that
-      credential; a dry run reads it as found; the owner reads the plan, then a pull request
-      turns DRY_RUN off; the first real run's read-back says VERIFIED. Then the hand-made
+      not Key Vault), each host's own username overriding it. The credential was made and a dry
+      run found it (2026-10-25), planning the same 14; DRY_RUN off in the pull request after.
+      Left: the first real run's read-back says VERIFIED; the Synology and TerraMaster accept
+      the bastion key only once step 5 puts it on them. Then the hand-made
       "Docker Vm 1" duplicates the synced Docker VM: the owner's call to delete it. The owner
       to confirm the travel router's primary address is the one to reach it by.
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).

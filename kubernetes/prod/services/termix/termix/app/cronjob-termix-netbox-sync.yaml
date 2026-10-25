@@ -35,7 +35,7 @@ spec:
               envFrom:
                 - secretRef: {name: termix-sync}
               env:
-                - {name: DRY_RUN, value: "true"}
+                - {name: DRY_RUN, value: "false"}
                 # Through NetBox's route: NetBox answers only to its own name.
                 - {name: NETBOX_URL, value: "https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}"}
                 - {name: TERMIX_URL, value: "http://termix:8080"}
