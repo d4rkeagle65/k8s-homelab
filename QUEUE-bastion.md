@@ -87,8 +87,10 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       the first): tasks 1297 (the 9 Debian hosts, each authorized_keys read back as the owner's
       key plus the bastion key) and 1298 (both access points and the travel router, VERIFIED).
       The owner's first SSH session through Termix with it worked (2026-10-25, a host made by
-      hand, the key inline). Left: the Synology (through
-      `synology-baseline.yml`; the TerraMaster's was added by hand, 2026-10-25); the Windows DC takes a
+      hand, the key inline). Left: the Synology, through
+      `synology-baseline.yml`'s new key step (`tasks/nas-bastion-keys.yml`): a dry run, then
+      the owner's real run of template 29. The TerraMaster's was added by hand (2026-10-25);
+      `terramaster-baseline.yml` now keeps it, and needs its Semaphore template (the owner); the Windows DC takes a
       password credential in Termix; the Talos nodes have no SSH.
 - [x] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
       hourly, writing since 2026-10-25 (#381–#383): its first run created 14 hosts with the
