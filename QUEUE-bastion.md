@@ -90,18 +90,13 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       hand, the key inline). Left: the NASes (the Synology
       through `synology-baseline.yml`, the TerraMaster by hand); the Windows DC takes a
       password credential in Termix; the Talos nodes have no SSH.
-- [ ] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
-      hourly, DRY_RUN on. Plan-only version live 2026-10-25 (#381): all five Key Vault values
-      synced; its run planned 14 hosts (5 hypervisors, both Pi-holes, both access points, both
-      NASes, both Docker VMs, the travel router by its primary address, as it has no management
-      address in NetBox) and left the hand-made "Docker Vm 1" alone. The write version uses one
-      Termix credential, `bastion`, made by hand in the UI (the private key stays in Termix,
-      not Key Vault), each host's own username overriding it. The credential was made and a dry
-      run found it (2026-10-25), planning the same 14; DRY_RUN off in the pull request after.
-      Left: the first real run's read-back says VERIFIED; the Synology and TerraMaster accept
-      the bastion key only once step 5 puts it on them. Then the hand-made
-      "Docker Vm 1" duplicates the synced Docker VM: the owner's call to delete it. The owner
-      to confirm the travel router's primary address is the one to reach it by.
+- [x] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
+      hourly, writing since 2026-10-25 (#381–#383): its first run created 14 hosts with the
+      `bastion` credential (made by hand in Termix) and read back VERIFIED; the next run, no
+      changes. Left: the owner to confirm the travel router's primary address is the one to
+      reach it by (it has no management address in NetBox); the hand-made "Docker Vm 1" now
+      duplicates the synced Docker VM, the owner's call to delete it; the NASes sign in only
+      once step 5 puts the bastion key on them.
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).
 - [ ] 8. Later: Docker, Kubernetes and cloud, scoped as above.
 
