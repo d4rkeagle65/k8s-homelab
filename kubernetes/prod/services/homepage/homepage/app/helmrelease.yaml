@@ -305,6 +305,10 @@ spec:
                     - icon: immich.png
                       href: https://immich.app/docs/
                       description: Photo server
+                - Kept:
+                    - icon: mdi-package-variant-closed
+                      href: https://keptinventory.info/
+                      description: Inventory, backups and sign-in
                 - Linkwarden:
                     - icon: linkwarden.png
                       href: https://docs.linkwarden.app/
@@ -502,6 +506,13 @@ spec:
                     namespace: babybuddy
                     app: babybuddy
                     podSelector: app=babybuddy
+                - Kept:
+                    icon: mdi-package-variant-closed
+                    href: https://kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Household inventory
+                    namespace: kept
+                    app: kept
+                    podSelector: app.kubernetes.io/name=kept,app.kubernetes.io/component=server
                 - Immich Power Tools:
                     icon: immich.png
                     href: https://immichpt.${BASE_DOMAIN}
