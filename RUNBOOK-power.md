@@ -47,7 +47,18 @@ off, no internet. Pick a quiet time.
    instance can take up to three minutes (`smartShutdownTimeout`). A database failover or
    two, and alerts, are expected now. Wait until every worker shows as stopped.
 3. [ ] **The control plane.** Shutdown the three control-plane VMs, all at once if you like.
-   Wait until they're stopped.
+   Talos cordons and drains each first, and with every worker gone the drain can't finish:
+   a control-plane node that stays `Ready,SchedulingDisabled` for more than a minute or two
+   is waiting on a pod whose disruption budget allows no eviction (Calico's `calico-typha`
+   and `calico-apiserver`). Delete what's left on it, which a budget doesn't stop:
+
+   ```powershell
+   kubectl get pods -A --field-selector spec.nodeName=<node> -o wide
+   kubectl -n calico-system delete pod <pod> --wait=false
+   ```
+
+   It then shuts down within seconds. Wait until all three are stopped; the API stops
+   answering partway, as it should.
 4. [ ] **The other guests:** the Docker VM (Semaphore, Kea, Vaultwarden, Dockhand,
    Tailscale), the domain controller VM, and the remaining containers, then **the two
    Pi-holes last**, since they are the house's DNS. A host's **Bulk Actions → Bulk Shutdown**
