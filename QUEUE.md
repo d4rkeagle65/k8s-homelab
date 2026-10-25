@@ -202,6 +202,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
+- **No check catches a `raw` script Ansible can't split** (found 2026-10-25, task 1302): Ansible
+  splits a `raw` task's free-form text on quotes, comments included, so one bare apostrophe
+  (`tasks/nas-bastion-keys.yml`, "ls's") failed the Synology run at loading, before any
+  change. `--syntax-check` doesn't load `include_tasks` files, and the suite has no Ansible. A
+  test that parses every `raw` task with `ansible.parsing.mod_args.ModuleArgsParser` (after
+  `init_plugin_loader()`) when Ansible is installed, in `tests/test-ansible-hosts.py`, would
+  have caught it; without one the next stray quote fails a run on the host.
+
 - **calico-apiserver logs about 860 to 1,250 error lines an hour** (found 2026-10-22, the Logs
   dashboard's error table; cause read 2026-10-22; 1,250 by that afternoon): every one is a `GET
   /apis/projectcalico.org/v3` through the kube-apiserver's aggregation that the caller cut
