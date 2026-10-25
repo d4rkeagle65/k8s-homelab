@@ -1,0 +1,54 @@
+# Termix's SSH hosts from NetBox (sync/termix-netbox-sync.py says which hosts, with which
+# login, and what it never touches). Hourly.
+#
+# DRY_RUN "true": prints the plan and Termix's record fields, and changes nothing. This
+# version only plans either way. A run between schedules:
+#   kubectl -n termix create job --from=cronjob/termix-netbox-sync termix-netbox-sync-now
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: termix-netbox-sync
+spec:
+  schedule: "20 * * * *"
+  timeZone: ${TIMEZONE}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          priorityClassName: homelab-low
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: sync
+              image: python:3.15.1-alpine
+              command: [python, -u, /etc/termix-netbox-sync/termix-netbox-sync.py]
+              envFrom:
+                - secretRef: {name: termix-sync}
+              env:
+                - {name: DRY_RUN, value: "true"}
+                # Through NetBox's route: NetBox answers only to its own name.
+                - {name: NETBOX_URL, value: "https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}"}
+                - {name: TERMIX_URL, value: "http://termix:8080"}
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {cpu: 500m, memory: 128Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - {name: script, mountPath: /etc/termix-netbox-sync}
+          volumes:
+            - name: script
+              configMap:
+                name: termix-netbox-sync
