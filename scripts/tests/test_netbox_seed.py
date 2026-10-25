@@ -482,3 +482,9 @@ def test_the_tailscale_tags_each_go_on_one_kind_of_object():
     assert tags["tailscale-dns"][0] == ["netbox_dns.zone"]
     assert set(tags["tailscale-host"][0]) == {"dcim.device", "virtualization.virtualmachine", "ipam.ipaddress"}
     assert all(about for _, about in tags.values())
+
+
+def test_the_termix_tag_goes_on_hosts_only():
+    assert set(m.TERMIX_TAGS) == {"bastion-key"}
+    assert set(m.TERMIX_TAGS["bastion-key"][0]) == {"dcim.device", "virtualization.virtualmachine"}
+    assert not set(m.TERMIX_TAGS) & set(m.TAILSCALE_TAGS)

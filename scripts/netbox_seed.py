@@ -31,7 +31,8 @@ name not described so, or a MAC on another interface, is reported, never changed
 reservation is gone is set Offline, never deleted. Its addresses get no DNS name, for the
 reason above.
 
-It defines the tags tofu/tailscale reads (TAILSCALE_TAGS) but never applies them. It
+It defines the tags tofu/tailscale reads (TAILSCALE_TAGS) and Termix's sync reads
+(TERMIX_TAGS) but never applies them. It
 leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
 access points). A primary address NetBox already has is kept while the host
@@ -94,6 +95,14 @@ TAILSCALE_TAGS = {
     # An IP address too: a LoadBalancer's (Traefik's) is a service the tailnet reaches.
     "tailscale-host": (["dcim.device", "virtualization.virtualmachine", "ipam.ipaddress"],
                        "Named in the tailnet policy, for grants to reach (tofu/tailscale)"),
+}
+
+# The tags Termix's NetBox sync reads (QUEUE-bastion.md), by slug, as above.
+TERMIX_TAGS = {
+    # For a device no playbook gives the key (a switch, the firewall): the key was put on by
+    # hand, and the login is its local context's termix_user.
+    "bastion-key": (["dcim.device", "virtualization.virtualmachine"],
+                    "Takes the web bastion's SSH key, as its local context's termix_user (Termix's sync)"),
 }
 
 
@@ -790,8 +799,8 @@ def main() -> None:
               {"type": "text", "object_types": ["virtualization.virtualmachine"], "label": "Proxmox tags",
                "description": "A guest's Proxmox tags, separated by ; (old-queues/QUEUE-netbox-shape.md)"},
               "custom field proxmox_tags")
-    # The tags tofu/tailscale reads (QUEUE-tailscale.md), defined here and applied by hand.
-    for tag, (types, about) in TAILSCALE_TAGS.items():
+    # The tags tofu/tailscale and Termix's sync read, defined here and applied by hand.
+    for tag, (types, about) in {**TAILSCALE_TAGS, **TERMIX_TAGS}.items():
         nb.ensure("extras/tags", {"slug": tag}, {"name": tag, "object_types": types, "description": about},
                   f"tag {tag}")
     vm_roles = {key: nb.ensure("dcim/device-roles", {"slug": slug(name)}, {"name": name, "vm_role": True}, name)

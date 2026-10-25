@@ -100,6 +100,13 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       Vm 1" duplicates the synced Docker VM, the owner's call to delete it; the Synology signs
       in only once step 5 puts the bastion key on it (the TerraMaster has it, by hand,
       2026-10-25).
+- [ ] 6b. The core switch and the firewall in Termix (the owner, 2026-10-25: both have the bastion
+      key, put on by hand). NetBox tag `bastion-key` (`netbox_seed.py`'s TERMIX_TAGS): the sync
+      logs such a device in as its local context's `termix_user`. Left: the seed run that
+      defines the tag; then in NetBox, the tag and `termix_user` on the core switch (the
+      TP-Link, on the management network already) and the firewall, and the firewall's
+      management address, which NetBox lacks (its interface and address from the owner),
+      made its primary with a DNS name; then a sync run shows both created.
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).
 - [ ] 8. Later: Docker, Kubernetes and cloud, scoped as above.
 

@@ -2,8 +2,9 @@
 
 The hosts are NetBox's devices and VMs that the playbooks give the web bastion's key: tagged
 debian (the owner's admin account, TERMIX_SSH_ADMIN_USER), openwrt_aps (root), synology
-(TERMIX_SSH_SYNOLOGY_USER) or nas without synology, the TerraMaster
-(TERMIX_SSH_TERRAMASTER_USER). Each is reached by its DNS name on the management network
+(TERMIX_SSH_SYNOLOGY_USER), nas without synology, the TerraMaster
+(TERMIX_SSH_TERRAMASTER_USER), or bastion-key, a device given the key by hand (a switch, the
+firewall), as the termix_user in its NetBox local context. Each is reached by its DNS name on the management network
 (the address NetBox holds in the prefix described "Management"; a host with none there,
 such as the travel router on its own LAN, by its primary address), on port 22 unless NetBox
 records an SSH service on another port, in a folder named for its NetBox role.
@@ -41,12 +42,14 @@ CREDENTIAL = os.environ.get("TERMIX_CREDENTIAL", "bastion").strip()
 # The fields the sync owns on a host it made; the rest stay as the user left them.
 SYNCED = ("ip", "port", "username", "folder")
 
-# NetBox tag -> where its username comes from: an environment variable, or a fixed name.
+# NetBox tag -> where its username comes from: an environment variable, a fixed name, or
+# a key of the host's NetBox local context.
 ACCOUNTS = [
     ("debian", {"env": "TERMIX_SSH_ADMIN_USER"}),
     ("openwrt_aps", {"name": "root"}),
     ("synology", {"env": "TERMIX_SSH_SYNOLOGY_USER"}),
     ("nas", {"env": "TERMIX_SSH_TERRAMASTER_USER"}),  # a nas not tagged synology
+    ("bastion-key", {"context": "termix_user"}),
 ]
 
 
@@ -121,14 +124,18 @@ def netbox_all(path: str) -> list[dict]:
     return out
 
 
-def username_for(tags: set[str]) -> tuple[str | None, str]:
-    """The login for a host with these tags, and where it came from (for the report)."""
+def username_for(tags: set[str], context: dict | None = None) -> tuple[str | None, str]:
+    """The login for a host with these tags and NetBox local context, and where it came
+    from (for the report)."""
     for tag, source in ACCOUNTS:
         if tag == "nas" and "synology" in tags:
             continue
         if tag in tags:
             if "name" in source:
                 return source["name"], tag
+            if "context" in source:
+                value = str((context or {}).get(source["context"]) or "").strip()
+                return (value or None), f"{tag} (local context {source['context']}{'' if value else ' not set'})"
             value = os.environ.get(source["env"], "").strip()
             return (value or None), f"{tag} ({source['env']}{'' if value else ' not set'})"
     return None, "no login tag"
@@ -155,7 +162,7 @@ def wanted_hosts(objects: list[dict], addresses: list[dict], prefixes: list[dict
     hosts, skipped = {}, []
     for o in objects:
         tags = {t["slug"] for t in o.get("tags", [])}
-        user, source = username_for(tags)
+        user, source = username_for(tags, o.get("local_context_data"))
         if source == "no login tag":
             continue
         name = o["name"]
