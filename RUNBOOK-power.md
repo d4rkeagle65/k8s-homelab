@@ -4,7 +4,8 @@ For moving the rack, or anything else that turns the whole lab off. The order is
 each thing goes down after whatever depends on it, and comes up before it.
 
 Run it from your PC, not from Semaphore: Semaphore lives on the Docker VM, which goes down
-partway through. The commands are PowerShell, with `kubectl` and `flux` pointed at the
+partway through. The commands are PowerShell 7 (`pwsh`; Windows PowerShell 5.1's
+`ConvertFrom-Json` can't read the whole pod list), with `kubectl` and `flux` pointed at the
 cluster.
 
 While it's off, the house has no DNS (the Pi-holes), no DHCP (Kea) and, once the firewall is
@@ -88,16 +89,8 @@ Everything is off; unplug and move.
      `ha-manager set <service> --state started` (e.g. `vm:100`), on any host's shell.
      `ha-manager status` should list them all `started` again.
 4. [ ] **DNS and DHCP:** a device on the network gets an address, and a name resolves.
-5. [ ] **The cluster is whole:**
-
-   ```powershell
-   kubectl get nodes
-   kubectl get clusters.postgresql.cnpg.io -A
-   kubectl get pods -A | Select-String -NotMatch 'Running|Completed'
-   ```
-
-   Every node `Ready`, every database `Cluster in healthy state`. The databases can take a
-   few minutes after the nodes.
+5. [ ] **The nodes are up:** `kubectl get nodes` shows every node `Ready` (the workers also
+   `SchedulingDisabled`, until the next step).
 6. [ ] **Uncordon the workers**: cordoning outlasts the power cut, so until now nothing new
    has been scheduled on them:
 
@@ -105,16 +98,57 @@ Everything is off; unplug and move.
    kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o name | ForEach-Object { kubectl uncordon $_ }
    ```
 
-7. [ ] **Let Flux go:**
+7. [ ] **Let Flux go now, not last.** Flux's source-controller loses its copy of the repo
+   when it restarts, and while the source is suspended it doesn't fetch it again: every
+   Kustomization sits at "Fetching manifests", and none reconciles until it's resumed.
+   Whatever was merged since the hold deploys now, so look first
+   (`git log --oneline <held revision>..origin/main`, the held revision from
+   `flux get sources git flux-system`):
 
    ```powershell
    flux resume source git flux-system
    ```
 
-8. [ ] **Restart what's stuck.** An app that started while its database or NAS was still
-   coming up can sit failing: Authentik's server waits out a crash-loop back-off, and
-   Sonarr-style apps hang after "Error creating main database" without exiting. Restart each
-   with `kubectl -n <namespace> delete pod <pod>`; its Deployment makes a fresh one. Then the
-   last command of step 5 should print nothing but its header.
-9. [ ] **Spot-check:** Homepage loads, Authentik signs you in, and one app per database
+8. [ ] **The databases recover.** Each one whose primary moved during the shutdown rebuilds a
+   replica from its Garage backup, showing `Waiting for the instances` for a few minutes;
+   that needs nothing from you. Watch until every one says `Cluster in healthy state`:
+
+   ```powershell
+   kubectl get clusters.postgresql.cnpg.io -A
+   ```
+
+   Only if one stays unhealthy for more than fifteen minutes, look at its instances and the
+   log of the one not ready:
+
+   ```powershell
+   kubectl -n <namespace> get pods -l cnpg.io/cluster=<cluster>
+   kubectl -n <namespace> logs <instance pod> -c postgres --tail 50
+   ```
+
+   An instance that is crash-looping can be deleted (`kubectl -n <namespace> delete pod
+   <instance pod>`): the operator makes it again on the same disk. Never delete its PVC.
+9. [ ] **Restart the apps stuck behind them.** An app that started while its database or NAS
+   was still coming up can sit failing: some wait out a crash-loop back-off (Authentik's
+   server, Immich, Linkwarden, n8n), and the Servarr apps (Sonarr, Prowlarr, Bookshelf and the
+   like) hang after "Error creating main database" without exiting. Once every database is
+   healthy, give them five minutes, then list what's still crash-looping or running but not
+   ready, leaving the databases out:
+
+   ```powershell
+   $stuck = (kubectl get pods -A -l '!cnpg.io/cluster' -o json | ConvertFrom-Json).items | Where-Object {
+     $_.status.containerStatuses | Where-Object {
+       $_.state.waiting.reason -eq 'CrashLoopBackOff' -or ($_.state.running -and -not $_.ready) } }
+   $stuck | ForEach-Object { "$($_.metadata.namespace)/$($_.metadata.name)" }
+   ```
+
+   Then restart them (each Deployment makes a fresh pod):
+
+   ```powershell
+   $stuck | ForEach-Object { kubectl -n $_.metadata.namespace delete pod $_.metadata.name --wait=false }
+   ```
+
+   A minute or two later, the first command should list nothing, and
+   `kubectl get pods -A | Select-String -NotMatch 'Running|Completed'` only its header and
+   any old failed Job pods, which are history, not faults.
+10. [ ] **Spot-check:** Homepage loads, Authentik signs you in, and one app per database
    answers.
