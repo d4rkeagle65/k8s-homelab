@@ -1,8 +1,8 @@
 # Termix's SSH hosts from NetBox (sync/termix-netbox-sync.py says which hosts, with which
 # login, and what it never touches). Hourly.
 #
-# DRY_RUN "true": prints the plan and Termix's record fields, and changes nothing. This
-# version only plans either way. A run between schedules:
+# DRY_RUN "true": prints the plan and changes nothing; "false" writes and reads back. The
+# hosts log in with the "bastion" credential, made by hand in Termix. A run between schedules:
 #   kubectl -n termix create job --from=cronjob/termix-netbox-sync termix-netbox-sync-now
 apiVersion: batch/v1
 kind: CronJob

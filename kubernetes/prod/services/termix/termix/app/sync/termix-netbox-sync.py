@@ -8,15 +8,21 @@ debian (the owner's admin account, TERMIX_SSH_ADMIN_USER), openwrt_aps (root), s
 such as the travel router on its own LAN, by its primary address), on port 22 unless NetBox
 records an SSH service on another port, in a folder named for its NetBox role.
 
+Every host logs in with one Termix credential, the bastion key, named by TERMIX_CREDENTIAL
+(default "bastion") and made by hand in Termix's UI, so the private key never leaves Termix;
+the host's own username overrides the credential's. The sync never writes a credential.
+
 The sync owns only the hosts it made, which carry the tag "netbox" in Termix: it creates
 the ones new in NetBox, updates the ones that differ, and deletes the ones that left it.
-A host made by hand is never touched. A host whose username isn't set is reported and
-skipped, never made with another user.
+An update keeps what the user set on the host (pin, notes, status checks) and changes only
+the fields above. A host made by hand is never touched. A host whose username isn't set is
+reported and skipped, never made with another user.
 
-DRY_RUN (default "true") reads both sides and prints the plan, and the field names of
-Termix's host and credential records (never their values), and changes nothing. This
-version only plans: the writes come once those fields are read. Exit 0 when it ran, 2 when
-it couldn't answer (NetBox or Termix unreadable).
+DRY_RUN (default "true") reads both sides, prints the plan and changes nothing. Otherwise it
+writes, then reads Termix back and checks every host it owns matches NetBox. Exit 0 when it
+ran (and the read-back matched), 1 when a write failed or didn't take, 2 when it couldn't
+answer: NetBox or Termix unreadable, the credential missing, or NetBox naming no host at all
+(which would delete every synced host).
 """
 from __future__ import annotations
 
@@ -31,6 +37,9 @@ NETBOX = os.environ["NETBOX_URL"].rstrip("/")
 TERMIX = os.environ.get("TERMIX_URL", "http://termix:8080").rstrip("/")
 DRY_RUN = os.environ.get("DRY_RUN", "true").strip().lower() != "false"
 OWNED_TAG = "netbox"
+CREDENTIAL = os.environ.get("TERMIX_CREDENTIAL", "bastion").strip()
+# The fields the sync owns on a host it made; the rest stay as the user left them.
+SYNCED = ("ip", "port", "username", "folder")
 
 # NetBox tag -> where its username comes from: an environment variable, or a fixed name.
 ACCOUNTS = [
@@ -50,6 +59,54 @@ def get(url: str, headers: dict):
     req = urllib.request.Request(url, headers={**headers, "Accept": "application/json"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
+
+
+def send(method: str, url: str, headers: dict, body: dict | None = None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method,
+                                 headers={**headers, "Accept": "application/json", "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        raw = r.read()
+        return json.loads(raw) if raw.strip() else None
+
+
+def tags_of(h: dict) -> set[str]:
+    t = h.get("tags")
+    return set(t if isinstance(t, list) else str(t or "").replace(",", " ").split())
+
+
+def listed(payload, *keys) -> list[dict]:
+    """A Termix list, whether bare or wrapped."""
+    if isinstance(payload, list):
+        return payload
+    for k in keys:
+        if isinstance(payload.get(k), list):
+            return payload[k]
+    return []
+
+
+def host_body(want: dict, credential_id, have: dict | None = None) -> dict:
+    """The body for a create, or for an update of `have`: Termix's PUT replaces the whole
+    record, so an update starts from what Termix holds and overlays the synced fields."""
+    body = dict(have or {}, statusCheckEnabled=True)
+    if have:  # what the user set stays
+        body["statusCheckEnabled"] = bool(have.get("statusCheckEnabled", True))
+        body["tags"] = sorted(tags_of(have) | {OWNED_TAG})
+    else:
+        body["tags"] = [OWNED_TAG]
+    body.update({k: want[k] for k in SYNCED})
+    body.update({"name": want["name"], "connectionType": "ssh", "authType": "credential",
+                 "credentialId": credential_id, "overrideCredentialUsername": True, "enableSsh": True})
+    return body
+
+
+def differs(have: dict, want: dict, credential_id) -> list[str]:
+    diff = [k for k in SYNCED if str(have.get(k) or "") != str(want[k])]
+    if have.get("authType") != "credential" or str(have.get("credentialId")) != str(credential_id):
+        diff.append("credential")
+    if not have.get("overrideCredentialUsername"):
+        diff.append("username override")
+    return diff
 
 
 def netbox_all(path: str) -> list[dict]:
@@ -136,43 +193,80 @@ def main() -> int:
         fail(f"NetBox: {getattr(e, 'code', None) or e}")
     wanted, skipped = wanted_hosts(objects, addresses, prefixes, services)
 
+    if not wanted:
+        fail("NetBox names no host to sync; refusing to plan deleting every synced one")
+
     headers = {"Authorization": "Bearer " + os.environ["TERMIX_API_KEY"].strip()}
     try:
-        hosts = get(f"{TERMIX}/host/db/host", headers)
-        creds = get(f"{TERMIX}/credentials", headers)
+        hosts = listed(get(f"{TERMIX}/host/db/host", headers), "hosts", "data")
+        creds = listed(get(f"{TERMIX}/credentials", headers), "credentials", "data")
     except (urllib.error.URLError, OSError, ValueError) as e:
         fail(f"Termix: {getattr(e, 'code', None) or getattr(e, 'reason', None) or e}")
-    hosts = hosts if isinstance(hosts, list) else hosts.get("hosts") or hosts.get("data") or []
-    creds = creds if isinstance(creds, list) else creds.get("credentials") or creds.get("data") or []
+    matches = [c for c in creds if c.get("name") == CREDENTIAL]
+    missing = None
+    if len(matches) != 1:
+        missing = (f"Termix has {len(matches)} credential(s) named {CREDENTIAL!r}, not one: make it in Termix's UI "
+                   "(Credentials, an SSH key, the bastion's private key, no username)")
+        if not DRY_RUN:
+            fail(missing)
+    credential_id = matches[0]["id"] if not missing else None
 
-    # The record shapes, for the write version: field names only, never values.
-    if hosts:
-        print("termix host fields:", sorted(hosts[0]))
-    print("termix credentials:", len(creds), "| fields:", sorted(creds[0]) if creds else "-")
-
-    def tags_of(h):
-        t = h.get("tags")
-        return set(t if isinstance(t, list) else str(t or "").replace(",", " ").split())
     owned = {h.get("name"): h for h in hosts if OWNED_TAG in tags_of(h)}
     by_hand = sorted(h.get("name") for h in hosts if OWNED_TAG not in tags_of(h))
+    clash = sorted(set(by_hand) & set(wanted))
+    print(f"NetBox: {len(wanted)} host(s) to have; Termix: {len(owned)} synced, {len(by_hand)} made by hand "
+          f"(left alone: {by_hand}); credential {CREDENTIAL!r} {'MISSING' if missing else 'found'}")
+    if missing:
+        print(f"  {missing}; the writes would refuse to run")
 
-    print(f"NetBox: {len(wanted)} host(s) to have; Termix: {len(owned)} synced, {len(by_hand)} made by hand (left alone: {by_hand})")
-    for name, h in sorted(wanted.items()):
+    verb = (lambda v: "would " + v) if DRY_RUN else (lambda v: v)
+    plan = []
+    for name, want in sorted(wanted.items()):
+        if name in clash:
+            print(f"  skipped {name}: a host made by hand has that name; rename or delete it to let the sync own it")
+            continue
         have = owned.get(name)
         if not have:
-            print(f"  {'would create' if DRY_RUN else 'create'} {name}: port {h['port']}, by its {h['via']}, as {h['login']}, in {h['folder']}")
+            print(f"  {verb('create')} {name}: port {want['port']}, by its {want['via']}, as {want['login']}, in {want['folder']}")
+            plan.append(("POST", f"{TERMIX}/host/db/host", host_body(want, credential_id), name))
         else:
-            diff = [k for k in ("ip", "port", "username", "folder") if str(have.get(k)) != str(h[k])]
+            diff = differs(have, want, credential_id)
             if diff:
-                print(f"  {'would update' if DRY_RUN else 'update'} {name}: {', '.join(diff)}")
+                print(f"  {verb('update')} {name}: {', '.join(diff)}")
+                plan.append(("PUT", f"{TERMIX}/host/db/host/{have['id']}", host_body(want, credential_id, have), name))
     for name in sorted(set(owned) - set(wanted)):
-        print(f"  {'would delete' if DRY_RUN else 'delete'} {name}: no longer in NetBox")
+        print(f"  {verb('delete')} {name}: no longer in NetBox")
+        plan.append(("DELETE", f"{TERMIX}/host/db/host/{owned[name]['id']}", None, name))
     for s in skipped:
         print(f"  skipped {s}")
-    if not DRY_RUN:
-        print("This version only plans; the writes come once the fields above are read.")
-    return 0
+    if not plan:
+        print("No changes.")
+    if DRY_RUN or not plan:
+        return 0
 
+    failed = 0
+    for method, url, body, name in plan:
+        try:
+            send(method, url, headers, body)
+        except urllib.error.HTTPError as e:
+            failed += 1
+            print(f"  FAILED {method} {name}: HTTP {e.code} {e.read()[:200].decode(errors='replace')}")
+        except (urllib.error.URLError, OSError) as e:
+            failed += 1
+            print(f"  FAILED {method} {name}: {e}")
+
+    # Read back: every host NetBox names is in Termix as wanted, and none it dropped remains.
+    try:
+        after = listed(get(f"{TERMIX}/host/db/host", headers), "hosts", "data")
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        fail(f"Termix, reading back: {getattr(e, 'code', None) or e}")
+    now = {h.get("name"): h for h in after if OWNED_TAG in tags_of(h)}
+    wrong = [n for n, w in wanted.items() if n not in clash and (n not in now or differs(now[n], w, credential_id))]
+    wrong += [n for n in now if n not in wanted]
+    for n in sorted(wrong):
+        print(f"  NOT AS WANTED after the writes: {n}")
+    print("VERIFIED" if not wrong and not failed else f"{failed} write(s) failed, {len(wrong)} host(s) not as wanted")
+    return 0 if not wrong and not failed else 1
 
 if __name__ == "__main__":
     sys.exit(main())
