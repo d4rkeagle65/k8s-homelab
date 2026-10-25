@@ -35,22 +35,41 @@ off, no internet. Pick a quiet time.
 
 ## Power off
 
-1. [ ] **The Kubernetes workers.** In the Proxmox UI, **Shutdown** (never Stop) each worker
-   VM. Talos stops its pods cleanly; a database instance can take up to three minutes
-   (`smartShutdownTimeout`). Wait until every worker shows as stopped.
-2. [ ] **The control plane.** Shutdown the three control-plane VMs, all at once if you like.
-   Wait until they're stopped.
-3. [ ] **The other guests:** the Docker VM (Semaphore, Kea, Vaultwarden, Dockhand,
+1. [ ] **Cordon every worker**, so pods from a stopped worker wait as Pending instead of
+   piling onto the ones still running:
+
+   ```powershell
+   kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o name | ForEach-Object { kubectl cordon $_ }
+   ```
+
+2. [ ] **The Kubernetes workers.** In the Proxmox UI, **Shutdown** (never Stop) every worker
+   VM, all within a few seconds of each other. Talos stops its pods cleanly; a database
+   instance can take up to three minutes (`smartShutdownTimeout`). A database failover or
+   two, and alerts, are expected now. Wait until every worker shows as stopped.
+3. [ ] **The control plane.** Shutdown the three control-plane VMs, all at once if you like.
+   Talos cordons and drains each first, and with every worker gone the drain can't finish:
+   a control-plane node that stays `Ready,SchedulingDisabled` for more than a minute or two
+   is waiting on a pod whose disruption budget allows no eviction (Calico's `calico-typha`
+   and `calico-apiserver`). Delete what's left on it, which a budget doesn't stop:
+
+   ```powershell
+   kubectl get pods -A --field-selector spec.nodeName=<node> -o wide
+   kubectl -n calico-system delete pod <pod> --wait=false
+   ```
+
+   It then shuts down within seconds. Wait until all three are stopped; the API stops
+   answering partway, as it should.
+4. [ ] **The other guests:** the Docker VM (Semaphore, Kea, Vaultwarden, Dockhand,
    Tailscale), the domain controller VM, and the remaining containers, then **the two
    Pi-holes last**, since they are the house's DNS. A host's **Bulk Actions → Bulk Shutdown**
    does all of one host's guests at once.
-4. [ ] **The Proxmox hosts**, one at a time: the host's **Shutdown** button, or
+5. [ ] **The Proxmox hosts**, one at a time: the host's **Shutdown** button, or
    `shutdown -h now` in its shell. Once three are off the rest lose quorum and show errors;
    that's expected and harmless now.
-5. [ ] **The NAS boxes**, from their own admin pages: the main NAS (app data, block storage,
+6. [ ] **The NAS boxes**, from their own admin pages: the main NAS (app data, block storage,
    the HA guests' disks) and the backup NAS (Garage, the Proxmox backups). They go only now
    because everything above was using them.
-6. [ ] **The network last:** the Raspberry Pi, the firewall, the switches, the access points.
+7. [ ] **The network last:** the Raspberry Pi, the firewall, the switches, the access points.
 
 Everything is off; unplug and move.
 
@@ -79,16 +98,23 @@ Everything is off; unplug and move.
 
    Every node `Ready`, every database `Cluster in healthy state`. The databases can take a
    few minutes after the nodes.
-6. [ ] **Let Flux go:**
+6. [ ] **Uncordon the workers**: cordoning outlasts the power cut, so until now nothing new
+   has been scheduled on them:
+
+   ```powershell
+   kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o name | ForEach-Object { kubectl uncordon $_ }
+   ```
+
+7. [ ] **Let Flux go:**
 
    ```powershell
    flux resume source git flux-system
    ```
 
-7. [ ] **Restart what's stuck.** An app that started while its database or NAS was still
+8. [ ] **Restart what's stuck.** An app that started while its database or NAS was still
    coming up can sit failing: Authentik's server waits out a crash-loop back-off, and
    Sonarr-style apps hang after "Error creating main database" without exiting. Restart each
    with `kubectl -n <namespace> delete pod <pod>`; its Deployment makes a fresh one. Then the
    last command of step 5 should print nothing but its header.
-8. [ ] **Spot-check:** Homepage loads, Authentik signs you in, and one app per database
+9. [ ] **Spot-check:** Homepage loads, Authentik signs you in, and one app per database
    answers.
