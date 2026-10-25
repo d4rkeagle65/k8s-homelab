@@ -38,6 +38,8 @@ addresses and secrets come from a password-manager vault or from the tools that 
 
 ### Hardware and virtualisation
 
+Turning it all off and on again, in order: `RUNBOOK-power.md`.
+
 Five Proxmox hosts form one Proxmox cluster. A NAS provides the shared storage: NFS for
 application data, iSCSI block storage, and the disks of the VMs that Proxmox HA restarts on
 another host when theirs fails. A second NAS is the backup target, including an S3-compatible
