@@ -91,16 +91,16 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       through `synology-baseline.yml`, the TerraMaster by hand); the Windows DC takes a
       password credential in Termix; the Talos nodes have no SSH.
 - [ ] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
-      hourly. First pull request: plan only, DRY_RUN on, printing Termix's host and credential
-      field names, so the writes copy Termix's real record shape. Its NetBox half, run against
-      NetBox 2026-10-25: 11 hosts (5 hypervisors, both Pi-holes, both access points, both
-      Docker VMs). Logins differ by platform (the owner): the admin account on Debian, root on
-      OpenWrt, and Key Vault's `TERMIX-SSH-SYNOLOGY-USER` and `TERMIX-SSH-TERRAMASTER-USER` on
-      the NASes (set 2026-10-25). The travel router has no management address in NetBox, so the
-      sync falls back to a host's primary address: the owner to confirm that's the one to use.
-      Left: merge, run it, read the fields; then the writes: a `bastion` credential from Key
-      Vault's private key, hosts tagged `netbox` using it; DRY_RUN off after the owner reads a
-      plan.
+      hourly, DRY_RUN on. Plan-only version live 2026-10-25 (#381): all five Key Vault values
+      synced; its run planned 14 hosts (5 hypervisors, both Pi-holes, both access points, both
+      NASes, both Docker VMs, the travel router by its primary address, as it has no management
+      address in NetBox) and left the hand-made "Docker Vm 1" alone. The write version uses one
+      Termix credential, `bastion`, made by hand in the UI (the private key stays in Termix,
+      not Key Vault), each host's own username overriding it. Left: the owner makes that
+      credential; a dry run reads it as found; the owner reads the plan, then a pull request
+      turns DRY_RUN off; the first real run's read-back says VERIFIED. Then the hand-made
+      "Docker Vm 1" duplicates the synced Docker VM: the owner's call to delete it. The owner
+      to confirm the travel router's primary address is the one to reach it by.
 - [ ] 7. An alert when a Termix release has waited unmerged more than a few days (Renovate).
 - [ ] 8. Later: Docker, Kubernetes and cloud, scoped as above.
 
