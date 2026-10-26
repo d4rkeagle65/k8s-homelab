@@ -223,6 +223,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
+- **A new `nas-iscsi` volume's first mount takes minutes, and its pod waits** (found
+  2026-10-26, tdarr-cache, 200 GiB: about 12 minutes in `mkfs.ext4 -m 0 /dev/sdX`, in
+  democratic-csi's node container, I/O-bound): `mkfs` discards the whole LUN first, which the
+  Synology does slowly. The kubelet's first MountDevice times out at 2 minutes and retries
+  until it ends. A Deployment with the Recreate strategy is down meanwhile. If it matters,
+  give the `nas-iscsi` StorageClass mkfs options that skip the discard (`-E nodiscard`, if
+  democratic-csi's synology-iscsi driver takes filesystem create options:
+  `kubernetes/prod/system/democratic-csi/`); otherwise expect the wait for a large new volume.
+
 - **No check catches a `raw` script Ansible can't split** (found 2026-10-25, task 1302): Ansible
   splits a `raw` task's free-form text on quotes, comments included, so one bare apostrophe
   (`tasks/nas-bastion-keys.yml`, "ls's") failed the Synology run at loading, before any
