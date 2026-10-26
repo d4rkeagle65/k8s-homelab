@@ -287,9 +287,11 @@ webhook, since a deploy restarts the sessions running in it), first pulls
 `main` into Dockhand's clone, then builds from that commit with the build
 cache: only the layers from a changed line down are rebuilt.
 
-- **kubectl, flux, helm, OpenTofu:** their versions are the Dockerfile's
+- **kubectl, flux, helm, OpenTofu, PowerShell:** their versions are the Dockerfile's
   `ARG`s, which Renovate bumps. A merged bump reaches the image at the next
   deploy; deploy the stack in Dockhand to have it sooner.
+- **ansible-core:** the newest release at each rebuild of the Python layer
+  (at least 2.19), for checking `ansible/`; Semaphore runs the playbooks.
 - **Claude Code:** a package from Anthropic's apt repository that never
   updates itself. Its install layer follows the version `ARG`s, so a deploy
   after any version bump reinstalls it at the newest release on the
