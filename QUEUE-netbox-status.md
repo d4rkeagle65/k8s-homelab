@@ -28,9 +28,10 @@ depending on a device's or VM's status, by one standard. The standard is the tab
 5. [x] `termix-netbox-sync.py`: today Active only. To: Active, Staged and Failed (Access).
 6. [x] Prometheus's NetBox discovery (`scrapeconfig-docker-vm*.yaml`, `scrapeconfig-firewall.yaml`):
    today Active only. To: Active and Failed (Monitor); Staged later.
-7. [ ] `tofu/proxmox` (`netbox.tf`, `guests.tf`, `docker-vms.tf`, `talos.tf`): today start at
+7. [x] `tofu/proxmox` (`netbox.tf`, `guests.tf`, `docker-vms.tf`, `talos.tf`): today start at
    boot off only for Decommissioning. To: off for Offline too (Build: kept, not started). Its
-   plan read by the owner before an apply.
+   plan read by the owner before an apply. (this pull request; the owner's plan and apply
+   after its merge.)
 8. [ ] `tofu/tailscale`: today ignores status. To: routes, ipsets and DNS from Staged and
    Active only (Use). Its plan read by the owner.
 9. [ ] The Ansible inventory (`ansible/inventory/netbox.yml`): today every host tagged
