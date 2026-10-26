@@ -1,7 +1,7 @@
 # The Synology's, the core switch's and the firewall's syslog, received by alloy-events (its
 # loki.source.syslog) on a MetalLB address of its own: 514/TCP takes RFC 5424 (DSM's "IETF"
-# format), 514/UDP and 1514 (TCP and UDP) the older BSD format (RFC 3164). 514/UDP is BSD
-# because the switch can send only there. Only these ports: the Alloy pod's own HTTP port
+# format), 514/UDP whatever the core switch sends (it can send only there, in neither
+# format; alloy-events stores it unparsed), 1514 (TCP and UDP) the older BSD format (RFC 3164). Only these ports: the Alloy pod's own HTTP port
 # (its UI and debug pages) stays inside.
 apiVersion: v1
 kind: Service

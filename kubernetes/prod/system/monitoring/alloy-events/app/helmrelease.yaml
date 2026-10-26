@@ -34,6 +34,9 @@ spec:
         limits: {cpu: 500m, memory: 256Mi}
     alloy:
       enableReporting: false
+      # For the syslog listener's raw format on 514/UDP (below), experimental in Alloy;
+      # it enables experimental components, and changes none of the stable ones.
+      stabilityLevel: experimental
       resources:
         requests: {cpu: 10m, memory: 128Mi}
         limits: {cpu: 500m, memory: 512Mi}
@@ -52,8 +55,9 @@ spec:
 
           // The NASes', the core switch's and the firewall's syslog, through the alloy-syslog LoadBalancer
           // (monitoring-extras/app/service-syslog.yaml): 514/TCP RFC 5424 (the
-          // Synology), 514/UDP the older BSD format (the core switch, which can
-          // only send there), 1514 BSD on both (the firewall, on TCP). Stamped on arrival (BSD's timestamps carry no
+          // Synology), 514/UDP unparsed (the core switch, which can only send there
+          // and whose lines are neither format: a numeric date after the priority),
+          // 1514 BSD on both (the firewall, on TCP). Stamped on arrival (BSD's timestamps carry no
           // year). Labelled source="syslog", the sender's host, the app name and
           // the listener it came in on (the Service's port and protocol); the rest
           // stays in the line.
@@ -67,7 +71,7 @@ spec:
             listener {
               address       = "0.0.0.0:5514"
               protocol      = "udp"
-              syslog_format = "rfc3164"
+              syslog_format = "raw"
               labels        = {source = "syslog", listener = "514/udp"}
             }
             listener {
