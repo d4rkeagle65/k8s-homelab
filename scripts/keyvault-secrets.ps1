@@ -40,9 +40,19 @@ read back, compared by SHA-256. The script then force-syncs the ExternalSecret,
 waits for the cluster-secrets Secret to hold the new value, and prints the Flux
 reconcile commands to run.
 
+-Generate N sets a new random value instead: N letters and digits (A-Z, a-z,
+0-9) from the system's cryptographic generator, never shown. -Clipboard copies
+the value just set, generated or typed, to the clipboard once it reads back.
+
 With -Name and -Get, outputs the secret's current value instead, the only
 path that shows one, as Key Vault holds it and as a string, so it can go to a
-variable or Set-Clipboard rather than the screen.
+variable or Set-Clipboard rather than the screen; with -Clipboard it goes
+straight to the clipboard and nothing is output.
+
+A secret an app's own ExternalSecret reads straight from Key Vault (in a
+namespace opted in to the azure-keyvault store, not through cluster-secrets) is
+named by its Key Vault name, with "-" or "_"; the script says which files read
+it, and neither maps it into cluster-secrets nor syncs that.
 
 A variable whose Encoding is UNKNOWN (template) is set or read only with -Raw.
 One the ExternalSecret maps whose Encoding is NEEDS b64enc is never set: the
@@ -80,6 +90,11 @@ Copies the secret's current value, without showing it.
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1 NEW_VARIABLE -New -Raw
 Asks for a new variable's value and adds its secret, plain.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 SNMP-V3-AUTH-PASSPHRASE -New -Raw -Generate 16 -Clipboard
+Adds a secret holding 16 random letters and digits, and copies it to paste into
+a device's settings.
 #>
 [CmdletBinding()]
 param(
@@ -97,7 +112,11 @@ param(
     # Don't force-sync the ExternalSecret afterwards.
     [switch]$NoSync,
     # The vault's name, in place of the URL in the azure-keyvault-bootstrap Secret.
-    [string]$Vault
+    [string]$Vault,
+    # Set a random value of this many letters and digits, in place of -Value.
+    [ValidateRange(8, 4096)][int]$Generate,
+    # Copy the value (set, or read with -Get) to the clipboard.
+    [switch]$Clipboard
 )
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -106,6 +125,12 @@ $OutputEncoding = [Text.UTF8Encoding]::new($false)
 # read, so a refused run touches nothing.
 if ($New -and -not $Raw -and -not $Get) {
     throw "-New needs -Raw: Key Vault holds a new value plain, as given, and cluster-secrets' template encodes it where a Secret's data: reads it."
+}
+if ($Generate -and ($PSBoundParameters.ContainsKey('Value') -or $Get)) {
+    throw '-Generate makes the value: leave out -Value and -Get.'
+}
+if ($Clipboard -and -not (Get-Command Set-Clipboard -ErrorAction SilentlyContinue)) {
+    throw "-Clipboard needs Set-Clipboard, which this PowerShell doesn't have."
 }
 
 $ApiVersion = '7.4'
@@ -184,6 +209,43 @@ function Get-KustomizationName([string]$rel) {
         'test' { return 'cluster-test' }
     }
     "(unknown: $rel)"
+}
+
+# $length letters and digits, each drawn evenly from the 62 by rejection: a byte at or
+# above 248 (62 * 4) is thrown away, so none is likelier than another.
+function New-RandomString([int]$length) {
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $chars = [Text.StringBuilder]::new($length)
+        $buffer = [byte[]]::new(64)
+        while ($chars.Length -lt $length) {
+            $rng.GetBytes($buffer)
+            foreach ($b in $buffer) {
+                if ($b -ge 248) { continue }
+                [void]$chars.Append($alphabet[$b % 62])
+                if ($chars.Length -eq $length) { break }
+            }
+        }
+        $chars.ToString()
+    }
+    finally { $rng.Dispose() }
+}
+
+# The files whose ExternalSecret, other than cluster-secrets, reads a Key Vault secret by
+# this name straight from the vault: a `key: NAME` in a file of kind ExternalSecret.
+function Get-DirectReaders([string]$secretName) {
+    $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $listed = git -C $repo ls-files -z --cached --others --exclude-standard -- kubernetes/
+    if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed, so which ExternalSecrets read the secret is unknown.' }
+    $pattern = '(?im)\bkey:\s*["'']?' + [regex]::Escape($secretName) + '["'']?\s*[,}\r\n]'
+    @(foreach ($path in ($listed -join '') -split "`0") {
+        if ($path -notmatch '^kubernetes/(.+\.ya?ml)$' -or $path -like 'kubernetes/secrets/*') { continue }
+        $full = Join-Path $repo $path
+        if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }
+        $text = Get-Content -Raw -Encoding UTF8 -LiteralPath $full
+        if ($text -and $text -match '(?m)^kind:\s*ExternalSecret\s*$' -and $text -match $pattern) { $path -replace '^kubernetes/', '' }
+    })
 }
 
 function Get-Sha256([string]$text) {
@@ -316,8 +378,11 @@ if (-not $Name) {
     return
 }
 
-if ($Name -notmatch '^[A-Za-z0-9_]+$') { throw "'$Name' isn't a variable name (letters, digits and '_')." }
+if ($Name -notmatch '^[A-Za-z0-9_-]+$') { throw "'$Name' isn't a variable or secret name (letters, digits, '_' and '-')." }
+# A Key Vault name given with '-' is the same secret as its variable name with '_'.
+$Name = $Name -replace '-', '_'
 $secretName = if ($mapped.Contains($Name)) { $mapped[$Name] } else { $Name -replace '_', '-' }
+$direct = @(Get-DirectReaders $secretName)
 if ($secretName -notmatch '^[A-Za-z0-9-]{1,127}$') { throw "$secretName isn't a valid Key Vault name (letters, digits and '-', 1-127)." }
 
 $files = $usage[$Name]
@@ -351,10 +416,16 @@ if ($Get) {
     if ($current.Status -eq 404) { throw "Key Vault has no secret named $secretName." }
     # A disabled secret's read is refused (403), so it lands here too.
     if ($current.Status -ne 200) { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
+    if ($Clipboard) {
+        Set-Clipboard -Value ([string]$current.Body.value)
+        Write-Host "Copied $secretName to the clipboard."
+        return
+    }
     return [string]$current.Body.value
 }
 
-if (-not $files) { Write-Warning "Nothing under kubernetes/ uses `${$Name}` in this checkout." }
+if ($direct) { Write-Host "Read straight from Key Vault by: $($direct -join ', ')" }
+elseif (-not $files) { Write-Warning "Nothing under kubernetes/ uses `${$Name}` in this checkout, and no ExternalSecret reads $secretName." }
 
 # Its current value, by hash only. A read Key Vault refuses stops the run: it
 # isn't an absent secret.
@@ -369,7 +440,10 @@ elseif ($current.Status -eq 200) {
 }
 else { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
 
-if (-not $PSBoundParameters.ContainsKey('Value')) {
+if ($Generate) {
+    $Value = New-RandomString $Generate
+}
+elseif (-not $PSBoundParameters.ContainsKey('Value')) {
     $secure = Read-Host "New value for $Name" -AsSecureString
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try { $Value = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
@@ -392,7 +466,15 @@ else {
     }
     Write-Host "$(if ($null -eq $currentHash) { 'Added' } else { 'Updated' }) $secretName for $Name, read back."
 }
+if ($Clipboard) {
+    Set-Clipboard -Value $Value
+    Write-Host "Copied $secretName to the clipboard."
+}
 
+if (-not $mapped.Contains($Name) -and $direct) {
+    Write-Host 'Not a cluster-secrets variable: those ExternalSecrets pick it up within their refreshInterval, or annotate one with force-sync.'
+    return
+}
 if (-not $mapped.Contains($Name)) {
     $entry = if ($needsEntry) { ", with $Name`: `"{{ .$Name | b64enc }}`" in its template since a Secret's data: uses it," } else { '' }
     Write-Warning "The ExternalSecret doesn't map $Name yet. Add it to kubernetes/secrets/cluster-secrets.yaml (remoteRef key $secretName)$entry and merge that before anything uses it."
