@@ -3,8 +3,9 @@
 # UPS), the TerraMaster, a Linux box, with the generic ones (system, memory, load,
 # interfaces). The firewall is scrapeconfig-firewall.yaml's, found in NetBox.
 #
-# The switch and the firewall use SNMPv3 (authPriv, SHA and AES), as homelab_v3: its user
-# and passphrases come from Key Vault (externalsecret.yaml) into the exporter's environment,
+# The switch and the firewall use SNMPv3, authPriv with SHA: the firewall with AES
+# (homelab_v3), the switch with DES (homelab_v3_des), the only privacy the TL-SG3428 offers.
+# One user and passphrases for both, from Key Vault (externalsecret.yaml) into the exporter's environment,
 # which it expands in SNMPv3 credentials only (--config.expand-environment-variables). The
 # NASes' SNMPv2c community is in this release's ConfigMap, sent in the clear on every poll
 # anyway; SNMPv3 on both NASes would take it out.
@@ -52,6 +53,14 @@ spec:
           auth_protocol: SHA
           password: $${SNMP_V3_AUTH_PASSPHRASE}
           priv_protocol: AES
+          priv_password: $${SNMP_V3_PRIV_PASSPHRASE}
+        homelab_v3_des:
+          version: 3
+          security_level: authPriv
+          username: $${SNMP_V3_USERNAME}
+          auth_protocol: SHA
+          password: $${SNMP_V3_AUTH_PASSPHRASE}
+          priv_protocol: DES
           priv_password: $${SNMP_V3_PRIV_PASSPHRASE}
       modules:
         synology_ucd_memory:
@@ -195,7 +204,7 @@ spec:
       - name: switch-core
         target: ${SWITCH_CORE_ADDRESS}
         module: [system, if_mib]
-        auth: [homelab_v3]
+        auth: [homelab_v3_des]
         additionalMetricsRelabels:
           switch: core
         relabelings:
