@@ -60,10 +60,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - **The lab's Proxmox hosts onto 9** (2026-10-25): the two test hosts run 8.3.5, production
   9.2.21. `ansible/proxmoxlab-update-major.yml` upgrades them in place, one at a time, the group
   `proxmox_lab` only, from Semaphore's template 35 "Update: Proxmox Lab (8 to 9)" (made
-  2026-10-26; survey `target_hosts`, `stop_guests`). Its first dry run (task 1327) found no
-  hosts in the group: both carry `proxmox_lab` but not yet `ansible`, and have no primary
-  IPv4 in NetBox (the owner's). Then a dry run, read for the hosts' APT sources and
-  subscription; then a real run, asked for by the owner. Nothing on them needs keeping.
+  2026-10-26; survey `target_hosts`, `stop_guests`). Dry run 1328 passed; real run 1329 (2026-10-26) took
+  cotedeprox01 to 9 (pve8to9: 0 failures, 0 warnings; sources on trixie; upgrade installed),
+  then lost it at the reboot: no SSH or web UI 20 minutes on, so the run stopped before
+  cotedeprox02 (still 8.3.5, untouched). Left: the owner at deprox01's console (where boot
+  stopped; if at a login, `ip -br link` against /etc/network/interfaces, as a renamed NIC
+  under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
+  fix), then the playbook changed to match (pin names first, or wait through the reboot)
+  before a run on cotedeprox02. Nothing on them needs keeping.
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
