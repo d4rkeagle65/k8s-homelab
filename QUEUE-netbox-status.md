@@ -19,13 +19,13 @@ depending on a device's or VM's status, by one standard. The standard is the tab
 
 1. [x] IoT devices: the NetBox sync leaves a Decommissioning one alone, and never sets it
    Offline; `ha_iot_setup.py` reads Active only (with this file's pull request).
-2. [ ] `scripts/netbox_seed.py`, VMs: today writes Active or Offline from Proxmox's running
+2. [x] `scripts/netbox_seed.py`, VMs: today writes Active or Offline from Proxmox's running
    state over every status but Decommissioning. To: only when the status is Planned, Active
    or Offline.
-3. [ ] `scripts/netbox_seed.py`, Proxmox host devices: today always Active. To: as VMs.
-4. [ ] `scripts/netbox_seed.py`, DNS names: today Offline and Planned VMs keep theirs. To:
+3. [x] `scripts/netbox_seed.py`, Proxmox host devices: today always Active. To: as VMs.
+4. [x] `scripts/netbox_seed.py`, DNS names: today Offline and Planned VMs keep theirs. To:
    only Staged and Active get one (Use).
-5. [ ] `termix-netbox-sync.py`: today Active only. To: Active, Staged and Failed (Access).
+5. [x] `termix-netbox-sync.py`: today Active only. To: Active, Staged and Failed (Access).
 6. [ ] Prometheus's NetBox discovery (`scrapeconfig-docker-vm*.yaml`, `scrapeconfig-firewall.yaml`):
    today Active only. To: Active and Failed (Monitor); Staged later.
 7. [ ] `tofu/proxmox` (`netbox.tf`, `guests.tf`, `docker-vms.tf`, `talos.tf`): today start at

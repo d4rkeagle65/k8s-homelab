@@ -1,6 +1,8 @@
 """Termix's SSH and RDP hosts from NetBox (QUEUE-bastion.md, step 6).
 
-The hosts are NetBox's devices and VMs that the playbooks give the web bastion's key: tagged
+The hosts are NetBox's devices and VMs open to access (status Active, Staged, or Failed for
+its repair: README.md, "What a NetBox status means") that the playbooks give the web
+bastion's key: tagged
 debian (the owner's admin account, TERMIX_SSH_ADMIN_USER), openwrt_aps (root), synology
 (TERMIX_SSH_SYNOLOGY_USER), nas without synology, the TerraMaster
 (TERMIX_SSH_TERRAMASTER_USER), or bastion-key, a device given the key by hand (a switch, the
@@ -46,6 +48,7 @@ NETBOX = os.environ["NETBOX_URL"].rstrip("/")
 TERMIX = os.environ.get("TERMIX_URL", "http://termix:8080").rstrip("/")
 DRY_RUN = os.environ.get("DRY_RUN", "true").strip().lower() != "false"
 OWNED_TAG = "netbox"
+ACCESS = "status=active&status=staged&status=failed"
 CREDENTIAL = os.environ.get("TERMIX_CREDENTIAL", "bastion").strip()
 # The fields the sync owns on a host it made; the rest stay as the user left them.
 SYNCED = ("ip", "port", "username", "folder")
@@ -244,8 +247,9 @@ def wanted_hosts(objects: list[dict], addresses: list[dict], prefixes: list[dict
 
 def main() -> int:
     try:
-        objects = [dict(d, _kind="device") for d in netbox_all("dcim/devices/?status=active")]
-        objects += [dict(v, _kind="vm") for v in netbox_all("virtualization/virtual-machines/?status=active")]
+        # README.md, "What a NetBox status means": Access is Active, Staged, and Failed (to repair it).
+        objects = [dict(d, _kind="device") for d in netbox_all(f"dcim/devices/?{ACCESS}")]
+        objects += [dict(v, _kind="vm") for v in netbox_all(f"virtualization/virtual-machines/?{ACCESS}")]
         addresses = netbox_all("ipam/ip-addresses/?")
         prefixes = netbox_all("ipam/prefixes/?")
         services = netbox_all("ipam/services/?")

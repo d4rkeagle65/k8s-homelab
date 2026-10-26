@@ -498,3 +498,30 @@ def test_an_iot_device_being_decommissioned_is_held_and_never_set_offline():
     assert m.iot_held({"status": "decommissioning"})  # a plain value, as some reads give it
     # Its reservation gone, a live device goes Offline; one being decommissioned is left.
     assert [d["name"] for d in m.stale_iot_devices([held, live], set())] == ["zziotkalikitchen"]
+
+
+def test_a_sync_moves_a_status_only_between_planned_active_and_offline():
+    st = lambda v: {"status": {"value": v}}
+    assert m.synced_status(None, True) == "active" and m.synced_status(None, False) == "offline"
+    assert m.synced_status(st("active"), False) == "offline" and m.synced_status(st("offline"), True) == "active"
+    assert m.synced_status(st("planned"), True) == "active"
+    assert m.synced_status(st("planned"), False) is None  # not built yet: stays Planned
+    for owner_set in ("staged", "failed", "decommissioning", "inventory"):
+        assert m.synced_status(st(owner_set), True) is None and m.synced_status(st(owner_set), False) is None
+
+
+def _owned(addr_id, address, vm_id, dns=""):
+    a = _addr(addr_id, address)
+    a["assigned_object"]["virtual_machine"]["id"] = vm_id
+    a["dns_name"] = dns
+    return a
+
+
+def test_dns_names_follow_status_and_leave_decommissioning_and_hand_set_names():
+    vms = [{"id": 1, "status": {"value": "active"}}, {"id": 2, "status": {"value": "offline"}},
+           {"id": 3, "status": {"value": "decommissioning"}}, {"id": 4, "status": {"value": "failed"}}]
+    addrs = [_owned(10, "192.0.2.10/24", 1),                               # in use, unnamed: named
+             _owned(11, "192.0.2.11/24", 2, dns="guest1.mgmt.example"),    # offline, our name: cleared
+             _owned(12, "192.0.2.12/24", 3, dns="guest1.mgmt.example"),    # decommissioning: left
+             _owned(13, "192.0.2.13/24", 4, dns="handmade.example")]       # failed, hand-set name: left
+    assert m.dns_plan(addrs, PREFIXES, vms, [], frozenset()) == {10: "guest1.mgmt.example", 11: ""}
