@@ -3,3 +3,5 @@
 collections:
 - name: netbox.netbox
   version: 3.23.1
+- name: ansible.windows
+  version: 3.8.0

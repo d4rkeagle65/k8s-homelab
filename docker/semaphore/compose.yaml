@@ -176,11 +176,13 @@ services:
 configs:
   # What the playbooks, inventories and scripts need beyond the image's Python
   # packages: pytz for the NetBox inventory (ansible/inventory/netbox.yml),
-  # ruamel.yaml for scripts/netbox_seed.py.
+  # ruamel.yaml for scripts/netbox_seed.py, pywinrm for the Windows hosts
+  # (ansible/windows-update.yml, over WinRM).
   python_requirements:
     content: |
       pytz
       ruamel.yaml
+      pywinrm==0.5.0
 
 networks:
   # Kea's control API (scripts/netbox_seed.py), on the kea stack's default
