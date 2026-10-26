@@ -101,7 +101,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   repo (offered, its own pull request). The son's-room ceiling fan doesn't work: look into it.
   Revoke the token in ~/.ha-token when this is done. Attended run 1354 (2026-10-26): the bedroom Fire Stick took the
   ADB connection but its prompt never showed (asleep or off its input), the living-room Fire TV
-  and the Samsung TV were off the network; the next attended run with each TV on and showing.
+  and the Samsung TV were off the network; the next attended run with each TV on and showing. Eufy (2026-10-26): through the eufy-sdk bridge (`kubernetes/prod/apps/homeassistant/eufy-bridge/`,
+  this pull request) and the HACS custom integration `mega-yfue/ha-eufy-sdk` (the bropat and fuatakgun
+  pair it replaces are archived); a second eufy account shared with admin rights. Left: the owner's
+  Key Vault secrets and the account, the firewall's UDP to the camera at .73 for live view, the
+  integration added in HA; the Baby Monitor C10 joins the IoT network later (then a reservation,
+  a catalogue type and the UDP rule); the E20 stays behind the travel router (eufy's relay).
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
