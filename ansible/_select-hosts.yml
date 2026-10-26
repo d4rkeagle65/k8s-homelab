@@ -2,7 +2,7 @@
 # job picks its hosts, and the line that says where it runs (README, "Picking the
 # hosts").
 #
-#   - ansible.builtin.import_playbook: select-hosts.yml
+#   - ansible.builtin.import_playbook: _select-hosts.yml
 #     vars:
 #       select_from: proxmox    # the hosts this playbook may touch: a group or pattern
 #       # Optional:
@@ -15,13 +15,13 @@
 # matches must be in select_from, or nothing runs. The playbook's plays then run
 # on the group targets, in inventory order.
 #
-# It runs as semaphore (semaphore-host.yml), which is never a target. It stops the
+# It runs as semaphore (_semaphore-host.yml), which is never a target. It stops the
 # run when select_from has no hosts: an inventory Ansible can't parse (a tab in
 # Semaphore's YAML) only draws warnings, then every play matches nothing and the
 # run exits 0. It leaves select_all on semaphore, true when the hosts asked for
 # are every host in select_from, however named (proxmox-reboot.yml then holds Flux).
 
-- ansible.builtin.import_playbook: semaphore-host.yml
+- ansible.builtin.import_playbook: _semaphore-host.yml
 
 - name: Pick the hosts
   hosts: semaphore

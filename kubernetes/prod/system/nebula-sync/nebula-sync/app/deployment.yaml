@@ -67,7 +67,7 @@ spec:
         - name: SYNC_CONFIG_MISC
           value: "true"
         # Pi-hole refuses dnsmasq_lines through its API (pihole-FTL --config
-        # only), so the whole misc section would fail; ansible/pihole-config.yml
+        # only), so the whole misc section would fail; ansible/pihole-setting.yml
         # sets it on every Pi-hole instead.
         - name: SYNC_CONFIG_MISC_EXCLUDE
           value: dnsmasq_lines

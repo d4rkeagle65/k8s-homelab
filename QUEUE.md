@@ -39,7 +39,7 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   the Proxmox storage removed (`pvesm remove nas-block`, cluster-wide); on each host, its iSCSI
   session logged out, its node record deleted (`iscsiadm`) and its volume group removed; the
   LUNs (`metrics-1` to `-5`) and targets deleted in DSM; then `ansible/tasks/proxmox-nas-block.yml`,
-  its include in `proxmox-host.yml`, the `nas_block_*` variables in Semaphore and the Drives
+  its include in `proxmox-setting.yml`, the `nas_block_*` variables in Semaphore and the Drives
   dashboard's LUN-writes panel. Read 2026-10-22: no PV or class uses it; the storage is still
   defined on all five hosts (0 used) and the five LUNs are still on the Synology.
 - **The power-cut failover test** (from `old-queues/QUEUE-talos.md`): one host at a time, its
@@ -57,8 +57,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **Semaphore's templates on the new playbook names** (2026-10-26): `ansible/README.md`, "Names",
+  renamed 17 playbooks (this pull request). Once it merges, each template running a renamed one
+  points at its new path at once (it fails until then), with the owner's temporary Manager role;
+  the template names and views (Reboot, Tool) go to the standard beforehand. Then the owner
+  takes Manager back.
 - **The lab's Proxmox hosts onto 9** (2026-10-25): the two test hosts run 8.3.5, production
-  9.2.21. `ansible/proxmox-lab-upgrade.yml` (this pull request) upgrades them in place, one at a
+  9.2.21. `ansible/proxmoxlab-update-major.yml` (this pull request) upgrades them in place, one at a
   time, the group `proxmox_lab` only. Before its first run, the owner: in NetBox, a tag
   `proxmox_lab`, and on each test host that tag, `ansible`, and its address as primary IPv4;
   in Semaphore, a template for the playbook on the NetBox inventory with `target_hosts` and
@@ -314,18 +319,18 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   - **Docker VM:** netplan (its three network legs, routing tables and rule
     priorities), the nft scripts and their systemd units for the DMZ marks and the
     `DOCKER-USER` rules for Tailscale, sysctls, Dockhand's own compose file and the
-    certificate-sync cron. Docker (`docker-host.yml`) and the management return path
+    certificate-sync cron. Docker (`dockerhost-deploy.yml`) and the management return path
     (`tasks/management-routing.yml`) are done.
-  - **Proxmox hosts:** `ansible/proxmox-host.yml` holds the ZFS ARC cap, the ACME
-    certificates and the NAS block storage (all applied), `baseline.yml` the common
-    packages, and `proxmox-upgrade.yml` the kernel cleanup. Still to add there: repositories.
-  - **Pi-hole:** `ansible/pihole-config.yml` sets what nebula-sync can't copy
+  - **Proxmox hosts:** `ansible/proxmox-setting.yml` holds the ZFS ARC cap, the ACME
+    certificates and the NAS block storage (all applied), `debian-baseline.yml` the common
+    packages, and `proxmox-update.yml` the kernel cleanup. Still to add there: repositories.
+  - **Pi-hole:** `ansible/pihole-setting.yml` sets what nebula-sync can't copy
     (`misc.dnsmasq_lines`) on both, from Semaphore. Everything else (local
     records such as `vaultwarden-direct`, CNAMEs, lists, `bogusPriv`) lives on
     Pi-hole 1 and is copied to Pi-hole 2 by nebula-sync, so losing both would
     lose it: a scheduled Teleporter export to Garage would cover that.
   - **Named logins instead of root:** the owner's account with sudo is on every machine
-    (`baseline.yml`, run 2026-10-10). Once it's proven everywhere: remove the owner's
+    (`debian-baseline.yml`, run 2026-10-10). Once it's proven everywhere: remove the owner's
     key from root's `authorized_keys` (on the Proxmox hosts the shared
     `/etc/pve/priv/authorized_keys`), and set `sshd` to `PasswordAuthentication no` and
     `PermitRootLogin prohibit-password` (never `no`: the Proxmox hosts and Semaphore log in
@@ -382,7 +387,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   1.33-1.36; 1.22 due about 2026-11), External Secrets (2.13.0 lists 1.36) and CloudNativePG
   (1.30.1, 1.34-1.36) support it; Talos 1.14 and Calico 3.33 already do, and no removed API is
   in use. Then `kubernetes_version` in `tofu/proxmox/talos-config.tf` in a commit,
-  `ansible/talos-k8s-upgrade.yml` (its dry run first), the OpenTofu job, and afterwards the
+  `ansible/kubernetes-update.yml` (its dry run first), the OpenTofu job, and afterwards the
   claude-code image's `KUBECTL_VERSION`.
 - **PyYAML's pin in the sync jobs, once it has Python 3.15 wheels**: Python 3.15.1 is in
   (#14 and #300, merged 2026-10-23 before PyYAML had them; read back 2026-10-25: the Grimmory,

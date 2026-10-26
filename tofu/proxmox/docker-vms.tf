@@ -4,10 +4,10 @@
 #
 # A new one is built from Debian's cloud image: cloud-init sets its addresses
 # (each network's prefix and its last octet), the login in site.vm_login, and
-# installs the QEMU agent (the provider waits on it). baseline.yml and Docker
+# installs the QEMU agent (the provider waits on it). debian-baseline.yml and Docker
 # follow, as on any Debian host. The first one (107) was built by hand and
 # imported: it has no image and no cloud-init, and keeps its two disks.
-# Before the first build, "Setting: Proxmox Host" puts the vendor-data snippet
+# Before the first build, "Setting: Proxmox Hosts" puts the vendor-data snippet
 # on syn-nfs (ansible/tasks/proxmox-snippets.yml).
 
 locals {
@@ -35,7 +35,7 @@ resource "proxmox_download_file" "debian_13_cloud" {
 }
 
 # Cloud-init's vendor data for a new Docker VM (the QEMU agent): a snippet on
-# syn-nfs that ansible/proxmox-host.yml writes, from ansible/files/; named here
+# syn-nfs that ansible/proxmox-setting.yml writes, from ansible/files/; named here
 # rather than uploaded, as uploading needs Datastore.Allocate on that storage.
 locals {
   docker_vm_vendor_data = "syn-nfs:snippets/docker-vm-vendor-data.yaml"

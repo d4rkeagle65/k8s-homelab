@@ -1,4 +1,4 @@
-# Managed by Ansible (baseline.yml): the same interactive bash setup on every
+# Managed by Ansible (debian-baseline.yml): the same interactive bash setup on every
 # Debian host. Loaded from /etc/bash.bashrc, which every interactive bash reads
 # (login shells through /etc/profile), so it runs before ~/.bashrc and a user's
 # own settings there win.

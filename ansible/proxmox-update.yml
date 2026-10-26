@@ -26,7 +26,7 @@
 # In check mode (--check) it runs the checks and lists the pending upgrades,
 # and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: proxmox
 

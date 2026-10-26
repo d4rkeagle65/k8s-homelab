@@ -4,36 +4,61 @@ Run from Semaphore on the Docker host (`docker/semaphore/`), which pulls this fo
 What's specific to one site lives only in Semaphore, never here: the inventory (host names
 and addresses), the SSH key, and the Kubernetes token.
 
+## Names
+
+A playbook is named `<target>-<action>[-<detail>].yml`, so `ls` groups a target's jobs: the
+target is the inventory group it works on (`debian`, `proxmox`, `proxmoxlab`, `pihole`,
+`dockervm`, `dockerhost`, `talos`, `kubernetes`, `synology`, `terramaster`, `openwrt`, `kea`),
+or `hosts` for a job that may run on any of them. The action is one of the Semaphore views,
+and the template's name starts with the same word, `<Action>: <Target> [detail]`, with
+`(OpenTofu)` or `(script)` after a template that isn't Ansible:
+
+| Action | Means |
+|---|---|
+| Update | changes software versions (packages, OS, Talos, Kubernetes); may reboot |
+| Reboot | restarts, and changes nothing else |
+| Deploy | makes something new: a host's role, guests |
+| Baseline | a platform's standard state; safe to run again at any time |
+| Setting | one service's or device's own configuration |
+| Sync | copies data between systems; changes no host |
+| Retire | removes what's no longer wanted |
+| Tool | a job for the moment, such as one command |
+
+A playbook imported by others and never run by itself starts with `_` (`_select-hosts.yml`).
+`tests/test-ansible-hosts.py` holds every playbook here to these names.
+
+## The playbooks
+
 | Playbook | What it does |
 |---|---|
-| `proxmox-upgrade.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. A reboot first drains the Kubernetes nodes running on the host and afterwards waits for every database cluster to be whole (`tasks/proxmox-host-reboot.yml`). It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
-| `proxmox-lab-upgrade.yml` | Upgrades the lab's Proxmox hosts (NetBox tag `proxmox_lab`, never production's `proxmox` group) from Proxmox VE 8 to 9 in place, one at a time: the latest 8.4 first, then `pve8to9 --full` (any FAILURE stops the run), the APT sources from bookworm to trixie (Ceph's onto Squid; without a subscription, the enterprise repositories off and no-subscription on), the full upgrade, a reboot, and the version read back. A running guest stops it unless `stop_guests: true`. A host already on 9 is left. A dry run reports each host's version, sources, subscription, running guests and pending updates. |
-| `proxmox-reboot.yml` | Reboots Proxmox hosts one at a time, changing nothing else: `target_hosts` picks them (below; `ALL` or empty, every host, one at a time; whenever every host is rebooted, however they're named, Flux is held on its current revision until the run ends, so nothing merged meanwhile deploys mid-run). For each: the Kubernetes nodes running on it are drained (each database primary switched to a replica elsewhere first; two control planes on one host stops the run, as it would cost etcd its quorum), its Proxmox HA VMs moved off by putting it in HA maintenance mode (HA's node-affinity rules refuse a manual move while their preferred node is up; the run first checks some node has room for each, and stops if not) and the VMs in `evacuate` live-migrated off, then the reboot, maintenance off (HA moves its VMs back where this host is their preferred node), and the run waits for quorum, every node Ready, the host's nodes uncordoned, every database cluster whole and the VMs moved back before the next host. The same steps as `proxmox-upgrade.yml`'s reboots; the same inventory and variables. A dry run lists what each host's reboot would drain, move and restart. |
-| `talos-upgrade.yml` | Upgrades Talos on the Kubernetes nodes, one at a time, control planes first, skipping nodes already on the target (the installer image in `talos/patches/common.yaml`). Each node: health and capacity checks, drained (database primaries switched over first), `talosctl upgrade`, back Ready on the new version, uncordoned, every database cluster whole. Change the image in a commit, run this, then the OpenTofu job. `target_hosts` limits it to some nodes. A dry run lists each node's version and what it would upgrade. |
-| `talos-reboot.yml` | Reboots Talos VMs through Proxmox, one at a time: `target_hosts` names them (VM IDs or names, separated by commas or spaces, in that order; `ALL`, every Talos VM, control planes first; every Talos VM, however named, holds Flux as for `proxmox-reboot.yml`). Proxmox's reboot stops the VM and starts it again, so a change it holds pending (memory, cores) takes effect, which a reboot from inside Talos doesn't. Each VM: health, etcd and capacity checks, drained (database primaries switched over first), the reboot, back Ready on a new boot with nothing left pending, uncordoned, every database cluster whole, and for a control plane its static pods Ready and etcd caught up, before the next. A dry run lists each VM's host, HA state and pending changes, and runs the checks. |
-| `talos-k8s-upgrade.yml` | Upgrades Kubernetes with `talosctl upgrade-k8s` to `kubernetes_version` in `tofu/proxmox/talos-config.tf`, with the cluster and every database checked healthy before and after. Change the version in a commit, run this, then the OpenTofu job (the other way round, OpenTofu would push it to every control plane at once). A dry run runs `upgrade-k8s --dry-run`. After a new minor, bump `KUBECTL_VERSION` in `docker/claude-code/Dockerfile` to match: kubectl supports one minor either side of the server. |
-| `proxmox-host.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guest restarted): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). Each host's own iSCSI LUN on the NAS as storage `nas-block` (`tasks/proxmox-nas-block.yml`, off until set). TSO, GSO and GRO off on every Intel `e1000e` NIC, now and at boot through a udev rule, as that driver hangs under load (`tasks/proxmox-nic-offloads.yml`). Intel AMT Serial-over-LAN where a host has it (`tasks/proxmox-amt-sol.yml`, below). LLDP through `lldpd`, running at boot and sending each interface's name as its port ID (`/etc/lldpd.d/port.conf`, `tasks/proxmox-lldpd.yml`), read back from `lldpcli`. One timezone for every container, `lxc_timezone` in the Proxmox hosts' variable group (for example `{"lxc_timezone": "Etc/UTC"}`), set as each container's `timezone` option, which Proxmox writes into the container at every start, and inside a running container now (`tasks/proxmox-lxc-timezone.yml`, off until set). A dry run reports each host's ARC, certificate, NAS block storage, NIC offloads, SOL setup, LLDP port ID and containers' timezone. The cloud-init snippets OpenTofu's Docker VMs name, onto `syn-nfs` (`files/`). Then, one host at a time, the retired network interfaces (`retired_interfaces`: VLANs 9 and 4) out of `/etc/network/interfaces` and `ifreload`, refusing while a guest or kept bridge uses one. |
+| `debian-baseline.yml` | The same baseline on every Debian host at once, from the "All Debian Hosts" inventory: the admin login (`debian-setting-admins.yml`'s steps), Semaphore's shared key for root, the packages in `vars/baseline.yml` (installed when missing, never removed or upgraded), one interactive bash setup (`files/homelab-bashrc`), and, where sshd listens on a fixed address, a drop-in that has it wait for the network and retry a failed bind (`tasks/ssh-listen-retry.yml`; Debian's unit never retries exit 255). Check mode reports each part. |
+| `debian-retire-sshkeys.yml` | Removes retired keys (comment `semaphore`, the per-group keys Semaphore no longer holds) from root's `authorized_keys` on the Proxmox hosts (their shared `/etc/pve/priv/authorized_keys`, edited once), the Pi-holes and the Docker VM, after proving each file holds `semaphore-shared`; reads each back. A dry run counts what it would remove. |
+| `debian-setting-admins.yml` | The admin login alone, on every host of the inventory it runs against (`debian-baseline.yml` runs the same steps, `tasks/admin-user.yml`): the account `admin_user` with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. |
+| `dockerhost-deploy.yml` | Makes one Debian 13 VM (the one `target_hosts` names) a Docker host like the first: Docker CE at the first host's version from Docker's repository, held, `daemon.json` with the local log driver and live-restore on; then Dockhand's Hawser agent when the run's environment has `HAWSER_TOKEN`. Each step read back. |
+| `dockervm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
+| `kea-setting-ha.yml` | Kea's HA pair's host files (`old-queues/QUEUE-kea-ha.md`): the primary's site file and API login copied to the standby, and on both the peers' password file and `ha.json` (which one this is, both peers' API addresses from NetBox); then Kea's own config test of `docker/kea/kea-dhcp4.conf` against them. Restarts nothing: a Kea whose files changed reloads them. With `kea_db_verify_ca: true`, both Keas verify kea-db's certificate: the CA's public certificate from the cluster (a CertificateRequest's `status.ca`, which holds no key) into each site folder, the site file's `hosts-databases` set to `verify-ca` with it as `trust-anchor`, one host at a time, each reading its reservations from the database before the next, or its previous site file restored. That needs the "k8s and Talos Connection" variable group. Survey: `kea_primary`, `kea_standby`, optionally `kea_db_verify_ca` (target Variable). |
+| `kubernetes-update.yml` | Upgrades Kubernetes with `talosctl upgrade-k8s` to `kubernetes_version` in `tofu/proxmox/talos-config.tf`, with the cluster and every database checked healthy before and after. Change the version in a commit, run this, then the OpenTofu job (the other way round, OpenTofu would push it to every control plane at once). A dry run runs `upgrade-k8s --dry-run`. After a new minor, bump `KUBECTL_VERSION` in `docker/claude-code/Dockerfile` to match: kubectl supports one minor either side of the server. |
+| `openwrt-setting.yml` | Prometheus's exporter on the OpenWrt access points (OpenWrt's `prometheus-node-exporter-lua` with its Wi-Fi collectors), listening on one interface's address, then read back from there. Only `raw`, since OpenWrt has no Python. Check mode reports the missing packages and the listening interface. |
+| `pihole-setting.yml` | Sets every Pi-hole's `pihole-FTL` settings to the values in `pihole_settings` (a Semaphore variable group), one at a time and only while the others answer DNS: sets each that differs, reads it back, restarts FTL and waits for it to answer again. It refuses settings nebula-sync copies from Pi-hole 1, so each setting has one owner. Check mode reports the differences. |
 | `pihole-update.yml` | Updates the Pi-holes one at a time (`apt dist-upgrade`, then `pihole -up`), each only while every other one answers DNS, and waits for it to answer again before the next. With a single Pi-hole it stops unless `allow_dns_outage: true`. |
-| `pihole-config.yml` | Sets every Pi-hole's `pihole-FTL` settings to the values in `pihole_settings` (a Semaphore variable group), one at a time and only while the others answer DNS: sets each that differs, reads it back, restarts FTL and waits for it to answer again. It refuses settings nebula-sync copies from Pi-hole 1, so each setting has one owner. Check mode reports the differences. |
-| `baseline.yml` | The same baseline on every Debian host at once, from the "All Debian Hosts" inventory: the admin login (`admin-users.yml`'s steps), Semaphore's shared key for root, the packages in `vars/baseline.yml` (installed when missing, never removed or upgraded), one interactive bash setup (`files/homelab-bashrc`), and, where sshd listens on a fixed address, a drop-in that has it wait for the network and retry a failed bind (`tasks/ssh-listen-retry.yml`; Debian's unit never retries exit 255). Check mode reports each part. |
-| `admin-users.yml` | The admin login alone, on every host of the inventory it runs against (`baseline.yml` runs the same steps, `tasks/admin-user.yml`): the account `admin_user` with exactly `admin_ssh_keys` in its `authorized_keys`, `sudo` installed, and sudo through Debian's `sudo` group (passwordless with `admin_sudo_nopasswd: true`). It checks the result the way sudo sees it (`sudo -l -U`), so a group sudoers doesn't grant fails the run. Root's logins and `sshd` are left alone. |
-| `docker-host.yml` | Makes one Debian 13 VM (the one `target_hosts` names) a Docker host like the first: Docker CE at the first host's version from Docker's repository, held, `daemon.json` with the local log driver and live-restore on; then Dockhand's Hawser agent when the run's environment has `HAWSER_TOKEN`. Each step read back. |
-| `synology-baseline.yml` | The Synology's own baseline (DSM, not Debian): the web bastion's SSH key (`tasks/nas-bastion-keys.yml`), Docker as Synology's package (Container Manager from DSM 7.2, Docker before it) installed from Synology's server and started, read back from the daemon; then Dockhand's Hawser agent as `docker-host.yml` runs it (image and port from `vars/hawser.yml`), its stacks on the data volume, when the run's environment has `HAWSER_TOKEN` (`tasks/nas-hawser.yml`). Only `raw`: DSM has no Python to rely on. Check mode reports each part. |
+| `proxmox-reboot.yml` | Reboots Proxmox hosts one at a time, changing nothing else: `target_hosts` picks them (below; `ALL` or empty, every host, one at a time; whenever every host is rebooted, however they're named, Flux is held on its current revision until the run ends, so nothing merged meanwhile deploys mid-run). For each: the Kubernetes nodes running on it are drained (each database primary switched to a replica elsewhere first; two control planes on one host stops the run, as it would cost etcd its quorum), its Proxmox HA VMs moved off by putting it in HA maintenance mode (HA's node-affinity rules refuse a manual move while their preferred node is up; the run first checks some node has room for each, and stops if not) and the VMs in `evacuate` live-migrated off, then the reboot, maintenance off (HA moves its VMs back where this host is their preferred node), and the run waits for quorum, every node Ready, the host's nodes uncordoned, every database cluster whole and the VMs moved back before the next host. The same steps as `proxmox-update.yml`'s reboots; the same inventory and variables. A dry run lists what each host's reboot would drain, move and restart. |
+| `proxmox-setting.yml` | The Proxmox hosts' own settings, on every host at once (no reboots, no guest restarted): the ZFS ARC cap (`zfs_arc_max_gib`, default 10% of RAM, at least 2, into `/etc/modprobe.d/zfs.conf`, the initramfs when root is on ZFS, and the running module, read back from the ARC's statistics), and a trusted certificate for each host's web UI and API (`tasks/proxmox-acme.yml`: Let's Encrypt through Proxmox's ACME client and Cloudflare DNS, ordered when missing or within 30 days of expiry, then read back). Each host's own iSCSI LUN on the NAS as storage `nas-block` (`tasks/proxmox-nas-block.yml`, off until set). TSO, GSO and GRO off on every Intel `e1000e` NIC, now and at boot through a udev rule, as that driver hangs under load (`tasks/proxmox-nic-offloads.yml`). Intel AMT Serial-over-LAN where a host has it (`tasks/proxmox-amt-sol.yml`, below). LLDP through `lldpd`, running at boot and sending each interface's name as its port ID (`/etc/lldpd.d/port.conf`, `tasks/proxmox-lldpd.yml`), read back from `lldpcli`. One timezone for every container, `lxc_timezone` in the Proxmox hosts' variable group (for example `{"lxc_timezone": "Etc/UTC"}`), set as each container's `timezone` option, which Proxmox writes into the container at every start, and inside a running container now (`tasks/proxmox-lxc-timezone.yml`, off until set). A dry run reports each host's ARC, certificate, NAS block storage, NIC offloads, SOL setup, LLDP port ID and containers' timezone. The cloud-init snippets OpenTofu's Docker VMs name, onto `syn-nfs` (`files/`). Then, one host at a time, the retired network interfaces (`retired_interfaces`: VLANs 9 and 4) out of `/etc/network/interfaces` and `ifreload`, refusing while a guest or kept bridge uses one. |
+| `proxmox-update.yml` | Upgrades the Proxmox hosts one at a time (`apt dist-upgrade`, `autoremove`), rebooting only when a new kernel or Debian asks for it. Before each host and after any reboot it checks the Proxmox cluster has quorum and every Kubernetes node is Ready, and stops the run if not. A reboot first drains the Kubernetes nodes running on the host and afterwards waits for every database cluster to be whole (`tasks/proxmox-host-reboot.yml`). It live-migrates the VMs listed in `evacuate` off a host before rebooting it and back afterwards, and, with two Pi-holes or more, never lets DNS go fully down: a host carrying one reboots only while the others answer. Hosts in `no_reboot` are upgraded but left for you to reboot. |
+| `proxmoxlab-update-major.yml` | Upgrades the lab's Proxmox hosts (NetBox tag `proxmox_lab`, never production's `proxmox` group) from Proxmox VE 8 to 9 in place, one at a time: the latest 8.4 first, then `pve8to9 --full` (any FAILURE stops the run), the APT sources from bookworm to trixie (Ceph's onto Squid; without a subscription, the enterprise repositories off and no-subscription on), the full upgrade, a reboot, and the version read back. A running guest stops it unless `stop_guests: true`. A host already on 9 is left. A dry run reports each host's version, sources, subscription, running guests and pending updates. |
+| `synology-baseline.yml` | The Synology's own baseline (DSM, not Debian): the web bastion's SSH key (`tasks/nas-bastion-keys.yml`), Docker as Synology's package (Container Manager from DSM 7.2, Docker before it) installed from Synology's server and started, read back from the daemon; then Dockhand's Hawser agent as `dockerhost-deploy.yml` runs it (image and port from `vars/hawser.yml`), its stacks on the data volume, when the run's environment has `HAWSER_TOKEN` (`tasks/nas-hawser.yml`). Only `raw`: DSM has no Python to rely on. Check mode reports each part. |
+| `talos-reboot.yml` | Reboots Talos VMs through Proxmox, one at a time: `target_hosts` names them (VM IDs or names, separated by commas or spaces, in that order; `ALL`, every Talos VM, control planes first; every Talos VM, however named, holds Flux as for `proxmox-reboot.yml`). Proxmox's reboot stops the VM and starts it again, so a change it holds pending (memory, cores) takes effect, which a reboot from inside Talos doesn't. Each VM: health, etcd and capacity checks, drained (database primaries switched over first), the reboot, back Ready on a new boot with nothing left pending, uncordoned, every database cluster whole, and for a control plane its static pods Ready and etcd caught up, before the next. A dry run lists each VM's host, HA state and pending changes, and runs the checks. |
+| `talos-update.yml` | Upgrades Talos on the Kubernetes nodes, one at a time, control planes first, skipping nodes already on the target (the installer image in `talos/patches/common.yaml`). Each node: health and capacity checks, drained (database primaries switched over first), `talosctl upgrade`, back Ready on the new version, uncordoned, every database cluster whole. Change the image in a commit, run this, then the OpenTofu job. `target_hosts` limits it to some nodes. A dry run lists each node's version and what it would upgrade. |
 | `terramaster-baseline.yml` | The TerraMaster's own baseline (TOS, OpenWrt-based): the web bastion's SSH key, Docker (TOS's own) read back from the daemon, and Hawser as on the Synology, its stacks where it was started by hand. Only `raw`. Check mode reports each part. |
-| `kea-ha.yml` | Kea's HA pair's host files (`old-queues/QUEUE-kea-ha.md`): the primary's site file and API login copied to the standby, and on both the peers' password file and `ha.json` (which one this is, both peers' API addresses from NetBox); then Kea's own config test of `docker/kea/kea-dhcp4.conf` against them. Restarts nothing: a Kea whose files changed reloads them. With `kea_db_verify_ca: true`, both Keas verify kea-db's certificate: the CA's public certificate from the cluster (a CertificateRequest's `status.ca`, which holds no key) into each site folder, the site file's `hosts-databases` set to `verify-ca` with it as `trust-anchor`, one host at a time, each reading its reservations from the database before the next, or its previous site file restored. That needs the "k8s and Talos Connection" variable group. Survey: `kea_primary`, `kea_standby`, optionally `kea_db_verify_ca` (target Variable). |
-| `docker-vm-update.yml` | Updates the Docker VM's packages with Docker held, and reports when a reboot or a Docker upgrade is due; it never does either, since Semaphore runs there. Not yet run. |
-| `openwrt-aps.yml` | Prometheus's exporter on the OpenWrt access points (OpenWrt's `prometheus-node-exporter-lua` with its Wi-Fi collectors), listening on one interface's address, then read back from there. Only `raw`, since OpenWrt has no Python. Check mode reports the missing packages and the listening interface. |
-| `retire-ssh-keys.yml` | Removes retired keys (comment `semaphore`, the per-group keys Semaphore no longer holds) from root's `authorized_keys` on the Proxmox hosts (their shared `/etc/pve/priv/authorized_keys`, edited once), the Pi-holes and the Docker VM, after proving each file holds `semaphore-shared`; reads each back. A dry run counts what it would remove. |
 
 ## Picking the hosts
 
 Every playbook that works on hosts takes one variable for which: **`target_hosts`**, hosts,
 groups or patterns separated by commas, spaces or new lines, in a survey on its template
 (target "Variable"). Empty or `ALL` means every host the playbook works on (its group), except
-where a playbook says it's required (`run-command.yml`, `docker-host.yml`, `talos-reboot.yml`).
+where a playbook says it's required (`hosts-tool-command.yml`, `dockerhost-deploy.yml`, `talos-reboot.yml`).
 A name outside the inventory, or a host outside the playbook's group, stops the run before
-anything runs. `select-hosts.yml` does this for the inventory playbooks; the Talos playbooks
-read `target_hosts` themselves, since their nodes come from the cluster; `kea-ha.yml` names
+anything runs. `_select-hosts.yml` does this for the inventory playbooks; the Talos playbooks
+read `target_hosts` themselves, since their nodes come from the cluster; `kea-setting-ha.yml` names
 its pair by role (`kea_primary`, `kea_standby`) instead.
 
 Every run's log says where Ansible runs (Semaphore's container, as the host `semaphore`) and
@@ -121,7 +146,7 @@ args.
    (`group_vars/all.yml` reads them; Semaphore hands a Python template, the NetBox sync, a
    group's extra variables as arguments, which it refuses). Attach it to every template
    that checks the cluster or drains nodes (the Proxmox upgrade and reboot, the Talos
-   upgrade, reboot and Kubernetes upgrade) and to "NetBox: Sync from Proxmox and Kea",
+   upgrade, reboot and Kubernetes upgrade) and to "Sync: Proxmox, Kea, k8s → NetBox (script)",
    beside each one's own group:
    - `K8S_API_URL`: the API server URL, the same as in your kubeconfig: `https://`, the
      control plane's name and `:6443`, a name its certificate covers. On the PC:
@@ -157,16 +182,16 @@ args.
 
    Keep a copy in Vaultwarden, clear the clipboard, and delete the file as `talos/README.md` says.
 
-5. **A task template "Proxmox upgrade"**, playbook `ansible/proxmox-upgrade.yml`, the
+5. **A task template "Update: Proxmox Hosts"**, playbook `ansible/proxmox-update.yml`, the
    inventory from step 3, the repository from step 2 and the "k8s and Talos Connection" variable
    group. A
    dry run runs the checks and lists the pending upgrades, changing nothing; it's safe to
    schedule (e.g. weekly, from its own template with `["--check"]`). A real run is started by
    hand.
 
-## The Pi-holes and the Docker VM (`pihole-update.yml`, `pihole-config.yml`, `docker-vm-update.yml`)
+## The Pi-holes and the Docker VM (`pihole-update.yml`, `pihole-setting.yml`, `dockervm-update.yml`)
 
-`pihole-update.yml` and `docker-vm-update.yml` haven't run yet; dry-run each first.
+`pihole-update.yml` and `dockervm-update.yml` haven't run yet; dry-run each first.
 
 - **Keys and inventories.** Each needs Semaphore's key in the guest's
   `/root/.ssh/authorized_keys` (from its Proxmox host with `pct exec`, as for the nodes, or
@@ -180,13 +205,13 @@ args.
   the `default via` address).
 - **Templates:** one for each, with the inventory and the repository; none needs the
   "k8s and Talos Connection" variable group.
-- **The Pi-hole settings** for `pihole-config.yml` live in a variable group of their own
+- **The Pi-hole settings** for `pihole-setting.yml` live in a variable group of their own
   ("Pi-hole settings"), as extra variables, since they name the site's domains:
   `{"pihole_settings": {"misc.dnsmasq_lines": [...], "webserver.api.app_sudo": true}}`. The
   playbook's header says which settings it may own. Run it after changing a value there, and
   on a schedule in check mode to report drift.
 
-## Trusted certificates on the Proxmox hosts (`proxmox-host.yml`)
+## Trusted certificates on the Proxmox hosts (`proxmox-setting.yml`)
 
 Off until `acme_domain` is set. A variable group "Proxmox ACME", extra variables, added to the
 "Proxmox host" template:
@@ -203,7 +228,7 @@ resolves.
 Running the playbook registers the Let's Encrypt account, which accepts its Subscriber
 Agreement. Proxmox renews the certificates itself.
 
-## Serial-over-LAN on the Proxmox hosts (`proxmox-host.yml`)
+## Serial-over-LAN on the Proxmox hosts (`proxmox-setting.yml`)
 
 `tasks/proxmox-amt-sol.yml` sets up the Linux side of Intel AMT's Serial-over-LAN on every
 host whose AMT shows a serial port (an Intel 16550 at 00:16.3, "KT Controller" or "Active
@@ -219,7 +244,7 @@ SOL only works over the NIC AMT is bound to, the onboard Intel one.
   the same file with `proxmox-boot-tool refresh` for GRUB on proxmox-boot-tool's ESPs, and
   `/etc/kernel/cmdline` for systemd-boot on them (which has no serial menu). A host it can't
   place stops with proxmox-boot-tool's output.
-- **Reboots:** a boot change sets `/run/reboot-required`, so the next `proxmox-upgrade.yml`
+- **Reboots:** a boot change sets `/run/reboot-required`, so the next `proxmox-update.yml`
   run reboots that host the usual careful way. Nothing here reboots a host.
 - **No tty:** if the KT Controller has no tty, 8250 ran out of UARTs; the run adds
   `8250.nr_uarts=8`, and the console and getty come with the run after the reboot.
@@ -229,7 +254,7 @@ SOL only works over the NIC AMT is bound to, the onboard Intel one.
   serial-getty@ttyS<N>` is active, and MeshCommander's Terminal (or `amtterm`) shows a login
   prompt, and GRUB's menu on the next boot.
 
-## NAS block storage on the Proxmox hosts (`proxmox-host.yml`)
+## NAS block storage on the Proxmox hosts (`proxmox-setting.yml`)
 
 Each host gets its own iSCSI LUN on the NAS as storage `nas-block`: one entry, LVM, not shared,
 on every host, the way `local-lvm` is each host's own disk. A container moved to another host
@@ -251,25 +276,25 @@ A host without a LUN of its own (one that only carries Talos VMs, which don't us
 gets `nas_block: false` as a host variable in the inventory: the run leaves it out, and the
 storage entry lists only the other hosts.
 
-## Your own login on every machine (`admin-users.yml`)
+## Your own login on every machine (`debian-setting-admins.yml`)
 
 - **A variable group "Debian Host Baseline"**, extra variables:
   `{"admin_user": "dhardin", "admin_ssh_keys": ["ssh-ed25519 AAAA... comment"], "admin_sudo_nopasswd": true}`.
   The public key line is the one `ssh-add -L` shows for the key in your vault. For sudo with a
   password instead, set `admin_sudo_nopasswd` to false and add `admin_password_hash` (from
   `openssl passwd -6`) as a secret.
-- **Run it through `baseline.yml`** (below), which takes the same variable group; a template
-  of `admin-users.yml` alone is only for the admin login without the rest.
+- **Run it through `debian-baseline.yml`** (below), which takes the same variable group; a template
+  of `debian-setting-admins.yml` alone is only for the admin login without the rest.
 - **Afterwards**, `ssh dhardin@<host>` and `sudo -n true` prove it on each machine; then
   `~/.ssh/config` can say `User dhardin`.
 
-## Every Debian host at once (`baseline.yml`)
+## Every Debian host at once (`debian-baseline.yml`)
 
 - **A shared SSH key for Semaphore.** On the Docker host, `ssh-keygen -t ed25519 -N '' -C
   semaphore-shared -f semaphore-shared`; the private half goes into the Key Store as
   "Shared", the `.pub` line into the "Debian Host Baseline" variable group as `semaphore_ssh_key`, and
   then delete both files.
-- **A "Baseline" template per existing inventory** (Proxmox, Pi-holes, Docker VM), playbook `ansible/baseline.yml`, the "Debian Host Baseline" variable group. Run each
+- **A "Baseline" template per existing inventory** (Proxmox, Pi-holes, Docker VM), playbook `ansible/debian-baseline.yml`, the "Debian Host Baseline" variable group. Run each
   once (a dry run first): that puts the shared key on every host through the keys that
   already work.
 - **The inventory "All Debian Hosts"**, Static YAML with the "Shared" key: every host, in
@@ -292,7 +317,7 @@ storage entry lists only the other hosts.
 
   Keep each group's own variables under that group. The host keys are the ones already pinned in Semaphore's `known_hosts`.
 - **One template "All Debian hosts: baseline"** on that inventory replaces the per-inventory
-  ones, and `admin-users.yml`'s templates. The update and upgrade playbooks keep their own
+  ones, and `debian-setting-admins.yml`'s templates. The update and upgrade playbooks keep their own
   narrower inventories, so a mis-set limit can't reach the wrong machines.
 
 **Prometheus's exporters** (`tasks/host-exporters.yml`), off until `host_exporters: true` is in
@@ -302,14 +327,14 @@ collectors (each SSD's wear) on their timers. Each listens only on the host's ow
 `management_network` (the management network with its prefix, set once in the variable group),
 found on the host itself, so no host needs an address set; a host with none or several there
 stops the run. Prometheus finds
-the Proxmox hosts through `proxmox-hosts.<domain>`, a Pi-hole name `proxmox-host.yml` writes
+the Proxmox hosts through `proxmox-hosts.<domain>`, a Pi-hole name `proxmox-setting.yml` writes
 with one address per host, and the Docker VM by its management name.
 
 The bash setup is loaded before each user's `~/.bashrc`, so anything set there wins: Debian's
 default `~/.bashrc` for a new account sets its own prompt, and the baseline's coloured prompt
 shows only where that line is removed (root's default `~/.bashrc` doesn't set one).
 
-## The OpenWrt access points (`openwrt-aps.yml`)
+## The OpenWrt access points (`openwrt-setting.yml`)
 
 - **Key.** OpenWrt's SSH server (dropbear) reads root's keys from
   `/etc/dropbear/authorized_keys`, not `/root/.ssh`: add Semaphore's shared key there on each
@@ -336,7 +361,7 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
   TOS). The login is the host's `ansible_user` in its local config context, an
   administrator with passwordless sudo (`/etc/sudoers.d/<user>`, made by hand); a DSM update
   can remove that file, and the first step then stops and says so.
-- **Template** "Setting: Synology Baseline", the NetBox inventory, and the variable group
+- **Template** "Baseline: Synology NAS", the NetBox inventory, and the variable group
   "Synology Baseline" with `HAWSER_TOKEN` among its secrets (environment variables, not
   extra variables): a token you choose (`openssl rand -hex 32`), the same one typed into
   Dockhand's environment for the Synology (Settings > Environments, Hawser, Standard, the
@@ -360,7 +385,7 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 - Optional: `nas_bastion_user` (default the login), `terramaster_hawser_stacks` (default
   `/opt/hawser-stacks`).
 
-## One command on chosen hosts (`run-command.yml`)
+## One command on chosen hosts (`hosts-tool-command.yml`)
 
 - **Template** "Tool: Run Command" on the NetBox inventory, with a survey: `run_command`
   (required), `target_hosts` (required: hosts or groups, separated by commas or spaces) and
@@ -371,9 +396,9 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 
 ## Rebooting Talos VMs (`talos-reboot.yml`)
 
-- **Template** "Reboot: Talos VMs", playbook `ansible/talos-reboot.yml`, the Proxmox inventory,
+- **Template** "Reboot: Talos Nodes", playbook `ansible/talos-reboot.yml`, the Proxmox inventory,
   the repository and the "k8s and Talos Connection" variable group (as for
-  `talos-upgrade.yml`), and a survey: `target_hosts` (required). Without a survey, give it as CLI
+  `talos-update.yml`), and a survey: `target_hosts` (required). Without a survey, give it as CLI
   args, one per line: `-e` and `target_hosts=110,112,113`.
 - Dry-run it first: it lists each VM's host, whether HA manages it and what Proxmox holds
   pending (a resize from the OpenTofu job shows there as `memory 4096 -> 6144`), and runs every
@@ -383,23 +408,23 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 
 ## Running a Proxmox upgrade
 
-1. Dry-run **"Proxmox upgrade"** and read the pending upgrades per host.
-2. Run **"Proxmox upgrade"**. It stops at the first failed check, before touching the next
+1. Dry-run **"Update: Proxmox Hosts"** and read the pending upgrades per host.
+2. Run **"Update: Proxmox Hosts"**. It stops at the first failed check, before touching the next
    host; fix the cause and run it again (upgraded hosts have nothing left to do).
 3. When it reports a host that still needs a reboot by hand, reboot that host from Proxmox when
    convenient, after moving anything that has to stay up.
 
 ## Checks for a playbook here
 
-- It starts with `import_playbook: select-hosts.yml`, `select_from` its group, and its plays
+- It starts with `import_playbook: _select-hosts.yml`, `select_from` its group, and its plays
   run on `targets` ("Picking the hosts"). That also stops a run whose inventory gave the group
   no hosts: an inventory Ansible can't parse (a tab in Semaphore's YAML) only draws warnings,
   then every play matches nothing and the run exits 0, a success that did nothing.
 - The log names what each step is about. Steps that run on Semaphore itself run as the host
-  `semaphore`, never `localhost` (`semaphore-host.yml`, which `select-hosts.yml` imports; its
+  `semaphore`, never `localhost` (`_semaphore-host.yml`, which `_select-hosts.yml` imports; its
   own steps are the only `[localhost]` lines), and a play that works through nodes it found makes each one a host
   of its own (`add_host`, `ansible_connection: local`), its kubectl steps delegated to
-  itself, so every line of that work reads `[node]`. `talos-upgrade.yml` is the example.
+  itself, so every line of that work reads `[node]`. `talos-update.yml` is the example.
 - `ansible-playbook --syntax-check` passes, with any inventory.
 - In a block scalar (`>-`, `|`), a regex takes a single backslash: `'(\d+)'`, `'\1'`. YAML
   keeps a block's backslashes as they are, so a doubled one reaches the regex as a literal

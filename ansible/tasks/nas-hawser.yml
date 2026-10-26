@@ -1,5 +1,5 @@
 # Dockhand's Hawser agent on a NAS, for synology-baseline.yml and terramaster-baseline.yml,
-# as docker-host.yml runs it: the image and port from vars/hawser.yml (the playbook loads
+# as dockerhost-deploy.yml runs it: the image and port from vars/hawser.yml (the playbook loads
 # it), its stacks in hawser_stacks, at the same path inside the container. It runs only
 # when hawser_token (the run's HAWSER_TOKEN) is set, and is recreated when its image or
 # token differs. The token is never printed. One `raw` script: nas_path is the PATH it runs

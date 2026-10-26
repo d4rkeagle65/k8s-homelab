@@ -31,7 +31,7 @@
 #
 # In check mode (--check) it reports what it would write and changes nothing.
 
-- ansible.builtin.import_playbook: semaphore-host.yml
+- ansible.builtin.import_playbook: _semaphore-host.yml
 
 - name: The kea-db CA's certificate, from the cluster
   hosts: semaphore

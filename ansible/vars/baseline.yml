@@ -1,4 +1,4 @@
-# What baseline.yml keeps on every Debian host. Packages are installed when
+# What debian-baseline.yml keeps on every Debian host. Packages are installed when
 # missing, never removed or upgraded (upgrades belong to the update playbooks);
 # dropping a name here stops ensuring it, and the package stays.
 

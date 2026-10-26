@@ -1,5 +1,5 @@
 # The Proxmox hosts' own settings, so a rebuilt host comes back the same.
-# Upgrades are proxmox-upgrade.yml; this changes nothing that needs a reboot
+# Upgrades are proxmox-update.yml; this changes nothing that needs a reboot
 # and touches no guest, so it runs on every host at once.
 #
 # ZFS ARC cap: uncapped, ZFS's read cache may grow to nearly all of a host's
@@ -9,7 +9,7 @@
 # into the initramfs when the root filesystem is ZFS, and live into the
 # running module; it's then read back from the ARC's own statistics.
 #
-# Inventory: the proxmox group, as for proxmox-upgrade.yml. Optional, per host
+# Inventory: the proxmox group, as for proxmox-update.yml. Optional, per host
 # or for all: zfs_arc_max_gib, the cap in GiB. Unset, it's 10% of the host's
 # RAM rounded down, at least 2 (Proxmox's installer default since 8.1, which
 # for these hosts' small pools also matches its rule of 2 GiB plus 1 GiB per
@@ -20,7 +20,7 @@
 # record for that name in the primary Pi-hole; off until acme_domain is set
 # (a Semaphore variable group, with acme_email, acme_cf_token and
 # acme_cf_zone_id). The Pi-hole is found by dns_guest_tag, as in
-# proxmox-upgrade.yml.
+# proxmox-update.yml.
 #
 # NAS block storage (tasks/proxmox-nas-block.yml): each host's own iSCSI LUN on
 # the NAS as an LVM storage entry of one name on every host; off until
@@ -32,7 +32,7 @@
 #
 # Intel AMT Serial-over-LAN (tasks/proxmox-amt-sol.yml): on a host whose AMT
 # shows a serial port, the kernel console, a login getty and GRUB's menu on
-# it; a boot change is flagged for proxmox-upgrade.yml to reboot for, never
+# it; a boot change is flagged for proxmox-update.yml to reboot for, never
 # rebooted here. amt_sol: false reports only.
 #
 # LLDP (tasks/proxmox-lldpd.yml): lldpd installed, running at boot, and
@@ -58,7 +58,7 @@
 # and wanted, and
 # changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: proxmox
 
