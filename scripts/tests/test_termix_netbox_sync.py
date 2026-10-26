@@ -197,3 +197,58 @@ def test_a_named_credential_termix_lacks_holds_that_host_and_never_deletes_it(mo
     assert fake.calls == [("POST", "http://termix:8080/host/db/host")]  # pihole made; switch neither changed nor deleted
     out = capsys.readouterr().out
     assert "credential(s) named 'bastion-rsa'" in out and "VERIFIED" in out
+
+
+def test_a_host_tagged_rdp_is_a_remote_desktop_host_with_its_named_credential():
+    dc = obj(8, "dc", ["rdp"], "Domain controller")
+    dc["local_context_data"] = {"termix_credential": "domain"}
+    bare = obj(9, "dc2", ["rdp"], "Domain controller")
+    addresses = [addr(8, "192.0.2.20/24", "dc.mgmt.example"), addr(9, "192.0.2.21/24", "dc2.mgmt.example")]
+    hosts, skipped = m.wanted_hosts([dc, bare], addresses, PREFIXES, [])
+    assert hosts["dc"]["protocol"] == "rdp" and hosts["dc"]["port"] == 3389
+    assert hosts["dc"]["credential"] == "domain" and hosts["dc"]["username"] == ""
+    assert "dc2" not in hosts and skipped == ["dc2: tagged rdp, but its local context names no termix_credential"]
+
+
+RDP_WANT = {"name": "dc", "ip": "dc.mgmt.example", "port": 3389, "username": "", "folder": "Other",
+            "login": "rdp", "via": "management network", "credential": "domain", "protocol": "rdp"}
+
+
+class FakeRdpTermix(FakeTermix):
+    """Termix as it answers an RDP host: the login under protocolAuth, RDP's switch in the
+    remote-desktop plugin's settings, written by a call of their own."""
+
+    def send(self, method, url, headers, body=None):
+        if "/plugins/remote-desktop/settings/host/" in url:
+            self.calls.append((method, url))
+            hid = int(url.rsplit("/", 1)[1])
+            for h in self.hosts:
+                if h["id"] == hid:
+                    h["pluginSettings"] = {"remote-desktop": dict(body)}
+            return {"values": body}
+        if method == "POST" and body.get("connectionType") == "rdp":
+            body = dict(body, protocolAuth={"rdp": {**body["protocolAuth"]["rdp"], "username": None}})
+        return super().send(method, url, headers, body)
+
+
+def test_an_rdp_host_is_made_then_given_rdp_in_the_plugin_and_read_back(monkeypatch, capsys):
+    fake = FakeRdpTermix([], [{"id": 3, "name": "bastion"}, {"id": 4, "name": "domain"}])
+    assert run(monkeypatch, fake, {"dc": RDP_WANT}, dry_run=False) == 0
+    made = fake.hosts[0]
+    assert made["connectionType"] == "rdp" and made["enableSsh"] is False and made["port"] == 3389
+    assert made["protocolAuth"]["rdp"]["credentialId"] == 4 and made["credentialId"] is None
+    assert fake.calls[-1] == ("PUT", f"http://termix:8080/plugins/remote-desktop/settings/host/{made['id']}")
+    assert made["pluginSettings"]["remote-desktop"] == {"enableRdp": True, "rdpPort": 3389}
+    assert "VERIFIED" in capsys.readouterr().out
+    # Nothing left to do the next time.
+    fake.calls.clear()
+    assert run(monkeypatch, fake, {"dc": RDP_WANT}, dry_run=False) == 0 and fake.calls == []
+
+
+def test_rdp_switched_off_in_the_ui_is_turned_back_on_without_rewriting_the_host(monkeypatch):
+    have = {"id": 5, "name": "dc", "ip": "dc.mgmt.example", "port": 3389, "folder": "Other", "tags": "netbox",
+            "connectionType": "rdp", "protocolAuth": {"rdp": {"authType": "credential", "credentialId": 4}},
+            "pluginSettings": {"remote-desktop": {"enableRdp": False, "rdpPort": 3389}}}
+    fake = FakeRdpTermix([have], [{"id": 3, "name": "bastion"}, {"id": 4, "name": "domain"}])
+    assert run(monkeypatch, fake, {"dc": RDP_WANT}, dry_run=False) == 0
+    assert fake.calls == [("PUT", "http://termix:8080/plugins/remote-desktop/settings/host/5")]

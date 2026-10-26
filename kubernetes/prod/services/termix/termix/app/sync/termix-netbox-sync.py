@@ -1,4 +1,4 @@
-"""Termix's SSH hosts from NetBox (QUEUE-bastion.md, step 6).
+"""Termix's SSH and RDP hosts from NetBox (QUEUE-bastion.md, step 6).
 
 The hosts are NetBox's devices and VMs that the playbooks give the web bastion's key: tagged
 debian (the owner's admin account, TERMIX_SSH_ADMIN_USER), openwrt_aps (root), synology
@@ -8,6 +8,11 @@ firewall), as the termix_user in its NetBox local context. Each is reached by it
 (the address NetBox holds in the prefix described "Management"; a host with none there,
 such as the travel router on its own LAN, by its primary address), on port 22 unless NetBox
 records an SSH service on another port, in a folder named for its NetBox role.
+
+A host tagged rdp (the Windows DC) is a remote desktop host instead: on port 3389 unless
+NetBox records an RDP service, with RDP turned on in Termix's remote-desktop plugin (its
+host settings, a call of their own), and the credential its local context names in
+termix_credential, a password one with its own username; it has no default.
 
 Every host logs in with a Termix credential made by hand in Termix's UI, so the private key
 never leaves Termix: the bastion key, named by TERMIX_CREDENTIAL (default "bastion"), unless
@@ -44,6 +49,8 @@ OWNED_TAG = "netbox"
 CREDENTIAL = os.environ.get("TERMIX_CREDENTIAL", "bastion").strip()
 # The fields the sync owns on a host it made; the rest stay as the user left them.
 SYNCED = ("ip", "port", "username", "folder")
+SYNCED_RDP = ("ip", "port", "folder")
+RDP_PLUGIN = "remote-desktop"
 
 # NetBox tag -> where its username comes from: an environment variable, a fixed name, or
 # a key of the host's NetBox local context.
@@ -91,6 +98,10 @@ def listed(payload, *keys) -> list[dict]:
     return []
 
 
+def is_rdp(want: dict) -> bool:
+    return want.get("protocol") == "rdp"
+
+
 def host_body(want: dict, credential_id, have: dict | None = None) -> dict:
     """The body for a create, or for an update of `have`: Termix's PUT replaces the whole
     record, so an update starts from what Termix holds and overlays the synced fields."""
@@ -100,13 +111,40 @@ def host_body(want: dict, credential_id, have: dict | None = None) -> dict:
         body["tags"] = sorted(tags_of(have) | {OWNED_TAG})
     else:
         body["tags"] = [OWNED_TAG]
+    if is_rdp(want):
+        # The login is the RDP protocol's (protocolAuth), the credential's own username; the
+        # SSH side has none.
+        body.update({k: want[k] for k in SYNCED_RDP})
+        body.update({"name": want["name"], "connectionType": "rdp", "enableSsh": False, "authType": "none",
+                     "credentialId": None, "overrideCredentialUsername": False, "username": "",
+                     "protocolAuth": {"rdp": {"authType": "credential", "credentialId": credential_id}}})
+        return body
     body.update({k: want[k] for k in SYNCED})
     body.update({"name": want["name"], "connectionType": "ssh", "authType": "credential",
                  "credentialId": credential_id, "overrideCredentialUsername": True, "enableSsh": True})
     return body
 
 
+def rdp_settings(want: dict) -> dict:
+    """The remote-desktop plugin's host settings an RDP host needs."""
+    return {"enableRdp": True, "rdpPort": want["port"]}
+
+
+def rdp_settings_differ(have: dict, want: dict) -> bool:
+    current = ((have.get("pluginSettings") or {}).get(RDP_PLUGIN)) or {}
+    return any(str(current.get(k)).lower() != str(v).lower() for k, v in rdp_settings(want).items())
+
+
 def differs(have: dict, want: dict, credential_id) -> list[str]:
+    """What of the host record differs (the RDP plugin's settings are rdp_settings_differ's)."""
+    if is_rdp(want):
+        diff = [k for k in SYNCED_RDP if str(have.get(k) or "") != str(want[k])]
+        if have.get("connectionType") != "rdp":
+            diff.append("connection type")
+        login = ((have.get("protocolAuth") or {}).get("rdp")) or {}
+        if login.get("authType") != "credential" or str(login.get("credentialId")) != str(credential_id):
+            diff.append("credential")
+        return diff
     diff = [k for k in SYNCED if str(have.get(k) or "") != str(want[k])]
     if have.get("authType") != "credential" or str(have.get("credentialId")) != str(credential_id):
         diff.append("credential")
@@ -156,20 +194,29 @@ def wanted_hosts(objects: list[dict], addresses: list[dict], prefixes: list[dict
         parent = obj.get("device") or obj.get("virtual_machine") or {}
         if parent.get("id"):
             by_owner.setdefault(("vm" if "virtualization" in kind else "device", parent["id"]), []).append(a)
-    ssh_ports = {}
+    ports: dict[str, dict] = {"ssh": {}, "rdp": {}}
     for s in services:
-        if re.search(r"\bssh\b", s.get("name", ""), re.I) and s.get("ports"):
-            parent = s.get("parent") or s.get("device") or s.get("virtual_machine") or {}
-            if parent.get("id"):
-                ssh_ports[(s.get("parent_object_type") or "", parent["id"])] = s["ports"][0]
+        for proto in ports:
+            if re.search(rf"\b{proto}\b", s.get("name", ""), re.I) and s.get("ports"):
+                parent = s.get("parent") or s.get("device") or s.get("virtual_machine") or {}
+                if parent.get("id"):
+                    ports[proto][(s.get("parent_object_type") or "", parent["id"])] = s["ports"][0]
     hosts, skipped = {}, []
     for o in objects:
         tags = {t["slug"] for t in o.get("tags", [])}
-        user, source = username_for(tags, o.get("local_context_data"))
+        context = o.get("local_context_data") or {}
+        name = o["name"]
+        protocol = "rdp" if "rdp" in tags else "ssh"
+        if protocol == "rdp":
+            user, source = "", "rdp (its credential's username)"
+            if not str(context.get("termix_credential") or "").strip():
+                skipped.append(f"{name}: tagged rdp, but its local context names no termix_credential")
+                continue
+        else:
+            user, source = username_for(tags, context)
         if source == "no login tag":
             continue
-        name = o["name"]
-        if not user:
+        if protocol == "ssh" and not user:
             skipped.append(f"{name}: username not set ({source})")
             continue
         found = None
@@ -186,11 +233,12 @@ def wanted_hosts(objects: list[dict], addresses: list[dict], prefixes: list[dict
         if not found:
             skipped.append(f"{name}: no address on the management network, and no primary address, in NetBox")
             continue
-        port = next((p for (t, i), p in ssh_ports.items() if i == o["id"] and o["_kind"] in t), 22)
-        credential = str((o.get("local_context_data") or {}).get("termix_credential") or "").strip() or CREDENTIAL
+        default_port = 3389 if protocol == "rdp" else 22
+        port = next((p for (t, i), p in ports[protocol].items() if i == o["id"] and o["_kind"] in t), default_port)
+        credential = str(context.get("termix_credential") or "").strip() or CREDENTIAL
         hosts[name] = {"name": name, "ip": found, "port": port, "username": user,
                        "folder": (o.get("role") or {}).get("name") or "Other", "login": source, "via": via,
-                       "credential": credential}
+                       "credential": credential, "protocol": protocol}
     return hosts, skipped
 
 
@@ -254,13 +302,19 @@ def main() -> int:
             continue
         have = owned.get(name)
         if not have:
-            print(f"  {verb('create')} {name}: port {want['port']}, by its {want['via']}, as {want['login']}, in {want['folder']}")
+            print(f"  {verb('create')} {name}: {want.get('protocol', 'ssh')} port {want['port']}, by its {want['via']}, "
+                  f"as {want['login']}, with {want.get('credential', CREDENTIAL)!r}, in {want['folder']}")
             plan.append(("POST", f"{TERMIX}/host/db/host", host_body(want, credential_id), name))
         else:
             diff = differs(have, want, credential_id)
+            if is_rdp(want) and rdp_settings_differ(have, want):
+                diff.append("RDP settings")
             if diff:
                 print(f"  {verb('update')} {name}: {', '.join(diff)}")
-                plan.append(("PUT", f"{TERMIX}/host/db/host/{have['id']}", host_body(want, credential_id, have), name))
+                if diff != ["RDP settings"]:
+                    plan.append(("PUT", f"{TERMIX}/host/db/host/{have['id']}", host_body(want, credential_id, have), name))
+                else:
+                    plan.append(("SETTINGS", None, None, name))
     for name in sorted(set(owned) - set(wanted) - held):
         print(f"  {verb('delete')} {name}: no longer in NetBox")
         plan.append(("DELETE", f"{TERMIX}/host/db/host/{owned[name]['id']}", None, name))
@@ -273,6 +327,8 @@ def main() -> int:
 
     failed = 0
     for method, url, body, name in plan:
+        if method == "SETTINGS":
+            continue  # after the host writes, below
         try:
             send(method, url, headers, body)
         except urllib.error.HTTPError as e:
@@ -282,13 +338,34 @@ def main() -> int:
             failed += 1
             print(f"  FAILED {method} {name}: {e}")
 
+    def read_owned() -> dict[str, dict]:
+        try:
+            after = listed(get(f"{TERMIX}/host/db/host", headers), "hosts", "data")
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            fail(f"Termix, reading back: {getattr(e, 'code', None) or e}")
+        return {h.get("name"): h for h in after if OWNED_TAG in tags_of(h)}
+
+    # RDP turned on in the remote-desktop plugin's settings, by host ID, once the host exists.
+    rdp_names = {n for n, w in wanted.items() if is_rdp(w) and n not in clash}
+    if rdp_names:
+        now = read_owned()
+        for name in sorted(rdp_names):
+            have = now.get(name)
+            if not have or not rdp_settings_differ(have, wanted[name]):
+                continue
+            try:
+                send("PUT", f"{TERMIX}/plugins/{RDP_PLUGIN}/settings/host/{have['id']}", headers, rdp_settings(wanted[name]))
+            except urllib.error.HTTPError as e:
+                failed += 1
+                print(f"  FAILED RDP settings {name}: HTTP {e.code} {e.read()[:200].decode(errors='replace')}")
+            except (urllib.error.URLError, OSError) as e:
+                failed += 1
+                print(f"  FAILED RDP settings {name}: {e}")
+
     # Read back: every host NetBox names is in Termix as wanted, and none it dropped remains.
-    try:
-        after = listed(get(f"{TERMIX}/host/db/host", headers), "hosts", "data")
-    except (urllib.error.URLError, OSError, ValueError) as e:
-        fail(f"Termix, reading back: {getattr(e, 'code', None) or e}")
-    now = {h.get("name"): h for h in after if OWNED_TAG in tags_of(h)}
-    wrong = [n for n, w in wanted.items() if n not in clash and (n not in now or differs(now[n], w, cred_ids[n]))]
+    now = read_owned()
+    wrong = [n for n, w in wanted.items() if n not in clash and (
+        n not in now or differs(now[n], w, cred_ids[n]) or (is_rdp(w) and rdp_settings_differ(now[n], w)))]
     wrong += [n for n in now if n not in wanted and n not in held]
     for n in sorted(wrong):
         print(f"  NOT AS WANTED after the writes: {n}")

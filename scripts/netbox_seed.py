@@ -103,6 +103,10 @@ TERMIX_TAGS = {
     # hand, and the login is its local context's termix_user.
     "bastion-key": (["dcim.device", "virtualization.virtualmachine"],
                     "Takes the web bastion's SSH key, as its local context's termix_user (Termix's sync)"),
+    # A Windows host: remote desktop, with the Termix credential its local context's
+    # termix_credential names.
+    "rdp": (["dcim.device", "virtualization.virtualmachine"],
+            "A remote desktop host in Termix, with its local context's termix_credential (Termix's sync)"),
 }
 
 
