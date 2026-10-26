@@ -26,9 +26,9 @@ resource "proxmox_virtual_environment_vm" "talos" {
   node_name = local.guest[each.key].node
   vm_id     = tonumber(each.key)
   name      = local.guest[each.key].name
-  # Off for a node being removed; whether it runs is ignored below: README,
-  # "A guest being removed".
-  on_boot = !local.guest[each.key].decommissioning
+  # Off for a node being removed or Offline (netbox.tf); whether it runs is
+  # ignored below: README, "A guest being removed".
+  on_boot = local.guest[each.key].start_at_boot
   tags    = ["k8s", "talos", each.value.role == "controlplane" ? "k8s-control" : "k8s-worker"]
 
   # A Talos node is changed by its machine config, not by rebooting its VM: a

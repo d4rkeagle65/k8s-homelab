@@ -58,15 +58,16 @@ locals {
   # By VMID (NetBox's custom field vmid): the Proxmox host (the VM's device),
   # the name, the MACs in net0, net1... order, the last octet of its address
   # on the main network (vmbr7), which a container and a Talos node use on
-  # every network, and whether it's being removed (status Decommissioning),
-  # which turns its start at boot off (README: "A guest being removed").
+  # every network, and whether it starts at boot: not while it's being removed
+  # (Decommissioning: README, "A guest being removed") or off on purpose (Offline:
+  # the root README's "What a NetBox status means", kept but not started).
   guest = {
     for id, vm in local.netbox_vms : id => {
-      node            = try(vm.device.name, null)
-      name            = vm.name
-      decommissioning = lower(try(vm.status, "")) == "decommissioning"
-      macs            = [for n in range(length(local.netbox_macs[id])) : lookup(local.netbox_macs[id], "net${n}", null)]
-      host            = try(split(".", one([
+      node          = try(vm.device.name, null)
+      name          = vm.name
+      start_at_boot = !contains(["decommissioning", "offline"], lower(try(vm.status, "")))
+      macs          = [for n in range(length(local.netbox_macs[id])) : lookup(local.netbox_macs[id], "net${n}", null)]
+      host = try(split(".", one([
         for a in local.netbox_addresses[id] : a if startswith(a, "${var.site.networks["vmbr7"].prefix}.")
       ]))[3], null)
     }
