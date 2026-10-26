@@ -47,6 +47,11 @@
 # one place that holds, since Proxmox writes it into the container at each
 # start; a running container gets it inside now too. Off until set.
 #
+# NTP server (tasks/proxmox-ntp-server.yml): chrony, already each host's clock,
+# answers time requests from ntp_serve_networks (the variable group, a list of CIDRs:
+# the management network, whose devices have no route to a public server). Off
+# until set.
+#
 # Retired network interfaces (tasks/proxmox-retired-ifaces.yml): each of
 # retired_interfaces' stanzas out of /etc/network/interfaces, then ifreload,
 # one host at a time (the second play), refusing while a guest or a kept
@@ -54,7 +59,7 @@
 # left to remove, and a rebuilt host's copied config is caught.
 #
 # In check mode (--check) it reports each host's ARC, certificate, NAS block
-# storage, NIC offloads, SOL setup, LLDP port ID, containers' timezone and retired interfaces, now
+# storage, NIC offloads, SOL setup, LLDP port ID, containers' timezone, NTP server and retired interfaces, now
 # and wanted, and
 # changes nothing.
 
@@ -189,6 +194,9 @@
 
     - name: The containers' timezone
       ansible.builtin.include_tasks: tasks/proxmox-lxc-timezone.yml
+
+    - name: The NTP server for the management network
+      ansible.builtin.include_tasks: tasks/proxmox-ntp-server.yml
 
 - name: Retired network interfaces, one host at a time
   hosts: targets

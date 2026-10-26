@@ -1,0 +1,76 @@
+# The host's chrony as a time server for the networks in ntp_serve_networks (the
+# Proxmox hosts' variable group, a list of CIDRs, e.g. the management network): one
+# `allow` line each in /etc/chrony/conf.d/homelab-ntp-server.conf, the only file
+# this writes, then chrony restarted and read back. The management network has no
+# gateway, so a device there (a switch) can't reach a public time server; every
+# host is on it and already synchronised. chrony serves only while it is itself in
+# sync, at its own stratum plus one, and answers nobody outside the list. Off until
+# set: the file is then removed if this wrote it. Proxmox's own firewall, when on,
+# would need a rule for port 123: that is reported, never changed.
+- name: Read chrony's state
+  ansible.builtin.command: chronyc -c tracking
+  register: ntp_tracking
+  changed_when: false
+  check_mode: false
+
+- name: Read whether Proxmox's firewall is on
+  ansible.builtin.command: pve-firewall status
+  register: ntp_pvefw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: The NTP server file
+  ansible.builtin.copy:
+    dest: /etc/chrony/conf.d/homelab-ntp-server.conf
+    content: |
+      # Written by ansible/tasks/proxmox-ntp-server.yml (ntp_serve_networks).
+      {% for net in ntp_serve_networks %}
+      allow {{ net }}
+      {% endfor %}
+    mode: "0644"
+  register: ntp_conf
+  when: ntp_serve_networks | default([]) | length > 0
+
+- name: No NTP server file while ntp_serve_networks is unset
+  ansible.builtin.file:
+    path: /etc/chrony/conf.d/homelab-ntp-server.conf
+    state: absent
+  register: ntp_conf_removed
+  when: ntp_serve_networks | default([]) | length == 0
+
+# chrony reads conf.d only as it starts.
+- name: Restart chrony for the change
+  ansible.builtin.systemd_service:
+    name: chrony
+    state: restarted
+  when: (ntp_conf is changed or ntp_conf_removed is changed) and not ansible_check_mode
+
+- name: Read the result back
+  ansible.builtin.shell: |
+    set -o pipefail
+    printf 'allow=%s udp123=%s\n' "$(grep -h '^allow' /etc/chrony/conf.d/*.conf 2>/dev/null | wc -l)" \
+      "$(ss -Hulpn 'sport = :123' | wc -l)"
+    chronyc -c tracking
+  args:
+    executable: /bin/bash
+  register: ntp_after
+  changed_when: false
+  check_mode: false
+
+- name: Report the NTP server
+  ansible.builtin.debug:
+    msg:
+      - "Serving: {{ ntp_serve_networks | default([]) | join(', ') or 'no one (ntp_serve_networks unset)' }}"
+      - "chrony: stratum {{ (ntp_tracking.stdout.split(',') + ['?'] * 14)[2] }}, leap {{ (ntp_tracking.stdout.split(',') + ['?'] * 14)[13] }}"
+      - "Now: {{ ntp_after.stdout_lines | first }}"
+      - "Proxmox firewall: {{ ntp_pvefw.stdout | trim }}{{ ' (on: port 123 needs a rule for these networks)' if ntp_pvefw.stdout is search('enabled') else '' }}"
+
+- name: chrony serves as configured
+  ansible.builtin.assert:
+    that: >-
+      (ntp_after.stdout_lines | first) is search('allow=' ~ (ntp_serve_networks | default([]) | length) ~ ' ')
+      and ((ntp_serve_networks | default([]) | length == 0) or (ntp_after.stdout_lines | first) is not search('udp123=0$'))
+    fail_msg: "After the change chrony reads {{ ntp_after.stdout_lines | first }}, not {{ ntp_serve_networks | default([]) | length }} allow line(s) and a listener on port 123."
+    quiet: true
+  when: not ansible_check_mode
