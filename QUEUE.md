@@ -61,14 +61,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   status standard says a Staged device or VM is scraped but raises no alerts. Prometheus's
   NetBox discovery takes Active and Failed only; Staged needs its status as a target label
   (the SD plugin's `__meta_netbox_status`) and the host-down rules to skip it.
-- **Windows updates from Semaphore** (2026-10-26): `ansible/windows-update.yml` (this pull
-  request) over WinRM, for the test domain controller (the only DC, used for testing; automatic
-  reboots chosen by the owner). Left, the owner's: WinRM answering the Docker VM on 5985
-  (`winrm quickconfig`); a Domain Admins account for Ansible; the DC tagged `windows` and
-  `ansible` in NetBox with a primary IPv4; a variable group with `WINDOWS_ANSIBLE_USER` and
-  `WINDOWS_ANSIBLE_PASSWORD` as environment variables (the password secret); the template
-  "Update: Windows Servers" on it. Then a dry run (the missing updates listed), then a real
-  run, asked for by the owner. Semaphore restarts once on this merge, for pywinrm.
 - **The lab's Proxmox hosts onto 9** (2026-10-25): the two test hosts run 8.3.5, production
   9.2.21. `ansible/proxmoxlab-update-major.yml` upgrades them in place, one at a time, the group
   `proxmox_lab` only, from Semaphore's template 35 "Update: Proxmox Lab (8 to 9)" (made

@@ -50,8 +50,7 @@ cluster.
    apply failed before the worker had the variable, then `ak apply_blueprint` applied it);
    Prometheus `up{job="kept"}` 1. Left, the owner's: the setup code
    (`kubectl -n kept logs deploy/kept | grep 'KEPT SETUP CODE'`) and the first account; joining
-   "Kept Users" in Authentik and signing in with it; a first Kept backup in Garage (nightly at
-   02:30 UTC, or Admin > Backups); the recovery kit
+   "Kept Users" in Authentik and signing in with it; a first Kept backup in Garage (done: 2026-10-26 02:30 UTC, status ok); the recovery kit
    (`kubectl -n kept exec deploy/kept -- kept admin recovery-kit`) kept off the cluster.
 5. [ ] A restore test of `kept-db` like the others. Homepage's tile and docs link are in
    (this branch's pull request).
