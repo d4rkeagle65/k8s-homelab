@@ -31,7 +31,13 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
       SNMPv3 discovery, which needs no passphrase (the SNMP service isn't on its management
       address, or its access list lacks the k8s nodes' management addresses, NetBox's
       .24-.26 and .34-.37 on the management network). Its syslog arrives (host F80, about 23
-      lines a minute, mostly blocked connections); the switch's doesn't yet.
+      lines a minute, mostly blocked connections); the switch's doesn't yet. The switch can only
+      send to port 514, which is RFC 5424's: its BSD lines fail to parse there, and Alloy has
+      no format detection (`raw` is experimental). The syslog Service's
+      externalTrafficPolicy was Cluster, so every sender arrived as a k8s node's address.
+      Next: the `listener` label shows which port and transport the Synology and the
+      TerraMaster use; then 514/UDP becomes BSD for the switch (the Synology moved to TCP
+      first if it sends 514/UDP).
       Then read back: `up{switch="core"}` and `up{job="firewall-snmp"}` are 1; the firewall's
       modules each return series (drop the ones CloudGen doesn't answer); Loki has lines with
       both devices' `host`.

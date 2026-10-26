@@ -10,6 +10,10 @@ metadata:
     metallb.io/loadBalancerIPs: ${ALLOY_SYSLOG_ADDRESS}
 spec:
   type: LoadBalancer
+  # Local keeps each packet's source address: Cluster sends it through a node, which
+  # replaces it with the node's, and a sender naming no host would be labelled as
+  # that node. MetalLB announces the address from the node running the pod.
+  externalTrafficPolicy: Local
   selector:
     app.kubernetes.io/instance: alloy-events
     app.kubernetes.io/name: alloy
