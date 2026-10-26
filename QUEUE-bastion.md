@@ -92,19 +92,17 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       the first): tasks 1297 (the 9 Debian hosts, each authorized_keys read back as the owner's
       key plus the bastion key) and 1298 (both access points and the travel router, VERIFIED).
       The owner's first SSH session through Termix with it worked (2026-10-25, a host made by
-      hand, the key inline). Left: the Synology, through
-      `synology-baseline.yml`'s new key step (`tasks/nas-bastion-keys.yml`): a dry run, then
-      the owner's real run of template 29. The TerraMaster's was added by hand (2026-10-25);
-      `terramaster-baseline.yml` now keeps it, and needs its Semaphore template (the owner); the Windows DC takes a
-      password credential in Termix; the Talos nodes have no SSH.
+      hand, the key inline). The Synology's through
+      `synology-baseline.yml` (task 1303, after #385: added and VERIFIED). The TerraMaster's was
+      added by hand (2026-10-25). Left: a Semaphore template for `terramaster-baseline.yml`
+      (the owner), which keeps it; the Windows DC takes a password credential in Termix; the
+      Talos nodes have no SSH.
 - [x] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
       hourly, writing since 2026-10-25 (#381–#383): its first run created 14 hosts with the
       `bastion` credential (made by hand in Termix) and read back VERIFIED; the next run, no
       changes. The travel router has no management address in NetBox and is reached by its
-      primary address, the right one (the owner, 2026-10-25). Left: the hand-made "Docker
-      Vm 1" duplicates the synced Docker VM, the owner's call to delete it; the Synology signs
-      in only once step 5 puts the bastion key on it (the TerraMaster has it, by hand,
-      2026-10-25).
+      primary address, the right one (the owner, 2026-10-25). The hand-made "Docker Vm 1"
+      is deleted (the owner).
 - [x] 6b. The core switch and the firewall in Termix (2026-10-25, #386): the tag `bastion-key`
       (defined by the seed, task 1304) and `termix_user` on both in NetBox, and the firewall's
       management address on its port 1, its primary, with a DNS name that resolves; the sync
