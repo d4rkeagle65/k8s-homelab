@@ -252,3 +252,19 @@ def test_rdp_switched_off_in_the_ui_is_turned_back_on_without_rewriting_the_host
     fake = FakeRdpTermix([have], [{"id": 3, "name": "bastion"}, {"id": 4, "name": "domain"}])
     assert run(monkeypatch, fake, {"dc": RDP_WANT}, dry_run=False) == 0
     assert fake.calls == [("PUT", "http://termix:8080/plugins/remote-desktop/settings/host/5")]
+
+
+def test_it_reads_the_devices_and_vms_open_to_access_active_staged_and_failed(monkeypatch):
+    asked = []
+    monkeypatch.setenv("TERMIX_API_KEY", "k")
+    monkeypatch.setenv("NETBOX_TOKEN", "t")
+    monkeypatch.setattr(m, "DRY_RUN", True)
+    monkeypatch.setattr(m, "netbox_all", lambda path: asked.append(path) or [])
+    monkeypatch.setattr(m, "wanted_hosts", lambda *a: ({"pihole": WANT}, []))
+    fake = FakeTermix([], [{"id": 3, "name": "bastion"}])
+    monkeypatch.setattr(m, "get", fake.get)
+    assert m.main() == 0
+    for kind in ("dcim/devices/", "virtualization/virtual-machines/"):
+        path = next(p for p in asked if p.startswith(kind))
+        assert sorted(s for s in path.split("?", 1)[1].split("&") if s.startswith("status=")) == \
+            ["status=active", "status=failed", "status=staged"]

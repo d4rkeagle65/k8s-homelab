@@ -46,6 +46,12 @@ only when its pull request is merged and applied.
 A VM whose status in NetBox is Decommissioning is being removed by hand and is
 left exactly as it is: nothing about it or its addresses is written.
 
+Statuses follow README.md's "What a NetBox status means": this sync moves a device's or
+VM's status only between Planned, Active and Offline (a Planned one only to Active, once it
+runs), from whether Proxmox runs it; Staged, Failed and Inventory are the owner's and kept.
+Only one in use (Active, Staged) has DNS names; one not in use loses the names this sync
+gave it, and a hand-set name stays.
+
 Each address on a device's or VM's interface whose prefix names a zone (the
 prefix's custom field dns_zone) gets the DNS name <object name>.<zone>, from
 which NetBox DNS makes its record (old-queues/QUEUE-netbox-dns.md); every other address's
@@ -380,6 +386,30 @@ def dns_label(name: str) -> str:
     return re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")
 
 
+# README.md, "What a NetBox status means": a sync moves a status only between these, and a
+# device's or VM's addresses carry a DNS name only while it's in use.
+SYNC_STATUSES = ("planned", "active", "offline")
+USE_STATUSES = ("active", "staged")
+
+
+def status_of(obj: dict | None) -> str | None:
+    """An object's NetBox status value, or None."""
+    s = (obj or {}).get("status")
+    return s.get("value") if isinstance(s, dict) else s
+
+
+def synced_status(have: dict | None, running: bool) -> str | None:
+    """The status this sync writes for something it sees running or not, or None to leave
+    it: new, it's Active or Offline; one the owner set Staged, Failed, Decommissioning or
+    Inventory is theirs; a Planned one moves only to Active, once it runs."""
+    now = status_of(have) if have else None
+    if now is not None and now not in SYNC_STATUSES:
+        return None
+    if now == "planned" and not running:
+        return None
+    return "active" if running else "offline"
+
+
 def wanted_dns_names(addresses: list[dict], prefixes: list[dict], skip_vms: frozenset = frozenset(),
                      skip_devices: frozenset = frozenset()) -> dict[int, str]:
     """By address id, the DNS name each device's or VM's address should carry: its
@@ -406,6 +436,34 @@ def wanted_dns_names(addresses: list[dict], prefixes: list[dict], skip_vms: froz
         if held and dns_label(obj["name"]):
             zone = max(held, key=lambda h: h[0].prefixlen)[1]
             out[a["id"]] = f"{dns_label(obj['name'])}.{zone}"
+    return out
+
+
+def dns_plan(addresses: list[dict], prefixes: list[dict], vms: list[dict], devices: list[dict],
+             iot_ids: frozenset) -> dict[int, str]:
+    """By address id, the DNS name to write: a device's or VM's in use (Active, Staged) gets
+    its name in its prefix's zone; one not in use (Planned, Offline, Failed, Inventory) loses
+    the name this sync gave it (written as ""), but a hand-set one stays; Decommissioning is
+    left exactly as it is, and the IoT devices get none (QUEUE-kea-ha.md). Addresses already
+    right aren't listed."""
+    def ids(objs, pick):
+        return frozenset(o["id"] for o in objs if pick(status_of(o)))
+    held_vms = ids(vms, lambda s: s == "decommissioning")
+    held_devs = ids(devices, lambda s: s == "decommissioning") | iot_ids
+    idle_vms = ids(vms, lambda s: s not in USE_STATUSES and s != "decommissioning")
+    idle_devs = ids(devices, lambda s: s not in USE_STATUSES and s != "decommissioning") - iot_ids
+    wanted = wanted_dns_names(addresses, prefixes, held_vms | idle_vms, held_devs | idle_devs)
+    would = wanted_dns_names(addresses, prefixes, held_vms, held_devs)
+    out = {}
+    for a in addresses:
+        have = a.get("dns_name") or ""
+        owner = a.get("assigned_object") or {}
+        idle = ((owner.get("virtual_machine") or {}).get("id") in idle_vms
+                or (owner.get("device") or {}).get("id") in idle_devs)
+        if a["id"] in wanted and have != wanted[a["id"]]:
+            out[a["id"]] = wanted[a["id"]]
+        elif idle and a["id"] in would and have == would[a["id"]]:
+            out[a["id"]] = ""
     return out
 
 
@@ -860,9 +918,11 @@ def main() -> None:
     print("devices:")
     node_devs = {}
     for name in sorted(nodes):
-        dev = nb.ensure("dcim/devices", {"name": name},
-                        {"role": role["id"], "device_type": dtype["id"], "site": site["id"], "status": "active",
-                         "cluster": cluster["id"]}, name)
+        node_fields = {"role": role["id"], "device_type": dtype["id"], "site": site["id"], "cluster": cluster["id"]}
+        node_status = synced_status(nb.find("dcim/devices", name=name), nodes[name].get("status") == "online")
+        if node_status:
+            node_fields["status"] = node_status
+        dev = nb.ensure("dcim/devices", {"name": name}, node_fields, name)
         node_devs[name] = dev
         primary = node_interfaces(dev, name, nodes[name]["ifaces"], primary_of(dev))
         if primary:
@@ -902,10 +962,13 @@ def main() -> None:
         cfg_g = g["config"]
         shape = {"vcpus": int(cfg_g.get("cores", 1)) * int(cfg_g.get("sockets", 1)),
                  "memory": int(cfg_g.get("memory", 0))}
-        fields = {"cluster": cluster["id"], "status": "active" if g.get("status") == "running" else "offline",
+        fields = {"cluster": cluster["id"],
                   "site": site["id"], "device": node_devs[g["node"]]["id"], "custom_fields": {"vmid": int(g["vmid"])},
                   "description": f"Proxmox {g['type']} {g['vmid']}"}
         before = nb.find("virtualization/virtual-machines", name=g["name"])
+        vm_status = synced_status(before, g.get("status") == "running")
+        if vm_status:
+            fields["status"] = vm_status
         role = ((before or {}).get("role") or {}).get("id")
         owned = role in owned_roles
         if owned:
@@ -1041,11 +1104,12 @@ def main() -> None:
     print("dns names:")
     addresses = nb.all("ipam/ip-addresses")
     iot_ids = frozenset(d["id"] for d in own_iot_devices()) if site["id"] > 0 else frozenset()
-    wanted = wanted_dns_names(addresses, nb.all("ipam/prefixes"), frozenset(v["id"] for v in retiring), iot_ids)
+    prefixes_all = nb.all("ipam/prefixes")
+    plan = dns_plan(addresses, prefixes_all, nb.all("virtualization/virtual-machines"), nb.all("dcim/devices"), iot_ids)
     for a in sorted(addresses, key=lambda a: a["address"]):
-        name = wanted.get(a["id"])
-        if name is not None and (a.get("dns_name") or "") != name:
-            nb.ensure("ipam/ip-addresses", {"id": a["id"]}, {"dns_name": name}, f"{a['address']} dns_name")
+        if a["id"] in plan:
+            label = f"{a['address']} dns_name" + ("" if plan[a["id"]] else " (not in use)")
+            nb.ensure("ipam/ip-addresses", {"id": a["id"]}, {"dns_name": plan[a["id"]]}, label)
 
     print("summary:", ", ".join(f"{k.split()[0]} {v} {k.split()[1].split('/')[-1]}" for k, v in sorted(nb.counts.items()))
           or "nothing to change")
