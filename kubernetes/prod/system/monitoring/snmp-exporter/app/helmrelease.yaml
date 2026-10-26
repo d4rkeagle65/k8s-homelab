@@ -148,8 +148,9 @@ spec:
     extraArgs:
     - --config.file=/etc/snmp_exporter/snmp.yml
     - --config.expand-environment-variables
-    # Optional, so a Key Vault outage or a missing secret costs the SNMPv3 targets only,
-    # never the NASes' polls: the exporter starts either way.
+    # The exporter refuses its whole config while any of these variables is missing, the
+    # NASes' polls with it, so it waits for the secret: optional only lets the pod start
+    # and retry. External Secrets keeps the Secret through a Key Vault outage.
     envFrom:
     - secretRef:
         name: snmp-exporter-v3
