@@ -3,14 +3,14 @@
 # the inventory gives it no hosts in that group. Ansible itself only warns when an
 # inventory fails to parse (a tab in Semaphore's YAML) and then runs the plays
 # against nothing, exiting 0, so the run would look like a success. A playbook
-# that works on the group's hosts imports select-hosts.yml instead, which checks
+# that works on the group's hosts imports _select-hosts.yml instead, which checks
 # the same.
 #
-#   - ansible.builtin.import_playbook: require-hosts.yml
+#   - ansible.builtin.import_playbook: _require-hosts.yml
 #     vars:
 #       required_group: proxmox
 
-- ansible.builtin.import_playbook: semaphore-host.yml
+- ansible.builtin.import_playbook: _semaphore-host.yml
 
 - name: The inventory has hosts to work on
   hosts: semaphore

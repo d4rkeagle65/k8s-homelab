@@ -10,7 +10,7 @@
 # configs' install image then matches, and nothing reboots.
 #
 # Everything runs on the machine running Ansible (Semaphore), where kubectl and
-# talosctl are, but the log names what a step is about: semaphore-host.yml adds
+# talosctl are, but the log names what a step is about: _semaphore-host.yml adds
 # that machine as the host semaphore, which plans; each node to upgrade is then a
 # host of its own (ansible_connection local), its kubectl steps delegated to itself
 # rather than to localhost, so every line of its work reads [node]; and semaphore
@@ -24,12 +24,12 @@
 # ansible/README.md). Optional: target_hosts, node names to limit the run to
 # (separated by commas or spaces; each must be a Talos node; empty or ALL for
 # every node). The nodes are found in the cluster, not the inventory, so this
-# reads target_hosts itself rather than through select-hosts.yml.
+# reads target_hosts itself rather than through _select-hosts.yml.
 #
 # In check mode (--check) it reports the target, each node's version and what
 # it would drain, and changes nothing.
 
-- ansible.builtin.import_playbook: semaphore-host.yml
+- ansible.builtin.import_playbook: _semaphore-host.yml
 
 - name: Plan the upgrade
   hosts: semaphore

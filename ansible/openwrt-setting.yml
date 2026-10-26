@@ -19,7 +19,7 @@
 # In check mode (--check) it reports the missing packages and a listening
 # interface that differs, and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: openwrt_aps
 

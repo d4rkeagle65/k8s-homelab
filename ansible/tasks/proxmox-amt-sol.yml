@@ -20,7 +20,7 @@
 # stays first and the serial console goes last, so the serial port is
 # /dev/console; any other console=ttyS* goes. A change is written, the
 # bootloader refreshed (update-grub or proxmox-boot-tool refresh), and Debian's
-# /run/reboot-required flag set, which proxmox-upgrade.yml reboots for; this
+# /run/reboot-required flag set, which proxmox-update.yml reboots for; this
 # never reboots a host itself. The getty is enabled and started now.
 #
 # Settings (optional, per host or for all): amt_sol (default true; false
@@ -209,7 +209,7 @@
       changed_when: true
       when: sol_boot_changed | bool
 
-    - name: Flag the reboot for proxmox-upgrade.yml
+    - name: Flag the reboot for proxmox-update.yml
       ansible.builtin.shell: |
         touch /run/reboot-required
         grep -qx amt-sol /run/reboot-required.pkgs 2>/dev/null || echo amt-sol >> /run/reboot-required.pkgs
@@ -240,6 +240,6 @@
       ansible.builtin.debug:
         msg: >-
           {{ inventory_hostname }}:
-          {{ 'reboot due for the SOL console (flagged for proxmox-upgrade.yml)' if sol_boot_changed | bool else 'boot settings unchanged' }}{{
+          {{ 'reboot due for the SOL console (flagged for proxmox-update.yml)' if sol_boot_changed | bool else 'boot settings unchanged' }}{{
              '; run this again after that reboot, for the console and getty' if not sol_tty else '' }}{{
              '; amt_sol is off, nothing written' if not sol_on else '' }}

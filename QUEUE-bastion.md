@@ -87,7 +87,7 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
 - [ ] 5. The bastion key on everything that takes an SSH login (the owner, 2026-10-24), as the
       account the playbooks already give a login: the owner's named admin account on the Debian
       hosts (`tasks/admin-user.yml`, its authorized_keys now the owner's keys plus
-      `bastion_ssh_keys` from `group_vars/all.yml`), root on OpenWrt (`openwrt-aps.yml`, added,
+      `bastion_ssh_keys` from `group_vars/all.yml`), root on OpenWrt (`openwrt-setting.yml`, added,
       never removed). Done 2026-10-25 (#377, the key replaced by #379 before any host had
       the first): tasks 1297 (the 9 Debian hosts, each authorized_keys read back as the owner's
       key plus the bastion key) and 1298 (both access points and the travel router, VERIFIED).

@@ -3,14 +3,14 @@
 # to replicas elsewhere first), the VMs listed in evacuate are live-migrated
 # off, the host reboots, and the run waits until every node is Ready, every
 # database cluster whole and the moved VMs back before the next host
-# (tasks/proxmox-host-reboot.yml, which proxmox-upgrade.yml uses too).
+# (tasks/proxmox-host-reboot.yml, which proxmox-update.yml uses too).
 #
-# Which hosts: target_hosts (select-hosts.yml), ALL or empty for every host in
+# Which hosts: target_hosts (_select-hosts.yml), ALL or empty for every host in
 # the proxmox group; in inventory order, one at a time either way. Rebooting every host, however named, holds Flux on its
 # current revision until the run ends, however it ends (tasks/flux-freeze.yml):
 # what's merged meanwhile deploys afterwards.
 #
-# Inventory and variables as for proxmox-upgrade.yml: the proxmox group,
+# Inventory and variables as for proxmox-update.yml: the proxmox group,
 # dns_guest_tag, evacuate (per host), evacuate_return, and the "k8s and Talos Connection"
 # variable group (tasks/k8s-connection.yml). The ServiceAccount
 # behind K8S_TOKEN may cordon nodes, evict pods and switch database primaries
@@ -19,7 +19,7 @@
 # In check mode (--check) it runs the checks and lists, per host, what it
 # would drain, move and restart, and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: proxmox
 

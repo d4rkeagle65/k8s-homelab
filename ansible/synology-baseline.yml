@@ -1,4 +1,4 @@
-# The Synology's own baseline (DSM, not Debian: baseline.yml is for those).
+# The Synology's own baseline (DSM, not Debian: debian-baseline.yml is for those).
 # For now: the web bastion's SSH key, Docker, as Synology's own package, and
 # Dockhand's Hawser agent, so Dockhand deploys the NAS's stacks (docker/CLAUDE.md)
 # as it does the Docker VM's.
@@ -27,7 +27,7 @@
 # passwordless sudo through a sudoers.d file made by hand, which a DSM update may
 # remove; the first step says so when sudo asks for a password.
 #
-# Hawser: tasks/nas-hawser.yml (docker-host.yml's header says how the token is
+# Hawser: tasks/nas-hawser.yml (dockerhost-deploy.yml's header says how the token is
 # made), its stacks on the data volume (synology_hawser_stacks, default
 # /volume1/docker/hawser-stacks): DSM's system partition is small and an update
 # may reset it.
@@ -35,7 +35,7 @@
 # In check mode (--check) it reports DSM's version, the package, whether
 # Docker answers and what Hawser would change, and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: synology
 

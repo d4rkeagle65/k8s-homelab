@@ -12,7 +12,7 @@
 # In check mode (--check) it runs the checks and lists the pending upgrades,
 # and changes nothing; `pihole -up --check-only` reports Pi-hole's own.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: pihole
 

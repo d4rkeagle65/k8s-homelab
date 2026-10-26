@@ -79,7 +79,7 @@ services:
   # this Kea version otherwise; runs on every deploy, then exits. The database
   # is the one Kea itself uses: hosts-databases in the site file (kea-db on
   # CloudNativePG since 2026-10-17), with its ssl-mode and, for verify-ca, its
-  # trust-anchor (the CA's certificate in the site folder, ansible/kea-ha.yml).
+  # trust-anchor (the CA's certificate in the site folder, ansible/kea-setting-ha.yml).
   kea-db-init:
     # Built here from the Dockerfile, which holds the versions; never pulled,
     # since no registry has it.

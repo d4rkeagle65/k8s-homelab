@@ -1,7 +1,7 @@
 # Retired network interfaces out of a Proxmox host's /etc/network/interfaces:
 # each of retired_interfaces' stanzas (its auto line and its iface block) is
 # removed, then ifreload applies it and each interface is read back as gone.
-# Run one host at a time (proxmox-host.yml's second play).
+# Run one host at a time (proxmox-setting.yml's second play).
 #
 # It refuses, changing nothing, when any guest's config names a retired bridge,
 # when a kept bridge has a retired interface among its ports, or when the host

@@ -31,7 +31,7 @@
     dest: /etc/systemd/system/ssh.service.d/20-after-network-online.conf
     mode: "0644"
     content: |
-      # baseline.yml (tasks/ssh-listen-retry.yml): sshd listens on a fixed
+      # debian-baseline.yml (tasks/ssh-listen-retry.yml): sshd listens on a fixed
       # address, which may not be up yet when it starts.
       [Unit]
       Wants=network-online.target

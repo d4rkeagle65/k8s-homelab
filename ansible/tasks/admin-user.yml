@@ -1,5 +1,5 @@
-# The steps of admin-users.yml (see its header for what they do and the
-# variables they take), shared with baseline.yml.
+# The steps of debian-setting-admins.yml (see its header for what they do and the
+# variables they take), shared with debian-baseline.yml.
 
 - name: Settle the admin user settings
   ansible.builtin.set_fact:

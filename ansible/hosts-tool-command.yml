@@ -7,7 +7,7 @@
 #                    OpenWrt access points, so no bash-only syntax there)
 #   target_hosts     one or more inventory hosts or groups, separated by
 #                    commas, spaces or new lines; every name must be in the
-#                    inventory, or nothing runs (select-hosts.yml).
+#                    inventory, or nothing runs (_select-hosts.yml).
 #                    Required: no default
 #   run_timeout      optional: seconds before the command is stopped (300)
 #   run_command_b64  optional, in place of run_command: the command base64-encoded.
@@ -25,7 +25,7 @@
 #
 # In check mode (--check) it lists the hosts it would run on and runs nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: all
     select_required: true

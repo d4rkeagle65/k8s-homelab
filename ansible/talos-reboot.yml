@@ -8,27 +8,27 @@
 # up again, before the next (tasks/talos-vm-reboot.yml). A failed step stops the run and says
 # what it left cordoned.
 #
-# Built as talos-upgrade.yml is (its header says how): semaphore plans, each VM is a host of
+# Built as talos-update.yml is (its header says how): semaphore plans, each VM is a host of
 # its own named for its node, so every line of its work reads [node] (its Proxmox calls
 # [node -> Proxmox host]), and semaphore cleans up.
 #
 # Which VMs: target_hosts (required), VM IDs or names,
 # separated by commas or spaces, rebooted in that order; ALL (any case) for every Talos VM,
 # control planes first. They're found in Proxmox and the cluster, not the inventory, so this
-# reads target_hosts itself rather than through select-hosts.yml. Each must be a
+# reads target_hosts itself rather than through _select-hosts.yml. Each must be a
 # Proxmox VM whose name is a Talos node's. Every Talos VM (ALL, or each named) holds Flux on
 # its current revision until the run ends, however it ends (tasks/flux-freeze.yml): what's
 # merged meanwhile deploys afterwards.
 #
 # Inventory: the proxmox group (its first host makes the pvesh calls, for the whole Proxmox
 # cluster). Variables: the "k8s and Talos Connection" variable group (tasks/k8s-connection.yml,
-# TALOSCONFIG_B64), as for talos-upgrade.yml. Optional: reboot_shutdown_timeout, the seconds
+# TALOSCONFIG_B64), as for talos-update.yml. Optional: reboot_shutdown_timeout, the seconds
 # Proxmox waits for the guest to shut down before failing the reboot (default 300).
 #
 # In check mode (--check) it reports each VM's node, host, HA state and pending changes, runs
 # the checks (etcd's included) and lists what it would drain, and changes nothing.
 
-- ansible.builtin.import_playbook: require-hosts.yml
+- ansible.builtin.import_playbook: _require-hosts.yml
   vars:
     required_group: proxmox
 
@@ -202,7 +202,7 @@
   vars:
     pve_api_host: "{{ groups['proxmox'] | first }}"
     kubectl_cmd: "{{ hostvars['semaphore'].kubectl_cmd }}"
-    # The node itself, as in talos-upgrade.yml: its kubectl steps read [node].
+    # The node itself, as in talos-update.yml: its kubectl steps read [node].
     kubectl_host: "{{ inventory_hostname }}"
     talosctl_cmd: "{{ hostvars['semaphore'].talosctl_cmd }}"
     talos_cp_addresses: "{{ hostvars['semaphore'].talos_cp_addresses }}"
