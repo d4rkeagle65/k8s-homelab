@@ -34,7 +34,7 @@ spec:
         # Garage signs for its own region name (s3_region in its config).
         - {name: S3_REGION, value: garage}
         # How many leading folders name one backup (garage-backup-exporter.py's prefix_of).
-        - {name: BUCKETS, value: "cnpg-backups:2,docker-backups:1,mariadb-backups:1"}
+        - {name: BUCKETS, value: "cnpg-backups:2,docker-backups:1,mariadb-backups:1,firewall-backups:1"}
         - {name: REFRESH_SECONDS, value: "600"}
         ports:
         - {name: http, containerPort: 8080}
