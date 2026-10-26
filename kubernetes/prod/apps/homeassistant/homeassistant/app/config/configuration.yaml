@@ -28,3 +28,49 @@ auth_oidc:
 # long-lived token (monitors/scrapeconfig-homeassistant.yaml).
 prometheus:
   namespace: hass
+
+# The washer and the dryer, running or not, from their Tapo plugs' power draw. Idle,
+# each plug reads 1-2 W. delay_on ignores a short spike, such as the dryer's
+# wrinkle-guard tumble after a cycle; delay_off rides out a low-power stretch inside
+# a cycle, such as the washer's soak and fill. Tune the thresholds and delays from
+# a real cycle's history.
+template:
+  - binary_sensor:
+      - name: Washer running
+        unique_id: laundry_washer_running
+        device_class: running
+        icon: mdi:washing-machine
+        state: "{{ states('sensor.washer_current_consumption') | float(0) > 8 }}"
+        availability: "{{ has_value('sensor.washer_current_consumption') }}"
+        delay_on: "00:00:30"
+        delay_off: "00:05:00"
+      - name: Dryer running
+        unique_id: laundry_dryer_running
+        device_class: running
+        icon: mdi:tumble-dryer
+        state: "{{ states('sensor.dryer_current_consumption') | float(0) > 8 }}"
+        availability: "{{ has_value('sensor.dryer_current_consumption') }}"
+        delay_on: "00:02:00"
+        delay_off: "00:02:00"
+
+# A phone notification when either finishes. It goes to every phone signed in to
+# the Companion app (each one's notify entity), so no device name is in this file.
+automation laundry:
+  - id: laundry_cycle_finished
+    alias: Laundry cycle finished
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.washer_running
+          - binary_sensor.dryer_running
+        from: "on"
+        to: "off"
+    actions:
+      - action: notify.send_message
+        target:
+          entity_id: "{{ integration_entities('mobile_app') | select('match', 'notify\\.') | list }}"
+        data:
+          title: Laundry
+          message: >-
+            The {{ 'washer' if 'washer' in trigger.entity_id else 'dryer' }} finished after
+            {{ ((as_timestamp(trigger.to_state.last_changed) - as_timestamp(trigger.from_state.last_changed)) / 60) | round(0) | int }} minutes.
