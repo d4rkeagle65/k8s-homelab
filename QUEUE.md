@@ -384,14 +384,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   in use. Then `kubernetes_version` in `tofu/proxmox/talos-config.tf` in a commit,
   `ansible/talos-k8s-upgrade.yml` (its dry run first), the OpenTofu job, and afterwards the
   claude-code image's `KUBECTL_VERSION`.
-- **Python 3.14.8 -> 3.15** (Renovate's #14, now to 3.15.1, and #300 for
-  `docker/netbox/dns-sync`; held since 2026-10-21; from `old-queues/QUEUE-updates.md`): until
-  PyYAML publishes Python 3.15 wheels (6.0.3 has none, 2026-10-22), since four workloads `pip
-  install` it at every start (Baby Buddy's MCP pod, and the Grimmory, media and Organizr sync
-  jobs, pinned `pyyaml==6.0.3`) and would build it from source each time. Then the jobs' pin
-  moves in the same pull request (Renovate can't see it), the wheels are checked again (`pip
-  download --only-binary=:all: --python-version 3.15`, for `musllinux_1_2_x86_64` and the
-  `manylinux` tags), and each workload is read back after the merge.
+- **PyYAML's pin in the sync jobs, once it has Python 3.15 wheels**: Python 3.15.1 is in
+  (#14 and #300, merged 2026-10-23 before PyYAML had them; read back 2026-10-25: the Grimmory,
+  media and Organizr sync jobs each succeeded on `python:3.15.1-alpine`, Baby Buddy's MCP pod
+  Ready on 3.15.1). PyYAML 6.0.3, still its newest, has no cp315 wheels, so the four build it
+  from source at every start. When a release has them (`pip download --only-binary=:all:
+  --python-version 3.15`, for `musllinux_1_2_x86_64` and the `manylinux` tags), move the
+  three jobs' `pyyaml==6.0.3` pin to it, since Renovate can't see a pin inside a command.
+  Left, each run spends its first minute building PyYAML.
 
 ## Working queue files
 
