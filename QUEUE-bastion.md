@@ -82,8 +82,8 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       loaded but off, and stay off. The owner signed in through SSO (2026-10-24, the log's
       `sso/callback` then a login), so password sign-in and self-registration are off
       (`ALLOW_PASSWORD_LOGIN`, `ALLOW_REGISTRATION`); the owner uninstalled the login-security
-      plugin. Left: Session Recording activated and its retention set (the owner), then an SSH
-      session and its recording read back.
+      plugin. Session Recording on (the owner, 2026-10-26); a session to a
+      hypervisor that day was recorded (a .cast file in the plugin's data folder on the volume).
 - [ ] 5. The bastion key on everything that takes an SSH login (the owner, 2026-10-24), as the
       account the playbooks already give a login: the owner's named admin account on the Debian
       hosts (`tasks/admin-user.yml`, its authorized_keys now the owner's keys plus
@@ -94,8 +94,12 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       The owner's first SSH session through Termix with it worked (2026-10-25, a host made by
       hand, the key inline). The Synology's through
       `synology-baseline.yml` (task 1303, after #385: added and VERIFIED). The TerraMaster's was
-      added by hand (2026-10-25). Left: a Semaphore template for `terramaster-baseline.yml`
-      (the owner), which keeps it; the Windows DC takes a password credential in Termix; the
+      added by hand (2026-10-25). `terramaster-baseline.yml` keeps it: template 34, dry run
+      1323 and run 1324 (key VERIFIED; Hawser recreated on the pinned image with the template's
+      HAWSER_TOKEN, which differed from the one it had: the owner to confirm Dockhand's
+      TerraMaster environment still connects). Left: the Windows DC answers RDP (3389) and
+      WinRM, not SSH; the owner made a Termix credential `bastion-domain` (2026-10-26): it needs
+      an RDP host, by hand or by the sync (connection type `rdp`, Termix's `protocolAuth`). The
       Talos nodes have no SSH.
 - [x] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
       hourly, writing since 2026-10-25 (#381–#383): its first run created 14 hosts with the
