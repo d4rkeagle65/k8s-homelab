@@ -57,6 +57,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **NTP for the management network** (2026-10-26): the core switch can't reach a public time
+  server (the management network has no gateway). The Pi-holes' FTL NTP server answers but as
+  stratum 0, `LOCL`, never synchronised (a container can't set its clock, so FTL won't vouch for
+  it; tasks 1341 and 1342), which clients discard. Instead `ansible/tasks/proxmox-ntp-server.yml`
+  (this pull request): each Proxmox host's chrony, in sync at stratum 2 or 3, serves
+  `ntp_serve_networks`. Left, the owner's: `ntp_serve_networks` in the "Proxmox Settings"
+  variable group (the management prefix), "Setting: Proxmox Hosts" dry run then real run, the
+  switch pointed at two or more hosts' management addresses, and `ntp.ipv4.active` back to
+  false in "Pi-Hole Settings" so nothing offers the stratum-0 server.
 - **The lab's Proxmox hosts onto 9** (2026-10-25): the two test hosts run 8.3.5, production
   9.2.21. `ansible/proxmoxlab-update-major.yml` upgrades them in place, one at a time, the group
   `proxmox_lab` only, from Semaphore's template 35 "Update: Proxmox Lab (8 to 9)" (made
