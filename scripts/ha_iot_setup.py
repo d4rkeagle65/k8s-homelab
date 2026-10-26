@@ -196,10 +196,17 @@ def norm_mac(mac: str) -> str:
 
 def netbox_iot_devices(devices: list[dict], interfaces: list[dict]) -> list[dict]:
     """NetBox's IoT devices (those netbox_seed.py made) as {name, type, manufacturer,
-    host, mac, room}: the address from the device's primary IPv4, the MAC from its
-    wifi0's primary MAC, the room its Location's name. Any of them missing is None."""
+    host, mac, macs, room}: the address from the device's primary IPv4, mac its wifi0's
+    primary MAC (the reservation's), macs every interface's (wifi0 first: a Fire TV
+    reports its Ethernet MAC to Home Assistant), the room its Location's name. A missing
+    one is None (macs: empty)."""
     macs = {i["device"]["id"]: (i.get("primary_mac_address") or {}).get("mac_address")
             for i in interfaces if i["name"] == "wifi0"}
+    all_macs: dict[int, list[str]] = {}
+    for i in sorted(interfaces, key=lambda i: i["name"] != "wifi0"):
+        mac = (i.get("primary_mac_address") or {}).get("mac_address")
+        if mac:
+            all_macs.setdefault(i["device"]["id"], []).append(mac)
     out = []
     for d in devices:
         if (d.get("description") or "") != IOT_DEVICE_MARK:
@@ -208,6 +215,7 @@ def netbox_iot_devices(devices: list[dict], interfaces: list[dict]) -> list[dict
         out.append({"name": d["name"], "type": d["device_type"]["slug"],
                     "manufacturer": d["device_type"]["manufacturer"]["slug"],
                     "host": ip.split("/")[0] if ip else None, "mac": macs.get(d["id"]),
+                    "macs": all_macs.get(d["id"], []),
                     "room": (d.get("location") or {}).get("name")})
     return sorted(out, key=lambda d: d["name"])
 
@@ -223,13 +231,21 @@ def plan_device(device: dict, integrations: list[dict], by_mac: dict, attended: 
     (Home Assistant has its MAC), "cloud" (no entry: set up by hand), "attended" (its
     flow needs someone at the device and this run isn't attended) or "add"."""
     entry = integration_for(device, integrations)
-    if norm_mac(device["mac"]) in by_mac:
+    if ha_device_of(device, by_mac) is not None:
         return "present", entry
     if entry is None:
         return "cloud", None
     if entry.get("attended") and not attended:
         return "attended", entry
     return "add", entry
+
+
+def ha_device_of(device: dict, by_mac: dict) -> dict | None:
+    """Home Assistant's device for a NetBox one: the first of its MACs Home Assistant knows."""
+    for mac in device.get("macs") or ([device["mac"]] if device.get("mac") else []):
+        if norm_mac(mac) in by_mac:
+            return by_mac[norm_mac(mac)]
+    return None
 
 
 def ha_device_by_mac(ha_devices: list[dict]) -> dict[str, dict]:
@@ -323,7 +339,7 @@ def main() -> None:
     # Active ones only: Offline (its reservation gone) or Decommissioning (being removed by
     # hand) isn't added, nor placed.
     nb_devices = nb.all("dcim/devices", description=IOT_DEVICE_MARK, status="active")
-    devices = netbox_iot_devices(nb_devices, nb.all("dcim/interfaces", name="wifi0") if nb_devices else [])
+    devices = netbox_iot_devices(nb_devices, nb.all("dcim/interfaces") if nb_devices else [])
     if not devices:
         raise SystemExit("FAIL: NetBox lists no IoT device (netbox_seed.py's); nothing to compare against")
     ha = HomeAssistant(args.ha_url, read_secret(".ha-token", "HA_TOKEN"))
@@ -358,16 +374,16 @@ def main() -> None:
     if args.apply and added:
         by_mac = ha_device_by_mac(ha.devices())
         for d in added:
-            if norm_mac(d["mac"]) not in by_mac:
+            if ha_device_of(d, by_mac) is None:
                 print(f"  FAIL: {d['name']}: its entry was made, but no Home Assistant device carries its MAC")
                 failed += 1
-        print(f"  read back: {sum(norm_mac(d['mac']) in by_mac for d in added)} of {len(added)} added devices found")
+        print(f"  read back: {sum(ha_device_of(d, by_mac) is not None for d in added)} of {len(added)} added devices found")
 
     print("areas:")
     areas = {a["name"].casefold(): a for a in ha.areas()}
     placed = []
     for d in devices:
-        ha_dev = by_mac.get(norm_mac(d["mac"] or ""))
+        ha_dev = ha_device_of(d, by_mac)
         if ha_dev is None:
             continue
         want = d["room"]

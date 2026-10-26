@@ -106,7 +106,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   pair it replaces are archived); a second eufy account shared with admin rights. Left: the owner's
   Key Vault secrets and the account, the firewall's UDP to the camera at .73 for live view, the
   integration added in HA; the Baby Monitor C10 joins the IoT network later (then a reservation,
-  a catalogue type and the UDP rule); the E20 stays behind the travel router (eufy's relay).
+  a catalogue type and the UDP rule); the E20 stays behind the travel router (eufy's relay). The living-room Fire TV reports its Ethernet MAC to HA (an unused port, through ADB), so its
+  eth0 MAC goes in NetBox (the owner's) and the script matches any interface MAC (this pull request).
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
