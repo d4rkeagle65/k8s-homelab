@@ -1,0 +1,68 @@
+# One bridge only: eufy allows a single session per account, and a second would sign the
+# first out. On the pod network, not the host's: Home Assistant's own go2rtc pulls the
+# bridge's RTSP and does WebRTC itself, so the bridge's WebRTC (the reason its docs suggest
+# host networking) isn't used. Its P2P to the cameras leaves from the node's address,
+# which the firewall's IoT rule names.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eufy-bridge
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: eufy-bridge
+  template:
+    metadata:
+      labels:
+        app: eufy-bridge
+    spec:
+      containers:
+      - name: bridge
+        image: ghcr.io/mega-yfue/ha-eufy-sdk-bridge:0.6.0@sha256:7053521bbd1e6abc1634d710ff09b2dbfdb03dfabda53a28e10f109339de2c86
+        envFrom:
+        - secretRef:
+            name: eufy-bridge
+        env:
+        - name: EUFY_COUNTRY
+          value: US
+        - name: BRIDGE_PORT
+          value: "3000"
+        - name: TZ
+          value: ${TIMEZONE}
+        ports:
+        - name: http
+          containerPort: 3000
+        - name: rtsp
+          containerPort: 8554
+        - name: go2rtc
+          containerPort: 1984
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 10
+          failureThreshold: 30
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 50m
+            memory: 192Mi
+          limits:
+            cpu: 1000m
+            memory: 768Mi
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: eufy-bridge-data

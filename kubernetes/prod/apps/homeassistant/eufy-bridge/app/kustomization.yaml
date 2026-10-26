@@ -1,0 +1,11 @@
+# The eufy bridge (ghcr.io/mega-yfue/ha-eufy-sdk-bridge) that Home Assistant's eufy-sdk
+# integration connects to: it signs in to eufy once, with an account of its own, takes
+# events through eufy's cloud push, and reaches the cameras directly over P2P where it can
+# (the IoT network; the travel router's through eufy's relay).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- secret-eufy-bridge.yaml
+- persistentvolumeclaim-eufy-bridge-data.yaml
+- deployment-eufy-bridge.yaml
+- service-eufy-bridge.yaml
