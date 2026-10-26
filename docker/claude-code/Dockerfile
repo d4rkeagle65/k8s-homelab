@@ -1,12 +1,15 @@
 # Claude Code plus the tools this repo's work needs: git, kubectl, flux,
-# helm, OpenTofu, the GitHub CLI, and Python for scripts/ and its tests.
+# helm, OpenTofu, the GitHub CLI, Python for scripts/ and its tests,
+# PowerShell for scripts/*.ps1, and Ansible for checking ansible/.
 #
 # Claude Code comes from Anthropic's signed apt repository, so it's a system
 # package that never updates itself: rebuild the image (without the build
 # cache) to update it. kubectl stays within one minor version of the
 # cluster; flux and helm match the versions the cluster and the PC use.
 # OpenTofu matches the one in Semaphore's image, which runs the plans: here it
-# only formats and validates (tofu init -backend=false).
+# only formats and validates (tofu init -backend=false). Ansible here only
+# parses and checks the playbooks (--syntax-check, a raw task's quoting);
+# Semaphore runs them.
 FROM debian:trixie-slim
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
@@ -17,6 +20,8 @@ ARG FLUX_VERSION=2.9.6
 ARG HELM_VERSION=4.3.1
 # renovate: datasource=github-releases depName=opentofu/opentofu
 ARG TOFU_VERSION=1.11.0
+# renovate: datasource=github-releases depName=PowerShell/PowerShell
+ARG PWSH_VERSION=7.6.9
 # Claude Code's release channel: stable (about a week old) or latest.
 ARG CLAUDE_CODE_CHANNEL=stable
 # The owner of /opt/claude-code/home on the host.
@@ -30,7 +35,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl gnupg git tmux jq less nano openssh-client \
-        dnsutils iputils-ping netcat-openbsd procps python3 python3-venv && \
+        dnsutils iputils-ping netcat-openbsd procps python3 python3-venv \
+        libicu76 && \
     install -d -m 0755 /etc/apt/keyrings && \
     curl -fsSL https://downloads.claude.ai/keys/claude-code.asc \
         -o /etc/apt/keyrings/claude-code.asc && \
@@ -66,12 +72,21 @@ RUN arch="$(dpkg --print-architecture)" && cd /tmp && \
     curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" \
         | grep " ${tofu}\$" | sha256sum -c - && \
     tar -xzf "${tofu}" -C /usr/local/bin tofu && \
+    pwsh_arch="$([ "${arch}" = amd64 ] && echo x64 || echo "${arch}")" && \
+    pwsh="powershell-${PWSH_VERSION}-linux-${pwsh_arch}.tar.gz" && \
+    curl -fsSLO "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/${pwsh}" && \
+    curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/hashes.sha256" \
+        | grep " \*${pwsh}\$" | sed 's/ \*/  /' | sha256sum -c - && \
+    install -d /opt/microsoft/powershell && \
+    tar -xzf "${pwsh}" -C /opt/microsoft/powershell && \
+    chmod 0755 /opt/microsoft/powershell/pwsh && \
+    ln -s /opt/microsoft/powershell/pwsh /usr/local/bin/pwsh && \
     rm -f /tmp/kubectl /tmp/*.tar.gz
 
 # Python packages for scripts/: the same as scripts/requirements.txt and
-# scripts/requirements-test.txt.
+# scripts/requirements-test.txt; and ansible-core.
 RUN python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir 'ruamel.yaml>=0.18' 'pytest>=8.0'
+    /opt/venv/bin/pip install --no-cache-dir 'ruamel.yaml>=0.18' 'pytest>=8.0' 'ansible-core>=2.19'
 
 # Start-up, kubeconfig and credential helpers (see README.md).
 COPY bin/ /usr/local/bin/
