@@ -318,6 +318,65 @@ spec:
           Its community is a hand edit to /etc/snmp/snmpd.conf that TOS can rewrite
           (an update, a reboot, saving SNMP in its UI): check line 33
           (old-queues/QUEUE-monitoring.md).
+  # The core switch and the firewall, over SNMPv3 (snmp-exporter; QUEUE-network-monitoring.md).
+  - name: homelab.network
+    rules:
+    - alert: CoreSwitchSNMPDown
+      expr: max(up{switch="core"}) == 0
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: The core switch stopped answering SNMP.
+        description: >-
+          Its port states and traffic aren't being read. The switch may be down, or its SNMPv3
+          user no longer matches Key Vault's SNMP-V3-* secrets.
+    - alert: FirewallSNMPDown
+      expr: max(up{job="firewall-snmp"}) == 0 or absent(up{job="firewall-snmp"})
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: The firewall stopped answering SNMP.
+        description: >-
+          The firewall isn't being read: down, its SNMP service or SNMPv3 user changed, or
+          NetBox lists no active device of role Firewall with a primary address.
+    # A switch port given a description (an uplink, a server) that went down while enabled.
+    - alert: CoreSwitchPortDown
+      expr: ifOperStatus{switch="core", ifAlias!=""} == 2 and on(instance, ifIndex) ifAdminStatus == 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: A described port on the core switch is down.
+        description: >-
+          Port {{ $labels.ifName }} ({{ $labels.ifAlias }}) is enabled but has no link.
+    # A firewall interface that had a link in the last day and lost it.
+    - alert: FirewallInterfaceDown
+      expr: >-
+        ifOperStatus{job="firewall-snmp"} == 2
+        and on(instance, ifIndex) ifAdminStatus == 1
+        and on(instance, ifIndex) min_over_time(ifOperStatus{job="firewall-snmp"}[1d] offset 10m) == 1
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: A firewall interface lost its link.
+        description: >-
+          Interface {{ $labels.ifDescr }} was up within the last day and is down now.
+    - alert: NetworkInterfaceErrors
+      expr: >-
+        (rate(ifInErrors{switch="core"}[15m]) + rate(ifOutErrors{switch="core"}[15m])) > 1
+        or (rate(ifInErrors{job="firewall-snmp"}[15m]) + rate(ifOutErrors{job="firewall-snmp"}[15m])) > 1
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: An interface is logging errors.
+        description: >-
+          {{ $labels.ifName }}{{ $labels.ifDescr }} on the {{ if $labels.switch }}core switch{{ else }}firewall{{ end }}
+          has had more than one error a second for 30 minutes: a cable, a transceiver or a
+          duplex mismatch.
   # Every database's backup (old-queues/QUEUE-monitoring.md, phase 9; the Backups dashboard):
   # a night is missed after 26 hours. Postgres from the Barman Cloud plugin's
   # metrics (CloudNativePG's own backup timestamps stay empty with the plugin);

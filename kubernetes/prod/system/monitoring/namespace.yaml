@@ -5,5 +5,6 @@ metadata:
     homelab.local/category: system
     homelab.local/data: files
     homelab.local/exposure: lan
+    homelab.local/keyvault: allowed
     homelab.local/login: app
   name: monitoring
