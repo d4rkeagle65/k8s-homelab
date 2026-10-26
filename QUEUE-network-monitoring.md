@@ -35,9 +35,11 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
       send to port 514, which is RFC 5424's: its BSD lines fail to parse there, and Alloy has
       no format detection (`raw` is experimental). The syslog Service's
       externalTrafficPolicy was Cluster, so every sender arrived as a k8s node's address.
-      Next: the `listener` label shows which port and transport the Synology and the
-      TerraMaster use; then 514/UDP becomes BSD for the switch (the Synology moved to TCP
-      first if it sends 514/UDP).
+      With the real source addresses (#401): the Synology holds 514/TCP, the firewall 1514/TCP,
+      and the TerraMaster pushes to Loki directly, so 514/UDP takes the switch's BSD format.
+      The firewall's SNMP service listens on its management address (the owner) but answers
+      no SNMPv3 discovery from a node or from the Docker VM, which the switch answers: its
+      box firewall drops UDP 161 before the service sees it.
       Then read back: `up{switch="core"}` and `up{job="firewall-snmp"}` are 1; the firewall's
       modules each return series (drop the ones CloudGen doesn't answer); Loki has lines with
       both devices' `host`.

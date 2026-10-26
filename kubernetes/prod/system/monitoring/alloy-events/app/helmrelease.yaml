@@ -51,8 +51,9 @@ spec:
           }
 
           // The NASes', the core switch's and the firewall's syslog, through the alloy-syslog LoadBalancer
-          // (monitoring-extras/app/service-syslog.yaml): 5514 RFC 5424, 5515 the
-          // older BSD format. Stamped on arrival (BSD's timestamps carry no
+          // (monitoring-extras/app/service-syslog.yaml): 514/TCP RFC 5424 (the
+          // Synology), 514/UDP the older BSD format (the core switch, which can
+          // only send there), 1514 BSD on both (the firewall, on TCP). Stamped on arrival (BSD's timestamps carry no
           // year). Labelled source="syslog", the sender's host, the app name and
           // the listener it came in on (the Service's port and protocol); the rest
           // stays in the line.
@@ -66,7 +67,7 @@ spec:
             listener {
               address       = "0.0.0.0:5514"
               protocol      = "udp"
-              syslog_format = "rfc5424"
+              syslog_format = "rfc3164"
               labels        = {source = "syslog", listener = "514/udp"}
             }
             listener {
