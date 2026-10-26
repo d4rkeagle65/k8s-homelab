@@ -32,7 +32,7 @@ depending on a device's or VM's status, by one standard. The standard is the tab
    boot off only for Decommissioning. To: off for Offline too (Build: kept, not started). Its
    plan read by the owner before an apply. (this pull request; the owner's plan and apply
    after its merge.)
-8. [ ] `tofu/tailscale`: today ignores status. To: routes, ipsets and DNS from Staged and
+8. [x] `tofu/tailscale`: today ignores status. To: routes, ipsets and DNS from Staged and
    Active only (Use). Its plan read by the owner.
 9. [ ] The Ansible inventory (`ansible/inventory/netbox.yml`): today every host tagged
    ansible. To: Staged and Active only (Configure). First the owner sets cotedeprox01/02 to

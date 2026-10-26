@@ -13,7 +13,7 @@ data "http" "netbox" {
     Accept        = "application/json"
   }
   request_body = jsonencode({
-    query = "{ netbox_dns_zone_list { name tags { slug } } prefix_list { prefix description tags { slug } } device_list { name role { name } tags { slug } interfaces { ip_addresses { address } } } virtual_machine_list { name role { name } tags { slug } interfaces { name ip_addresses { address } } } ip_address_list { address description tags { slug } } }"
+    query = "{ netbox_dns_zone_list { name tags { slug } } prefix_list { prefix description tags { slug } } device_list { name status role { name } tags { slug } interfaces { ip_addresses { address } } } virtual_machine_list { name status role { name } tags { slug } interfaces { name ip_addresses { address } } } ip_address_list { address description tags { slug } } }"
   })
   lifecycle {
     postcondition {
@@ -26,6 +26,10 @@ data "http" "netbox" {
 locals {
   netbox = jsondecode(data.http.netbox.response_body).data
 
+  # A device or VM the tailnet routes to or resolves through only while it's in use
+  # (Active, Staged): the root README's "What a NetBox status means".
+  in_use = ["active", "staged"]
+
   # The zones the tailnet resolves through the Pi-holes, and searches.
   dns_zones = sort([
     for z in local.netbox.netbox_dns_zone_list : z.name if contains([for t in z.tags : t.slug], "tailscale-dns")
@@ -36,7 +40,7 @@ locals {
   dns_resolvers = sort(flatten([
     for vm in local.netbox.virtual_machine_list : [
       for i in vm.interfaces : [for a in i.ip_addresses : split("/", a.address)[0]] if i.name == "net0"
-    ] if contains([for t in vm.tags : t.slug], "pihole")
+    ] if contains([for t in vm.tags : t.slug], "pihole") && contains(local.in_use, lower(vm.status))
   ]))
 }
 
