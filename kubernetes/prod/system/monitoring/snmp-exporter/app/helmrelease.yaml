@@ -1,12 +1,17 @@
-# The two NASes and the core switch over SNMP (read only): the Synology with the exporter's
-# synology profile (volumes, disks and their temperatures, RAID state, fans,
-# UPS), the TerraMaster, a Linux box, with the generic ones (system, memory,
-# load, interfaces).
+# The two NASes, the core switch and the firewall over SNMP (read only): the Synology with
+# the exporter's synology profile (volumes, disks and their temperatures, RAID state, fans,
+# UPS), the TerraMaster, a Linux box, with the generic ones (system, memory, load,
+# interfaces). The firewall is scrapeconfig-firewall.yaml's, found in NetBox.
 #
-# The SNMPv2c community is in this release's ConfigMap: the exporter expands
-# environment variables only in SNMPv3 credentials, and v2c sends the
-# community in the clear on every poll anyway. SNMPv3 on both NASes would
-# take it out of both.
+# The switch and the firewall use SNMPv3 (authPriv, SHA and AES), as homelab_v3: its user
+# and passphrases come from Key Vault (externalsecret.yaml) into the exporter's environment,
+# which it expands in SNMPv3 credentials only (--config.expand-environment-variables). The
+# NASes' SNMPv2c community is in this release's ConfigMap, sent in the clear on every poll
+# anyway; SNMPv3 on both NASes would take it out.
+#
+# Each target's own relabelings put its labels on the target, so its `up` is its own:
+# the chart's additionalMetricsRelabels label only the scraped series, and every target's
+# `up` would otherwise be the same series, the exporter's.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -40,6 +45,14 @@ spec:
         homelab_v2:
           community: ${SNMP_COMMUNITY}
           version: 2
+        homelab_v3:
+          version: 3
+          security_level: authPriv
+          username: $${SNMP_V3_USERNAME}
+          auth_protocol: SHA
+          password: $${SNMP_V3_AUTH_PASSPHRASE}
+          priv_protocol: AES
+          priv_password: $${SNMP_V3_PRIV_PASSPHRASE}
       modules:
         synology_ucd_memory:
           walk:
@@ -134,6 +147,13 @@ spec:
               labelname: laIndex
     extraArgs:
     - --config.file=/etc/snmp_exporter/snmp.yml
+    - --config.expand-environment-variables
+    # Optional, so a Key Vault outage or a missing secret costs the SNMPv3 targets only,
+    # never the NASes' polls: the exporter starts either way.
+    envFrom:
+    - secretRef:
+        name: snmp-exporter-v3
+        optional: true
     # Reload the exporter when the config above changes; it reads it only at
     # start, and the chart doesn't restart it.
     configmapReload:
@@ -160,16 +180,23 @@ spec:
         scrapeTimeout: 110s
         additionalMetricsRelabels:
           nas: synology
+        relabelings:
+        - {targetLabel: nas, replacement: synology}
       - name: terramaster
         target: ${TERRAMASTER_MGMT_ADDRESS}
         module: [system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table]
         additionalMetricsRelabels:
           nas: terramaster
+        relabelings:
+        - {targetLabel: nas, replacement: terramaster}
       # The TP-Link TL-SG3428 (JetStream, managed): each port's state,
       # speed, traffic and errors. Its two TL-SG105E are Easy Smart switches,
       # without SNMP; their uplinks are ports here.
       - name: switch-core
         target: ${SWITCH_CORE_ADDRESS}
         module: [system, if_mib]
+        auth: [homelab_v3]
         additionalMetricsRelabels:
           switch: core
+        relabelings:
+        - {targetLabel: switch, replacement: core}

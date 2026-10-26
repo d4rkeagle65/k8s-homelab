@@ -1,4 +1,4 @@
-# The NASes' syslog, received by alloy-events (its loki.source.syslog) on a
+# The NASes', the core switch's and the firewall's syslog, received by alloy-events (its loki.source.syslog) on a
 # MetalLB address of its own: 514 takes RFC 5424 (DSM's "IETF" format), 1514
 # the older BSD format (RFC 3164), each over TCP and UDP. Only these ports:
 # the Alloy pod's own HTTP port (its UI and debug pages) stays inside.
