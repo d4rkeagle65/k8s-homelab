@@ -16,12 +16,13 @@ data:
       # in the last 6 hours: its Alloy, its syslog or the push route stopped
       # (the TerraMaster's Alloy once stalled with no error of its own). Six
       # hours, since the quietest (the Synology) sends a few lines an hour. The
-      # read-back test streams are left out.
+      # read-back test streams are left out, and so are senders labelled
+      # logs="sparse", which log only on events (the core switch: a sign-in).
       - alert: HostLogsSilent
         expr: |
-          count by (host) (count_over_time({source=~"journal|docker|pihole|syslog", host!="readback-host"}[1d] offset 6h))
+          count by (host) (count_over_time({source=~"journal|docker|pihole|syslog", host!="readback-host", logs!="sparse"}[1d] offset 6h))
           unless
-          count by (host) (count_over_time({source=~"journal|docker|pihole|syslog", host!="readback-host"}[6h]))
+          count by (host) (count_over_time({source=~"journal|docker|pihole|syslog", host!="readback-host", logs!="sparse"}[6h]))
         for: 30m
         labels:
           severity: warning
@@ -32,6 +33,57 @@ data:
             {{ $labels.host }} sent logs to Loki the day before but none in the last
             6 hours. Check its log shipper: Alloy (systemctl status alloy; on the
             TerraMaster the terramaster-logs container), or the Synology's Log Center.
+    # The firewall's own problems, from its syslog (host F80, its box name;
+    # QUEUE-network-monitoring.md): each line is one CloudGen writes for as long as
+    # the problem lasts, so a count over two hours clears soon after it's fixed.
+    - name: homelab.firewall
+      rules:
+      # Its IPS and application definitions can't update: no update server reached,
+      # or an install failed. The firewall keeps working on old signatures. One
+      # failure is often transient (it retries about every 11 minutes and logs
+      # nothing on success), so it takes three in a day.
+      - alert: FirewallDefinitionUpdatesFailing
+        expr: |
+          sum(count_over_time({host="F80"} |~ "Download error|software install for [a-z]+ failed" [24h])) > 2
+        for: 30m
+        labels:
+          severity: warning
+          namespace: monitoring
+        annotations:
+          summary: The firewall can't update its IPS or application definitions.
+          description: >-
+            CloudGen logged {{ $value }} failed definition downloads or installs in a day
+            ("Download error", "software install ... failed"): it is filtering on old
+            signatures. Check its DNS and its route to the Barracuda update servers, and
+            the Energize Updates subscription.
+      # The Active Directory lookup its rules use for user groups fails to sign in.
+      - alert: FirewallDirectoryLookupFailing
+        expr: |
+          sum(count_over_time({host="F80"} |= "Error fetching groups" [2h])) > 0
+        for: 30m
+        labels:
+          severity: warning
+          namespace: monitoring
+        annotations:
+          summary: The firewall can't read user groups from Active Directory.
+          description: >-
+            Its offline group lookup (MSAD) can't sign in to the domain ("Could not
+            authenticate on the AD"): rules by user group work from stale groups. Check
+            the lookup account's password in Firewall Admin's authentication service.
+      # Its event store is full, so new events (alerts it would raise) are dropped.
+      - alert: FirewallEventStoreFull
+        expr: |
+          sum(count_over_time({host="F80"} |= "because the configured maximum number" [2h])) > 0
+        for: 30m
+        labels:
+          severity: warning
+          namespace: monitoring
+        annotations:
+          summary: The firewall's event store is full and drops new events.
+          description: >-
+            CloudGen can't add events past its configured maximum: delete old events in
+            Firewall Admin's event monitor, or raise the limit in Infrastructure Services >
+            Eventing > Basic.
     # The Synology's Hyper Backup (to the TerraMaster), from its own log lines,
     # which the Synology sends by syslog: Hyper Backup keeps no result anywhere an
     # exporter could read (task_state.conf isn't updated after a run). A night

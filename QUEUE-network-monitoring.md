@@ -33,11 +33,16 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
       is BSD for the switch since #402. The switch's lines reach Alloy (its log server
       corrected to the alloy-syslog address, 2026-10-26) but fail BSD parsing ("expecting a
       sequence number [col 5]": a digit right after the priority, a numeric date), so
-      514/UDP stores them raw (Alloy's experimental `raw` format, #403). Left: read real
-      lines, then parse them in a loki.process stage (priority to severity, the program to
-      `app`), and check the `host` label (raw lines carry no hostname of their own).
-- [ ] 4. From real lines: Loki alerts for repeated admin login failures and a VPN tunnel
-      down, and one for each device's syslog falling silent.
+      514/UDP stores them raw (Alloy's experimental `raw` format, #404). Its line, as
+      stored: `<date> <time> <name> <code> <message>`, local time, the priority dropped;
+      a sign-in logs, a sign-out and a config save don't at its current level. Parsed
+      (#405): its name becomes `host`, and `logs="sparse"` keeps it out of HostLogsSilent.
+- [ ] 4. Log alerts from real lines (#405, homelab.firewall): definition updates failing
+      (three in a day; one at 12:00 2026-10-26 looked transient), the AD group lookup
+      failing to sign in, the event store full (373 lines in 6 hours on 2026-10-26: these
+      two fire at once until fixed). Firewall silence is HostLogsSilent's. Left: VPN tunnel
+      down and failed admin sign-ins on either device, once a real line of each is seen
+      (none in the first day); port-scan events (about 16 an hour) aren't alerted.
 - [ ] 5. Later: CloudGen's own MIB (sessions, tunnels, HA state), which needs the exporter's
       generator and Barracuda's MIB files; a dashboard.
 
