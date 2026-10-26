@@ -101,12 +101,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   repo (offered, its own pull request). The son's-room ceiling fan doesn't work: look into it.
   Revoke the token in ~/.ha-token when this is done. Attended run 1354 (2026-10-26): the bedroom Fire Stick took the
   ADB connection but its prompt never showed (asleep or off its input), the living-room Fire TV
-  and the Samsung TV were off the network; the next attended run with each TV on and showing. Eufy (2026-10-26): through the eufy-sdk bridge (`kubernetes/prod/apps/homeassistant/eufy-bridge/`,
-  this pull request) and the HACS custom integration `mega-yfue/ha-eufy-sdk` (the bropat and fuatakgun
-  pair it replaces are archived); a second eufy account shared with admin rights. Left: the owner's
-  Key Vault secrets and the account, the firewall's UDP to the camera at .73 for live view, the
-  integration added in HA; the Baby Monitor C10 joins the IoT network later (then a reservation,
-  a catalogue type and the UDP rule); the E20 stays behind the travel router (eufy's relay). The living-room Fire TV reports its Ethernet MAC to HA (an unused port, through ADB), so its
+  and the Samsung TV were off the network; the next attended run with each TV on and showing. Eufy (2026-10-26): the eufy-sdk bridge (`kubernetes/prod/apps/homeassistant/eufy-bridge/`)
+  signed in with a second, admin account, push connected; six devices in HA. The living-room E30's
+  live view works directly (the firewall's UDP to it). Devices the bridge can't reach directly (the E20,
+  its sock and base behind the travel router; the C10 until it's on the IoT network) get events but no
+  live video: eufy's relay refuses its keys (`get_dsk_keys` 20028, upstream mega-yfue/ha-eufy-sdk #154,
+  no fix; the owner chose to wait, not comment). Left: the C10 onto the IoT network (its reservation, a
+  catalogue type, the UDP allowance); the unnamed T8353's name and room (the owner). The living-room Fire TV reports its Ethernet MAC to HA (an unused port, through ADB), so its
   eth0 MAC goes in NetBox (the owner's) and the script matches any interface MAC (this pull request).
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
