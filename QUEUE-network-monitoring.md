@@ -22,20 +22,17 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
 
 ## Checklist
 
-- [ ] 1. The owner: the three Key Vault secrets; the same SNMPv3 user on the switch (SNMP >
-      SNMP v3: a group with read access, the user with SHA and AES) and on the firewall
-      (Firewall Admin: the SNMP service, v3, the user, the management address; allow the
-      cluster nodes' management addresses); each device's syslog to the `alloy-syslog`
-      address (Homepage's NAS notes have it; switch: BSD on 1514/UDP; firewall: Syslog
-      Streaming, 1514/TCP, the log groups settled above); a description on each switch port
-      worth an alert (uplinks, servers, access points): CoreSwitchPortDown watches only
-      described ports, and 1 of 33 had one on 2026-10-26.
-- [ ] 2. The pull request: the ExternalSecret, SNMPv3 in the exporter, the firewall's
-      ScrapeConfig, per-target labels on `up` (every SNMP target's `up` was one series,
-      so TerraMasterSNMPDown could never fire), alerts (`homelab.network`), syslog senders
-      without a hostname named by reverse DNS. Merged after step 1, or the switch's polls
-      and the firewall's fail until it is.
-- [ ] 3. Read back: `up{switch="core"}` and `up{job="firewall-snmp"}` are 1; the firewall's
+- [x] 1. The owner set SNMPv3 and syslog on both (2026-10-26); Key Vault's three secrets.
+- [x] 2. #394 merged and live 2026-10-26: `snmp-exporter-v3` synced, each target's own `up`
+      (the NASes read 1), the firewall found in NetBox, Alloy reloaded.
+- [ ] 3. The devices answering (2026-10-26, from the exporter's own errors): the switch says
+      "incoming packet is not authentic" (it knows the user; the auth protocol isn't SHA or
+      its auth passphrase isn't Key Vault's); the firewall times out with no answer even to
+      SNMPv3 discovery, which needs no passphrase (the SNMP service isn't on its management
+      address, or its access list lacks the k8s nodes' management addresses, NetBox's
+      .24-.26 and .34-.37 on the management network). Its syslog arrives (host F80, about 23
+      lines a minute, mostly blocked connections); the switch's doesn't yet.
+      Then read back: `up{switch="core"}` and `up{job="firewall-snmp"}` are 1; the firewall's
       modules each return series (drop the ones CloudGen doesn't answer); Loki has lines with
       both devices' `host`.
 - [ ] 4. From real lines: Loki alerts for repeated admin login failures and a VPN tunnel
