@@ -489,3 +489,12 @@ def test_the_termix_tags_go_on_hosts_only():
     for tag in m.TERMIX_TAGS:
         assert set(m.TERMIX_TAGS[tag][0]) == {"dcim.device", "virtualization.virtualmachine"}
     assert not set(m.TERMIX_TAGS) & set(m.TAILSCALE_TAGS)
+
+
+def test_an_iot_device_being_decommissioned_is_held_and_never_set_offline():
+    held = {"name": "zziotkalihall", "description": m.IOT_DEVICE_MARK, "status": {"value": "decommissioning"}}
+    live = {"name": "zziotkalikitchen", "description": m.IOT_DEVICE_MARK, "status": {"value": "active"}}
+    assert m.iot_held(held) and not m.iot_held(live)
+    assert m.iot_held({"status": "decommissioning"})  # a plain value, as some reads give it
+    # Its reservation gone, a live device goes Offline; one being decommissioned is left.
+    assert [d["name"] for d in m.stale_iot_devices([held, live], set())] == ["zziotkalikitchen"]

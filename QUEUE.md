@@ -57,6 +57,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **Every NetBox job by its status** (2026-10-26): `QUEUE-netbox-status.md` (the standard, and the
+  jobs still to bring to it, in order).
 - **Windows updates from Semaphore** (2026-10-26): `ansible/windows-update.yml` (this pull
   request) over WinRM, for the test domain controller (the only DC, used for testing; automatic
   reboots chosen by the owner). Left, the owner's: WinRM answering the Docker VM on 5985

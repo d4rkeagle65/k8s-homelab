@@ -82,6 +82,24 @@ version updates.
   and maintenance of the LXC nodes, also run from Semaphore.
 - **Docker stacks** (`docker/`): each deployed by Dockhand from its `compose.yaml`.
 
+## What a NetBox status means
+
+A device's or VM's status in NetBox is the one place that says what it's for now, and every
+job that reads NetBox does what this table says (CLAUDE.md):
+
+| Status | Means | Build (OpenTofu) | Configure (Ansible) | Sync from live systems | Access (Termix) | Monitor (alerts) | Use (HA, DNS) |
+|---|---|---|---|---|---|---|---|
+| Planned | to be built | creates it | no | marks it active once it's running | no | no | no |
+| Staged | built, being set up | keeps it | yes | records facts, never promotes it | yes | scraped, no alerts | yes |
+| Active | in service | keeps it | yes | yes | yes | yes | yes |
+| Offline | off on purpose, or seen gone | keeps it, not started | no | may set it, and set it back to active when seen again | no | no | no |
+| Failed | broken, awaiting repair | keeps it | no | leaves status alone | yes, for the repair | keeps alerting | no |
+| Decommissioning | being removed by hand | leaves it exactly as it is | no | leaves it exactly as it is | no | no | no |
+| Inventory | spare, not deployed | ignored | ignored | ignored | ignored | ignored | ignored |
+
+"Sync" is a job writing what it sees into NetBox (`scripts/netbox_seed.py`): it moves a
+status only between Planned, Active and Offline, and never touches the others.
+
 ## Where to go next
 
 | Path | What's there |
