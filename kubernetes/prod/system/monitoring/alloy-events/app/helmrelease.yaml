@@ -87,7 +87,26 @@ spec:
               labels        = {source = "syslog", listener = "1514/udp"}
             }
             relabel_rules = loki.relabel.syslog.rules
-            forward_to    = [loki.write.default.receiver]
+            forward_to    = [loki.process.syslog.receiver]
+          }
+
+          // The core switch's raw lines (514/UDP): "<date> <time> <name> <code> <message>",
+          // its own local time and name. Its name becomes host, and logs="sparse" marks a
+          // sender that logs only on events (a sign-in), which HostLogsSilent leaves out.
+          loki.process "syslog" {
+            forward_to = [loki.write.default.receiver]
+            stage.match {
+              selector = "{listener=\"514/udp\"}"
+              stage.regex {
+                expression = "^[0-9-]+ [0-9:]+ (?P<name>[A-Za-z0-9._-]+) [0-9]+ "
+              }
+              stage.labels {
+                values = {host = "name"}
+              }
+              stage.static_labels {
+                values = {logs = "sparse"}
+              }
+            }
           }
 
           loki.relabel "syslog" {
