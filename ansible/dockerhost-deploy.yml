@@ -1,13 +1,13 @@
 # Makes a Debian VM a Docker host like the first: Docker CE from Docker's own
 # repository at docker_version (the first host's), its packages held (a Docker
-# upgrade restarts every container: docker-vm-update.yml upgrades them, under
+# upgrade restarts every container: dockervm-update.yml upgrades them, under
 # live-restore), /etc/docker/daemon.json with the local log driver and
 # live-restore on from the start, then Dockhand's Hawser agent, so Dockhand
 # deploys stacks here (docker/CLAUDE.md).
 #
-# Inventory: the one host target_hosts names (select-hosts.yml), never a group:
+# Inventory: the one host target_hosts names (_select-hosts.yml), never a group:
 # this installs and restarts Docker.
-# Run after baseline.yml.
+# Run after debian-baseline.yml.
 #
 # Hawser: Dockhand's agent (github.com/Finsys/hawser), in standard mode:
 # Dockhand connects to it on hawser_port, sending the token, and the stacks it
@@ -20,7 +20,7 @@
 # Without HAWSER_TOKEN the run installs Docker alone and says so. The token is
 # never printed.
 #
-# Run baseline.yml first: it also sets up the management routing
+# Run debian-baseline.yml first: it also sets up the management routing
 # (tasks/management-routing.yml).
 #
 # Each step reads its result back: Docker's version and live-restore from
@@ -28,7 +28,7 @@
 #
 # In check mode (--check) it reports what it would install and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: all
     select_required: true

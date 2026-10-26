@@ -1,12 +1,12 @@
 # The same baseline on every Debian host: the owner's admin login (the steps of
-# admin-users.yml), a set of packages (vars/baseline.yml), and one interactive
+# debian-setting-admins.yml), a set of packages (vars/baseline.yml), and one interactive
 # bash setup (files/homelab-bashrc, loaded from /etc/bash.bashrc). It changes
 # no running service, so every host goes at once.
 #
 # Inventory (kept in Semaphore, never in git): "All Debian Hosts", every machine
 # in the groups the other playbooks use (proxmox, pihole, docker_vm), root over
 # SSH. The Kubernetes nodes are Talos, with no SSH: not here.
-# Variables (the "Debian Host Baseline" variable group): admin-users.yml's (without
+# Variables (the "Debian Host Baseline" variable group): debian-setting-admins.yml's (without
 # admin_user that part is skipped and said so), and semaphore_ssh_key, the
 # public line of Semaphore's shared key, which root then accepts alongside its
 # other keys; the first run goes through each older inventory so that the
@@ -35,7 +35,7 @@
 # In check mode (--check) it reports the missing packages, the exporters, sshd's
 # restart settings and whether the bash setup differs, and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: debian
 

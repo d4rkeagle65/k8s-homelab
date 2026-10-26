@@ -1,7 +1,7 @@
 # Talos nodes
 
 The cluster's nodes are Talos Linux VMs, built by OpenTofu (`tofu/proxmox/talos.tf`) and
-upgraded by `ansible/talos-upgrade.yml` and `ansible/talos-k8s-upgrade.yml`. This folder
+upgraded by `ansible/talos-update.yml` and `ansible/kubernetes-update.yml`. This folder
 holds what isn't secret:
 
 - `patches/`: the Talos settings every node gets. `common.yaml` names the installer image

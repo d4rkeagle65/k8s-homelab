@@ -15,7 +15,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 - **The shape** (VMIDs, roles, sizes, bridges, tags) is in git, and nothing else: no names,
   addresses or numbers from the site. The Talos VMs', plain containers', Docker VMs' and Pi-holes' shape is NetBox's
   (old-queues/QUEUE-netbox-shape.md): `proxmox/netbox-guests.json` is generated from it by
-  `scripts/netbox_guests.py`, which Semaphore's "NetBox: Guests to git" runs to open a pull
+  `scripts/netbox_guests.py`, which Semaphore's "Sync: NetBox Guests → Git (script)" runs to open a pull
   request; never edit the file by hand.
 - **Each guest's Proxmox host, name, addresses and MACs are NetBox's** (`netbox.tf`): one
   GraphQL query at every plan, by the VMID custom field, with a read-only token. NetBox's
@@ -85,7 +85,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 2. **A variable group** (Semaphore's sidebar; "environment" in its API) "OpenTofu: Proxmox",
    as environment variables, not extra variables:
    - variable: `PROXMOX_VE_ENDPOINT` = `https://<a Proxmox host's name>:8006/`, the name its
-     Let's Encrypt certificate carries (`ansible/proxmox-host.yml`). No
+     Let's Encrypt certificate carries (`ansible/proxmox-setting.yml`). No
      `PROXMOX_VE_INSECURE`: the certificate is verified like any other;
    - secrets: `PROXMOX_VE_API_TOKEN` = `tofu@pve!semaphore=<secret>`,
      `PG_CONN_STR` = `postgres://tfstate:<TFSTATE_DB_PASSWORD>@semaphore-postgres:5432/tfstate?sslmode=disable`,
@@ -131,7 +131,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 - **Credentials:** an OAuth client of its own, which doesn't expire: Key Vault's
   `TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID` and `-SECRET` (write on the policy file, DNS, devices
   and feature settings). Not Homepage's `TAILSCALE_API_KEY`.
-- **Semaphore:** a variable group "OpenTofu: Tailscale", environment variables. Secrets:
+- **Semaphore:** a variable group "Setting: Tailscale (OpenTofu)", environment variables. Secrets:
   `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_CLIENT_SECRET` (the client above),
   `PG_CONN_STR` (the same as Proxmox's; the schema differs), `TF_VAR_netbox_token` (Key
   Vault's `NETBOX-READ-TOKEN`); variable `TF_VAR_netbox_url` = `https://netbox.<domain>`. A

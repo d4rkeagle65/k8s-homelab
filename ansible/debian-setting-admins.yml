@@ -9,7 +9,7 @@
 # later, separate step, once this account is proven on every machine.
 #
 # It targets the inventory's debian group (every Debian host, not the OpenWrt
-# APs); baseline.yml runs the same steps (tasks/admin-user.yml) as part of the
+# APs); debian-baseline.yml runs the same steps (tasks/admin-user.yml) as part of the
 # baseline. The values come from a Semaphore variable group (never git):
 #   admin_user           the account, e.g. dhardin
 #   admin_ssh_keys       a list of its public keys (one line each, ssh-...)
@@ -23,7 +23,7 @@
 # In check mode (--check) it reports what it would change and runs the checks
 # that don't depend on those changes.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: debian
 

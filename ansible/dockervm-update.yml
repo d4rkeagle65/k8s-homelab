@@ -27,7 +27,7 @@
 #
 # In check mode (--check) it lists the pending upgrades and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: docker_vm
 

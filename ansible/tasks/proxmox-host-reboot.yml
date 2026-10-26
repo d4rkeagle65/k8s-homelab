@@ -1,5 +1,5 @@
 # Reboots this Proxmox host without breaking either cluster, for
-# proxmox-reboot.yml and proxmox-upgrade.yml:
+# proxmox-reboot.yml and proxmox-update.yml:
 #
 # 1. Every Kubernetes node running here (a guest whose name is a node's) is
 #    taken out of service: its database primaries switched to a replica on

@@ -22,7 +22,7 @@
 # and running guests, the upgrades pending on 8, and the source edits it would
 # make, and changes nothing. pve8to9 runs only once the host is on 8.4.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: proxmox_lab
 
@@ -288,7 +288,7 @@
     - name: Reboot into 9
       ansible.builtin.reboot:
         reboot_timeout: 1200
-        msg: Proxmox VE 9 upgrade (ansible/proxmox-lab-upgrade.yml)
+        msg: Proxmox VE 9 upgrade (ansible/proxmoxlab-update-major.yml)
 
     - name: Read the version back
       ansible.builtin.command: pveversion

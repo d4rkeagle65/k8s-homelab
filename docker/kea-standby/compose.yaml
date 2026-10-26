@@ -4,7 +4,7 @@
 # branch at every deploy by kea-config into the kea-config volume: a Hawser
 # stack can't bind-mount a file from git. Its site files (subnets, the
 # reservations database, the API credentials, ha.json naming it the standby) are
-# in /opt/kea/site on the VM, written by ansible/kea-ha.yml from the primary's.
+# in /opt/kea/site on the VM, written by ansible/kea-setting-ha.yml from the primary's.
 # Redeploy it after a change to kea-dhcp4.conf, which redeploys only the
 # primary's stack by itself.
 #

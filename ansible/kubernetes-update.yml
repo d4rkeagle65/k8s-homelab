@@ -17,7 +17,7 @@
 # what it would change, and changes nothing.
 
 # The whole cluster at once, by design: no hosts to pick.
-- ansible.builtin.import_playbook: semaphore-host.yml
+- ansible.builtin.import_playbook: _semaphore-host.yml
 
 - name: Upgrade Kubernetes
   hosts: semaphore

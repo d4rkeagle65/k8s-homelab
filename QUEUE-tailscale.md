@@ -67,7 +67,7 @@ change in the repo or in NetBox updates the tailnet; plus a small amount of aler
       review approved: the old search paths and split domain gone, Pi-hole 2 added, checked
       against NetBox); plan 1290 then: no changes. All three ran on `main` after the merge
       (5703128). Left: the template (33) still carries the Cloudflare template's name; it is
-      to be "OpenTofu: Tailscale" (the owner). `tailscale_dns_configuration` is alpha in provider 0.29.2: a provider bump's
+      to be "Setting: Tailscale (OpenTofu)" (the owner). `tailscale_dns_configuration` is alpha in provider 0.29.2: a provider bump's
       plan shows any change to it.
 - [ ] 4. The policy, built from NetBox and git (#365), applied 2026-10-24 (plan 1291, apply
       1292: Tailscale accepted it, so both tests passed; plan 1293: no changes). Left: the

@@ -199,7 +199,7 @@
         "siderolabs/talos"
       ],
       "prBodyNotes": [
-        "Merging this changes nothing by itself. Run the upgrade playbook (`ansible/talos-k8s-upgrade.yml` for Kubernetes, `ansible/talos-upgrade.yml` for Talos) in check mode, then for real, and only then the OpenTofu job."
+        "Merging this changes nothing by itself. Run the upgrade playbook (`ansible/kubernetes-update.yml` for Kubernetes, `ansible/talos-update.yml` for Talos) in check mode, then for real, and only then the OpenTofu job."
       ]
     },
     {

@@ -5,7 +5,7 @@
 # This step is the one that still reads [localhost]: Ansible's implicit localhost
 # can't be renamed.
 #
-#   - ansible.builtin.import_playbook: semaphore-host.yml
+#   - ansible.builtin.import_playbook: _semaphore-host.yml
 
 - name: Name the machine running this playbook semaphore
   hosts: localhost

@@ -1,5 +1,5 @@
 # Talos's target, the same for every playbook that works on the Talos nodes
-# (talos-upgrade.yml, talos-reboot.yml, talos-k8s-upgrade.yml): the installer image
+# (talos-update.yml, talos-reboot.yml, kubernetes-update.yml): the installer image
 # in talos/patches/common.yaml, the one place Talos's version and schematic are set
 # (tofu/proxmox/talos-config.tf reads it too), and its version, which talosctl
 # matches.

@@ -8,7 +8,7 @@
 # node Ready on the new version, uncordoned and every database cluster whole
 # again. A control plane runs alone at a time, so etcd keeps its quorum; its
 # API server answers through the shared address meanwhile. For
-# talos-upgrade.yml's per-node play, run as the node's own host: needs
+# talos-update.yml's per-node play, run as the node's own host: needs
 # kubectl_cmd and talosctl_cmd (kubectl-local.yml and talosctl-local.yml, run as
 # semaphore), kubectl_host (the node itself) and vars/talos.yml.
 

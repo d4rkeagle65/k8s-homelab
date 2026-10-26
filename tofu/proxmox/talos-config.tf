@@ -19,7 +19,7 @@ locals {
   talos_contract    = join(".", slice(split(".", local.talos_version), 0, 2))
 
   # The cluster's Kubernetes version: raised in a commit, then
-  # ansible/talos-k8s-upgrade.yml, then this job (that playbook says why in
+  # ansible/kubernetes-update.yml, then this job (that playbook says why in
   # that order).
   kubernetes_version = "1.36.5"
 

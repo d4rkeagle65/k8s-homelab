@@ -1,5 +1,5 @@
 # The TerraMaster's own baseline (TOS, an OpenWrt-based system: not Debian, so
-# baseline.yml isn't for it, and not DSM): the web bastion's SSH key, Docker
+# debian-baseline.yml isn't for it, and not DSM): the web bastion's SSH key, Docker
 # answering, and Dockhand's Hawser agent, which deploys the NAS's stacks
 # (docker/CLAUDE.md: `garage`, `lldpd`).
 #
@@ -16,7 +16,7 @@
 # sudo's PATH. This playbook doesn't install it: it reads the daemon's version and
 # stops when it doesn't answer.
 #
-# Hawser: tasks/nas-hawser.yml (docker-host.yml's header says how the token is
+# Hawser: tasks/nas-hawser.yml (dockerhost-deploy.yml's header says how the token is
 # made), its stacks in terramaster_hawser_stacks, default /opt/hawser-stacks,
 # where it was started by hand; HAWSER_TOKEN is the token Dockhand's environment
 # for the TerraMaster already holds, or the run recreates Hawser with the new one
@@ -25,7 +25,7 @@
 # In check mode (--check) it reports TOS's version, the keys, whether Docker
 # answers and what Hawser would change, and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: "nas:!synology"
 

@@ -10,7 +10,7 @@
 #
 # In check mode (--check) it lists what it would remove and changes nothing.
 
-- ansible.builtin.import_playbook: select-hosts.yml
+- ansible.builtin.import_playbook: _select-hosts.yml
   vars:
     select_from: proxmox[0]:pihole:docker_vm
 
