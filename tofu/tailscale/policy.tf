@@ -30,17 +30,17 @@ locals {
   home_nets   = sort([for n, v in local.routed : n if v.router == "home"])
   travel_nets = sort([for n, v in local.routed : n if v.router == "travel"])
 
-  # Every tailscale-host object as {role, addresses}, its addresses kept only where a
+  # Every tailscale-host object in use (local.in_use) as {role, addresses}, its addresses kept only where a
   # routed network holds them (a Pi-hole's Work laptop leg isn't reachable anyway).
   host_objects = concat(
     [for d in local.netbox.device_list : {
       role      = d.role.name
       addresses = flatten([for i in d.interfaces : [for a in i.ip_addresses : a.address]])
-    } if contains([for t in d.tags : t.slug], "tailscale-host")],
+    } if contains([for t in d.tags : t.slug], "tailscale-host") && contains(local.in_use, lower(d.status))],
     [for v in local.netbox.virtual_machine_list : {
       role      = v.role.name
       addresses = flatten([for i in v.interfaces : [for a in i.ip_addresses : a.address]])
-    } if contains([for t in v.tags : t.slug], "tailscale-host")],
+    } if contains([for t in v.tags : t.slug], "tailscale-host") && contains(local.in_use, lower(v.status))],
     [for a in local.netbox.ip_address_list : {
       role      = element(split("/", a.description), length(split("/", a.description)) - 1)
       addresses = [a.address]
