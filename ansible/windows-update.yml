@@ -1,0 +1,90 @@
+# Installs every missing Windows update on the Windows hosts, one at a time, rebooting
+# as often as Windows asks (several rounds is normal), then searches again: the run
+# fails unless nothing is left to install and no reboot is pending. Updates Microsoft
+# marks optional (BrowseOnly) are left, as Windows Update itself leaves them.
+#
+# Inventory: the NetBox tag windows beside ansible, and a primary IPv4. Over WinRM on
+# port 5985 with NTLM, which encrypts the session itself (no certificate). The login
+# is a Windows administrator (on a domain controller, a Domain Admins member), from
+# the environment of the template's variable group, never git: WINDOWS_ANSIBLE_USER
+# (DOMAIN\name) and WINDOWS_ANSIBLE_PASSWORD (secret). The server's WinRM listener
+# must answer the Docker VM on 5985 (`winrm quickconfig` sets it up).
+#
+# A domain controller's reboot takes its DNS and logins down for the length of the
+# reboot, for every machine that relies on it.
+#
+# In check mode (--check) it lists the missing updates and installs nothing.
+
+- ansible.builtin.import_playbook: _select-hosts.yml
+  vars:
+    select_from: windows
+
+- name: Install the missing Windows updates
+  hosts: targets
+  serial: 1
+  gather_facts: false
+  vars:
+    ansible_connection: winrm
+    ansible_port: 5985
+    ansible_winrm_scheme: http
+    ansible_winrm_transport: ntlm
+    ansible_winrm_message_encryption: always
+    ansible_user: "{{ lookup('ansible.builtin.env', 'WINDOWS_ANSIBLE_USER') }}"
+    ansible_password: "{{ lookup('ansible.builtin.env', 'WINDOWS_ANSIBLE_PASSWORD') }}"
+    update_categories: ['*']
+  tasks:
+    - name: The login is set
+      ansible.builtin.assert:
+        that: ansible_user | length > 0 and ansible_password | length > 0
+        fail_msg: >-
+          WINDOWS_ANSIBLE_USER or WINDOWS_ANSIBLE_PASSWORD is empty: set both in the template's
+          variable group, as environment variables (the password secret). Nothing was run.
+        quiet: true
+
+    - name: Search for the missing updates
+      ansible.windows.win_updates:
+        category_names: "{{ update_categories }}"
+        skip_optional: true
+        state: searched
+      register: found
+
+    - name: Report them
+      ansible.builtin.debug:
+        msg:
+          - "{{ found.found_update_count }} missing{{ ', a reboot already pending' if found.reboot_required else '' }}"
+          - "{{ found.updates.values() | map(attribute='title') | list | sort }}"
+
+    - name: Install them, rebooting as Windows asks
+      ansible.windows.win_updates:
+        category_names: "{{ update_categories }}"
+        skip_optional: true
+        reboot: true
+        reboot_timeout: 3600
+      register: installed
+      when: found.found_update_count > 0 or found.reboot_required
+
+    - name: Search again
+      ansible.windows.win_updates:
+        category_names: "{{ update_categories }}"
+        skip_optional: true
+        state: searched
+      register: after
+      when: not ansible_check_mode
+
+    - name: Report the result
+      ansible.builtin.debug:
+        msg:
+          - "Installed {{ installed.installed_update_count | default(0) }}, failed {{ installed.failed_update_count | default(0) }}"
+          - "Left: {{ after.found_update_count }}{{ ' ' ~ (after.updates.values() | map(attribute='title') | list | sort) if after.found_update_count else '' }}"
+          - "Reboot pending: {{ after.reboot_required }}"
+      when: not ansible_check_mode
+
+    - name: Nothing is left and no reboot is pending
+      ansible.builtin.assert:
+        that: after.found_update_count == 0 and not after.reboot_required
+        fail_msg: >-
+          After installing, {{ after.found_update_count }} update(s) are still missing
+          {{ after.updates.values() | map(attribute='title') | list | sort }}{{ ' and a reboot is pending' if after.reboot_required else '' }}:
+          run again, or read the host's Windows Update history.
+        quiet: true
+      when: not ansible_check_mode
