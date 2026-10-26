@@ -484,7 +484,8 @@ def test_the_tailscale_tags_each_go_on_one_kind_of_object():
     assert all(about for _, about in tags.values())
 
 
-def test_the_termix_tag_goes_on_hosts_only():
-    assert set(m.TERMIX_TAGS) == {"bastion-key"}
-    assert set(m.TERMIX_TAGS["bastion-key"][0]) == {"dcim.device", "virtualization.virtualmachine"}
+def test_the_termix_tags_go_on_hosts_only():
+    assert set(m.TERMIX_TAGS) == {"bastion-key", "rdp"}
+    for tag in m.TERMIX_TAGS:
+        assert set(m.TERMIX_TAGS[tag][0]) == {"dcim.device", "virtualization.virtualmachine"}
     assert not set(m.TERMIX_TAGS) & set(m.TAILSCALE_TAGS)

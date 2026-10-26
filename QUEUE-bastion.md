@@ -97,9 +97,12 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
       added by hand (2026-10-25). `terramaster-baseline.yml` keeps it: template 34, dry run
       1323 and run 1324 (key VERIFIED; Hawser recreated on the pinned image with the template's
       HAWSER_TOKEN, which differed from the one it had: the owner to confirm Dockhand's
-      TerraMaster environment still connects). Left: the Windows DC answers RDP (3389) and
-      WinRM, not SSH; the owner made a Termix credential `bastion-domain` (2026-10-26): it needs
-      an RDP host, by hand or by the sync (connection type `rdp`, Termix's `protocolAuth`). The
+      TerraMaster environment still connects). The Windows DC answers RDP (3389) and WinRM, not
+      SSH: the sync makes an RDP host for a NetBox host tagged `rdp`, with the credential its
+      local context's `termix_credential` names (the owner's `bastion-domain`, 2026-10-26), and
+      turns RDP on in the remote-desktop plugin's host settings. Left: the seed run defining
+      `rdp`; the tag and `termix_credential` on the DC in NetBox; a sync run creating it; the
+      owner's first RDP session through Termix. The
       Talos nodes have no SSH.
 - [x] 6. The NetBox sync job (`cronjob-termix-netbox-sync.yaml`, `sync/termix-netbox-sync.py`),
       hourly, writing since 2026-10-25 (#381–#383): its first run created 14 hosts with the
