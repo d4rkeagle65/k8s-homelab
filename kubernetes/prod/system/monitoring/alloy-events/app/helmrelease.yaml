@@ -53,32 +53,33 @@ spec:
           // The NASes', the core switch's and the firewall's syslog, through the alloy-syslog LoadBalancer
           // (monitoring-extras/app/service-syslog.yaml): 5514 RFC 5424, 5515 the
           // older BSD format. Stamped on arrival (BSD's timestamps carry no
-          // year). Labelled source="syslog", the sender's host and the app
-          // name; the rest stays in the line.
+          // year). Labelled source="syslog", the sender's host, the app name and
+          // the listener it came in on (the Service's port and protocol); the rest
+          // stays in the line.
           loki.source.syslog "nas" {
             listener {
               address       = "0.0.0.0:5514"
               protocol      = "tcp"
               syslog_format = "rfc5424"
-              labels        = {source = "syslog"}
+              labels        = {source = "syslog", listener = "514/tcp"}
             }
             listener {
               address       = "0.0.0.0:5514"
               protocol      = "udp"
               syslog_format = "rfc5424"
-              labels        = {source = "syslog"}
+              labels        = {source = "syslog", listener = "514/udp"}
             }
             listener {
               address       = "0.0.0.0:5515"
               protocol      = "tcp"
               syslog_format = "rfc3164"
-              labels        = {source = "syslog"}
+              labels        = {source = "syslog", listener = "1514/tcp"}
             }
             listener {
               address       = "0.0.0.0:5515"
               protocol      = "udp"
               syslog_format = "rfc3164"
-              labels        = {source = "syslog"}
+              labels        = {source = "syslog", listener = "1514/udp"}
             }
             relabel_rules = loki.relabel.syslog.rules
             forward_to    = [loki.write.default.receiver]
