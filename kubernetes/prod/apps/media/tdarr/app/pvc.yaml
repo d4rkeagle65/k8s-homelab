@@ -33,3 +33,18 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+# The node's transcode cache: each file is written here in full while a flow works on it,
+# more than a worker's own disk has free (about 20 GB), so a LUN on the NAS. Scratch only:
+# nothing here outlives a job, so it carries no prune protection.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tdarr-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas-iscsi
+  resources:
+    requests:
+      storage: 200Gi
