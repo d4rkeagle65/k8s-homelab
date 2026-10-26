@@ -8,7 +8,7 @@ metadata:
   name: docker-vm-2
 spec:
   httpSDConfigs:
-  - url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/plugins/prometheus-sd/virtual-machines/?tag=docker_vm&status=active&cf_vmid=120
+  - url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/plugins/prometheus-sd/virtual-machines/?tag=docker_vm&status=active&status=failed&cf_vmid=120
     refreshInterval: 5m
     authorization:
       type: Bearer

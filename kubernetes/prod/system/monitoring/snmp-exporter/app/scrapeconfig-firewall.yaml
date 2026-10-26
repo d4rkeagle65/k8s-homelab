@@ -1,6 +1,7 @@
 # The firewall over SNMPv3, through the exporter: system, interfaces, and the Linux
 # host's memory, load and CPU (the CloudGen box runs net-snmp). Its address comes from
-# NetBox: the Prometheus SD plugin lists the active devices of role Firewall with their
+# NetBox: the Prometheus SD plugin lists the devices of role Firewall that are Active or
+# Failed (still alerting; README.md, "What a NetBox status means") with their
 # primary address, which becomes the exporter's target. If NetBox can't be read,
 # Prometheus keeps the targets it last found.
 apiVersion: monitoring.coreos.com/v1alpha1
@@ -9,7 +10,7 @@ metadata:
   name: firewall-snmp
 spec:
   httpSDConfigs:
-  - url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/plugins/prometheus-sd/devices/?role=firewall&status=active
+  - url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/plugins/prometheus-sd/devices/?role=firewall&status=active&status=failed
     refreshInterval: 5m
     authorization:
       type: Bearer
