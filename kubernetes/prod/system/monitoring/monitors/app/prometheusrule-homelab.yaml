@@ -540,6 +540,22 @@ spec:
           {{ $value | humanizeDuration }} old. Databasus's backups are its databases'
           names; vaultwarden/ is the Vaultwarden stack's own backup job, dockhand/
           the dockhand-backup stack's.
+    # The firewall's own Backup Daemon (QUEUE-network-monitoring.md), weekly on Sundays at
+    # 01:00: the bucket's newest file, whatever folder the daemon writes it under, over
+    # 8 days old, or no file at all.
+    - alert: FirewallBackupTooOld
+      expr: |
+        time() - max(garage_backup_newest_object_timestamp_seconds{bucket="firewall-backups"}) > 8 * 86400
+        or absent(garage_backup_newest_object_timestamp_seconds{bucket="firewall-backups"})
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: The firewall's weekly configuration backup is over 8 days old.
+        description: >-
+          No new file in Garage's firewall-backups bucket for 8 days: the Backup Daemon's
+          Sunday job failed or didn't run. Check CONTROL > Backups on the firewall, and
+          its log (Loki: {host="F80"} |~ "(?i)backup").
     - alert: GarageBackupExporterFailing
       expr: |
         garage_backup_bucket_up == 0

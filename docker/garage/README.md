@@ -82,7 +82,7 @@ allowed to read only (`GARAGE_BACKUP_MONITOR_S3_*` in Key Vault):
 
 ```sh
 $g key create backup-monitor
-for b in cnpg-backups docker-backups mariadb-backups; do $g bucket allow --read $b --key backup-monitor; done
+for b in cnpg-backups docker-backups mariadb-backups firewall-backups; do $g bucket allow --read $b --key backup-monitor; done
 ```
 
 A new backup bucket the exporter should watch gets the same `bucket allow`, and its name in

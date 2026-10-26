@@ -43,6 +43,11 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
       two fire at once until fixed). Firewall silence is HostLogsSilent's. Left: VPN tunnel
       down and failed admin sign-ins on either device, once a real line of each is seen
       (none in the first day); port-scan events (about 16 an hour) aren't alerted.
+- [x] Firewall configuration backups (the owner, 2026-10-26): the Backup Daemon writes to
+      Garage's `firewall-backups` bucket (its own key; `backup-monitor` reads it), weekly on
+      Sundays at 01:00, encrypted with Key Vault's FIREWALL-BACKUP-ENCRYPTION-PASSWORD. The
+      first run landed (6 objects, 735 kB; plain HTTP and Garage's region worked). Watched by
+      garage-backup-exporter and FirewallBackupTooOld (8 days).
 - [ ] 5. Later: CloudGen's own MIB (sessions, tunnels, HA state), which needs the exporter's
       generator and Barracuda's MIB files; a dashboard.
 
