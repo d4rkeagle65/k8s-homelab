@@ -267,8 +267,12 @@ stacks' alike (`docker/secret-names.yaml` maps each stack variable to its name):
 1. Add its secret to Key Vault plain, whatever reads it:
    `./scripts/keyvault-secrets.ps1 NAME -New -Raw` asks for the value without
    echoing it, stores it as given and reads it back by hash (`-New` runs only
-   with `-Raw`).
-2. Map it in `kubernetes/secrets/cluster-secrets.yaml` (`secretKey: NAME`,
+   with `-Raw`). For a password or a key of your own choosing, `-Generate 32`
+   sets 32 random letters and digits instead; `-Clipboard` copies the value set,
+   to paste into the device or app it's for.
+2. An app's own ExternalSecret that reads it straight from Key Vault (its
+   namespace labelled `homelab.local/keyvault: allowed`) needs nothing more:
+   skip to 4. Otherwise map it in `kubernetes/secrets/cluster-secrets.yaml` (`secretKey: NAME`,
    `remoteRef: {key: NAME-WITH-DASHES}`) in a pull request of its own. If a
    Secret's `data:` reads it, add `NAME: "{{ .NAME | b64enc }}"` to that
    file's `template.data` in the same pull request: `data:` takes base64,
@@ -296,7 +300,9 @@ value as given, read back by hash, then force-synced into the cluster. It
 refuses to set a mapped variable a Secret's `data:` uses while the live
 template doesn't encode it, since the cluster would get it plain. With `-Get`
 it outputs a variable's current value instead, as Key Vault holds it, for a
-variable or `Set-Clipboard`. It signs in as your `az login` account; its
+variable or `Set-Clipboard` (`-Clipboard` does that for you). A secret only an
+app's own ExternalSecret reads is named by its Key Vault name; the script says
+which files read it and leaves cluster-secrets alone. It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/vaultwarden-fields.ps1` did the same for the Vaultwarden item, which
 `cluster-secrets` no longer reads, so it no longer works on it.
