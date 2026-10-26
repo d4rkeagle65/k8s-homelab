@@ -36,8 +36,8 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
       514/UDP stores them raw (Alloy's experimental `raw` format, #404). Its line, as
       stored: `<date> <time> <name> <code> <message>`, local time, the priority dropped;
       a sign-in logs, a sign-out and a config save don't at its current level. Parsed
-      (#405): its name becomes `host`, and `logs="sparse"` keeps it out of HostLogsSilent.
-- [ ] 4. Log alerts from real lines (#405, homelab.firewall): definition updates failing
+      (#406): its name becomes `host`, and `logs="sparse"` keeps it out of HostLogsSilent.
+- [ ] 4. Log alerts from real lines (#406, homelab.firewall): definition updates failing
       (three in a day; one at 12:00 2026-10-26 looked transient), the AD group lookup
       failing to sign in, the event store full (373 lines in 6 hours on 2026-10-26: these
       two fire at once until fixed). Firewall silence is HostLogsSilent's. Left: VPN tunnel
