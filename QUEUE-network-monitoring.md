@@ -25,24 +25,13 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
 - [x] 1. The owner set SNMPv3 and syslog on both (2026-10-26); Key Vault's three secrets.
 - [x] 2. #394 merged and live 2026-10-26: `snmp-exporter-v3` synced, each target's own `up`
       (the NASes read 1), the firewall found in NetBox, Alloy reloaded.
-- [ ] 3. The devices answering (2026-10-26, from the exporter's own errors): the switch says
-      "incoming packet is not authentic" (it knows the user; the auth protocol isn't SHA or
-      its auth passphrase isn't Key Vault's); the firewall times out with no answer even to
-      SNMPv3 discovery, which needs no passphrase (the SNMP service isn't on its management
-      address, or its access list lacks the k8s nodes' management addresses, NetBox's
-      .24-.26 and .34-.37 on the management network). Its syslog arrives (host F80, about 23
-      lines a minute, mostly blocked connections); the switch's doesn't yet. The switch can only
-      send to port 514, which is RFC 5424's: its BSD lines fail to parse there, and Alloy has
-      no format detection (`raw` is experimental). The syslog Service's
-      externalTrafficPolicy was Cluster, so every sender arrived as a k8s node's address.
-      With the real source addresses (#401): the Synology holds 514/TCP, the firewall 1514/TCP,
-      and the TerraMaster pushes to Loki directly, so 514/UDP takes the switch's BSD format.
-      The firewall's SNMP service listens on its management address (the owner) but answers
-      no SNMPv3 discovery from a node or from the Docker VM, which the switch answers: its
-      box firewall drops UDP 161 before the service sees it.
-      Then read back: `up{switch="core"}` and `up{job="firewall-snmp"}` are 1; the firewall's
-      modules each return series (drop the ones CloudGen doesn't answer); Loki has lines with
-      both devices' `host`.
+- [ ] 3. Read back. SNMPv3 works on both (2026-10-26): the switch on SHA and DES (#400), the
+      firewall once its Local-In ruleset passed UDP 161 from the management network (its
+      rule MGMT-SNMP had blocked it, as its own log showed: `{host="F80"} |= "|161|"`); every
+      firewall module answers (system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table).
+      Syslog: the firewall's arrives (host F80, 1514/TCP), the Synology's on 514/TCP; 514/UDP
+      is BSD for the switch since #402. Left: the switch's lines arriving on 514/UDP (none
+      yet; its log server is to be the alloy-syslog address), and its `host` label checked.
 - [ ] 4. From real lines: Loki alerts for repeated admin login failures and a VPN tunnel
       down, and one for each device's syslog falling silent.
 - [ ] 5. Later: CloudGen's own MIB (sessions, tunnels, HA state), which needs the exporter's
