@@ -199,3 +199,16 @@ def test_a_websocket_closed_again_after_reopening_stops_the_run(monkeypatch):
     ha = ha_with(FakeSocket(closed=1), [FakeSocket(closed=1)], monkeypatch)
     with pytest.raises(SystemExit):
         ha.areas()
+
+
+def test_a_device_is_found_by_any_of_its_macs_wifi_first():
+    devices = [nb_device(1, "zziotazfiretliving", "amazon-fire-tv-4k-43", "amazon")]
+    interfaces = [{"name": "eth0", "device": {"id": 1}, "primary_mac_address": {"mac_address": "00:00:5E:00:53:E0"}},
+                  {"name": "wifi0", "device": {"id": 1}, "primary_mac_address": {"mac_address": "00:00:5E:00:53:A0"}}]
+    d = m.netbox_iot_devices(devices, interfaces)[0]
+    assert d["mac"] == "00:00:5E:00:53:A0" and d["macs"] == ["00:00:5E:00:53:A0", "00:00:5E:00:53:E0"]
+    # Home Assistant knows the TV by its Ethernet MAC (ADB reports it, cable or not): still present.
+    by_mac = m.ha_device_by_mac([{"id": "tv", "connections": [["mac", "00:00:5e:00:53:e0"]]}])
+    assert m.ha_device_of(d, by_mac)["id"] == "tv"
+    assert m.plan_device(d, INTEGRATIONS, by_mac, attended=True)[0] == "present"
+    assert m.ha_device_of(dict(d, macs=["00:00:5E:00:53:A0"]), by_mac) is None
