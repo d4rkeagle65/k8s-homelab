@@ -57,19 +57,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **Semaphore's templates on the new playbook names** (2026-10-26): `ansible/README.md`, "Names",
-  renamed 17 playbooks (this pull request). Once it merges, each template running a renamed one
-  points at its new path at once (it fails until then), with the owner's temporary Manager role;
-  the template names and views (Reboot, Tool) go to the standard beforehand. Then the owner
-  takes Manager back.
 - **The lab's Proxmox hosts onto 9** (2026-10-25): the two test hosts run 8.3.5, production
-  9.2.21. `ansible/proxmoxlab-update-major.yml` (this pull request) upgrades them in place, one at a
-  time, the group `proxmox_lab` only. Before its first run, the owner: in NetBox, a tag
-  `proxmox_lab`, and on each test host that tag, `ansible`, and its address as primary IPv4;
-  in Semaphore, a template for the playbook on the NetBox inventory with `target_hosts` and
-  `stop_guests` in its survey. Then a dry run (`params: {dry_run: true}`), read for the hosts'
-  APT sources and subscription; then a real run, asked for by the owner. Nothing on them needs
-  keeping (the owner, 2026-10-25).
+  9.2.21. `ansible/proxmoxlab-update-major.yml` upgrades them in place, one at a time, the group
+  `proxmox_lab` only, from Semaphore's template 35 "Update: Proxmox Lab (8 to 9)" (made
+  2026-10-26; survey `target_hosts`, `stop_guests`). Its first dry run (task 1327) found no
+  hosts in the group: both carry `proxmox_lab` but not yet `ansible`, and have no primary
+  IPv4 in NetBox (the owner's). Then a dry run, read for the hosts' APT sources and
+  subscription; then a real run, asked for by the owner. Nothing on them needs keeping.
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
