@@ -30,8 +30,12 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
       rule MGMT-SNMP had blocked it, as its own log showed: `{host="F80"} |= "|161|"`); every
       firewall module answers (system, if_mib, ucd_memory, ucd_system_stats, ucd_la_table).
       Syslog: the firewall's arrives (host F80, 1514/TCP), the Synology's on 514/TCP; 514/UDP
-      is BSD for the switch since #402. Left: the switch's lines arriving on 514/UDP (none
-      yet; its log server is to be the alloy-syslog address), and its `host` label checked.
+      is BSD for the switch since #402. The switch's lines reach Alloy (its log server
+      corrected to the alloy-syslog address, 2026-10-26) but fail BSD parsing ("expecting a
+      sequence number [col 5]": a digit right after the priority, a numeric date), so
+      514/UDP stores them raw (Alloy's experimental `raw` format, #403). Left: read real
+      lines, then parse them in a loki.process stage (priority to severity, the program to
+      `app`), and check the `host` label (raw lines carry no hostname of their own).
 - [ ] 4. From real lines: Loki alerts for repeated admin login failures and a VPN tunnel
       down, and one for each device's syslog falling silent.
 - [ ] 5. Later: CloudGen's own MIB (sessions, tunnels, HA state), which needs the exporter's
