@@ -1,0 +1,19 @@
+# Inside the cluster only: Home Assistant (eufy-sdk's host and port) and its go2rtc
+# (the bridge's RTSP) reach it here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: eufy-bridge
+spec:
+  selector:
+    app: eufy-bridge
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+  - name: rtsp
+    port: 8554
+    targetPort: rtsp
+  - name: go2rtc
+    port: 1984
+    targetPort: go2rtc

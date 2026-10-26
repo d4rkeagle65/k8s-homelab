@@ -1,0 +1,14 @@
+# The bridge's login session and push registration (/app/data), so a restart doesn't
+# ask eufy for a captcha or 2FA again.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eufy-bridge-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 1Gi
