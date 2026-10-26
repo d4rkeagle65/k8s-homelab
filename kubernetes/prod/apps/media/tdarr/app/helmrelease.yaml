@@ -21,6 +21,15 @@ spec:
   values:
     defaultPodOptions:
       priorityClassName: homelab-low
+      # The cache is nas-iscsi, which only nodes with Talos's iscsi-tools can mount
+      # (democratic-csi's helmrelease.yaml says why).
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: extensions.talos.dev/iscsi-tools
+                    operator: Exists
     controllers:
       main:
         containers:
@@ -153,10 +162,14 @@ spec:
               - path: /app/logs
             node:
               - path: /app/logs
+      # The library's cache path in Tdarr is /temp, mounted on both: Tdarr wants the server
+      # and its nodes to see the same library and cache paths.
       transcode-cache:
-        type: emptyDir
+        existingClaim: tdarr-cache
         advancedMounts:
           main:
+            server:
+              - path: /temp
             node:
               - path: /temp
       # Only the libraries it transcodes, each at the path it had
