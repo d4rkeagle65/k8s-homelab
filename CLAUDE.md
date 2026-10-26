@@ -81,7 +81,10 @@ Read before changing anything:
   success and store nothing, and a write that raises nothing has not shown that it took.
 - **Ask what a thing looks like when it is present and doing nothing.** Disabled, audit-only,
   scoped to an empty group: each is present exactly as the working version is. Read the mode,
-  the scope or the enabled flag, never mere existence.
+  the scope or the enabled flag, never mere existence. In NetBox that is a device's or VM's
+  status: every job reading NetBox acts on, and writes, only what README.md's "What a NetBox
+  status means" allows (Decommissioning is left alone by everything); one that ignores status
+  is a bug, and `QUEUE-netbox-status.md` lists those still to fix.
 - **Name the real cause.** A failure caused by the script, the machine or a missing
   prerequisite is not a finding about the target. When a prerequisite is missing, report the
   gap rather than doing the half that would succeed.
