@@ -193,6 +193,16 @@
       ]
     },
     {
+      "description": "Flux moves only as a whole release. The flux manager reads gotk-components.yaml's '# Flux Version' header (fluxcd/flux2) and regenerates the file with flux install --export; the kubernetes manager would also offer each controller's image on its own, and a controller can release ahead of Flux itself (source-controller 1.10.0 did), which would run it beside the older controllers and their CRDs.",
+      "matchManagers": [
+        "kubernetes"
+      ],
+      "matchFileNames": [
+        "kubernetes/flux/config/flux-system/gotk-components.yaml"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Kubernetes and Talos: a pull request for every release, ready for when the upgrade is wanted. Merging changes only tofu/proxmox/talos-config.tf or talos/patches/common.yaml, which Flux doesn't apply; the upgrade is the playbook, then the OpenTofu job (the playbooks' headers say why). Check the add-ons' support for a new Kubernetes minor first (old-queues/QUEUE-updates.md).",
       "matchPackageNames": [
         "kubernetes/kubernetes",
