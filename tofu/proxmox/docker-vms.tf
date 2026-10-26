@@ -52,9 +52,9 @@ resource "proxmox_virtual_environment_vm" "docker_vm" {
   node_name = local.guest[each.key].node
   vm_id     = tonumber(each.key)
   name      = local.guest[each.key].name
-  # Off for a guest being removed; whether it runs is ignored below: README,
-  # "A guest being removed".
-  on_boot = !local.guest[each.key].decommissioning
+  # Off for a guest being removed or Offline (netbox.tf); whether it runs is
+  # ignored below: README, "A guest being removed".
+  on_boot = local.guest[each.key].start_at_boot
   tags    = each.value.tags
 
   reboot_after_update = false

@@ -71,9 +71,9 @@ resource "proxmox_virtual_environment_container" "container" {
   node_name    = local.guest[each.key].node
   vm_id        = tonumber(each.key)
   unprivileged = true
-  # Off for a guest being removed; whether it runs is left alone after it's made
-  # (started is ignored below): README, "A guest being removed".
-  start_on_boot = !local.guest[each.key].decommissioning
+  # Off for a guest being removed or Offline (netbox.tf); whether it runs is left
+  # alone after it's made (started is ignored below): README, "A guest being removed".
+  start_on_boot = local.guest[each.key].start_at_boot
   started       = true
   tags          = each.value.tags
 
@@ -140,7 +140,7 @@ resource "proxmox_virtual_environment_container" "pihole" {
   vm_id        = tonumber(each.key)
   unprivileged = true
   # As the plain containers': README, "A guest being removed".
-  start_on_boot = !local.guest[each.key].decommissioning
+  start_on_boot = local.guest[each.key].start_at_boot
   protection    = true
   tags          = each.value.tags
 
