@@ -8,7 +8,8 @@ and addresses), the SSH key, and the Kubernetes token.
 
 A playbook is named `<target>-<action>[-<detail>].yml`, so `ls` groups a target's jobs: the
 target is the inventory group it works on (`debian`, `proxmox`, `proxmoxlab`, `pihole`,
-`dockervm`, `dockerhost`, `talos`, `kubernetes`, `synology`, `terramaster`, `openwrt`, `kea`),
+`dockervm`, `dockerhost`, `talos`, `kubernetes`, `synology`, `terramaster`, `openwrt`, `kea`,
+`windows`),
 or `hosts` for a job that may run on any of them. The action is one of the Semaphore views,
 and the template's name starts with the same word, `<Action>: <Target> [detail]`, with
 `(OpenTofu)` or `(script)` after a template that isn't Ansible:
@@ -49,6 +50,7 @@ A playbook imported by others and never run by itself starts with `_` (`_select-
 | `talos-reboot.yml` | Reboots Talos VMs through Proxmox, one at a time: `target_hosts` names them (VM IDs or names, separated by commas or spaces, in that order; `ALL`, every Talos VM, control planes first; every Talos VM, however named, holds Flux as for `proxmox-reboot.yml`). Proxmox's reboot stops the VM and starts it again, so a change it holds pending (memory, cores) takes effect, which a reboot from inside Talos doesn't. Each VM: health, etcd and capacity checks, drained (database primaries switched over first), the reboot, back Ready on a new boot with nothing left pending, uncordoned, every database cluster whole, and for a control plane its static pods Ready and etcd caught up, before the next. A dry run lists each VM's host, HA state and pending changes, and runs the checks. |
 | `talos-update.yml` | Upgrades Talos on the Kubernetes nodes, one at a time, control planes first, skipping nodes already on the target (the installer image in `talos/patches/common.yaml`). Each node: health and capacity checks, drained (database primaries switched over first), `talosctl upgrade`, back Ready on the new version, uncordoned, every database cluster whole. Change the image in a commit, run this, then the OpenTofu job. `target_hosts` limits it to some nodes. A dry run lists each node's version and what it would upgrade. |
 | `terramaster-baseline.yml` | The TerraMaster's own baseline (TOS, OpenWrt-based): the web bastion's SSH key, Docker (TOS's own) read back from the daemon, and Hawser as on the Synology, its stacks where it was started by hand. Only `raw`. Check mode reports each part. |
+| `windows-update.yml` | Installs every missing Windows update on the Windows hosts (NetBox tag `windows`), one at a time, over WinRM, rebooting as often as Windows asks, then searches again and fails unless nothing is left and no reboot is pending; optional updates are left, as Windows Update leaves them. The login comes from the template's variable group (`WINDOWS_ANSIBLE_USER`, `WINDOWS_ANSIBLE_PASSWORD`). A dry run lists the missing updates. |
 
 ## Picking the hosts
 
