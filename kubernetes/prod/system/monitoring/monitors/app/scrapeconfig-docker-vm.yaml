@@ -3,7 +3,8 @@
 # Kea's HA state (docker/kea).
 #
 # node-exporter's address comes from NetBox: its Prometheus SD plugin lists the VM by
-# its Proxmox VM ID (custom field vmid, 107) with its primary address, the management
+# its Proxmox VM ID (custom field vmid, 107), while Active or Failed (README.md, "What a
+# NetBox status means"), with its primary address, the management
 # one Ansible logs in to (scripts/netbox_seed.py keeps it), and port 9100 is added. If
 # NetBox can't be read, Prometheus keeps the targets it last found; a VM missing from
 # NetBox raises DockerVMNodeExporterMissing. The other exporters are the VM's services
@@ -14,7 +15,7 @@ metadata:
   name: docker-vm
 spec:
   httpSDConfigs:
-  - url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/plugins/prometheus-sd/virtual-machines/?tag=docker_vm&status=active&cf_vmid=107
+  - url: https://netbox${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/plugins/prometheus-sd/virtual-machines/?tag=docker_vm&status=active&status=failed&cf_vmid=107
     refreshInterval: 5m
     authorization:
       type: Bearer

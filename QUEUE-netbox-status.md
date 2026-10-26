@@ -26,7 +26,7 @@ depending on a device's or VM's status, by one standard. The standard is the tab
 4. [x] `scripts/netbox_seed.py`, DNS names: today Offline and Planned VMs keep theirs. To:
    only Staged and Active get one (Use).
 5. [x] `termix-netbox-sync.py`: today Active only. To: Active, Staged and Failed (Access).
-6. [ ] Prometheus's NetBox discovery (`scrapeconfig-docker-vm*.yaml`, `scrapeconfig-firewall.yaml`):
+6. [x] Prometheus's NetBox discovery (`scrapeconfig-docker-vm*.yaml`, `scrapeconfig-firewall.yaml`):
    today Active only. To: Active and Failed (Monitor); Staged later.
 7. [ ] `tofu/proxmox` (`netbox.tf`, `guests.tf`, `docker-vms.tf`, `talos.tf`): today start at
    boot off only for Decommissioning. To: off for Offline too (Build: kept, not started). Its
