@@ -57,8 +57,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **Every NetBox job by its status** (2026-10-26): `QUEUE-netbox-status.md` (the standard, and the
-  jobs still to bring to it, in order).
+- **Monitoring Staged hosts without alerts** (from `old-queues/QUEUE-netbox-status.md`): the
+  status standard says a Staged device or VM is scraped but raises no alerts. Prometheus's
+  NetBox discovery takes Active and Failed only; Staged needs its status as a target label
+  (the SD plugin's `__meta_netbox_status`) and the host-down rules to skip it.
 - **Windows updates from Semaphore** (2026-10-26): `ansible/windows-update.yml` (this pull
   request) over WinRM, for the test domain controller (the only DC, used for testing; automatic
   reboots chosen by the owner). Left, the owner's: WinRM answering the Docker VM on 5985
