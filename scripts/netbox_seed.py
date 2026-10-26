@@ -28,7 +28,8 @@ uses come from the same file. The rule gives a device its starting type and role
 owns both after that, unless NETBOX_SEED_IOT_MODELS (else ~/.netbox-seed-iot-models.json),
 a JSON object of hostname: device type slug, names its exact model. A device of the same
 name not described so, or a MAC on another interface, is reported, never changed; one whose
-reservation is gone is set Offline, never deleted. Its addresses get no DNS name, for the
+reservation is gone is set Offline, never deleted; one set Decommissioning in NetBox is
+being removed by hand and is left exactly as it is. Its addresses get no DNS name, for the
 reason above.
 
 It defines the tags tofu/tailscale reads (TAILSCALE_TAGS) and Termix's sync reads
@@ -551,13 +552,20 @@ def plan_iot_devices(reserved: dict[str, dict], subnet: str, rules: list[dict],
     return devices, skipped
 
 
+def iot_held(device: dict) -> bool:
+    """An IoT device set Decommissioning in NetBox: being removed by hand, so the sync
+    leaves it exactly as it is, as it does a VM."""
+    status = device.get("status")
+    return (status.get("value") if isinstance(status, dict) else status) == "decommissioning"
+
+
 def stale_iot_devices(devices: list[dict], names: set[str]) -> list[dict]:
     """This script's IoT devices (described IOT_DEVICE_MARK) whose reservation is gone and
     that aren't Offline yet."""
     def value(field):
         return field.get("value") if isinstance(field, dict) else field
     return [d for d in devices if (d.get("description") or "") == IOT_DEVICE_MARK
-            and d["name"] not in names and value(d.get("status")) != "offline"]
+            and d["name"] not in names and value(d.get("status")) not in ("offline", "decommissioning")]
 
 
 def iot_models() -> dict[str, str]:
@@ -993,6 +1001,10 @@ def main() -> None:
                 print(f"  not this script's: device {d['name']} exists, described "
                       f"'{have.get('description') or 'nothing'}'; left as it is")
                 nb._note("held-elsewhere dcim/devices")
+                continue
+            if have is not None and iot_held(have):
+                print(f"  decommissioning: {d['name']} is being removed by hand; left as it is")
+                nb._note("decommissioning dcim/devices")
                 continue
             fields = {"site": site["id"], "status": "active", "description": IOT_DEVICE_MARK}
             if have is None:

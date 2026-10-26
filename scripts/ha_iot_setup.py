@@ -1,8 +1,8 @@
 """Add the IoT network's devices to Home Assistant from NetBox, and put each in its room.
 
-The devices are NetBox's on the IoT network (netbox_seed.py makes them from Kea's
-reservations, described "Kea reservation device"), each with its wifi0 MAC and
-address. A device Home Assistant already has is one whose device registry entry
+The devices are NetBox's active ones on the IoT network (netbox_seed.py makes them
+from Kea's reservations, described "Kea reservation device"), each with its wifi0 MAC
+and address; one Offline or Decommissioning is left out. A device Home Assistant already has is one whose device registry entry
 carries that MAC. For the rest, the first entry of ha_iot_setup.yaml matching the
 device's type or manufacturer names the integration, and the script runs its setup
 flow by address, as the UI's "Add integration" would. A flow that asks for what the
@@ -320,7 +320,9 @@ def main() -> None:
 
     integrations = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))["integrations"]
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_TOKEN"), apply=False)
-    nb_devices = nb.all("dcim/devices", description=IOT_DEVICE_MARK)
+    # Active ones only: Offline (its reservation gone) or Decommissioning (being removed by
+    # hand) isn't added, nor placed.
+    nb_devices = nb.all("dcim/devices", description=IOT_DEVICE_MARK, status="active")
     devices = netbox_iot_devices(nb_devices, nb.all("dcim/interfaces", name="wifi0") if nb_devices else [])
     if not devices:
         raise SystemExit("FAIL: NetBox lists no IoT device (netbox_seed.py's); nothing to compare against")
