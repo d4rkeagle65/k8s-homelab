@@ -30,6 +30,9 @@ spec:
         cpu: 500m
         memory: 512Mi
     cloudflared:
+      image:
+        repository: cloudflare/cloudflared
+        tag: 2026.10.3
       resources:
         requests:
           cpu: 50m

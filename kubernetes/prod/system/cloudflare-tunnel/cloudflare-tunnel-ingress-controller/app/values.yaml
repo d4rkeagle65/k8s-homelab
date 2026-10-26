@@ -12,6 +12,13 @@ resources:
   requests: {cpu: 10m, memory: 96Mi}
   limits: {cpu: 500m, memory: 512Mi}
 cloudflared:
+  # Cloudflare's own image, pinned, which Renovate follows. The chart's default is
+  # its author's fork, ghcr.io/strrl/cloudflared, whose host-metrics builds add
+  # per-hostname traffic metrics that nothing here scrapes; the connector's flags
+  # (the controller's `tunnel --metrics ... run`) are the same in both.
+  image:
+    repository: cloudflare/cloudflared
+    tag: 2026.10.3
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {cpu: 1000m, memory: 512Mi}
