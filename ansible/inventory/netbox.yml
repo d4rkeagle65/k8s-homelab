@@ -20,9 +20,14 @@ token:
   type: Bearer
   value: "{{ lookup('ansible.builtin.env', 'NETBOX_TOKEN') | regex_replace('^Bearer ', '') }}"
 # Only the hosts Ansible manages: scripts/netbox_seed.py tags each one `ansible`
-# besides its group (NetBox's tag filter needs every tag given, so one tag selects).
+# besides its group (NetBox's tag filter needs every tag given, so one tag selects),
+# and only while Ansible may configure them, Active or Staged (the root README's "What
+# a NetBox status means": a repeated status filter is either; Offline, Planned, Failed,
+# Decommissioning and Inventory hosts aren't in any group).
 query_filters:
 - tag: ansible
+- status: active
+- status: staged
 # Each tag a group, named as the playbooks' hosts: lines name it.
 group_by: [tags]
 group_names_raw: true
