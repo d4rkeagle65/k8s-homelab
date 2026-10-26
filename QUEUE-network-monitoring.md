@@ -5,7 +5,8 @@ Barracuda CloudGen F80) and the core switch (the TP-Link TL-SG3428).
 
 ## Settled
 
-- **SNMPv3, authPriv (SHA, AES), on both** (the owner, 2026-10-26), one user: Key Vault's
+- **SNMPv3, authPriv with SHA, on both** (the owner, 2026-10-26): AES on the firewall, DES
+  on the switch (the TL-SG3428 offers no AES; `homelab_v3_des`). One user: Key Vault's
   `SNMP-V3-USERNAME`, `SNMP-V3-AUTH-PASSPHRASE`, `SNMP-V3-PRIV-PASSPHRASE`, read by the
   monitoring namespace's own ExternalSecret (`snmp-exporter/app/externalsecret.yaml`; the
   namespace opts in to Key Vault), never cluster-secrets. The switch leaves SNMPv2c.
