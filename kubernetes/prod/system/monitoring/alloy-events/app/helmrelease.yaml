@@ -50,7 +50,7 @@ spec:
             forward_to = [loki.write.default.receiver]
           }
 
-          // The NASes' syslog, through the alloy-syslog LoadBalancer
+          // The NASes', the core switch's and the firewall's syslog, through the alloy-syslog LoadBalancer
           // (monitoring-extras/app/service-syslog.yaml): 5514 RFC 5424, 5515 the
           // older BSD format. Stamped on arrival (BSD's timestamps carry no
           // year). Labelled source="syslog", the sender's host and the app
@@ -88,6 +88,20 @@ spec:
             forward_to = []
             rule {
               source_labels = ["__syslog_message_hostname"]
+              target_label  = "host"
+            }
+            // A sender that names no host, or only its address (the switch), is named by
+            // its reverse DNS, else its address.
+            rule {
+              source_labels = ["__syslog_message_hostname", "__syslog_connection_ip_address"]
+              separator     = ";"
+              regex         = "(?:|[0-9.]+);(.+)"
+              target_label  = "host"
+            }
+            rule {
+              source_labels = ["__syslog_message_hostname", "__syslog_connection_hostname"]
+              separator     = ";"
+              regex         = "(?:|[0-9.]+);(.+?)\\.?"
               target_label  = "host"
             }
             rule {
