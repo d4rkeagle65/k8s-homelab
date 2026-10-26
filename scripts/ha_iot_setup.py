@@ -10,7 +10,9 @@ script can't give (a login it has no variables for, a PIN shown on a TV) is clos
 and the device reported as waiting; the owner finishes it in the UI or supplies the
 login and runs again. A flow ha_iot_setup.yaml marks attended (someone approves a
 prompt or reads a PIN at the device) runs only with --attended; without it, those
-devices are listed as waiting for an attended run. Devices no entry matches are the cloud integrations' and are
+devices are listed as waiting for an attended run. The device must be on and showing
+(a Fire TV's prompt appears only on its screen, and a Samsung TV leaves the network in
+standby), or its setup fails as cannot_connect. Devices no entry matches are the cloud integrations' and are
 only placed in rooms.
 
 Rooms: each device's Location in NetBox (a room of the site) names its area in Home
@@ -43,6 +45,7 @@ import re
 import socket
 import ssl
 import struct
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -310,6 +313,8 @@ def main() -> None:
     ap.add_argument("--attended", action="store_true",
                     help="also run the setups that need someone at the device (ha_iot_setup.yaml's attended)")
     args, extras = ap.parse_known_args()
+    # One line at a time, as it happens: Semaphore's log otherwise shows the whole run at its end.
+    sys.stdout.reconfigure(line_buffering=True)
     if extras:
         raise SystemExit(unexpected(extras))
 
@@ -341,6 +346,8 @@ def main() -> None:
         if not args.apply:
             print(f"  would add {d['name']} ({entry['handler']})")
             continue
+        print(f"  starting {d['name']} ({entry['handler']})"
+              + (": approve the prompt on its screen now (it must be on and showing)" if entry.get("attended") else ""))
         status, detail = run_flow(ha, entry, d["host"])
         print(f"  {status}: {d['name']} ({entry['handler']}): {detail}")
         if status == "added":
