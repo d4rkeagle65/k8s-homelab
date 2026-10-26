@@ -15,7 +15,7 @@
 services:
   lldpd:
     mem_limit: 128m  # unmeasured: lldpd itself is a few MB; apk needs more while it installs
-    image: alpine:3.20
+    image: alpine:3.24
     container_name: lldpd
     network_mode: host
     cap_add:
