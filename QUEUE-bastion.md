@@ -108,8 +108,7 @@ it also manages Docker, Kubernetes and cloud platforms, which come later and sco
 - [x] 6b. The core switch and the firewall in Termix (2026-10-25, #386): the tag `bastion-key`
       (defined by the seed, task 1304) and `termix_user` on both in NetBox, and the firewall's
       management address on its port 1, its primary, with a DNS name that resolves; the sync
-      created both and read back VERIFIED. Left: the owner's first session to each, which shows
-      whether each device takes the key as that user.
+      created both and read back VERIFIED; the owner signed in to both through Termix (2026-10-26).
       The switch doesn't (it takes no Ed25519 key): its RSA key is imported and a login with
       it worked (the owner, 2026-10-25). Left, the owner's: that key's private half in Key Vault
       (`TERMIX_SSH_RSA_PRIVATE_KEY`, `keyvault-secrets.ps1 -New -Raw -Value` from the file);
