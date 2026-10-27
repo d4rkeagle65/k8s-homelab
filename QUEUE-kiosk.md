@@ -17,7 +17,7 @@ status, started at boot.
   by the owner in the UI with a password of its own; the browser keeps the session.
 - **The laptop runs `cage` (a one-app Wayland compositor) and Chromium in kiosk mode, as an
   unprivileged user `kiosk`**, signed in automatically on tty1 at boot: never a desktop, never
-  the browser as root on a hypervisor. Set up by `ansible/kiosk.yml`, for the NetBox tag
+  the browser as root on a hypervisor. Set up by `ansible/kiosk-deploy.yml`, for the NetBox tag
   `kiosk` only, so it never reaches another host.
 - **Its settings come from NetBox**, the host's local context: the page URL (it holds the
   domain), the screen's rotation, and the hours the screen is off. Nothing site-specific in git.
@@ -26,11 +26,14 @@ status, started at boot.
 
 - [ ] 1. The `Wall` dashboard (this pull request); read on a 1080p screen in kiosk mode.
 - [ ] 2. The owner: the Authentik user `wall-display` in `Grafana Viewers`.
-- [ ] 3. `ansible/kiosk.yml`: the `kiosk` user, `cage`, Chromium, tty1 auto-login starting
-      `cage chromium --kiosk <url>`, the rotation (`wlr-randr --transform`), a systemd timer
-      turning the panel off and on (`wlr-randr --output <panel> --off/--on`); a check mode that
-      reports each; the NetBox tag `kiosk` and the host's local context (`kiosk_url`,
-      `kiosk_rotation`, `kiosk_screen_off`, `kiosk_screen_on`). A dry run, then the owner's run.
+- [ ] 3. `ansible/kiosk-deploy.yml` (#425): the `kiosk` user (video, render, input), `cage`,
+      Chromium and `wlr-randr`, tty1 auto-login whose `.bash_profile` starts
+      `cage -s -- kiosk-browser` on tty1 only, the rotation, and `kiosk-screen auto` every 5
+      minutes from a timer, which sets the panel from the time of day (tested off 19:00 to
+      06:59, on at 07:00, in the host's `kiosk_timezone`). The laptop's NetBox local context
+      holds the settings (`kiosk_url` from Grafana's Ingress, rotation normal, 19:00 to 07:00
+      America/New_York) and it carries the tag `kiosk`, added 2026-10-27. Left: the Semaphore
+      template "Deploy: Kiosk" (the owner), a dry run, then the owner's run and a reboot.
 - [ ] 4. Signed in once on the laptop as `wall-display`; the screen read back from a photo or
       the owner's word; then the screen-off timer seen to work overnight.
 
