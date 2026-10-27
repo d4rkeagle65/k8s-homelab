@@ -18,4 +18,5 @@ resources:
 - pve-exporter/ks.yaml
 - qbittorrent-exporter/ks.yaml
 - snmp-exporter/ks.yaml
+- wall-exporter/ks.yaml
 - zammad-bridge/ks.yaml
