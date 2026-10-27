@@ -48,3 +48,20 @@ spec:
   resources:
     requests:
       storage: 200Gi
+---
+# The server's data (/app/server: settings, plugins, and its file-per-record database,
+# DB2) on a NAS LUN: on NFS (tdarr-server) a library's staging writes queued for tens of
+# seconds, the server stopped answering, and its probes restarted it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tdarr-server-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nas-iscsi
+  resources:
+    requests:
+      storage: 10Gi

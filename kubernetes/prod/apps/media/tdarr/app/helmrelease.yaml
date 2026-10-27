@@ -32,6 +32,28 @@ spec:
                     operator: Exists
     controllers:
       main:
+        # Copies the server's data from its old NFS volume (tdarr-server, kept untouched) to
+        # tdarr-server-data once: the marker file says it's done, and a copy cut short
+        # leaves no marker, so the next start copies again. It checks the file count.
+        initContainers:
+          copy-server-data:
+            image:
+              repository: ghcr.io/haveagitgat/tdarr
+              tag: 3.01.00
+            command: [sh, -c]
+            args:
+              - |
+                set -e
+                if [ -e /new/.copied-from-nfs ]; then echo "already copied"; exit 0; fi
+                cp -a /old/. /new/
+                want=$(cd /old && find . | wc -l)
+                have=$(cd /new && find . -path ./lost+found -prune -o -print | wc -l)
+                [ "$want" = "$have" ] || { echo "copied $have of $want entries"; exit 1; }
+                touch /new/.copied-from-nfs
+                echo "copied $have entries"
+            resources:
+              requests: {cpu: 10m, memory: 32Mi}
+              limits: {cpu: 500m, memory: 256Mi}
         containers:
           server:
             image:
@@ -54,8 +76,9 @@ spec:
                 value: "8265"
               - name: internalNode
                 value: "false"
-            # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml). The
-            # node container serves nothing to probe; it reconnects to the server.
+            # Health probes, timed as Sonarr's (sonarr/app/helmrelease.yaml) but allowed 15
+            # seconds an answer: a busy library's database writes hold the API that long.
+            # The node container serves nothing to probe; it reconnects to the server.
             probes:
               startup:
                 enabled: true
@@ -63,7 +86,7 @@ spec:
                 spec:
                   httpGet: {path: "/api/v2/status", port: 8265}
                   periodSeconds: 10
-                  timeoutSeconds: 5
+                  timeoutSeconds: 15
                   failureThreshold: 60
               readiness:
                 enabled: true
@@ -71,7 +94,7 @@ spec:
                 spec:
                   httpGet: {path: "/api/v2/status", port: 8265}
                   periodSeconds: 30
-                  timeoutSeconds: 5
+                  timeoutSeconds: 15
                   failureThreshold: 3
               liveness:
                 enabled: true
@@ -79,7 +102,7 @@ spec:
                 spec:
                   httpGet: {path: "/api/v2/status", port: 8265}
                   periodSeconds: 30
-                  timeoutSeconds: 5
+                  timeoutSeconds: 15
                   failureThreshold: 5
             resources:
               requests:
@@ -141,11 +164,21 @@ spec:
               - tdarr${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
     persistence:
       server:
-        existingClaim: tdarr-server
+        existingClaim: tdarr-server-data
         advancedMounts:
           main:
             server:
               - path: /app/server
+            copy-server-data:
+              - path: /new
+      # The old NFS volume, read by the copy only; to be removed once the move is proven.
+      server-nfs:
+        existingClaim: tdarr-server
+        advancedMounts:
+          main:
+            copy-server-data:
+              - path: /old
+                readOnly: true
       configs:
         existingClaim: tdarr-configs
         advancedMounts:

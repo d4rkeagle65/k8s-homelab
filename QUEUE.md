@@ -223,6 +223,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
+- **Tdarr's old server volume, `tdarr-server` (NFS), once its move to `tdarr-server-data`
+  (nas-iscsi) is proven** (2026-10-27): the init container `copy-server-data` in
+  `kubernetes/prod/apps/media/tdarr/app/helmrelease.yaml` copies it once (marker
+  `.copied-from-nfs`). After Tdarr has run on the new volume for a while (libraries and
+  settings intact, no "DB File Operation ... still in queue" in its log), remove the init
+  container, the `server-nfs` volume and the `tdarr-server` PVC from git, then delete the
+  claim and its released PV by hand (CLAUDE.md: prove the data exists elsewhere first).
+
 - **A new `nas-iscsi` volume's first mount takes minutes, and its pod waits** (found
   2026-10-26, tdarr-cache, 200 GiB: about 12 minutes in `mkfs.ext4 -m 0 /dev/sdX`, in
   democratic-csi's node container, I/O-bound): `mkfs` discards the whole LUN first, which the
