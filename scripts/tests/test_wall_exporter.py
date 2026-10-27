@@ -24,7 +24,9 @@ m = load()
 
 STATS = [{"_id": "statistics", "totalFileCount": 812, "table1Count": 40, "table2Count": 760, "table3Count": 2,
           "table4Count": 5, "table5Count": 800, "table6Count": 1}]
-NODES = {"n1": {"nodeName": "internal", "workers": {"w1": {}, "w2": {}}}}
+NODES = {"n1": {"nodeName": "internal", "workers": {
+    "w1": {"workerType": "transcodecpu", "idle": False}, "w2": {"workerType": "healthcheckcpu", "idle": False},
+    "w3": {"workerType": "transcodecpu", "idle": True}}}}
 TASKS = [{"status": "running"}, {"status": "success"}, {"status": "success"}, {"status": "error"}, {"status": "waiting"}]
 SESSIONS = [{"NowPlayingItem": {"Name": "x"}, "TranscodingInfo": {"VideoCodec": "h264"}},
             {"NowPlayingItem": {"Name": "y"}}, {"DeviceName": "idle"}]
@@ -45,7 +47,7 @@ def fake_call(answers):
 
 
 def tdarr_answer(url, headers, body):
-    return STATS if body["data"]["collection"] == "StatisticsJSONDB" else NODES
+    return NODES if url.endswith("/get-nodes") else STATS
 
 
 def setup(monkeypatch, answers, keys=True):
@@ -60,7 +62,7 @@ def setup(monkeypatch, answers, keys=True):
     monkeypatch.setattr(m, "call", fake_call(answers))
 
 
-ALL = {"cruddb": tdarr_answer, "/tasks/last": TASKS, "/emby/Sessions": SESSIONS,
+ALL = {"cruddb": tdarr_answer, "get-nodes": tdarr_answer, "/tasks/last": TASKS, "/emby/Sessions": SESSIONS,
        "/request/count": COUNTS, "/server/statistics": IMMICH}
 
 
@@ -71,7 +73,8 @@ def test_every_app_read_renders_its_counts(monkeypatch):
         assert f'wall_source_up{{source="{src}"}} 1' in page
     assert 'wall_tdarr_files{stage="transcode",state="queued"} 40' in page
     assert 'wall_tdarr_files{stage="health_check",state="error"} 1' in page
-    assert "wall_tdarr_workers_running 2" in page and "wall_tdarr_library_files 812" in page
+    assert "wall_tdarr_workers_running 2" in page and "wall_tdarr_library_files 812" in page  # the idle one isn't counted
+    assert 'wall_tdarr_workers_busy{type="transcode"} 1' in page and 'wall_tdarr_workers_busy{type="health_check"} 1' in page
     assert "wall_semaphore_tasks_active 2" in page and 'wall_semaphore_tasks{status="success"} 2' in page
     assert "wall_emby_streams 2" in page and "wall_emby_transcodes 1" in page
     assert 'wall_seerr_requests{state="pending"} 2' in page
