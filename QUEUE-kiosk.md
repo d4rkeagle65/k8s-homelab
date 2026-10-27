@@ -12,9 +12,13 @@ status, started at boot.
   across a room: what's wrong first (counts, then the firing alerts), then the hosts, network,
   storage and backups. Opened with `?kiosk&theme=dark`. Alerts leave out `Watchdog` and
   `InfoInhibitor`, which always fire.
-- **Its sign-in: an Authentik user `wall-display`, a member of `Grafana Viewers` only** (the
-  Grafana application admits Grafana Admins and Grafana Viewers; membership is the UI's). Made
-  by the owner in the UI with a password of its own; the browser keeps the session.
+- **No sign-in on the wall: Grafana's "Share externally" link to the Wall dashboard** (the
+  owner, 2026-10-27), as `kiosk_url`. A sign-in (Authentik) asked again after every reboot
+  and would leave an account on the device; the link shows that one dashboard read-only and
+  nothing else, and Grafana's route admits only the private networks (not the Cloudflare
+  tunnel), so it works only inside the network or over Tailscale. Its token is a secret for
+  that dashboard: it lives in the host's NetBox local context, never git, and is paused or
+  revoked in Grafana's sharing settings. No `wall-display` user is needed.
 - **The laptop runs `cage` (a one-app Wayland compositor) and Chromium in kiosk mode, as an
   unprivileged user `kiosk`**, signed in automatically on tty1 at boot: never a desktop, never
   the browser as root on a hypervisor. Set up by `ansible/kiosk-deploy.yml`, for the NetBox tag
@@ -25,7 +29,8 @@ status, started at boot.
 ## Checklist
 
 - [ ] 1. The `Wall` dashboard (this pull request); read on a 1080p screen in kiosk mode.
-- [ ] 2. The owner: the Authentik user `wall-display` in `Grafana Viewers`.
+- [x] 2. The share link, made by the owner and checked without a sign-in (the page and its
+      dashboard, 17 panels), set as the laptop's `kiosk_url` (2026-10-27).
 - [ ] 3. `ansible/kiosk-deploy.yml` (#425): the `kiosk` user (video, render, input), `cage`,
       Chromium and `wlr-randr`, tty1 auto-login whose `.bash_profile` starts
       `cage -s -- kiosk-browser` on tty1 only, the rotation, and `kiosk-screen auto` every 5
