@@ -1130,10 +1130,9 @@
       }
     },
     {
-      "id": 17,
+      "id": 31,
       "type": "bargauge",
-      "title": "Synology",
-      "description": "",
+      "title": "Storage used",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1144,6 +1143,7 @@
         "w": 4,
         "h": 5
       },
+      "description": "Each NAS's data, used: the Synology's volumes from its SNMP, the TerraMaster's data volume as Garage, which runs on it, reports it.",
       "targets": [
         {
           "refId": "A",
@@ -1151,9 +1151,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - sum(raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}) / sum(raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"}))",
           "instant": true,
-          "legendFormat": "used"
+          "legendFormat": "{{nas}}",
+          "expr": "label_replace(100 * (1 - sum(raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}) / sum(raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"})), \"nas\", \"Synology\", \"\", \"\") or label_replace(100 * (1 - sum(garage_local_disk_avail{volume=\"data\"}) / sum(garage_local_disk_total{volume=\"data\"})), \"nas\", \"TerraMaster\", \"\", \"\")"
         }
       ],
       "fieldConfig": {
@@ -1197,97 +1197,20 @@
         "displayMode": "gradient",
         "showUnfilled": true,
         "valueMode": "color",
-        "namePlacement": "left",
+        "namePlacement": "top",
         "sizing": "auto"
       }
     },
     {
-      "id": 18,
-      "type": "stat",
-      "title": "Synology free / total",
-      "description": "",
+      "id": 32,
+      "type": "table",
+      "title": "Free / total",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 4,
-        "y": 16,
-        "w": 3,
-        "h": 5
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"})",
-          "instant": true,
-          "legendFormat": "free"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"})",
-          "instant": true,
-          "legendFormat": "total"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "decimals": 1,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "blue"
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "value_and_name",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "wideLayout": true,
-        "text": {
-          "titleSize": 14,
-          "valueSize": 22
-        }
-      }
-    },
-    {
-      "id": 19,
-      "type": "bargauge",
-      "title": "TerraMaster",
-      "description": "Its data volume, as Garage, which runs on it, reports it.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 7,
         "y": 16,
         "w": 4,
         "h": 5
@@ -1299,81 +1222,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - sum(garage_local_disk_avail{volume=\"data\"}) / sum(garage_local_disk_total{volume=\"data\"}))",
           "instant": true,
-          "legendFormat": "used"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 80,
-                "color": "orange"
-              },
-              {
-                "value": 90,
-                "color": "red"
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "namePlacement": "left",
-        "sizing": "auto"
-      }
-    },
-    {
-      "id": 20,
-      "type": "stat",
-      "title": "TerraMaster free / total",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 11,
-        "y": 16,
-        "w": 3,
-        "h": 5
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(garage_local_disk_avail{volume=\"data\"})",
-          "instant": true,
-          "legendFormat": "free"
+          "format": "table",
+          "expr": "label_replace(sum(raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}), \"nas\", \"Synology\", \"\", \"\") or label_replace(sum(garage_local_disk_avail{volume=\"data\"}), \"nas\", \"TerraMaster\", \"\", \"\")"
         },
         {
           "refId": "B",
@@ -1381,47 +1232,53 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(garage_local_disk_total{volume=\"data\"})",
           "instant": true,
-          "legendFormat": "total"
+          "format": "table",
+          "expr": "label_replace(sum(raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"}), \"nas\", \"Synology\", \"\", \"\") or label_replace(sum(garage_local_disk_total{volume=\"data\"}), \"nas\", \"TerraMaster\", \"\", \"\")"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "nas": 0,
+              "Value #A": 1,
+              "Value #B": 2
+            },
+            "renameByName": {
+              "nas": "NAS",
+              "Value #A": "free",
+              "Value #B": "total"
+            }
+          }
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
           "decimals": 1,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "blue"
-              }
-            ]
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            }
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "value_and_name",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "wideLayout": true,
-        "text": {
-          "titleSize": 14,
-          "valueSize": 22
+        "showHeader": true,
+        "cellHeight": "lg",
+        "footer": {
+          "show": false
         }
       }
     },
@@ -1435,9 +1292,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 14,
+        "x": 8,
         "y": 16,
-        "w": 5,
+        "w": 4,
         "h": 5
       },
       "targets": [
@@ -1538,9 +1395,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 19,
+        "x": 12,
         "y": 16,
-        "w": 5,
+        "w": 4,
         "h": 5
       },
       "targets": [
@@ -1612,6 +1469,138 @@
           "titleSize": 14,
           "valueSize": 26
         }
+      }
+    },
+    {
+      "id": 33,
+      "type": "bargauge",
+      "title": "Host temperatures",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 5,
+        "h": 5
+      },
+      "description": "Each Proxmox host's hottest sensor.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "legendFormat": "{{nodename}}",
+          "expr": "sort_desc(max by (nodename) (node_hwmon_temp_celsius{job=\"proxmox-hosts\"} * on(instance) group_left(nodename) node_uname_info))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 30,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 75,
+                "color": "orange"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto"
+      }
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "Updates waiting",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 16,
+        "w": 3,
+        "h": 5
+      },
+      "description": "Dependency updates Renovate has found (its report job).",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "expr": "sum(renovate_updates)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "locale",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto"
       }
     },
     {
