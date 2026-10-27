@@ -26,8 +26,8 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 4,
-        "h": 4
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -37,7 +37,8 @@
             "uid": "prometheus"
           },
           "expr": "count(ALERTS{alertstate=\"firing\", alertname!~\"Watchdog|InfoInhibitor\"}) or vector(0)",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -75,7 +76,8 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
@@ -88,10 +90,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 4,
+        "x": 3,
         "y": 0,
-        "w": 4,
-        "h": 4
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -101,7 +103,8 @@
             "uid": "prometheus"
           },
           "expr": "count(up{job=~\"proxmox-hosts|pihole-hosts|docker-vm|docker-vm-2\"} == 0) or vector(0)",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -139,7 +142,8 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
@@ -152,10 +156,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
+        "x": 6,
         "y": 0,
-        "w": 4,
-        "h": 4
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -165,7 +169,8 @@
             "uid": "prometheus"
           },
           "expr": "count(kube_node_status_condition{condition=\"Ready\", status=\"true\"} == 0) or vector(0)",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -203,7 +208,8 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
@@ -216,10 +222,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 9,
         "y": 0,
-        "w": 4,
-        "h": 4
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -229,7 +235,8 @@
             "uid": "prometheus"
           },
           "expr": "count((kube_pod_status_ready{condition=\"false\"} == 1) unless on(namespace, pod) kube_pod_owner{owner_kind=\"Job\"}) or vector(0)",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -267,23 +274,24 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
       "id": 5,
       "type": "stat",
       "title": "Network devices down",
-      "description": "The core switch and the firewall, over SNMP.",
+      "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
+        "x": 12,
         "y": 0,
-        "w": 4,
-        "h": 4
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -293,7 +301,8 @@
             "uid": "prometheus"
           },
           "expr": "count((up{switch=\"core\"} == 0) or (up{job=\"firewall-snmp\"} == 0)) or vector(0)",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -331,23 +340,24 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
       "id": 6,
       "type": "stat",
-      "title": "Tailscale devices online",
+      "title": "Tailscale online",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
+        "x": 15,
         "y": 0,
-        "w": 4,
-        "h": 4
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -357,7 +367,8 @@
             "uid": "prometheus"
           },
           "expr": "count(tailscale_device_online == 1) or vector(0)",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -395,11 +406,136 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
       "id": 7,
+      "type": "stat",
+      "title": "Emby streams",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 3,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_emby_streams",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Semaphore running",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 0,
+        "w": 3,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_semaphore_tasks_active",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 9,
       "type": "table",
       "title": "Firing now",
       "datasource": {
@@ -408,9 +544,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
-        "w": 10,
-        "h": 8
+        "y": 3,
+        "w": 9,
+        "h": 7
       },
       "targets": [
         {
@@ -539,7 +675,7 @@
       }
     },
     {
-      "id": 8,
+      "id": 10,
       "type": "bargauge",
       "title": "Proxmox CPU",
       "description": "",
@@ -548,10 +684,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 10,
-        "y": 4,
-        "w": 7,
-        "h": 8
+        "x": 9,
+        "y": 3,
+        "w": 5,
+        "h": 7
       },
       "targets": [
         {
@@ -611,7 +747,7 @@
       }
     },
     {
-      "id": 9,
+      "id": 11,
       "type": "bargauge",
       "title": "Proxmox memory",
       "description": "",
@@ -620,10 +756,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 17,
-        "y": 4,
-        "w": 7,
-        "h": 8
+        "x": 14,
+        "y": 3,
+        "w": 5,
+        "h": 7
       },
       "targets": [
         {
@@ -683,74 +819,18 @@
       }
     },
     {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Internet traffic",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 12,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "8 * sum(rate(ifHCInOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
-          "legendFormat": "down"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "-8 * sum(rate(ifHCOutOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
-          "legendFormat": "up"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bps",
-          "custom": {
-            "fillOpacity": 25,
-            "lineWidth": 2,
-            "showPoints": "never"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "description": "The firewall's WAN interface (dhcp): download above the line, upload below."
-    },
-    {
-      "id": 11,
+      "id": 12,
       "type": "bargauge",
-      "title": "Kubernetes node memory",
+      "title": "Kubernetes memory",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
-        "y": 12,
-        "w": 8,
+        "x": 19,
+        "y": 3,
+        "w": 5,
         "h": 7
       },
       "targets": [
@@ -812,6 +892,173 @@
     },
     {
       "id": 13,
+      "type": "timeseries",
+      "title": "Internet traffic",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 7,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "8 * sum(rate(ifHCInOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
+          "legendFormat": "down"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "-8 * sum(rate(ifHCOutOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
+          "legendFormat": "up"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "description": "The firewall's WAN interface (dhcp): download above the line, upload below."
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "DNS queries a minute",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 7,
+        "y": 10,
+        "w": 6,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "60 * sum(pihole_request_rate)",
+          "legendFormat": "queries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "fillOpacity": 25,
+            "lineWidth": 2,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "description": "Both Pi-holes together."
+    },
+    {
+      "id": 15,
+      "type": "bargauge",
+      "title": "Wi-Fi clients",
+      "description": "Connected clients on each access point.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 13,
+        "y": 10,
+        "w": 5,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (nodename) (wifi_stations * on(instance) group_left(nodename) node_uname_info)",
+          "instant": true,
+          "legendFormat": "{{nodename}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 60,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto"
+      }
+    },
+    {
+      "id": 16,
       "type": "bargauge",
       "title": "Newest backup, by bucket",
       "description": "Hours since each Garage backup bucket's newest file. The firewall's is weekly; the others daily or more often.",
@@ -820,9 +1067,9 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 12,
-        "w": 8,
+        "x": 18,
+        "y": 10,
+        "w": 6,
         "h": 7
       },
       "targets": [
@@ -883,9 +1130,9 @@
       }
     },
     {
-      "id": 12,
+      "id": 17,
       "type": "bargauge",
-      "title": "NAS volumes used",
+      "title": "Synology",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -893,9 +1140,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 19,
-        "w": 8,
-        "h": 5
+        "y": 17,
+        "w": 4,
+        "h": 4
       },
       "targets": [
         {
@@ -904,9 +1151,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - sum by (raidName) (raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}) / sum by (raidName) (raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"}))",
+          "expr": "100 * (1 - sum(raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}) / sum(raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"}))",
           "instant": true,
-          "legendFormat": "{{raidName}}"
+          "legendFormat": "used"
         }
       ],
       "fieldConfig": {
@@ -955,19 +1202,428 @@
       }
     },
     {
-      "id": 14,
+      "id": 18,
       "type": "stat",
-      "title": "Oldest database backup",
+      "title": "Synology free / total",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
-        "y": 19,
+        "x": 4,
+        "y": 17,
         "w": 4,
-        "h": 5
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"})",
+          "instant": true,
+          "legendFormat": "free"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"})",
+          "instant": true,
+          "legendFormat": "total"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 19,
+      "type": "bargauge",
+      "title": "TerraMaster",
+      "description": "Its data volume, as Garage, which runs on it, reports it.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 17,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - sum(garage_local_disk_avail{volume=\"data\"}) / sum(garage_local_disk_total{volume=\"data\"}))",
+          "instant": true,
+          "legendFormat": "used"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "orange"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto"
+      }
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "TerraMaster free / total",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(garage_local_disk_avail{volume=\"data\"})",
+          "instant": true,
+          "legendFormat": "free"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(garage_local_disk_total{volume=\"data\"})",
+          "instant": true,
+          "legendFormat": "total"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Immich",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 17,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_immich_assets{type=\"photo\"}",
+          "instant": true,
+          "legendFormat": "photos"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_immich_assets{type=\"video\"}",
+          "instant": true,
+          "legendFormat": "videos"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_immich_usage_bytes{type=\"all\"}",
+          "instant": true,
+          "legendFormat": "size"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "size"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "photos|videos"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Tdarr",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 17,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_tdarr_files{stage=\"transcode\", state=\"queued\"}",
+          "instant": true,
+          "legendFormat": "queued"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_tdarr_files{stage=\"transcode\", state=\"done\"}",
+          "instant": true,
+          "legendFormat": "done"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_tdarr_workers_running",
+          "instant": true,
+          "legendFormat": "working"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "Oldest DB backup",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -977,7 +1633,8 @@
             "uid": "prometheus"
           },
           "expr": "time() - min(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp)",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -1015,23 +1672,24 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
-      "id": 15,
+      "id": 24,
       "type": "stat",
-      "title": "Next certificate expiry",
+      "title": "Next cert expiry",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 19,
-        "w": 4,
-        "h": 5
+        "x": 3,
+        "y": 21,
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -1041,7 +1699,8 @@
             "uid": "prometheus"
           },
           "expr": "min(certmanager_certificate_expiration_timestamp_seconds) - time()",
-          "instant": true
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -1083,23 +1742,24 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
-      "id": 16,
+      "id": 25,
       "type": "stat",
-      "title": "Garage free",
+      "title": "DNS queries today",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 19,
-        "w": 4,
-        "h": 5
+        "x": 6,
+        "y": 21,
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -1108,13 +1768,14 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(garage_local_disk_avail{volume=\"data\"})",
-          "instant": true
+          "expr": "sum(pihole_dns_queries_today)",
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "short",
           "decimals": 1,
           "color": {
             "mode": "thresholds"
@@ -1124,11 +1785,7 @@
             "steps": [
               {
                 "value": null,
-                "color": "red"
-              },
-              {
-                "value": 107374182400,
-                "color": "green"
+                "color": "blue"
               }
             ]
           }
@@ -1147,23 +1804,24 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
       }
     },
     {
-      "id": 17,
+      "id": 26,
       "type": "stat",
-      "title": "DNS queries today",
+      "title": "DNS blocked",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 19,
-        "w": 4,
-        "h": 5
+        "x": 9,
+        "y": 21,
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -1172,8 +1830,71 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(pihole_dns_queries_today)",
-          "instant": true
+          "expr": "avg(pihole_ads_percentage_today)",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 27,
+      "type": "stat",
+      "title": "Downloads queued",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 3,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum({__name__=~\"(sonarr|radarr|lidarr)_queue_total\"})",
+          "instant": true,
+          "legendFormat": ""
         }
       ],
       "fieldConfig": {
@@ -1207,7 +1928,198 @@
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center",
-        "orientation": "auto"
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 28,
+      "type": "stat",
+      "title": "Requests pending",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 21,
+        "w": 3,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_seerr_requests{state=\"pending\"}",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "orange"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 29,
+      "type": "stat",
+      "title": "Requests processing",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 21,
+        "w": 3,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_seerr_requests{state=\"processing\"}",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 30,
+      "type": "stat",
+      "title": "Semaphore errors (last 200)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 21,
+        "w": 3,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "wall_semaphore_tasks{status=\"error\"} or vector(0)",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "blue"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true
       }
     }
   ],
