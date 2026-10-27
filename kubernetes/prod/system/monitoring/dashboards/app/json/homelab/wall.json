@@ -997,7 +997,7 @@
       "id": 15,
       "type": "bargauge",
       "title": "Wi-Fi clients",
-      "description": "Connected clients on each access point, named as on Homepage, most first.",
+      "description": "Connected clients on each access point (Homepage's Production AP, IoT AP and Travel Router), most first.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1015,7 +1015,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sort_desc(label_replace(label_replace(label_replace(sum by (ap) (wifi_stations), \"name\", \"Production AP\", \"ap\", \"1\"), \"name\", \"IoT AP\", \"ap\", \"2\"), \"name\", \"Travel Router\", \"ap\", \"3\"))",
+          "expr": "sort_desc(label_replace(label_replace(label_replace(sum by (ap) (wifi_stations), \"name\", \"Prod\", \"ap\", \"1\"), \"name\", \"IoT\", \"ap\", \"2\"), \"name\", \"Travel\", \"ap\", \"3\"))",
           "instant": true,
           "legendFormat": "{{name}}"
         }
@@ -1079,9 +1079,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(time() - max by (bucket) (garage_backup_newest_object_timestamp_seconds)) / 3600",
+          "expr": "label_replace(label_replace(label_replace(label_replace((time() - max by (bucket) (garage_backup_newest_object_timestamp_seconds)) / 3600, \"name\", \"CNPG\", \"bucket\", \"cnpg-backups\"), \"name\", \"Docker\", \"bucket\", \"docker-backups\"), \"name\", \"Firewall\", \"bucket\", \"firewall-backups\"), \"name\", \"MariaDB\", \"bucket\", \"mariadb-backups\")",
           "instant": true,
-          "legendFormat": "{{bucket}}"
+          "legendFormat": "{{name}}"
         }
       ],
       "fieldConfig": {
@@ -1111,56 +1111,7 @@
             ]
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cnpg-backups"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "CNPG"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "docker-backups"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Docker"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "firewall-backups"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Firewall"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "mariadb-backups"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "MariaDB"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "reduceOptions": {
@@ -1548,6 +1499,10 @@
               {
                 "id": "unit",
                 "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
               }
             ]
           },
@@ -1559,11 +1514,11 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "short"
+                "value": "none"
               },
               {
                 "id": "decimals",
-                "value": 1
+                "value": 0
               }
             ]
           }
@@ -1638,7 +1593,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "none",
           "decimals": 0,
           "color": {
             "mode": "thresholds"
