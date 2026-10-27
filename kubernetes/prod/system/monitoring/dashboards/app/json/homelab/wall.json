@@ -742,7 +742,7 @@
         "displayMode": "gradient",
         "showUnfilled": true,
         "valueMode": "color",
-        "namePlacement": "left",
+        "namePlacement": "top",
         "sizing": "auto"
       }
     },
@@ -814,7 +814,7 @@
         "displayMode": "gradient",
         "showUnfilled": true,
         "valueMode": "color",
-        "namePlacement": "left",
+        "namePlacement": "top",
         "sizing": "auto"
       }
     },
@@ -886,7 +886,7 @@
         "displayMode": "gradient",
         "showUnfilled": true,
         "valueMode": "color",
-        "namePlacement": "left",
+        "namePlacement": "top",
         "sizing": "auto"
       }
     },
@@ -1053,7 +1053,7 @@
         "displayMode": "gradient",
         "showUnfilled": true,
         "valueMode": "color",
-        "namePlacement": "left",
+        "namePlacement": "top",
         "sizing": "auto"
       }
     },
@@ -1125,7 +1125,7 @@
         "displayMode": "gradient",
         "showUnfilled": true,
         "valueMode": "color",
-        "namePlacement": "left",
+        "namePlacement": "top",
         "sizing": "auto"
       }
     },
@@ -1474,8 +1474,8 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 1,
+          "unit": "locale",
+          "decimals": 0,
           "color": {
             "mode": "thresholds"
           },
@@ -1492,8 +1492,8 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byName",
-              "options": "size"
+              "id": "byFrameRefID",
+              "options": "C"
             },
             "properties": [
               {
@@ -1503,22 +1503,6 @@
               {
                 "id": "decimals",
                 "value": 1
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "photos|videos"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "none"
-              },
-              {
-                "id": "decimals",
-                "value": 0
               }
             ]
           }
@@ -1593,7 +1577,7 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
+          "unit": "locale",
           "decimals": 0,
           "color": {
             "mode": "thresholds"
