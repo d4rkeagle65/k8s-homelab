@@ -47,7 +47,9 @@ status, started at boot.
       Guest, `WALL-EXPORTER-IMMICH-API-KEY` with only `server.statistics`); Pi-hole and the
       Wi-Fi access points (already scraped); the NAS volumes apart, Synology and TerraMaster,
       each with free and total beside its bar (the TerraMaster's from Garage's data volume
-      metrics, its SNMP having no storage). Left: the exporter live, then the dashboard.
+      metrics, its SNMP having no storage). The exporter is live (2026-10-27): all five apps
+      read (wall_source_up 1). The denser Wall (#432): 30 panels in 24 rows, every query
+      run against Prometheus. Left: read on the wall's screen.
 - [ ] 4. Signed in once on the laptop as `wall-display`; the screen read back from a photo or
       the owner's word; then the screen-off timer seen to work overnight.
 
