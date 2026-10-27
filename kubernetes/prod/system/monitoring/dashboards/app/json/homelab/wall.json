@@ -911,7 +911,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "8 * sum(rate(ifHCInOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
+          "expr": "8 * sum(irate(ifHCInOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
           "legendFormat": "down"
         },
         {
@@ -920,7 +920,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "-8 * sum(rate(ifHCOutOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
+          "expr": "-8 * sum(irate(ifHCOutOctets{job=\"firewall-snmp\", ifDescr=\"dhcp\"}[5m]))",
           "legendFormat": "up"
         }
       ],
@@ -944,7 +944,7 @@
           "mode": "multi"
         }
       },
-      "description": "The firewall's WAN interface (dhcp): download above the line, upload below."
+      "description": "The firewall's WAN interface (dhcp), in megabits a second between its last two SNMP reads, 2 minutes apart: download above the line, upload below."
     },
     {
       "id": 14,

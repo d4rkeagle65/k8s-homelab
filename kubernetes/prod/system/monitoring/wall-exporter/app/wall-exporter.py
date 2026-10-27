@@ -2,7 +2,8 @@
 
 Every REFRESH_SECONDS it reads, inside the cluster:
   Tdarr      its statistics (the transcode and health check queues and results) and its
-             nodes' running workers: no key, Tdarr has no authentication
+             nodes' busy workers (get-nodes: Tdarr keeps workers in memory, not in its
+             node records): no key, Tdarr has no authentication
   Semaphore  the project's last tasks, counted by status (a Guest's API token)
   Emby       the sessions playing something, and those Emby transcodes
   Seerr      its requests, counted by state
@@ -71,9 +72,16 @@ def tdarr() -> list[str]:
     out = [line("wall_tdarr_files", {"stage": st, "state": state}, int(s.get(f"table{n}Count") or 0))
            for n, (st, state) in tables.items()]
     out.append(line("wall_tdarr_library_files", {}, int(s.get("totalFileCount") or 0)))
-    nodes = call(f"{url}/api/v2/cruddb", body={"data": {"collection": "NodeJSONDB", "mode": "getAll"}})
-    workers = sum(len(n.get("workers") or {}) for n in as_list(nodes) if isinstance(n, dict))
-    out.append(line("wall_tdarr_workers_running", {}, workers))
+    nodes = call(f"{url}/api/v2/get-nodes")
+    busy: dict[str, int] = {}
+    for n in as_list(nodes):
+        for w in (n.get("workers") or {}).values() if isinstance(n, dict) else []:
+            if isinstance(w, dict) and not w.get("idle"):
+                kind = "health_check" if "healthcheck" in str(w.get("workerType", "")) else "transcode"
+                busy[kind] = busy.get(kind, 0) + 1
+    for kind in ("transcode", "health_check"):
+        out.append(line("wall_tdarr_workers_busy", {"type": kind}, busy.get(kind, 0)))
+    out.append(line("wall_tdarr_workers_running", {}, sum(busy.values())))
     return out
 
 
