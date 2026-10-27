@@ -432,7 +432,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_emby_streams",
+          "expr": "max(wall_emby_streams)",
           "instant": true,
           "legendFormat": ""
         }
@@ -494,7 +494,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_semaphore_tasks_active",
+          "expr": "max(wall_semaphore_tasks_active)",
           "instant": true,
           "legendFormat": ""
         }
@@ -1340,7 +1340,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_immich_assets{type=\"photo\"}",
+          "expr": "max(wall_immich_assets{type=\"photo\"})",
           "instant": true,
           "legendFormat": "photos"
         },
@@ -1350,7 +1350,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_immich_assets{type=\"video\"}",
+          "expr": "max(wall_immich_assets{type=\"video\"})",
           "instant": true,
           "legendFormat": "videos"
         },
@@ -1360,7 +1360,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_immich_usage_bytes{type=\"all\"}",
+          "expr": "max(wall_immich_usage_bytes{type=\"all\"})",
           "instant": true,
           "legendFormat": "size"
         }
@@ -1443,7 +1443,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_tdarr_files{stage=\"transcode\", state=\"queued\"}",
+          "expr": "max(wall_tdarr_files{stage=\"transcode\", state=\"queued\"})",
           "instant": true,
           "legendFormat": "queued"
         },
@@ -1453,7 +1453,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_tdarr_files{stage=\"transcode\", state=\"done\"}",
+          "expr": "max(wall_tdarr_files{stage=\"transcode\", state=\"done\"})",
           "instant": true,
           "legendFormat": "done"
         },
@@ -1463,7 +1463,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_tdarr_workers_running",
+          "expr": "max(wall_tdarr_workers_running)",
           "instant": true,
           "legendFormat": "working"
         }
@@ -1983,7 +1983,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_seerr_requests{state=\"pending\"}",
+          "expr": "max(wall_seerr_requests{state=\"pending\"})",
           "instant": true,
           "legendFormat": ""
         }
@@ -2049,7 +2049,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_seerr_requests{state=\"processing\"}",
+          "expr": "max(wall_seerr_requests{state=\"processing\"})",
           "instant": true,
           "legendFormat": ""
         }
@@ -2111,7 +2111,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(wall_semaphore_tasks{status=\"error\"}) or vector(0)",
+          "expr": "max(wall_semaphore_tasks{status=\"error\"}) or vector(0)",
           "instant": true,
           "legendFormat": ""
         }
