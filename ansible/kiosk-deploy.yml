@@ -80,6 +80,12 @@
         password: "*"
         create_home: true
 
+    - name: getty's drop-in folder for tty1
+      ansible.builtin.file:
+        path: /etc/systemd/system/getty@tty1.service.d
+        state: directory
+        mode: "0755"
+
     - name: tty1 signs kiosk in automatically
       ansible.builtin.copy:
         dest: /etc/systemd/system/getty@tty1.service.d/autologin.conf
@@ -181,11 +187,14 @@
         daemon_reload: true
       when: (k_getty is changed or k_units is changed) and not ansible_check_mode
 
+    # In check mode the unit files above aren't written, so there's no timer to ask about:
+    # the step before reports them, and the read-back says the timer isn't running.
     - name: The timer runs
       ansible.builtin.systemd_service:
         name: kiosk-screen.timer
         enabled: true
         state: started
+      when: not ansible_check_mode or (k_units is not changed)
 
     # Read back what the display needs, the way it will run.
     - name: Read the display's state back
