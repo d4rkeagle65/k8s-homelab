@@ -1,0 +1,223 @@
+# A wall display (QUEUE-kiosk.md): the host's own screen shows one web page, full
+# screen, from boot. An unprivileged user `kiosk` is signed in automatically on tty1, and
+# its login starts cage (a Wayland compositor that runs one application) with Chromium in
+# kiosk mode on that page. No desktop, and the browser never runs as root. Chromium keeps
+# its profile in kiosk's home, so a sign-in on the page (the Wall dashboard's viewer)
+# survives reboots.
+#
+# The screen is turned off and on by a timer every 5 minutes (kiosk-screen auto), which
+# sets the panel from the time of day, so a boot or a missed run in the night still ends
+# with the screen off.
+#
+# Hosts: the inventory's kiosk group (the NetBox tag kiosk). Settings, from each host's
+# NetBox local context (never git: the page's address holds the domain):
+#   kiosk_url          the page to show
+#   kiosk_rotation     normal, 90, 180 or 270 (wlr-randr --transform); default normal
+#   kiosk_screen_off   HH:MM the screen turns off, and
+#   kiosk_screen_on    HH:MM it turns back on; both unset: always on
+#   kiosk_timezone     the zone those times are in (e.g. America/New_York); default the host's
+#
+# In check mode (--check) it reports what's installed, the user, the auto-login and the
+# timer, and changes nothing. After a real run, reboot the host (or run
+# `systemctl restart getty@tty1`) to start the display.
+
+- ansible.builtin.import_playbook: _select-hosts.yml
+  vars:
+    select_from: kiosk
+
+- name: A wall display on the host's own screen
+  hosts: targets
+  gather_facts: true
+  gather_subset: [min]
+  vars:
+    kiosk_packages: [cage, chromium, wlr-randr, fonts-noto-core]
+    k_rotation: "{{ kiosk_rotation | default('normal') | string }}"
+    k_off: "{{ kiosk_screen_off | default('') | string }}"
+    k_on: "{{ kiosk_screen_on | default('') | string }}"
+    k_tz: "{{ kiosk_timezone | default('') | string }}"
+  tasks:
+    - name: The settings are set and look right
+      ansible.builtin.assert:
+        that:
+          - kiosk_url | default('') | regex_search('^https?://')
+          - k_rotation in ['normal', '90', '180', '270']
+          - (k_off == '' and k_on == '') or (k_off is match('^[0-2][0-9]:[0-5][0-9]$') and k_on is match('^[0-2][0-9]:[0-5][0-9]$'))
+          - k_tz == '' or k_tz is match('^[A-Za-z_]+(/[A-Za-z_+-]+)*$')
+        fail_msg: >-
+          {{ inventory_hostname }}: kiosk_url must be an http(s) address, kiosk_rotation one of
+          normal, 90, 180, 270, kiosk_screen_off and kiosk_screen_on both HH:MM or both unset,
+          and kiosk_timezone a zone name (its NetBox local context).
+        quiet: true
+
+    - name: The time zone exists on the host
+      ansible.builtin.stat:
+        path: "/usr/share/zoneinfo/{{ k_tz }}"
+      register: k_tzfile
+      when: k_tz | length > 0
+
+    - name: The time zone is a real one
+      ansible.builtin.assert:
+        that: k_tzfile.stat.exists
+        fail_msg: "{{ inventory_hostname }}: no time zone {{ k_tz }} in /usr/share/zoneinfo."
+        quiet: true
+      when: k_tz | length > 0
+
+    - name: The packages
+      ansible.builtin.apt:
+        name: "{{ kiosk_packages }}"
+        state: present
+        install_recommends: false
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: The kiosk user, unprivileged, in the groups a display and input need
+      ansible.builtin.user:
+        name: kiosk
+        comment: Wall display
+        shell: /bin/bash
+        groups: [video, render, input]
+        append: true
+        password: "*"
+        create_home: true
+
+    - name: tty1 signs kiosk in automatically
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+        mode: "0644"
+        content: |
+          # kiosk-deploy.yml: the wall display's user, signed in on the host's own screen.
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin kiosk --noclear %I $TERM
+      register: k_getty
+
+    - name: The browser, as the session starts it
+      ansible.builtin.copy:
+        dest: /usr/local/bin/kiosk-browser
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # kiosk-deploy.yml: inside cage, rotate the panel, then Chromium on the page.
+          [ "{{ k_rotation }}" = normal ] || wlr-randr --output "$(wlr-randr | awk 'NR==1{print $1}')" --transform {{ k_rotation }}
+          /usr/local/bin/kiosk-screen auto || true
+          exec chromium --kiosk --noerrdialogs --disable-session-crashed-bubble --no-first-run \
+            --disable-features=Translate --password-store=basic --ozone-platform=wayland \
+            {{ kiosk_url | quote }}
+
+    - name: kiosk's login starts cage on tty1, and only there
+      ansible.builtin.copy:
+        dest: /home/kiosk/.bash_profile
+        owner: kiosk
+        group: kiosk
+        mode: "0644"
+        content: |
+          # kiosk-deploy.yml: the wall display on the host's own screen; a login
+          # anywhere else (an SSH session as kiosk) gets a plain shell.
+          if [ "$(tty)" = /dev/tty1 ]; then
+            exec cage -s -- /usr/local/bin/kiosk-browser
+          fi
+
+    - name: The screen switch, from the time of day
+      ansible.builtin.copy:
+        dest: /usr/local/bin/kiosk-screen
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # kiosk-deploy.yml: kiosk-screen on|off|auto turns the display's panel on or off;
+          # auto picks from the time ({{ k_off or 'never' }} to {{ k_on or 'never' }}{{ (' ' ~ k_tz) if k_tz else '' }}).
+          # Run as root or as kiosk; it finds cage's Wayland socket in kiosk's runtime folder.
+          set -e
+          uid=$(id -u kiosk)
+          run=/run/user/$uid
+          sock=$(ls "$run" 2>/dev/null | grep -m1 '^wayland-[0-9]*$') || { echo "no display running"; exit 0; }
+          want=$1
+          if [ "$want" = auto ]; then
+            off={{ k_off | quote }}; on={{ k_on | quote }}
+            [ -n "$off" ] || { want=on; }
+            if [ "$want" = auto ]; then
+              now=$({{ ('TZ=' ~ (k_tz | quote) ~ ' ') if k_tz else '' }}date +%H:%M)
+              if [ "$off" \< "$on" ]; then
+                { [ ! "$now" \< "$off" ] && [ "$now" \< "$on" ]; } && want=off || want=on
+              else
+                { [ ! "$now" \< "$off" ] || [ "$now" \< "$on" ]; } && want=off || want=on
+              fi
+            fi
+          fi
+          as_kiosk() { if [ "$(id -u)" = "$uid" ]; then "$@"; else runuser -u kiosk -- "$@"; fi; }
+          out=$(as_kiosk env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY="$sock" wlr-randr | awk 'NR==1{print $1}')
+          as_kiosk env XDG_RUNTIME_DIR="$run" WAYLAND_DISPLAY="$sock" wlr-randr --output "$out" --"$want"
+          echo "screen $want ($out)"
+
+    - name: The timer that keeps the screen to its hours
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item.name }}"
+        mode: "0644"
+        content: "{{ item.content }}"
+      loop:
+        - name: kiosk-screen.service
+          content: |
+            # kiosk-deploy.yml
+            [Unit]
+            Description=The wall display's screen, on or off by the time of day
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/local/bin/kiosk-screen auto
+        - name: kiosk-screen.timer
+          content: |
+            # kiosk-deploy.yml
+            [Unit]
+            Description=The wall display's screen, every 5 minutes
+            [Timer]
+            OnBootSec=2min
+            OnUnitActiveSec=5min
+            [Install]
+            WantedBy=timers.target
+      loop_control:
+        label: "{{ item.name }}"
+      register: k_units
+
+    - name: systemd reads the changed units
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: (k_getty is changed or k_units is changed) and not ansible_check_mode
+
+    - name: The timer runs
+      ansible.builtin.systemd_service:
+        name: kiosk-screen.timer
+        enabled: true
+        state: started
+
+    # Read back what the display needs, the way it will run.
+    - name: Read the display's state back
+      ansible.builtin.shell: |
+        set -o pipefail
+        for b in cage chromium wlr-randr; do printf '%s=%s\n' "$b" "$(command -v "$b" >/dev/null && echo yes || echo no)"; done
+        echo "groups=$(id -nG kiosk 2>/dev/null)"
+        echo "autologin=$(grep -c -- '--autologin kiosk' /etc/systemd/system/getty@tty1.service.d/autologin.conf 2>/dev/null || echo 0)"
+        echo "timer=$(systemctl is-active kiosk-screen.timer 2>/dev/null)"
+        echo "display=$(ls /run/user/$(id -u kiosk 2>/dev/null)/ 2>/dev/null | grep -c '^wayland-[0-9]*$')"
+      args:
+        executable: /bin/bash
+      register: k_state
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: {{ k_state.stdout_lines | join(', ') }};
+          page {{ kiosk_url | urlsplit('hostname') }}{{ kiosk_url | urlsplit('path') }},
+          rotation {{ k_rotation }}, screen {{ ('off ' ~ k_off ~ ' to ' ~ k_on ~ ((' ' ~ k_tz) if k_tz else '')) if k_off else 'always on' }}.
+          {{ 'Reboot it, or systemctl restart getty@tty1, to start the display.' if (k_getty is changed and not ansible_check_mode) else '' }}
+
+    - name: Everything the display needs is there
+      ansible.builtin.assert:
+        that:
+          - "'cage=yes' in k_state.stdout and 'chromium=yes' in k_state.stdout and 'wlr-randr=yes' in k_state.stdout"
+          - "'autologin=1' in k_state.stdout"
+          - "'timer=active' in k_state.stdout"
+          - "'video' in k_state.stdout and 'render' in k_state.stdout and 'input' in k_state.stdout"
+        fail_msg: "{{ inventory_hostname }}: read back, the display isn't complete: {{ k_state.stdout_lines | join(', ') }}"
+        quiet: true
+      when: not ansible_check_mode
