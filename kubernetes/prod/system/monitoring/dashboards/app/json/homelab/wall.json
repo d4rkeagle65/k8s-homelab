@@ -27,7 +27,7 @@
         "x": 0,
         "y": 0,
         "w": 4,
-        "h": 5
+        "h": 4
       },
       "targets": [
         {
@@ -91,7 +91,7 @@
         "x": 4,
         "y": 0,
         "w": 4,
-        "h": 5
+        "h": 4
       },
       "targets": [
         {
@@ -155,7 +155,7 @@
         "x": 8,
         "y": 0,
         "w": 4,
-        "h": 5
+        "h": 4
       },
       "targets": [
         {
@@ -219,7 +219,7 @@
         "x": 12,
         "y": 0,
         "w": 4,
-        "h": 5
+        "h": 4
       },
       "targets": [
         {
@@ -283,7 +283,7 @@
         "x": 16,
         "y": 0,
         "w": 4,
-        "h": 5
+        "h": 4
       },
       "targets": [
         {
@@ -347,7 +347,7 @@
         "x": 20,
         "y": 0,
         "w": 4,
-        "h": 5
+        "h": 4
       },
       "targets": [
         {
@@ -408,9 +408,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
-        "w": 12,
-        "h": 10
+        "y": 4,
+        "w": 10,
+        "h": 8
       },
       "targets": [
         {
@@ -419,9 +419,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "ALERTS{alertstate=\"firing\", alertname!~\"Watchdog|InfoInhibitor\"}",
           "instant": true,
-          "format": "table"
+          "format": "table",
+          "expr": "count by (severity, alertname, namespace) (ALERTS{alertstate=\"firing\", alertname!~\"Watchdog|InfoInhibitor\"})"
         }
       ],
       "transformations": [
@@ -429,23 +429,28 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true,
-              "Value": true,
-              "__name__": true,
-              "alertstate": true,
-              "prometheus": true,
-              "endpoint": true,
-              "service": true,
-              "container": true,
-              "pod": true,
-              "job": true
+              "Time": true
             },
             "indexByName": {
               "severity": 0,
               "alertname": 1,
               "namespace": 2,
-              "instance": 3
+              "Value": 3
+            },
+            "renameByName": {
+              "alertname": "alert",
+              "Value": "count"
             }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "severity"
+              }
+            ]
           }
         }
       ],
@@ -498,6 +503,30 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "namespace"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
           }
         ]
       },
@@ -519,10 +548,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 5,
-        "w": 6,
-        "h": 10
+        "x": 10,
+        "y": 4,
+        "w": 7,
+        "h": 8
       },
       "targets": [
         {
@@ -591,10 +620,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 18,
-        "y": 5,
-        "w": 6,
-        "h": 10
+        "x": 17,
+        "y": 4,
+        "w": 7,
+        "h": 8
       },
       "targets": [
         {
@@ -663,9 +692,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 15,
+        "y": 12,
         "w": 8,
-        "h": 9
+        "h": 7
       },
       "targets": [
         {
@@ -720,9 +749,9 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 15,
+        "y": 12,
         "w": 8,
-        "h": 9
+        "h": 7
       },
       "targets": [
         {
@@ -782,78 +811,6 @@
       }
     },
     {
-      "id": 12,
-      "type": "bargauge",
-      "title": "NAS volumes used",
-      "description": "",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 15,
-        "w": 8,
-        "h": 9
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "100 * (1 - sum by (raidName) (raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}) / sum by (raidName) (raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"}))",
-          "instant": true,
-          "legendFormat": "{{raidName}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "value": null,
-                "color": "green"
-              },
-              {
-                "value": 80,
-                "color": "orange"
-              },
-              {
-                "value": 90,
-                "color": "red"
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true,
-        "valueMode": "color",
-        "namePlacement": "left",
-        "sizing": "auto"
-      }
-    },
-    {
       "id": 13,
       "type": "bargauge",
       "title": "Newest backup, by bucket",
@@ -863,10 +820,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 0,
-        "y": 24,
+        "x": 16,
+        "y": 12,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "targets": [
         {
@@ -926,6 +883,78 @@
       }
     },
     {
+      "id": 12,
+      "type": "bargauge",
+      "title": "NAS volumes used",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 8,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * (1 - sum by (raidName) (raidFreeSize{nas=\"synology\", raidName=~\"Volume.*\"}) / sum by (raidName) (raidTotalSize{nas=\"synology\", raidName=~\"Volume.*\"}))",
+          "instant": true,
+          "legendFormat": "{{raidName}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "orange"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "valueMode": "color",
+        "namePlacement": "left",
+        "sizing": "auto"
+      }
+    },
+    {
       "id": 14,
       "type": "stat",
       "title": "Oldest database backup",
@@ -936,9 +965,9 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 24,
+        "y": 19,
         "w": 4,
-        "h": 8
+        "h": 5
       },
       "targets": [
         {
@@ -1000,9 +1029,9 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 24,
+        "y": 19,
         "w": 4,
-        "h": 8
+        "h": 5
       },
       "targets": [
         {
@@ -1068,9 +1097,9 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 24,
+        "y": 19,
         "w": 4,
-        "h": 8
+        "h": 5
       },
       "targets": [
         {
@@ -1132,9 +1161,9 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 24,
+        "y": 19,
         "w": 4,
-        "h": 8
+        "h": 5
       },
       "targets": [
         {
