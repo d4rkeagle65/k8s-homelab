@@ -31,9 +31,9 @@ prometheus:
 
 # The washer and the dryer, running or not, from their Tapo plugs' power draw. Idle,
 # each plug reads 1-2 W. delay_on ignores a short spike, such as the dryer's
-# wrinkle-guard tumble after a cycle; delay_off rides out a low-power stretch inside
-# a cycle, such as the washer's soak and fill. Tune the thresholds and delays from
-# a real cycle's history.
+# wrinkle-guard tumble after a cycle. delay_off rides out a pause inside a cycle,
+# which reads the same 2 W as idle, so no threshold can tell them apart: the
+# washer's longest pause, before its final spin, was 4.7 minutes.
 template:
   - binary_sensor:
       - name: Washer running
@@ -43,7 +43,7 @@ template:
         state: "{{ states('sensor.washer_current_consumption') | float(0) > 8 }}"
         availability: "{{ has_value('sensor.washer_current_consumption') }}"
         delay_on: "00:00:30"
-        delay_off: "00:05:00"
+        delay_off: "00:08:00"
       - name: Dryer running
         unique_id: laundry_dryer_running
         device_class: running
