@@ -1,0 +1,91 @@
+# The apps' own counts for the Wall dashboard (wall-exporter.py; QUEUE-kiosk.md).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wall-exporter
+  labels:
+    app.kubernetes.io/name: wall-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wall-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wall-exporter
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: wall-exporter
+        image: python:3.15.1-alpine
+        command: [python, -u, /app/wall-exporter.py]
+        env:
+        - {name: REFRESH_SECONDS, value: "60"}
+        - {name: TDARR_URL, value: "http://tdarr.media.svc.${CLUSTER_DOMAIN}:8265"}
+        - {name: SEMAPHORE_URL, value: "http://semaphore.external-services.svc.${CLUSTER_DOMAIN}:3001"}
+        - {name: SEMAPHORE_PROJECT, value: "1"}
+        - {name: EMBY_URL, value: "http://emby.emby.svc.${CLUSTER_DOMAIN}:8096"}
+        - {name: SEERR_URL, value: "http://seerr.media.svc.${CLUSTER_DOMAIN}:5055"}
+        - {name: IMMICH_URL, value: "http://immich-server.immich.svc.${CLUSTER_DOMAIN}:2283"}
+        - name: EMBY_API_KEY
+          valueFrom: {secretKeyRef: {name: wall-exporter-emby, key: EMBY_API_KEY, optional: true}}
+        - name: SEERR_API_KEY
+          valueFrom: {secretKeyRef: {name: wall-exporter-seerr, key: SEERR_API_KEY, optional: true}}
+        - name: SEMAPHORE_TOKEN
+          valueFrom: {secretKeyRef: {name: wall-exporter-semaphore, key: SEMAPHORE_TOKEN, optional: true}}
+        - name: IMMICH_API_KEY
+          valueFrom: {secretKeyRef: {name: wall-exporter-immich, key: IMMICH_API_KEY, optional: true}}
+        ports:
+        - {name: http, containerPort: 8080}
+        # /metrics answers once the first read is done.
+        readinessProbe:
+          httpGet: {path: /metrics, port: http}
+          periodSeconds: 30
+        livenessProbe:
+          httpGet: {path: /healthz, port: http}
+          periodSeconds: 60
+        resources:
+          requests: {cpu: 10m, memory: 48Mi}
+          limits: {cpu: 500m, memory: 128Mi}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - {name: app, mountPath: /app, readOnly: true}
+      volumes:
+      - name: app
+        configMap:
+          name: wall-exporter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wall-exporter
+  labels:
+    app.kubernetes.io/name: wall-exporter
+spec:
+  selector:
+    app.kubernetes.io/name: wall-exporter
+  ports:
+  - {name: http, port: 8080, targetPort: http}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: wall-exporter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wall-exporter
+  endpoints:
+  - port: http
+    interval: 60s

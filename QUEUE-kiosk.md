@@ -39,6 +39,15 @@ status, started at boot.
       holds the settings (`kiosk_url` from Grafana's Ingress, rotation normal, 19:00 to 07:00
       America/New_York) and it carries the tag `kiosk`, added 2026-10-27. Left: the Semaphore
       template "Deploy: Kiosk" (the owner), a dry run, then the owner's run and a reboot.
+- [ ] 5. More on the Wall, one screen still (the owner, 2026-10-27; a second page every 30
+      seconds only if it can't fit): smaller count tiles; Tdarr's queues, running Semaphore
+      jobs, Immich's counts and storage, Emby streams and Seerr requests, from
+      `wall-exporter` (#431: the apps' APIs, read-only, each reported down rather than zero;
+      Key Vault `EMBY-API-KEY`, `SEERR-API-KEY`, `WALL-EXPORTER-SEMAPHORE-TOKEN` from a
+      Guest, `WALL-EXPORTER-IMMICH-API-KEY` with only `server.statistics`); Pi-hole and the
+      Wi-Fi access points (already scraped); the NAS volumes apart, Synology and TerraMaster,
+      each with free and total beside its bar (the TerraMaster's from Garage's data volume
+      metrics, its SNMP having no storage). Left: the exporter live, then the dashboard.
 - [ ] 4. Signed in once on the laptop as `wall-display`; the screen read back from a photo or
       the owner's word; then the screen-off timer seen to work overnight.
 
