@@ -1,4 +1,7 @@
 # The apps' own counts for the Wall dashboard (wall-exporter.py; QUEUE-kiosk.md).
+# It reads its keys from the environment once, at start: a key changed in Key Vault (or one
+# synced after the pod started) reaches it with kubectl -n monitoring rollout restart
+# deploy/wall-exporter.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
