@@ -39,7 +39,7 @@
     - name: The settings are set and look right
       ansible.builtin.assert:
         that:
-          - kiosk_url | default('') | regex_search('^https?://')
+          - kiosk_url | default('') is match('^https?://')
           - k_rotation in ['normal', '90', '180', '270']
           - (k_off == '' and k_on == '') or (k_off is match('^[0-2][0-9]:[0-5][0-9]$') and k_on is match('^[0-2][0-9]:[0-5][0-9]$'))
           - k_tz == '' or k_tz is match('^[A-Za-z_]+(/[A-Za-z_+-]+)*$')
