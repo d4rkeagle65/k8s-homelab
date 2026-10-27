@@ -9,6 +9,11 @@
 # sets the panel from the time of day, so a boot or a missed run in the night still ends
 # with the screen off.
 #
+# The browser loads a page's layout once, when it opens: a dashboard's refresh brings new
+# data, not a changed layout. So the session restarts once a day, when the screen comes
+# on (kiosk_screen_on, or 04:00 with no hours set): a change made overnight shows by
+# morning. `systemctl restart getty@tty1` shows one at once.
+#
 # Hosts: the inventory's kiosk group (the NetBox tag kiosk). Settings, from each host's
 # NetBox local context (never git: the page's address holds the domain):
 #   kiosk_url          the page to show
@@ -168,6 +173,23 @@
             [Service]
             Type=oneshot
             ExecStart=/usr/local/bin/kiosk-screen auto
+        - name: kiosk-reload.service
+          content: |
+            # kiosk-deploy.yml: a fresh session, so the page's current layout loads.
+            [Unit]
+            Description=The wall display's session, restarted to load the page anew
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/bin/systemctl restart getty@tty1.service
+        - name: kiosk-reload.timer
+          content: |
+            # kiosk-deploy.yml
+            [Unit]
+            Description=The wall display's daily reload, as the screen comes on
+            [Timer]
+            OnCalendar=*-*-* {{ (k_on or '04:00') }}:00{{ (' ' ~ k_tz) if k_tz else '' }}
+            [Install]
+            WantedBy=timers.target
         - name: kiosk-screen.timer
           content: |
             # kiosk-deploy.yml
@@ -189,11 +211,12 @@
 
     # In check mode the unit files above aren't written, so there's no timer to ask about:
     # the step before reports them, and the read-back says the timer isn't running.
-    - name: The timer runs
+    - name: The timers run
       ansible.builtin.systemd_service:
-        name: kiosk-screen.timer
+        name: "{{ item }}"
         enabled: true
         state: started
+      loop: [kiosk-screen.timer, kiosk-reload.timer]
       when: not ansible_check_mode or (k_units is not changed)
 
     # Read back what the display needs, the way it will run.
@@ -204,6 +227,7 @@
         echo "groups=$(id -nG kiosk 2>/dev/null)"
         echo "autologin=$(grep -c -- '--autologin kiosk' /etc/systemd/system/getty@tty1.service.d/autologin.conf 2>/dev/null || echo 0)"
         echo "timer=$(systemctl is-active kiosk-screen.timer 2>/dev/null)"
+        echo "reload=$(systemctl is-active kiosk-reload.timer 2>/dev/null)"
         echo "display=$(ls /run/user/$(id -u kiosk 2>/dev/null)/ 2>/dev/null | grep -c '^wayland-[0-9]*$')"
       args:
         executable: /bin/bash
@@ -225,7 +249,7 @@
         that:
           - "'cage=yes' in k_state.stdout and 'chromium=yes' in k_state.stdout and 'wlr-randr=yes' in k_state.stdout"
           - "'autologin=1' in k_state.stdout"
-          - "'timer=active' in k_state.stdout"
+          - "'timer=active' in k_state.stdout and 'reload=active' in k_state.stdout"
           - "'video' in k_state.stdout and 'render' in k_state.stdout and 'input' in k_state.stdout"
         fail_msg: "{{ inventory_hostname }}: read back, the display isn't complete: {{ k_state.stdout_lines | join(', ') }}"
         quiet: true
