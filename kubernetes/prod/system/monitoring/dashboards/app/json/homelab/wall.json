@@ -546,7 +546,7 @@
         "x": 0,
         "y": 3,
         "w": 9,
-        "h": 7
+        "h": 8
       },
       "targets": [
         {
@@ -687,7 +687,7 @@
         "x": 9,
         "y": 3,
         "w": 5,
-        "h": 7
+        "h": 8
       },
       "targets": [
         {
@@ -759,7 +759,7 @@
         "x": 14,
         "y": 3,
         "w": 5,
-        "h": 7
+        "h": 8
       },
       "targets": [
         {
@@ -831,7 +831,7 @@
         "x": 19,
         "y": 3,
         "w": 5,
-        "h": 7
+        "h": 8
       },
       "targets": [
         {
@@ -840,9 +840,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "100 * (1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"}) * on(instance) group_left(nodename) node_uname_info)",
+          "expr": "sort_desc(label_replace(100 * (1 - (node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"}) * on(instance) group_left(nodename) node_uname_info), \"short\", \"$1\", \"nodename\", \".*k8s(.*)\"))",
           "instant": true,
-          "legendFormat": "{{nodename}}"
+          "legendFormat": "{{short}}"
         }
       ],
       "fieldConfig": {
@@ -886,7 +886,7 @@
         "displayMode": "gradient",
         "showUnfilled": true,
         "valueMode": "color",
-        "namePlacement": "top",
+        "namePlacement": "left",
         "sizing": "auto"
       }
     },
@@ -900,7 +900,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 11,
         "w": 7,
         "h": 6
       },
@@ -956,7 +956,7 @@
       },
       "gridPos": {
         "x": 7,
-        "y": 10,
+        "y": 11,
         "w": 6,
         "h": 6
       },
@@ -1004,7 +1004,7 @@
       },
       "gridPos": {
         "x": 13,
-        "y": 10,
+        "y": 11,
         "w": 5,
         "h": 6
       },
@@ -1068,7 +1068,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 10,
+        "y": 11,
         "w": 6,
         "h": 6
       },
@@ -1139,9 +1139,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 17,
         "w": 10,
-        "h": 5
+        "h": 6
       },
       "targets": [
         {
@@ -1329,9 +1329,9 @@
       },
       "gridPos": {
         "x": 10,
-        "y": 16,
+        "y": 17,
         "w": 3,
-        "h": 5
+        "h": 6
       },
       "targets": [
         {
@@ -1432,9 +1432,9 @@
       },
       "gridPos": {
         "x": 13,
-        "y": 16,
+        "y": 17,
         "w": 3,
-        "h": 5
+        "h": 6
       },
       "targets": [
         {
@@ -1517,9 +1517,9 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 16,
+        "y": 17,
         "w": 5,
-        "h": 5
+        "h": 6
       },
       "description": "Each Proxmox host's hottest sensor.",
       "targets": [
@@ -1589,9 +1589,9 @@
       },
       "gridPos": {
         "x": 21,
-        "y": 16,
+        "y": 17,
         "w": 3,
-        "h": 5
+        "h": 6
       },
       "description": "Dependency updates Renovate has found (its report job).",
       "targets": [
@@ -1650,7 +1650,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -1716,7 +1716,7 @@
       },
       "gridPos": {
         "x": 3,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -1786,7 +1786,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -1848,7 +1848,7 @@
       },
       "gridPos": {
         "x": 9,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -1910,7 +1910,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -1972,7 +1972,7 @@
       },
       "gridPos": {
         "x": 15,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -2038,7 +2038,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -2092,15 +2092,15 @@
     {
       "id": 30,
       "type": "stat",
-      "title": "Semaphore errors (last 200)",
-      "description": "",
+      "title": "Semaphore errors",
+      "description": "Errored tasks among Semaphore's last 200.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 21,
-        "y": 21,
+        "y": 23,
         "w": 3,
         "h": 3
       },
@@ -2111,7 +2111,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "wall_semaphore_tasks{status=\"error\"} or vector(0)",
+          "expr": "sum(wall_semaphore_tasks{status=\"error\"}) or vector(0)",
           "instant": true,
           "legendFormat": ""
         }
