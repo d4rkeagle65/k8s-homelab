@@ -902,7 +902,7 @@
         "x": 0,
         "y": 10,
         "w": 7,
-        "h": 7
+        "h": 6
       },
       "targets": [
         {
@@ -958,7 +958,7 @@
         "x": 7,
         "y": 10,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "targets": [
         {
@@ -997,7 +997,7 @@
       "id": 15,
       "type": "bargauge",
       "title": "Wi-Fi clients",
-      "description": "Connected clients on each access point.",
+      "description": "Connected clients on each access point, named as on Homepage, most first.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1006,7 +1006,7 @@
         "x": 13,
         "y": 10,
         "w": 5,
-        "h": 7
+        "h": 6
       },
       "targets": [
         {
@@ -1015,9 +1015,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (nodename) (wifi_stations * on(instance) group_left(nodename) node_uname_info)",
+          "expr": "sort_desc(label_replace(label_replace(label_replace(sum by (ap) (wifi_stations), \"name\", \"Production AP\", \"ap\", \"1\"), \"name\", \"IoT AP\", \"ap\", \"2\"), \"name\", \"Travel Router\", \"ap\", \"3\"))",
           "instant": true,
-          "legendFormat": "{{nodename}}"
+          "legendFormat": "{{name}}"
         }
       ],
       "fieldConfig": {
@@ -1060,7 +1060,7 @@
     {
       "id": 16,
       "type": "bargauge",
-      "title": "Newest backup, by bucket",
+      "title": "Newest backup",
       "description": "Hours since each Garage backup bucket's newest file. The firewall's is weekly; the others daily or more often.",
       "datasource": {
         "type": "prometheus",
@@ -1070,7 +1070,7 @@
         "x": 18,
         "y": 10,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "targets": [
         {
@@ -1111,7 +1111,56 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnpg-backups"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "CNPG"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "docker-backups"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Docker"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "firewall-backups"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Firewall"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mariadb-backups"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "MariaDB"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "reduceOptions": {
@@ -1140,9 +1189,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 16,
         "w": 4,
-        "h": 4
+        "h": 5
       },
       "targets": [
         {
@@ -1212,9 +1261,9 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 17,
-        "w": 4,
-        "h": 4
+        "y": 16,
+        "w": 3,
+        "h": 5
       },
       "targets": [
         {
@@ -1269,8 +1318,12 @@
         "graphMode": "none",
         "textMode": "value_and_name",
         "justifyMode": "center",
-        "orientation": "auto",
-        "wideLayout": true
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 22
+        }
       }
     },
     {
@@ -1283,10 +1336,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
-        "y": 17,
+        "x": 7,
+        "y": 16,
         "w": 4,
-        "h": 4
+        "h": 5
       },
       "targets": [
         {
@@ -1355,10 +1408,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 17,
-        "w": 4,
-        "h": 4
+        "x": 11,
+        "y": 16,
+        "w": 3,
+        "h": 5
       },
       "targets": [
         {
@@ -1413,8 +1466,12 @@
         "graphMode": "none",
         "textMode": "value_and_name",
         "justifyMode": "center",
-        "orientation": "auto",
-        "wideLayout": true
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 22
+        }
       }
     },
     {
@@ -1427,10 +1484,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 17,
-        "w": 4,
-        "h": 4
+        "x": 14,
+        "y": 16,
+        "w": 5,
+        "h": 5
       },
       "targets": [
         {
@@ -1524,8 +1581,12 @@
         "graphMode": "none",
         "textMode": "value_and_name",
         "justifyMode": "center",
-        "orientation": "auto",
-        "wideLayout": true
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 26
+        }
       }
     },
     {
@@ -1538,10 +1599,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 17,
-        "w": 4,
-        "h": 4
+        "x": 19,
+        "y": 16,
+        "w": 5,
+        "h": 5
       },
       "targets": [
         {
@@ -1606,8 +1667,12 @@
         "graphMode": "none",
         "textMode": "value_and_name",
         "justifyMode": "center",
-        "orientation": "auto",
-        "wideLayout": true
+        "orientation": "horizontal",
+        "wideLayout": true,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 26
+        }
       }
     },
     {
@@ -1935,8 +2000,8 @@
     {
       "id": 28,
       "type": "stat",
-      "title": "Requests pending",
-      "description": "",
+      "title": "Requests to approve",
+      "description": "Seerr requests waiting for an admin to approve or decline them.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2001,8 +2066,8 @@
     {
       "id": 29,
       "type": "stat",
-      "title": "Requests processing",
-      "description": "",
+      "title": "Requests downloading",
+      "description": "Seerr requests approved and handed to Sonarr or Radarr, not yet available.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
