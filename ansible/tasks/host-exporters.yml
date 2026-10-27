@@ -15,11 +15,16 @@
 #                        bridge's, which nothing outside the VM reaches)
 #   host_exporter_smart  default true for the proxmox group, false elsewhere
 #   host_exporter_proxmox_backups  the same default, for the backup collector
+#   host_exporters_defer  per host (its NetBox local context): true leaves this host's
+#                        exporters alone, and says so, for a host not yet on the
+#                        management network. The variable group's settings are extra
+#                        vars, which no host variable overrides, hence a name of its own.
 
 - name: Settle the exporter settings
   ansible.builtin.set_fact:
     he_on: "{{ host_exporters | default(false) | bool }}"
-    he_skip: "{{ 'k8s_nodes' in group_names }}"
+    he_defer: "{{ host_exporters_defer | default(false) | bool }}"
+    he_skip: "{{ 'k8s_nodes' in group_names or (host_exporters_defer | default(false) | bool) }}"
     he_net: "{{ management_network | default('') | trim }}"
     he_smart: "{{ host_exporter_smart | default('proxmox' in group_names) | bool }}"
     he_pbk: "{{ host_exporter_proxmox_backups | default('proxmox' in group_names) | bool }}"
@@ -60,6 +65,13 @@
   changed_when: false
   check_mode: false
   when: not he_skip
+
+- name: Report the exporters as deferred
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: exporters deferred (host_exporters_defer), left as they are
+      until the host is on the management network ({{ he_net or 'management_network not set' }})
+  when: he_defer and 'k8s_nodes' not in group_names
 
 - name: Report the exporter as found
   ansible.builtin.debug:
