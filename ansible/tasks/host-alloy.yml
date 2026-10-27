@@ -14,11 +14,16 @@
 #                       variable, which Semaphore can print in a task's log: the
 #                       route's password, the same as Key Vault's, which Traefik
 #                       checks
+#   host_alloy_defer    per host (its NetBox local context): true leaves this host's
+#                       Alloy alone, and says so, for a host that can't reach the push
+#                       route yet (it is on the management network). A host variable of
+#                       its own, as host_alloy is an extra var no host variable overrides.
 
 - name: Settle the Alloy settings
   ansible.builtin.set_fact:
     ha_on: "{{ host_alloy | default(false) | bool }}"
-    ha_skip: "{{ 'k8s_nodes' in group_names }}"
+    ha_defer: "{{ host_alloy_defer | default(false) | bool }}"
+    ha_skip: "{{ 'k8s_nodes' in group_names or (host_alloy_defer | default(false) | bool) }}"
     ha_docker: "{{ 'docker_vm' in group_names }}"
     ha_pihole: "{{ 'pihole' in group_names }}"
 
@@ -37,6 +42,13 @@
   changed_when: false
   check_mode: false
   when: not ha_skip
+
+- name: Report Alloy as deferred
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: Alloy deferred (host_alloy_defer), left as it is until the
+      host can reach the push route on the management network
+  when: ha_defer and 'k8s_nodes' not in group_names
 
 - name: Report Alloy as found
   ansible.builtin.debug:

@@ -15,11 +15,14 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 - **The HP convertible laptop joins the cluster when its Ethernet adapters arrive** (NetBox:
   Staged, tags `ansible` and `debian`, its address on Production, its local context
-  `ansible_user`, `ansible_python_interpreter` and `host_exporters_defer: true`). Then: its
+  `ansible_user`, `ansible_python_interpreter`, `host_exporters_defer: true` and
+  `host_alloy_defer: true`: Loki's push route is Traefik's Management address, which
+  Production can't reach through the firewall). Then: its
   address on Management, the tag `proxmox` (which gives it the Proxmox config context, so the
   local `ansible_user`/`ansible_python_interpreter` go) and the hsn-prod cluster, remove
-  `host_exporters_defer` and run the baseline so node-exporter listens on Management, and
-  status Active. Until then no exporter runs there (`tasks/host-exporters.yml`).
+  `host_exporters_defer` and `host_alloy_defer` and run the baseline so node-exporter listens
+  on Management and Alloy sends, and status Active. Until then no exporter runs there, and
+  its Alloy (installed by task 1384, its sends timing out) is stopped by hand.
 
 - **Delete the old single-version Hyper Backup copy on the TerraMaster** (2026-10-22): the
   cancelled first run of the single-version `k8s-to-tnas` task left `k8sData_synology/` in the
