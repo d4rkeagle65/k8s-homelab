@@ -111,9 +111,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   eth0 MAC goes in NetBox (the owner's) and the script matches any interface MAC (this pull request).
   Laundry (2026-10-26): `binary_sensor.washer_running` and `dryer_running` from the Tapo plugs' power
   and a phone notification when either finishes (`configuration.yaml`'s `template:` and `automation
-  laundry:`). Their thresholds (8 W) and delays are guesses, since the plugs had no cycle in their
-  history: after the first wash and dry, read the plugs' power history and tune them. The plug
-  named "Office Left SP" has `laundry_room_dryer` entity IDs: rename them to match it in HA.
+  laundry:`), tuned from the first wash and dry (2026-10-27). The plug named "Office Left SP"
+  has `laundry_room_dryer` entity IDs: the owner renames them in HA.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
