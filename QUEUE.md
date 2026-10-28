@@ -125,9 +125,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   the owner has the board: an ESPHome Bluetooth proxy near the door (a WT32-ETH01, flashed once
   over serial; its config in this repo, its NetBox device, Kea reservation and port 6053 in the
   firewall rule), then HACS' chaseflick4/ultraloq-ble-ha, then the lock in Stairs. The AiMOR
-  frame (`copriotamyo01`) is in `ha_iot_setup.yaml` as `androidtv`, attended; Home Assistant got
-  "host unreachable" at its NetBox address on 2026-10-28 (an Echo Spot answered), so find its
-  address first, then an attended run with the frame showing.
+  frame (`copriotamyo01`, `devices/picture-frame/README.md`) is in `ha_iot_setup.yaml` as
+  `androidtv`, attended. Its boot fixes give it a fixed MAC that NetBox and Kea don't have, so it
+  isn't at its reserved address: put the new MAC on its NetBox interface and Kea reservation
+  (read it with `adb shell cat /sys/class/net/wlan0/address`), then an attended run with the frame
+  showing. Left for the owner on the frame: build and install Home HQ with
+  `homehq-swipe-mute.patch` (never compiled here), then the power-button layout file.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.

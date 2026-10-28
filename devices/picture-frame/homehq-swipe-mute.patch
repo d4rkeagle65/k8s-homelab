@@ -1,0 +1,136 @@
+--- a/dashboard/kiosk/src/com/wesbos/homehq/MainActivity.java
++++ b/dashboard/kiosk/src/com/wesbos/homehq/MainActivity.java
+@@ -12,6 +12,7 @@
+ import android.graphics.Bitmap;
+ import android.graphics.Color;
+ import android.graphics.drawable.GradientDrawable;
++import android.media.AudioManager;
+ import android.net.ConnectivityManager;
+ import android.net.NetworkInfo;
+ import android.net.Uri;
+@@ -25,6 +26,7 @@
+ import android.util.TypedValue;
+ import android.view.Gravity;
+ import android.view.InputDevice;
++import android.view.KeyEvent;
+ import android.view.MotionEvent;
+ import android.view.View;
+ import android.view.WindowManager;
+@@ -72,6 +74,10 @@
+   static final String PREFS = "kiosk";
+   static final String PREF_URL = "url";
+   static final String PREF_MENU_BUTTON = "menu_button";
++  static final String PREF_SWIPE = "swipe";
++  // A swipe: one finger, mostly sideways, at least this far, within this time.
++  static final float SWIPE_MIN_PX = 120;
++  static final long SWIPE_MAX_MS = 800;
+   static final long EXIT_HOLD_MS = 1500;
+   static final int CANCEL_POINTER_IDS = 10; // touch ids 0-9
+   static final long RETRY_MS = 5000;
+@@ -99,6 +105,10 @@
+   private final float[] exitX = new float[2];
+   private final float[] exitY = new float[2];
+   private boolean exitArmed;
++  private boolean swipeOn;
++  private boolean swipeOneFinger;
++  private float swipeX, swipeY;
++  private long swipeTime;
+   private String retryUrl;
+   private String mainUrl;
+   private boolean pageFailed;
+@@ -294,6 +304,9 @@
+     menuPosition.setMargins(dp(12), dp(12), dp(12), dp(12));
+     root.addView(menuButton, menuPosition);
+     applyMenuButtonFlag(getIntent());
++    applySwipeFlag(getIntent());
++    // Volume keys, and the mute key, adjust media (the page's audio) rather than the ringer.
++    setVolumeControlStream(AudioManager.STREAM_MUSIC);
+     setContentView(root);
+ 
+     String url = urlFrom(getIntent());
+@@ -324,6 +337,7 @@
+     applyDebugFlag(intent);
+     applyHomeFlag(intent);
+     applyMenuButtonFlag(intent);
++    applySwipeFlag(intent);
+     String url = urlFrom(intent);
+     if (url != null) {
+       closePortal();
+@@ -745,6 +759,50 @@
+         .getBoolean(PREF_MENU_BUTTON, false) ? View.VISIBLE : View.GONE);
+   }
+ 
++  /**
++   * A saved opt-in (--ez swipe true) for pages that step with the arrow keys, such as a
++   * slideshow: a one-finger swipe left sends Right (next), a swipe right sends Left (previous).
++   * Off by default, as a page with its own sideways scrolling would get both.
++   */
++  private void applySwipeFlag(Intent intent) {
++    if (intent != null && intent.hasExtra(PREF_SWIPE)) {
++      getSharedPreferences(PREFS, MODE_PRIVATE).edit()
++          .putBoolean(PREF_SWIPE, intent.getBooleanExtra(PREF_SWIPE, false)).apply();
++    }
++    swipeOn = getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_SWIPE, false);
++  }
++
++  /** Whether this lift ends a swipe; if so the page gets the arrow key, and no tap. */
++  private boolean endSwipe(MotionEvent e) {
++    if (!swipeOn || !swipeOneFinger) return false;
++    float dx = e.getX() - swipeX, dy = e.getY() - swipeY;
++    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < 2 * Math.abs(dy)
++        || SystemClock.uptimeMillis() - swipeTime > SWIPE_MAX_MS) return false;
++    cancelPageTouches();
++    int key = dx < 0 ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT;
++    web.requestFocus();
++    web.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, key));
++    web.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, key));
++    return true;
++  }
++
++  /**
++   * The mute key toggles media's mute. On a frame whose power button is remapped to
++   * VOLUME_MUTE in its key layout, one press of that button mutes or unmutes the page.
++   */
++  @Override
++  public boolean dispatchKeyEvent(KeyEvent e) {
++    if (e.getKeyCode() == KeyEvent.KEYCODE_VOLUME_MUTE) {
++      if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
++        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
++        audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE,
++            AudioManager.FLAG_SHOW_UI);
++      }
++      return true;
++    }
++    return super.dispatchKeyEvent(e);
++  }
++
+   /** Turns the Home alias on or off. The shell can't enable a component of a release app. */
+   private void applyHomeFlag(Intent intent) {
+     if (intent == null || !intent.hasExtra("home")) return;
+@@ -764,8 +822,13 @@
+         // touch from before (see cancelPageTouches), clear it first so this tap is not read as a
+         // second finger. With no stale touch the cancel is a no-op.
+         cancelPageTouches();
++        swipeOneFinger = true;
++        swipeX = e.getX();
++        swipeY = e.getY();
++        swipeTime = SystemClock.uptimeMillis();
+         break;
+       case MotionEvent.ACTION_POINTER_DOWN:
++        swipeOneFinger = false;
+         if (e.getPointerCount() == 2) {
+           for (int i = 0; i < 2; i++) {
+             exitIds[i] = e.getPointerId(i);
+@@ -790,8 +853,11 @@
+           }
+         }
+         break;
+-      case MotionEvent.ACTION_POINTER_UP:
+       case MotionEvent.ACTION_UP:
++        cancelExit();
++        if (endSwipe(e)) return true;
++        break;
++      case MotionEvent.ACTION_POINTER_UP:
+       case MotionEvent.ACTION_CANCEL:
+         cancelExit();
+         break;
