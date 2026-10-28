@@ -128,10 +128,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   and a phone notification when either finishes (`configuration.yaml`'s `template:` and `automation
   laundry:`), tuned from the first wash and dry (2026-10-27).
   The front-door ULTRALOQ is the Bluetooth model behind its Bridge, which U-tec's cloud OpenAPI
-  doesn't offer (the HACS U-tec Locks integration found no lock: remove it from HACS). Next, when
-  the owner has the board: an ESPHome Bluetooth proxy near the door (a WT32-ETH01, flashed once
-  over serial; its config in this repo, its NetBox device, Kea reservation and port 6053 in the
-  firewall rule), then HACS' chaseflick4/ultraloq-ble-ha, then the lock in Stairs. The AiMOR
+  doesn't offer (the HACS U-tec Locks integration found no lock: remove it from HACS). Next, an
+  ESPHome Bluetooth proxy near the door: the owner has the WT32-ETH01 (2026-10-28), and its
+  config, setup and NetBox type are in `devices/door-bt-proxy/` (this branch's pull request).
+  Left, the owner's, in its README's order: the two Key Vault secrets and `secrets.yaml`, the
+  serial flash, its Kea reservation (`<site>iotesbtp<room>`), TCP 6053 in the workers' IoT
+  firewall rule, the ESPHome integration in HA; then HACS' chaseflick4/ultraloq-ble-ha, then
+  the lock in Stairs. Until the proxy is in HA, the lock stays out of reach. The AiMOR
   frame (`copriotamyo01`, `devices/picture-frame/README.md`) is in `ha_iot_setup.yaml` as
   `androidtv`, attended. Its boot fixes give it a fixed MAC that NetBox and Kea don't have, so it
   isn't at its reserved address: put the new MAC on its NetBox interface and Kea reservation

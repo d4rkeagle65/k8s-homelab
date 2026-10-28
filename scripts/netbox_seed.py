@@ -22,7 +22,8 @@ this script recorded that Kea no longer reserves is set Deprecated, never delete
 
 Each reservation on the IoT network (netbox_seed_iot.yaml) also becomes a device named after
 its hostname, described "Kea reservation device": its kind and role from the first rule
-matching the hostname, its wifi0 interface carrying the reservation's MAC and address. The
+matching the hostname, its wifi0 interface (or the one its type's `reserved_on` names)
+carrying the reservation's MAC and address. The
 manufacturers, device types (with their interface and power-port templates) and roles it
 uses come from the same file. The rule gives a device its starting type and role; NetBox
 owns both after that, unless NETBOX_SEED_IOT_MODELS (else ~/.netbox-seed-iot-models.json),
@@ -582,6 +583,14 @@ def iot_kind(hostname: str, rules: list[dict]) -> dict | None:
     return next((r for r in rules if re.search(r["name"], name)), None)
 
 
+def reserved_interface(device_type: dict) -> tuple[str, str]:
+    """The interface a device type's reservation (its MAC and address) goes on, and that
+    interface's NetBox type: the type's `reserved_on` (netbox_seed_iot.yaml), else wifi0."""
+    name = device_type.get("reserved_on", "wifi0")
+    kind = next((i["type"] for i in device_type.get("interfaces", []) if i["name"] == name), "ieee802.11n")
+    return name, kind
+
+
 def plan_iot_devices(reserved: dict[str, dict], subnet: str, rules: list[dict],
                      models: dict[str, str]) -> tuple[list[dict], list[tuple[str, str]]]:
     """The devices the IoT network's reservations make: [{name, ip, mac, type, role}] for
@@ -1024,7 +1033,7 @@ def main() -> None:
 
     # The IoT network's reservations as devices (netbox_seed_iot.yaml): each named after its
     # reservation, its kind from its hostname's rule (NetBox owns it once the device exists,
-    # unless NETBOX_SEED_IOT_MODELS names it), its wifi0 with the MAC and the address.
+    # unless NETBOX_SEED_IOT_MODELS names it), its reserved interface with the MAC and the address.
     print("iot devices:")
     iot_subnet = next((s for s, p in prefixes.items() if p.get("description") == iot["network"]), None)
     if iot_subnet is None:
@@ -1036,7 +1045,7 @@ def main() -> None:
             nb._note("no-device dcim/devices")
         makers = {m["slug"]: nb.ensure("dcim/manufacturers", {"slug": m["slug"]}, {"name": m["name"]}, m["name"])
                   for m in iot["manufacturers"]}
-        types, wifi_type = {}, {}
+        types, reserved_on = {}, {}
         for t in iot["device_types"]:
             # The templates first: NetBox gives a new device the components its type has then.
             dt = nb.ensure("dcim/device-types", {"slug": t["slug"]},
@@ -1049,7 +1058,7 @@ def main() -> None:
                 nb.ensure("dcim/power-port-templates", {"device_type_id": dt["id"], "name": p["name"]},
                           {"device_type": dt["id"], "type": p["type"]}, f"{t['model']} {p['name']}")
             types[t["slug"]] = dt
-            wifi_type[t["slug"]] = next((i["type"] for i in t.get("interfaces", []) if i["name"] == "wifi0"), "ieee802.11n")
+            reserved_on[t["slug"]] = reserved_interface(t)
         roles = {r: nb.ensure("dcim/device-roles", {"slug": slug(r)}, {"name": r}, r) for r in iot["roles"]}
         for dev in stale_iot_devices(own_iot_devices() if site["id"] > 0 else [], {d["name"] for d in devices}):
             nb.retire("dcim/devices", dev, dev["name"], "Kea's reservations", status="offline")
@@ -1075,10 +1084,11 @@ def main() -> None:
             elif d["name"] in models:
                 fields["device_type"] = types[d["type"]]["id"]
             dev = nb.ensure("dcim/devices", {"name": d["name"], "site_id": site["id"]}, fields, d["name"])
-            itf = nb.find("dcim/interfaces", device_id=dev["id"], name="wifi0") if dev["id"] > 0 else None
+            iname, itype = reserved_on[d["type"]]
+            itf = nb.find("dcim/interfaces", device_id=dev["id"], name=iname) if dev["id"] > 0 else None
             if itf is None:
-                itf = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": "wifi0"},
-                                {"device": dev["id"], "type": wifi_type[d["type"]]}, f"{d['name']} wifi0")
+                itf = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": iname},
+                                {"device": dev["id"], "type": itype}, f"{d['name']} {iname}")
             # A MAC already on another interface isn't moved: that's someone else's record.
             had = nb.find("dcim/mac-addresses", mac_address=d["mac"])
             if had is not None and had.get("assigned_object_id") not in (None, itf["id"]):
@@ -1087,8 +1097,8 @@ def main() -> None:
             else:
                 mac = nb.ensure("dcim/mac-addresses", {"mac_address": d["mac"]},
                                 {"assigned_object_type": "dcim.interface", "assigned_object_id": itf["id"]},
-                                f"{d['name']} wifi0 MAC")
-                nb.set_ref("dcim/interfaces", itf, "primary_mac_address", mac, f"{d['name']} wifi0")
+                                f"{d['name']} {iname} MAC")
+                nb.set_ref("dcim/interfaces", itf, "primary_mac_address", mac, f"{d['name']} {iname}")
             if d["ip"] not in recorded:
                 print(f"  no address: {d['ip']} isn't this script's to assign to {d['name']} (see above)")
                 continue
