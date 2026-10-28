@@ -61,13 +61,17 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - **Wipe H5's old `HDD` volume group** (from `old-queues/QUEUE-talos.md`, Phase 0): the 2 TB
   HDD still holds it; wipe it once its two old VM disks (111, 117) are confirmed backed up.
   Unverified 2026-10-22 (no Proxmox storage lists it, which doesn't show the group is gone).
-- **Check NetBox's uploads once branch `netbox-media-root`'s pull request merges**
-  (2026-10-28): its merge recreates `netbox` and `netbox-worker` with `MEDIA_ROOT` on the
-  mounted media folder (`docker/netbox/compose.yaml`). Then attach a file to a device through
-  the attachments plugin's Add button, restart `netbox` in Dockhand, and open the file again;
-  it's on the host in `/opt/netbox/media/netbox-attachments/`. A read-only Run Command
-  (`manage.py shell` in `netbox`, `settings.MEDIA_ROOT`) should print `/opt/netbox/netbox/media`.
-  Left unchecked, a deploy that didn't take leaves every upload failing with "Permission denied".
+- **NetBox's uploads onto the Synology: the `dockerData` share before branch
+  `netbox-media-nfs`'s pull request merges** (2026-10-28). In DSM, the shared folder
+  `dockerData` on volume 1, with an NFS rule for the first Docker VM's Production address:
+  read/write, squash "No mapping", security `sys`, async (as `k8sData`'s rule). Add it to a
+  Hyper Backup task to the TerraMaster: the VM's nightly backup won't hold the uploads any more.
+  Then the export is read back (a Run Command on `synology`, `/etc/exports`) before the merge.
+  Merged without it, `netbox-files-init` can't mount the share, and NetBox and its worker don't
+  start. After the merge: attach a file to a device with the attachments plugin's Add button,
+  restart `netbox` in Dockhand and open the file again; it's in the share's
+  `netbox-media/netbox-attachments/`. Then delete the host folder `/opt/netbox/media`, which
+  nothing mounts (empty on 2026-10-28, Run Command task 1410).
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 10 are all done (7, Docker's upgrade from
