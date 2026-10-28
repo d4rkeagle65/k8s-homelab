@@ -93,15 +93,16 @@ device takes its place for that device only.
 
 ```sh
 adb shell mount -o remount,rw /system
-adb shell "echo 'key 116   VOLUME_MUTE   WAKE' > /system/usr/keylayout/axp22-supplyer.kl"
+adb shell "echo 'key 116   VOLUME_MUTE' > /system/usr/keylayout/axp22-supplyer.kl"
 adb shell chmod 644 /system/usr/keylayout/axp22-supplyer.kl
 adb shell mount -o remount,ro /system
 adb reboot
 adb shell dumpsys input | grep -A14 axp22-supplyer | grep KeyLayoutFile   # .../axp22-supplyer.kl
 ```
 
-The button then no longer turns the screen off, and its long-press power menu is gone. Undo:
-remove that file (same remount) and reboot. `WAKE` keeps a press waking the screen if it is off.
+No `WAKE` flag: Android 6 doesn't know it and then ignores the whole file (logcat:
+`KeyLayoutMap: Expected key flag label`). The button then no longer turns the screen off, and
+its long-press power menu is gone. Undo: remove that file (same remount) and reboot.
 
 ## Locked down
 
