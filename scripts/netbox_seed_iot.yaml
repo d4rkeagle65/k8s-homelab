@@ -34,10 +34,12 @@ manufacturers:
 - {name: TP-Link, slug: tp-link}
 - {name: Tuya, slug: tuya}
 - {name: ULTRALOQ, slug: ute}
+- {name: Wireless-Tag, slug: wireless-tag}
 - {name: Wyze, slug: wyze}
 
-# Each kind of device: its interfaces (wifi0 carries the reservation's MAC and
-# address) and power ports, as NetBox templates, so a device made from it has them.
+# Each kind of device: its interfaces and power ports, as NetBox templates, so a device
+# made from it has them. The reservation's MAC and address go on wifi0, or on the
+# interface `reserved_on` names for a device on a cable.
 device_types:
 - {slug: amazon-echo-spot, manufacturer: amazon, model: Echo Spot, description: Smart display with clock,
    interfaces: [{name: wifi0, type: ieee802.11ac}, {name: bt0, type: ieee802.15.1}], power_ports: [{name: pIn1, type: dc-terminal}]}
@@ -110,20 +112,25 @@ device_types:
 - {slug: ultraloq-bridge, manufacturer: ute, model: Bridge, description: Wi-Fi bridge for a Bluetooth lock,
    interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
    power_ports: [{name: pIn1, type: nema-1-15p}]}
+- {slug: wireless-tag-wt32-eth01, manufacturer: wireless-tag, model: WT32-ETH01, description: ESP32 board with 10/100 Ethernet,
+   reserved_on: eth0,
+   interfaces: [{name: eth0, type: 100base-tx}, {name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
+   power_ports: [{name: pIn1, type: dc-terminal}]}
 - {slug: wyze-cam-v3, manufacturer: wyze, model: Cam v3,
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
 - {slug: wyze-pan-cam-v3, manufacturer: wyze, model: Pan Cam v3,
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-micro-a}]}
 
-roles: [Air Purifier, Air Quality Sensor, Baby Monitor, Camera, Dryer, Humidifier, IR Remote, Media Viewer, Noise Machine, Photo Frame,
-        Smart Fan Controller, Smart Light, Smart Light Bulb, Smart Lock, Smart Power Plug,
+roles: [Air Purifier, Air Quality Sensor, Baby Monitor, Bluetooth Proxy, Camera, Dryer, Humidifier, IR Remote, Media Viewer,
+        Noise Machine, Photo Frame, Smart Fan Controller, Smart Light, Smart Light Bulb, Smart Lock, Smart Power Plug,
         Smart Power Switch, Thermostat, TV, Voice Interface, Washing Machine]
 
 # Brand codes: ka Kasa, az Amazon, sl Smart Life (Tuya apps), mt Maytag, ut ULTRALOQ,
 # fu Furbo, ha Hatch, ve VeSync (Levoit), go Govee, sm Samsung, wz Wyze, tp Tapo,
-# eu eufy, am AiMOR, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere, spot),
+# eu eufy, am AiMOR, es ESPHome, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere, spot),
 # fire (t TV, s stick), cfan ceiling fan, lb light bulb, cam, noise, humid, tv, air (sensor),
-# pur (purifier; pur24 the H7124), sock, p115, rest (Hatch 2nd gen), pf or yo photo frame.
+# pur (purifier; pur24 the H7124), sock, p115, rest (Hatch 2nd gen), pf or yo photo frame,
+# btp Bluetooth proxy.
 rules:
 - {name: '^kafan', type: kasa-hs200, role: Smart Power Switch}
 - {name: '^kali', type: kasa-hs200, role: Smart Power Switch}
@@ -154,4 +161,5 @@ rules:
 - {name: '^eucam', type: eufy-t8417, role: Camera}
 - {name: '^eu(sock|baby|mon)', type: eufy-baby-monitor, role: Baby Monitor}
 - {name: '^(pf|frame|amyo)', type: generic-android-photo-frame, role: Photo Frame}
+- {name: '^esbtp', type: wireless-tag-wt32-eth01, role: Bluetooth Proxy}
 - {name: '^ir', type: tuya-ir-blaster, role: IR Remote}

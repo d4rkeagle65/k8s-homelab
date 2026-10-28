@@ -1,0 +1,3 @@
+# The proxy's secrets and ESPHome's build folder (README.md)
+secrets.yaml
+.esphome/

@@ -1,0 +1,58 @@
+# The front-door Bluetooth proxy (README.md): upstream's wt32/wt32-eth01.yaml from
+# esphome/bluetooth-proxies, with a fixed name, an API encryption key and an OTA
+# password from secrets.yaml beside this file, which git never holds.
+
+esphome:
+  name: !secret device_name
+  friendly_name: Front door Bluetooth proxy
+  min_version: 2025.11.0
+  platformio_options:
+    board_build.flash_mode: dio
+
+esp32:
+  variant: esp32
+  framework:
+    type: esp-idf
+
+# The WT32-ETH01's LAN8720. GPIO0 is the PHY's clock input, which is why the board
+# can't start Ethernet while GPIO0 is held low to flash it.
+ethernet:
+  type: LAN8720
+  mdc_pin: GPIO23
+  mdio_pin: GPIO18
+  clk:
+    pin: GPIO0
+    mode: CLK_EXT_IN
+  phy_addr: 1
+  power_pin: GPIO16
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+logger:
+
+ota:
+  - platform: esphome
+    id: ota_esphome
+    password: !secret ota_password
+
+esp32_ble:
+  max_connections: 4
+
+esp32_ble_tracker:
+  scan_parameters:
+    active: true
+
+bluetooth_proxy:
+  active: true
+  connection_slots: 4
+
+button:
+  - platform: safe_mode
+    id: button_safe_mode
+    name: Safe Mode Boot
+
+  - platform: factory_reset
+    id: factory_reset_btn
+    name: Factory reset
