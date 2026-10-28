@@ -83,6 +83,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
   fix), then the playbook changed to match (pin names first, or wait through the reboot)
   before a run on cotedeprox02. Nothing on them needs keeping.
+- **ImmichFrame beside Immich** (2026-10-28): `kubernetes/prod/apps/immich/immichframe/`, videos
+  with sound, private route only. In order: the owner makes an Immich API key with the read-only
+  permissions in its `config/Settings.yml`, adds it and an admin password to Key Vault
+  (`IMMICHFRAME-API-KEY`, `IMMICHFRAME-ADMIN-PASSWORD`), merges the `cluster-secrets` pull
+  request, then the app's. Then read back: the pod Ready, the init container's log says "seeded",
+  `/admin` asks for the password, and the slideshow plays a video. A frame on the IoT network
+  needs the firewall to let it reach the ingress address on 443; whether it can isn't checked.
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach

@@ -1,0 +1,15 @@
+# ImmichFrame's settings database (immichframe.db, SQLite). Kept from pruning, so
+# moving it between Flux Kustomizations never deletes it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immichframe-config
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 1Gi

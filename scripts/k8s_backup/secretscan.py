@@ -202,6 +202,14 @@ IPV4_CANDIDATE_RE = re.compile(
 # scanning under keys that are conventionally a version/tag, not a host.
 IP_SAFE_KEY_NAMES = {"tag", "version", "chartversion", "appversion", "revision", "imagetag"}
 
+# The same, as the tag of an image reference ("ghcr.io/x/y:v1.0.39.0"): right after
+# the ":" (or ":v") that follows a repository path holding no whitespace.
+_IMAGE_TAG_PREFIX_RE = re.compile(r"(?:^|\s)[^\s:]*/[^\s:]*:v?$")
+
+
+def _is_image_tag(text: str, start: int) -> bool:
+    return bool(_IMAGE_TAG_PREFIX_RE.search(text[:start]))
+
 _SHARED_ADDRESS_SPACE = ipaddress.ip_network("100.64.0.0/10")
 
 
@@ -239,6 +247,8 @@ def find_ip_addresses(obj, path: str = "") -> list[tuple[str, str, str]]:
             findings.extend(find_ip_addresses(val, f"{path}[{i}]"))
     elif isinstance(obj, str):
         for match in IPV4_CANDIDATE_RE.finditer(obj):
+            if _is_image_tag(obj, match.start()):
+                continue
             classification = classify_ip(match.group())
             if classification:
                 findings.append((path, match.group(), classification))
@@ -336,6 +346,8 @@ def classify_ip_purpose(ip: str, classification: str, field_path: str, ip_contex
 def find_ip_addresses_in_text(text: str) -> list[tuple[str, str]]:
     findings = []
     for match in IPV4_CANDIDATE_RE.finditer(text):
+        if _is_image_tag(text, match.start()):
+            continue
         classification = classify_ip(match.group())
         if classification:
             findings.append((match.group(), classification))
