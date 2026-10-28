@@ -61,6 +61,13 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - **Wipe H5's old `HDD` volume group** (from `old-queues/QUEUE-talos.md`, Phase 0): the 2 TB
   HDD still holds it; wipe it once its two old VM disks (111, 117) are confirmed backed up.
   Unverified 2026-10-22 (no Proxmox storage lists it, which doesn't show the group is gone).
+- **Check NetBox's uploads once branch `netbox-media-root`'s pull request merges**
+  (2026-10-28): its merge recreates `netbox` and `netbox-worker` with `MEDIA_ROOT` on the
+  mounted media folder (`docker/netbox/compose.yaml`). Then attach a file to a device through
+  the attachments plugin's Add button, restart `netbox` in Dockhand, and open the file again;
+  it's on the host in `/opt/netbox/media/netbox-attachments/`. A read-only Run Command
+  (`manage.py shell` in `netbox`, `settings.MEDIA_ROOT`) should print `/opt/netbox/netbox/media`.
+  Left unchecked, a deploy that didn't take leaves every upload failing with "Permission denied".
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 10 are all done (7, Docker's upgrade from
@@ -247,6 +254,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   sees only the primary.
 
 ## Cleanup
+
+- **The removed Config Diff plugin's leftovers in NetBox's database** (found 2026-10-28, Run
+  Command task 1407): its four object types (`netbox_config_diff.*`, pks 197-200) are still
+  there, and likely its tables and migration records. The owner's, on the host, after a backup;
+  the commands are in #198's description. Left, they're empty, but every `manage.py shell` in
+  `netbox` prints a "skipping ObjectType ... stale row" line for each.
 
 - **Tdarr's old server volume, `tdarr-server` (NFS), once its move to `tdarr-server-data`
   (nas-iscsi) is proven** (2026-10-27): the init container `copy-server-data` in

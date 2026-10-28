@@ -47,6 +47,12 @@ x-netbox: &netbox
     GRANIAN_WORKERS: "2"
     OIDC_ENDPOINT: https://auth.${BASE_DOMAIN}/application/o/netbox/
     OIDC_CLIENT_SECRET: ${AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET}
+    # Uploads (image attachments, netbox-attachments' files) go to the media
+    # folder mounted below. Unset, the image's configuration.py puts them in
+    # /etc/netbox/media, beside itself, which nothing mounts and NetBox's user
+    # can't write. Reports and scripts need nothing: NetBox's own defaults are
+    # the folders mounted below.
+    MEDIA_ROOT: /opt/netbox/netbox/media
   networks: [default, kea]
   volumes:
   - /opt/netbox/media:/opt/netbox/netbox/media
