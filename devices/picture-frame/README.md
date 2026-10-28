@@ -50,7 +50,7 @@ adb connect <frame-address>:5555
    bash dashboard/kiosk/build.sh
    adb install -r dashboard/kiosk/build/homehq.apk
    adb shell am start -n com.wesbos.homehq/.MainActivity --es url https://<immichframe-address>/
-   adb shell am start -n com.wesbos.homehq/.MainActivity --ez home true --ez swipe true
+   adb shell am start -n com.wesbos.homehq/.MainActivity --ez home true --ez swipe true --ez mute_at_start true
    adb shell input keyevent KEYCODE_HOME
    ```
    Pick Home HQ and **Always** on the frame (Android 6 has no `cmd package set-home-activity`).
@@ -81,6 +81,13 @@ page: look at the frame itself.
   default, as a page that scrolls sideways would get both.
 - **Mute:** the volume-mute key toggles media's mute, with Android's volume panel shown, and the
   volume keys adjust media rather than the ringer.
+- **Reload once Wi-Fi is up:** the boot fixes start Wi-Fi about 20 s after Home HQ, and WebView
+  shows the page from its cache meanwhile, which counts as loaded while the page's own requests
+  fail: ImmichFrame stayed black until reloaded by hand. A page that finished without Wi-Fi is
+  reloaded once, 3 s after Wi-Fi connects.
+- **Muted at start** (`--ez mute_at_start true`, saved): Android forgets mute at a reboot, so
+  Home HQ mutes media each time it starts, which as the Home app is once per boot. The power
+  button unmutes.
 
 If a later upstream change makes it not apply, the patch is small: re-apply its hunks by hand.
 

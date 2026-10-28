@@ -16,18 +16,23 @@
  import android.view.MotionEvent;
  import android.view.View;
  import android.view.WindowManager;
-@@ -72,6 +74,10 @@
+@@ -72,9 +74,15 @@
    static final String PREFS = "kiosk";
    static final String PREF_URL = "url";
    static final String PREF_MENU_BUTTON = "menu_button";
 +  static final String PREF_SWIPE = "swipe";
++  static final String PREF_MUTE_AT_START = "mute_at_start";
 +  // A swipe: one finger, mostly sideways, at least this far, within this time.
 +  static final float SWIPE_MIN_PX = 120;
 +  static final long SWIPE_MAX_MS = 800;
    static final long EXIT_HOLD_MS = 1500;
    static final int CANCEL_POINTER_IDS = 10; // touch ids 0-9
    static final long RETRY_MS = 5000;
-@@ -99,6 +105,10 @@
++  static final long RELOAD_AFTER_WIFI_MS = 3000;
+   static final long STALL_MS = 15000;
+   static final long NAV_CHECK_MS = 5000;
+   static final long NAV_REBIND_MS = 1000;
+@@ -99,9 +107,16 @@
    private final float[] exitX = new float[2];
    private final float[] exitY = new float[2];
    private boolean exitArmed;
@@ -38,25 +43,61 @@
    private String retryUrl;
    private String mainUrl;
    private boolean pageFailed;
-@@ -294,6 +304,9 @@
++  // The page finished loading while Wi-Fi was down: at boot WebView can show it from its cache,
++  // which counts as a success, while the page's own requests fail and leave it blank.
++  private boolean loadedWithoutWifi;
+   // A retry is queued: keep the offline screen up until it runs, even if the failed load "finishes".
+   private boolean retryPending;
+   private LinearLayout offline;
+@@ -140,6 +155,13 @@
+   private final BroadcastReceiver networkChange = new BroadcastReceiver() {
+     @Override
+     public void onReceive(Context context, Intent intent) {
++      if (loadedWithoutWifi && wifiConnected()) {
++        loadedWithoutWifi = false;
++        Log.i(TAG, "Wi-Fi connected after the page loaded without it, reloading");
++        // A moment for DHCP's DNS to settle before the page's requests.
++        handler.postDelayed(() -> web.reload(), RELOAD_AFTER_WIFI_MS);
++        return;
++      }
+       if (retryUrl == null || offline.getVisibility() != View.VISIBLE || !wifiConnected()) return;
+       Log.i(TAG, "Wi-Fi connected or clock changed, retrying now");
+       showOffline();
+@@ -211,6 +233,7 @@
+ 
+       @Override
+       public void onPageFinished(WebView view, String url) {
++        loadedWithoutWifi = !portalMode && !pageFailed && !wifiConnected();
+         if (!pageFailed && !retryPending) {
+           offline.setVisibility(View.GONE);
+           handler.removeCallbacks(stall);
+@@ -294,6 +317,16 @@
      menuPosition.setMargins(dp(12), dp(12), dp(12), dp(12));
      root.addView(menuButton, menuPosition);
      applyMenuButtonFlag(getIntent());
 +    applySwipeFlag(getIntent());
 +    // Volume keys, and the mute key, adjust media (the page's audio) rather than the ringer.
 +    setVolumeControlStream(AudioManager.STREAM_MUSIC);
++    applyMuteAtStartFlag(getIntent());
++    // Android forgets mute at a reboot; Home HQ starts once per boot as the Home app.
++    if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_MUTE_AT_START, false)) {
++      ((AudioManager) getSystemService(Context.AUDIO_SERVICE))
++          .adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0);
++      Log.i(TAG, "Media muted at start");
++    }
      setContentView(root);
  
      String url = urlFrom(getIntent());
-@@ -324,6 +337,7 @@
+@@ -324,6 +357,8 @@
      applyDebugFlag(intent);
      applyHomeFlag(intent);
      applyMenuButtonFlag(intent);
 +    applySwipeFlag(intent);
++    applyMuteAtStartFlag(intent);
      String url = urlFrom(intent);
      if (url != null) {
        closePortal();
-@@ -745,6 +759,50 @@
+@@ -745,6 +780,58 @@
          .getBoolean(PREF_MENU_BUTTON, false) ? View.VISIBLE : View.GONE);
    }
  
@@ -71,6 +112,14 @@
 +          .putBoolean(PREF_SWIPE, intent.getBooleanExtra(PREF_SWIPE, false)).apply();
 +    }
 +    swipeOn = getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_SWIPE, false);
++  }
++
++  /** A saved opt-in (--ez mute_at_start true): media starts muted each time Home HQ starts. */
++  private void applyMuteAtStartFlag(Intent intent) {
++    if (intent != null && intent.hasExtra(PREF_MUTE_AT_START)) {
++      getSharedPreferences(PREFS, MODE_PRIVATE).edit()
++          .putBoolean(PREF_MUTE_AT_START, intent.getBooleanExtra(PREF_MUTE_AT_START, false)).apply();
++    }
 +  }
 +
 +  /** Whether this lift ends a swipe; if so the page gets the arrow key, and no tap. */
@@ -107,7 +156,7 @@
    /** Turns the Home alias on or off. The shell can't enable a component of a release app. */
    private void applyHomeFlag(Intent intent) {
      if (intent == null || !intent.hasExtra("home")) return;
-@@ -764,8 +822,13 @@
+@@ -764,8 +851,13 @@
          // touch from before (see cancelPageTouches), clear it first so this tap is not read as a
          // second finger. With no stale touch the cancel is a no-op.
          cancelPageTouches();
@@ -121,7 +170,7 @@
          if (e.getPointerCount() == 2) {
            for (int i = 0; i < 2; i++) {
              exitIds[i] = e.getPointerId(i);
-@@ -790,8 +853,11 @@
+@@ -790,8 +882,11 @@
            }
          }
          break;
