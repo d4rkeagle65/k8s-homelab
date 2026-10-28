@@ -120,12 +120,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Laundry (2026-10-26): `binary_sensor.washer_running` and `dryer_running` from the Tapo plugs' power
   and a phone notification when either finishes (`configuration.yaml`'s `template:` and `automation
   laundry:`), tuned from the first wash and dry (2026-10-27).
-  The front-door ULTRALOQ (behind its Bridge): through U-tec's cloud OpenAPI with HACS'
-  rbridal/ha-utec-locks (chosen 2026-10-27; pre-release, so an unlock at the door can show late).
-  Left: the owner installs it in HACS, then turns on OpenAPI in the Xthings Home app (redirect URI
-  `https://my.home-assistant.io/redirect/oauth`, the lock selected) and adds it with the Client
-  ID and Secret; then put the lock in Stairs. The AiMOR frame runs Android: if the owner can
-  turn on ADB, add it with `androidtv` (an `ha_iot_setup.yaml` entry for its type).
+  The front-door ULTRALOQ is the Bluetooth model behind its Bridge, which U-tec's cloud OpenAPI
+  doesn't offer (the HACS U-tec Locks integration found no lock: remove it from HACS). Next, when
+  the owner has the board: an ESPHome Bluetooth proxy near the door (a WT32-ETH01, flashed once
+  over serial; its config in this repo, its NetBox device, Kea reservation and port 6053 in the
+  firewall rule), then HACS' chaseflick4/ultraloq-ble-ha, then the lock in Stairs. The AiMOR
+  frame (`copriotamyo01`) is in `ha_iot_setup.yaml` as `androidtv`, attended; Home Assistant got
+  "host unreachable" at its NetBox address on 2026-10-28 (an Echo Spot answered), so find its
+  address first, then an attended run with the frame showing.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
