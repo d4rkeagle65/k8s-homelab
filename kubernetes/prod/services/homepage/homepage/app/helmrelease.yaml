@@ -540,6 +540,13 @@ spec:
                     namespace: immich
                     app: immich-power-tools
                     podSelector: app=immich-power-tools
+                - ImmichFrame:
+                    icon: immich.png
+                    href: https://immichframe${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Photo frame slideshow
+                    namespace: immich
+                    app: immichframe
+                    podSelector: app=immichframe
                 - Obsidian sync:
                     icon: obsidian.png
                     href: https://obsidian.${BASE_DOMAIN}

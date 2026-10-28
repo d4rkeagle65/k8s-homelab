@@ -1,0 +1,16 @@
+# ImmichFrame's settings for its first start only: it imports this file into its
+# settings database (immichframe.db on the immichframe-config volume) once, and from
+# then on the database is the only owner and the admin UI (/admin) changes it. The
+# init container copies this in only while no database exists, so editing it here
+# changes nothing on a running frame. Only what differs from ImmichFrame's defaults.
+General:
+  # Videos play with their sound. A browser only plays sound it is allowed to
+  # autoplay: a kiosk browser or the frame's app must allow it.
+  PlayAudio: true
+Accounts:
+  - ImmichServerUrl: http://immich-server:2283
+    # The key (secret.yaml), read-only permissions: album.read, album.statistics,
+    # asset.view, asset.read, asset.statistics, face.read, memory.read, person.read,
+    # person.statistics, tag.read.
+    ApiKeyFile: /app/secrets/api-key
+    ShowVideos: true

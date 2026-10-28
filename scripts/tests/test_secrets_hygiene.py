@@ -315,6 +315,18 @@ def test_ip_candidates_skip_longer_dotted_numbers():
     assert ss.find_ip_addresses_in_text("reach 8.8.8.8.") == [("8.8.8.8", "public")]
     assert ss.find_ip_addresses_in_text("url http://8.8.4.4:53/x") == [("8.8.4.4", "public")]
 
+
+def test_ip_candidates_skip_image_tags():
+    """A four-part version as an image's tag is not an address; an address
+    elsewhere in the same text still is."""
+    assert ss.find_ip_addresses_in_text("image: ghcr.io/a/b:v1.0.39.0") == []
+    assert ss.find_ip_addresses_in_text("ghcr.io/a/b:1.0.39.0") == []
+    assert ss.find_ip_addresses(
+        {"image": "ghcr.io/a/b:v1.0.39.0", "env": "8.8.8.8"}) == [("env", "8.8.8.8", "public")]
+    assert ss.find_ip_addresses_in_text("dns: 8.8.8.8") == [("8.8.8.8", "public")]
+    assert ss.find_ip_addresses_in_text("tcp://8.8.8.8:53") == [("8.8.8.8", "public")]
+    assert ss.find_ip_addresses_in_text("host:8.8.8.8") == [("8.8.8.8", "public")]
+
 _PLACEHOLDER_RE = re.compile(r"^\$\{[A-Za-z_][A-Za-z0-9_]*\}$")
 _HOSTNAME_LABEL = "kubernetes.io/hostname"
 # local-path-provisioner's catch-all entry; a keyword, not a node.
