@@ -371,17 +371,30 @@ def iot_catalogue():
     return YAML(typ="safe").load((SCRIPT.parent / "netbox_seed_iot.yaml").read_text(encoding="utf-8"))
 
 
-def test_the_catalogue_names_only_what_it_defines_and_every_type_has_wifi0():
+def test_the_catalogue_names_only_what_it_defines_and_every_type_has_its_reserved_interface():
     cat = iot_catalogue()
     makers = {x["slug"] for x in cat["manufacturers"]}
     types = {t["slug"]: t for t in cat["device_types"]}
     assert len(types) == len(cat["device_types"])
     for t in types.values():
         assert t["manufacturer"] in makers, t["slug"]
-        assert "wifi0" in [i["name"] for i in t["interfaces"]], t["slug"]
+        assert m.reserved_interface(t) in [(i["name"], i["type"]) for i in t["interfaces"]], t["slug"]
     for r in cat["rules"]:
         assert r["type"] in types and r["role"] in cat["roles"], r
     assert len({m.slug(r) for r in cat["roles"]}) == len(cat["roles"])
+
+
+def test_a_reservation_goes_on_wifi0_unless_its_type_names_another_interface():
+    wifi = {"interfaces": [{"name": "bt0", "type": "ieee802.15.1"}, {"name": "wifi0", "type": "ieee802.11ac"}]}
+    wired = {"reserved_on": "eth0", "interfaces": [{"name": "eth0", "type": "100base-tx"},
+                                                   {"name": "wifi0", "type": "ieee802.11n"}]}
+    assert m.reserved_interface(wifi) == ("wifi0", "ieee802.11ac")
+    assert m.reserved_interface(wired) == ("eth0", "100base-tx")
+    rules = iot_catalogue()["rules"]
+    types = {t["slug"]: t for t in iot_catalogue()["device_types"]}
+    proxy = m.iot_kind("zziotesbtpfront", rules)
+    assert proxy["role"] == "Bluetooth Proxy"
+    assert m.reserved_interface(types[proxy["type"]])[0] == "eth0"
 
 
 def test_iot_kind_reads_what_follows_iot_and_the_first_matching_rule_wins():
