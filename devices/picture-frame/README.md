@@ -81,6 +81,10 @@ page: look at the frame itself.
   default, as a page that scrolls sideways would get both.
 - **Mute:** the volume-mute key toggles media's mute, with Android's volume panel shown, and the
   volume keys adjust media rather than the ringer.
+- **Reload once Wi-Fi is up:** the boot fixes start Wi-Fi about 20 s after Home HQ, and WebView
+  shows the page from its cache meanwhile, which counts as loaded while the page's own requests
+  fail: ImmichFrame stayed black until reloaded by hand. A page that finished without Wi-Fi is
+  reloaded once, 3 s after Wi-Fi connects.
 
 If a later upstream change makes it not apply, the patch is small: re-apply its hunks by hand.
 
