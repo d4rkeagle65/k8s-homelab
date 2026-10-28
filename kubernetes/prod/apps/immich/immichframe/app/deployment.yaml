@@ -1,0 +1,106 @@
+# ImmichFrame: a photo-frame slideshow of Immich's photos and videos, for browsers
+# and frame apps. One replica, replaced rather than rolled (Recreate): only one pod
+# at a time should open its SQLite settings database.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immichframe
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: immichframe
+  template:
+    metadata:
+      labels:
+        app: immichframe
+    spec:
+      priorityClassName: homelab-low
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      # The first-start settings, only while there is no settings database yet
+      # (config/Settings.yml says why).
+      - name: seed-settings
+        image: ghcr.io/immichframe/immichframe:v1.0.39.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        command:
+        - sh
+        - -c
+        - |
+          if [ -e /app/Config/immichframe.db ]; then
+            echo "settings database present: the seed is not used"
+          else
+            cp /seed/Settings.yml /app/Config/Settings.yml && echo "seeded Settings.yml"
+          fi
+        volumeMounts:
+        - name: config
+          mountPath: /app/Config
+        - name: seed
+          mountPath: /seed
+      containers:
+      - name: immichframe
+        image: ghcr.io/immichframe/immichframe:v1.0.39.0
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        ports:
+        - name: http
+          containerPort: 8080
+        env:
+        - name: TZ
+          value: ${TIMEZONE}
+        - name: IMMICHFRAME_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: immichframe
+              key: admin-password
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources:
+          requests:
+            cpu: 20m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /app/Config
+        - name: secrets
+          mountPath: /app/secrets
+          readOnly: true
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: immichframe-config
+      - name: seed
+        configMap:
+          name: immichframe-seed
+      - name: secrets
+        secret:
+          secretName: immichframe
+          items:
+          - key: api-key
+            path: api-key
