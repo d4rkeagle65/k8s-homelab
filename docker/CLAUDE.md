@@ -22,14 +22,14 @@ moves, blank, with the value set in Dockhand, marked secret.
 Every long-running service has a `mem_limit` (the same suite checks), a few times its peak in
 cAdvisor's data: the VM has no swap, and one runaway container could take the others with it.
 
-- **A stack's real values are `${VARIABLE}`s set in Dockhand, its data lives on the host, and
-  its versions are Git's.** A private value is a Key Vault reference, `azurekv://<NAME>`, or,
-  until its stack moves (`docker/secret-names.yaml`), a variable marked secret. The secret
-  selector stays empty: any selector pulls in the whole vault under names with `-`, which Hawser
-  refuses and a local stack takes silently. Data, and config that's mostly addresses, stays in
-  bind mounts on the host, never in git (`kea/README.md`). Renovate moves versions, so
-  Dockhand's auto-update stays off: it would recreate a container whose tag gained a digest,
-  unattended, and leave the init containers on that image `Created`, so the stack reads partial.
+- **A stack's real values are `${VARIABLE}`s set in Dockhand, its data stays out of git, and its
+  versions are Git's.** A private value is a Key Vault reference, `azurekv://<NAME>`, or, until
+  its stack moves (`docker/secret-names.yaml`), a variable marked secret. The secret selector
+  stays empty: any selector pulls in the whole vault under names with `-`, which Hawser refuses
+  and a local stack takes silently. Data and address-heavy config go in host bind mounts
+  (`kea/README.md`); rarely read files in the Synology's `dockerData` share (`netbox/`), never
+  `k8sData` or the TerraMaster. Renovate moves versions, so Dockhand's auto-update stays off:
+  it would recreate a container whose tag gained a digest, leaving its init containers `Created`.
 - **On the Docker host, reach a published port through `127.0.0.1`, never the host's
   management address.** From the host itself, and from its host-network containers
   (`claude-code`), a connection to that address leaves from it, and the management routing
