@@ -122,12 +122,21 @@ def test_a_persons_ticket_is_left_out():
     assert verdicts([ck(1, "TargetDown monitoring", "TargetDown"), {"id": 2, "preferences": {}}]).keys() == {1}
 
 
-def test_an_alert_ticket_is_over_only_when_no_alert_of_its_name_is_active():
+def test_an_alert_ticket_is_over_when_no_active_alert_names_its_host():
     t = [ck(7, "TargetDown monitoring", "TargetDown")]
-    assert verdicts(t, ok([alert("TargetDown")]))[7][0] == "ongoing"
+    assert verdicts(t, ok([{"labels": {"alertname": "TargetDown", "namespace": "monitoring"}}]))[7][0] == "ongoing"
     assert verdicts(t, ok([alert("KubeJobFailed")]))[7][0] == "over"
-    # The same name about something else keeps it open: a wrong guess never closes.
-    assert verdicts([ck(8, "TargetDown other", "TargetDown")], ok([alert("TargetDown")]))[8][0] == "ongoing"
+    # The same alert about something else no longer keeps it open: hosts are rebuilt exactly.
+    assert verdicts(t, ok([{"labels": {"alertname": "TargetDown", "namespace": "other"}}]))[7][0] == "over"
+
+
+def test_the_closing_check_and_tickets_in_name_an_alerts_ticket_with_one_rule():
+    """Verdict rebuilds each active alert's host to match it to its ticket, so its rule must
+    be the one tickets are opened with: the same lines in both nodes."""
+    def block(wf, node):
+        code = next(n for n in python_nodes(workflow(wf)) if n["name"] == node)["parameters"]["pythonCode"]
+        return code[code.index("TARGET_LABELS = "):code.index('.strip()[:250]', code.index("def alert_host"))]
+    assert block(CLOSE, "Verdict") == block(TICKETS_IN, "Alertmanager → alerts")
 
 
 def test_alertmanager_that_cant_be_asked_closes_no_alert_ticket():
@@ -247,7 +256,8 @@ def test_databasus_health_verification_and_physical_kinds_stay_apart():
 
 def decide(ev, tickets):
     tickets = tickets if isinstance(tickets, dict) else ok(tickets)
-    out, _ = run_code(workflow(TICKETS_IN), "Decide", [{"json": {"event": ev, "tickets": tickets}}])
+    events = ev if isinstance(ev, list) else [ev]
+    out, _ = run_code(workflow(TICKETS_IN), "Decide", [{"json": {"events": events, "tickets": tickets}}])
     return [o["json"] for o in out]
 
 
@@ -303,10 +313,15 @@ def test_tickets_in_writes_only_with_write_on_and_answers_after_its_last_node():
     wf = workflow(TICKETS_IN)
     nodes = {n["name"]: n for n in wf["nodes"]}
     settings = nodes["Settings"]["parameters"]["assignments"]["assignments"]
-    # On since Semaphore points here (QUEUE-n8n-zammad.md, stage 2).
-    assert [a["value"] for a in settings if a["name"] == "write"] == [True]
+    # The sources pointed here write (QUEUE-n8n-zammad.md); any other is a dry run.
+    assert [a["value"] for a in settings if a["name"] == "write_sources"] == ["semaphore,databasus,dockhand"]
+    writing = nodes["Writing?"]["parameters"]["conditions"]["conditions"][0]["leftValue"]
+    assert "write_sources" in writing and "$json.source" in writing
     assert wf["connections"]["Writing?"]["main"][0][0]["node"] == "Zammad: write"
+    assert nodes["Zammad: open tickets"].get("executeOnce") is True  # one listing for every event of a run
     assert "onError" not in nodes["Zammad: write"] and "onError" not in nodes["Zammad: open tickets"]
+    assert nodes["Alertmanager"]["parameters"]["authentication"] == "headerAuth"
+    assert nodes["Alertmanager"]["parameters"]["responseMode"] == "lastNode"  # a failure is a 500: it's sent again
     for name in ("Semaphore", "Databasus"):
         p = nodes[name]["parameters"]
         assert p["authentication"] == "basicAuth" and p["responseMode"] == "lastNode" and nodes[name].get("webhookId")
@@ -420,3 +435,96 @@ def test_an_environment_event_is_keyed_by_its_environment_so_online_closes_its_o
     nas, _ = dockhand({"title": "Environment online", "message": 'Environment "NAS one" is now reachable', "type": "success"})
     assert off["host"] == on["host"] == "Dockhand Environment Local" and nas["host"] == "Dockhand Environment NAS one"
     assert (off["state"], on["state"], off["hold"]) == ("CRITICAL", "OK", 0)
+
+
+
+def test_several_events_in_one_run_each_decide_and_one_key_opens_once():
+    a = dict(FAIL, source="alertmanager")
+    b = dict(FAIL, host="Semaphore other", source="alertmanager")
+    ws = decide([a, b, dict(a)], [])
+    assert [(w["action"], w["host"], w["source"]) for w in ws] == [
+        ("create", "Semaphore Sync: x", "alertmanager"), ("create", "Semaphore other", "alertmanager")]
+
+
+# --- "Zammad: tickets in": Alertmanager ------------------------------------------------------
+
+def am_alert(status="firing", **labels):
+    return {"status": status, "fingerprint": "abc123",
+            "labels": {"alertname": "TargetDown", "severity": "warning", **labels},
+            "annotations": {"summary": "Targets are down", "description": "1 of 5 targets are down."}}
+
+
+def am_alerts(*alerts):
+    out, _ = run_code(workflow(TICKETS_IN), "Alertmanager → alerts", [{"json": {"headers": {}, "body": {"alerts": list(alerts)}}}])
+    return [o["json"] for o in out]
+
+
+def am_events(alerts, members=None):
+    items = [{"json": {"alert": a, "members": members if members is not None else ok({"status": "success", "data": {"result": []}})}}
+             for a in am_alerts(*alerts)]
+    out, _ = run_code(workflow(TICKETS_IN), "Alert → event", items)
+    return [o["json"] for o in out]
+
+
+def test_only_warning_and_critical_alerts_pass_never_the_plumbing():
+    got = am_alerts(am_alert(severity="warning"), am_alert(severity="critical"), am_alert(severity="info"),
+                    am_alert(alertname="Watchdog", severity="none"), am_alert(alertname="InfoInhibitor", severity="warning"))
+    assert [a["state"] for a in got] == ["WARNING", "CRITICAL"]
+
+
+def test_host_names_the_alert_and_its_target_and_service_the_alert():
+    [e] = am_events([am_alert(instance="192.0.2.10:9100", job="proxmox-hosts", namespace="monitoring")])
+    assert (e["service"], e["host"], e["state"], e["source"]) == (
+        "TargetDown", "TargetDown monitoring/192.0.2.10:9100", "WARNING", "alertmanager")
+    assert "Targets are down" in e["text"] and "job=proxmox-hosts" in e["text"]
+
+
+def test_the_same_alert_firing_and_resolved_keys_the_same_ticket():
+    firing, resolved = am_alerts(am_alert(pod="web-0", namespace="apps", severity="critical"),
+                                 am_alert(status="resolved", pod="web-0", namespace="apps", severity="critical"))
+    assert (firing["host"], firing["service"]) == (resolved["host"], resolved["service"])
+    assert firing["state"] == "CRITICAL" and resolved["state"] == "OK"
+
+
+def test_an_alert_with_no_target_label_falls_back_to_its_namespace_then_its_name():
+    assert [a["host"] for a in am_alerts(am_alert(namespace="zammad"), am_alert())] == ["TargetDown zammad", "TargetDown"]
+
+
+def test_a_group_alert_asks_for_its_members_narrowed_by_its_labels():
+    [a] = am_alerts(am_alert(job="node-exporter", namespace="monitoring", service="node-exporter"))
+    assert 'up{job="node-exporter",namespace="monitoring",service="node-exporter"} == 0' in a["query"]
+    [a] = am_alerts(am_alert(alertname="KubeDeploymentReplicasMismatch", namespace="media", deployment="sonarr"))
+    assert 'namespace="media",pod=~"sonarr-.*"' in a["query"]
+
+
+def test_an_alert_about_one_thing_or_with_nothing_to_narrow_by_or_resolved_asks_nothing():
+    got = am_alerts(am_alert(alertname="KubePodCrashLooping", pod="x-1", namespace="a"), am_alert(),
+                    am_alert(alertname="KubeDeploymentReplicasMismatch", namespace="a", deployment='x".*'),
+                    am_alert(status="resolved", job="j", namespace="n"))
+    assert [a["query"] for a in got] == ["", "", "", ""]
+
+
+def test_the_ticket_lists_the_members_down_with_their_node_and_address():
+    members = ok({"status": "success", "data": {"result": [
+        {"metric": {"pod": "exporter-b", "node": "w2", "instance": "192.0.2.12:9100"}},
+        {"metric": {"pod": "exporter-a", "node": "w1", "instance": "192.0.2.11:9100"}},
+        {"metric": {"instance": "192.0.2.20:9100", "job": "proxmox-hosts"}}]}})
+    [e] = am_events([am_alert(job="node-exporter", namespace="monitoring")], members)
+    assert "Down now (3):\n- 192.0.2.20:9100\n- exporter-a on w1 (192.0.2.11:9100)\n- exporter-b on w2" in e["text"]
+
+
+def test_a_failed_lookup_says_so_and_never_reads_as_none_down():
+    for members in ({"error": "ECONNREFUSED"}, ok({"status": "error", "error": "bad query"})):
+        [e] = am_events([am_alert(job="node-exporter", namespace="monitoring")], members)
+        assert "Couldn't list which are down" in e["text"] and "Down now" not in e["text"]
+
+
+def test_a_long_list_is_cut_and_says_how_many_more():
+    members = ok({"status": "success", "data": {"result": [{"metric": {"pod": f"p-{i:02}"}} for i in range(30)]}})
+    [e] = am_events([am_alert(job="j", namespace="n")], members)
+    assert "Down now (30, the first 25 listed):" in e["text"] and "- p-24" in e["text"] and "- p-25" not in e["text"]
+
+
+def test_an_alert_without_a_query_lists_no_members_whatever_prometheus_said():
+    [e] = am_events([am_alert(status="resolved", job="j", namespace="n")], {"error": "never asked"})
+    assert "Down now" not in e["text"] and "Couldn't" not in e["text"]

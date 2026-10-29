@@ -96,10 +96,10 @@
         "assignments": {
           "assignments": [
             {
-              "id": "80fe1e24-77c6-4915-8338-2b332ecc0a44",
-              "name": "write",
-              "value": true,
-              "type": "boolean"
+              "id": "ae5ac102-0348-4035-bd7e-44af33395bdc",
+              "name": "write_sources",
+              "value": "semaphore,databasus,dockhand",
+              "type": "string"
             }
           ]
         },
@@ -114,7 +114,7 @@
         0
       ],
       "id": "d46f03cc-ecf9-4305-afd0-07fe306b57e7",
-      "notes": "write: false is a dry run: each decision ends at \"Would write\". On while a source points here."
+      "notes": "write_sources: the sources whose decisions are written; any other ends at \"Would write\" (a dry run)."
     },
     {
       "parameters": {
@@ -160,7 +160,8 @@
           "id": "ZammadApiFromKV1",
           "name": "Zammad API"
         }
-      }
+      },
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -168,9 +169,9 @@
           "assignments": [
             {
               "id": "440e760a-ec7a-49fd-99bb-ac3b1ba224ac",
-              "name": "event",
-              "value": "={{ $('Event').first().json }}",
-              "type": "object"
+              "name": "events",
+              "value": "={{ $('Event').all().map(i => i.json) }}",
+              "type": "array"
             },
             {
               "id": "239b4126-9645-48b9-ac80-e327b5823371",
@@ -190,12 +191,12 @@
         0
       ],
       "id": "1bca0c94-1774-4db3-b158-fc4a7129ae96",
-      "notes": "Decide is Python, which can't read other nodes: this hands it the event and the open tickets as one item."
+      "notes": "Decide is Python, which can't read other nodes: this hands it every event of the run and the open tickets as one item."
     },
     {
       "parameters": {
         "language": "pythonNative",
-        "pythonCode": "# What one ticket event does in Zammad, as its Checkmk integration did for zammad-bridge:\n# a failure with no open ticket of its host and service opens one; with one, adds a note;\n# a recovery (OK or UP) closes the open ones with a note; a recovery with none open is nothing.\n# An event with repeat \"skip\" (Dockhand's kill, whose die follows) adds no note to an open one.\n# Input: one item from \"Gather\": event (host, service, state, text) and tickets (Zammad's\n# open tickets, a full response). Output: one item per write: method, path, body, and what\n# the read-back must show. A failed ticket list stops the run before here (no write on an\n# unknown state).\nGROUP = \"Alerts\"\nCUSTOMER_ID = 1  # Zammad's system user \"-\", as the Checkmk endpoint uses\n\ng = _items[0][\"json\"] if _items else {}\nevent = g.get(\"event\") or {}\nhost, service, state = str(event.get(\"host\") or \"\"), str(event.get(\"service\") or \"\"), str(event.get(\"state\") or \"\")\ntext = str(event.get(\"text\") or \"\")\nresponse = g.get(\"tickets\") or {}\nif \"error\" in response or \"body\" not in response:\n    raise Exception(\"Zammad's open tickets couldn't be listed; nothing written\")\nfound = response[\"body\"]\nfound = found.get(\"tickets\") if isinstance(found, dict) else found\ntitle = host + \" is \" + state\n\n\ndef key(ticket):\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\ndef article(subject):\n    return {\"subject\": subject, \"body\": text or title, \"type\": \"web\", \"sender\": \"Customer\",\n            \"internal\": False, \"content_type\": \"text/plain\"}\n\n\nmine = [t for t in found if isinstance(t, dict) and key(t) == (host, service)] if isinstance(found, list) else []\nrecovery = state.upper() in (\"OK\", \"UP\")\nout = []\nif recovery:\n    for t in mine:\n        out.append({\"action\": \"close\", \"method\": \"PUT\", \"path\": \"/api/v1/tickets/\" + str(t[\"id\"]),\n                    \"body\": {\"state\": \"closed\", \"article\": article(title)},\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"closed\"})\n    if not mine:\n        print(title + \": no open ticket, nothing to close\")\nelif mine and event.get(\"repeat\") == \"skip\":\n    print(title + \": already open (#\" + \", #\".join(str(t.get(\"number\")) for t in mine) + \"), nothing added\")\nelif mine:\n    for t in mine:\n        out.append({\"action\": \"note\", \"method\": \"POST\", \"path\": \"/api/v1/ticket_articles\",\n                    \"body\": dict(article(title), ticket_id=t[\"id\"]),\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"open\"})\nelse:\n    out.append({\"action\": \"create\", \"method\": \"POST\", \"path\": \"/api/v1/tickets\",\n                \"body\": {\"title\": title[:250], \"group\": GROUP, \"customer_id\": CUSTOMER_ID,\n                         \"preferences\": {\"check_mk\": {\"host\": host, \"service\": service}},\n                         \"article\": article(title)},\n                \"ticket\": None, \"number\": None, \"expect\": \"open\"})\nfor o in out:\n    o.update(host=host, service=service, state=state)\n    print(o[\"action\"] + \" \" + title + (\" #\" + str(o[\"number\"]) if o[\"number\"] else \"\"))\nreturn [{\"json\": o} for o in out]\n"
+        "pythonCode": "# What each ticket event does in Zammad, as its Checkmk integration did for zammad-bridge:\n# a failure with no open ticket of its host and service opens one; with one, adds a note;\n# a recovery (OK or UP) closes the open ones with a note; a recovery with none open is nothing.\n# An event with repeat \"skip\" (Dockhand's kill, whose die follows) adds no note to an open one.\n# Input: one item from \"Gather\": events (every event of this run: host, service, state,\n# text, source) and tickets (Zammad's open tickets, a full response). Output: one item per\n# write: method, path, body, what the read-back must show, and the event's source. A failed\n# ticket list stops the run here (no write on an unknown state).\nGROUP = \"Alerts\"\nCUSTOMER_ID = 1  # Zammad's system user \"-\", as the Checkmk endpoint uses\n\ng = _items[0][\"json\"] if _items else {}\nevents = g.get(\"events\") or []\nresponse = g.get(\"tickets\") or {}\nif \"error\" in response or \"body\" not in response:\n    raise Exception(\"Zammad's open tickets couldn't be listed; nothing written\")\nfound = response[\"body\"]\nfound = found.get(\"tickets\") if isinstance(found, dict) else found\nfound = [t for t in found if isinstance(t, dict)] if isinstance(found, list) else []\n\n\ndef key(ticket):\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\nout = []\ncreated = set()  # keys this run opens a ticket for: a second event of one adds nothing\nfor event in events:\n    host, service, state = str(event.get(\"host\") or \"\"), str(event.get(\"service\") or \"\"), str(event.get(\"state\") or \"\")\n    text = str(event.get(\"text\") or \"\")\n    title = host + \" is \" + state\n    article = {\"subject\": title, \"body\": text or title, \"type\": \"web\", \"sender\": \"Customer\",\n               \"internal\": False, \"content_type\": \"text/plain\"}\n    mine = [t for t in found if key(t) == (host, service)]\n    common = {\"host\": host, \"service\": service, \"state\": state, \"source\": event.get(\"source\")}\n    if state.upper() in (\"OK\", \"UP\"):\n        for t in mine:\n            out.append(dict(common, action=\"close\", method=\"PUT\", path=\"/api/v1/tickets/\" + str(t[\"id\"]),\n                            body={\"state\": \"closed\", \"article\": article},\n                            ticket=t[\"id\"], number=t.get(\"number\"), expect=\"closed\"))\n        if not mine:\n            print(title + \": no open ticket, nothing to close\")\n    elif mine and event.get(\"repeat\") == \"skip\":\n        print(title + \": already open (#\" + \", #\".join(str(t.get(\"number\")) for t in mine) + \"), nothing added\")\n    elif mine:\n        for t in mine:\n            out.append(dict(common, action=\"note\", method=\"POST\", path=\"/api/v1/ticket_articles\",\n                            body=dict(article, ticket_id=t[\"id\"]),\n                            ticket=t[\"id\"], number=t.get(\"number\"), expect=\"open\"))\n    elif (host, service) in created:\n        print(title + \": opened earlier in this run, nothing added\")\n    else:\n        created.add((host, service))\n        out.append(dict(common, action=\"create\", method=\"POST\", path=\"/api/v1/tickets\",\n                        body={\"title\": title[:250], \"group\": GROUP, \"customer_id\": CUSTOMER_ID,\n                              \"preferences\": {\"check_mk\": {\"host\": host, \"service\": service}},\n                              \"article\": article},\n                        ticket=None, number=None, expect=\"open\"))\nfor o in out:\n    print(o[\"action\"] + \" \" + o[\"host\"] + \" is \" + o[\"state\"] + (\" #\" + str(o[\"number\"]) if o[\"number\"] else \"\"))\nreturn [{\"json\": o} for o in out]\n"
       },
       "name": "Decide",
       "type": "n8n-nodes-base.code",
@@ -219,7 +220,7 @@
           "conditions": [
             {
               "id": "97b2cec5-71d1-4232-9205-3bae132c71a8",
-              "leftValue": "={{ $('Settings').first().json.write }}",
+              "leftValue": "={{ $('Settings').first().json.write_sources.split(',').map(s => s.trim()).includes($json.source) }}",
               "operator": {
                 "type": "boolean",
                 "operation": "true",
@@ -716,6 +717,122 @@
         440
       ],
       "id": "b7c721ac-7c8e-44c0-977d-4a0da4610d17"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zammad/alertmanager",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Alertmanager",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -320
+      ],
+      "id": "1b4be861-addb-49d7-ab07-d19361e51de9",
+      "webhookId": "f87e6592-45e4-4202-9931-4e5edbc2fe8a",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AlertmanagerKV01",
+          "name": "Alertmanager"
+        }
+      },
+      "notes": "Answers after the last node, so a failed write is a 500 and Alertmanager sends it again."
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# Alertmanager's webhook (its JSON's alerts) as one item per alert to ticket: its labels,\n# annotations and status, its ticket's host, service and state, and, for an alert about a\n# group still firing, the PromQL listing the members down (\"query\"; \"\" for none). Rules as\n# zammad-bridge's to_checkmk (QUEUE-n8n-zammad.md, stage 4).\nimport json\nimport re\n\nSEVERITIES = {\"warning\", \"critical\"}\nNEVER = {\"Watchdog\", \"InfoInhibitor\"}\n# The members behind an alert about a group: the PromQL selecting the ones down, and the\n# alert's labels that narrow it. A workload's pods are matched by name. A target in a pod\n# gets its pod's node; one outside the cluster (a Proxmox host) is kept as it is.\nUP_DOWN = (\"(up{%(m)s} == 0) * on (namespace, pod) group_left (node)\"\n           ' max by (namespace, pod, node) (kube_pod_info{pod!=\"\"}) or on (instance) (up{%(m)s} == 0)',\n           (\"job\", \"namespace\", \"service\"))\nPODS_NOT_READY = ('(kube_pod_status_ready{condition=\"true\",%(m)s} == 0)'\n                  \" * on (namespace, pod) group_left (node) max by (namespace, pod, node) (kube_pod_info)\",\n                  (\"namespace\",))\nMEMBERS = {\n    \"TargetDown\": UP_DOWN,\n    \"AlertmanagerClusterDown\": UP_DOWN,\n    \"KubeDeploymentReplicasMismatch\": PODS_NOT_READY,\n    \"KubeDeploymentRolloutStuck\": PODS_NOT_READY,\n    \"KubeStatefulSetReplicasMismatch\": PODS_NOT_READY,\n    \"KubeStatefulSetUpdateNotRolledOut\": PODS_NOT_READY,\n    \"KubeDaemonSetRolloutStuck\": PODS_NOT_READY,\n    \"KubeDaemonSetMisScheduled\": PODS_NOT_READY,\n    \"KubeDaemonSetNotScheduled\": PODS_NOT_READY,\n}\nWORKLOAD_LABELS = (\"deployment\", \"statefulset\", \"daemonset\")\n\n\n# The ticket's host for an alert's labels. \"Zammad: close what's over\"'s Verdict holds the\n# same function, character for character (scripts/tests/test_n8n_workflows.py checks).\n# Labels that say what an alert is about, most specific first.\nTARGET_LABELS = (\"instance\", \"pod\", \"persistentvolumeclaim\", \"node\", \"job\", \"service\")\n\n\ndef alert_host(labels):\n    name = labels.get(\"alertname\", \"alert\")\n    target = next((labels[k] for k in TARGET_LABELS if labels.get(k)), \"\")\n    namespace = labels.get(\"namespace\", \"\")\n    if namespace and namespace not in target:\n        target = f\"{namespace}/{target}\" if target else namespace\n    return f\"{name} {target}\".strip()[:250]\n\n\ndef members_query(labels):\n    \"\"\"The PromQL listing the members down behind this alert, or \"\" when it isn't about a\n    group (or names no group to narrow to).\"\"\"\n    if labels.get(\"alertname\") not in MEMBERS:\n        return \"\"\n    template, keys = MEMBERS[labels[\"alertname\"]]\n    matchers = [f\"{k}={json.dumps(labels[k])}\" for k in keys if labels.get(k)]\n    if (template, keys) == PODS_NOT_READY:\n        workload = next((labels[k] for k in WORKLOAD_LABELS if labels.get(k)), \"\")\n        if not re.fullmatch(r\"[a-z0-9]([-a-z0-9.]*[a-z0-9])?\", workload):\n            return \"\"\n        matchers.append(f'pod=~\"{workload}-.*\"')\n    if not matchers:\n        return \"\"\n    return template % {\"m\": \",\".join(matchers)}\n\n\nbody = (_items[0][\"json\"].get(\"body\") if _items else None) or {}\nalerts = body.get(\"alerts\") if isinstance(body, dict) else None\nout = []\nfor a in alerts if isinstance(alerts, list) else []:\n    labels = a.get(\"labels\") if isinstance(a, dict) else None\n    if not isinstance(labels, dict) or labels.get(\"severity\") not in SEVERITIES or labels.get(\"alertname\") in NEVER:\n        continue\n    resolved = a.get(\"status\") == \"resolved\"\n    out.append({\"json\": {\"labels\": labels, \"annotations\": a.get(\"annotations\") or {}, \"status\": a.get(\"status\"),\n                         \"host\": alert_host(labels), \"service\": labels.get(\"alertname\", \"alert\"),\n                         \"state\": \"OK\" if resolved else str(labels.get(\"severity\", \"warning\")).upper(),\n                         \"query\": \"\" if resolved else members_query(labels)}})\nprint(str(len(out)) + \" alert(s) to ticket of \" + str(len(alerts) if isinstance(alerts, list) else 0))\nreturn out\n"
+      },
+      "name": "Alertmanager → alerts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        -320
+      ],
+      "id": "b06a237d-4ca6-45d7-8c3a-0e0af8f1b55d",
+      "notes": "Tested in git: scripts/tests/test_n8n_workflows.py runs this code."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://kps-prometheus.monitoring:9090/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.query || 'vector(0)' }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "name": "Prometheus: members down",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        -320
+      ],
+      "id": "0693ef60-e78c-4386-b81d-e8d165cf4b2d",
+      "onError": "continueRegularOutput",
+      "notes": "One request per alert; an alert with no query asks vector(0), and its answer is ignored."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6931445b-7a9e-4543-8463-d0a3db831565",
+              "name": "alert",
+              "value": "={{ $('Alertmanager → alerts').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "6a9be537-1a90-4cca-b544-8d147ddb62e4",
+              "name": "members",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Gather the alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        -320
+      ],
+      "id": "7241c2de-4d6a-469a-9cd6-888df258422e"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# Each alert as a ticket event: its text is the alert's summary and description, the members\n# down (from \"Prometheus: members down\", for an alert with a query), its labels and its\n# runbook, as zammad-bridge's to_checkmk wrote it. A failed member lookup says so: it isn't\n# \"none down\". Input: one item per alert from \"Gather the alert\": alert, members (a full\n# response, or an error).\nLISTED = 25\n# Labels left out of the ticket's text: Prometheus's own bookkeeping.\nQUIET_LABELS = {\"prometheus\", \"alertstate\", \"endpoint\", \"container\", \"uid\"}\n\n\ndef describe(series):\n    \"\"\"One line per member: its pod or instance, its node, and its address.\"\"\"\n    lines = []\n    for item in series:\n        m = item.get(\"metric\") or {}\n        name = m.get(\"pod\") or m.get(\"instance\") or m.get(\"job\") or \"?\"\n        line = name\n        if m.get(\"node\"):\n            line += \" on \" + m[\"node\"]\n        if m.get(\"instance\") and m.get(\"instance\") != name:\n            line += \" (\" + m[\"instance\"] + \")\"\n        lines.append(line)\n    return sorted(set(lines))\n\n\ndef members(query, response):\n    if not query:\n        return []\n    body = response.get(\"body\") if isinstance(response, dict) and \"error\" not in response else None\n    if not isinstance(body, dict) or body.get(\"status\") != \"success\" or not isinstance(\n            (body.get(\"data\") or {}).get(\"result\"), list):\n        reason = (response.get(\"error\") if isinstance(response, dict) else None) or (\n            body.get(\"error\") if isinstance(body, dict) else None) or \"no answer\"\n        return [\"Couldn't list which are down: Prometheus didn't answer (\" + str(reason)[:120] + \").\"]\n    found = describe(body[\"data\"][\"result\"])\n    if not found:\n        return [\"Down now: none found (recovered since, or what's missing has no pod to list).\"]\n    more = \", the first \" + str(LISTED) + \" listed\" if len(found) > LISTED else \"\"\n    return [\"Down now (\" + str(len(found)) + more + \"):\"] + [\"- \" + line for line in found[:LISTED]]\n\n\nout = []\nfor item in _items:\n    a = item[\"json\"].get(\"alert\") or {}\n    labels, notes = a.get(\"labels\") or {}, a.get(\"annotations\") or {}\n    detail = [notes.get(\"summary\", \"\"), notes.get(\"description\", \"\")]\n    detail += members(a.get(\"query\"), item[\"json\"].get(\"members\"))\n    detail += [k + \"=\" + str(v) for k, v in sorted(labels.items()) if k not in QUIET_LABELS]\n    if notes.get(\"runbook_url\"):\n        detail.append(\"runbook: \" + notes[\"runbook_url\"])\n    out.append({\"json\": {\"source\": \"alertmanager\", \"host\": a.get(\"host\"), \"service\": a.get(\"service\"),\n                         \"state\": a.get(\"state\"), \"text\": \"\\n\".join(x for x in detail if x),\n                         \"repeat\": \"note\", \"hold\": 0}})\nreturn out\n"
+      },
+      "name": "Alert → event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -320
+      ],
+      "id": "d2dfda8f-d770-4719-bdd3-179380523d6a",
+      "notes": "Tested in git: scripts/tests/test_n8n_workflows.py runs this code."
     }
   ],
   "connections": {
@@ -1002,6 +1119,61 @@
         [
           {
             "node": "Dockhand → event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alertmanager": {
+      "main": [
+        [
+          {
+            "node": "Alertmanager → alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alertmanager → alerts": {
+      "main": [
+        [
+          {
+            "node": "Prometheus: members down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prometheus: members down": {
+      "main": [
+        [
+          {
+            "node": "Gather the alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather the alert": {
+      "main": [
+        [
+          {
+            "node": "Alert → event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert → event": {
+      "main": [
+        [
+          {
+            "node": "Event",
             "type": "main",
             "index": 0
           }

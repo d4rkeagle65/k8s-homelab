@@ -6,6 +6,7 @@ resources:
 - secret-homeassistant-metrics.yaml
 - secret-kept-metrics.yaml
 - secret-alertmanager-healthchecks.yaml
+- externalsecret-alertmanager-n8n.yaml
 - secret-exportarr.yaml
 - secret-garage-metrics.yaml
 - secret-loki-s3.yaml
