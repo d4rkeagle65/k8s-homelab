@@ -55,7 +55,8 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
 
 ## Stages
 
-- [ ] **1. The closing check asks Alertmanager and Docker itself.** "Zammad: close what's
+- [x] **1. The closing check asks Alertmanager and Docker itself** (left: the owner imports it and
+  runs it once; the Docker Services resolve and answer). "Zammad: close what's
   over" gathers Zammad's open tickets, Alertmanager's active alerts and each Docker host's
   containers, and a Python Code node ("Verdict") judges each ticket as `/verdict` does. The
   bridge's `/verdict` goes; the Docker Services land in `n8n`.

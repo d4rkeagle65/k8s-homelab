@@ -14,9 +14,12 @@ every start, so workflows aren't imported automatically.)
 Vault reaches n8n at its next restart (`kubectl -n n8n rollout restart deploy/n8n`, after the
 ExternalSecret's hourly refresh or a forced sync); that container's log says what it imported.
 
+A Python Code node's code is tested in git (`scripts/tests/test_n8n_workflows.py` runs it as
+n8n's runner does), and imports nothing: the runner allows no module by default.
+
 The workflows reach in-cluster services by `<service>.<namespace>`, which the pod's DNS search
 list completes, so no address is written here.
 
 | Workflow | What it does | Credentials (Key Vault) |
 |---|---|---|
-| `zammad-close-whats-over.json` | Every 10 minutes, lists Zammad's open tickets, asks zammad-bridge's `/verdict` whether what opened each is over, and closes those that are, with an internal note, then reads each back. `close` in its Settings node is `false` (a dry run: they end at "Would close"). | **Zammad API** (`ZammadApiFromKV1`): Header Auth, `Authorization: Token token=…` from `ZAMMAD-BRIDGE-API-TOKEN`, an agent's token with ticket.agent |
+| `zammad-close-whats-over.json` | Every 10 minutes, lists Zammad's open tickets, asks Alertmanager for its active alerts and each Docker host's proxy for its containers (`docker-vm-1.n8n` and so on, `kubernetes/prod/apps/n8n/n8n/app/docker-hosts.yaml`), and its Python "Verdict" judges each ticket the alerts made: over, ongoing or unknown. It closes those over, with an internal note, then reads each back. `close` in its Settings node is `false` (a dry run: they end at "Would close"). | **Zammad API** (`ZammadApiFromKV1`): Header Auth, `Authorization: Token token=…` from `ZAMMAD-BRIDGE-API-TOKEN`, an agent's token with ticket.agent |
