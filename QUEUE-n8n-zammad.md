@@ -80,8 +80,9 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   containers, and a Python Code node ("Verdict") judges each ticket.
 - [ ] **2. Semaphore and Databasus** through "Zammad: tickets in" (`n8n/workflows/`): built,
   imported and published 2026-10-29; each source's test notification decided "create"; `write`
-  on and Semaphore's URL moved (this PR). Left: Databasus's notifier URL, in its UI
-  (`docker/databasus/README.md`); a real ticket from each opens, notes and closes through n8n;
+  on, and both sources point at n8n (Semaphore by #461, Databasus in its UI), 2026-10-29.
+  Databasus's test message opened a ticket through n8n, read back (run 20). Left: a real
+  Semaphore failure and its success, and a Databasus success closing a ticket, go through n8n;
   then the bridge's `/semaphore` and `/databasus` routes go.
 - [ ] **3. Dockhand**, with the stack check and the 180-second hold (a Wait node, offloaded to
   the database past 65 s, so it survives a restart), then its Apprise channel moves.
