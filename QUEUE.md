@@ -13,6 +13,14 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **The Zammad bridge's periodic check closes nothing yet** (#458, `reconcile` in
+  `kubernetes/prod/system/monitoring/zammad-bridge/app/zammad-bridge.py`, `RECONCILE_MODE:
+  dry-run`). After merge: confirm `zammad-bridge-api` synced from Key Vault
+  `ZAMMAD-BRIDGE-API-TOKEN` and the log says `periodic check every 600s, dry-run`; check the
+  count of tickets it found against Zammad's open ones (zero means the Checkmk key isn't in
+  `preferences.check_mk` and `ticket_key` reads the wrong place). Once the verdicts read
+  right, a PR sets `close`. Semaphore, Databasus and other Dockhand tickets stay open until
+  `verdict` learns to ask them.
 - **The HP convertible laptop joins the cluster when its Ethernet adapters arrive** (NetBox:
   Staged, tags `ansible` and `debian`, its address on Production, its local context
   `ansible_user`, `ansible_python_interpreter`, `host_exporters_defer: true` and
