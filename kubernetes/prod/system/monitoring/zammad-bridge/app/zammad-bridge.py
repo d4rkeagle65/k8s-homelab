@@ -12,41 +12,11 @@ short of replicas) names the group, not its members. For those, the ticket also
 lists the members down at that moment, asked of Prometheus (PROMETHEUS_URL); when
 Prometheus can't answer, the ticket says so rather than listing none.
 
-Dockhand's notifications arrive at /dockhand/<token> (Apprise's json://
-format: title, message, type): failure and warning open a ticket, success and
-info close it. The ticket's key is the title with its state words taken out, so
-"Container unhealthy: x" and "Container healthy: x" are one ticket; a container
-event is keyed by the container its message names, and a stack event by the stack
-('Stack "netbox" sync failed...'), so a stack's failed Git sync or deploy and its
-next "Git stack deployed" or "Stack deployed" are one ticket, one per stack: their
-titles alone never pair up. One-shot services carry the
-label dockhand.notify: "false" in their compose files, so Dockhand sends nothing
-when they exit. A container's failure opens a ticket only for a container of a
-stack (its com.docker.compose.project label), read from each Docker host's
-read-only socket proxy (DOCKER_HOSTS): one another program starts and removes
-(Databasus's restore checks), one outside every stack, and a stack's container
-that exited 0 (a one-shot's normal finish) open nothing. When a host can't be
-asked, the ticket opens and says so. A stack container's failure is held
-DOCKHAND_HOLD_SECONDS (180) first and asked about again: one running again by
-then, as after a redeploy, or whose recovery arrives meanwhile, opens nothing.
-A hold lives in memory, so one pending when the bridge restarts is dropped.
+Dockhand's, Semaphore's and Databasus's notifications go to n8n's "Zammad: tickets in"
+(n8n/workflows/), as Alertmanager's will (QUEUE-n8n-zammad.md, stage 4).
 
-Semaphore's task alerts arrive at /semaphore/<token>, in its Slack format (the
-stack's SEMAPHORE_SLACK_URL): a task that ends in error opens a ticket for its
-template, and the template's next success closes it. Semaphore also alerts
-when an apply waits for confirmation; that opens nothing.
-
-Databasus's alerts arrive at /databasus/<token> (its Webhook notifier, POST,
-the default body: heading, message): a failed backup, health check or
-verification opens a ticket for that database and kind, and the matching
-success closes it. Its WAL alerts have no recovery message, so their tickets
-are closed by hand.
-
-Each route's token is in the environment (DOCKHAND_TOKEN, SEMAPHORE_TOKEN,
-DATABASUS_TOKEN); unset, that route answers 404 to everything.
-
-n8n's "Zammad: close what's over" (n8n/workflows/) closes a ticket whose cause is
-over, as a recovery can be lost; QUEUE-n8n-zammad.md moves the rest of this to n8n.
+n8n's "Zammad: close what's over" closes a ticket whose cause is over, as a recovery
+can be lost.
 
 A failed call to Zammad answers Alertmanager with 502, so it retries. The
 Zammad URL carries the integration's token: it comes from the environment
@@ -58,8 +28,6 @@ import json
 import os
 import re
 import sys
-import hmac
-import threading
 import time
 import urllib.error
 import urllib.parse
@@ -187,209 +155,6 @@ def to_checkmk(alert: dict, prometheus: str = "") -> dict:
     }
 
 
-# Words that say a Dockhand event's state rather than what it's about.
-STATE_WORDS = re.compile(r"\b(un)?healthy\b|\b(re)?start(ed|ing)?\b|\bstop(ped|ping)?\b|\bfail(ed|ure)?\b|"
-                         r"\bsucce(ss|eded|ssful)\b|\berror\b|\bwarning\b|\bblocked\b|\bskipped\b|\bcompleted?\b",
-                         re.IGNORECASE)
-DOCKHAND_STATES = {"failure": "CRITICAL", "error": "CRITICAL", "warning": "WARNING", "success": "OK", "info": "OK"}
-
-
-def docker_containers(host: str) -> list[dict]:
-    """Every container on one Docker host, stopped ones too, through its proxy."""
-    with urllib.request.urlopen(f"http://{host}/containers/json?all=1", timeout=5) as r:
-        return json.load(r)
-
-
-def stack_failure(name: str, hosts: list[str], running_ok: bool = False) -> tuple[bool, str]:
-    """Whether a container's failure is a ticket: (ticket, why). A stack's
-    container that didn't exit 0 is; one gone, outside every stack, or exited 0
-    isn't, nor, with running_ok (asked again after the hold), one running again.
-    A host that can't be asked never turns a ticket into none."""
-    found, unasked = [], 0
-    for host in hosts:
-        try:
-            found += [c for c in docker_containers(host) if f"/{name}" in (c.get("Names") or [])]
-        except (urllib.error.URLError, OSError, ValueError):
-            unasked += 1
-    stack = [c for c in found if (c.get("Labels") or {}).get("com.docker.compose.project")]
-    if stack:
-        if running_ok and any(c.get("State") == "running" for c in stack):
-            return False, "running again"
-        if all(c.get("State") == "exited" and str(c.get("Status", "")).startswith("Exited (0)") for c in stack):
-            return False, "exited 0, a normal finish"
-        return True, ""
-    if unasked:
-        return True, f"{unasked} of {len(hosts)} Docker hosts couldn't be asked whether it belongs to a stack"
-    return (False, "not part of a stack") if found else (False, "gone, removed by what started it")
-
-
-def container_of(note: dict) -> str:
-    """The container a Dockhand event names ('Container "kea-dhcp4" die (...)'), or ""."""
-    named = re.match(r'Container "([^"]+)" ', str(note.get("message") or ""))
-    return named.group(1) if named else ""
-
-
-def dockhand_to_checkmk(note: dict, hosts: list[str] | tuple = ()) -> dict | None:
-    """Zammad's Checkmk fields for one Dockhand notification (Apprise's JSON), or
-    None when it carries no title to key a ticket by, or is a failure of a
-    container that isn't a stack's (asked of the hosts, when given)."""
-    title = str(note.get("title") or "").strip()
-    if not title:
-        return None
-    # A container event's message names the container ('Container "kea-dhcp4" die
-    # (image)'; its title is only "Container Die"), so its tickets are keyed by name.
-    named = re.match(r'Container "([^"]+)" ', str(note.get("message") or ""))
-    # A stack event's titles ("Git sync failed", "Stack deploy failed", "Git stack
-    # deployed", "Stack deployed") never match one another once their state words
-    # go, and name no stack: its message does ('Stack "netbox" deployed successfully').
-    stack = re.match(r'Stack "([^"]+)" ', str(note.get("message") or ""))
-    if named:
-        key = f"Container {named.group(1)}"
-    elif stack:
-        key = f"Stack {stack.group(1)}"
-    else:
-        key = re.sub(r"\s+([:,|])", r"\1", re.sub(r"\s+", " ", STATE_WORDS.sub("", title))).strip(" :-|") or title
-        key = re.sub(r"^dockhand\b[\s:-]*", "", key, flags=re.IGNORECASE) or key  # its titles often start "Dockhand"
-    state = DOCKHAND_STATES.get(str(note.get("type") or "info").lower(), "WARNING")
-    why = ""
-    if named and state != "OK" and hosts:
-        ticket, why = stack_failure(named.group(1), list(hosts))
-        if not ticket:
-            log(f"dockhand: {named.group(1)}: no ticket, {why}")
-            return None
-    return {
-        "event_id": "dockhand " + key,
-        "host": ("Dockhand " + key)[:250],
-        "service": "dockhand",
-        "state": state,
-        "text": "\n".join(x for x in (title, str(note.get("message") or "").strip(), why) if x),
-    }
-
-
-# Semaphore's task status, the last word of "status: ❌ ERROR!"; the others
-# (WAITING_CONFIRMATION) open nothing.
-SEMAPHORE_STATES = {"ERROR": "CRITICAL", "SUCCESS": "OK"}
-
-
-def semaphore_to_checkmk(payload: dict) -> dict | None:
-    """Zammad's Checkmk fields for one Semaphore alert (its Slack JSON), or None
-    when it names no template or its status isn't a finished one."""
-    attachments = payload.get("attachments") or [{}]
-    first = attachments[0] if isinstance(attachments, list) and isinstance(attachments[0], dict) else {}
-    name = re.sub(r"^Task:\s*", "", str(first.get("title") or "")).strip()
-    text = str(first.get("text") or "").strip()
-    status = re.search(r"status:.*?\b([A-Z][A-Z_]+)\b", text)
-    state = SEMAPHORE_STATES.get(status.group(1)) if status else None
-    if not name or not state:
-        return None
-    detail = [text] + [f"{f.get('title')}: {f.get('value')}" for f in first.get("fields") or []
-                       if isinstance(f, dict) and f.get("value")]
-    if first.get("title_link"):
-        detail.append(str(first["title_link"]))
-    return {
-        "event_id": "semaphore " + name,
-        "host": ("Semaphore " + name)[:250],
-        "service": "semaphore",
-        "state": state,
-        "text": "\n".join(detail),
-    }
-
-
-# A Databasus heading's kind, first match wins ("backup verification failed"
-# is a verification; "Physical WAL gap" is WAL, not a backup).
-DATABASUS_KINDS = (("verification", re.compile(r"verification", re.IGNORECASE)),
-                   ("WAL", re.compile(r"\bWAL\b")),
-                   ("health", re.compile(r"\bDB is\b")),
-                   ("backup", re.compile(r"\bbackup\b|^Physical (FULL|INCR)\b", re.IGNORECASE)))
-DATABASUS_OK = re.compile(r"^✅|\b(completed|passed|is online)\b")
-
-
-def databasus_to_checkmk(note: dict) -> dict | None:
-    """Zammad's Checkmk fields for one Databasus notification (heading, message),
-    or None when it carries no heading."""
-    heading = str(note.get("heading") or "").strip()
-    if not heading:
-        return None
-    if heading == "Test message":
-        key, state = "test", "WARNING"
-    else:
-        kind = next((k for k, pattern in DATABASUS_KINDS if pattern.search(heading)), heading)
-        named = re.search(r'"((?:[^"\\]|\\.)*)"', heading) or re.search(r"\[([^\]]+)\]", heading)
-        key = f"{kind} {named.group(1)}" if named and kind != heading else kind
-        state = "OK" if DATABASUS_OK.search(heading) else "CRITICAL"
-    return {
-        "event_id": "databasus " + key,
-        "host": ("Databasus " + key)[:250],
-        "service": "databasus",
-        "state": state,
-        "text": "\n".join(x for x in (heading, str(note.get("message") or "").strip()) if x),
-    }
-
-
-# The token routes: path prefix, the Handler attribute holding its token, and
-# what turns its JSON into Zammad's fields.
-ROUTES = {
-    "dockhand": ("dockhand_token", lambda note: dockhand_to_checkmk(note, Handler.docker_hosts)),
-    "semaphore": ("semaphore_token", semaphore_to_checkmk),
-    "databasus": ("databasus_token", databasus_to_checkmk),
-}
-
-
-# Stack containers' failures waiting out the hold, by ticket host: a timer each.
-HELD: dict[str, threading.Timer] = {}
-HELD_LOCK = threading.Lock()
-
-
-def hold(fields: dict, container: str, seconds: float, hosts: list[str], url: str) -> None:
-    """Sends the ticket after the hold, unless the container is running again."""
-    def release():
-        with HELD_LOCK:
-            if HELD.get(fields["host"]) is not timer:
-                return
-            del HELD[fields["host"]]
-        ticket, why = stack_failure(container, hosts, running_ok=True) if hosts else (True, "")
-        if not ticket:
-            log(f"dockhand: {container}: no ticket after the hold, {why}")
-            return
-        out = dict(fields, text="\n".join(x for x in (fields["text"], why) if x))
-        try:
-            log(f"{out['host']}: {out['state']}: {send(url, out)}")
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            reason = getattr(e, "code", None) or getattr(e, "reason", None) or type(e).__name__
-            log(f"{out['host']}: {out['state']}: Zammad didn't take it after the hold ({reason})")
-
-    with HELD_LOCK:
-        if fields["host"] in HELD:
-            log(f"dockhand: {container}: already held")
-            return
-        timer = threading.Timer(seconds, release)
-        timer.daemon = True
-        HELD[fields["host"]] = timer
-    log(f"dockhand: {container}: held {seconds:.0f}s before a ticket")
-    timer.start()
-
-
-def unhold(host: str) -> bool:
-    """Drops a held failure whose recovery arrived; whether one was held."""
-    with HELD_LOCK:
-        timer = HELD.pop(host, None)
-    if timer:
-        timer.cancel()
-    return timer is not None
-
-
-def summary(route: str, note: dict) -> str:
-    """One log line about a notification: what it says, never its token."""
-    if route == "semaphore":
-        first = (note.get("attachments") or [{}])[0]
-        first = first if isinstance(first, dict) else {}
-        return f"title={str(first.get('title'))[:80]!r} text={str(first.get('text'))[:120]!r}"
-    if route == "databasus":
-        return f"heading={str(note.get('heading'))[:120]!r}"
-    msg = str(note.get("message") or "").replace("\n", " | ")
-    return f"type={note.get('type')!r} title={str(note.get('title'))[:80]!r} message={msg[:160]!r}"
-
-
 def send(url: str, fields: dict) -> str:
     """POST the fields to Zammad; its JSON answer's result, or raise."""
     data = urllib.parse.urlencode(fields).encode()
@@ -411,17 +176,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200 if self.path == "/healthz" else 404)
         self.end_headers()
 
-    dockhand_token = ""
-    docker_hosts: list[str] = []
-    hold_seconds: float = 0
-    semaphore_token = ""
-    databasus_token = ""
-
     def do_POST(self):
-        route = self.path.split("/")[1] if self.path.count("/") >= 2 else ""
-        if route in ROUTES:
-            self.notification(route)
-            return
         if self.path != "/alertmanager":
             self.send_response(404)
             self.end_headers()
@@ -448,52 +203,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-    def notification(self, route: str):
-        attr, convert = ROUTES[route]
-        expected = getattr(self, attr)
-        token = self.path[len(f"/{route}/"):].split("?")[0]
-        if not expected or not hmac.compare_digest(token.encode(), expected.encode()):
-            self.send_response(404)
-            self.end_headers()
-            return
-        try:
-            note = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-        except (ValueError, json.JSONDecodeError):
-            self.send_response(400)
-            self.end_headers()
-            return
-        note = note if isinstance(note, dict) else {}
-        log(f"{route} note: {summary(route, note)}")
-        fields = convert(note)
-        if fields is None:
-            log(f"{route}: nothing to ticket (keys {sorted(note)[:8]}); skipped")
-            self.send_response(200)
-            self.end_headers()
-            return
-        container = container_of(note) if route == "dockhand" else ""
-        if container and fields["state"] != "OK" and self.hold_seconds > 0:
-            hold(fields, container, self.hold_seconds, self.docker_hosts, self.url)
-            self.send_response(200)
-            self.end_headers()
-            return
-        if container and fields["state"] == "OK" and unhold(fields["host"]):
-            log(f"dockhand: {container}: recovered within the hold, no ticket")
-            self.send_response(200)
-            self.end_headers()
-            return
-        try:
-            result = send(self.url, fields)
-            log(f"{fields['host']}: {fields['state']}: {result}")
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            reason = getattr(e, "code", None) or getattr(e, "reason", None) or type(e).__name__
-            log(f"{fields['host']}: {fields['state']}: Zammad didn't take it ({reason})")
-            self.send_response(502)
-            self.end_headers()
-            return
-        self.send_response(200)
-        self.end_headers()
-
-
 def main() -> None:
     url = os.environ.get("ZAMMAD_URL", "").strip()
     if not url.startswith("https://"):
@@ -502,14 +211,6 @@ def main() -> None:
     Handler.prometheus = os.environ.get("PROMETHEUS_URL", "").strip()
     if not Handler.prometheus:
         log("PROMETHEUS_URL unset: tickets won't list the members of a group alert")
-    Handler.docker_hosts = [h.strip() for h in os.environ.get("DOCKER_HOSTS", "").split(",") if h.strip()]
-    Handler.hold_seconds = float(os.environ.get("DOCKHAND_HOLD_SECONDS", "180") or 0)
-    if not Handler.docker_hosts:
-        log("DOCKER_HOSTS unset: every container failure Dockhand sends is a ticket")
-    for route, (attr, _) in ROUTES.items():
-        setattr(Handler, attr, os.environ.get(f"{route.upper()}_TOKEN", "").strip())
-        if not getattr(Handler, attr):
-            log(f"{route.upper()}_TOKEN unset: /{route} answers 404")
     port = int(os.environ.get("PORT", "8080"))
     log(f"listening on {port}")
     ThreadingHTTPServer(("", port), Handler).serve_forever()

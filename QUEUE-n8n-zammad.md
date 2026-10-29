@@ -81,21 +81,27 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
 - [ ] **2. Semaphore and Databasus** through "Zammad: tickets in" (`n8n/workflows/`): built,
   imported and published 2026-10-29; each source's test notification decided "create"; `write`
   on, and both sources point at n8n (Semaphore by #461, Databasus in its UI), 2026-10-29.
-  Databasus's test message opened a ticket through n8n, read back (run 20). Left: a real
-  Semaphore failure and its success, and a Databasus success closing a ticket, go through n8n;
-  then the bridge's `/semaphore` and `/databasus` routes go.
+  Databasus's test message opened a ticket through n8n, read back (run 20); the bridge's
+  routes go (this PR). Left: a real Semaphore failure and its success, and a Databasus success
+  closing a ticket, read in n8n's executions.
 - [ ] **3. Dockhand** through "Zammad: tickets in": built (this PR), with the stack check and
   the 180-second hold (a Wait node, offloaded to the database past 65 s, so it survives a
-  restart). Left: after merge, n8n restarted (so it has `DockhandAlertsKV`) before the
-  workflow is updated from git; a test notification; its Apprise channel moves
-  (`n8n/README.md`); a real failure opens and its recovery closes; the bridge's `/dockhand`
-  route goes.
+  restart). Live since 2026-10-29: Dockhand's channel points at n8n, and the bridge's
+  `/dockhand` route goes (this PR). Environment events are keyed by the environment their
+  message names, so "online" closes its "offline" (the bridge keyed both by title, so neither
+  paired). Left: a real container failure holds, opens and its recovery closes; the owner
+  closes the bridge's two open "Dockhand Environment offline"-kind tickets by hand (their key
+  changed).
 - [ ] **4. Alertmanager**, with the group alerts' members from Prometheus; the alert-naming rule
   moves into n8n, and the closing check rebuilds hosts exactly. Its receiver in
   kube-prometheus-stack's `alertmanager.config` moves.
-- [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/`, its Ingress, its
-  `cluster-secrets` tokens no longer read, `scripts/tests/test_zammad_bridge.py`, and every
-  mention (`grep -rn zammad-bridge`). Move this file to `old-queues/`.
+- [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/` and
+  `scripts/tests/test_zammad_bridge.py`; the `zammad-bridge` Pi-hole record, deleted by hand
+  (ExternalDNS is upsert-only, so the removed Ingress's record stays); `DOCKHAND_ALERT_TOKEN`,
+  `SEMAPHORE_ALERT_TOKEN`, `DATABASUS_ALERT_TOKEN` and `ZAMMAD_ALERT_WEBHOOK_URL` in
+  `kubernetes/secrets/cluster-secrets.yaml` once nothing reads them (n8n and Semaphore's
+  `.env` read Key Vault themselves); every other mention (`git grep zammad-bridge`). Move this
+  file to `old-queues/`.
 
 ## Resume
 

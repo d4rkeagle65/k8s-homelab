@@ -1,7 +1,7 @@
 # A read-only view of the first Docker VM's containers for Homepage
 # (services/homepage/, its docker.yaml): each card with a server and container
-# shows that container's state and its CPU and memory. The zammad-bridge reads the
-# same list (monitoring/zammad-bridge/: is a failed container a stack's?). Deployed by Dockhand
+# shows that container's state and its CPU and memory. n8n's Zammad workflows read the
+# same list (n8n/workflows/: is a failed container a stack's, is it over?). Deployed by Dockhand
 # from this folder (a Git stack), redeployed when a change here reaches main
 # (its webhook; docker/CLAUDE.md). The second VM and the TerraMaster run the
 # same (docker-socket-proxy-vm2/, docker-socket-proxy-terramaster/), with only
