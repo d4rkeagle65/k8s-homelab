@@ -56,7 +56,13 @@ x-netbox: &netbox
     MEDIA_ROOT: /opt/netbox/netbox/media
   networks: [default, kea]
   volumes:
-  - netbox-media:/opt/netbox/netbox/media
+  # nocopy: without it Docker mounts the volume as it creates the container, to
+  # copy the image's folder in, before netbox-files-init has made it on the NAS.
+  - type: volume
+    source: netbox-media
+    target: /opt/netbox/netbox/media
+    volume:
+      nocopy: true
   - /opt/netbox/reports:/opt/netbox/netbox/reports
   - /opt/netbox/scripts:/opt/netbox/netbox/scripts
 

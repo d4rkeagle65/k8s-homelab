@@ -61,17 +61,17 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - **Wipe H5's old `HDD` volume group** (from `old-queues/QUEUE-talos.md`, Phase 0): the 2 TB
   HDD still holds it; wipe it once its two old VM disks (111, 117) are confirmed backed up.
   Unverified 2026-10-22 (no Proxmox storage lists it, which doesn't show the group is gone).
-- **NetBox's uploads onto the Synology: the `dockerData` share before branch
-  `netbox-media-nfs`'s pull request merges** (2026-10-28). In DSM, the shared folder
-  `dockerData` on volume 1, with an NFS rule for the first Docker VM's Production address:
-  read/write, squash "No mapping", security `sys`, async (as `k8sData`'s rule). Add it to a
-  Hyper Backup task to the TerraMaster: the VM's nightly backup won't hold the uploads any more.
-  Then the export is read back (a Run Command on `synology`, `/etc/exports`) before the merge.
-  Merged without it, `netbox-files-init` can't mount the share, and NetBox and its worker don't
-  start. After the merge: attach a file to a device with the attachments plugin's Add button,
-  restart `netbox` in Dockhand and open the file again; it's in the share's
-  `netbox-media/netbox-attachments/`. Then delete the host folder `/opt/netbox/media`, which
-  nothing mounts (empty on 2026-10-28, Run Command task 1410).
+- **NetBox's uploads onto the Synology once branch `netbox-media-nocopy`'s pull request
+  merges** (2026-10-28): until then NetBox runs on its old containers, and an upload lands in
+  the host folder `/opt/netbox/media` (empty on 2026-10-29, Run Command task 1418). After the
+  merge, `netbox-files-init` should exit 0 and `netbox` and `netbox-worker` come up on the
+  `netbox_netbox-media` NFS volume. Then attach a file to a device with the attachments
+  plugin's Add button, restart `netbox` in Dockhand and open the file again; it's in
+  `dockerData/netbox-media/netbox-attachments/`. Copy anything in the host folder to the share,
+  then delete the folder. Left unchecked, uploads may stay on the SSD, or fail.
+- **Add the Synology's `dockerData` share to a Hyper Backup task to the TerraMaster**
+  (2026-10-28): `k8s-to-tnas`, the only task, backs up `k8sData` alone (Run Command task 1417).
+  Left, NetBox's uploads have no backup: the Docker VM's nightly backup no longer holds them.
 
 Decisions that unblock the work below; each gives a recommendation. Numbers stay as
 assigned (items below refer to them); 1 to 10 are all done (7, Docker's upgrade from
