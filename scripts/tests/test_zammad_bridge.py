@@ -366,3 +366,98 @@ def test_a_host_that_cant_be_asked_after_the_hold_still_opens_the_ticket(monkeyp
     monkeypatch.setattr(m, "docker_containers", lambda host: (_ for _ in ()).throw(OSError("timed out")))
     FakeTimer.made[0].fn()
     assert len(sent) == 1 and "couldn't be asked" in sent[0]["text"]
+
+
+# --- /verdict ------------------------------------------------------------------
+
+def ck(tid, host, service, number=None):
+    return {"id": tid, "number": number or str(tid), "state": "open",
+            "preferences": {"check_mk": {"host": host, "service": service}}}
+
+
+def test_only_the_bridges_own_tickets_are_checked():
+    assert m.ticket_key(ck(1, "TargetDown monitoring", "TargetDown")) == ("TargetDown monitoring", "TargetDown")
+    assert m.ticket_key({"id": 2, "preferences": {}}) == ("", "")  # a person's ticket
+
+
+def test_an_alert_ticket_is_over_only_when_alertmanager_answers_without_it():
+    assert m.verdict("TargetDown monitoring", "TargetDown", {"TargetDown monitoring"}, [])[0] == m.ONGOING
+    assert m.verdict("TargetDown monitoring", "TargetDown", set(), [])[0] == m.RESOLVED
+    assert m.verdict("TargetDown monitoring", "TargetDown", None, [])[0] == m.UNKNOWN  # couldn't ask
+
+
+def test_a_dockhand_container_or_stack_ticket_follows_what_docker_says(monkeypatch):
+    containers = [{"Names": ["/netbox"], "State": "running", "Status": "Up 2 hours (healthy)",
+                   "Labels": {"com.docker.compose.project": "netbox"}},
+                  {"Names": ["/netbox-worker"], "State": "exited", "Status": "Exited (1) 3 minutes ago",
+                   "Labels": {"com.docker.compose.project": "netbox"}}]
+    monkeypatch.setattr(m, "docker_containers", lambda host: containers)
+    assert m.verdict("Dockhand Container netbox", "dockhand", None, ["h"])[0] == m.RESOLVED
+    assert m.verdict("Dockhand Container netbox-worker", "dockhand", None, ["h"])[0] == m.ONGOING
+    assert m.verdict("Dockhand Stack netbox", "dockhand", None, ["h"]) == (m.ONGOING, "not running: netbox-worker")
+    containers[1].update(State="running", Status="Up 1 minute")
+    assert m.verdict("Dockhand Stack netbox", "dockhand", None, ["h"])[0] == m.RESOLVED
+    assert m.verdict("Dockhand Container gone", "dockhand", None, ["h"])[0] == m.UNKNOWN
+
+    def down(host):
+        raise OSError("refused")
+    monkeypatch.setattr(m, "docker_containers", down)
+    assert m.verdict("Dockhand Stack netbox", "dockhand", None, ["h"])[0] == m.UNKNOWN
+
+
+def test_unchecked_kinds_stay_open():
+    assert m.verdict("Semaphore Sync: x", "semaphore", set(), ["h"])[0] == m.UNKNOWN
+    assert m.verdict("Databasus Netbox health", "databasus", set(), ["h"])[0] == m.UNKNOWN
+    assert m.verdict("Dockhand Environment offline", "dockhand", set(), ["h"])[0] == m.UNKNOWN
+
+
+def verdict_post(body: bytes, alertmanager="http://am"):
+    import io
+    import json
+
+    class Fake(m.Handler):
+        def __init__(self):
+            self.path, self.headers = "/verdict", {"Content-Length": str(len(body))}
+            self.rfile, self.wfile, self.codes = io.BytesIO(body), io.BytesIO(), []
+
+        def send_response(self, code, message=None):
+            self.codes.append(code)
+
+        def send_header(self, *a):
+            pass
+
+        def end_headers(self):
+            pass
+    Fake.alertmanager = alertmanager
+    h = Fake()
+    h.do_POST()
+    return h.codes[0], (json.loads(h.wfile.getvalue()) if h.wfile.getvalue() else None)
+
+
+def test_verdict_answers_for_the_bridges_tickets_and_leaves_a_persons_out(monkeypatch):
+    import json
+    monkeypatch.setattr(m, "active_alert_hosts", lambda url: {"KubeJobFailed media"})
+    tickets = [ck(7, "TargetDown monitoring", "TargetDown"), ck(8, "KubeJobFailed media", "KubeJobFailed"),
+               ck(9, "Semaphore Sync: x", "semaphore"), {"id": 10, "preferences": {}}]
+    for body in (tickets, {"tickets": tickets}):  # Zammad's search answers either shape
+        code, out = verdict_post(json.dumps(body).encode())
+        assert code == 200
+        assert [(t["id"], t["verdict"]) for t in out["tickets"]] == [(7, "over"), (8, "ongoing"), (9, "unknown")]
+        assert out["tickets"][0]["host"] == "TargetDown monitoring" and out["tickets"][0]["reason"]
+
+
+def test_no_alert_ticket_is_over_when_alertmanager_cant_be_asked(monkeypatch):
+    import json
+
+    def down(url):
+        raise OSError("refused")
+    monkeypatch.setattr(m, "active_alert_hosts", down)
+    _, out = verdict_post(json.dumps([ck(7, "TargetDown monitoring", "TargetDown")]).encode())
+    assert out["tickets"][0]["verdict"] == "unknown"
+    _, out = verdict_post(json.dumps([ck(7, "TargetDown monitoring", "TargetDown")]).encode(), alertmanager="")
+    assert out["tickets"][0]["verdict"] == "unknown"
+
+
+def test_verdict_refuses_a_body_that_isnt_json():
+    assert verdict_post(b"not json")[0] == 400
+    assert verdict_post(b'{"tickets": "x"}') == (200, {"tickets": []})

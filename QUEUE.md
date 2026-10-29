@@ -13,14 +13,17 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
-- **The Zammad bridge's periodic check closes nothing yet** (#458, `reconcile` in
-  `kubernetes/prod/system/monitoring/zammad-bridge/app/zammad-bridge.py`, `RECONCILE_MODE:
-  dry-run`). After merge: confirm `zammad-bridge-api` synced from Key Vault
-  `ZAMMAD-BRIDGE-API-TOKEN` and the log says `periodic check every 600s, dry-run`; check the
-  count of tickets it found against Zammad's open ones (zero means the Checkmk key isn't in
-  `preferences.check_mk` and `ticket_key` reads the wrong place). Once the verdicts read
-  right, a PR sets `close`. Semaphore, Databasus and other Dockhand tickets stay open until
-  `verdict` learns to ask them.
+- **n8n's "Zammad: close what's over" isn't imported yet** (#458;
+  `n8n/workflows/zammad-close-whats-over.json`, the bridge's `/verdict` in
+  `kubernetes/prod/system/monitoring/zammad-bridge/app/zammad-bridge.py`). After merge: the
+  `import-credentials` init container's log in n8n's pod says `zammad-api.json imported as
+  ZammadApiFromKV1, read back` (`n8n-credentials` synced from Key Vault
+  `ZAMMAD-BRIDGE-API-TOKEN`; without it the Secret is missing and n8n's pod won't start); import
+  the workflow (`n8n/README.md`), run it once by hand. Check "Zammad: open tickets" gets 200 from the in-cluster address
+  (untested), and "One per ticket" lists the open bridge tickets (none means the Checkmk key
+  isn't in `preferences.check_mk`, where `ticket_key` reads it). Then turn it Active; once
+  "Would close" holds the right tickets, set `close` true in Settings. Semaphore, Databasus and
+  other Dockhand tickets stay "unknown" until `verdict` learns to ask them.
 - **The HP convertible laptop joins the cluster when its Ethernet adapters arrive** (NetBox:
   Staged, tags `ansible` and `debian`, its address on Production, its local context
   `ansible_user`, `ansible_python_interpreter`, `host_exporters_defer: true` and

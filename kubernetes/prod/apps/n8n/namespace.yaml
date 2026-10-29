@@ -5,6 +5,9 @@ metadata:
     homelab.local/category: apps
     homelab.local/data: database
     homelab.local/exposure: lan
+    # Reads its own Key Vault secrets (azure-keyvault's conditions): a namespace of
+    # its own, as that label must never go on a shared one.
+    homelab.local/keyvault: allowed
     homelab.local/login: app
     pod-security.kubernetes.io/enforce: baseline
   name: n8n
