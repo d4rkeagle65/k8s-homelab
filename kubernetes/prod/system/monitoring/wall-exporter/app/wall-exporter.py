@@ -4,7 +4,11 @@ Every REFRESH_SECONDS it reads, inside the cluster:
   Tdarr      its statistics (the transcode and health check queues and results) and its
              nodes' busy workers (get-nodes: Tdarr keeps workers in memory, not in its
              node records): no key, Tdarr has no authentication
-  Semaphore  the project's last tasks, counted by status (a Guest's API token)
+  Semaphore  the project's last tasks, counted by status (a Guest's API token), and a
+             running count of the tasks that finished, by status, for a count over any
+             time range (increase()). It remembers which task IDs it counted; its first
+             read after a start only records them, so a restart never counts old tasks as
+             new, and tasks that finish while it's down aren't counted.
   Emby       the sessions playing something, and those Emby transcodes
   Seerr      its requests, counted by state
   Immich     its photo and video counts and the storage they use (an admin's API key with
@@ -85,7 +89,13 @@ def tdarr() -> list[str]:
     return out
 
 
+FINISHED = ("success", "error", "stopped")
+seen_tasks: set | None = None          # task IDs already counted; None until the first read
+finished_total: dict[str, int] = {s: 0 for s in FINISHED}
+
+
 def semaphore() -> list[str]:
+    global seen_tasks
     url, token, project = env("SEMAPHORE_URL"), env("SEMAPHORE_TOKEN"), env("SEMAPHORE_PROJECT") or "1"
     if not token:
         raise ValueError("SEMAPHORE_TOKEN not set")
@@ -93,7 +103,14 @@ def semaphore() -> list[str]:
     counts: dict[str, int] = {}
     for t in tasks if isinstance(tasks, list) else []:
         counts[t.get("status") or "unknown"] = counts.get(t.get("status") or "unknown", 0) + 1
+    done = {t["id"]: t.get("status") for t in tasks if isinstance(t, dict) and t.get("status") in FINISHED and "id" in t}
+    if seen_tasks is not None:
+        for tid, st in done.items():
+            if tid not in seen_tasks:
+                finished_total[st] += 1
+    seen_tasks = set(done)  # the IDs the API still lists; an older one never comes back
     out = [line("wall_semaphore_tasks", {"status": st}, n) for st, n in sorted(counts.items())]
+    out += [line("wall_semaphore_tasks_finished_total", {"status": st}, n) for st, n in finished_total.items()]
     active = sum(n for st, n in counts.items() if st in ("running", "starting", "waiting"))
     out.append(line("wall_semaphore_tasks_active", {}, active))
     return out
