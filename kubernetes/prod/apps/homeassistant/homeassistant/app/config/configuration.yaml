@@ -74,3 +74,46 @@ automation laundry:
           message: >-
             The {{ 'washer' if 'washer' in trigger.entity_id else 'dryer' }} finished after
             {{ ((as_timestamp(trigger.to_state.last_changed) - as_timestamp(trigger.from_state.last_changed)) / 60) | round(0) | int }} minutes.
+
+# The living-room picture frame (devices/picture-frame/): commands to its Home HQ,
+# which turns them into the page's own keys (Right, Left, Space), its mute toggle or
+# a reboot. The token comes from the Deployment's environment.
+rest_command:
+  picture_frame:
+    url: "http://${PICTURE_FRAME_ADDRESS}:8766/{{ command }}"
+    method: post
+    headers:
+      X-Token: !env_var PICTURE_FRAME_COMMAND_TOKEN unset
+    timeout: 10
+
+script picture_frame:
+  picture_frame_next:
+    alias: Picture frame next
+    icon: mdi:skip-next
+    sequence:
+      - action: rest_command.picture_frame
+        data: {command: next}
+  picture_frame_back:
+    alias: Picture frame back
+    icon: mdi:skip-previous
+    sequence:
+      - action: rest_command.picture_frame
+        data: {command: back}
+  picture_frame_pause:
+    alias: Picture frame pause or resume
+    icon: mdi:play-pause
+    sequence:
+      - action: rest_command.picture_frame
+        data: {command: pause}
+  picture_frame_mute:
+    alias: Picture frame mute or unmute
+    icon: mdi:volume-mute
+    sequence:
+      - action: rest_command.picture_frame
+        data: {command: mute}
+  picture_frame_reboot:
+    alias: Picture frame reboot
+    icon: mdi:restart
+    sequence:
+      - action: rest_command.picture_frame
+        data: {command: reboot}

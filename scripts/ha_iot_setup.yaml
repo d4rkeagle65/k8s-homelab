@@ -19,6 +19,3 @@ integrations:
 - {type: amazon-fire-stick-4k, handler: androidtv, attended: true, fields: {device_class: firetv, port: 5555}}
 - {type: amazon-fire-tv-4k-43, handler: androidtv, attended: true, fields: {device_class: firetv, port: 5555}}
 - {type: samsung-un32j5500afxza, handler: samsungtv, attended: true}
-# The picture frame runs Android: Wireless debugging (ADB over Wi-Fi) on, and its
-# screen shows the ADB prompt to approve.
-- {type: generic-android-photo-frame, handler: androidtv, attended: true, fields: {device_class: androidtv, port: 5555}}

@@ -212,3 +212,40 @@ def test_a_device_is_found_by_any_of_its_macs_wifi_first():
     assert m.ha_device_of(d, by_mac)["id"] == "tv"
     assert m.plan_device(d, INTEGRATIONS, by_mac, attended=True)[0] == "present"
     assert m.ha_device_of(dict(d, macs=["00:00:5E:00:53:A0"]), by_mac) is None
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, s):
+        self.now += s
+
+
+class EntriesHA:
+    """Home Assistant whose new entry finishes setting up after `ready_after` reads."""
+
+    def __init__(self, ready_after):
+        self.reads, self.ready_after = 0, ready_after
+
+    def call(self, kind, **args):
+        assert kind == "config_entries/get"
+        self.reads += 1
+        state = "loaded" if self.reads > self.ready_after else "setup_in_progress"
+        return [{"domain": "androidtv", "title": "Frame", "state": state},
+                {"domain": "tplink", "title": "Plug", "state": "setup_in_progress"}]
+
+
+def test_the_read_back_waits_for_a_new_entry_to_finish_setting_up():
+    ha = EntriesHA(ready_after=3)
+    assert m.wait_for_setup(ha, {"androidtv"}, wait=60, clock=FakeClock()) == []
+    assert ha.reads == 4
+
+
+def test_an_entry_still_setting_up_after_the_wait_is_named():
+    clock = FakeClock()
+    assert m.wait_for_setup(EntriesHA(ready_after=10**6), {"androidtv"}, wait=10, clock=clock) == ["Frame"]
+    assert clock.now >= 10

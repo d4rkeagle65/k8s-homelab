@@ -16,12 +16,36 @@
  import android.view.MotionEvent;
  import android.view.View;
  import android.view.WindowManager;
-@@ -72,9 +74,15 @@
+@@ -38,10 +40,17 @@
+ import android.widget.FrameLayout;
+ import android.widget.LinearLayout;
+ import android.widget.TextView;
++import java.io.BufferedReader;
+ import java.io.IOException;
+ import java.io.InputStream;
++import java.io.InputStreamReader;
++import java.io.OutputStream;
+ import java.net.HttpURLConnection;
++import java.net.ServerSocket;
++import java.net.Socket;
+ import java.net.URL;
++import java.nio.charset.StandardCharsets;
++import java.security.MessageDigest;
+ import java.util.HashMap;
+ import java.util.Locale;
+ import java.util.Map;
+@@ -72,9 +81,21 @@
    static final String PREFS = "kiosk";
    static final String PREF_URL = "url";
    static final String PREF_MENU_BUTTON = "menu_button";
 +  static final String PREF_SWIPE = "swipe";
 +  static final String PREF_MUTE_AT_START = "mute_at_start";
++  static final String PREF_COMMANDS = "command_token";
++  // Commands from the network (Home Assistant): POST /next, /back, /pause, /mute or /reboot
++  // with the header X-Token. Off while no token is saved.
++  static final int COMMAND_PORT = 8766;
++  static final int COMMAND_READ_TIMEOUT_MS = 5000;
++  static final int COMMAND_MAX_HEADER_LINES = 50;
 +  // A swipe: one finger, mostly sideways, at least this far, within this time.
 +  static final float SWIPE_MIN_PX = 120;
 +  static final long SWIPE_MAX_MS = 800;
@@ -32,10 +56,11 @@
    static final long STALL_MS = 15000;
    static final long NAV_CHECK_MS = 5000;
    static final long NAV_REBIND_MS = 1000;
-@@ -99,9 +107,16 @@
+@@ -99,9 +120,17 @@
    private final float[] exitX = new float[2];
    private final float[] exitY = new float[2];
    private boolean exitArmed;
++  private ServerSocket commandSocket;
 +  private boolean swipeOn;
 +  private boolean swipeOneFinger;
 +  private float swipeX, swipeY;
@@ -49,7 +74,7 @@
    // A retry is queued: keep the offline screen up until it runs, even if the failed load "finishes".
    private boolean retryPending;
    private LinearLayout offline;
-@@ -140,6 +155,13 @@
+@@ -140,6 +169,13 @@
    private final BroadcastReceiver networkChange = new BroadcastReceiver() {
      @Override
      public void onReceive(Context context, Intent intent) {
@@ -63,7 +88,7 @@
        if (retryUrl == null || offline.getVisibility() != View.VISIBLE || !wifiConnected()) return;
        Log.i(TAG, "Wi-Fi connected or clock changed, retrying now");
        showOffline();
-@@ -211,6 +233,7 @@
+@@ -211,6 +247,7 @@
  
        @Override
        public void onPageFinished(WebView view, String url) {
@@ -71,7 +96,7 @@
          if (!pageFailed && !retryPending) {
            offline.setVisibility(View.GONE);
            handler.removeCallbacks(stall);
-@@ -294,6 +317,16 @@
+@@ -294,6 +331,17 @@
      menuPosition.setMargins(dp(12), dp(12), dp(12), dp(12));
      root.addView(menuButton, menuPosition);
      applyMenuButtonFlag(getIntent());
@@ -79,6 +104,7 @@
 +    // Volume keys, and the mute key, adjust media (the page's audio) rather than the ringer.
 +    setVolumeControlStream(AudioManager.STREAM_MUSIC);
 +    applyMuteAtStartFlag(getIntent());
++    applyCommandTokenFlag(getIntent());
 +    // Android forgets mute at a reboot; Home HQ starts once per boot as the Home app.
 +    if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_MUTE_AT_START, false)) {
 +      ((AudioManager) getSystemService(Context.AUDIO_SERVICE))
@@ -88,16 +114,25 @@
      setContentView(root);
  
      String url = urlFrom(getIntent());
-@@ -324,6 +357,8 @@
+@@ -324,6 +372,9 @@
      applyDebugFlag(intent);
      applyHomeFlag(intent);
      applyMenuButtonFlag(intent);
 +    applySwipeFlag(intent);
 +    applyMuteAtStartFlag(intent);
++    applyCommandTokenFlag(intent);
      String url = urlFrom(intent);
      if (url != null) {
        closePortal();
-@@ -745,6 +780,58 @@
+@@ -722,6 +773,7 @@
+ 
+   @Override
+   protected void onDestroy() {
++    stopCommandServer();
+     unregisterReceiver(networkChange);
+     handler.removeCallbacksAndMessages(null);
+     if (web != null) web.destroy();
+@@ -745,6 +797,175 @@
          .getBoolean(PREF_MENU_BUTTON, false) ? View.VISIBLE : View.GONE);
    }
  
@@ -129,10 +164,131 @@
 +    if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < 2 * Math.abs(dy)
 +        || SystemClock.uptimeMillis() - swipeTime > SWIPE_MAX_MS) return false;
 +    cancelPageTouches();
-+    int key = dx < 0 ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT;
++    sendPageKey(dx < 0 ? KeyEvent.KEYCODE_DPAD_RIGHT : KeyEvent.KEYCODE_DPAD_LEFT);
++    return true;
++  }
++
++  /** A key press to the page, as a keyboard's would arrive (Right, Left, Space). UI thread only. */
++  private void sendPageKey(int key) {
 +    web.requestFocus();
 +    web.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, key));
 +    web.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, key));
++  }
++
++  private void toggleMute() {
++    ((AudioManager) getSystemService(Context.AUDIO_SERVICE)).adjustStreamVolume(
++        AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI);
++  }
++
++  /**
++   * A saved token (--es command_token <token>; an empty one turns commands off) starts the
++   * command listener on COMMAND_PORT. The token is never logged.
++   */
++  private void applyCommandTokenFlag(Intent intent) {
++    if (intent != null && intent.hasExtra(PREF_COMMANDS)) {
++      String t = intent.getStringExtra(PREF_COMMANDS);
++      getSharedPreferences(PREFS, MODE_PRIVATE).edit()
++          .putString(PREF_COMMANDS, t == null ? "" : t.trim()).apply();
++    }
++    stopCommandServer();
++    String token = getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_COMMANDS, "");
++    if (token.isEmpty()) {
++      Log.i(TAG, "Commands off (no token)");
++      return;
++    }
++    startCommandServer(token);
++  }
++
++  private void startCommandServer(String token) {
++    final ServerSocket server;
++    try {
++      server = new ServerSocket(COMMAND_PORT);
++    } catch (IOException e) {
++      Log.w(TAG, "Commands off: port " + COMMAND_PORT + " unavailable (" + e.getMessage() + ")");
++      return;
++    }
++    commandSocket = server;
++    final byte[] expected = token.getBytes(StandardCharsets.UTF_8);
++    Thread t = new Thread(() -> {
++      while (!server.isClosed()) {
++        try (Socket s = server.accept()) {
++          handleCommand(s, expected);
++        } catch (IOException e) {
++          if (!server.isClosed()) Log.w(TAG, "Command connection failed (" + e.getMessage() + ")");
++        }
++      }
++    }, "commands");
++    t.setDaemon(true);
++    t.start();
++    Log.i(TAG, "Commands on, port " + COMMAND_PORT);
++  }
++
++  private void stopCommandServer() {
++    if (commandSocket == null) return;
++    try {
++      commandSocket.close();
++    } catch (IOException ignored) {
++      // Closing is all that's wanted; the accept loop ends either way.
++    }
++    commandSocket = null;
++  }
++
++  /** One request: the method, the path and the X-Token header; the body is ignored. */
++  private void handleCommand(Socket s, byte[] expected) throws IOException {
++    s.setSoTimeout(COMMAND_READ_TIMEOUT_MS);
++    BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
++    String[] request = String.valueOf(in.readLine()).split(" ");
++    String given = "";
++    for (int i = 0; i < COMMAND_MAX_HEADER_LINES; i++) {
++      String line = in.readLine();
++      if (line == null || line.isEmpty()) break;
++      int colon = line.indexOf(':');
++      if (colon > 0 && line.substring(0, colon).trim().equalsIgnoreCase("X-Token")) {
++        given = line.substring(colon + 1).trim();
++      }
++    }
++    String method = request[0];
++    String path = request.length > 1 ? request[1] : "";
++    int status;
++    if (!MessageDigest.isEqual(expected, given.getBytes(StandardCharsets.UTF_8))) {
++      status = 401;
++    } else if (!"POST".equals(method)) {
++      status = 405;
++    } else {
++      status = runCommand(path) ? 200 : 404;
++    }
++    if (status != 200) Log.w(TAG, "Command refused: " + status + " " + method + " " + path);
++    String body = status == 200 ? "ok\n" : status + "\n";
++    OutputStream out = s.getOutputStream();
++    out.write(("HTTP/1.1 " + status + " " + (status == 200 ? "OK" : "Error") + "\r\n"
++        + "Content-Type: text/plain\r\nContent-Length: " + body.length()
++        + "\r\nConnection: close\r\n\r\n" + body).getBytes(StandardCharsets.UTF_8));
++    out.flush();
++  }
++
++  /** Whether the path is a command; each runs on the UI thread (reboot through the firmware's su). */
++  private boolean runCommand(String path) {
++    final Runnable action;
++    switch (path) {
++      case "/next": action = () -> sendPageKey(KeyEvent.KEYCODE_DPAD_RIGHT); break;
++      case "/back": action = () -> sendPageKey(KeyEvent.KEYCODE_DPAD_LEFT); break;
++      case "/pause": action = () -> sendPageKey(KeyEvent.KEYCODE_SPACE); break;
++      case "/mute": action = this::toggleMute; break;
++      case "/reboot":
++        action = () -> {
++          try {
++            Runtime.getRuntime().exec(new String[] {"su", "-c", "reboot"});
++          } catch (IOException e) {
++            Log.w(TAG, "Reboot failed (" + e.getMessage() + ")");
++          }
++        };
++        break;
++      default:
++        return false;
++    }
++    Log.i(TAG, "Command " + path);
++    // After the reply has gone, so a reboot doesn't cut it off.
++    handler.postDelayed(action, 100);
 +    return true;
 +  }
 +
@@ -143,11 +299,7 @@
 +  @Override
 +  public boolean dispatchKeyEvent(KeyEvent e) {
 +    if (e.getKeyCode() == KeyEvent.KEYCODE_VOLUME_MUTE) {
-+      if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) {
-+        AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-+        audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE,
-+            AudioManager.FLAG_SHOW_UI);
-+      }
++      if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) toggleMute();
 +      return true;
 +    }
 +    return super.dispatchKeyEvent(e);
@@ -156,7 +308,7 @@
    /** Turns the Home alias on or off. The shell can't enable a component of a release app. */
    private void applyHomeFlag(Intent intent) {
      if (intent == null || !intent.hasExtra("home")) return;
-@@ -764,8 +851,13 @@
+@@ -764,8 +985,13 @@
          // touch from before (see cancelPageTouches), clear it first so this tap is not read as a
          // second finger. With no stale touch the cancel is a no-op.
          cancelPageTouches();
@@ -170,7 +322,7 @@
          if (e.getPointerCount() == 2) {
            for (int i = 0; i < 2; i++) {
              exitIds[i] = e.getPointerId(i);
-@@ -790,8 +882,11 @@
+@@ -790,8 +1016,11 @@
            }
          }
          break;

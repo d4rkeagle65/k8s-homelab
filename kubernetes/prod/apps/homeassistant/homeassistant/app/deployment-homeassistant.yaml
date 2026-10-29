@@ -22,6 +22,12 @@ spec:
       - env:
         - name: TZ
           value: ${TIMEZONE}
+        # The picture frame's command token (secret-picture-frame.yaml).
+        - name: PICTURE_FRAME_COMMAND_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: picture-frame
+              key: command-token
         image: ghcr.io/home-assistant/home-assistant:2026.10.2
         imagePullPolicy: IfNotPresent
         livenessProbe:

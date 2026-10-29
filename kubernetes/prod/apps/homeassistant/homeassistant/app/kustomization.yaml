@@ -4,6 +4,7 @@ resources:
 - deployment-homeassistant.yaml
 - ingress-homeassistant.yaml
 - persistentvolumeclaim-homeassistant-config.yaml
+- secret-picture-frame.yaml
 - service-homeassistant.yaml
 # configuration.yaml from git. The generated name carries a hash of the
 # content, so a change renames the ConfigMap, the Deployment's reference
