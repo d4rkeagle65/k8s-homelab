@@ -366,3 +366,97 @@ def test_a_host_that_cant_be_asked_after_the_hold_still_opens_the_ticket(monkeyp
     monkeypatch.setattr(m, "docker_containers", lambda host: (_ for _ in ()).throw(OSError("timed out")))
     FakeTimer.made[0].fn()
     assert len(sent) == 1 and "couldn't be asked" in sent[0]["text"]
+
+
+# --- The periodic check -------------------------------------------------------------
+
+def ck(tid, host, service, number=None):
+    return {"id": tid, "number": number or str(tid), "state": "open",
+            "preferences": {"check_mk": {"host": host, "service": service}}}
+
+
+def test_only_the_bridges_own_tickets_are_checked():
+    assert m.ticket_key(ck(1, "TargetDown monitoring", "TargetDown")) == ("TargetDown monitoring", "TargetDown")
+    assert m.ticket_key({"id": 2, "preferences": {}}) == ("", "")  # a person's ticket
+
+
+def test_an_alert_ticket_is_over_only_when_alertmanager_answers_without_it():
+    assert m.verdict("TargetDown monitoring", "TargetDown", {"TargetDown monitoring"}, [])[0] == m.ONGOING
+    assert m.verdict("TargetDown monitoring", "TargetDown", set(), [])[0] == m.RESOLVED
+    assert m.verdict("TargetDown monitoring", "TargetDown", None, [])[0] == m.UNKNOWN  # couldn't ask
+
+
+def test_a_dockhand_container_or_stack_ticket_follows_what_docker_says(monkeypatch):
+    containers = [{"Names": ["/netbox"], "State": "running", "Status": "Up 2 hours (healthy)",
+                   "Labels": {"com.docker.compose.project": "netbox"}},
+                  {"Names": ["/netbox-worker"], "State": "exited", "Status": "Exited (1) 3 minutes ago",
+                   "Labels": {"com.docker.compose.project": "netbox"}}]
+    monkeypatch.setattr(m, "docker_containers", lambda host: containers)
+    assert m.verdict("Dockhand Container netbox", "dockhand", None, ["h"])[0] == m.RESOLVED
+    assert m.verdict("Dockhand Container netbox-worker", "dockhand", None, ["h"])[0] == m.ONGOING
+    assert m.verdict("Dockhand Stack netbox", "dockhand", None, ["h"]) == (m.ONGOING, "not running: netbox-worker")
+    containers[1].update(State="running", Status="Up 1 minute")
+    assert m.verdict("Dockhand Stack netbox", "dockhand", None, ["h"])[0] == m.RESOLVED
+    assert m.verdict("Dockhand Container gone", "dockhand", None, ["h"])[0] == m.UNKNOWN
+
+    def down(host):
+        raise OSError("refused")
+    monkeypatch.setattr(m, "docker_containers", down)
+    assert m.verdict("Dockhand Stack netbox", "dockhand", None, ["h"])[0] == m.UNKNOWN
+
+
+def test_unchecked_kinds_stay_open():
+    assert m.verdict("Semaphore Sync: x", "semaphore", set(), ["h"])[0] == m.UNKNOWN
+    assert m.verdict("Databasus Netbox health", "databasus", set(), ["h"])[0] == m.UNKNOWN
+    assert m.verdict("Dockhand Environment offline", "dockhand", set(), ["h"])[0] == m.UNKNOWN
+
+
+def fake_zammad(tickets, states):
+    calls = []
+
+    def call(base, token, method, path, body=None):
+        calls.append((method, path))
+        if path.startswith("/api/v1/tickets/search"):
+            return tickets
+        tid = int(path.split("/")[4].split("?")[0])
+        if method == "PUT":
+            states[tid] = body["state"]
+            return {}
+        return {"id": tid, "state": states.get(tid, "open")}
+    return call, calls
+
+
+def test_a_dry_run_writes_nothing(monkeypatch):
+    call, calls = fake_zammad([ck(7, "TargetDown monitoring", "TargetDown")], {})
+    monkeypatch.setattr(m, "zammad", call)
+    monkeypatch.setattr(m, "active_alert_hosts", lambda url: set())
+    counts = m.reconcile("https://z", "t", "dry-run", "http://am", [])
+    assert counts[m.RESOLVED] == 1 and counts["closed"] == 0
+    assert all(method == "GET" for method, _ in calls)
+
+
+def test_close_mode_closes_what_is_over_reads_it_back_and_keeps_the_rest(monkeypatch):
+    states = {}
+    tickets = [ck(7, "TargetDown monitoring", "TargetDown"), ck(8, "KubeJobFailed media", "KubeJobFailed"),
+               ck(9, "Semaphore Sync: x", "semaphore")]
+    call, calls = fake_zammad(tickets, states)
+    monkeypatch.setattr(m, "zammad", call)
+    monkeypatch.setattr(m, "active_alert_hosts", lambda url: {"KubeJobFailed media"})
+    counts = m.reconcile("https://z", "t", "close", "http://am", [])
+    assert counts["closed"] == 1 and states == {7: "closed"}
+    assert ("PUT", "/api/v1/tickets/7") in calls and not any(p.endswith("/8") or p.endswith("/9") for _, p in calls if _ == "PUT")
+
+
+def test_nothing_is_closed_when_alertmanager_cant_be_asked(monkeypatch):
+    states = {}
+    call, _ = fake_zammad([ck(7, "TargetDown monitoring", "TargetDown")], states)
+    monkeypatch.setattr(m, "zammad", call)
+
+    def down(url):
+        raise OSError("refused")
+    monkeypatch.setattr(m, "active_alert_hosts", down)
+    assert m.reconcile("https://z", "t", "close", "http://am", [])["closed"] == 0 and states == {}
+
+
+def test_the_api_lives_at_the_checkmk_urls_own_address():
+    assert m.api_base("https://zammad.example/api/v1/integration/check_mk/s3cr3t") == "https://zammad.example"

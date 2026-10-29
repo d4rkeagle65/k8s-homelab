@@ -45,6 +45,21 @@ are closed by hand.
 Each route's token is in the environment (DOCKHAND_TOKEN, SEMAPHORE_TOKEN,
 DATABASUS_TOKEN); unset, that route answers 404 to everything.
 
+Every RECONCILE_SECONDS (600) it also asks, of each open ticket it made, whether what
+opened it is still happening, as a recovery can be lost (the bridge down when it came,
+or a source that sends none). It lists the open tickets through Zammad's API
+(ZAMMAD_API_TOKEN: an agent's token with ticket.agent only) and keeps to those whose
+Checkmk preferences carry a host and service, the bridge's; one a person opened has
+none. Then, by the ticket's key: an Alertmanager alert is still happening while
+Alertmanager lists it as active (ALERTMANAGER_URL); a Dockhand container while it
+isn't running and healthy, and a Dockhand stack while any of its containers isn't
+running, both asked of DOCKER_HOSTS. Semaphore's, Databasus's and other Dockhand tickets
+aren't checked. A source that can't answer keeps the ticket open: "couldn't ask" is
+never "over". RECONCILE_MODE is dry-run by default, which only logs each verdict ("would
+close #N") and writes nothing; close closes each ticket whose cause is over, with an
+internal note saying what was checked; off skips it. Without ZAMMAD_API_TOKEN it's off
+and says so.
+
 A failed call to Zammad answers Alertmanager with 502, so it retries. The
 Zammad URL carries the integration's token: it comes from the environment
 (ZAMMAD_URL) and is never logged. Standard library only.
@@ -397,6 +412,147 @@ def send(url: str, fields: dict) -> str:
         return json.load(r).get("result", "")
 
 
+# --- The periodic check: is what opened each ticket still happening? ---------------
+
+RESOLVED, ONGOING, UNKNOWN = "over", "still happening", "couldn't tell"
+
+
+def api_base(url: str) -> str:
+    """Zammad's own address, from the Checkmk endpoint's URL (its path holds the token)."""
+    parts = urllib.parse.urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}"
+
+
+def zammad(base: str, token: str, method: str, path: str, body: dict | None = None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(base + path, data=data, method=method, headers={
+        "Authorization": f"Token token={token}", "Accept": "application/json",
+        **({"Content-Type": "application/json"} if data else {})})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        raw = r.read()
+        return json.loads(raw) if raw.strip() else None
+
+
+def ticket_key(ticket: dict) -> tuple[str, str]:
+    """The (host, service) the bridge keyed a ticket by, or ("", "") for one it didn't make."""
+    prefs = ticket.get("preferences") or {}
+    ck = prefs.get("check_mk") or prefs.get("checkmk") or {}
+    return str(ck.get("host") or ""), str(ck.get("service") or "")
+
+
+def open_bridge_tickets(base: str, token: str) -> list[dict]:
+    """Every new or open ticket that carries the bridge's Checkmk key."""
+    query = urllib.parse.quote("state.name:new OR state.name:open")
+    found = zammad(base, token, "GET", f"/api/v1/tickets/search?query={query}&limit=200&expand=true")
+    tickets = found if isinstance(found, list) else (found or {}).get("tickets") or []
+    return [t for t in tickets if isinstance(t, dict) and all(ticket_key(t))]
+
+
+def active_alert_hosts(alertmanager: str) -> set[str]:
+    """The ticket keys (hosts) of every alert Alertmanager has active, silenced or not."""
+    with urllib.request.urlopen(f"{alertmanager}/api/v2/alerts?active=true", timeout=10) as r:
+        alerts = json.load(r)
+    return {to_checkmk({"labels": a.get("labels") or {}, "status": "firing"})["host"] for a in alerts}
+
+
+def container_state(name: str, hosts: list[str]) -> tuple[str, str]:
+    found, unasked = [], 0
+    for host in hosts:
+        try:
+            found += [c for c in docker_containers(host) if f"/{name}" in (c.get("Names") or [])]
+        except (urllib.error.URLError, OSError, ValueError):
+            unasked += 1
+    if not found:
+        return UNKNOWN, ("not found on any Docker host" + (f", {unasked} couldn't be asked" if unasked else ""))
+    if all(c.get("State") == "running" and "unhealthy" not in str(c.get("Status", "")) and
+           "health: starting" not in str(c.get("Status", "")) for c in found):
+        return RESOLVED, "running" + (" and healthy" if any("(healthy)" in str(c.get("Status", "")) for c in found) else "")
+    return ONGOING, ", ".join(sorted({str(c.get("Status") or c.get("State")) for c in found}))
+
+
+def stack_state(name: str, hosts: list[str]) -> tuple[str, str]:
+    found, unasked = [], 0
+    for host in hosts:
+        try:
+            found += [c for c in docker_containers(host)
+                      if (c.get("Labels") or {}).get("com.docker.compose.project") == name]
+        except (urllib.error.URLError, OSError, ValueError):
+            unasked += 1
+    if unasked and not found:
+        return UNKNOWN, f"{unasked} of {len(hosts)} Docker hosts couldn't be asked"
+    if not found:
+        return UNKNOWN, "no container of that stack on any Docker host"
+    down = sorted(c["Names"][0].lstrip("/") for c in found
+                  if c.get("State") != "running" and not str(c.get("Status", "")).startswith("Exited (0)"))
+    return (ONGOING, "not running: " + ", ".join(down)) if down else (RESOLVED, f"its {len(found)} containers are running")
+
+
+def verdict(host: str, service: str, alert_hosts: set[str] | None, docker_hosts: list[str]) -> tuple[str, str]:
+    """Whether what opened a ticket is over, still happening, or couldn't be told; and why."""
+    if service == "dockhand":
+        if host.startswith("Dockhand Container "):
+            return container_state(host[len("Dockhand Container "):], docker_hosts) if docker_hosts else (UNKNOWN, "DOCKER_HOSTS unset")
+        if host.startswith("Dockhand Stack "):
+            return stack_state(host[len("Dockhand Stack "):], docker_hosts) if docker_hosts else (UNKNOWN, "DOCKER_HOSTS unset")
+        return UNKNOWN, "a Dockhand event of a kind not checked"
+    if service in ("semaphore", "databasus"):
+        return UNKNOWN, f"{service}'s tickets aren't checked"
+    if alert_hosts is None:
+        return UNKNOWN, "Alertmanager couldn't be asked"
+    return (ONGOING, "the alert is active") if host in alert_hosts else (RESOLVED, "Alertmanager no longer has the alert active")
+
+
+def reconcile(base: str, token: str, mode: str, alertmanager: str, docker_hosts: list[str]) -> dict:
+    """One pass over the open tickets; what it found, counted."""
+    try:
+        tickets = open_bridge_tickets(base, token)
+    except (urllib.error.URLError, OSError, ValueError) as e:
+        log(f"check: couldn't list Zammad's open tickets ({getattr(e, 'code', None) or type(e).__name__}); nothing done")
+        return {"error": 1}
+    alert_hosts = None
+    if alertmanager:
+        try:
+            alert_hosts = active_alert_hosts(alertmanager)
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            log(f"check: couldn't ask Alertmanager ({type(e).__name__}); its tickets stay open")
+    counts = {RESOLVED: 0, ONGOING: 0, UNKNOWN: 0, "closed": 0}
+    for t in tickets:
+        host, service = ticket_key(t)
+        v, why = verdict(host, service, alert_hosts, docker_hosts)
+        counts[v] += 1
+        label = f"#{t.get('number') or t.get('id')} ({host})"
+        if v != RESOLVED:
+            log(f"check: keeps {label}: {v}: {why}")
+        elif mode != "close":
+            log(f"check: would close {label}: {why}")
+        else:
+            note = f"Closed by zammad-bridge's periodic check: {why}."
+            try:
+                zammad(base, token, "PUT", f"/api/v1/tickets/{t['id']}", {
+                    "state": "closed", "article": {"subject": "Closed: no longer happening", "body": note,
+                                                   "type": "note", "internal": True}})
+                back = zammad(base, token, "GET", f"/api/v1/tickets/{t['id']}?expand=true") or {}
+                if str(back.get("state") or "").lower() == "closed":
+                    counts["closed"] += 1
+                    log(f"check: closed {label}: {why}")
+                else:
+                    log(f"check: closing {label} didn't take: Zammad reads it as {back.get('state')!r}")
+            except (urllib.error.URLError, OSError, ValueError) as e:
+                log(f"check: couldn't close {label} ({getattr(e, 'code', None) or type(e).__name__})")
+    log(f"check ({mode}): {len(tickets)} open ticket(s) of the bridge's: {counts[RESOLVED]} over, "
+        f"{counts[ONGOING]} still happening, {counts[UNKNOWN]} couldn't tell; {counts['closed']} closed")
+    return counts
+
+
+def reconcile_loop(base: str, token: str, mode: str, alertmanager: str, docker_hosts: list[str], every: float) -> None:
+    while True:
+        try:
+            reconcile(base, token, mode, alertmanager, docker_hosts)
+        except Exception as e:  # one bad pass must not end the check for good
+            log(f"check: failed ({type(e).__name__}: {e})")
+        time.sleep(every)
+
+
 class Handler(BaseHTTPRequestHandler):
     url = ""
     prometheus = ""
@@ -507,6 +663,20 @@ def main() -> None:
         setattr(Handler, attr, os.environ.get(f"{route.upper()}_TOKEN", "").strip())
         if not getattr(Handler, attr):
             log(f"{route.upper()}_TOKEN unset: /{route} answers 404")
+    api_token = os.environ.get("ZAMMAD_API_TOKEN", "").strip()
+    mode = (os.environ.get("RECONCILE_MODE", "dry-run").strip().lower() or "dry-run")
+    if mode not in ("dry-run", "close", "off"):
+        sys.exit(f"RECONCILE_MODE must be dry-run, close or off, not {mode!r}")
+    if not api_token:
+        log("ZAMMAD_API_TOKEN unset: the periodic check is off")
+    elif mode == "off":
+        log("RECONCILE_MODE off: the periodic check is off")
+    else:
+        every = float(os.environ.get("RECONCILE_SECONDS", "600") or 600)
+        alertmanager = os.environ.get("ALERTMANAGER_URL", "").strip().rstrip("/")
+        threading.Thread(target=reconcile_loop, daemon=True,
+                         args=(api_base(url), api_token, mode, alertmanager, Handler.docker_hosts, every)).start()
+        log(f"periodic check every {every:.0f}s, {mode}")
     port = int(os.environ.get("PORT", "8080"))
     log(f"listening on {port}")
     ThreadingHTTPServer(("", port), Handler).serve_forever()
