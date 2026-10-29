@@ -13,6 +13,15 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **n8n's "Zammad: close what's over" isn't imported yet** (#458;
+  `n8n/workflows/zammad-close-whats-over.json`, the bridge's `/verdict` in
+  `kubernetes/prod/system/monitoring/zammad-bridge/app/zammad-bridge.py`). After merge: the
+  **Zammad API** credential in n8n (`n8n/README.md`), import, pick it on the three Zammad
+  nodes, run once by hand. Check "Zammad: open tickets" gets 200 from the in-cluster address
+  (untested), and "One per ticket" lists the open bridge tickets (none means the Checkmk key
+  isn't in `preferences.check_mk`, where `ticket_key` reads it). Then turn it Active; once
+  "Would close" holds the right tickets, set `close` true in Settings. Semaphore, Databasus and
+  other Dockhand tickets stay "unknown" until `verdict` learns to ask them.
 - **The HP convertible laptop joins the cluster when its Ethernet adapters arrive** (NetBox:
   Staged, tags `ansible` and `debian`, its address on Production, its local context
   `ansible_user`, `ansible_python_interpreter`, `host_exporters_defer: true` and
@@ -61,12 +70,6 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - **Wipe H5's old `HDD` volume group** (from `old-queues/QUEUE-talos.md`, Phase 0): the 2 TB
   HDD still holds it; wipe it once its two old VM disks (111, 117) are confirmed backed up.
   Unverified 2026-10-22 (no Proxmox storage lists it, which doesn't show the group is gone).
-- **Restart NetBox once with attachments on the Synology, and delete its old media folder**
-  (2026-10-29): uploads work, into `dockerData/netbox-media/netbox-attachments/` (12
-  attachments, each file present; Run Command tasks 1432-1434), but `netbox` hasn't restarted
-  since they were added. Restart it in Dockhand and open one again. Then delete the host folder
-  `/opt/netbox/media` on the first Docker VM, which nothing mounts (empty). Left, the restart
-  path stays untried, and an unused folder sits beside the stack's real data.
 - **Add the Synology's `dockerData` share to a Hyper Backup task to the TerraMaster**
   (2026-10-28): `k8s-to-tnas`, the only task, backs up `k8sData` alone (Run Command task 1417).
   Left, NetBox's uploads have no backup: the Docker VM's nightly backup no longer holds them.

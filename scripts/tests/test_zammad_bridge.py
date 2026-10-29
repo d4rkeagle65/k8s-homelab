@@ -368,7 +368,7 @@ def test_a_host_that_cant_be_asked_after_the_hold_still_opens_the_ticket(monkeyp
     assert len(sent) == 1 and "couldn't be asked" in sent[0]["text"]
 
 
-# --- The periodic check -------------------------------------------------------------
+# --- /verdict ------------------------------------------------------------------
 
 def ck(tid, host, service, number=None):
     return {"id": tid, "number": number or str(tid), "state": "open",
@@ -411,52 +411,53 @@ def test_unchecked_kinds_stay_open():
     assert m.verdict("Dockhand Environment offline", "dockhand", set(), ["h"])[0] == m.UNKNOWN
 
 
-def fake_zammad(tickets, states):
-    calls = []
+def verdict_post(body: bytes, alertmanager="http://am"):
+    import io
+    import json
 
-    def call(base, token, method, path, body=None):
-        calls.append((method, path))
-        if path.startswith("/api/v1/tickets/search"):
-            return tickets
-        tid = int(path.split("/")[4].split("?")[0])
-        if method == "PUT":
-            states[tid] = body["state"]
-            return {}
-        return {"id": tid, "state": states.get(tid, "open")}
-    return call, calls
+    class Fake(m.Handler):
+        def __init__(self):
+            self.path, self.headers = "/verdict", {"Content-Length": str(len(body))}
+            self.rfile, self.wfile, self.codes = io.BytesIO(body), io.BytesIO(), []
+
+        def send_response(self, code, message=None):
+            self.codes.append(code)
+
+        def send_header(self, *a):
+            pass
+
+        def end_headers(self):
+            pass
+    Fake.alertmanager = alertmanager
+    h = Fake()
+    h.do_POST()
+    return h.codes[0], (json.loads(h.wfile.getvalue()) if h.wfile.getvalue() else None)
 
 
-def test_a_dry_run_writes_nothing(monkeypatch):
-    call, calls = fake_zammad([ck(7, "TargetDown monitoring", "TargetDown")], {})
-    monkeypatch.setattr(m, "zammad", call)
-    monkeypatch.setattr(m, "active_alert_hosts", lambda url: set())
-    counts = m.reconcile("https://z", "t", "dry-run", "http://am", [])
-    assert counts[m.RESOLVED] == 1 and counts["closed"] == 0
-    assert all(method == "GET" for method, _ in calls)
-
-
-def test_close_mode_closes_what_is_over_reads_it_back_and_keeps_the_rest(monkeypatch):
-    states = {}
-    tickets = [ck(7, "TargetDown monitoring", "TargetDown"), ck(8, "KubeJobFailed media", "KubeJobFailed"),
-               ck(9, "Semaphore Sync: x", "semaphore")]
-    call, calls = fake_zammad(tickets, states)
-    monkeypatch.setattr(m, "zammad", call)
+def test_verdict_answers_for_the_bridges_tickets_and_leaves_a_persons_out(monkeypatch):
+    import json
     monkeypatch.setattr(m, "active_alert_hosts", lambda url: {"KubeJobFailed media"})
-    counts = m.reconcile("https://z", "t", "close", "http://am", [])
-    assert counts["closed"] == 1 and states == {7: "closed"}
-    assert ("PUT", "/api/v1/tickets/7") in calls and not any(p.endswith("/8") or p.endswith("/9") for _, p in calls if _ == "PUT")
+    tickets = [ck(7, "TargetDown monitoring", "TargetDown"), ck(8, "KubeJobFailed media", "KubeJobFailed"),
+               ck(9, "Semaphore Sync: x", "semaphore"), {"id": 10, "preferences": {}}]
+    for body in (tickets, {"tickets": tickets}):  # Zammad's search answers either shape
+        code, out = verdict_post(json.dumps(body).encode())
+        assert code == 200
+        assert [(t["id"], t["verdict"]) for t in out["tickets"]] == [(7, "over"), (8, "ongoing"), (9, "unknown")]
+        assert out["tickets"][0]["host"] == "TargetDown monitoring" and out["tickets"][0]["reason"]
 
 
-def test_nothing_is_closed_when_alertmanager_cant_be_asked(monkeypatch):
-    states = {}
-    call, _ = fake_zammad([ck(7, "TargetDown monitoring", "TargetDown")], states)
-    monkeypatch.setattr(m, "zammad", call)
+def test_no_alert_ticket_is_over_when_alertmanager_cant_be_asked(monkeypatch):
+    import json
 
     def down(url):
         raise OSError("refused")
     monkeypatch.setattr(m, "active_alert_hosts", down)
-    assert m.reconcile("https://z", "t", "close", "http://am", [])["closed"] == 0 and states == {}
+    _, out = verdict_post(json.dumps([ck(7, "TargetDown monitoring", "TargetDown")]).encode())
+    assert out["tickets"][0]["verdict"] == "unknown"
+    _, out = verdict_post(json.dumps([ck(7, "TargetDown monitoring", "TargetDown")]).encode(), alertmanager="")
+    assert out["tickets"][0]["verdict"] == "unknown"
 
 
-def test_the_api_lives_at_the_checkmk_urls_own_address():
-    assert m.api_base("https://zammad.example/api/v1/integration/check_mk/s3cr3t") == "https://zammad.example"
+def test_verdict_refuses_a_body_that_isnt_json():
+    assert verdict_post(b"not json")[0] == 400
+    assert verdict_post(b'{"tickets": "x"}') == (200, {"tickets": []})

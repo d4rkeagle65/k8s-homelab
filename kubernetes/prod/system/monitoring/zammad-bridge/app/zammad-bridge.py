@@ -45,20 +45,18 @@ are closed by hand.
 Each route's token is in the environment (DOCKHAND_TOKEN, SEMAPHORE_TOKEN,
 DATABASUS_TOKEN); unset, that route answers 404 to everything.
 
-Every RECONCILE_SECONDS (600) it also asks, of each open ticket it made, whether what
-opened it is still happening, as a recovery can be lost (the bridge down when it came,
-or a source that sends none). It lists the open tickets through Zammad's API
-(ZAMMAD_API_TOKEN: an agent's token with ticket.agent only) and keeps to those whose
-Checkmk preferences carry a host and service, the bridge's; one a person opened has
-none. Then, by the ticket's key: an Alertmanager alert is still happening while
-Alertmanager lists it as active (ALERTMANAGER_URL); a Dockhand container while it
-isn't running and healthy, and a Dockhand stack while any of its containers isn't
-running, both asked of DOCKER_HOSTS. Semaphore's, Databasus's and other Dockhand tickets
-aren't checked. A source that can't answer keeps the ticket open: "couldn't ask" is
-never "over". RECONCILE_MODE is dry-run by default, which only logs each verdict ("would
-close #N") and writes nothing; close closes each ticket whose cause is over, with an
-internal note saying what was checked; off skips it. Without ZAMMAD_API_TOKEN it's off
-and says so.
+POST /verdict asks, of Zammad's open tickets (its ticket search's JSON, a list or
+{"tickets": [...]}), whether what opened each is still happening, as a recovery can be
+lost (the bridge down when it came, or a source that sends none). n8n's "Zammad: close
+what's over" workflow (n8n/workflows/) sends it the tickets, and closes those it
+answers "over" for. Only tickets whose Checkmk preferences carry a host and service are
+the bridge's; one a person opened has none and is left out of the answer. By the ticket's
+key: an Alertmanager alert is still happening while Alertmanager lists it as active
+(ALERTMANAGER_URL); a Dockhand container while it isn't running and healthy, and a
+Dockhand stack while any of its containers isn't running, both asked of DOCKER_HOSTS.
+Semaphore's, Databasus's and other Dockhand tickets are "unknown". A source that can't
+answer makes "unknown": "couldn't ask" is never "over". It reads and never writes, so it
+needs no token.
 
 A failed call to Zammad answers Alertmanager with 502, so it retries. The
 Zammad URL carries the integration's token: it comes from the environment
@@ -412,25 +410,9 @@ def send(url: str, fields: dict) -> str:
         return json.load(r).get("result", "")
 
 
-# --- The periodic check: is what opened each ticket still happening? ---------------
+# --- /verdict: is what opened each ticket still happening? -------------------------
 
-RESOLVED, ONGOING, UNKNOWN = "over", "still happening", "couldn't tell"
-
-
-def api_base(url: str) -> str:
-    """Zammad's own address, from the Checkmk endpoint's URL (its path holds the token)."""
-    parts = urllib.parse.urlsplit(url)
-    return f"{parts.scheme}://{parts.netloc}"
-
-
-def zammad(base: str, token: str, method: str, path: str, body: dict | None = None):
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(base + path, data=data, method=method, headers={
-        "Authorization": f"Token token={token}", "Accept": "application/json",
-        **({"Content-Type": "application/json"} if data else {})})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        raw = r.read()
-        return json.loads(raw) if raw.strip() else None
+RESOLVED, ONGOING, UNKNOWN = "over", "ongoing", "unknown"
 
 
 def ticket_key(ticket: dict) -> tuple[str, str]:
@@ -438,14 +420,6 @@ def ticket_key(ticket: dict) -> tuple[str, str]:
     prefs = ticket.get("preferences") or {}
     ck = prefs.get("check_mk") or prefs.get("checkmk") or {}
     return str(ck.get("host") or ""), str(ck.get("service") or "")
-
-
-def open_bridge_tickets(base: str, token: str) -> list[dict]:
-    """Every new or open ticket that carries the bridge's Checkmk key."""
-    query = urllib.parse.quote("state.name:new OR state.name:open")
-    found = zammad(base, token, "GET", f"/api/v1/tickets/search?query={query}&limit=200&expand=true")
-    tickets = found if isinstance(found, list) else (found or {}).get("tickets") or []
-    return [t for t in tickets if isinstance(t, dict) and all(ticket_key(t))]
 
 
 def active_alert_hosts(alertmanager: str) -> set[str]:
@@ -487,6 +461,27 @@ def stack_state(name: str, hosts: list[str]) -> tuple[str, str]:
     return (ONGOING, "not running: " + ", ".join(down)) if down else (RESOLVED, f"its {len(found)} containers are running")
 
 
+def verdicts(tickets: list, alertmanager: str, docker_hosts: list[str]) -> list[dict]:
+    """A verdict for each of the bridge's tickets among these; a person's are left out."""
+    mine = [t for t in tickets if isinstance(t, dict) and all(ticket_key(t))]
+    alert_hosts = None
+    if alertmanager and mine:
+        try:
+            alert_hosts = active_alert_hosts(alertmanager)
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            log(f"verdict: couldn't ask Alertmanager ({type(e).__name__}); its tickets are unknown")
+    out = []
+    for t in mine:
+        host, service = ticket_key(t)
+        v, why = verdict(host, service, alert_hosts, docker_hosts)
+        out.append({"id": t.get("id"), "number": t.get("number"), "title": t.get("title"),
+                    "host": host, "service": service, "verdict": v, "reason": why})
+    counts = {k: sum(o["verdict"] == k for o in out) for k in (RESOLVED, ONGOING, UNKNOWN)}
+    log(f"verdict: {len(tickets)} ticket(s), {len(mine)} the bridge's: {counts[RESOLVED]} over, "
+        f"{counts[ONGOING]} ongoing, {counts[UNKNOWN]} unknown")
+    return out
+
+
 def verdict(host: str, service: str, alert_hosts: set[str] | None, docker_hosts: list[str]) -> tuple[str, str]:
     """Whether what opened a ticket is over, still happening, or couldn't be told; and why."""
     if service == "dockhand":
@@ -500,57 +495,6 @@ def verdict(host: str, service: str, alert_hosts: set[str] | None, docker_hosts:
     if alert_hosts is None:
         return UNKNOWN, "Alertmanager couldn't be asked"
     return (ONGOING, "the alert is active") if host in alert_hosts else (RESOLVED, "Alertmanager no longer has the alert active")
-
-
-def reconcile(base: str, token: str, mode: str, alertmanager: str, docker_hosts: list[str]) -> dict:
-    """One pass over the open tickets; what it found, counted."""
-    try:
-        tickets = open_bridge_tickets(base, token)
-    except (urllib.error.URLError, OSError, ValueError) as e:
-        log(f"check: couldn't list Zammad's open tickets ({getattr(e, 'code', None) or type(e).__name__}); nothing done")
-        return {"error": 1}
-    alert_hosts = None
-    if alertmanager:
-        try:
-            alert_hosts = active_alert_hosts(alertmanager)
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            log(f"check: couldn't ask Alertmanager ({type(e).__name__}); its tickets stay open")
-    counts = {RESOLVED: 0, ONGOING: 0, UNKNOWN: 0, "closed": 0}
-    for t in tickets:
-        host, service = ticket_key(t)
-        v, why = verdict(host, service, alert_hosts, docker_hosts)
-        counts[v] += 1
-        label = f"#{t.get('number') or t.get('id')} ({host})"
-        if v != RESOLVED:
-            log(f"check: keeps {label}: {v}: {why}")
-        elif mode != "close":
-            log(f"check: would close {label}: {why}")
-        else:
-            note = f"Closed by zammad-bridge's periodic check: {why}."
-            try:
-                zammad(base, token, "PUT", f"/api/v1/tickets/{t['id']}", {
-                    "state": "closed", "article": {"subject": "Closed: no longer happening", "body": note,
-                                                   "type": "note", "internal": True}})
-                back = zammad(base, token, "GET", f"/api/v1/tickets/{t['id']}?expand=true") or {}
-                if str(back.get("state") or "").lower() == "closed":
-                    counts["closed"] += 1
-                    log(f"check: closed {label}: {why}")
-                else:
-                    log(f"check: closing {label} didn't take: Zammad reads it as {back.get('state')!r}")
-            except (urllib.error.URLError, OSError, ValueError) as e:
-                log(f"check: couldn't close {label} ({getattr(e, 'code', None) or type(e).__name__})")
-    log(f"check ({mode}): {len(tickets)} open ticket(s) of the bridge's: {counts[RESOLVED]} over, "
-        f"{counts[ONGOING]} still happening, {counts[UNKNOWN]} couldn't tell; {counts['closed']} closed")
-    return counts
-
-
-def reconcile_loop(base: str, token: str, mode: str, alertmanager: str, docker_hosts: list[str], every: float) -> None:
-    while True:
-        try:
-            reconcile(base, token, mode, alertmanager, docker_hosts)
-        except Exception as e:  # one bad pass must not end the check for good
-            log(f"check: failed ({type(e).__name__}: {e})")
-        time.sleep(every)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -570,10 +514,15 @@ class Handler(BaseHTTPRequestHandler):
     semaphore_token = ""
     databasus_token = ""
 
+    alertmanager = ""
+
     def do_POST(self):
         route = self.path.split("/")[1] if self.path.count("/") >= 2 else ""
         if route in ROUTES:
             self.notification(route)
+            return
+        if self.path == "/verdict":
+            self.verdict()
             return
         if self.path != "/alertmanager":
             self.send_response(404)
@@ -600,6 +549,22 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(502 if failed else 200)
         self.end_headers()
 
+
+    def verdict(self):
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"[]")
+        except (ValueError, json.JSONDecodeError):
+            self.send_response(400)
+            self.end_headers()
+            return
+        tickets = body.get("tickets") if isinstance(body, dict) else body
+        out = json.dumps({"tickets": verdicts(tickets if isinstance(tickets, list) else [],
+                                              self.alertmanager, self.docker_hosts)}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(out)))
+        self.end_headers()
+        self.wfile.write(out)
 
     def notification(self, route: str):
         attr, convert = ROUTES[route]
@@ -663,20 +628,9 @@ def main() -> None:
         setattr(Handler, attr, os.environ.get(f"{route.upper()}_TOKEN", "").strip())
         if not getattr(Handler, attr):
             log(f"{route.upper()}_TOKEN unset: /{route} answers 404")
-    api_token = os.environ.get("ZAMMAD_API_TOKEN", "").strip()
-    mode = (os.environ.get("RECONCILE_MODE", "dry-run").strip().lower() or "dry-run")
-    if mode not in ("dry-run", "close", "off"):
-        sys.exit(f"RECONCILE_MODE must be dry-run, close or off, not {mode!r}")
-    if not api_token:
-        log("ZAMMAD_API_TOKEN unset: the periodic check is off")
-    elif mode == "off":
-        log("RECONCILE_MODE off: the periodic check is off")
-    else:
-        every = float(os.environ.get("RECONCILE_SECONDS", "600") or 600)
-        alertmanager = os.environ.get("ALERTMANAGER_URL", "").strip().rstrip("/")
-        threading.Thread(target=reconcile_loop, daemon=True,
-                         args=(api_base(url), api_token, mode, alertmanager, Handler.docker_hosts, every)).start()
-        log(f"periodic check every {every:.0f}s, {mode}")
+    Handler.alertmanager = os.environ.get("ALERTMANAGER_URL", "").strip().rstrip("/")
+    if not Handler.alertmanager:
+        log("ALERTMANAGER_URL unset: /verdict answers unknown for every alert's ticket")
     port = int(os.environ.get("PORT", "8080"))
     log(f"listening on {port}")
     ThreadingHTTPServer(("", port), Handler).serve_forever()

@@ -62,13 +62,7 @@ spec:
         # Asked which members of a group alert are down (zammad-bridge.py).
         - name: PROMETHEUS_URL
           value: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
-        # The periodic check (zammad-bridge.py): whether each open ticket's cause is
-        # still happening. dry-run only logs; close closes; off skips it. The token is
-        # read once, at start: a new one needs a rollout restart.
-        - name: ZAMMAD_API_TOKEN
-          valueFrom: {secretKeyRef: {name: zammad-bridge-api, key: ZAMMAD_API_TOKEN, optional: true}}
-        - {name: RECONCILE_MODE, value: dry-run}
-        - {name: RECONCILE_SECONDS, value: "600"}
+        # Asked, for /verdict, which alerts are still active (zammad-bridge.py).
         - name: ALERTMANAGER_URL
           value: http://kps-alertmanager.monitoring.svc.${CLUSTER_DOMAIN}:9093
         ports:
