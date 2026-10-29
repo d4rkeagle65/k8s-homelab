@@ -132,7 +132,7 @@
      unregisterReceiver(networkChange);
      handler.removeCallbacksAndMessages(null);
      if (web != null) web.destroy();
-@@ -745,6 +797,175 @@
+@@ -745,6 +797,184 @@
          .getBoolean(PREF_MENU_BUTTON, false) ? View.VISIBLE : View.GONE);
    }
  
@@ -275,9 +275,18 @@
 +      case "/pause": action = () -> sendPageKey(KeyEvent.KEYCODE_SPACE); break;
 +      case "/mute": action = this::toggleMute; break;
 +      case "/reboot":
++        // The firmware's su is AOSP's: su <uid> <command>, no -c. Anything it prints is an error.
 +        action = () -> {
 +          try {
-+            Runtime.getRuntime().exec(new String[] {"su", "-c", "reboot"});
++            Process p = Runtime.getRuntime().exec(new String[] {"su", "0", "reboot"});
++            new Thread(() -> {
++              try (BufferedReader err = new BufferedReader(
++                  new InputStreamReader(p.getErrorStream(), StandardCharsets.UTF_8))) {
++                for (String line; (line = err.readLine()) != null; ) Log.w(TAG, "Reboot: " + line);
++              } catch (IOException ignored) {
++                // The reboot ends the process; nothing more to read.
++              }
++            }, "reboot").start();
 +          } catch (IOException e) {
 +            Log.w(TAG, "Reboot failed (" + e.getMessage() + ")");
 +          }
@@ -308,7 +317,7 @@
    /** Turns the Home alias on or off. The shell can't enable a component of a release app. */
    private void applyHomeFlag(Intent intent) {
      if (intent == null || !intent.hasExtra("home")) return;
-@@ -764,8 +985,13 @@
+@@ -764,8 +994,13 @@
          // touch from before (see cancelPageTouches), clear it first so this tap is not read as a
          // second finger. With no stale touch the cancel is a no-op.
          cancelPageTouches();
@@ -322,7 +331,7 @@
          if (e.getPointerCount() == 2) {
            for (int i = 0; i < 2; i++) {
              exitIds[i] = e.getPointerId(i);
-@@ -790,8 +1016,11 @@
+@@ -790,8 +1025,11 @@
            }
          }
          break;
