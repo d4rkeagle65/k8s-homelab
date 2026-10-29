@@ -20,6 +20,12 @@ builds the cluster's VMs and will read NetBox to do it.
   for the second). Its switches are set in `compose.yaml`: `SYNC_APPLY` (on) writes,
   `SYNC_DELETE` (off) also removes a record in a NetBox zone that NetBox doesn't have, and
   `PIHOLE_TLS_VERIFY` (on) checks each Pi-hole's certificate.
+- **Uploads live on the Synology**, in the `netbox-media` folder of its `dockerData` share,
+  mounted over NFS (`compose.yaml` says how): image attachments, the attachments plugin's
+  files and floorplan images, all rarely read. NetBox starts only when the Synology answers.
+  Docker keeps a volume's options from when it made it, so a change to them (a new
+  `NFS_SERVER`) needs `docker volume rm netbox_netbox-media netbox_docker-data` before the
+  deploy; the files stay on the NAS. Reports and scripts stay on the host, in `/opt/netbox/`.
 
 ## First deploy
 
@@ -29,11 +35,14 @@ builds the cluster's VMs and will read NetBox to do it.
    `NETBOX_DB_PASSWORD`, `NETBOX_SECRET_KEY` and `NETBOX_API_TOKEN_PEPPER` (each
    `head -c 48 /dev/urandom | base64`), `AUTHENTIK_NETBOX_OIDC_CLIENT_SECRET` (Authentik's
    blueprint reads it too), and `DATABASUS_NETBOX_DB_PASSWORD` (this stack's own).
-2. **The stack** in Dockhand from this folder, with "Build images on deploy" on, and its
+2. **The Synology's `dockerData` share** (`docker/CLAUDE.md`), with an NFS rule for this
+   host's Production address: read/write, squash "No mapping", security `sys`. Without
+   it, `netbox-files-init` can't mount it and NetBox doesn't start.
+3. **The stack** in Dockhand from this folder, with "Build images on deploy" on, and its
    webhook enabled with `DOCKHAND_WEBHOOK_SECRET` (`docker/CLAUDE.md`).
-3. **The first start** migrates an empty database; give it a few minutes before the health
+4. **The first start** migrates an empty database; give it a few minutes before the health
    check passes. Then log in through Authentik.
-4. **Backups:** once this stack is up, its network `netbox_default` exists, which the
+5. **Backups:** once this stack is up, its network `netbox_default` exists, which the
    Databasus stack joins (before then, Databasus's redeploy would fail on the missing
    network). Then add the `netbox` database in Databasus
    (host `netbox-postgres`, user `databasus`, that same password).

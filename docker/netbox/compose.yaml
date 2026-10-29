@@ -19,6 +19,7 @@
 #   TIMEZONE                e.g. America/New_York
 #   NETBOX_DNS_SYNC_TOKEN, PIHOLE_1_URL, PIHOLE_1_PASSWORD, PIHOLE_2_URL,
 #   PIHOLE_2_PASSWORD       netbox-dns-sync's (below)
+#   NFS_SERVER              the Synology's NFS address, an IP (uploads, below)
 #
 # The Kea plugin calls http://kea-dhcp4:8000 on the kea stack's network (below).
 x-netbox: &netbox
@@ -55,7 +56,7 @@ x-netbox: &netbox
     MEDIA_ROOT: /opt/netbox/netbox/media
   networks: [default, kea]
   volumes:
-  - /opt/netbox/media:/opt/netbox/netbox/media
+  - netbox-media:/opt/netbox/netbox/media
   - /opt/netbox/reports:/opt/netbox/netbox/reports
   - /opt/netbox/scripts:/opt/netbox/netbox/scripts
 
@@ -124,8 +125,13 @@ services:
       SQL
       psql -tA -c "SELECT 'databasus role: login ' || rolcanlogin || ', reads all data ' || pg_has_role('databasus', 'pg_read_all_data', 'MEMBER') FROM pg_roles WHERE rolname = 'databasus'"
 
-  # The host folders NetBox writes (uploads, reports, scripts) belong to its
-  # user, which runs without root: owned on every deploy, then exits.
+  # The folders NetBox writes (uploads on the Synology, reports and scripts on
+  # the host) belong to its user, which runs without root: made and owned on
+  # every deploy, then exits. It mounts the whole dockerData share rather than
+  # netbox-media, since mounting a folder that doesn't exist yet fails; the
+  # others mount netbox-media only once this has run. chmod gives the folder
+  # plain Linux permissions: one made over NFS inherits the share's ACL, which
+  # knows nothing of NetBox's user.
   netbox-files-init:
     <<: *netbox
     user: root
@@ -134,7 +140,18 @@ services:
     labels:
       dockhand.notify: "false"
     pull_policy: never
-    command: [chown, -R, "netbox:root", /opt/netbox/netbox/media, /opt/netbox/netbox/reports, /opt/netbox/netbox/scripts]
+    volumes:
+    - docker-data:/mnt/docker-data
+    - /opt/netbox/reports:/opt/netbox/netbox/reports
+    - /opt/netbox/scripts:/opt/netbox/netbox/scripts
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      mkdir -p /mnt/docker-data/netbox-media
+      chmod 0775 /mnt/docker-data/netbox-media
+      chown -R netbox:root /mnt/docker-data/netbox-media /opt/netbox/netbox/reports /opt/netbox/netbox/scripts
 
   netbox:
     mem_limit: 4g
@@ -225,6 +242,22 @@ services:
       start_period: 3m
       timeout: 3s
       interval: 60s
+
+# Uploads live on the Synology's dockerData share (README.md), over NFSv3: the
+# Synology has NFSv4 off. Its NFS rule lets this host mount it read-write
+# without squashing root, which netbox-files-init needs. nolock: this host runs
+# no rpc.statd, and nothing here locks files. soft: an unreachable NAS fails an
+# upload instead of hanging NetBox's workers.
+volumes:
+  docker-data:
+    driver_opts: &synology-nfs
+      type: nfs
+      o: addr=${NFS_SERVER},nfsvers=3,nolock,soft,rw
+      device: ":/volume1/dockerData"
+  netbox-media:
+    driver_opts:
+      <<: *synology-nfs
+      device: ":/volume1/dockerData/netbox-media"
 
 networks:
   # Kea's control API (the Kea plugin), on the kea stack's default network,
