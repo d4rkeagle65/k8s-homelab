@@ -165,6 +165,17 @@ def test_the_dockhand_endpoint_wants_its_token_and_is_off_without_one(monkeypatc
     assert dockhand_post("/dockhand/s3cr3t-token", body) == 200 and sent[0]["state"] == "CRITICAL"
 
 
+def test_a_stack_event_is_keyed_by_its_stack_so_a_deploy_closes_its_failed_sync():
+    sync = m.dockhand_to_checkmk({"title": "Git sync failed", "message": 'Stack "netbox" sync failed:  Image x Building', "type": "error"})
+    deploy_failed = m.dockhand_to_checkmk({"title": "Stack deploy failed", "message": 'Stack "netbox" deploy failed: y', "type": "error"})
+    git_ok = m.dockhand_to_checkmk({"title": "Git stack deployed", "message": 'Stack "netbox" deployed from git', "type": "success"})
+    ok = m.dockhand_to_checkmk({"title": "Stack deployed", "message": 'Stack "netbox" deployed successfully', "type": "success"})
+    assert sync["host"] == deploy_failed["host"] == git_ok["host"] == ok["host"] == "Dockhand Stack netbox"
+    assert sync["state"] == deploy_failed["state"] == "CRITICAL" and git_ok["state"] == ok["state"] == "OK"
+    other = m.dockhand_to_checkmk({"title": "Git sync failed", "message": 'Stack "lldpd" sync failed: z', "type": "error"})
+    assert other["host"] == "Dockhand Stack lldpd"  # its own ticket, not netbox's
+
+
 def test_a_dockhand_title_starting_with_dockhand_isnt_doubled():
     f = m.dockhand_to_checkmk({"title": "Dockhand Test Notification", "type": "info"})
     assert f["host"] == "Dockhand Test Notification"
