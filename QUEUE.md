@@ -61,13 +61,12 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 - **Wipe H5's old `HDD` volume group** (from `old-queues/QUEUE-talos.md`, Phase 0): the 2 TB
   HDD still holds it; wipe it once its two old VM disks (111, 117) are confirmed backed up.
   Unverified 2026-10-22 (no Proxmox storage lists it, which doesn't show the group is gone).
-- **Try an upload on NetBox's new media volume** (2026-10-28): `netbox` and `netbox-worker`
-  run on the `netbox_netbox-media` NFS volume, `dockerData/netbox-media` on the Synology
-  (`999:0`, Linux mode; read back with Run Command tasks 1423-1426). Attach a file to a device
-  with the attachments plugin's Add button, restart `netbox` in Dockhand and open the file
-  again; it's in `dockerData/netbox-media/netbox-attachments/`. Then delete the host folder
-  `/opt/netbox/media` on the first Docker VM, which nothing mounts (empty at the switch).
-  Left, a failing upload goes unnoticed until someone needs the file.
+- **Restart NetBox once with attachments on the Synology, and delete its old media folder**
+  (2026-10-29): uploads work, into `dockerData/netbox-media/netbox-attachments/` (12
+  attachments, each file present; Run Command tasks 1432-1434), but `netbox` hasn't restarted
+  since they were added. Restart it in Dockhand and open one again. Then delete the host folder
+  `/opt/netbox/media` on the first Docker VM, which nothing mounts (empty). Left, the restart
+  path stays untried, and an unused folder sits beside the stack's real data.
 - **Add the Synology's `dockerData` share to a Hyper Backup task to the TerraMaster**
   (2026-10-28): `k8s-to-tnas`, the only task, backs up `k8sData` alone (Run Command task 1417).
   Left, NetBox's uploads have no backup: the Docker VM's nightly backup no longer holds them.
