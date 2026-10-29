@@ -8,11 +8,21 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
 
 ## Settled
 
+- **n8n writes to Zammad as a user of its own**: `ZAMMAD-BRIDGE-API-TOKEN` is a separate Zammad
+  user's token (the owner, 2026-10-29), so the owner's mail for tickets n8n opens is unchanged
+  (Zammad sends none to the user who made a change).
+
 - **Staged, side by side.** One source moves at a time; its old path keeps working until its
   n8n workflow has handled real notifications. No source is ever without a way into Zammad.
 - **Workflows live in git** (`n8n/workflows/`, `n8n/README.md`) and are imported by hand:
   `n8n import:workflow` deactivates what it imports, so no import at start. An edit made in
   n8n's editor is exported back over its file.
+- **Import a workflow only once n8n has its credentials.** n8n drops, on import, a credential
+  it doesn't have yet, silently: the node then reads "Missing required credential" and the
+  workflow won't publish (the editor only hangs; the API's activate says why). A PR adding a
+  credential is merged and n8n restarted before its workflow is imported; one imported too
+  early is restored from git through the API (`PUT /api/v1/workflows/<id>`). `n8n/README.md`
+  says this in the next PR that touches it.
 - **Credentials come from Key Vault**: a file each in `n8n-credentials`
   (`kubernetes/prod/apps/n8n/n8n/app/externalsecret.yaml`), imported at each start by the
   `import-credentials` init container under a fixed ID the workflows name.
@@ -58,10 +68,6 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
 
 ## Open, decided at their stage
 
-- **Which Zammad user n8n writes as** (stage 2, before `write` is on): Zammad sends no
-  notification to the user who made a change, so with the owner's own token the owner gets
-  no mail for tickets n8n opens. The Checkmk endpoint wrote as the system user. A Zammad user
-  of n8n's own (an agent in Alerts) with its own token in Key Vault keeps the mail as it is.
 - **Dockhand's "a die and a kill hold once"** (stage 3): Python has no static data. JS's
   `$getWorkflowStaticData('global')` is saved only by non-manual runs (unverified that the JS
   Code node exposes it); or ask Zammad whether the ticket is already open.
@@ -74,7 +80,8 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   containers, and a Python Code node ("Verdict") judges each ticket as `/verdict` does. The
   bridge's `/verdict` goes; the Docker Services land in `n8n`.
 - [ ] **2. Semaphore and Databasus** through "Zammad: tickets in" (`n8n/workflows/`): built, a dry
-  run. Left: the Zammad user above; import it and send it each source's test notification
+  run, imported and published 2026-10-29 (both webhooks answer 401 without credentials). Left:
+  send it each source's test notification
   (decisions at "Would write"); `write` on; then each source's URL moves (Semaphore's
   `SEMAPHORE_SLACK_URL`, `docker/secret-names.yaml` and `docker/semaphore/compose.yaml`;
   Databasus's notifier, in its UI); then the bridge's `/semaphore` and `/databasus` routes go.
