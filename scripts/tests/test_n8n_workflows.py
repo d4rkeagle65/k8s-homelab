@@ -412,3 +412,11 @@ def test_dockhands_branch_answers_at_once_and_holds_only_what_asks():
     assert c["Hold?"]["main"][0][0]["node"] == "Wait out the hold" and c["Hold?"]["main"][1][0]["node"] == "Event"
     assert nodes["Wait out the hold"]["parameters"] == {"amount": "={{ $json.hold }}", "unit": "seconds"}
     assert c["Gather after the hold"]["main"][0][0]["node"] == "Dockhand → event"  # the same rules, after the hold
+
+
+def test_an_environment_event_is_keyed_by_its_environment_so_online_closes_its_offline():
+    off, _ = dockhand({"title": "Environment offline", "message": 'Environment "Local" is unreachable', "type": "error"})
+    on, _ = dockhand({"title": "Environment online", "message": 'Environment "Local" is now reachable', "type": "success"})
+    nas, _ = dockhand({"title": "Environment online", "message": 'Environment "NAS one" is now reachable', "type": "success"})
+    assert off["host"] == on["host"] == "Dockhand Environment Local" and nas["host"] == "Dockhand Environment NAS one"
+    assert (off["state"], on["state"], off["hold"]) == ("CRITICAL", "OK", 0)

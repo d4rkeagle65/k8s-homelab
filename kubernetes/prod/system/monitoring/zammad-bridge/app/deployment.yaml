@@ -34,31 +34,6 @@ spec:
             secretKeyRef:
               name: zammad-bridge
               key: ZAMMAD_URL
-        # Dockhand's, Semaphore's and Databasus's notifications, each at
-        # /<route>/<its token> (ingress-dockhand.yaml).
-        - name: DOCKHAND_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: zammad-bridge
-              key: DOCKHAND_TOKEN
-        - name: SEMAPHORE_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: zammad-bridge
-              key: SEMAPHORE_TOKEN
-        - name: DATABASUS_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: zammad-bridge
-              key: DATABASUS_TOKEN
-        # How long a stack container's failure waits before its ticket
-        # (zammad-bridge.py): a redeploy's restarts are over well within it.
-        - name: DOCKHAND_HOLD_SECONDS
-          value: "180"
-        # Each Docker host's read-only socket proxy (docker/docker-socket-proxy*),
-        # asked whether a container Dockhand reports is a stack's (zammad-bridge.py).
-        - name: DOCKER_HOSTS
-          value: ${DOCKHAND_ADDRESS}:9339,${DOCKER_VM_2_MGMT_ADDRESS}:9339,${TERRAMASTER_MGMT_ADDRESS}:9339
         # Asked which members of a group alert are down (zammad-bridge.py).
         - name: PROMETHEUS_URL
           value: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
