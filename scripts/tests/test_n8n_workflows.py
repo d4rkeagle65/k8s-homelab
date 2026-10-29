@@ -303,7 +303,8 @@ def test_tickets_in_writes_only_with_write_on_and_answers_after_its_last_node():
     wf = workflow(TICKETS_IN)
     nodes = {n["name"]: n for n in wf["nodes"]}
     settings = nodes["Settings"]["parameters"]["assignments"]["assignments"]
-    assert [a["value"] for a in settings if a["name"] == "write"] == [False]  # the dry run, in git
+    # On since Semaphore points here (QUEUE-n8n-zammad.md, stage 2).
+    assert [a["value"] for a in settings if a["name"] == "write"] == [True]
     assert wf["connections"]["Writing?"]["main"][0][0]["node"] == "Zammad: write"
     assert "onError" not in nodes["Zammad: write"] and "onError" not in nodes["Zammad: open tickets"]
     for name in ("Semaphore", "Databasus"):
