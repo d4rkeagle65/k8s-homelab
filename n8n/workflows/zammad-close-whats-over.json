@@ -49,7 +49,13 @@
       "parameters": {
         "method": "GET",
         "url": "http://zammad-nginx.zammad:8080/api/v1/tickets/search",
-        "options": {},
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
@@ -87,50 +93,184 @@
     },
     {
       "parameters": {
-        "aggregate": "aggregateAllItemData",
-        "destinationFieldName": "tickets",
-        "options": {}
+        "method": "GET",
+        "url": "http://kps-alertmanager.monitoring:9093/api/v2/alerts",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "active",
+              "value": "true"
+            }
+          ]
+        }
       },
-      "name": "All in one",
-      "type": "n8n-nodes-base.aggregate",
-      "typeVersion": 1,
+      "name": "Alertmanager: active alerts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         660,
         0
       ],
-      "id": "c91ace2d-7ddd-401a-a3da-1ffc94413063"
+      "id": "b604efcd-9ae3-4287-8148-4c2086c51846",
+      "executeOnce": true,
+      "onError": "continueRegularOutput",
+      "notes": "A failure here makes every alert ticket unknown, never over."
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "http://zammad-bridge.monitoring:8080/verdict",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ tickets: $json.tickets }) }}"
+        "method": "GET",
+        "url": "http://docker-vm-1.n8n:9339/containers/json",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        }
       },
-      "name": "Bridge: is each over?",
+      "name": "Docker VM 1",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         880,
         0
       ],
-      "id": "f1b642a8-8ee0-441e-afe2-006ba0a57f52"
+      "id": "3925f40b-f125-4f0e-a981-ecde5ea2d172",
+      "executeOnce": true,
+      "onError": "continueRegularOutput",
+      "notes": "Each Docker host's read-only proxy (docker/docker-socket-proxy*), through a Service in the n8n namespace."
     },
     {
       "parameters": {
-        "fieldToSplitOut": "tickets",
-        "options": {}
+        "method": "GET",
+        "url": "http://docker-vm-2.n8n:9339/containers/json",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        }
       },
-      "name": "One per ticket",
-      "type": "n8n-nodes-base.splitOut",
-      "typeVersion": 1,
+      "name": "Docker VM 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1100,
         0
       ],
-      "id": "30142092-1372-4eeb-b576-644834221c10"
+      "id": "46343c0a-39c9-4728-837b-73dc63a4439d",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://docker-terramaster.n8n:9339/containers/json",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "name": "Docker TerraMaster",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "5d0041cc-6bf9-47ec-9b5e-8eedb34a0ab4",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "93e5694c-58e0-4429-bf3e-b21262b9229f",
+              "name": "tickets",
+              "value": "={{ $('Zammad: open tickets').first().json }}",
+              "type": "object"
+            },
+            {
+              "id": "7f518300-22b7-44ce-b6b1-52f1e143fccd",
+              "name": "alerts",
+              "value": "={{ $('Alertmanager: active alerts').first().json }}",
+              "type": "object"
+            },
+            {
+              "id": "f5a8a5db-1027-4709-9b9e-f7ffe8165867",
+              "name": "docker",
+              "value": "={{ [$('Docker VM 1').first().json, $('Docker VM 2').first().json, $('Docker TerraMaster').first().json] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Gather",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1540,
+        0
+      ],
+      "id": "a606f07f-9482-4c7c-88ff-d5d5facb70dc",
+      "notes": "Verdict is Python, which can't read other nodes: this hands it every answer as one item."
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# Whether what opened each of the alert tickets is over (QUEUE-n8n-zammad.md, \"Settled\").\n# Input: one item from \"Gather\": tickets, alerts, docker (each a full response, or an error).\n# Output: one item per ticket the alerts made, with its verdict: over, ongoing or unknown.\n# \"Couldn't ask\" is unknown, never over. No imports: n8n's Python runner allows none.\nOVER, ONGOING, UNKNOWN = \"over\", \"ongoing\", \"unknown\"\n\n\ndef answered(response):\n    \"\"\"A request's body, or None when it couldn't be asked.\"\"\"\n    if not isinstance(response, dict) or \"error\" in response or \"body\" not in response:\n        return None\n    return response[\"body\"]\n\n\ndef ticket_key(ticket):\n    \"\"\"The (host, service) a ticket was opened with, or (\"\", \"\") for one a person opened.\"\"\"\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\ndef listed(hosts):\n    \"\"\"Every container the Docker hosts answered with, and how many couldn't be asked.\"\"\"\n    found, unasked = [], 0\n    for host in hosts:\n        body = answered(host)\n        if isinstance(body, list):\n            found += [c for c in body if isinstance(c, dict)]\n        else:\n            unasked += 1\n    return found, unasked\n\n\ndef container_state(name, hosts):\n    found, unasked = listed(hosts)\n    mine = [c for c in found if \"/\" + name in (c.get(\"Names\") or [])]\n    if not mine:\n        return UNKNOWN, \"not found on any Docker host\" + (f\", {unasked} couldn't be asked\" if unasked else \"\")\n    status = [str(c.get(\"Status\") or \"\") for c in mine]\n    if all(c.get(\"State\") == \"running\" for c in mine) and not any(\n            \"unhealthy\" in s or \"health: starting\" in s for s in status):\n        return OVER, \"running\" + (\" and healthy\" if any(\"(healthy)\" in s for s in status) else \"\")\n    return ONGOING, \", \".join(sorted(set(s or str(c.get(\"State\")) for s, c in zip(status, mine))))\n\n\ndef stack_state(name, hosts):\n    found, unasked = listed(hosts)\n    mine = [c for c in found if (c.get(\"Labels\") or {}).get(\"com.docker.compose.project\") == name]\n    if unasked and not mine:\n        return UNKNOWN, f\"{unasked} of {len(hosts)} Docker hosts couldn't be asked\"\n    if not mine:\n        return UNKNOWN, \"no container of that stack on any Docker host\"\n    down = sorted(str((c.get(\"Names\") or [\"?\"])[0]).lstrip(\"/\") for c in mine\n                  if c.get(\"State\") != \"running\" and not str(c.get(\"Status\", \"\")).startswith(\"Exited (0)\"))\n    if down:\n        return ONGOING, \"not running: \" + \", \".join(down)\n    return OVER, f\"its {len(mine)} containers are running\"\n\n\ndef verdict(host, service, alert_names, hosts):\n    if service == \"dockhand\":\n        if host.startswith(\"Dockhand Container \"):\n            return container_state(host[len(\"Dockhand Container \"):], hosts)\n        if host.startswith(\"Dockhand Stack \"):\n            return stack_state(host[len(\"Dockhand Stack \"):], hosts)\n        return UNKNOWN, \"a Dockhand event of a kind not checked\"\n    if service in (\"semaphore\", \"databasus\"):\n        return UNKNOWN, f\"{service}'s tickets aren't checked\"\n    if alert_names is None:\n        return UNKNOWN, \"Alertmanager couldn't be asked\"\n    # By alert name alone until the naming rule lives here (stage 4): a wrong guess can\n    # only keep a ticket open.\n    if service in alert_names:\n        return ONGOING, f\"an alert named {service} is active\"\n    return OVER, f\"Alertmanager has no active {service} alert\"\n\n\ngathered = _items[0][\"json\"] if _items else {}\ntickets = answered(gathered.get(\"tickets\"))\ntickets = tickets.get(\"tickets\") if isinstance(tickets, dict) else tickets\nalerts = answered(gathered.get(\"alerts\"))\nalert_names = None if not isinstance(alerts, list) else set(\n    str((a.get(\"labels\") or {}).get(\"alertname\") or \"\") for a in alerts if isinstance(a, dict))\nhosts = gathered.get(\"docker\") or []\n\nout = []\nfor t in tickets if isinstance(tickets, list) else []:\n    if not isinstance(t, dict):\n        continue\n    host, service = ticket_key(t)\n    if not (host and service):\n        continue\n    v, why = verdict(host, service, alert_names, hosts)\n    out.append({\"json\": {\"id\": t.get(\"id\"), \"number\": t.get(\"number\"), \"title\": t.get(\"title\"),\n                         \"host\": host, \"service\": service, \"verdict\": v, \"reason\": why}})\ncounts = {k: 0 for k in (OVER, ONGOING, UNKNOWN)}\nfor o in out:\n    counts[o[\"json\"][\"verdict\"]] += 1\nprint(str(len(out)) + \" alert ticket(s): \" + \", \".join(str(n) + \" \" + k for k, n in counts.items()))\nreturn out\n"
+      },
+      "name": "Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "id": "6cfaa7af-832d-49c1-baf5-e41eafabaf3a",
+      "notes": "Tested in git: scripts/tests/test_n8n_workflows.py runs this code."
     },
     {
       "parameters": {
@@ -160,7 +300,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1320,
+        1980,
         0
       ],
       "id": "067a76d7-3b92-4b10-b602-7fb199d54bc8"
@@ -193,7 +333,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1540,
+        2200,
         -100
       ],
       "id": "3ce3eae9-d560-4761-8c2d-785371752d40"
@@ -204,7 +344,7 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        1760,
+        2420,
         0
       ],
       "id": "7c6c4aa5-c19a-4e09-9151-482001d7fb01"
@@ -215,7 +355,7 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        1540,
+        2200,
         120
       ],
       "id": "e842b4f8-92a7-409a-97cc-6b08d37ccb1b"
@@ -235,7 +375,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1760,
+        2420,
         -200
       ],
       "id": "f71afe6a-13d7-453d-8631-9840382152c9",
@@ -267,7 +407,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1980,
+        2640,
         -200
       ],
       "id": "3785d4da-d8a8-46f1-87c9-588b8149c292",
@@ -306,7 +446,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2200,
+        2860,
         -200
       ],
       "id": "7d4af8f3-1acf-4f18-adea-34e4c69c1512"
@@ -317,7 +457,7 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        2420,
+        3080,
         -300
       ],
       "id": "d9bfd0ea-e64c-44e2-a9fa-2bb3879673d0"
@@ -330,7 +470,7 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        2420,
+        3080,
         -100
       ],
       "id": "41fb7602-3265-4b17-81f3-4db8fd43bd46"
@@ -363,40 +503,7 @@
       "main": [
         [
           {
-            "node": "All in one",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "All in one": {
-      "main": [
-        [
-          {
-            "node": "Bridge: is each over?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bridge: is each over?": {
-      "main": [
-        [
-          {
-            "node": "One per ticket",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "One per ticket": {
-      "main": [
-        [
-          {
-            "node": "Over?",
+            "node": "Alertmanager: active alerts",
             "type": "main",
             "index": 0
           }
@@ -473,6 +580,72 @@
         [
           {
             "node": "Didn't take",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alertmanager: active alerts": {
+      "main": [
+        [
+          {
+            "node": "Docker VM 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker VM 1": {
+      "main": [
+        [
+          {
+            "node": "Docker VM 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker VM 2": {
+      "main": [
+        [
+          {
+            "node": "Docker TerraMaster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker TerraMaster": {
+      "main": [
+        [
+          {
+            "node": "Gather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather": {
+      "main": [
+        [
+          {
+            "node": "Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verdict": {
+      "main": [
+        [
+          {
+            "node": "Over?",
             "type": "main",
             "index": 0
           }
