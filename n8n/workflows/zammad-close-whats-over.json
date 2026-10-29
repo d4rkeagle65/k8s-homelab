@@ -1,0 +1,488 @@
+{
+  "name": "Zammad: close what's over",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "name": "Every 10 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "419e15fc-1ada-47ae-bf9b-7111931d5b93"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cf2d7ce3-954b-4c00-a788-d6c2d41d7861",
+              "name": "close",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "id": "acfac767-cc17-41a2-90db-e88b73796098",
+      "notes": "close: false is the dry run: nothing is closed, and each ticket that would be ends at \"Would close\". Set it true to close."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://zammad-nginx.zammad:8080/api/v1/tickets/search",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "state.name:new OR state.name:open"
+            },
+            {
+              "name": "limit",
+              "value": "200"
+            },
+            {
+              "name": "expand",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "name": "Zammad: open tickets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "0d98b756-56e7-4165-8671-1c4b7233f642",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
+          "name": "Zammad API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "tickets",
+        "options": {}
+      },
+      "name": "All in one",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ],
+      "id": "c91ace2d-7ddd-401a-a3da-1ffc94413063"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://zammad-bridge.monitoring:8080/verdict",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tickets: $json.tickets }) }}"
+      },
+      "name": "Bridge: is each over?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "f1b642a8-8ee0-441e-afe2-006ba0a57f52"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "tickets",
+        "options": {}
+      },
+      "name": "One per ticket",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        0
+      ],
+      "id": "30142092-1372-4eeb-b576-644834221c10"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "047f635f-cfc4-4ef3-9363-76a0a1453db6",
+              "leftValue": "={{ $json.verdict }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "over"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Over?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "067a76d7-3b92-4b10-b602-7fb199d54bc8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "db475978-21a1-4c9d-9a9d-61c4970f6a5a",
+              "leftValue": "={{ $('Settings').first().json.close }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Closing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        -100
+      ],
+      "id": "3ce3eae9-d560-4761-8c2d-785371752d40"
+    },
+    {
+      "parameters": {},
+      "name": "Would close",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        0
+      ],
+      "id": "7c6c4aa5-c19a-4e09-9151-482001d7fb01"
+    },
+    {
+      "parameters": {},
+      "name": "Still open",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        120
+      ],
+      "id": "e842b4f8-92a7-409a-97cc-6b08d37ccb1b"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://zammad-nginx.zammad:8080/api/v1/tickets/{{ $json.id }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ state: 'closed', article: { subject: 'Closed: no longer happening', body: 'Closed by n8n (Zammad: close what is over): ' + $json.reason + '.', type: 'note', internal: true } }) }}"
+      },
+      "name": "Zammad: close it",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -200
+      ],
+      "id": "f71afe6a-13d7-453d-8631-9840382152c9",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
+          "name": "Zammad API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://zammad-nginx.zammad:8080/api/v1/tickets/{{ $('Over?').item.json.id }}",
+        "options": {},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "expand",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "name": "Zammad: read it back",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        -200
+      ],
+      "id": "3785d4da-d8a8-46f1-87c9-588b8149c292",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
+          "name": "Zammad API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5d7ccb3d-13ff-4769-bf6e-c27018e6e1f9",
+              "leftValue": "={{ $json.state }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "closed"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Closed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2200,
+        -200
+      ],
+      "id": "7d4af8f3-1acf-4f18-adea-34e4c69c1512"
+    },
+    {
+      "parameters": {},
+      "name": "Closed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        -300
+      ],
+      "id": "d9bfd0ea-e64c-44e2-a9fa-2bb3879673d0"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ 'Closing #' + $('Over?').item.json.number + \" didn't take: Zammad reads it as \" + $json.state }}"
+      },
+      "name": "Didn't take",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        -100
+      ],
+      "id": "41fb7602-3265-4b17-81f3-4db8fd43bd46"
+    }
+  ],
+  "connections": {
+    "Every 10 minutes": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Zammad: open tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zammad: open tickets": {
+      "main": [
+        [
+          {
+            "node": "All in one",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All in one": {
+      "main": [
+        [
+          {
+            "node": "Bridge: is each over?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bridge: is each over?": {
+      "main": [
+        [
+          {
+            "node": "One per ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One per ticket": {
+      "main": [
+        [
+          {
+            "node": "Over?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Over?": {
+      "main": [
+        [
+          {
+            "node": "Closing?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Still open",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Closing?": {
+      "main": [
+        [
+          {
+            "node": "Zammad: close it",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Would close",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zammad: close it": {
+      "main": [
+        [
+          {
+            "node": "Zammad: read it back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zammad: read it back": {
+      "main": [
+        [
+          {
+            "node": "Closed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Closed?": {
+      "main": [
+        [
+          {
+            "node": "Closed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Didn't take",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
