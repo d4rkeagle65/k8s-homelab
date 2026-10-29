@@ -237,14 +237,25 @@ spec:
           webhook_configs:
           - url: http://zammad-bridge.monitoring.svc.${CLUSTER_DOMAIN}:8080/alertmanager
             send_resolved: true
+          # n8n's "Zammad: tickets in" (n8n/workflows/), alongside the bridge until its
+          # decisions read right: Alertmanager isn't in its write_sources, so it writes
+          # nothing (QUEUE-n8n-zammad.md, stage 4). Its bearer token from monitoring-extras'
+          # alertmanager-n8n.
+          - url: http://n8n.n8n.svc.${CLUSTER_DOMAIN}:5678/webhook/zammad/alertmanager
+            send_resolved: true
+            http_config:
+              authorization:
+                type: Bearer
+                credentials_file: /etc/alertmanager/secrets/alertmanager-n8n/token
         templates:
         - /etc/alertmanager/config/*.tmpl
       alertmanagerSpec:
         # Two, clustered, on different workers.
         replicas: 2
         # The dead-man's switch's ping URL, at
-        # /etc/alertmanager/secrets/alertmanager-healthchecks/url.
-        secrets: [alertmanager-healthchecks]
+        # /etc/alertmanager/secrets/alertmanager-healthchecks/url, and n8n's bearer
+        # token, at /etc/alertmanager/secrets/alertmanager-n8n/token.
+        secrets: [alertmanager-healthchecks, alertmanager-n8n]
         # Scheduled before ordinary pods when nodes are short (cluster-policy).
         priorityClassName: homelab-critical
         podAntiAffinity: hard
