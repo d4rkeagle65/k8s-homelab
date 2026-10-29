@@ -8,6 +8,12 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
 
 ## Settled
 
+- **One container failure is one ticket without shared state.** Docker sends a die after every
+  kill or stop, and Python nodes keep nothing between runs, so a kill's or stop's failure is
+  held 20 s longer than a die's, and after its hold opens a ticket only if none of its key is
+  open (`repeat: skip`); a kill alone still opens one. A recovery during a hold needs no
+  cancel: the held run asks Docker again and finds the container running.
+
 - **n8n writes to Zammad as a user of its own**: `ZAMMAD-BRIDGE-API-TOKEN` is a separate Zammad
   user's token (the owner, 2026-10-29), so the owner's mail for tickets n8n opens is unchanged
   (Zammad sends none to the user who made a change).
@@ -66,12 +72,6 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   Auth. Each workflow is a dry run in git (`write`/`close` false) until its source points
   at it.
 
-## Open, decided at their stage
-
-- **Dockhand's "a die and a kill hold once"** (stage 3): Python has no static data. JS's
-  `$getWorkflowStaticData('global')` is saved only by non-manual runs (unverified that the JS
-  Code node exposes it); or ask Zammad whether the ticket is already open.
-
 ## Stages
 
 - [x] **1. The closing check asks Alertmanager and Docker itself** (published, running every 10
@@ -84,8 +84,12 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   Databasus's test message opened a ticket through n8n, read back (run 20). Left: a real
   Semaphore failure and its success, and a Databasus success closing a ticket, go through n8n;
   then the bridge's `/semaphore` and `/databasus` routes go.
-- [ ] **3. Dockhand**, with the stack check and the 180-second hold (a Wait node, offloaded to
-  the database past 65 s, so it survives a restart), then its Apprise channel moves.
+- [ ] **3. Dockhand** through "Zammad: tickets in": built (this PR), with the stack check and
+  the 180-second hold (a Wait node, offloaded to the database past 65 s, so it survives a
+  restart). Left: after merge, n8n restarted (so it has `DockhandAlertsKV`) before the
+  workflow is updated from git; a test notification; its Apprise channel moves
+  (`n8n/README.md`); a real failure opens and its recovery closes; the bridge's `/dockhand`
+  route goes.
 - [ ] **4. Alertmanager**, with the group alerts' members from Prometheus; the alert-naming rule
   moves into n8n, and the closing check rebuilds hosts exactly. Its receiver in
   kube-prometheus-stack's `alertmanager.config` moves.

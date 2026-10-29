@@ -195,7 +195,7 @@
     {
       "parameters": {
         "language": "pythonNative",
-        "pythonCode": "# What one ticket event does in Zammad, as its Checkmk integration did for zammad-bridge:\n# a failure with no open ticket of its host and service opens one; with one, adds a note;\n# a recovery (OK or UP) closes the open ones with a note; a recovery with none open is nothing.\n# Input: one item from \"Gather\": event (host, service, state, text) and tickets (Zammad's\n# open tickets, a full response). Output: one item per write: method, path, body, and what\n# the read-back must show. A failed ticket list stops the run before here (no write on an\n# unknown state).\nGROUP = \"Alerts\"\nCUSTOMER_ID = 1  # Zammad's system user \"-\", as the Checkmk endpoint uses\n\ng = _items[0][\"json\"] if _items else {}\nevent = g.get(\"event\") or {}\nhost, service, state = str(event.get(\"host\") or \"\"), str(event.get(\"service\") or \"\"), str(event.get(\"state\") or \"\")\ntext = str(event.get(\"text\") or \"\")\nresponse = g.get(\"tickets\") or {}\nif \"error\" in response or \"body\" not in response:\n    raise Exception(\"Zammad's open tickets couldn't be listed; nothing written\")\nfound = response[\"body\"]\nfound = found.get(\"tickets\") if isinstance(found, dict) else found\ntitle = host + \" is \" + state\n\n\ndef key(ticket):\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\ndef article(subject):\n    return {\"subject\": subject, \"body\": text or title, \"type\": \"web\", \"sender\": \"Customer\",\n            \"internal\": False, \"content_type\": \"text/plain\"}\n\n\nmine = [t for t in found if isinstance(t, dict) and key(t) == (host, service)] if isinstance(found, list) else []\nrecovery = state.upper() in (\"OK\", \"UP\")\nout = []\nif recovery:\n    for t in mine:\n        out.append({\"action\": \"close\", \"method\": \"PUT\", \"path\": \"/api/v1/tickets/\" + str(t[\"id\"]),\n                    \"body\": {\"state\": \"closed\", \"article\": article(title)},\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"closed\"})\n    if not mine:\n        print(title + \": no open ticket, nothing to close\")\nelif mine:\n    for t in mine:\n        out.append({\"action\": \"note\", \"method\": \"POST\", \"path\": \"/api/v1/ticket_articles\",\n                    \"body\": dict(article(title), ticket_id=t[\"id\"]),\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"open\"})\nelse:\n    out.append({\"action\": \"create\", \"method\": \"POST\", \"path\": \"/api/v1/tickets\",\n                \"body\": {\"title\": title[:250], \"group\": GROUP, \"customer_id\": CUSTOMER_ID,\n                         \"preferences\": {\"check_mk\": {\"host\": host, \"service\": service}},\n                         \"article\": article(title)},\n                \"ticket\": None, \"number\": None, \"expect\": \"open\"})\nfor o in out:\n    o.update(host=host, service=service, state=state)\n    print(o[\"action\"] + \" \" + title + (\" #\" + str(o[\"number\"]) if o[\"number\"] else \"\"))\nreturn [{\"json\": o} for o in out]\n"
+        "pythonCode": "# What one ticket event does in Zammad, as its Checkmk integration did for zammad-bridge:\n# a failure with no open ticket of its host and service opens one; with one, adds a note;\n# a recovery (OK or UP) closes the open ones with a note; a recovery with none open is nothing.\n# An event with repeat \"skip\" (Dockhand's kill, whose die follows) adds no note to an open one.\n# Input: one item from \"Gather\": event (host, service, state, text) and tickets (Zammad's\n# open tickets, a full response). Output: one item per write: method, path, body, and what\n# the read-back must show. A failed ticket list stops the run before here (no write on an\n# unknown state).\nGROUP = \"Alerts\"\nCUSTOMER_ID = 1  # Zammad's system user \"-\", as the Checkmk endpoint uses\n\ng = _items[0][\"json\"] if _items else {}\nevent = g.get(\"event\") or {}\nhost, service, state = str(event.get(\"host\") or \"\"), str(event.get(\"service\") or \"\"), str(event.get(\"state\") or \"\")\ntext = str(event.get(\"text\") or \"\")\nresponse = g.get(\"tickets\") or {}\nif \"error\" in response or \"body\" not in response:\n    raise Exception(\"Zammad's open tickets couldn't be listed; nothing written\")\nfound = response[\"body\"]\nfound = found.get(\"tickets\") if isinstance(found, dict) else found\ntitle = host + \" is \" + state\n\n\ndef key(ticket):\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\ndef article(subject):\n    return {\"subject\": subject, \"body\": text or title, \"type\": \"web\", \"sender\": \"Customer\",\n            \"internal\": False, \"content_type\": \"text/plain\"}\n\n\nmine = [t for t in found if isinstance(t, dict) and key(t) == (host, service)] if isinstance(found, list) else []\nrecovery = state.upper() in (\"OK\", \"UP\")\nout = []\nif recovery:\n    for t in mine:\n        out.append({\"action\": \"close\", \"method\": \"PUT\", \"path\": \"/api/v1/tickets/\" + str(t[\"id\"]),\n                    \"body\": {\"state\": \"closed\", \"article\": article(title)},\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"closed\"})\n    if not mine:\n        print(title + \": no open ticket, nothing to close\")\nelif mine and event.get(\"repeat\") == \"skip\":\n    print(title + \": already open (#\" + \", #\".join(str(t.get(\"number\")) for t in mine) + \"), nothing added\")\nelif mine:\n    for t in mine:\n        out.append({\"action\": \"note\", \"method\": \"POST\", \"path\": \"/api/v1/ticket_articles\",\n                    \"body\": dict(article(title), ticket_id=t[\"id\"]),\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"open\"})\nelse:\n    out.append({\"action\": \"create\", \"method\": \"POST\", \"path\": \"/api/v1/tickets\",\n                \"body\": {\"title\": title[:250], \"group\": GROUP, \"customer_id\": CUSTOMER_ID,\n                         \"preferences\": {\"check_mk\": {\"host\": host, \"service\": service}},\n                         \"article\": article(title)},\n                \"ticket\": None, \"number\": None, \"expect\": \"open\"})\nfor o in out:\n    o.update(host=host, service=service, state=state)\n    print(o[\"action\"] + \" \" + title + (\" #\" + str(o[\"number\"]) if o[\"number\"] else \"\"))\nreturn [{\"json\": o} for o in out]\n"
       },
       "name": "Decide",
       "type": "n8n-nodes-base.code",
@@ -365,6 +365,357 @@
       ],
       "id": "24c376ee-67f6-4493-a610-e3479e9d8b09",
       "notes": "Fails the run when Zammad doesn't show what was written. Tested in git."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zammad/dockhand",
+        "authentication": "basicAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Dockhand",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        320
+      ],
+      "id": "f0d270b4-7703-47ff-ba2d-42a64f11906f",
+      "webhookId": "3f694c92-deac-465d-9cbb-246d4e454f20",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "DockhandAlertsKV",
+          "name": "Dockhand alerts"
+        }
+      },
+      "notes": "Answers at once: a held failure waits minutes, longer than Apprise waits for an answer."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://docker-vm-1.n8n:9339/containers/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "name": "Docker VM 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        320
+      ],
+      "id": "fe72777d-156f-4062-b6ad-e332e3731429",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://docker-vm-2.n8n:9339/containers/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "name": "Docker VM 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        320
+      ],
+      "id": "bd4a51e9-3677-440b-b6f0-6653c05e5ba6",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://docker-terramaster.n8n:9339/containers/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "name": "Docker TerraMaster",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        320
+      ],
+      "id": "d8ec2c7c-7af9-4404-abdc-5100885c12c4",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26aff495-7527-4ecf-9ac4-845ae2a16bfa",
+              "name": "note",
+              "value": "={{ $('Dockhand').first().json.body }}",
+              "type": "object"
+            },
+            {
+              "id": "bda86766-ed15-4063-a69a-83dfde64ba83",
+              "name": "docker",
+              "value": "={{ [$('Docker VM 1').first().json, $('Docker VM 2').first().json, $('Docker TerraMaster').first().json] }}",
+              "type": "array"
+            },
+            {
+              "id": "f6d8330d-4863-43c9-b668-b27543c4e7d6",
+              "name": "held",
+              "value": "={{ {} }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Gather Dockhand",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        880,
+        320
+      ],
+      "id": "7ae7875e-7dda-4814-9622-a46850c5c0b2"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# One Dockhand notification (Apprise's JSON: title, message, type) as a ticket event, as\n# zammad-bridge's dockhand_to_checkmk did (QUEUE-n8n-zammad.md). It runs twice for a stack\n# container's failure: on arrival, which asks for a hold, and after the hold (\"held\" set),\n# which asks the Docker hosts again.\n# Input: one item from \"Gather Dockhand\" or \"Gather after the hold\": note, docker (each\n# Docker host's container list, a full response, or an error), held (the event put on hold,\n# or nothing on arrival).\n# Output: an event (host, service, state, text, repeat) with \"hold\" seconds, or nothing.\nimport re\n\nHOLD = 180  # a redeploy's restarts are over well within it\n# Docker sends a die after every kill or stop: their failure is held longer, and after it\n# opens a ticket only if none is open (repeat \"skip\"), so one failure is one ticket.\nFOLLOWED_BY_DIE = {\"kill\": 20, \"stop\": 20}\n# Words that say a Dockhand event's state rather than what it's about.\nSTATE_WORDS = re.compile(r\"\\b(un)?healthy\\b|\\b(re)?start(ed|ing)?\\b|\\bstop(ped|ping)?\\b|\\bfail(ed|ure)?\\b|\"\n                         r\"\\bsucce(ss|eded|ssful)\\b|\\berror\\b|\\bwarning\\b|\\bblocked\\b|\\bskipped\\b|\\bcompleted?\\b\",\n                         re.IGNORECASE)\nSTATES = {\"failure\": \"CRITICAL\", \"error\": \"CRITICAL\", \"warning\": \"WARNING\", \"success\": \"OK\", \"info\": \"OK\"}\n\n\ndef stack_failure(name, hosts, running_ok=False):\n    \"\"\"Whether a container's failure is a ticket: (ticket, why). A stack's container that\n    didn't exit 0 is; one gone, outside every stack, or exited 0 isn't, nor, with running_ok\n    (after the hold), one running again. A host that can't be asked never drops a ticket.\"\"\"\n    found, unasked = [], 0\n    for host in hosts:\n        body = host.get(\"body\") if isinstance(host, dict) and \"error\" not in host else None\n        if isinstance(body, list):\n            found += [c for c in body if isinstance(c, dict) and \"/\" + name in (c.get(\"Names\") or [])]\n        else:\n            unasked += 1\n    stack = [c for c in found if (c.get(\"Labels\") or {}).get(\"com.docker.compose.project\")]\n    if stack:\n        if running_ok and any(c.get(\"State\") == \"running\" for c in stack):\n            return False, \"running again\"\n        if all(c.get(\"State\") == \"exited\" and str(c.get(\"Status\", \"\")).startswith(\"Exited (0)\") for c in stack):\n            return False, \"exited 0, a normal finish\"\n        return True, \"\"\n    if unasked:\n        return True, f\"{unasked} of {len(hosts)} Docker hosts couldn't be asked whether it belongs to a stack\"\n    return (False, \"not part of a stack\") if found else (False, \"gone, removed by what started it\")\n\n\ng = _items[0][\"json\"] if _items else {}\nhosts = g.get(\"docker\") or []\nheld = g.get(\"held\")\nif held:\n    ticket, why = stack_failure(held[\"container\"], hosts, running_ok=True)\n    if not ticket:\n        print(held[\"host\"] + \": no ticket after the hold, \" + why)\n        return []\n    text = \"\\n\".join(x for x in (held[\"text\"], why) if x)\n    return [{\"json\": dict(held, text=text, hold=0)}]\n\nnote = g.get(\"note\") if isinstance(g.get(\"note\"), dict) else {}\ntitle = str(note.get(\"title\") or \"\").strip()\nmessage = str(note.get(\"message\") or \"\").strip()\nif not title:\n    print(\"nothing to ticket: no title\")\n    return []\n# A container event's message names the container ('Container \"kea-dhcp4\" die (image)'; its\n# title is only \"Container Die\"); a stack event's names the stack ('Stack \"netbox\" deployed\n# successfully'), and its titles (\"Git sync failed\", \"Stack deployed\") never pair up alone.\nnamed = re.match(r'Container \"([^\"]+)\" (\\w+)', message)\nstack = re.match(r'Stack \"([^\"]+)\" ', message)\nif named:\n    key = \"Container \" + named.group(1)\nelif stack:\n    key = \"Stack \" + stack.group(1)\nelse:\n    key = re.sub(r\"\\s+([:,|])\", r\"\\1\", re.sub(r\"\\s+\", \" \", STATE_WORDS.sub(\"\", title))).strip(\" :-|\") or title\n    key = re.sub(r\"^dockhand\\b[\\s:-]*\", \"\", key, flags=re.IGNORECASE) or key  # titles often start \"Dockhand\"\nstate = STATES.get(str(note.get(\"type\") or \"info\").lower(), \"WARNING\")\nevent = {\"source\": \"dockhand\", \"host\": (\"Dockhand \" + key)[:250], \"service\": \"dockhand\", \"state\": state,\n         \"text\": \"\\n\".join(x for x in (title, message) if x), \"repeat\": \"note\", \"hold\": 0, \"container\": \"\"}\nif named and state != \"OK\":\n    container, action = named.group(1), named.group(2).lower()\n    ticket, why = stack_failure(container, hosts)\n    if not ticket:\n        print(event[\"host\"] + \": no ticket, \" + why)\n        return []\n    event.update(text=\"\\n\".join(x for x in (event[\"text\"], why) if x), container=container,\n                 hold=HOLD + FOLLOWED_BY_DIE.get(action, 0),\n                 repeat=\"skip\" if action in FOLLOWED_BY_DIE else \"note\")\n    print(event[\"host\"] + \": held \" + str(event[\"hold\"]) + \"s before a ticket\")\nreturn [{\"json\": event}]\n"
+      },
+      "name": "Dockhand → event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        320
+      ],
+      "id": "bba1d765-5253-499a-897e-675af5941213",
+      "notes": "Runs on arrival and again after the hold. Tested in git: scripts/tests/test_n8n_workflows.py runs this code."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8d57c24b-b993-47ba-927e-867493979140",
+              "leftValue": "={{ $json.hold }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Hold?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        320
+      ],
+      "id": "66a5d620-8d23-4587-904e-b49e945b99f7"
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.hold }}",
+        "unit": "seconds"
+      },
+      "name": "Wait out the hold",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        440
+      ],
+      "id": "8dd7e24e-df91-46fd-aa1b-a6ab337ed20c",
+      "webhookId": "7db88f80-2088-4e49-bee1-407eb26fb534",
+      "notes": "Past 65 seconds n8n keeps the waiting run in its database, so a restart doesn't lose it."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://docker-vm-1.n8n:9339/containers/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "name": "Docker VM 1 after the hold",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        440
+      ],
+      "id": "698e617b-6f1e-428b-93c3-82da7c7dec56",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://docker-vm-2.n8n:9339/containers/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "name": "Docker VM 2 after the hold",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        440
+      ],
+      "id": "5a57d3c7-e2f3-4a38-a612-022fc8c9e0ec",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://docker-terramaster.n8n:9339/containers/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "all",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "name": "Docker TerraMaster after the hold",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        440
+      ],
+      "id": "6d0c5e11-106e-4815-94e7-ad4819acb9c7",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "673dc37f-0453-43b0-9e59-0f880a44f192",
+              "name": "note",
+              "value": "={{ $('Dockhand').first().json.body }}",
+              "type": "object"
+            },
+            {
+              "id": "ccdf9853-5539-4198-9e1a-96ab8b15f577",
+              "name": "docker",
+              "value": "={{ [$('Docker VM 1 after the hold').first().json, $('Docker VM 2 after the hold').first().json, $('Docker TerraMaster after the hold').first().json] }}",
+              "type": "array"
+            },
+            {
+              "id": "b328a386-15f5-45a2-b77f-b4d4d59f9852",
+              "name": "held",
+              "value": "={{ $('Wait out the hold').first().json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Gather after the hold",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2420,
+        440
+      ],
+      "id": "b7c721ac-7c8e-44c0-977d-4a0da4610d17"
     }
   ],
   "connections": {
@@ -512,6 +863,145 @@
         [
           {
             "node": "Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dockhand": {
+      "main": [
+        [
+          {
+            "node": "Docker VM 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker VM 1": {
+      "main": [
+        [
+          {
+            "node": "Docker VM 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker VM 2": {
+      "main": [
+        [
+          {
+            "node": "Docker TerraMaster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker TerraMaster": {
+      "main": [
+        [
+          {
+            "node": "Gather Dockhand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather Dockhand": {
+      "main": [
+        [
+          {
+            "node": "Dockhand → event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dockhand → event": {
+      "main": [
+        [
+          {
+            "node": "Hold?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hold?": {
+      "main": [
+        [
+          {
+            "node": "Wait out the hold",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait out the hold": {
+      "main": [
+        [
+          {
+            "node": "Docker VM 1 after the hold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker VM 1 after the hold": {
+      "main": [
+        [
+          {
+            "node": "Docker VM 2 after the hold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker VM 2 after the hold": {
+      "main": [
+        [
+          {
+            "node": "Docker TerraMaster after the hold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Docker TerraMaster after the hold": {
+      "main": [
+        [
+          {
+            "node": "Gather after the hold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather after the hold": {
+      "main": [
+        [
+          {
+            "node": "Dockhand → event",
             "type": "main",
             "index": 0
           }
