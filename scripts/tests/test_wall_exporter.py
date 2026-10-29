@@ -98,3 +98,21 @@ def test_an_app_without_its_key_is_down(monkeypatch):
     for src in ("semaphore", "emby", "seerr", "immich"):
         assert f'wall_source_up{{source="{src}"}} 0' in page
     assert "wall_immich_assets" not in page
+
+
+def test_finished_semaphore_tasks_count_from_the_second_read_only(monkeypatch):
+    m.seen_tasks = None
+    m.finished_total.update({k: 0 for k in m.FINISHED})
+    first = [{"id": 3, "status": "error"}, {"id": 2, "status": "success"}, {"id": 1, "status": "error"}]
+    setup(monkeypatch, dict(ALL, **{"/tasks/last": first}))
+    page = m.read()
+    assert 'wall_semaphore_tasks_finished_total{status="error"} 0' in page  # old tasks aren't new
+    later = [{"id": 5, "status": "running"}, {"id": 4, "status": "error"}] + first
+    setup(monkeypatch, dict(ALL, **{"/tasks/last": later}))
+    page = m.read()
+    assert 'wall_semaphore_tasks_finished_total{status="error"} 1' in page
+    later2 = [{"id": 5, "status": "success"}, {"id": 4, "status": "error"}] + first
+    setup(monkeypatch, dict(ALL, **{"/tasks/last": later2}))
+    page = m.read()
+    assert 'wall_semaphore_tasks_finished_total{status="success"} 1' in page  # 5 counted once it finished
+    assert 'wall_semaphore_tasks_finished_total{status="error"} 1' in page

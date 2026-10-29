@@ -1453,9 +1453,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(wall_tdarr_files{stage=\"transcode\", state=\"done\"})",
+          "expr": "max(wall_tdarr_files{stage=\"transcode\", state=\"done\"}) - max(min_over_time(wall_tdarr_files{stage=\"transcode\", state=\"done\"}[$__range]))",
           "instant": true,
-          "legendFormat": "done"
+          "legendFormat": "done in range"
         },
         {
           "refId": "C",
@@ -1778,8 +1778,8 @@
     {
       "id": 25,
       "type": "stat",
-      "title": "DNS queries today",
-      "description": "",
+      "title": "DNS queries in range",
+      "description": "Both Pi-holes' queries within the dashboard's time range, from their average rate.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1797,7 +1797,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(pihole_dns_queries_today)",
+          "expr": "sum(avg_over_time(pihole_request_rate[$__range])) * $__range_s",
           "instant": true,
           "legendFormat": ""
         }
@@ -1840,8 +1840,8 @@
     {
       "id": 26,
       "type": "stat",
-      "title": "DNS blocked",
-      "description": "",
+      "title": "DNS blocked today",
+      "description": "Pi-hole's share of today's queries it blocked (it keeps no figure for other ranges).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2092,8 +2092,8 @@
     {
       "id": 30,
       "type": "stat",
-      "title": "Semaphore errors",
-      "description": "Errored tasks among Semaphore's last 200.",
+      "title": "Semaphore errors in range",
+      "description": "Semaphore tasks that ended in error within the dashboard's time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2111,7 +2111,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max(wall_semaphore_tasks{status=\"error\"}) or vector(0)",
+          "expr": "round(sum(increase(wall_semaphore_tasks_finished_total{status=\"error\"}[$__range]))) or vector(0)",
           "instant": true,
           "legendFormat": ""
         }
@@ -2128,7 +2128,11 @@
             "steps": [
               {
                 "value": null,
-                "color": "blue"
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "orange"
               }
             ]
           }
