@@ -1,0 +1,527 @@
+{
+  "name": "Zammad: tickets in",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zammad/semaphore",
+        "authentication": "basicAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Semaphore",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -100
+      ],
+      "id": "70f714b0-f127-49c6-8cdd-7e9fd2da2624",
+      "webhookId": "31b31d86-5a1a-479a-970b-bff18bb8cec6",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "SemaphoreAlertKV",
+          "name": "Semaphore alerts"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zammad/databasus",
+        "authentication": "basicAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Databasus",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        100
+      ],
+      "id": "4f5f4411-2a77-4fa6-9d01-46edca60337f",
+      "webhookId": "c61d2f2d-b2a2-40ac-9d3a-a94abc88407d",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "DatabasusAlertKV",
+          "name": "Databasus alerts"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# One Semaphore task alert (its Slack JSON, the webhook's body) as a ticket event: host,\n# service, state, text. A task that ended in ERROR opens its template's ticket; its next\n# SUCCESS closes it; anything else (WAITING_CONFIRMATION, an alert naming no template) is\n# nothing. Rules as zammad-bridge's semaphore_to_checkmk (QUEUE-n8n-zammad.md).\nimport re\n\nSTATES = {\"ERROR\": \"CRITICAL\", \"SUCCESS\": \"OK\"}\n\nbody = (_items[0][\"json\"].get(\"body\") if _items else None) or {}\nattachments = body.get(\"attachments\") if isinstance(body, dict) else None\nfirst = attachments[0] if isinstance(attachments, list) and attachments and isinstance(attachments[0], dict) else {}\nname = re.sub(r\"^Task:\\s*\", \"\", str(first.get(\"title\") or \"\")).strip()\ntext = str(first.get(\"text\") or \"\").strip()\nstatus = re.search(r\"status:.*?\\b([A-Z][A-Z_]+)\\b\", text)\nstate = STATES.get(status.group(1)) if status else None\nif not name or not state:\n    print(\"nothing to ticket: \" + repr(str(first.get(\"title\"))[:80]) + \" \" + repr(text[:120]))\n    return []\ndetail = [text] + [str(f.get(\"title\")) + \": \" + str(f.get(\"value\")) for f in first.get(\"fields\") or []\n                   if isinstance(f, dict) and f.get(\"value\")]\nif first.get(\"title_link\"):\n    detail.append(str(first[\"title_link\"]))\nreturn [{\"json\": {\"source\": \"semaphore\", \"host\": (\"Semaphore \" + name)[:250], \"service\": \"semaphore\",\n                  \"state\": state, \"text\": \"\\n\".join(detail)}}]\n"
+      },
+      "name": "Semaphore → event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        -100
+      ],
+      "id": "b08a11fd-35e1-4ecd-bacc-b81bd9f7fa1c",
+      "notes": "Tested in git: scripts/tests/test_n8n_workflows.py runs this code."
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# One Databasus notification (the webhook's body: heading, message) as a ticket event: host,\n# service, state, text. A ticket per database and kind (backup, health, verification, WAL);\n# a success closes it. WAL alerts have no recovery: their tickets are closed by hand. Rules\n# as zammad-bridge's databasus_to_checkmk (QUEUE-n8n-zammad.md).\nimport re\n\n# A heading's kind, first match wins (\"backup verification failed\" is a verification;\n# \"Physical WAL gap\" is WAL, not a backup).\nKINDS = ((\"verification\", re.compile(r\"verification\", re.IGNORECASE)),\n         (\"WAL\", re.compile(r\"\\bWAL\\b\")),\n         (\"health\", re.compile(r\"\\bDB is\\b\")),\n         (\"backup\", re.compile(r\"\\bbackup\\b|^Physical (FULL|INCR)\\b\", re.IGNORECASE)))\nOK = re.compile(r\"^✅|\\b(completed|passed|is online)\\b\")\n\nbody = (_items[0][\"json\"].get(\"body\") if _items else None) or {}\nheading = str(body.get(\"heading\") or \"\").strip() if isinstance(body, dict) else \"\"\nif not heading:\n    print(\"nothing to ticket: no heading\")\n    return []\nif heading == \"Test message\":\n    key, state = \"test\", \"WARNING\"\nelse:\n    kind = next((k for k, pattern in KINDS if pattern.search(heading)), heading)\n    named = re.search(r'\"((?:[^\"\\\\]|\\\\.)*)\"', heading) or re.search(r\"\\[([^\\]]+)\\]\", heading)\n    key = kind + \" \" + named.group(1) if named and kind != heading else kind\n    state = \"OK\" if OK.search(heading) else \"CRITICAL\"\nmessage = str(body.get(\"message\") or \"\").strip()\nreturn [{\"json\": {\"source\": \"databasus\", \"host\": (\"Databasus \" + key)[:250], \"service\": \"databasus\",\n                  \"state\": state, \"text\": \"\\n\".join(x for x in (heading, message) if x)}}]\n"
+      },
+      "name": "Databasus → event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        100
+      ],
+      "id": "8146701d-bdd0-4bb2-a8ba-4b65bf2d3809",
+      "notes": "Tested in git: scripts/tests/test_n8n_workflows.py runs this code."
+    },
+    {
+      "parameters": {},
+      "name": "Event",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        440,
+        0
+      ],
+      "id": "2d6227a3-7b2c-4ad6-9ab6-5b29f0ecb5b2",
+      "notes": "Every source's event (host, service, state, text) comes through here, so later nodes read it as $('Event')."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "80fe1e24-77c6-4915-8338-2b332ecc0a44",
+              "name": "write",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        0
+      ],
+      "id": "d46f03cc-ecf9-4305-afd0-07fe306b57e7",
+      "notes": "write: false is the dry run: each decision ends at \"Would write\". Set it true once a source's URL points here."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://zammad-nginx.zammad:8080/api/v1/tickets/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "state.name:new OR state.name:open OR state.name:\"pending reminder\" OR state.name:\"pending close\""
+            },
+            {
+              "name": "limit",
+              "value": "200"
+            },
+            {
+              "name": "expand",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "name": "Zammad: open tickets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "0f0517b3-0e55-4bfd-8638-8b14bcd5673f",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
+          "name": "Zammad API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "440e760a-ec7a-49fd-99bb-ac3b1ba224ac",
+              "name": "event",
+              "value": "={{ $('Event').first().json }}",
+              "type": "object"
+            },
+            {
+              "id": "239b4126-9645-48b9-ac80-e327b5823371",
+              "name": "tickets",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Gather",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        0
+      ],
+      "id": "1bca0c94-1774-4db3-b158-fc4a7129ae96",
+      "notes": "Decide is Python, which can't read other nodes: this hands it the event and the open tickets as one item."
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# What one ticket event does in Zammad, as its Checkmk integration did for zammad-bridge:\n# a failure with no open ticket of its host and service opens one; with one, adds a note;\n# a recovery (OK or UP) closes the open ones with a note; a recovery with none open is nothing.\n# Input: one item from \"Gather\": event (host, service, state, text) and tickets (Zammad's\n# open tickets, a full response). Output: one item per write: method, path, body, and what\n# the read-back must show. A failed ticket list stops the run before here (no write on an\n# unknown state).\nGROUP = \"Alerts\"\nCUSTOMER_ID = 1  # Zammad's system user \"-\", as the Checkmk endpoint uses\n\ng = _items[0][\"json\"] if _items else {}\nevent = g.get(\"event\") or {}\nhost, service, state = str(event.get(\"host\") or \"\"), str(event.get(\"service\") or \"\"), str(event.get(\"state\") or \"\")\ntext = str(event.get(\"text\") or \"\")\nresponse = g.get(\"tickets\") or {}\nif \"error\" in response or \"body\" not in response:\n    raise Exception(\"Zammad's open tickets couldn't be listed; nothing written\")\nfound = response[\"body\"]\nfound = found.get(\"tickets\") if isinstance(found, dict) else found\ntitle = host + \" is \" + state\n\n\ndef key(ticket):\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\ndef article(subject):\n    return {\"subject\": subject, \"body\": text or title, \"type\": \"web\", \"sender\": \"Customer\",\n            \"internal\": False, \"content_type\": \"text/plain\"}\n\n\nmine = [t for t in found if isinstance(t, dict) and key(t) == (host, service)] if isinstance(found, list) else []\nrecovery = state.upper() in (\"OK\", \"UP\")\nout = []\nif recovery:\n    for t in mine:\n        out.append({\"action\": \"close\", \"method\": \"PUT\", \"path\": \"/api/v1/tickets/\" + str(t[\"id\"]),\n                    \"body\": {\"state\": \"closed\", \"article\": article(title)},\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"closed\"})\n    if not mine:\n        print(title + \": no open ticket, nothing to close\")\nelif mine:\n    for t in mine:\n        out.append({\"action\": \"note\", \"method\": \"POST\", \"path\": \"/api/v1/ticket_articles\",\n                    \"body\": dict(article(title), ticket_id=t[\"id\"]),\n                    \"ticket\": t[\"id\"], \"number\": t.get(\"number\"), \"expect\": \"open\"})\nelse:\n    out.append({\"action\": \"create\", \"method\": \"POST\", \"path\": \"/api/v1/tickets\",\n                \"body\": {\"title\": title[:250], \"group\": GROUP, \"customer_id\": CUSTOMER_ID,\n                         \"preferences\": {\"check_mk\": {\"host\": host, \"service\": service}},\n                         \"article\": article(title)},\n                \"ticket\": None, \"number\": None, \"expect\": \"open\"})\nfor o in out:\n    o.update(host=host, service=service, state=state)\n    print(o[\"action\"] + \" \" + title + (\" #\" + str(o[\"number\"]) if o[\"number\"] else \"\"))\nreturn [{\"json\": o} for o in out]\n"
+      },
+      "name": "Decide",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "639b7ebe-7ff2-4021-8b22-ec85a457667a",
+      "notes": "Tested in git: scripts/tests/test_n8n_workflows.py runs this code."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "97b2cec5-71d1-4232-9205-3bae132c71a8",
+              "leftValue": "={{ $('Settings').first().json.write }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Writing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        0
+      ],
+      "id": "8ee5a825-12b5-4644-a47d-0ccf1d419806"
+    },
+    {
+      "parameters": {},
+      "name": "Would write",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        120
+      ],
+      "id": "c20ca545-1a2d-4019-9de3-dc9d3daeb5e3"
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "=http://zammad-nginx.zammad:8080{{ $json.path }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}"
+      },
+      "name": "Zammad: write",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        -100
+      ],
+      "id": "009b99ee-aa59-4a40-8dad-9038e0029e62",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
+          "name": "Zammad API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://zammad-nginx.zammad:8080/api/v1/tickets/{{ $json.body.ticket_id ?? $json.body.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "expand",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "name": "Zammad: read it back",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        -100
+      ],
+      "id": "950b31ee-5b3d-4afc-af52-174f09f4b65d",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
+          "name": "Zammad API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9242c100-18d2-4cdc-8e98-8b5ca619c5c4",
+              "name": "decision",
+              "value": "={{ $('Decide').item.json }}",
+              "type": "object"
+            },
+            {
+              "id": "580131b8-6b49-43fd-bee1-a6e3fb3fe2d1",
+              "name": "back",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Gather the write",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2200,
+        -100
+      ],
+      "id": "1f5904ce-b4f2-425f-be88-7bbc7689d396"
+    },
+    {
+      "parameters": {
+        "language": "pythonNative",
+        "pythonCode": "# Each write read back: Zammad must show the ticket with this event's key and the state the\n# write meant (closed after a close; new or open after a create or a note), or the run fails.\n# Input: one item per write from \"Gather the write\": decision, back (the ticket read back,\n# a full response).\nout, problems = [], []\nfor item in _items:\n    g = item[\"json\"]\n    d = g.get(\"decision\") or {}\n    back = g.get(\"back\") or {}\n    what = str(d.get(\"action\", \"?\")) + \" \" + str(d.get(\"host\"))\n    if \"error\" in back or not isinstance(back.get(\"body\"), dict):\n        problems.append(what + \": Zammad couldn't be read back\")\n        continue\n    t = back[\"body\"]\n    ck = (t.get(\"preferences\") or {}).get(\"check_mk\") or {}\n    state = str(t.get(\"state\") or \"\")\n    wrong = []\n    if (ck.get(\"host\"), ck.get(\"service\")) != (d.get(\"host\"), d.get(\"service\")):\n        wrong.append(\"its key reads \" + repr((ck.get(\"host\"), ck.get(\"service\"))))\n    if (d.get(\"expect\") == \"closed\") != (state == \"closed\"):\n        wrong.append(\"its state reads \" + repr(state))\n    if wrong:\n        problems.append(what + \" #\" + str(t.get(\"number\")) + \" didn't take: \" + \"; \".join(wrong))\n        continue\n    print(str(d.get(\"action\")) + \" #\" + str(t.get(\"number\")) + \": read back \" + state)\n    out.append({\"json\": {\"action\": d.get(\"action\"), \"number\": t.get(\"number\"), \"state\": state,\n                         \"title\": t.get(\"title\")}})\nif problems:\n    raise Exception(\" | \".join(problems))\nreturn out\n"
+      },
+      "name": "Verify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        -100
+      ],
+      "id": "24c376ee-67f6-4493-a610-e3479e9d8b09",
+      "notes": "Fails the run when Zammad doesn't show what was written. Tested in git."
+    }
+  ],
+  "connections": {
+    "Semaphore": {
+      "main": [
+        [
+          {
+            "node": "Semaphore → event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Databasus": {
+      "main": [
+        [
+          {
+            "node": "Databasus → event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Semaphore → event": {
+      "main": [
+        [
+          {
+            "node": "Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Databasus → event": {
+      "main": [
+        [
+          {
+            "node": "Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Zammad: open tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zammad: open tickets": {
+      "main": [
+        [
+          {
+            "node": "Gather",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather": {
+      "main": [
+        [
+          {
+            "node": "Decide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide": {
+      "main": [
+        [
+          {
+            "node": "Writing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writing?": {
+      "main": [
+        [
+          {
+            "node": "Zammad: write",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Would write",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zammad: write": {
+      "main": [
+        [
+          {
+            "node": "Zammad: read it back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zammad: read it back": {
+      "main": [
+        [
+          {
+            "node": "Gather the write",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather the write": {
+      "main": [
+        [
+          {
+            "node": "Verify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
