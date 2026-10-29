@@ -62,9 +62,6 @@ spec:
         # Asked which members of a group alert are down (zammad-bridge.py).
         - name: PROMETHEUS_URL
           value: http://kps-prometheus.monitoring.svc.${CLUSTER_DOMAIN}:9090
-        # Asked, for /verdict, which alerts are still active (zammad-bridge.py).
-        - name: ALERTMANAGER_URL
-          value: http://kps-alertmanager.monitoring.svc.${CLUSTER_DOMAIN}:9093
         ports:
         - {name: http, containerPort: 8080}
         readinessProbe:

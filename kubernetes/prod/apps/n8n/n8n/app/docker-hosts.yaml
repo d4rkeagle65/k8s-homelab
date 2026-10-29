@@ -1,0 +1,61 @@
+# Each Docker host's read-only socket proxy (docker/docker-socket-proxy*, port 9339 on the
+# host's management address), for n8n's workflows to ask by name: docker-vm-1.n8n and so on
+# (n8n/workflows/). The first VM's address is a name, so an ExternalName; the second VM's
+# and the TerraMaster's are IPs, so a Service without a selector and its EndpointSlice.
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-vm-1
+spec:
+  type: ExternalName
+  externalName: ${DOCKHAND_ADDRESS}
+  ports:
+  - {name: http, port: 9339, protocol: TCP}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-vm-2
+spec:
+  type: ClusterIP
+  ports:
+  - {name: http, port: 9339, targetPort: 9339, protocol: TCP}
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: docker-vm-2
+  labels:
+    kubernetes.io/service-name: docker-vm-2
+addressType: IPv4
+ports:
+- {name: http, port: 9339, protocol: TCP}
+endpoints:
+- addresses:
+  - ${DOCKER_VM_2_MGMT_ADDRESS}
+  conditions:
+    ready: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-terramaster
+spec:
+  type: ClusterIP
+  ports:
+  - {name: http, port: 9339, targetPort: 9339, protocol: TCP}
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: docker-terramaster
+  labels:
+    kubernetes.io/service-name: docker-terramaster
+addressType: IPv4
+ports:
+- {name: http, port: 9339, protocol: TCP}
+endpoints:
+- addresses:
+  - ${TERRAMASTER_MGMT_ADDRESS}
+  conditions:
+    ready: true

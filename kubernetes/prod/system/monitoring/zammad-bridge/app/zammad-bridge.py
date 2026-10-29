@@ -45,18 +45,8 @@ are closed by hand.
 Each route's token is in the environment (DOCKHAND_TOKEN, SEMAPHORE_TOKEN,
 DATABASUS_TOKEN); unset, that route answers 404 to everything.
 
-POST /verdict asks, of Zammad's open tickets (its ticket search's JSON, a list or
-{"tickets": [...]}), whether what opened each is still happening, as a recovery can be
-lost (the bridge down when it came, or a source that sends none). n8n's "Zammad: close
-what's over" workflow (n8n/workflows/) sends it the tickets, and closes those it
-answers "over" for. Only tickets whose Checkmk preferences carry a host and service are
-the bridge's; one a person opened has none and is left out of the answer. By the ticket's
-key: an Alertmanager alert is still happening while Alertmanager lists it as active
-(ALERTMANAGER_URL); a Dockhand container while it isn't running and healthy, and a
-Dockhand stack while any of its containers isn't running, both asked of DOCKER_HOSTS.
-Semaphore's, Databasus's and other Dockhand tickets are "unknown". A source that can't
-answer makes "unknown": "couldn't ask" is never "over". It reads and never writes, so it
-needs no token.
+n8n's "Zammad: close what's over" (n8n/workflows/) closes a ticket whose cause is
+over, as a recovery can be lost; QUEUE-n8n-zammad.md moves the rest of this to n8n.
 
 A failed call to Zammad answers Alertmanager with 502, so it retries. The
 Zammad URL carries the integration's token: it comes from the environment
@@ -410,93 +400,6 @@ def send(url: str, fields: dict) -> str:
         return json.load(r).get("result", "")
 
 
-# --- /verdict: is what opened each ticket still happening? -------------------------
-
-RESOLVED, ONGOING, UNKNOWN = "over", "ongoing", "unknown"
-
-
-def ticket_key(ticket: dict) -> tuple[str, str]:
-    """The (host, service) the bridge keyed a ticket by, or ("", "") for one it didn't make."""
-    prefs = ticket.get("preferences") or {}
-    ck = prefs.get("check_mk") or prefs.get("checkmk") or {}
-    return str(ck.get("host") or ""), str(ck.get("service") or "")
-
-
-def active_alert_hosts(alertmanager: str) -> set[str]:
-    """The ticket keys (hosts) of every alert Alertmanager has active, silenced or not."""
-    with urllib.request.urlopen(f"{alertmanager}/api/v2/alerts?active=true", timeout=10) as r:
-        alerts = json.load(r)
-    return {to_checkmk({"labels": a.get("labels") or {}, "status": "firing"})["host"] for a in alerts}
-
-
-def container_state(name: str, hosts: list[str]) -> tuple[str, str]:
-    found, unasked = [], 0
-    for host in hosts:
-        try:
-            found += [c for c in docker_containers(host) if f"/{name}" in (c.get("Names") or [])]
-        except (urllib.error.URLError, OSError, ValueError):
-            unasked += 1
-    if not found:
-        return UNKNOWN, ("not found on any Docker host" + (f", {unasked} couldn't be asked" if unasked else ""))
-    if all(c.get("State") == "running" and "unhealthy" not in str(c.get("Status", "")) and
-           "health: starting" not in str(c.get("Status", "")) for c in found):
-        return RESOLVED, "running" + (" and healthy" if any("(healthy)" in str(c.get("Status", "")) for c in found) else "")
-    return ONGOING, ", ".join(sorted({str(c.get("Status") or c.get("State")) for c in found}))
-
-
-def stack_state(name: str, hosts: list[str]) -> tuple[str, str]:
-    found, unasked = [], 0
-    for host in hosts:
-        try:
-            found += [c for c in docker_containers(host)
-                      if (c.get("Labels") or {}).get("com.docker.compose.project") == name]
-        except (urllib.error.URLError, OSError, ValueError):
-            unasked += 1
-    if unasked and not found:
-        return UNKNOWN, f"{unasked} of {len(hosts)} Docker hosts couldn't be asked"
-    if not found:
-        return UNKNOWN, "no container of that stack on any Docker host"
-    down = sorted(c["Names"][0].lstrip("/") for c in found
-                  if c.get("State") != "running" and not str(c.get("Status", "")).startswith("Exited (0)"))
-    return (ONGOING, "not running: " + ", ".join(down)) if down else (RESOLVED, f"its {len(found)} containers are running")
-
-
-def verdicts(tickets: list, alertmanager: str, docker_hosts: list[str]) -> list[dict]:
-    """A verdict for each of the bridge's tickets among these; a person's are left out."""
-    mine = [t for t in tickets if isinstance(t, dict) and all(ticket_key(t))]
-    alert_hosts = None
-    if alertmanager and mine:
-        try:
-            alert_hosts = active_alert_hosts(alertmanager)
-        except (urllib.error.URLError, OSError, ValueError) as e:
-            log(f"verdict: couldn't ask Alertmanager ({type(e).__name__}); its tickets are unknown")
-    out = []
-    for t in mine:
-        host, service = ticket_key(t)
-        v, why = verdict(host, service, alert_hosts, docker_hosts)
-        out.append({"id": t.get("id"), "number": t.get("number"), "title": t.get("title"),
-                    "host": host, "service": service, "verdict": v, "reason": why})
-    counts = {k: sum(o["verdict"] == k for o in out) for k in (RESOLVED, ONGOING, UNKNOWN)}
-    log(f"verdict: {len(tickets)} ticket(s), {len(mine)} the bridge's: {counts[RESOLVED]} over, "
-        f"{counts[ONGOING]} ongoing, {counts[UNKNOWN]} unknown")
-    return out
-
-
-def verdict(host: str, service: str, alert_hosts: set[str] | None, docker_hosts: list[str]) -> tuple[str, str]:
-    """Whether what opened a ticket is over, still happening, or couldn't be told; and why."""
-    if service == "dockhand":
-        if host.startswith("Dockhand Container "):
-            return container_state(host[len("Dockhand Container "):], docker_hosts) if docker_hosts else (UNKNOWN, "DOCKER_HOSTS unset")
-        if host.startswith("Dockhand Stack "):
-            return stack_state(host[len("Dockhand Stack "):], docker_hosts) if docker_hosts else (UNKNOWN, "DOCKER_HOSTS unset")
-        return UNKNOWN, "a Dockhand event of a kind not checked"
-    if service in ("semaphore", "databasus"):
-        return UNKNOWN, f"{service}'s tickets aren't checked"
-    if alert_hosts is None:
-        return UNKNOWN, "Alertmanager couldn't be asked"
-    return (ONGOING, "the alert is active") if host in alert_hosts else (RESOLVED, "Alertmanager no longer has the alert active")
-
-
 class Handler(BaseHTTPRequestHandler):
     url = ""
     prometheus = ""
@@ -514,15 +417,10 @@ class Handler(BaseHTTPRequestHandler):
     semaphore_token = ""
     databasus_token = ""
 
-    alertmanager = ""
-
     def do_POST(self):
         route = self.path.split("/")[1] if self.path.count("/") >= 2 else ""
         if route in ROUTES:
             self.notification(route)
-            return
-        if self.path == "/verdict":
-            self.verdict()
             return
         if self.path != "/alertmanager":
             self.send_response(404)
@@ -549,22 +447,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(502 if failed else 200)
         self.end_headers()
 
-
-    def verdict(self):
-        try:
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"[]")
-        except (ValueError, json.JSONDecodeError):
-            self.send_response(400)
-            self.end_headers()
-            return
-        tickets = body.get("tickets") if isinstance(body, dict) else body
-        out = json.dumps({"tickets": verdicts(tickets if isinstance(tickets, list) else [],
-                                              self.alertmanager, self.docker_hosts)}).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(out)))
-        self.end_headers()
-        self.wfile.write(out)
 
     def notification(self, route: str):
         attr, convert = ROUTES[route]
@@ -628,9 +510,6 @@ def main() -> None:
         setattr(Handler, attr, os.environ.get(f"{route.upper()}_TOKEN", "").strip())
         if not getattr(Handler, attr):
             log(f"{route.upper()}_TOKEN unset: /{route} answers 404")
-    Handler.alertmanager = os.environ.get("ALERTMANAGER_URL", "").strip().rstrip("/")
-    if not Handler.alertmanager:
-        log("ALERTMANAGER_URL unset: /verdict answers unknown for every alert's ticket")
     port = int(os.environ.get("PORT", "8080"))
     log(f"listening on {port}")
     ThreadingHTTPServer(("", port), Handler).serve_forever()
