@@ -55,9 +55,9 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   are Services in the `n8n` namespace: `docker-vm-1` an ExternalName (`DOCKHAND_ADDRESS`, a
   name), `docker-vm-2` and `docker-terramaster` EndpointSlices (`DOCKER_VM_2_MGMT_ADDRESS`,
   `TERRAMASTER_MGMT_ADDRESS`, IPs).
-- **"Couldn't ask" is never "over"**, and a wrong guess may only keep a ticket open: until the
-  alert-naming rule lives in n8n alone (stage 4), an alert ticket is over only when no active
-  alert has its alert name (the ticket's service).
+- **"Couldn't ask" is never "over".** An alert's ticket is over once no active alert rebuilds to
+  its host. The rule naming it lives in two Code nodes ("Alertmanager → alerts" and "Verdict"),
+  held to the same lines by a test, so the closing check can't drift from how tickets open.
 - **Tickets go through Zammad's ticket API, as the Checkmk endpoint made them.** That endpoint
   takes its token only in the URL's path, so n8n uses the REST API with the Zammad API
   credential instead and does what the endpoint did (`check_mk_controller.rb`): a ticket per
@@ -92,9 +92,19 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   paired). Left: a real container failure holds, opens and its recovery closes; the owner
   closes the bridge's two open "Dockhand Environment offline"-kind tickets by hand (their key
   changed).
-- [ ] **4. Alertmanager**, with the group alerts' members from Prometheus; the alert-naming rule
-  moves into n8n, and the closing check rebuilds hosts exactly. Its receiver in
-  kube-prometheus-stack's `alertmanager.config` moves.
+- [ ] **4. Alertmanager**, in three PRs so Alertmanager never points at what isn't ready:
+  - [x] n8n's side (this PR): the Alertmanager webhook (Header Auth, bearer
+    `ALERTMANAGER-N8N-TOKEN`, which the owner adds to Key Vault before it merges), the
+    bridge's alert rules as two Python nodes, members down from Prometheus, several events in
+    one run, `write_sources` per source (Alertmanager a dry run), and the closing check
+    matching alert tickets by exact host. After merge: `alertmanager-n8n` (monitoring) and
+    `n8n-credentials` synced; n8n restarted with `AlertmanagerKV01`; the workflows updated
+    from git.
+  - [ ] Alertmanager's `zammad` receiver sends to both (`kube-prometheus-stack`'s
+    `alertmanager.config`, a second webhook_config with `http_config.authorization.credentials_file`
+    from `alertmanagerSpec.secrets: [.., alertmanager-n8n]`); n8n's decisions read against the
+    bridge's log for a day.
+  - [ ] `alertmanager` in `write_sources`, and the bridge's webhook_config goes.
 - [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/` and
   `scripts/tests/test_zammad_bridge.py`; the `zammad-bridge` Pi-hole record, deleted by hand
   (ExternalDNS is upsert-only, so the removed Ingress's record stays); `DOCKHAND_ALERT_TOKEN`,
