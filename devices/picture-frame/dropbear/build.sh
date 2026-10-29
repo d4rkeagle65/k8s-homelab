@@ -29,8 +29,12 @@ cat > localoptions.h <<'H'
 #define DROPBEAR_X11FWD 0
 #define DEFAULT_PATH "/system/bin:/system/xbin"
 #define DEFAULT_ROOT_PATH "/system/bin:/system/xbin"
+#define COMPAT_USER_SHELLS "/system/bin/sh"
 H
 
+# Android's getusershell() doesn't list root's shell, /system/bin/sh, so Dropbear refused root
+# ("invalid shell"): its own list (COMPAT_USER_SHELLS above) is used instead.
+export ac_cv_func_getusershell=no
 # API 23 is Android 6. The frame's linker warns about DT_FLAGS_1 from newer NDKs; harmless.
 export CC="$TC/bin/armv7a-linux-androideabi23-clang" AR="$TC/bin/llvm-ar" RANLIB="$TC/bin/llvm-ranlib"
 ./configure --host=armv7a-linux-androideabi --disable-zlib --disable-lastlog --disable-utmp \
