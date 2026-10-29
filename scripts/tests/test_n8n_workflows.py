@@ -310,3 +310,105 @@ def test_tickets_in_writes_only_with_write_on_and_answers_after_its_last_node():
     for name in ("Semaphore", "Databasus"):
         p = nodes[name]["parameters"]
         assert p["authentication"] == "basicAuth" and p["responseMode"] == "lastNode" and nodes[name].get("webhookId")
+
+
+# --- "Zammad: tickets in": Dockhand ----------------------------------------------------------
+
+def container(name, state="exited", status="Exited (1) 2 seconds ago", project="kea"):
+    labels = {"com.docker.compose.project": project} if project else {"databasus.verification.agent_id": "a1"}
+    return {"Names": [f"/{name}"], "State": state, "Status": status, "Labels": labels}
+
+
+def died(name, action="die"):
+    return {"title": f"Container {action.title()}", "message": f'Container "{name}" {action} (some/image:1)', "type": "error"}
+
+
+def dockhand(note, docker=None, held=None):
+    docker = docker if docker is not None else [ok([]), ok([]), ok([])]
+    out, printed = run_code(workflow(TICKETS_IN), "Dockhand → event",
+                            [{"json": {"note": note, "docker": docker, "held": held or {}}}])
+    return (out[0]["json"] if out else None), printed
+
+
+def test_a_dockhand_failure_opens_and_its_recovery_closes_the_same_ticket():
+    down, _ = dockhand({"title": "Container unhealthy: kea-dhcp4", "message": "on env 2", "type": "failure"})
+    up, _ = dockhand({"title": "Container healthy: kea-dhcp4", "message": "on env 2", "type": "success"})
+    assert down["state"] == "CRITICAL" and up["state"] == "OK" and down["hold"] == up["hold"] == 0
+    assert down["host"] == up["host"] == "Dockhand Container: kea-dhcp4" and down["service"] == "dockhand"
+    assert "on env 2" in down["text"]
+    assert dockhand({"title": "Git sync failed: kea", "type": "warning"})[0]["state"] == "WARNING"
+    assert dockhand({"message": "no title"})[0] is None
+
+
+def test_a_stack_event_is_keyed_by_its_stack_so_a_deploy_closes_its_failed_sync():
+    hosts = [dockhand({"title": t, "message": m, "type": k})[0]["host"] for t, m, k in (
+        ("Git sync failed", 'Stack "netbox" sync failed:  Image x Building', "error"),
+        ("Stack deploy failed", 'Stack "netbox" deploy failed: y', "error"),
+        ("Git stack deployed", 'Stack "netbox" deployed from git', "success"),
+        ("Stack deployed", 'Stack "netbox" deployed successfully', "success"))]
+    assert set(hosts) == {"Dockhand Stack netbox"}
+    assert dockhand({"title": "Git sync failed", "message": 'Stack "lldpd" sync failed: z', "type": "error"})[0]["host"] == "Dockhand Stack lldpd"
+
+
+def test_a_dockhand_title_starting_with_dockhand_isnt_doubled():
+    assert dockhand({"title": "Dockhand Test Notification", "type": "info"})[0]["host"] == "Dockhand Test Notification"
+
+
+def test_a_container_event_is_keyed_by_the_container_its_message_names_and_a_recovery_is_never_held():
+    lists = [ok([container("kea-dhcp4"), container("netbox")]), ok([]), ok([])]
+    die, _ = dockhand(died("kea-dhcp4"), lists)
+    start, _ = dockhand({"title": "Container Start", "message": 'Container "kea-dhcp4" start (kea:3.2.1)', "type": "success"},
+                        [{"error": "never asked"}] * 3)
+    other, _ = dockhand(died("netbox"), lists)
+    assert die["host"] == start["host"] == "Dockhand Container kea-dhcp4" and other["host"] == "Dockhand Container netbox"
+    assert die["state"] == "CRITICAL" and start["state"] == "OK" and start["hold"] == 0 and "couldn't" not in start["text"]
+
+
+def test_a_stack_containers_failure_is_held_and_the_others_are_nothing():
+    lists = [ok([container("kea-dhcp4"), container("kea-db-init", status="Exited (0) 3 seconds ago"),
+                 container("loose", project=None)]), ok([]), ok([])]
+    held, printed = dockhand(died("kea-dhcp4"), lists)
+    assert (held["hold"], held["container"], held["repeat"]) == (180, "kea-dhcp4", "note") and "held 180s" in printed[0][0]
+    assert dockhand(died("kea-db-init"), lists)[0] is None          # a one-shot's normal finish
+    assert dockhand(died("loose"), lists)[0] is None                # outside every stack
+    assert dockhand(died("databasus-verif-1f2e"), lists)[0] is None  # removed by what started it
+
+
+def test_a_host_that_cant_be_asked_never_drops_a_ticket():
+    f, _ = dockhand(died("kea-dhcp4"), [ok([]), {"error": "timed out"}, ok([])])
+    assert f["state"] == "CRITICAL" and f["hold"] == 180 and "1 of 3 Docker hosts couldn't be asked" in f["text"]
+    f, _ = dockhand(died("kea-dhcp4"), [ok([container("kea-dhcp4")]), {"error": "timed out"}, ok([])])
+    assert "couldn't be asked" not in f["text"]
+
+
+def test_after_the_hold_a_failure_still_failed_is_a_ticket_and_one_running_again_is_nothing():
+    lists = [ok([container("kea-dhcp4")]), ok([]), ok([])]
+    held, _ = dockhand(died("kea-dhcp4"), lists)
+    still, _ = dockhand(died("kea-dhcp4"), lists, held=held)
+    assert still["hold"] == 0 and still["state"] == "CRITICAL" and still["host"] == "Dockhand Container kea-dhcp4"
+    running = [ok([container("kea-dhcp4", state="running", status="Up 40 seconds")]), ok([]), ok([])]
+    gone, printed = dockhand(died("kea-dhcp4"), running, held=held)
+    assert gone is None and "running again" in printed[0][0]
+    down, _ = dockhand(died("kea-dhcp4"), [{"error": "timed out"}] * 3, held=held)
+    assert down["hold"] == 0 and "couldn't be asked" in down["text"]
+
+
+def test_a_kill_holds_longer_than_its_die_and_adds_nothing_to_the_ticket_the_die_opened():
+    lists = [ok([container("kea-postgres")]), ok([]), ok([])]
+    die, _ = dockhand(died("kea-postgres"), lists)
+    kill, _ = dockhand(died("kea-postgres", "kill"), lists)
+    assert kill["hold"] > die["hold"] and (die["repeat"], kill["repeat"]) == ("note", "skip")
+    after, _ = dockhand(died("kea-postgres", "kill"), lists, held=kill)
+    assert decide(after, [ck(4, "Dockhand Container kea-postgres", "dockhand")]) == []   # the die's ticket: nothing added
+    assert [w["action"] for w in decide(after, [])] == ["create"]                      # a kill alone still opens one
+    assert [w["action"] for w in decide(dict(after, repeat="note"), [ck(4, "Dockhand Container kea-postgres", "dockhand")])] == ["note"]
+
+
+def test_dockhands_branch_answers_at_once_and_holds_only_what_asks():
+    wf = workflow(TICKETS_IN)
+    nodes, c = {n["name"]: n for n in wf["nodes"]}, wf["connections"]
+    hook = nodes["Dockhand"]["parameters"]
+    assert hook["authentication"] == "basicAuth" and hook["responseMode"] == "onReceived"
+    assert c["Hold?"]["main"][0][0]["node"] == "Wait out the hold" and c["Hold?"]["main"][1][0]["node"] == "Event"
+    assert nodes["Wait out the hold"]["parameters"] == {"amount": "={{ $json.hold }}", "unit": "seconds"}
+    assert c["Gather after the hold"]["main"][0][0]["node"] == "Dockhand → event"  # the same rules, after the hold
