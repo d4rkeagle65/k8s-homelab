@@ -17,6 +17,7 @@ and the order to set it up again. Its address, MAC and name are in NetBox and Ke
 | Launchers | Home HQ (`com.wesbos.homehq`, upstream's `dashboard/kiosk`) is the Home app, so it starts at boot; Rootless Launcher stays installed as the way back to Settings. Firefox is installed, unused. |
 | Kiosk page | Home HQ's saved URL is ImmichFrame's address. |
 | Boot fixes | Upstream's `scripts/pf1007l-boot` (`install.sh apply`): `MAC` (a fixed Wi-Fi MAC, made from the serial number), `NTP_SERVER` (a local time server), `WIFI_DEFER=1`, `POWER_FIX=1` (it runs on a charger above 500 mA), `IGNORE_IPV6_RA=1`, `KIOSK` set to Home HQ, `ADB_ALLOW` empty. |
+| SSH | Dropbear on port 22, key-only, for root; the key allowed is the Termix bastion's (`bastion_ssh_keys`), and Termix reaches it through NetBox (below). |
 | Home Assistant | Controls it over HTTP, not ADB: scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` call Home HQ's command listener (below). `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
 
 ## Setting it up again
@@ -63,6 +64,8 @@ adb connect <frame-address>:5555
    reaches the frame through the firewall rule that lets the workers reach the IoT devices,
    which needs TCP 8766. Check: run the script `picture_frame_next` and see the photo change.
 
+9. **SSH** (below).
+
 Check the result:
 
 ```sh
@@ -96,11 +99,44 @@ page: look at the frame itself.
   listens on TCP 8766 for `POST /next`, `/back`, `/pause`, `/mute` and `/reboot` with the header
   `X-Token: <token>`, compared in constant time. Next, back and pause send the page Right, Left
   and Space, as ImmichFrame's keyboard shortcuts; mute is the same toggle as the power button;
-  reboot runs `su -c reboot`. Anything else answers 401, 404 or 405 and is logged without the
+  reboot runs `su 0 reboot` (the firmware's `su` is AOSP's: `su <uid> <command>`, no `-c`;
+  its error, if any, is logged). Anything else answers 401, 404 or 405 and is logged without the
   token. Plain HTTP on the IoT network: the token is the protection.
 
 It compiles with upstream's `build.sh`. If a later upstream change makes it not apply, re-apply
 its hunks by hand.
+
+## SSH (Dropbear)
+
+`dropbear/build.sh` builds Dropbear 2026.94 with Android's NDK (r30, API 23) in a throwaway
+Debian container: against Android's C library, so it finds root without an `/etc/passwd`, and
+with password logins compiled out. The source tarball's SHA-256 is
+`e098034a843699200c8c977a991fff73159735bf795d5f72ef672c41a6b1ae81`. On the frame everything is
+in `/data/local/ssh/` (mode 700): `dropbear`, `dropbearkey`, `start.sh` from this folder, the
+host key it makes on its first run, and `authorized_keys` (600) holding the public keys in
+`bastion_ssh_keys` (`ansible/group_vars/all.yml`), which `-D` points Dropbear at.
+
+```sh
+adb shell "mkdir -p /data/local/ssh && chmod 700 /data/local/ssh"
+adb push dropbear dropbearkey devices/picture-frame/dropbear/start.sh authorized_keys /data/local/ssh/
+adb shell "cd /data/local/ssh && chmod 755 dropbear dropbearkey start.sh && chmod 600 authorized_keys"
+```
+
+It starts at boot from its own line in `/system/bin/install-recovery.sh`, right before the
+boot fixes' `exec` line (nothing after an `exec` runs). Back the file up to
+`/data/local/ssh/install-recovery.sh.before` first, and keep it `root:root`, mode 750:
+
+```
+/system/bin/sh /data/local/ssh/start.sh &  # Dropbear SSH (k8s-homelab devices/picture-frame)
+```
+
+The boot fixes' `install.sh apply` keeps that line; their `uninstall` puts back their own copy of
+the file, without it. `start.sh` redirects Dropbear's output: without that, an `adb shell` that
+runs it waits on the daemon for good.
+
+Termix: the frame's NetBox device carries the tag `bastion-key` and the local context
+`{"termix_user": "root"}`; Termix's hourly sync then adds it by its primary address. The
+workers reach it on TCP 22 through the same firewall rule as 8766.
 
 ## The power button as mute
 
@@ -124,6 +160,8 @@ its long-press power menu is gone. Undo: remove that file (same remount) and reb
 
 ## Locked down
 
+- **SSH from the workers only**, as for commands: key-only, and the firewall lets only the
+  workers (Termix) reach TCP 22.
 - **Commands from the workers only**, as for ADB: the token is checked on every request, and
   the firewall lets only the workers reach TCP 8766 on the IoT network.
 - **ADB from the workers only:** set `ADB_ALLOW` in `frame-boot.conf` to the smallest range
