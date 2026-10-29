@@ -66,10 +66,11 @@ account: the first one administers the instance. Keep its password in Vaultwarde
   Proxmox backup. **Retention:** 30 days.
 - **Notifiers, both on every database:**
   - **Zammad:** a Webhook notifier, method POST, URL
-    `https://zammad-bridge.<domain>/databasus/<DATABASUS-ALERT-TOKEN>`, body template empty,
-    every notification type. A failed backup, health check or verification opens a ticket and
-    the matching success closes it (`zammad-bridge.py`), so each database's backup sends on
-    success as well as failure.
+    `https://databasus:<DATABASUS-ALERT-TOKEN>@n8n.<domain>/webhook/zammad/databasus` (n8n's
+    webhook takes the token as Basic Auth), body template empty, every notification type. A
+    failed backup, health check or verification opens a ticket and the matching success closes
+    it ("Zammad: tickets in", `n8n/workflows/`), so each database's backup sends on success as
+    well as failure.
   - **Email,** failures only, through the cluster's SMTP relay, as Vaultwarden sends: host
     `smtp-relay.<domain>`, **port 8025** with STARTTLS, and the Vaultwarden stack's
     `SMTP_USERNAME`, `SMTP_PASSWORD` and `SMTP_FROM`. Traefik takes SMTP on 8025 only: 465 and

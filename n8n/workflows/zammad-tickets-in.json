@@ -98,7 +98,7 @@
             {
               "id": "80fe1e24-77c6-4915-8338-2b332ecc0a44",
               "name": "write",
-              "value": false,
+              "value": true,
               "type": "boolean"
             }
           ]
@@ -114,7 +114,7 @@
         0
       ],
       "id": "d46f03cc-ecf9-4305-afd0-07fe306b57e7",
-      "notes": "write: false is the dry run: each decision ends at \"Would write\". Set it true once a source's URL points here."
+      "notes": "write: false is a dry run: each decision ends at \"Would write\". On while a source points here."
     },
     {
       "parameters": {
