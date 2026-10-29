@@ -16,7 +16,10 @@ Dockhand's notifications arrive at /dockhand/<token> (Apprise's json://
 format: title, message, type): failure and warning open a ticket, success and
 info close it. The ticket's key is the title with its state words taken out, so
 "Container unhealthy: x" and "Container healthy: x" are one ticket; a container
-event is keyed by the container its message names. One-shot services carry the
+event is keyed by the container its message names, and a stack event by the stack
+('Stack "netbox" sync failed...'), so a stack's failed Git sync or deploy and its
+next "Git stack deployed" or "Stack deployed" are one ticket, one per stack: their
+titles alone never pair up. One-shot services carry the
 label dockhand.notify: "false" in their compose files, so Dockhand sends nothing
 when they exit. A container's failure opens a ticket only for a container of a
 stack (its com.docker.compose.project label), read from each Docker host's
@@ -233,8 +236,14 @@ def dockhand_to_checkmk(note: dict, hosts: list[str] | tuple = ()) -> dict | Non
     # A container event's message names the container ('Container "kea-dhcp4" die
     # (image)'; its title is only "Container Die"), so its tickets are keyed by name.
     named = re.match(r'Container "([^"]+)" ', str(note.get("message") or ""))
+    # A stack event's titles ("Git sync failed", "Stack deploy failed", "Git stack
+    # deployed", "Stack deployed") never match one another once their state words
+    # go, and name no stack: its message does ('Stack "netbox" deployed successfully').
+    stack = re.match(r'Stack "([^"]+)" ', str(note.get("message") or ""))
     if named:
         key = f"Container {named.group(1)}"
+    elif stack:
+        key = f"Stack {stack.group(1)}"
     else:
         key = re.sub(r"\s+([:,|])", r"\1", re.sub(r"\s+", " ", STATE_WORDS.sub("", title))).strip(" :-|") or title
         key = re.sub(r"^dockhand\b[\s:-]*", "", key, flags=re.IGNORECASE) or key  # its titles often start "Dockhand"
