@@ -46,6 +46,7 @@ import socket
 import ssl
 import struct
 import sys
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -149,6 +150,10 @@ class HomeAssistantSocket:
 
 
 FLOW_TIMEOUT = 90
+# A new entry connects to its device after its flow ends; the read-back waits this long
+# for that before it looks for the device.
+SETUP_WAIT = 120
+SETUP_STATES = ("setup_in_progress", "not_loaded")
 
 
 class HomeAssistant:
@@ -269,6 +274,18 @@ def first_answer(schema: list[dict], host: str, fields: dict) -> dict:
     return answer
 
 
+def wait_for_setup(ha, domains: set[str], wait: float = SETUP_WAIT, clock=time) -> list[str]:
+    """Wait until no entry of these integrations is still being set up, at most wait
+    seconds; the titles of any still setting up then."""
+    end = clock.monotonic() + wait
+    while True:
+        pending = [e["title"] for e in ha.call("config_entries/get")
+                   if e["domain"] in domains and e["state"] in SETUP_STATES]
+        if not pending or clock.monotonic() >= end:
+            return pending
+        clock.sleep(2)
+
+
 def run_flow(ha, entry: dict, host: str, environ=os.environ) -> tuple[str, str]:
     """Run entry's integration's setup flow for host: ("added", title), ("present",
     reason), ("waiting", what it asks for) or ("failed", why). A flow left on a form is
@@ -369,15 +386,18 @@ def main() -> None:
         status, detail = run_flow(ha, entry, d["host"])
         print(f"  {status}: {d['name']} ({entry['handler']}): {detail}")
         if status == "added":
-            added.append(d)
+            added.append((d, entry["handler"]))
         failed += status == "failed"
     if args.apply and added:
+        still = wait_for_setup(ha, {handler for _, handler in added})
         by_mac = ha_device_by_mac(ha.devices())
-        for d in added:
+        for d, _ in added:
             if ha_device_of(d, by_mac) is None:
-                print(f"  FAIL: {d['name']}: its entry was made, but no Home Assistant device carries its MAC")
+                why = (f"its entry is still setting up after {SETUP_WAIT}s ({', '.join(still)})" if still
+                       else "its entry was made, but no Home Assistant device carries its MAC")
+                print(f"  FAIL: {d['name']}: {why}")
                 failed += 1
-        print(f"  read back: {sum(ha_device_of(d, by_mac) is not None for d in added)} of {len(added)} added devices found")
+        print(f"  read back: {sum(ha_device_of(d, by_mac) is not None for d, _ in added)} of {len(added)} added devices found")
 
     print("areas:")
     areas = {a["name"].casefold(): a for a in ha.areas()}
