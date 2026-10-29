@@ -13,17 +13,9 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
-- **n8n's "Zammad: close what's over" isn't imported yet** (#458;
-  `n8n/workflows/zammad-close-whats-over.json`, the bridge's `/verdict` in
-  `kubernetes/prod/system/monitoring/zammad-bridge/app/zammad-bridge.py`). After merge: the
-  `import-credentials` init container's log in n8n's pod says `zammad-api.json imported as
-  ZammadApiFromKV1, read back` (`n8n-credentials` synced from Key Vault
-  `ZAMMAD-BRIDGE-API-TOKEN`; without it the Secret is missing and n8n's pod won't start); import
-  the workflow (`n8n/README.md`), run it once by hand. Check "Zammad: open tickets" gets 200 from the in-cluster address
-  (untested), and "One per ticket" lists the open bridge tickets (none means the Checkmk key
-  isn't in `preferences.check_mk`, where `ticket_key` reads it). Then turn it Active; once
-  "Would close" holds the right tickets, set `close` true in Settings. Semaphore, Databasus and
-  other Dockhand tickets stay "unknown" until `verdict` learns to ask them.
+- **n8n's "Zammad: close what's over" isn't imported yet** (`n8n/workflows/`): import it
+  and run it once by hand (`n8n/README.md`). Its next version, and the bridge's replacement,
+  are in `QUEUE-n8n-zammad.md`.
 - **The HP convertible laptop joins the cluster when its Ethernet adapters arrive** (NetBox:
   Staged, tags `ansible` and `debian`, its address on Production, its local context
   `ansible_user`, `ansible_python_interpreter`, `host_exporters_defer: true` and
@@ -471,6 +463,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-tailscale.md](QUEUE-tailscale.md) (just started): the tailnet's policy, DNS and alerts from `tofu/tailscale` and NetBox.
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (just started): the wall display, a Grafana dashboard on the convertible laptop's screen.
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (just started): SNMPv3, syslog and alerts for the core switch and the firewall.
+- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (just started): n8n replaces zammad-bridge, one source at a time, then the bridge goes.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 
 The percentages are estimates as of 2026-10-22, from each file's checklist weighed by the
