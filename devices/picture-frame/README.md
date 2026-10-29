@@ -17,7 +17,7 @@ and the order to set it up again. Its address, MAC and name are in NetBox and Ke
 | Launchers | Home HQ (`com.wesbos.homehq`, upstream's `dashboard/kiosk`) is the Home app, so it starts at boot; Rootless Launcher stays installed as the way back to Settings. Firefox is installed, unused. |
 | Kiosk page | Home HQ's saved URL is ImmichFrame's address. |
 | Boot fixes | Upstream's `scripts/pf1007l-boot` (`install.sh apply`): `MAC` (a fixed Wi-Fi MAC, made from the serial number), `NTP_SERVER` (a local time server), `WIFI_DEFER=1`, `POWER_FIX=1` (it runs on a charger above 500 mA), `IGNORE_IPV6_RA=1`, `KIOSK` set to Home HQ, `ADB_ALLOW` empty. |
-| SSH | Dropbear on port 22, key-only, for root; the key allowed is the Termix bastion's (`bastion_ssh_keys`), and Termix reaches it through NetBox (below). |
+| SSH | Dropbear on port 22, key-only, for root; the key allowed is the Termix bastion's (`bastion_ssh_keys`), in `/system/etc/dropbear/authorized_keys`, and Termix reaches it through NetBox (below). |
 | Home Assistant | Controls it over HTTP, not ADB: scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` call Home HQ's command listener (below). `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
 
 ## Setting it up again
@@ -109,18 +109,28 @@ its hunks by hand.
 ## SSH (Dropbear)
 
 `dropbear/build.sh` builds Dropbear 2026.94 with Android's NDK (r30, API 23) in a throwaway
-Debian container: against Android's C library, so it finds root without an `/etc/passwd`, and
-with password logins compiled out. The source tarball's SHA-256 is
-`e098034a843699200c8c977a991fff73159735bf795d5f72ef672c41a6b1ae81`. On the frame everything is
-in `/data/local/ssh/` (mode 700): `dropbear`, `dropbearkey`, `start.sh` from this folder, the
-host key it makes on its first run, and `authorized_keys` (600) holding the public keys in
-`bastion_ssh_keys` (`ansible/group_vars/all.yml`), which `-D` points Dropbear at.
+Debian container: against Android's C library, so it finds root without an `/etc/passwd`, with
+password logins compiled out, and with Dropbear's own list of allowed shells holding only
+`/system/bin/sh` (Android's list doesn't have it, and Dropbear then refuses root: "invalid
+shell"). The source tarball's SHA-256 is
+`e098034a843699200c8c977a991fff73159735bf795d5f72ef672c41a6b1ae81`. On the frame, `/data/local/ssh/` (mode 700) holds `dropbear`, `dropbearkey`, `start.sh` from
+this folder and the host key it makes on its first run. The allowed keys, the public keys in
+`bastion_ssh_keys` (`ansible/group_vars/all.yml`), are in `/system/etc/dropbear/authorized_keys`
+(root, 600), which `-D` points Dropbear at: Dropbear refuses a key file unless every folder from
+it up to `/` is root's and not group-writable, and `/data` is `system`'s and group-writable.
+Changing the keys means remounting `/system` read-write.
 
 ```sh
 adb shell "mkdir -p /data/local/ssh && chmod 700 /data/local/ssh"
-adb push dropbear dropbearkey devices/picture-frame/dropbear/start.sh authorized_keys /data/local/ssh/
-adb shell "cd /data/local/ssh && chmod 755 dropbear dropbearkey start.sh && chmod 600 authorized_keys"
+adb push dropbear dropbearkey devices/picture-frame/dropbear/start.sh /data/local/ssh/
+adb push authorized_keys /data/local/tmp/authorized_keys
+adb shell "cd /data/local/ssh && chmod 755 dropbear dropbearkey start.sh"
+adb shell "mount -o remount,rw /system && mkdir -p /system/etc/dropbear && cp /data/local/tmp/authorized_keys /system/etc/dropbear/ && chown -R root:root /system/etc/dropbear && chmod 755 /system/etc/dropbear && chmod 600 /system/etc/dropbear/authorized_keys; mount -o remount,ro /system; rm /data/local/tmp/authorized_keys"
 ```
+
+To see why a login is refused, stop the running one and run
+`dropbear -r <host key> -D /system/etc/dropbear -p 22 -F` in an `adb shell` kept open: it logs
+to the terminal (there is no `-E` without syslog).
 
 It starts at boot from its own line in `/system/bin/install-recovery.sh`, right before the
 boot fixes' `exec` line (nothing after an `exec` runs). Back the file up to
