@@ -17,7 +17,7 @@ and the order to set it up again. Its address, MAC and name are in NetBox and Ke
 | Launchers | Home HQ (`com.wesbos.homehq`, upstream's `dashboard/kiosk`) is the Home app, so it starts at boot; Rootless Launcher stays installed as the way back to Settings. Firefox is installed, unused. |
 | Kiosk page | Home HQ's saved URL is ImmichFrame's address. |
 | Boot fixes | Upstream's `scripts/pf1007l-boot` (`install.sh apply`): `MAC` (a fixed Wi-Fi MAC, made from the serial number), `NTP_SERVER` (a local time server), `WIFI_DEFER=1`, `POWER_FIX=1` (it runs on a charger above 500 mA), `IGNORE_IPV6_RA=1`, `KIOSK` set to Home HQ, `ADB_ALLOW` empty. |
-| Home Assistant | Added by `scripts/ha_iot_setup.py` as an `androidtv` device (its NetBox type, `generic-android-photo-frame`, in `ha_iot_setup.yaml`), from an attended run. |
+| Home Assistant | Controls it over HTTP, not ADB: scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` call Home HQ's command listener (below). `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
 
 ## Setting it up again
 
@@ -51,13 +51,17 @@ adb connect <frame-address>:5555
    adb install -r dashboard/kiosk/build/homehq.apk
    adb shell am start -n com.wesbos.homehq/.MainActivity --es url https://<immichframe-address>/
    adb shell am start -n com.wesbos.homehq/.MainActivity --ez home true --ez swipe true --ez mute_at_start true
+   adb shell am start -n com.wesbos.homehq/.MainActivity --es command_token <PICTURE-FRAME-COMMAND-TOKEN>
    adb shell input keyevent KEYCODE_HOME
    ```
    Pick Home HQ and **Always** on the frame (Android 6 has no `cmd package set-home-activity`).
    Set the URL with `--es url`: a URL opened as a link (`-a android.intent.action.VIEW -d`) is
    shown but not saved, and the next boot goes back to Home HQ's default page.
 7. **The power button as mute** (below).
-8. **Home Assistant:** the attended Semaphore run of `ha_iot_setup.py`, with the frame awake.
+8. **Home Assistant:** its Kea reservation keeps the address in Key Vault's `PICTURE-FRAME-ADDRESS`;
+   the token is `PICTURE-FRAME-COMMAND-TOKEN`, the same value as step 6's. Home Assistant
+   reaches the frame through the firewall rule that lets the workers reach the IoT devices,
+   which needs TCP 8766. Check: run the script `picture_frame_next` and see the photo change.
 
 Check the result:
 
@@ -70,7 +74,7 @@ adb shell getprop persist.adb.tcp.port                          # 5555
 `adb exec-out screencap` returns a black image on this board even while the panel shows the
 page: look at the frame itself.
 
-## Home HQ patch: swipe and mute
+## Home HQ patch: swipe, mute, reload and commands
 
 `homehq-swipe-mute.patch` applies to upstream's `dashboard/kiosk/src/com/wesbos/homehq/MainActivity.java`
 (written against upstream commit `df9f399`):
@@ -88,8 +92,15 @@ page: look at the frame itself.
 - **Muted at start** (`--ez mute_at_start true`, saved): Android forgets mute at a reboot, so
   Home HQ mutes media each time it starts, which as the Home app is once per boot. The power
   button unmutes.
+- **Commands** (`--es command_token <token>`, saved; an empty token turns them off): Home HQ
+  listens on TCP 8766 for `POST /next`, `/back`, `/pause`, `/mute` and `/reboot` with the header
+  `X-Token: <token>`, compared in constant time. Next, back and pause send the page Right, Left
+  and Space, as ImmichFrame's keyboard shortcuts; mute is the same toggle as the power button;
+  reboot runs `su -c reboot`. Anything else answers 401, 404 or 405 and is logged without the
+  token. Plain HTTP on the IoT network: the token is the protection.
 
-If a later upstream change makes it not apply, the patch is small: re-apply its hunks by hand.
+It compiles with upstream's `build.sh`. If a later upstream change makes it not apply, re-apply
+its hunks by hand.
 
 ## The power button as mute
 
@@ -113,6 +124,8 @@ its long-press power menu is gone. Undo: remove that file (same remount) and reb
 
 ## Locked down
 
+- **Commands from the workers only**, as for ADB: the token is checked on every request, and
+  the firewall lets only the workers reach TCP 8766 on the IoT network.
 - **ADB from the workers only:** set `ADB_ALLOW` in `frame-boot.conf` to the smallest range
   covering the Kubernetes workers' addresses (NetBox), then `install.sh apply`. Pods leave the
   cluster with their worker's address (Calico's `natOutgoing`), so Home Assistant and the pod

@@ -138,12 +138,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   serial flash, its Kea reservation (`<site>iotesbtp<room>`), TCP 6053 in the workers' IoT
   firewall rule, the ESPHome integration in HA; then HACS' chaseflick4/ultraloq-ble-ha, then
   the lock in Stairs. Until the proxy is in HA, the lock stays out of reach. The AiMOR
-  frame (`copriotamyo01`, `devices/picture-frame/README.md`) is in `ha_iot_setup.yaml` as
-  `androidtv`, attended. Its boot fixes give it a fixed MAC that NetBox and Kea don't have, so it
-  isn't at its reserved address: put the new MAC on its NetBox interface and Kea reservation
-  (read it with `adb shell cat /sys/class/net/wlan0/address`), then an attended run with the frame
-  showing. Left for the owner on the frame: build and install Home HQ with
-  `homehq-swipe-mute.patch` (never compiled here), then the power-button layout file.
+  frame (`copriotamyo01`, `devices/picture-frame/README.md`) is controlled over HTTP, not ADB
+  (Home Assistant's ADB library gets one connection from its adbd, then nothing). In order: the
+  owner adds Key Vault `PICTURE-FRAME-ADDRESS` and `PICTURE-FRAME-COMMAND-TOKEN`, merges the
+  `cluster-secrets` pull request, then this one; removes the frame's Android TV entry in Home
+  Assistant; adds TCP 8766 to the workers-to-IoT firewall rule; rebuilds Home HQ with the patch
+  and sets its `command_token`. Then read back: each `picture_frame_*` script works.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
