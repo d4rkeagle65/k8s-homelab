@@ -80,6 +80,7 @@
       "id": "0d98b756-56e7-4165-8671-1c4b7233f642",
       "credentials": {
         "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
           "name": "Zammad API"
         }
       }
@@ -240,6 +241,7 @@
       "id": "f71afe6a-13d7-453d-8631-9840382152c9",
       "credentials": {
         "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
           "name": "Zammad API"
         }
       }
@@ -271,6 +273,7 @@
       "id": "3785d4da-d8a8-46f1-87c9-588b8149c292",
       "credentials": {
         "httpHeaderAuth": {
+          "id": "ZammadApiFromKV1",
           "name": "Zammad API"
         }
       }

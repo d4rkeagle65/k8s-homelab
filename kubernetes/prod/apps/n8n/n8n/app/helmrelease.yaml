@@ -33,10 +33,10 @@ spec:
       main:
         containers:
           main:
-            image:
+            image: &image
               repository: n8nio/n8n
               tag: 2.43.3
-            env:
+            env: &env
               - name: DB_TYPE
                 value: postgresdb
               - name: DB_POSTGRESDB_HOST
@@ -163,6 +163,42 @@ spec:
               limits:
                 cpu: 1000m
                 memory: 1Gi
+        # The credentials n8n/README.md lists, imported at each start from Key Vault
+        # (externalsecret.yaml) with n8n's own CLI, which encrypts them and replaces one
+        # of the same ID: Key Vault owns them, and an edit in n8n's editor lasts until the
+        # next restart. A failed import is logged and n8n starts anyway; a workflow using
+        # the credential then fails where it's used.
+        initContainers:
+          import-credentials:
+            image: *image
+            env: *env
+            command:
+              - sh
+              - -c
+              - |
+                if ! ls /credentials/*.json >/dev/null 2>&1; then
+                  echo "credentials: none to import (n8n-credentials missing or empty)"; exit 0
+                fi
+                if n8n import:credentials --separate --input=/credentials; then
+                  for f in /credentials/*.json; do
+                    id=$(sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' "$f")
+                    if n8n export:credentials --id="$id" --output=/tmp/check.json >/dev/null 2>&1; then
+                      echo "credentials: $(basename "$f") imported as $id, read back"
+                    else
+                      echo "credentials: $(basename "$f") imported, but $id doesn't read back"
+                    fi
+                  done
+                else
+                  echo "credentials: the import failed; n8n starts with what it had"
+                fi
+                rm -f /tmp/check.json
+            resources:
+              requests:
+                cpu: 50m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 1Gi
     service:
       main:
         controller: main
@@ -203,3 +239,14 @@ spec:
           main:
             main:
               - path: /home/node/.n8n
+            import-credentials:
+              - path: /home/node/.n8n
+      credentials:
+        type: secret
+        name: n8n-credentials
+        defaultMode: 0440
+        advancedMounts:
+          main:
+            import-credentials:
+              - path: /credentials
+                readOnly: true
