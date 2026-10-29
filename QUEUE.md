@@ -137,14 +137,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Left, the owner's, in its README's order: the two Key Vault secrets and `secrets.yaml`, the
   serial flash, its Kea reservation (`<site>iotesbtp<room>`), TCP 6053 in the workers' IoT
   firewall rule, the ESPHome integration in HA; then HACS' chaseflick4/ultraloq-ble-ha, then
-  the lock in Stairs. Until the proxy is in HA, the lock stays out of reach. The AiMOR
-  frame (`copriotamyo01`, `devices/picture-frame/README.md`) is controlled over HTTP, not ADB:
-  next, back, pause and mute work from Home Assistant (read back 2026-10-29). Left: the owner
-  rebuilds Home HQ with the reboot fix (`su 0 reboot`) and the reboot script is run once; then a
-  reboot shows Dropbear starting from its boot line (installed by hand on 2026-10-29, untested
-  across a boot). For Termix: TCP 22 in the workers-to-IoT firewall rule, and on the frame's
-  NetBox device the tag `bastion-key` and local context `{"termix_user": "root"}`; then a key
-  login from Termix.
+  the lock in Stairs. Until the proxy is in HA, the lock stays out of reach.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
