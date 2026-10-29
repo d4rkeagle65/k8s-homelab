@@ -24,9 +24,10 @@
 #   DATABASUS_SEMAPHORE_DB_PASSWORD  the databasus role's (read-only, for backups)
 #   TIMEZONE                 the timezone schedules run in, e.g. America/New_York
 #   NETBOX_SEMAPHORE_TOKEN   a NetBox token with writes off, for the inventory
-#   SEMAPHORE_ALERT_TOKEN    the zammad-bridge's /semaphore token: task alerts go
-#                            there as Slack messages and become Zammad tickets, for
-#                            projects with Alert on (Project settings)
+#   SEMAPHORE_ALERT_TOKEN    the password of n8n's Semaphore webhook (its Basic Auth,
+#                            user semaphore): task alerts go there as Slack messages and
+#                            become Zammad tickets ("Zammad: tickets in", n8n/workflows/),
+#                            for projects with Alert on (Project settings)
 #
 # scripts/netbox_seed.py reads Kea at http://kea-dhcp4:8000 on the kea stack's
 # network (below).
@@ -139,7 +140,7 @@ services:
       SEMAPHORE_COOKIE_ENCRYPTION: ${SEMAPHORE_COOKIE_ENCRYPTION}
       SEMAPHORE_SCHEDULE_TIMEZONE: ${TIMEZONE:-UTC}
       SEMAPHORE_SLACK_ALERT: "true"
-      SEMAPHORE_SLACK_URL: https://zammad-bridge.${BASE_DOMAIN}/semaphore/${SEMAPHORE_ALERT_TOKEN}
+      SEMAPHORE_SLACK_URL: https://semaphore:${SEMAPHORE_ALERT_TOKEN}@n8n.${BASE_DOMAIN}/webhook/zammad/semaphore
       # Semaphore gives a task only the environment it's told to forward; the NetBox
       # inventory reads these two.
       NETBOX_API: https://netbox.${BASE_DOMAIN}

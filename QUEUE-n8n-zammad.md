@@ -21,8 +21,8 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   it doesn't have yet, silently: the node then reads "Missing required credential" and the
   workflow won't publish (the editor only hangs; the API's activate says why). A PR adding a
   credential is merged and n8n restarted before its workflow is imported; one imported too
-  early is restored from git through the API (`PUT /api/v1/workflows/<id>`). `n8n/README.md`
-  says this in the next PR that touches it.
+  early is restored from git through the API (`PUT /api/v1/workflows/<id>`), as
+  `n8n/README.md` says.
 - **Credentials come from Key Vault**: a file each in `n8n-credentials`
   (`kubernetes/prod/apps/n8n/n8n/app/externalsecret.yaml`), imported at each start by the
   `import-credentials` init container under a fixed ID the workflows name.
@@ -74,17 +74,15 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
 
 ## Stages
 
-- [x] **1. The closing check asks Alertmanager and Docker itself** (left: the owner imports it and
-  runs it once; the Docker Services resolve and answer). "Zammad: close what's
+- [x] **1. The closing check asks Alertmanager and Docker itself** (published, running every 10
+  minutes since 2026-10-29; every source answers). "Zammad: close what's
   over" gathers Zammad's open tickets, Alertmanager's active alerts and each Docker host's
-  containers, and a Python Code node ("Verdict") judges each ticket as `/verdict` does. The
-  bridge's `/verdict` goes; the Docker Services land in `n8n`.
-- [ ] **2. Semaphore and Databasus** through "Zammad: tickets in" (`n8n/workflows/`): built, a dry
-  run, imported and published 2026-10-29 (both webhooks answer 401 without credentials). Left:
-  send it each source's test notification
-  (decisions at "Would write"); `write` on; then each source's URL moves (Semaphore's
-  `SEMAPHORE_SLACK_URL`, `docker/secret-names.yaml` and `docker/semaphore/compose.yaml`;
-  Databasus's notifier, in its UI); then the bridge's `/semaphore` and `/databasus` routes go.
+  containers, and a Python Code node ("Verdict") judges each ticket.
+- [ ] **2. Semaphore and Databasus** through "Zammad: tickets in" (`n8n/workflows/`): built,
+  imported and published 2026-10-29; each source's test notification decided "create"; `write`
+  on and Semaphore's URL moved (this PR). Left: Databasus's notifier URL, in its UI
+  (`docker/databasus/README.md`); a real ticket from each opens, notes and closes through n8n;
+  then the bridge's `/semaphore` and `/databasus` routes go.
 - [ ] **3. Dockhand**, with the stack check and the 180-second hold (a Wait node, offloaded to
   the database past 65 s, so it survives a restart), then its Apprise channel moves.
 - [ ] **4. Alertmanager**, with the group alerts' members from Prometheus; the alert-naming rule
