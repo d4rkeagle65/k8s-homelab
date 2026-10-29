@@ -272,7 +272,7 @@ spec:
                     "DEPLOYMENT_NAME"
                   ],
                   "env-overrides": {
-                    "N8N_RUNNERS_STDLIB_ALLOW": "re",
+                    "N8N_RUNNERS_STDLIB_ALLOW": "re,json",
                     "N8N_RUNNERS_EXTERNAL_ALLOW": ""
                   }
                 }
