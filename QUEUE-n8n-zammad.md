@@ -93,17 +93,14 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   closes the bridge's two open "Dockhand Environment offline"-kind tickets by hand (their key
   changed).
 - [ ] **4. Alertmanager**, in three PRs so Alertmanager never points at what isn't ready:
-  - [x] n8n's side (this PR): the Alertmanager webhook (Header Auth, bearer
-    `ALERTMANAGER-N8N-TOKEN`, which the owner adds to Key Vault before it merges), the
+  - [x] n8n's side (#464): the Alertmanager webhook (Header Auth, bearer
+    `ALERTMANAGER-N8N-TOKEN`, in Key Vault), the
     bridge's alert rules as two Python nodes, members down from Prometheus, several events in
     one run, `write_sources` per source (Alertmanager a dry run), and the closing check
-    matching alert tickets by exact host. After merge: `alertmanager-n8n` (monitoring) and
-    `n8n-credentials` synced; n8n restarted with `AlertmanagerKV01`; the workflows updated
-    from git.
-  - [ ] Alertmanager's `zammad` receiver sends to both (`kube-prometheus-stack`'s
-    `alertmanager.config`, a second webhook_config with `http_config.authorization.credentials_file`
-    from `alertmanagerSpec.secrets: [.., alertmanager-n8n]`); n8n's decisions read against the
-    bridge's log for a day.
+    matching alert tickets by exact host. Live 2026-10-29 (#464): both token Secrets synced,
+    `AlertmanagerKV01` imported, both workflows updated.
+  - [x] Alertmanager's `zammad` receiver sends to both (this PR). Left: n8n's decisions read
+    against the bridge's log for a day.
   - [ ] `alertmanager` in `write_sources`, and the bridge's webhook_config goes.
 - [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/` and
   `scripts/tests/test_zammad_bridge.py`; the `zammad-bridge` Pi-hole record, deleted by hand
