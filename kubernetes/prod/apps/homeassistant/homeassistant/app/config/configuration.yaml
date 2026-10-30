@@ -118,23 +118,42 @@ script picture_frame:
       - action: rest_command.picture_frame
         data: {command: reboot}
 
-# Typing into the living-room Fire TV: the text goes in this box, then the script sends it as
+# Typing into a Fire TV: the text goes in that TV's box, then script.tv_type_text sends it as
 # Android's `input text`, into whatever field has focus. Spaces become %s, which is how
 # `input text` takes them; the text is single-quoted for the TV's shell, with any single
-# quote taken out, so nothing typed runs as a command.
+# quote taken out, so nothing typed runs as a command. The dashboards' Type buttons pass the
+# TV's remote and its text box.
 input_text:
   living_room_tv_text:
     name: Text for the living room TV
     max: 100
+  bedroom_tv_text:
+    name: Text for the bedroom TV
+    max: 100
 
-script living_room_tv:
-  living_room_tv_type_text:
-    alias: Type into the living room TV
+script tv_typing:
+  tv_type_text:
+    alias: Type into a TV
     icon: mdi:keyboard
+    fields:
+      remote:
+        description: The TV's remote entity
+        example: remote.living_room_fire_tv
+        required: true
+        selector:
+          entity:
+            domain: remote
+      text_entity:
+        description: The text box to type from
+        example: input_text.living_room_tv_text
+        required: true
+        selector:
+          entity:
+            domain: input_text
     sequence:
       - action: remote.send_command
         target:
-          entity_id: remote.living_room_fire_tv
+          entity_id: "{{ remote }}"
         data:
           command: >-
-            input text '{{ states('input_text.living_room_tv_text') | replace("'", "") | replace(" ", "%s") }}'
+            input text '{{ states(text_entity) | replace("'", "") | replace(" ", "%s") }}'
