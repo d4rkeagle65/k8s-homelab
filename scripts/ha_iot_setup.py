@@ -1,9 +1,11 @@
 """Add the IoT network's devices to Home Assistant from NetBox, and put each in its room.
 
 The devices are NetBox's active ones on the IoT network (netbox_seed.py makes them
-from Kea's reservations, described "Kea reservation device"), each with its wifi0 MAC
-and address; one Offline or Decommissioning is left out. A device Home Assistant already has is one whose device registry entry
-carries that MAC. For the rest, the first entry of ha_iot_setup.yaml matching the
+from Kea's reservations, described "Kea reservation device"), each with its address and
+its interfaces' MACs (the reservation's on wifi0, or on the interface its type's
+`reserved_on` names in netbox_seed_iot.yaml); one Offline or Decommissioning is left out.
+A device Home Assistant already has is one whose device registry entry carries one of
+those MACs. For the rest, the first entry of ha_iot_setup.yaml matching the
 device's type or manufacturer names the integration, and the script runs its setup
 flow by address, as the UI's "Add integration" would. A flow that asks for what the
 script can't give (a login it has no variables for, a PIN shown on a TV) is closed
@@ -201,27 +203,26 @@ def norm_mac(mac: str) -> str:
 
 def netbox_iot_devices(devices: list[dict], interfaces: list[dict]) -> list[dict]:
     """NetBox's IoT devices (those netbox_seed.py made) as {name, type, manufacturer,
-    host, mac, macs, room}: the address from the device's primary IPv4, mac its wifi0's
-    primary MAC (the reservation's), macs every interface's (wifi0 first: a Fire TV
-    reports its Ethernet MAC to Home Assistant), the room its Location's name. A missing
-    one is None (macs: empty)."""
-    macs = {i["device"]["id"]: (i.get("primary_mac_address") or {}).get("mac_address")
-            for i in interfaces if i["name"] == "wifi0"}
-    all_macs: dict[int, list[str]] = {}
+    host, mac, macs, room}: the address from the device's primary IPv4, macs every
+    interface's primary MAC (wifi0 first: a Fire TV reports its Ethernet MAC to Home
+    Assistant), mac the first of them (wifi0's, else the first interface's that has one:
+    the reservation is on wifi0 unless the type's `reserved_on` names another), the room
+    its Location's name. A missing one is None (macs: empty)."""
+    macs: dict[int, list[str]] = {}
     for i in sorted(interfaces, key=lambda i: i["name"] != "wifi0"):
         mac = (i.get("primary_mac_address") or {}).get("mac_address")
         if mac:
-            all_macs.setdefault(i["device"]["id"], []).append(mac)
+            macs.setdefault(i["device"]["id"], []).append(mac)
     out = []
     for d in devices:
         if (d.get("description") or "") != IOT_DEVICE_MARK:
             continue
         ip = (d.get("primary_ip4") or {}).get("address")
+        own = macs.get(d["id"], [])
         out.append({"name": d["name"], "type": d["device_type"]["slug"],
                     "manufacturer": d["device_type"]["manufacturer"]["slug"],
-                    "host": ip.split("/")[0] if ip else None, "mac": macs.get(d["id"]),
-                    "macs": all_macs.get(d["id"], []),
-                    "room": (d.get("location") or {}).get("name")})
+                    "host": ip.split("/")[0] if ip else None, "mac": own[0] if own else None,
+                    "macs": own, "room": (d.get("location") or {}).get("name")})
     return sorted(out, key=lambda d: d["name"])
 
 
@@ -233,7 +234,7 @@ def integration_for(device: dict, integrations: list[dict]) -> dict | None:
 
 def plan_device(device: dict, integrations: list[dict], by_mac: dict, attended: bool) -> tuple[str, dict | None]:
     """What a run does with one NetBox device, and its ha_iot_setup.yaml entry: "present"
-    (Home Assistant has its MAC), "cloud" (no entry: set up by hand), "attended" (its
+    (Home Assistant has one of its MACs), "cloud" (no entry: set up by hand), "attended" (its
     flow needs someone at the device and this run isn't attended) or "add"."""
     entry = integration_for(device, integrations)
     if ha_device_of(device, by_mac) is not None:
