@@ -193,7 +193,7 @@ spec:
       # always-firing Watchdog to Healthchecks.io every 5 minutes, the
       # dead-man's switch outside the cluster that notifies the owner when the
       # pings stop (the cluster, Prometheus, Alertmanager or the internet down);
-      # and warning and critical alerts to Zammad through zammad-bridge
+      # and warning and critical alerts to Zammad through n8n's "Zammad: tickets in"
       # (old-queues/QUEUE-zammad.md), each alert on its own (group_by '...') so a ticket
       # opens, gets a note every repeat_interval while it fires, and closes on
       # recovery. Setting this replaces the chart's default whole, so its parts
@@ -235,12 +235,9 @@ spec:
             send_resolved: false
         - name: zammad
           webhook_configs:
-          - url: http://zammad-bridge.monitoring.svc.${CLUSTER_DOMAIN}:8080/alertmanager
-            send_resolved: true
-          # n8n's "Zammad: tickets in" (n8n/workflows/), alongside the bridge until its
-          # decisions read right: Alertmanager isn't in its write_sources, so it writes
-          # nothing (QUEUE-n8n-zammad.md, stage 4). Its bearer token from monitoring-extras'
-          # alertmanager-n8n.
+          # n8n's "Zammad: tickets in" (n8n/workflows/), with the bearer token from
+          # monitoring-extras' alertmanager-n8n. It answers after writing, so a failed
+          # write is a 500 and Alertmanager sends the alert again.
           - url: http://n8n.n8n.svc.${CLUSTER_DOMAIN}:5678/webhook/zammad/alertmanager
             send_resolved: true
             http_config:

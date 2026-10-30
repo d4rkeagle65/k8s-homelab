@@ -314,7 +314,7 @@ def test_tickets_in_writes_only_with_write_on_and_answers_after_its_last_node():
     nodes = {n["name"]: n for n in wf["nodes"]}
     settings = nodes["Settings"]["parameters"]["assignments"]["assignments"]
     # The sources pointed here write (QUEUE-n8n-zammad.md); any other is a dry run.
-    assert [a["value"] for a in settings if a["name"] == "write_sources"] == ["semaphore,databasus,dockhand"]
+    assert [a["value"] for a in settings if a["name"] == "write_sources"] == ["semaphore,databasus,dockhand,alertmanager"]
     writing = nodes["Writing?"]["parameters"]["conditions"]["conditions"][0]["leftValue"]
     assert "write_sources" in writing and "$json.source" in writing
     assert wf["connections"]["Writing?"]["main"][0][0]["node"] == "Zammad: write"

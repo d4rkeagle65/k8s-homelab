@@ -98,7 +98,7 @@
             {
               "id": "ae5ac102-0348-4035-bd7e-44af33395bdc",
               "name": "write_sources",
-              "value": "semaphore,databasus,dockhand",
+              "value": "semaphore,databasus,dockhand,alertmanager",
               "type": "string"
             }
           ]
