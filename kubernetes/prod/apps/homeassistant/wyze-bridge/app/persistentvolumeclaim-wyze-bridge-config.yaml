@@ -1,0 +1,14 @@
+# The bridge's state (/config: its Wyze login and the camera list), so a restart doesn't
+# sign in to Wyze again.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wyze-bridge-config
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 1Gi

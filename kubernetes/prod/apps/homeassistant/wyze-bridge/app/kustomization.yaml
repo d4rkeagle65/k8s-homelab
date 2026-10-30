@@ -1,0 +1,11 @@
+# The Wyze bridge (idisposable/docker-wyze-bridge, a maintained fork of mrlt8's): it signs in
+# to Wyze only to list the cameras, then streams each one straight from the camera over
+# Wyze's local P2P (TUTK, UDP), and serves it as RTSP for Home Assistant's camera
+# integration. The cameras are on the IoT network, reached from the workers.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- secret-wyze-bridge.yaml
+- persistentvolumeclaim-wyze-bridge-config.yaml
+- deployment-wyze-bridge.yaml
+- service-wyze-bridge.yaml
