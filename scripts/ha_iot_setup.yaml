@@ -19,3 +19,10 @@ integrations:
 - {type: amazon-fire-stick-4k, handler: androidtv, attended: true, fields: {device_class: firetv, port: 5555}}
 - {type: amazon-fire-tv-4k-43, handler: androidtv, attended: true, fields: {device_class: firetv, port: 5555}}
 - {type: samsung-un32j5500afxza, handler: samsungtv, attended: true}
+
+# A device Home Assistant knows by a MAC NetBox doesn't hold, worked out from one it does:
+# the device `type`'s MAC on `interface` with `add` added to its last octet (mod 256, no
+# carry). An ESP32 reports its base MAC, and ESP-IDF makes its Ethernet MAC by adding 3
+# to the base's last octet.
+derived_macs:
+- {type: wireless-tag-wt32-eth01, interface: eth0, add: -3}
