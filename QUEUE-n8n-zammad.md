@@ -92,20 +92,11 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   paired). Left: a real container failure holds, opens and its recovery closes; the owner
   closes the bridge's two open "Dockhand Environment offline"-kind tickets by hand (their key
   changed).
-- [ ] **4. Alertmanager**, in three PRs so Alertmanager never points at what isn't ready:
-  - [x] n8n's side (#464): the Alertmanager webhook (Header Auth, bearer
-    `ALERTMANAGER-N8N-TOKEN`, in Key Vault), the
-    bridge's alert rules as two Python nodes, members down from Prometheus, several events in
-    one run, `write_sources` per source (Alertmanager a dry run), and the closing check
-    matching alert tickets by exact host. Live 2026-10-29 (#464): both token Secrets synced,
-    `AlertmanagerKV01` imported, both workflows updated.
-  - [x] Alertmanager's `zammad` receiver sends to both (#465, 2026-10-29). Its 8 active alerts
-    reached n8n and each decided a note on the ticket the bridge had opened for it (the naming
-    rule matches).
-  - [ ] `alertmanager` in `write_sources`, and the bridge's webhook_config goes (this PR, held
-    until a new alert's "create" and a resolved one's "close" are seen in n8n's dry run). At
-    merge, the workflow is updated in n8n first, then Flux reconciles: a minute of both
-    writing beats a minute of neither.
+- [x] **4. Alertmanager** through "Zammad: tickets in", since 2026-10-30 (#464, #465, #467):
+  n8n's dry run matched the bridge on every alert (8 notes on its tickets; a stopped cAdvisor's
+  TargetDown, the same ticket and its members down, then its close) before `alertmanager`
+  joined `write_sources` and the bridge's webhook_config went. Left: the first live alert
+  written through n8n read back in its executions.
 - [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/` and
   `scripts/tests/test_zammad_bridge.py`; the `zammad-bridge` Pi-hole record, deleted by hand
   (ExternalDNS is upsert-only, so the removed Ingress's record stays); `DOCKHAND_ALERT_TOKEN`,
