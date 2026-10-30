@@ -147,12 +147,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   updated before upstream's v1.1.1 fix for locks whose entities all stay unavailable. Upstream
   (inventor7777/ultraloq-ble-ha) is the fallback; its config entry keeps the U-tec email and
   password, in HA's backups too. Both are the `ultraloq_ble` domain, so one at a time.
-  `scripts/ha_iot_setup.py`'s `netbox_iot_devices` takes a device's `mac` from wifi0 only, and
-  the proxy's reservation is on eth0 (`reserved_on`, `netbox_seed_iot.yaml`), so the next run of
-  template 32 reports it as "NetBox has no MAC for it" and counts a failure. Even with that
-  fixed, no run matches the proxy in HA: HA registered the ESP32's base (Wi-Fi) MAC, the
-  Ethernet one minus 3 (read back), so NetBox's wifi0 needs that MAC (by hand) or the script
-  another way to match it.
+  `scripts/ha_iot_setup.py`'s `ha_device_of` doesn't match the proxy in HA: HA registered the
+  ESP32's base (Wi-Fi) MAC, the Ethernet one minus 3 (read back), and NetBox has only eth0's.
+  Until NetBox's wifi0 carries that MAC (by hand) or the script matches another way (the
+  owner's choice), template 32 never puts the proxy in its Location's area, and says nothing.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.

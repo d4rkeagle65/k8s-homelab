@@ -214,6 +214,16 @@ def test_a_device_is_found_by_any_of_its_macs_wifi_first():
     assert m.ha_device_of(dict(d, macs=["00:00:5E:00:53:A0"]), by_mac) is None
 
 
+def test_a_device_reserved_on_eth0_takes_its_mac_from_there():
+    # A WT32-ETH01's type puts the reservation on eth0 (reserved_on); its wifi0 has no MAC.
+    devices = [nb_device(1, "zziotesbtpdoor", "wireless-tag-wt32-eth01", "wireless-tag")]
+    interfaces = [{"name": "bt0", "device": {"id": 1}, "primary_mac_address": None},
+                  {"name": "eth0", "device": {"id": 1}, "primary_mac_address": {"mac_address": "00:00:5E:00:53:B3"}},
+                  {"name": "wifi0", "device": {"id": 1}, "primary_mac_address": None}]
+    d = m.netbox_iot_devices(devices, interfaces)[0]
+    assert d["mac"] == "00:00:5E:00:53:B3" and d["macs"] == ["00:00:5E:00:53:B3"]
+
+
 class FakeClock:
     def __init__(self):
         self.now = 0.0
