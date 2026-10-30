@@ -1,0 +1,69 @@
+# One bridge, replaced rather than rolled: a second would sign in to Wyze beside the first.
+# On the pod network like the eufy bridge: its P2P to the cameras leaves from the node's
+# address, which the firewall's IoT rule names (UDP to the Wyze cameras). The bridge's docs
+# suggest host networking if NAT drops the camera's UDP reply ("discovery timeout").
+# Snapshots and recordings are off: Home Assistant takes its own stills.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wyze-bridge
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wyze-bridge
+  template:
+    metadata:
+      labels:
+        app: wyze-bridge
+    spec:
+      priorityClassName: homelab-low
+      containers:
+      - name: bridge
+        image: ghcr.io/idisposable/docker-wyze-bridge:4.5.0@sha256:708903d2882c76966ecb29763a075372d89773aa6796d0aab70f04369cc6d521
+        envFrom:
+        - secretRef:
+            name: wyze-bridge
+        env:
+        - name: TZ
+          value: ${TIMEZONE}
+        - name: SNAPSHOT_INTERVAL
+          value: "0"
+        ports:
+        - name: http
+          containerPort: 5080
+        - name: rtsp
+          containerPort: 8554
+        startupProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          periodSeconds: 10
+          failureThreshold: 30
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: media
+          mountPath: /media
+      volumes:
+      - name: config
+        persistentVolumeClaim:
+          claimName: wyze-bridge-config
+      - name: media
+        emptyDir: {}

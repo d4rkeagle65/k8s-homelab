@@ -94,6 +94,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   After the app's pull request merges, read back: the pod Ready, the init container's log says "seeded",
   `/admin` asks for the password, and the slideshow plays a video. A frame on the IoT network
   needs the firewall to let it reach the ingress address on 443; whether it can isn't checked.
+- **The Wyze cameras in Home Assistant** (2026-10-30): the Wyze bridge
+  (`kubernetes/prod/apps/homeassistant/wyze-bridge/`, idisposable's fork 4.5.0) streams the two
+  Wyze Cam v3s over their local P2P and serves RTSP. In order: the owner makes a Wyze API key
+  (developer console) and adds Key Vault `WYZE-EMAIL`, `WYZE-PASSWORD`, `WYZE-API-ID`,
+  `WYZE-API-KEY`, `WYZE-TOTP-KEY`; merges the two `cluster-secrets` pull requests, then the bridge's; lets the workers
+  reach the two Wyze cameras over UDP in the IoT firewall rule. Then: the bridge lists both
+  cameras and streams them (its log; host networking if it reports a discovery timeout); each
+  added to Home Assistant as a camera from its RTSP, on the Cameras dashboard.
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
