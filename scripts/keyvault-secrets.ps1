@@ -38,7 +38,10 @@ for without echoing it (or taken from -Value, which leaves it in your shell
 history), then written exactly as given as a new version of the secret and
 read back, compared by SHA-256. The script then force-syncs the ExternalSecret,
 waits for the cluster-secrets Secret to hold the new value, and prints the Flux
-reconcile commands to run.
+reconcile commands to run, then, for each Secret the variable is in (data: or
+stringData:), the kubectl rollout restart of every workload in the live cluster
+that reads that Secret: a pod only gets a Secret's new value when it restarts. A
+value that starts or ends with whitespace is set as given, with a warning.
 
 -Generate N sets a new random value instead: N letters and digits (A-Z, a-z,
 0-9) from the system's cryptographic generator, never shown. -Clipboard copies
@@ -47,7 +50,8 @@ the value just set, generated or typed, to the clipboard once it reads back.
 With -Name and -Get, outputs the secret's current value instead, the only
 path that shows one, as Key Vault holds it and as a string, so it can go to a
 variable or Set-Clipboard rather than the screen; with -Clipboard it goes
-straight to the clipboard and nothing is output.
+straight to the clipboard and nothing is output. It warns, without the value, when
+the value starts or ends with whitespace (a space, tab, newline...).
 
 A secret an app's own ExternalSecret reads straight from Key Vault (in a
 namespace opted in to the azure-keyvault store, not through cluster-secrets) is
@@ -154,14 +158,15 @@ function Get-VariableUsage {
         if (-not $text) { continue }
         $isSecret = $text -match '(?m)^kind:\s*Secret\s*$'
         # Only a Secret's data: holds base64; its stringData: takes the value as
-        # is. So what counts is the top-level key a variable sits under.
+        # is. So what counts is the top-level key a variable sits under: 'data' for a
+        # Secret's data:, 'secret' for anywhere else in a Secret, '' outside one.
         $section = ''
         foreach ($line in $text -split "`n") {
             if ($line -match '^([A-Za-z]+):') { $section = $Matches[1] }
             foreach ($m in [regex]::Matches($line, '(?<!\$)\$\{([A-Za-z0-9_]+)\}')) {
                 $var = $m.Groups[1].Value
                 if (-not $usage[$var]) { $usage[$var] = @{} }
-                $usage[$var][$rel] = $isSecret -and $section -eq 'data'
+                $usage[$var][$rel] = if (-not $isSecret) { '' } elseif ($section -eq 'data') { 'data' } else { 'secret' }
             }
         }
     }
@@ -246,6 +251,44 @@ function Get-DirectReaders([string]$secretName) {
         $text = Get-Content -Raw -Encoding UTF8 -LiteralPath $full
         if ($text -and $text -match '(?m)^kind:\s*ExternalSecret\s*$' -and $text -match $pattern) { $path -replace '^kubernetes/', '' }
     })
+}
+
+# What whitespace a value starts or ends with, named, or $null when it has none: a copied
+# value easily picks up a newline or a space, and the app then rejects it. Never the value.
+function Get-EdgeWhitespace([string]$text) {
+    $names = @{ ' ' = 'space'; "`t" = 'tab'; "`r" = 'CR'; "`n" = 'newline (LF)'; [string][char]0xA0 = 'non-breaking space' }
+    $describe = {
+        param([string]$run)
+        ($run.ToCharArray() | ForEach-Object { $c = [string]$_; if ($names.ContainsKey($c)) { $names[$c] } else { 'U+{0:X4}' -f [int]$_ } }) -join ', '
+    }
+    $parts = @()
+    if ($text -match '^(\s+)') { $parts += "starts with $(& $describe $Matches[1])" }
+    if ($text -match '(\s+)$') { $parts += "ends with $(& $describe $Matches[1])" }
+    if ($parts) { $parts -join '; ' } else { $null }
+}
+
+# The kubectl restart commands for the workloads in the live cluster that read the Secret
+# a file under kubernetes/ defines (env, envFrom or a volume), or the file itself when that
+# can't be read: a pod only gets a Secret's new value when it restarts.
+function Get-RestartCommands([string]$rel) {
+    $full = Join-Path (Join-Path (Join-Path $PSScriptRoot '..') 'kubernetes') $rel
+    $text = Get-Content -Raw -Encoding UTF8 -LiteralPath $full
+    $secret = if ($text -match '(?m)^metadata:\s*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+name:\s*["'']?([A-Za-z0-9.-]+)') { $Matches[1] } else { '' }
+    $ns = if ($text -match '(?m)^[ \t]+namespace:\s*["'']?([a-z0-9-]+)') { $Matches[1] }
+          elseif (($rel -split '/')[0] -eq 'prod') { ($rel -split '/')[2] } else { '' }
+    if (-not $secret -or -not $ns) { return @("  (restart what reads the Secret in $rel)") }
+    $json = kubectl get deployment,statefulset,daemonset -n $ns -o json 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $json) { return @("  (couldn't list the workloads in ${ns}: restart what reads Secret $secret)") }
+    $found = @(foreach ($w in @(($json | ConvertFrom-Json).items)) {
+        $spec = $w.spec.template.spec
+        $reads = @($spec.volumes | Where-Object { $_.secret.secretName -eq $secret }).Count -gt 0
+        foreach ($c in @($spec.containers) + @($spec.initContainers)) {
+            if (@($c.envFrom | Where-Object { $_.secretRef.name -eq $secret }).Count -gt 0) { $reads = $true }
+            if (@($c.env | Where-Object { $_.valueFrom.secretKeyRef.name -eq $secret }).Count -gt 0) { $reads = $true }
+        }
+        if ($reads) { "  kubectl -n $ns rollout restart $($w.kind.ToLowerInvariant())/$($w.metadata.name)" }
+    })
+    if ($found) { $found } else { @("  (nothing in $ns reads Secret $secret yet)") }
 }
 
 function Get-Sha256([string]$text) {
@@ -358,7 +401,7 @@ if (-not $Name) {
             KeyVaultName = $secretName
             Encoding     = if ($templated[$variable] -eq 'b64enc') { 'plain (b64enc)' }
                            elseif ($templated[$variable]) { 'UNKNOWN (template)' }
-                           elseif (-not $files) { '' } elseif ($files.Values -contains $true) { 'NEEDS b64enc' } else { 'plain' }
+                           elseif (-not $files) { '' } elseif ($files.Values -contains 'data') { 'NEEDS b64enc' } else { 'plain' }
             Synced       = $synced
             UsedBy       = [string[]]@(@(if ($files) { $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique }) + @(if ($stacks) { $stacks | Sort-Object }))
         }
@@ -386,8 +429,8 @@ $direct = @(Get-DirectReaders $secretName)
 if ($secretName -notmatch '^[A-Za-z0-9-]{1,127}$') { throw "$secretName isn't a valid Key Vault name (letters, digits and '-', 1-127)." }
 
 $files = $usage[$Name]
-$inSecret = $files -and ($files.Values -contains $true)
-$plainUses = @(if ($files) { $files.Keys | Where-Object { -not $files[$_] } | Sort-Object })
+$inSecret = $files -and ($files.Values -contains 'data')
+$plainUses = @(if ($files) { $files.Keys | Where-Object { $files[$_] -ne 'data' } | Sort-Object })
 $encodes = $templated[$Name]
 if ($encodes -eq 'other' -and -not $Raw) {
     throw "cluster-secrets' template builds $Name other than as {{ .$Name | b64enc }}, so the form Key Vault should hold it in isn't known. -Raw sets or reads it as Key Vault holds it."
@@ -416,6 +459,8 @@ if ($Get) {
     if ($current.Status -eq 404) { throw "Key Vault has no secret named $secretName." }
     # A disabled secret's read is refused (403), so it lands here too.
     if ($current.Status -ne 200) { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
+    $edge = Get-EdgeWhitespace ([string]$current.Body.value)
+    if ($edge) { Write-Warning "$secretName $edge, which an app reading it usually rejects; set it again without." }
     if ($Clipboard) {
         Set-Clipboard -Value ([string]$current.Body.value)
         Write-Host "Copied $secretName to the clipboard."
@@ -450,6 +495,8 @@ elseif (-not $PSBoundParameters.ContainsKey('Value')) {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
 }
 if ($Value -eq '') { throw 'Empty value; nothing changed.' }
+$edge = Get-EdgeWhitespace $Value
+if ($edge) { Write-Warning "The value $edge; it's set exactly as given. If that wasn't meant, set it again without." }
 
 if ($currentHash -eq (Get-Sha256 $Value)) {
     Write-Host "$secretName already holds that value; nothing written."
@@ -503,8 +550,9 @@ if ($files) {
     Write-Host "`nApply it with:"
     $files.Keys | ForEach-Object { Get-KustomizationName $_ } | Sort-Object -Unique |
         ForEach-Object { Write-Host "  flux reconcile kustomization $_ --with-source" }
-    if ($inSecret) {
-        Write-Host "`nThen restart the pods that read these Secrets (env vars from a Secret only change on restart):"
-        $files.Keys | Where-Object { $files[$_] } | ForEach-Object { Write-Host "  $_" }
+    $secretFiles = @($files.Keys | Where-Object { $files[$_] } | Sort-Object)
+    if ($secretFiles) {
+        Write-Host "`nThen restart what reads the Secrets it's in (a pod only gets a Secret's new value when it restarts):"
+        $secretFiles | ForEach-Object { Get-RestartCommands $_ } | Sort-Object -Unique | ForEach-Object { Write-Host $_ }
     }
 }
