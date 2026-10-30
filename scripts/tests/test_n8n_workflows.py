@@ -110,9 +110,11 @@ NETBOX = [{"Names": ["/netbox"], "State": "running", "Status": "Up 2 hours (heal
            "Labels": {"com.docker.compose.project": "netbox"}}]
 
 
-def verdicts(tickets, alerts=None, docker=None):
+def verdicts(tickets, alerts=None, docker=None, pods=None):
+    """pods: each Alertmanager pod's answer; alerts: one answer, given by both pods."""
+    alerts = alerts if alerts is not None else ok([])
     gathered = {"tickets": ok(tickets) if not isinstance(tickets, dict) else tickets,
-                "alerts": alerts if alerts is not None else ok([]),
+                "alerts": pods if pods is not None else [alerts, alerts],
                 "docker": docker if docker is not None else [ok([]), ok([]), ok([])]}
     out, _ = run_code(workflow(CLOSE), "Verdict", [{"json": gathered}])
     return {o["json"]["id"]: (o["json"]["verdict"], o["json"]["reason"]) for o in out}
@@ -128,6 +130,17 @@ def test_an_alert_ticket_is_over_when_no_active_alert_names_its_host():
     assert verdicts(t, ok([alert("KubeJobFailed")]))[7][0] == "over"
     # The same alert about something else no longer keeps it open: hosts are rebuilt exactly.
     assert verdicts(t, ok([{"labels": {"alertname": "TargetDown", "namespace": "other"}}]))[7][0] == "over"
+
+
+def test_an_alert_held_by_one_alertmanager_pod_is_active_and_a_pod_that_cant_answer_closes_nothing():
+    """Alertmanager's pods share no alerts: Loki's reach each pod, but one may hold an alert the
+    other doesn't (a restart, a send that failed), so every pod is asked."""
+    t = [ck(7, "HostLogsSilent monitoring", "HostLogsSilent")]
+    held = ok([{"labels": {"alertname": "HostLogsSilent", "namespace": "monitoring"}}])
+    assert verdicts(t, pods=[ok([]), held])[7][0] == "ongoing"
+    assert verdicts(t, pods=[ok([]), ok([])])[7][0] == "over"
+    assert verdicts(t, pods=[ok([]), {"error": "connect ECONNREFUSED"}])[7][0] == "unknown"
+    assert verdicts(t, pods=[])[7][0] == "unknown"  # no pod asked is no answer
 
 
 def test_the_closing_check_and_tickets_in_name_an_alerts_ticket_with_one_rule():
