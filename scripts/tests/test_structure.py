@@ -928,3 +928,26 @@ def test_flux_alerts_match_only_labels_gotk_resource_info_carries(repo_root, loa
                         unknown.setdefault(f"{rel}: {rule.get('alert') or rule.get('record')}", set()).update(labels - made)
     assert exprs, "no PrometheusRule matches on gotk_resource_info's labels, so nothing was checked"
     assert not unknown, f"matched on labels gotk_resource_info doesn't carry: {unknown}"
+
+
+def test_alertmanager_is_reached_pod_by_pod_never_through_its_service(repo_root):
+    """Alertmanager's two pods share silences and what they've sent, never alerts. An alert sent
+    through the kps-alertmanager Service reaches one pod, and a question asked of it ("is this
+    alert still active?") gets either, so it's answered from half the alerts half the time.
+    Prometheus sends to each pod itself; anything else names each pod
+    (alertmanager-kps-N.alertmanager-operated...), as Loki's ruler does, and a check of what's
+    active asks every pod and counts an alert over only when each answered without it (n8n's
+    "Zammad: close what's over", 2026-10-30).
+    """
+    tracked = subprocess.run(["git", "ls-files", "-z", "--", "kubernetes", "n8n", "docker", "ansible"],
+                             cwd=repo_root, capture_output=True, check=True).stdout.decode("utf-8").split("\0")
+    service = re.compile(r"kps-alertmanager[.:]")
+    through, pods = [], 0
+    for rel in filter(None, tracked):
+        if not rel.endswith((".yaml", ".yml", ".json", ".py", ".sh")):
+            continue
+        text = (repo_root / rel).read_text(encoding="utf-8")
+        pods += text.count("alertmanager-kps-0.alertmanager-operated")
+        through += [f"{rel}:{n}" for n, line in enumerate(text.splitlines(), 1) if service.search(line)]
+    assert pods >= 2, "nothing names an Alertmanager pod (Loki's ruler and the closing check should), so nothing was checked"
+    assert not through, f"Alertmanager reached through its Service, so by one pod: {through}"

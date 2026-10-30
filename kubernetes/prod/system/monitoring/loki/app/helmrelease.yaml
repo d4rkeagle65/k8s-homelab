@@ -64,7 +64,11 @@ spec:
         volume_enabled: true
       # Log alerts: rules from ConfigMaps labelled loki_rule (the rules sidecar
       # writes them under /rules/fake, "fake" being the tenant with auth off),
-      # sent to the same Alertmanager as Prometheus's, so they reach Zammad.
+      # sent to the same Alertmanager as Prometheus's, so they reach Zammad. To
+      # each of its pods by name, as Prometheus does: Alertmanager's cluster shares
+      # silences and what it sent, never alerts, so an alert sent through its
+      # Service reaches one pod, and a question asked of the Service ("is it still
+      # active?") gets the other half of the time.
       rulerConfig:
         wal:
           dir: /var/loki/ruler-wal
@@ -73,7 +77,8 @@ spec:
           local:
             directory: /rules
         rule_path: /var/loki/rules-temp
-        alertmanager_url: http://kps-alertmanager.monitoring.svc.${CLUSTER_DOMAIN}:9093
+        alertmanager_url: >-
+          http://alertmanager-kps-0.alertmanager-operated.monitoring.svc.${CLUSTER_DOMAIN}:9093,http://alertmanager-kps-1.alertmanager-operated.monitoring.svc.${CLUSTER_DOMAIN}:9093
         enable_api: true
       compactor:
         retention_enabled: true

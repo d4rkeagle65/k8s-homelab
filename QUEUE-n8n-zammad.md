@@ -95,8 +95,11 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
 - [x] **4. Alertmanager** through "Zammad: tickets in", since 2026-10-30 (#464, #465, #467):
   n8n's dry run matched the bridge on every alert (8 notes on its tickets; a stopped cAdvisor's
   TargetDown, the same ticket and its members down, then its close) before `alertmanager`
-  joined `write_sources` and the bridge's webhook_config went. Left: the first live alert
-  written through n8n read back in its executions.
+  joined `write_sources` and the bridge's webhook_config went. Live writes read back
+  2026-10-30 (creates, notes and closes). Loki's ruler sent through the Alertmanager Service
+  to one pod, so the closing check, asking the Service, saw its alerts half the time (this
+  PR: Loki sends to each pod; the check asks each). `close` stays false until a day of its
+  dry runs reads right against both pods.
 - [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/` and
   `scripts/tests/test_zammad_bridge.py`; the `zammad-bridge` Pi-hole record, deleted by hand
   (ExternalDNS is upsert-only, so the removed Ingress's record stays); `DOCKHAND_ALERT_TOKEN`,

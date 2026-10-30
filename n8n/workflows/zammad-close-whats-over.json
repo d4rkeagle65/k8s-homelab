@@ -94,7 +94,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "http://kps-alertmanager.monitoring:9093/api/v2/alerts",
+        "url": "http://alertmanager-kps-0.alertmanager-operated.monitoring:9093/api/v2/alerts",
         "options": {
           "response": {
             "response": {
@@ -112,17 +112,49 @@
           ]
         }
       },
-      "name": "Alertmanager: active alerts",
+      "name": "Alertmanager 0: active alerts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
         660,
         0
       ],
-      "id": "b604efcd-9ae3-4287-8148-4c2086c51846",
+      "id": "f279eecd-c77a-4376-8a77-15f0625aca5f",
       "executeOnce": true,
       "onError": "continueRegularOutput",
-      "notes": "A failure here makes every alert ticket unknown, never over."
+      "notes": "Each Alertmanager pod is asked: they share no alerts, so one may hold an alert the other doesn't. Either failing makes every alert ticket unknown, never over."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://alertmanager-kps-1.alertmanager-operated.monitoring:9093/api/v2/alerts",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "active",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "name": "Alertmanager 1: active alerts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        770,
+        160
+      ],
+      "id": "5ce0ac55-dc0e-45b2-b355-969b0309e35d",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -234,8 +266,8 @@
             {
               "id": "7f518300-22b7-44ce-b6b1-52f1e143fccd",
               "name": "alerts",
-              "value": "={{ $('Alertmanager: active alerts').first().json }}",
-              "type": "object"
+              "value": "={{ [$('Alertmanager 0: active alerts').first().json, $('Alertmanager 1: active alerts').first().json] }}",
+              "type": "array"
             },
             {
               "id": "f5a8a5db-1027-4709-9b9e-f7ffe8165867",
@@ -260,7 +292,7 @@
     {
       "parameters": {
         "language": "pythonNative",
-        "pythonCode": "# Whether what opened each of the alert tickets is over (QUEUE-n8n-zammad.md, \"Settled\").\n# Input: one item from \"Gather\": tickets, alerts, docker (each a full response, or an error).\n# Output: one item per ticket the alerts made, with its verdict: over, ongoing or unknown.\n# \"Couldn't ask\" is unknown, never over.\nOVER, ONGOING, UNKNOWN = \"over\", \"ongoing\", \"unknown\"\n\n\n# The ticket's host for an alert's labels. \"Zammad: tickets in\"'s Alertmanager → alerts holds the\n# same function, character for character (scripts/tests/test_n8n_workflows.py checks).\n# Labels that say what an alert is about, most specific first.\nTARGET_LABELS = (\"instance\", \"pod\", \"persistentvolumeclaim\", \"node\", \"job\", \"service\")\n\n\ndef alert_host(labels):\n    name = labels.get(\"alertname\", \"alert\")\n    target = next((labels[k] for k in TARGET_LABELS if labels.get(k)), \"\")\n    namespace = labels.get(\"namespace\", \"\")\n    if namespace and namespace not in target:\n        target = f\"{namespace}/{target}\" if target else namespace\n    return f\"{name} {target}\".strip()[:250]\n\n\n\ndef answered(response):\n    \"\"\"A request's body, or None when it couldn't be asked.\"\"\"\n    if not isinstance(response, dict) or \"error\" in response or \"body\" not in response:\n        return None\n    return response[\"body\"]\n\n\ndef ticket_key(ticket):\n    \"\"\"The (host, service) a ticket was opened with, or (\"\", \"\") for one a person opened.\"\"\"\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\ndef listed(hosts):\n    \"\"\"Every container the Docker hosts answered with, and how many couldn't be asked.\"\"\"\n    found, unasked = [], 0\n    for host in hosts:\n        body = answered(host)\n        if isinstance(body, list):\n            found += [c for c in body if isinstance(c, dict)]\n        else:\n            unasked += 1\n    return found, unasked\n\n\ndef container_state(name, hosts):\n    found, unasked = listed(hosts)\n    mine = [c for c in found if \"/\" + name in (c.get(\"Names\") or [])]\n    if not mine:\n        return UNKNOWN, \"not found on any Docker host\" + (f\", {unasked} couldn't be asked\" if unasked else \"\")\n    status = [str(c.get(\"Status\") or \"\") for c in mine]\n    if all(c.get(\"State\") == \"running\" for c in mine) and not any(\n            \"unhealthy\" in s or \"health: starting\" in s for s in status):\n        return OVER, \"running\" + (\" and healthy\" if any(\"(healthy)\" in s for s in status) else \"\")\n    return ONGOING, \", \".join(sorted(set(s or str(c.get(\"State\")) for s, c in zip(status, mine))))\n\n\ndef stack_state(name, hosts):\n    found, unasked = listed(hosts)\n    mine = [c for c in found if (c.get(\"Labels\") or {}).get(\"com.docker.compose.project\") == name]\n    if unasked and not mine:\n        return UNKNOWN, f\"{unasked} of {len(hosts)} Docker hosts couldn't be asked\"\n    if not mine:\n        return UNKNOWN, \"no container of that stack on any Docker host\"\n    down = sorted(str((c.get(\"Names\") or [\"?\"])[0]).lstrip(\"/\") for c in mine\n                  if c.get(\"State\") != \"running\" and not str(c.get(\"Status\", \"\")).startswith(\"Exited (0)\"))\n    if down:\n        return ONGOING, \"not running: \" + \", \".join(down)\n    return OVER, f\"its {len(mine)} containers are running\"\n\n\ndef verdict(host, service, alert_hosts, hosts):\n    if service == \"dockhand\":\n        if host.startswith(\"Dockhand Container \"):\n            return container_state(host[len(\"Dockhand Container \"):], hosts)\n        if host.startswith(\"Dockhand Stack \"):\n            return stack_state(host[len(\"Dockhand Stack \"):], hosts)\n        return UNKNOWN, \"a Dockhand event of a kind not checked\"\n    if service in (\"semaphore\", \"databasus\"):\n        return UNKNOWN, f\"{service}'s tickets aren't checked\"\n    if alert_hosts is None:\n        return UNKNOWN, \"Alertmanager couldn't be asked\"\n    if host in alert_hosts:\n        return ONGOING, \"the alert is active\"\n    return OVER, \"Alertmanager no longer has the alert active\"\n\n\ngathered = _items[0][\"json\"] if _items else {}\ntickets = answered(gathered.get(\"tickets\"))\ntickets = tickets.get(\"tickets\") if isinstance(tickets, dict) else tickets\nalerts = answered(gathered.get(\"alerts\"))\nalert_hosts = None if not isinstance(alerts, list) else set(\n    alert_host(a.get(\"labels\") or {}) for a in alerts if isinstance(a, dict))\nhosts = gathered.get(\"docker\") or []\n\nout = []\nfor t in tickets if isinstance(tickets, list) else []:\n    if not isinstance(t, dict):\n        continue\n    host, service = ticket_key(t)\n    if not (host and service):\n        continue\n    v, why = verdict(host, service, alert_hosts, hosts)\n    out.append({\"json\": {\"id\": t.get(\"id\"), \"number\": t.get(\"number\"), \"title\": t.get(\"title\"),\n                         \"host\": host, \"service\": service, \"verdict\": v, \"reason\": why}})\ncounts = {k: 0 for k in (OVER, ONGOING, UNKNOWN)}\nfor o in out:\n    counts[o[\"json\"][\"verdict\"]] += 1\nprint(str(len(out)) + \" alert ticket(s): \" + \", \".join(str(n) + \" \" + k for k, n in counts.items()))\nreturn out\n"
+        "pythonCode": "# Whether what opened each of the alert tickets is over (QUEUE-n8n-zammad.md, \"Settled\").\n# Input: one item from \"Gather\": tickets, alerts (each Alertmanager pod's), docker (each a full\n# response, or an error).\n# Output: one item per ticket the alerts made, with its verdict: over, ongoing or unknown.\n# \"Couldn't ask\" is unknown, never over.\nOVER, ONGOING, UNKNOWN = \"over\", \"ongoing\", \"unknown\"\n\n\n# The ticket's host for an alert's labels. \"Zammad: tickets in\"'s Alertmanager → alerts holds the\n# same function, character for character (scripts/tests/test_n8n_workflows.py checks).\n# Labels that say what an alert is about, most specific first.\nTARGET_LABELS = (\"instance\", \"pod\", \"persistentvolumeclaim\", \"node\", \"job\", \"service\")\n\n\ndef alert_host(labels):\n    name = labels.get(\"alertname\", \"alert\")\n    target = next((labels[k] for k in TARGET_LABELS if labels.get(k)), \"\")\n    namespace = labels.get(\"namespace\", \"\")\n    if namespace and namespace not in target:\n        target = f\"{namespace}/{target}\" if target else namespace\n    return f\"{name} {target}\".strip()[:250]\n\n\n\ndef answered(response):\n    \"\"\"A request's body, or None when it couldn't be asked.\"\"\"\n    if not isinstance(response, dict) or \"error\" in response or \"body\" not in response:\n        return None\n    return response[\"body\"]\n\n\ndef ticket_key(ticket):\n    \"\"\"The (host, service) a ticket was opened with, or (\"\", \"\") for one a person opened.\"\"\"\n    prefs = ticket.get(\"preferences\") or {}\n    ck = prefs.get(\"check_mk\") or prefs.get(\"checkmk\") or {}\n    return str(ck.get(\"host\") or \"\"), str(ck.get(\"service\") or \"\")\n\n\ndef listed(hosts):\n    \"\"\"Every container the Docker hosts answered with, and how many couldn't be asked.\"\"\"\n    found, unasked = [], 0\n    for host in hosts:\n        body = answered(host)\n        if isinstance(body, list):\n            found += [c for c in body if isinstance(c, dict)]\n        else:\n            unasked += 1\n    return found, unasked\n\n\ndef container_state(name, hosts):\n    found, unasked = listed(hosts)\n    mine = [c for c in found if \"/\" + name in (c.get(\"Names\") or [])]\n    if not mine:\n        return UNKNOWN, \"not found on any Docker host\" + (f\", {unasked} couldn't be asked\" if unasked else \"\")\n    status = [str(c.get(\"Status\") or \"\") for c in mine]\n    if all(c.get(\"State\") == \"running\" for c in mine) and not any(\n            \"unhealthy\" in s or \"health: starting\" in s for s in status):\n        return OVER, \"running\" + (\" and healthy\" if any(\"(healthy)\" in s for s in status) else \"\")\n    return ONGOING, \", \".join(sorted(set(s or str(c.get(\"State\")) for s, c in zip(status, mine))))\n\n\ndef stack_state(name, hosts):\n    found, unasked = listed(hosts)\n    mine = [c for c in found if (c.get(\"Labels\") or {}).get(\"com.docker.compose.project\") == name]\n    if unasked and not mine:\n        return UNKNOWN, f\"{unasked} of {len(hosts)} Docker hosts couldn't be asked\"\n    if not mine:\n        return UNKNOWN, \"no container of that stack on any Docker host\"\n    down = sorted(str((c.get(\"Names\") or [\"?\"])[0]).lstrip(\"/\") for c in mine\n                  if c.get(\"State\") != \"running\" and not str(c.get(\"Status\", \"\")).startswith(\"Exited (0)\"))\n    if down:\n        return ONGOING, \"not running: \" + \", \".join(down)\n    return OVER, f\"its {len(mine)} containers are running\"\n\n\ndef verdict(host, service, alert_hosts, hosts):\n    if service == \"dockhand\":\n        if host.startswith(\"Dockhand Container \"):\n            return container_state(host[len(\"Dockhand Container \"):], hosts)\n        if host.startswith(\"Dockhand Stack \"):\n            return stack_state(host[len(\"Dockhand Stack \"):], hosts)\n        return UNKNOWN, \"a Dockhand event of a kind not checked\"\n    if service in (\"semaphore\", \"databasus\"):\n        return UNKNOWN, f\"{service}'s tickets aren't checked\"\n    if alert_hosts is None:\n        return UNKNOWN, \"Alertmanager couldn't be asked\"\n    if host in alert_hosts:\n        return ONGOING, \"the alert is active\"\n    return OVER, \"Alertmanager no longer has the alert active\"\n\n\ngathered = _items[0][\"json\"] if _items else {}\ntickets = answered(gathered.get(\"tickets\"))\ntickets = tickets.get(\"tickets\") if isinstance(tickets, dict) else tickets\n# Every Alertmanager pod's answer: they share no alerts, so an alert is active if any pod\n# has it, and over only when every pod answered without it.\nalert_hosts = set()\nfor pod in gathered.get(\"alerts\") or [None]:\n    alerts = answered(pod)\n    if not isinstance(alerts, list):\n        alert_hosts = None\n        break\n    alert_hosts |= set(alert_host(a.get(\"labels\") or {}) for a in alerts if isinstance(a, dict))\nhosts = gathered.get(\"docker\") or []\n\nout = []\nfor t in tickets if isinstance(tickets, list) else []:\n    if not isinstance(t, dict):\n        continue\n    host, service = ticket_key(t)\n    if not (host and service):\n        continue\n    v, why = verdict(host, service, alert_hosts, hosts)\n    out.append({\"json\": {\"id\": t.get(\"id\"), \"number\": t.get(\"number\"), \"title\": t.get(\"title\"),\n                         \"host\": host, \"service\": service, \"verdict\": v, \"reason\": why}})\ncounts = {k: 0 for k in (OVER, ONGOING, UNKNOWN)}\nfor o in out:\n    counts[o[\"json\"][\"verdict\"]] += 1\nprint(str(len(out)) + \" alert ticket(s): \" + \", \".join(str(n) + \" \" + k for k, n in counts.items()))\nreturn out\n"
       },
       "name": "Verdict",
       "type": "n8n-nodes-base.code",
@@ -503,7 +535,7 @@
       "main": [
         [
           {
-            "node": "Alertmanager: active alerts",
+            "node": "Alertmanager 0: active alerts",
             "type": "main",
             "index": 0
           }
@@ -586,17 +618,6 @@
         ]
       ]
     },
-    "Alertmanager: active alerts": {
-      "main": [
-        [
-          {
-            "node": "Docker VM 1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Docker VM 1": {
       "main": [
         [
@@ -646,6 +667,28 @@
         [
           {
             "node": "Over?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alertmanager 0: active alerts": {
+      "main": [
+        [
+          {
+            "node": "Alertmanager 1: active alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alertmanager 1: active alerts": {
+      "main": [
+        [
+          {
+            "node": "Docker VM 1",
             "type": "main",
             "index": 0
           }
