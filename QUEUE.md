@@ -98,7 +98,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   (`kubernetes/prod/apps/homeassistant/wyze-bridge/`, idisposable's fork 4.5.0) streams the two
   Wyze Cam v3s over their local P2P and serves RTSP. In order: the owner makes a Wyze API key
   (developer console) and adds Key Vault `WYZE-EMAIL`, `WYZE-PASSWORD`, `WYZE-API-ID`,
-  `WYZE-API-KEY`; merges the `cluster-secrets` pull request, then the bridge's; lets the workers
+  `WYZE-API-KEY`, `WYZE-TOTP-KEY`; merges the two `cluster-secrets` pull requests, then the bridge's; lets the workers
   reach the two Wyze cameras over UDP in the IoT firewall rule. Then: the bridge lists both
   cameras and streams them (its log; host networking if it reports a discovery timeout); each
   added to Home Assistant as a camera from its RTSP, on the Cameras dashboard.
