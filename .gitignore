@@ -47,3 +47,5 @@ id_ed25519*
 # Words the pre-commit hook blocks (domains, hostnames), one per line: never committed.
 .secret-words
 /secrets/
+# The front-door Bluetooth proxy's ESPHome secrets: its folder's own .gitignore ignores them too.
+devices/door-bt-proxy/secrets.yaml
