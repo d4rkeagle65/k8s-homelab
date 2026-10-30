@@ -1,0 +1,16 @@
+# Inside the cluster only: Home Assistant reads each camera's RTSP here
+# (rtsp://wyze-bridge.homeassistant.svc.<cluster domain>:8554/<camera name>). No Ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wyze-bridge
+spec:
+  selector:
+    app: wyze-bridge
+  ports:
+  - name: http
+    port: 5080
+    targetPort: http
+  - name: rtsp
+    port: 8554
+    targetPort: rtsp
