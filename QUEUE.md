@@ -141,7 +141,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   and eth0 carrying the reservation; HA's ESPHome entry with its key, the device in Stairs, its
   Bluetooth adapter registered). It runs at the rack for now, where it may not reach the lock.
   Left, the owner's: the proxy within Bluetooth range of the lock (5 V and an IoT Ethernet port
-  near the door), then HACS' chaseflick4/ultraloq-ble-ha, then the lock in Stairs.
+  near the door; HA's Bluetooth advertisement monitor shows whether it hears the lock, and as
+  connectable, from where it stands), then HACS' chaseflick4/ultraloq-ble-ha, then the lock in
+  Stairs. That fork keeps no U-tec password, but has never run against a real lock and was last
+  updated before upstream's v1.1.1 fix for locks whose entities all stay unavailable. Upstream
+  (inventor7777/ultraloq-ble-ha) is the fallback; its config entry keeps the U-tec email and
+  password, in HA's backups too. Both are the `ultraloq_ble` domain, so one at a time.
   `scripts/ha_iot_setup.py`'s `netbox_iot_devices` takes a device's `mac` from wifi0 only, and
   the proxy's reservation is on eth0 (`reserved_on`, `netbox_seed_iot.yaml`), so the next run of
   template 32 reports it as "NetBox has no MAC for it" and counts a failure. Even with that
