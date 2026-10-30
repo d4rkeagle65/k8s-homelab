@@ -18,7 +18,7 @@ from k8s_backup.ownership import capture_owner, generate_owner
 from k8s_backup.secretscan import REDACTION_PLACEHOLDER
 from k8s_backup.sink import Sink
 
-_yaml = YAML(typ="safe")
+_yaml = YAML(typ="safe", pure=True)
 DYNAMIC_PV = "pvc-ba335a83-b39c-46cc-b267-236b9976070f"
 APP = "kubernetes/prod/apps/babybuddy/babybuddy/app"
 

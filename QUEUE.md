@@ -136,12 +136,18 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   laundry:`), tuned from the first wash and dry (2026-10-27).
   The front-door ULTRALOQ is the Bluetooth model behind its Bridge, which U-tec's cloud OpenAPI
   doesn't offer (the HACS U-tec Locks integration found no lock: remove it from HACS). Next, an
-  ESPHome Bluetooth proxy near the door: the owner has the WT32-ETH01 (2026-10-28), and its
-  config, setup and NetBox type are in `devices/door-bt-proxy/` (this branch's pull request).
-  Left, the owner's, in its README's order: the two Key Vault secrets and `secrets.yaml`, the
-  serial flash, its Kea reservation (`<site>iotesbtp<room>`), TCP 6053 in the workers' IoT
-  firewall rule, the ESPHome integration in HA; then HACS' chaseflick4/ultraloq-ble-ha, then
-  the lock in Stairs. Until the proxy is in HA, the lock stays out of reach.
+  ESPHome Bluetooth proxy near the door, a WT32-ETH01 (`devices/door-bt-proxy/`): flashed,
+  reserved in Kea, in NetBox and in HA (2026-10-30, read back: NetBox Active with its type, role
+  and eth0 carrying the reservation; HA's ESPHome entry with its key, the device in Stairs, its
+  Bluetooth adapter registered). It runs at the rack for now, where it may not reach the lock.
+  Left, the owner's: the proxy within Bluetooth range of the lock (5 V and an IoT Ethernet port
+  near the door), then HACS' chaseflick4/ultraloq-ble-ha, then the lock in Stairs.
+  `scripts/ha_iot_setup.py`'s `netbox_iot_devices` takes a device's `mac` from wifi0 only, and
+  the proxy's reservation is on eth0 (`reserved_on`, `netbox_seed_iot.yaml`), so the next run of
+  template 32 reports it as "NetBox has no MAC for it" and counts a failure. Even with that
+  fixed, no run matches the proxy in HA: HA registered the ESP32's base (Wi-Fi) MAC, the
+  Ethernet one minus 3 (read back), so NetBox's wifi0 needs that MAC (by hand) or the script
+  another way to match it.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.

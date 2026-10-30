@@ -15,6 +15,9 @@ broken, which is why it is a check rather than a comment:
   suppress(Exception)               a failed read becomes no answer at all
   open() with no encoding=          reads the locale's code page on Windows and UTF-8 on Linux;
                                     so does subprocess text mode
+  YAML(typ="safe") without          uses ruamel's C parser wherever ruamel.yaml.clib is
+  pure=True                         installed, which rejects a colon inside a [...] item that
+                                    the pure parser reads; this one is held over tests/ too
 
 Each AST scanner is a function, self-tested below against snippets that must be caught and
 snippets that must not.
@@ -105,6 +108,25 @@ def find_open_without_encoding(tree):
     return hits
 
 
+def yaml_loaders(tree):
+    """Every ruamel YAML(...) call, by name or as an attribute (ruamel.yaml.YAML)."""
+    return [n for n in ast.walk(tree) if isinstance(n, ast.Call)
+            and (getattr(n.func, "id", None) or getattr(n.func, "attr", None)) == "YAML"]
+
+
+def find_yaml_c_parser(tree):
+    """A YAML loader whose parser depends on what is installed: typ "safe", "base" or
+    "unsafe" without pure=True takes ruamel's C parser whenever ruamel.yaml.clib is there."""
+    found = []
+    for n in yaml_loaders(tree):
+        kw = {k.arg: k.value for k in n.keywords}
+        typ, pure = kw.get("typ"), kw.get("pure")
+        if (isinstance(typ, ast.Constant) and typ.value in ("safe", "base", "unsafe")
+                and not (isinstance(pure, ast.Constant) and pure.value is True)):
+            found.append("%d YAML(typ=%r) without pure=True" % (n.lineno, typ.value))
+    return found
+
+
 def help_gaps(tree):
     """What a script lacks of its help: its module docstring, and help= on each argparse
     argument, by the argument's first name."""
@@ -152,6 +174,10 @@ t.check("  read_text() and write_text(data) are CAUGHT, and with encoding are no
 t.check("  subprocess in text mode is CAUGHT, and with encoding is not",
         count(find_open_without_encoding, "import subprocess\nsubprocess.run(a, text=True)\nsubprocess.run(a, text=True, encoding='utf-8')\nsubprocess.run(a)\n"), 1)
 t.check("  an open the module defines itself is not", count(find_open_without_encoding, "def open(p):\n    return p\nopen('a')\n"), 0)
+t.check("SELF-TEST: YAML(typ=\"safe\") without pure=True is CAUGHT, so is pure=False",
+        count(find_yaml_c_parser, "y = YAML(typ='safe')\nz = ruamel.yaml.YAML(typ='safe', pure=False)\n"), 2)
+t.check("  with pure=True, or the round-trip YAML(), it is not",
+        count(find_yaml_c_parser, "y = YAML(typ='safe', pure=True)\nz = YAML()\n"), 0)
 t.check("SELF-TEST: a script with no docstring lacks help", help_gaps(P("import os\n")), ["a module docstring"])
 t.check("  an argparse argument with no help= is named",
         help_gaps(P('"""Doc."""\nap.add_argument("--path", help="the folder")\nap.add_argument("--count")\n')), ["help= for --count"])
@@ -200,6 +226,16 @@ t.ratchet("SuppressedError", len(h), "suppress(Exception) blocks", h, "suppress 
 t.section("text is read and written in a named encoding")
 h = collect(find_open_without_encoding)
 t.ratchet("OpenWithoutEncoding", len(h), "text opened with no encoding", h, "pass encoding=\"utf-8\"")
+
+t.section("YAML is read by the same parser on every machine")
+# Every tracked .py, not only the scripts under test: the suites and the pytest files read YAML too.
+yaml_trees = dict(parsed)
+for f in t.tracked_files("*.py"):
+    if f not in scripts:
+        yaml_trees[f] = t.parse(f)
+t.scanned("YamlLoaders", sum(len(yaml_loaders(tree)) for tree in yaml_trees.values()), "YAML loaders")
+h = ["%s:%s" % (t.rel(f), x) for f, tree in yaml_trees.items() for x in find_yaml_c_parser(tree)]
+t.check("no YAML loader takes the C parser when ruamel.yaml.clib is installed", ", ".join(h), "")
 
 t.section("each target Python compiles the scripts and has what they import")
 here = t.this_platform()

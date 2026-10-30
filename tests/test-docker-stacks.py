@@ -59,7 +59,7 @@ def map_names(text):
     """Every Key Vault name docker/secret-names.yaml gives a stack: each NAME entry, and each
     ${NAME} a built form reads."""
     names = set()
-    for variables in (YAML(typ="safe").load(text) or {}).values():
+    for variables in (YAML(typ="safe", pure=True).load(text) or {}).values():
         for entry in (variables or {}).values():
             if isinstance(entry, str):
                 names.add(entry)
@@ -78,7 +78,7 @@ def not_allowed(entries, known):
 def unlimited_services(text):
     """The services that keep running (restart isn't "no") without a mem_limit. Without
     one, a single runaway container can push the whole host into its OOM killer."""
-    services = (YAML(typ="safe").load(text) or {}).get("services") or {}
+    services = (YAML(typ="safe", pure=True).load(text) or {}).get("services") or {}
     return sorted(name for name, svc in services.items()
                   if str((svc or {}).get("restart", "no")) != "no" and "mem_limit" not in (svc or {}))
 
@@ -132,7 +132,7 @@ def socket_proxies(texts):
     the address they publish on."""
     found = {}
     for folder, text in texts.items():
-        for name, svc in ((YAML(typ="safe").load(text) or {}).get("services") or {}).items():
+        for name, svc in ((YAML(typ="safe", pure=True).load(text) or {}).get("services") or {}).items():
             image = str((svc or {}).get("image", ""))
             if image.split(":")[0] == "wollomatic/socket-proxy":
                 found[folder] = (image, tuple((svc or {}).get("command") or []))
@@ -156,7 +156,7 @@ def noisy_one_shots(text):
     reports each container that stops as "Container Die", with no exit code, so a one-shot
     step's normal exit would open a Zammad ticket through the bridge (old-queues/QUEUE-zammad.md)."""
     out = []
-    for name, svc in ((YAML(typ="safe").load(text) or {}).get("services") or {}).items():
+    for name, svc in ((YAML(typ="safe", pure=True).load(text) or {}).get("services") or {}).items():
         svc = svc or {}
         labels = svc.get("labels") or {}
         if isinstance(labels, list):

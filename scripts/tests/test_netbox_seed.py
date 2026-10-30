@@ -368,7 +368,7 @@ def test_a_reservations_label_has_its_hostname_when_it_has_one():
 
 def iot_catalogue():
     from ruamel.yaml import YAML
-    return YAML(typ="safe").load((SCRIPT.parent / "netbox_seed_iot.yaml").read_text(encoding="utf-8"))
+    return YAML(typ="safe", pure=True).load((SCRIPT.parent / "netbox_seed_iot.yaml").read_text(encoding="utf-8"))
 
 
 def test_the_catalogue_names_only_what_it_defines_and_every_type_has_its_reserved_interface():

@@ -27,7 +27,7 @@ def load():
 
 
 m = load()
-INTEGRATIONS = YAML(typ="safe").load(SCRIPT.with_suffix(".yaml").read_text(encoding="utf-8"))["integrations"]
+INTEGRATIONS = YAML(typ="safe", pure=True).load(SCRIPT.with_suffix(".yaml").read_text(encoding="utf-8"))["integrations"]
 
 
 def nb_device(id_, name, type_, maker, ip="192.0.2.10/24", mark=True, room=None):
