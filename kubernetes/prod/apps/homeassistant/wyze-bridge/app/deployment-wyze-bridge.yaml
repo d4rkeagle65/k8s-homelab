@@ -1,7 +1,8 @@
 # One bridge, replaced rather than rolled: a second would sign in to Wyze beside the first.
-# On the pod network like the eufy bridge: its P2P to the cameras leaves from the node's
-# address, which the firewall's IoT rule names (UDP to the Wyze cameras). The bridge's docs
-# suggest host networking if NAT drops the camera's UDP reply ("discovery timeout").
+# On the host's network: on the pod network the Pan v3's UDP reply was lost to the node's
+# NAT ("discovery timeout"), the case the bridge's docs give host networking for. Its P2P
+# leaves from the node's address, which the firewall's IoT rule names (UDP to the Wyze
+# cameras). It then holds 5080 and 8554 on its node, besides go2rtc's own ports.
 # Snapshots and recordings are off: Home Assistant takes its own stills.
 apiVersion: apps/v1
 kind: Deployment
@@ -20,6 +21,9 @@ spec:
         app: wyze-bridge
     spec:
       priorityClassName: homelab-low
+      hostNetwork: true
+      # Cluster DNS still, for go2rtc's own lookups.
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: bridge
         image: ghcr.io/idisposable/docker-wyze-bridge:4.5.0@sha256:708903d2882c76966ecb29763a075372d89773aa6796d0aab70f04369cc6d521
