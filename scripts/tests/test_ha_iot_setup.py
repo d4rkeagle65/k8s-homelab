@@ -27,7 +27,8 @@ def load():
 
 
 m = load()
-INTEGRATIONS = YAML(typ="safe", pure=True).load(SCRIPT.with_suffix(".yaml").read_text(encoding="utf-8"))["integrations"]
+CONFIG = YAML(typ="safe", pure=True).load(SCRIPT.with_suffix(".yaml").read_text(encoding="utf-8"))
+INTEGRATIONS = CONFIG["integrations"]
 
 
 def nb_device(id_, name, type_, maker, ip="192.0.2.10/24", mark=True, room=None):
@@ -222,6 +223,36 @@ def test_a_device_reserved_on_eth0_takes_its_mac_from_there():
                   {"name": "wifi0", "device": {"id": 1}, "primary_mac_address": None}]
     d = m.netbox_iot_devices(devices, interfaces)[0]
     assert d["mac"] == "00:00:5E:00:53:B3" and d["macs"] == ["00:00:5E:00:53:B3"]
+
+
+def test_a_derived_mac_changes_only_the_last_octet_and_never_carries():
+    assert m.derived_mac("00:00:5E:00:53:B3", -3) == "00:00:5E:00:53:B0"
+    assert m.derived_mac("00-00-5e-00-53-01", -3) == "00:00:5E:00:53:FE"
+    assert m.derived_mac("00:00:5E:00:53:FE", 3) == "00:00:5E:00:53:01"
+
+
+def test_an_esp32_on_ethernet_is_found_by_its_base_mac():
+    # Home Assistant's ESPHome device carries the ESP32's base MAC, its Ethernet MAC minus 3.
+    devices = [nb_device(1, "zziotesbtpdoor", "wireless-tag-wt32-eth01", "wireless-tag"),
+               nb_device(2, "zziotazfiretliving", "amazon-fire-tv-4k-43", "amazon")]
+    interfaces = [{"name": "eth0", "device": {"id": 1}, "primary_mac_address": {"mac_address": "00:00:5E:00:53:B3"}},
+                  {"name": "wifi0", "device": {"id": 1}, "primary_mac_address": None},
+                  {"name": "eth0", "device": {"id": 2}, "primary_mac_address": {"mac_address": "00:00:5E:00:53:E3"}}]
+    got = {d["type"]: d for d in m.netbox_iot_devices(devices, interfaces, CONFIG["derived_macs"])}
+    proxy, tv = got["wireless-tag-wt32-eth01"], got["amazon-fire-tv-4k-43"]
+    assert proxy["mac"] == "00:00:5E:00:53:B3" and proxy["macs"] == ["00:00:5E:00:53:B3", "00:00:5E:00:53:B0"]
+    assert tv["macs"] == ["00:00:5E:00:53:E3"]
+    by_mac = m.ha_device_by_mac([{"id": "proxy", "connections": [["mac", "00:00:5e:00:53:b0"]]}])
+    assert m.ha_device_of(proxy, by_mac)["id"] == "proxy"
+    assert m.plan_device(proxy, INTEGRATIONS, by_mac, attended=False)[0] == "present"
+
+
+def test_each_derived_mac_names_a_device_type_and_one_of_its_interfaces():
+    seed = YAML(typ="safe", pure=True).load((SCRIPT.parent / "netbox_seed_iot.yaml").read_text(encoding="utf-8"))
+    types = {t["slug"]: {i["name"] for i in t.get("interfaces", [])} for t in seed["device_types"]}
+    for r in CONFIG["derived_macs"]:
+        assert r["interface"] in types.get(r["type"], ()), r
+        assert isinstance(r["add"], int), r
 
 
 class FakeClock:

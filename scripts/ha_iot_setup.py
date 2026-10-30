@@ -5,7 +5,9 @@ from Kea's reservations, described "Kea reservation device"), each with its addr
 its interfaces' MACs (the reservation's on wifi0, or on the interface its type's
 `reserved_on` names in netbox_seed_iot.yaml); one Offline or Decommissioning is left out.
 A device Home Assistant already has is one whose device registry entry carries one of
-those MACs. For the rest, the first entry of ha_iot_setup.yaml matching the
+those MACs, or one ha_iot_setup.yaml's derived_macs works out from them (an ESP32
+reports its base MAC, not its Ethernet one). For the rest, the first of
+ha_iot_setup.yaml's integrations matching the
 device's type or manufacturer names the integration, and the script runs its setup
 flow by address, as the UI's "Add integration" would. A flow that asks for what the
 script can't give (a login it has no variables for, a PIN shown on a TV) is closed
@@ -201,28 +203,42 @@ def norm_mac(mac: str) -> str:
     return re.sub(r"[^0-9a-f]", "", mac.lower())
 
 
-def netbox_iot_devices(devices: list[dict], interfaces: list[dict]) -> list[dict]:
+def derived_mac(mac: str, add: int) -> str:
+    """mac with add added to its last octet, mod 256 and with no carry, as ESP-IDF works
+    out an ESP32's other MACs from its base MAC."""
+    octets = [int(x, 16) for x in re.findall("..", norm_mac(mac))]
+    octets[-1] = (octets[-1] + add) % 256
+    return ":".join(f"{o:02X}" for o in octets)
+
+
+def netbox_iot_devices(devices: list[dict], interfaces: list[dict], derived: list[dict] = ()) -> list[dict]:
     """NetBox's IoT devices (those netbox_seed.py made) as {name, type, manufacturer,
     host, mac, macs, room}: the address from the device's primary IPv4, macs every
     interface's primary MAC (wifi0 first: a Fire TV reports its Ethernet MAC to Home
-    Assistant), mac the first of them (wifi0's, else the first interface's that has one:
-    the reservation is on wifi0 unless the type's `reserved_on` names another), the room
-    its Location's name. A missing one is None (macs: empty)."""
+    Assistant) and then those derived (ha_iot_setup.yaml's derived_macs) works out from
+    them, mac the first of them (wifi0's, else the first interface's that has one: the
+    reservation is on wifi0 unless the type's `reserved_on` names another), the room its
+    Location's name. A missing one is None (macs: empty)."""
     macs: dict[int, list[str]] = {}
+    on: dict[tuple[int, str], str] = {}
     for i in sorted(interfaces, key=lambda i: i["name"] != "wifi0"):
         mac = (i.get("primary_mac_address") or {}).get("mac_address")
         if mac:
             macs.setdefault(i["device"]["id"], []).append(mac)
+            on[i["device"]["id"], i["name"]] = mac
     out = []
     for d in devices:
         if (d.get("description") or "") != IOT_DEVICE_MARK:
             continue
         ip = (d.get("primary_ip4") or {}).get("address")
         own = macs.get(d["id"], [])
-        out.append({"name": d["name"], "type": d["device_type"]["slug"],
+        type_ = d["device_type"]["slug"]
+        worked_out = [derived_mac(on[d["id"], r["interface"]], r["add"]) for r in derived
+                      if r["type"] == type_ and (d["id"], r["interface"]) in on]
+        out.append({"name": d["name"], "type": type_,
                     "manufacturer": d["device_type"]["manufacturer"]["slug"],
                     "host": ip.split("/")[0] if ip else None, "mac": own[0] if own else None,
-                    "macs": own, "room": (d.get("location") or {}).get("name")})
+                    "macs": own + worked_out, "room": (d.get("location") or {}).get("name")})
     return sorted(out, key=lambda d: d["name"])
 
 
@@ -336,7 +352,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(Path(__file__).with_suffix(".yaml")),
-                    help="which integration adds which device (ha_iot_setup.yaml)")
+                    help="which integration adds which device, and the MACs worked out (ha_iot_setup.yaml)")
     ap.add_argument("--netbox-url", default=os.environ.get("NETBOX_API") or None,
                     required=not os.environ.get("NETBOX_API"), help="https://netbox.<domain> (default: $NETBOX_API)")
     ha_url_file = Path.home() / ".ha-url"
@@ -352,12 +368,14 @@ def main() -> None:
     if extras:
         raise SystemExit(unexpected(extras))
 
-    integrations = YAML(typ="safe", pure=True).load(Path(args.config).read_text(encoding="utf-8"))["integrations"]
+    config = YAML(typ="safe", pure=True).load(Path(args.config).read_text(encoding="utf-8"))
+    integrations = config["integrations"]
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_TOKEN"), apply=False)
     # Active ones only: Offline (its reservation gone) or Decommissioning (being removed by
     # hand) isn't added, nor placed.
     nb_devices = nb.all("dcim/devices", description=IOT_DEVICE_MARK, status="active")
-    devices = netbox_iot_devices(nb_devices, nb.all("dcim/interfaces") if nb_devices else [])
+    devices = netbox_iot_devices(nb_devices, nb.all("dcim/interfaces") if nb_devices else [],
+                                 config.get("derived_macs") or [])
     if not devices:
         raise SystemExit("FAIL: NetBox lists no IoT device (netbox_seed.py's); nothing to compare against")
     ha = HomeAssistant(args.ha_url, read_secret(".ha-token", "HA_TOKEN"))
