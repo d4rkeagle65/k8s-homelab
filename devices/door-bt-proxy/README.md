@@ -14,7 +14,7 @@ and name are in NetBox and Kea, never here.
 |---|---|
 | Network | Ethernet on the IoT network. Its Kea reservation's hostname is `<site>iotesbtp<room>`, so the NetBox sync makes it a `wireless-tag-wt32-eth01` device with the reservation on `eth0` (`scripts/netbox_seed_iot.yaml`). |
 | Firewall | Home Assistant runs on host networking, so it connects from the workers: TCP 6053 (ESPHome's API) is in the rule that lets the workers reach the IoT network. |
-| Home Assistant | The ESPHome integration, added by hand by its address. It isn't in `scripts/ha_iot_setup.yaml`, because the setup flow asks for the encryption key. |
+| Home Assistant | The ESPHome integration, added by hand by its address. It isn't among `scripts/ha_iot_setup.yaml`'s integrations, because the setup flow asks for the encryption key; that file's `derived_macs` is how the script finds it in Home Assistant. |
 | Bluetooth | Active scanning and 4 connection slots, upstream's settings for an Ethernet proxy. |
 | Power | 5 V on the 5V and GND pins: the board has no USB port and no PoE. |
 
