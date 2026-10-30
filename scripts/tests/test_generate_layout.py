@@ -17,7 +17,7 @@ from ruamel.yaml import YAML
 from k8s_backup import generate, scaffold
 from k8s_backup.fluxowner import FluxOwnership
 
-_yaml = YAML(typ="safe")
+_yaml = YAML(typ="safe", pure=True)
 
 CAPTURED_RELEASE = {
     "kubernetes/prod/apps/emby/namespace.yaml": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: emby\n",

@@ -114,7 +114,7 @@ def hook_jobs(namespaces: set[str]) -> list[dict]:
         if rel["namespace"] not in namespaces:
             continue
         text = run(["helm", "get", "hooks", rel["name"], "-n", rel["namespace"]])
-        for doc in YAML(typ="safe").load_all(text):
+        for doc in YAML(typ="safe", pure=True).load_all(text):
             if isinstance(doc, dict) and doc.get("kind") == "Job":
                 doc.setdefault("metadata", {}).setdefault("namespace", rel["namespace"])
                 doc["kind"] = "Job"

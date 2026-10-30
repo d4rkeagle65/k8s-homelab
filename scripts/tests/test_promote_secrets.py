@@ -24,7 +24,7 @@ from k8s_backup.fluxowner import FluxOwnership
 from k8s_backup.ownership import capture_owner
 from k8s_backup.sink import Sink
 
-_yaml = YAML(typ="safe")
+_yaml = YAML(typ="safe", pure=True)
 APP = "kubernetes/prod/system/noip-duc/noip-duc/app"
 SECRET_FILE = f"{APP}/secret-noip-duc-credentials.yaml"
 USER_VAR = "${NOIP_DUC_CREDENTIALS_NOIP_USERNAME}"

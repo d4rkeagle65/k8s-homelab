@@ -15,7 +15,7 @@ from ruamel.yaml import YAML
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-_yaml = YAML(typ="safe")
+_yaml = YAML(typ="safe", pure=True)
 
 
 @pytest.fixture(scope="session")

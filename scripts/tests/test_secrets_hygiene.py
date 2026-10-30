@@ -386,4 +386,4 @@ def test_node_names_are_placeholders(repo_root, all_yaml_files):
 def _yaml_all(path):
     from ruamel.yaml import YAML
 
-    return YAML(typ="safe").load_all(path.read_text(encoding="utf-8"))
+    return YAML(typ="safe", pure=True).load_all(path.read_text(encoding="utf-8"))

@@ -98,7 +98,7 @@ def read_map(path: Path) -> dict[str, dict[str, tuple]]:
     """Per stack, each variable's entry: ("name", NAME), ("built", template, [NAME...]) or
     ("none", reason)."""
     try:
-        data = YAML(typ="safe").load(path.read_text(encoding="utf-8"))
+        data = YAML(typ="safe", pure=True).load(path.read_text(encoding="utf-8"))
     except OSError as error:
         raise kv.Stop(f"{path}: {error.strerror}") from error
     except YAMLError as error:
