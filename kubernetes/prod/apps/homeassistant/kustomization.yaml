@@ -6,3 +6,4 @@ resources:
 - eufy-bridge/ks.yaml
 - homeassistant/ks.yaml
 - namespace.yaml
+- wyze-bridge/ks.yaml
