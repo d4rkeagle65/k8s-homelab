@@ -149,9 +149,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   updated before upstream's v1.1.1 fix for locks whose entities all stay unavailable. Upstream
   (inventor7777/ultraloq-ble-ha) is the fallback; its config entry keeps the U-tec email and
   password, in HA's backups too. Both are the `ultraloq_ble` domain, so one at a time.
-  The proxy's NetBox device has no Location (read back 2026-10-30), so template 32
-  (`scripts/ha_iot_setup.py`) lists it under "areas:" as "no Location in NetBox": set it in
-  NetBox to the room it ends up in (the owner's). HA keeps the area set there either way.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
