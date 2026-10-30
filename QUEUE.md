@@ -141,11 +141,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   ESPHome Bluetooth proxy near the door, a WT32-ETH01 (`devices/door-bt-proxy/`): flashed,
   reserved in Kea, in NetBox and in HA (2026-10-30, read back: NetBox Active with its type, role
   and eth0 carrying the reservation; HA's ESPHome entry with its key, the device in Stairs, its
-  Bluetooth adapter registered). It runs at the rack for now, where it may not reach the lock.
-  Left, the owner's: the proxy within Bluetooth range of the lock (5 V and an IoT Ethernet port
-  near the door; HA's Bluetooth advertisement monitor shows whether it hears the lock, and as
-  connectable, from where it stands), then HACS' chaseflick4/ultraloq-ble-ha, then the lock in
-  Stairs. That fork keeps no U-tec password, but has never run against a real lock and was last
+  Bluetooth adapter registered). It runs at the rack, 6-7 feet from the lock through the concrete
+  slab, the nearest the Ethernet goes. Left, the owner's: HACS' chaseflick4/ultraloq-ble-ha, set
+  up from where things stand (setup needs only U-tec's cloud), then the lock in Stairs; whether
+  the proxy reaches it shows then. The lock's own Bluetooth MAC missing from HA's advertisement
+  monitor proves little: a lock with a wake-up receiver advertises that instead, at an address
+  the integration takes from the cloud at setup. Out of range, the proxy goes on Wi-Fi (ESPHome
+  runs `ethernet:` or `wifi:`, not both) on 5 V by an outlet near the lock, or a small Wi-Fi
+  ESP32 board does, or Ethernet reaches past the slab (the stair opening). That fork keeps no U-tec password, but has never run against a real lock and was last
   updated before upstream's v1.1.1 fix for locks whose entities all stay unavailable. Upstream
   (inventor7777/ultraloq-ble-ha) is the fallback; its config entry keeps the U-tec email and
   password, in HA's backups too. Both are the `ultraloq_ble` domain, so one at a time.
