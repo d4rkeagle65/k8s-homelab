@@ -300,7 +300,7 @@ def main() -> None:
     if args.pr and not os.environ.get("GITHUB_TOKEN"):
         raise SystemExit("FAIL: --pr needs GITHUB_TOKEN; nothing was written")
     try:
-        cfg = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))
+        cfg = YAML(typ="safe", pure=True).load(Path(args.config).read_text(encoding="utf-8"))
         # A Decommissioning VM keeps main's entry: from GitHub with --pr, else the checkout's.
         if args.pr:
             previous_text = main_file(os.environ["GITHUB_TOKEN"])[1]

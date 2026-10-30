@@ -351,7 +351,7 @@ def main() -> None:
     if extras:
         raise SystemExit(unexpected(extras))
 
-    integrations = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))["integrations"]
+    integrations = YAML(typ="safe", pure=True).load(Path(args.config).read_text(encoding="utf-8"))["integrations"]
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_TOKEN"), apply=False)
     # Active ones only: Offline (its reservation gone) or Decommissioning (being removed by
     # hand) isn't added, nor placed.

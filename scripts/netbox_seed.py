@@ -766,8 +766,8 @@ def main() -> None:
     if extras:
         raise SystemExit(unexpected(extras))
 
-    cfg = YAML(typ="safe").load(Path(args.config).read_text(encoding="utf-8"))
-    iot = YAML(typ="safe").load(Path(args.iot_config).read_text(encoding="utf-8"))
+    cfg = YAML(typ="safe", pure=True).load(Path(args.config).read_text(encoding="utf-8"))
+    iot = YAML(typ="safe", pure=True).load(Path(args.iot_config).read_text(encoding="utf-8"))
     models = iot_models()
     nb = NetBox(args.netbox_url, read_secret(".netbox-token", "NETBOX_WRITE_TOKEN"), args.apply)
     kea_subnets, kea_pools = kea_networks(args.kea_url, read_secret(".kea-api", "KEA_API"))

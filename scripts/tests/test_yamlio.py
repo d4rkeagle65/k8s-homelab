@@ -12,7 +12,7 @@ from k8s_backup import yamlio
 from k8s_backup.yamlio import to_yaml_string
 
 # A plain YAML 1.2 reader, independent of the writer's own instance.
-_reader = YAML(typ="safe")
+_reader = YAML(typ="safe", pure=True)
 
 ROUND_TRIP_CASES = [
     "line one\nline two\n",

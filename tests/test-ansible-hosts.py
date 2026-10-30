@@ -49,7 +49,7 @@ def localhost_uses(text):
 def problems(name, text):
     """What's wrong with one playbook's host selection, as short descriptions."""
     found = []
-    items = YAML(typ="safe").load(text) or []
+    items = YAML(typ="safe", pure=True).load(text) or []
     plays = [i for i in items if isinstance(i, dict) and "hosts" in i]
     imports = {i.get("ansible.builtin.import_playbook") or i.get("import_playbook")
                for i in items if isinstance(i, dict)} - {None}
