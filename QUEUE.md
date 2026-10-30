@@ -463,7 +463,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-tailscale.md](QUEUE-tailscale.md) (just started): the tailnet's policy, DNS and alerts from `tofu/tailscale` and NetBox.
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (just started): the wall display, a Grafana dashboard on the convertible laptop's screen.
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (just started): SNMPv3, syslog and alerts for the core switch and the firewall.
-- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (just started): n8n replaces zammad-bridge, one source at a time, then the bridge goes.
+- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 85%): every source sends to n8n; left, deleting the bridge.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 
 The percentages are estimates as of 2026-10-22, from each file's checklist weighed by the
