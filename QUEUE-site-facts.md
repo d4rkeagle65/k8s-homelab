@@ -34,10 +34,11 @@ cluster, and three JSON strings bundle values that are their own facts.
   passwords (made to differ at the next rotation).
 - [ ] **2. Passwords generated in the cluster.** Traced 2026-10-31 (live pod specs, values compared
   yes/no only):
-  - [x] Authentik's and Immich's `redis-password` Secrets: no pod reads either (Authentik no longer
-    uses Redis; Immich reaches redis-ha through its `REDIS_URL`), so they go (this PR), and after
-    merge their live Secrets by hand (prune-protected) and `AUTHENTIK-REDIS-PASSWORD-PASSWORD`,
-    `IMMICH-REDIS-PASSWORD-PASSWORD` from Key Vault (the owner's).
+  - [ ] Authentik's and Immich's `redis-password` Secrets: no pod reads either (Authentik no longer
+    uses Redis; Immich reaches redis-ha through its `REDIS_URL`); their ExternalSecrets are gone
+    (#511). Left, both the owner's: the live Secrets, prune-protected
+    (`kubectl -n authentik delete secret redis-password`, the same in `immich`), and
+    `AUTHENTIK-REDIS-PASSWORD-PASSWORD`, `IMMICH-REDIS-PASSWORD-PASSWORD` from Key Vault.
   - [ ] redis-ha: `redis-ha-creds`' `auth` and `sentinel-password` are one value, and Immich's
     `REDIS_URL` (`ioredis://`, a base64 JSON of the three Sentinels, `mymaster`, `password` and
     `sentinelPassword`) holds it twice. Both from Password generators in redis-ha (each its own,
