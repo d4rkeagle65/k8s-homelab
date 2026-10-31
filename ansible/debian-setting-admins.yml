@@ -11,7 +11,7 @@
 # It targets the inventory's debian group (every Debian host, not the OpenWrt
 # APs); debian-baseline.yml runs the same steps (tasks/admin-user.yml) as part of the
 # baseline. The values come from a Semaphore variable group (never git):
-#   admin_user           the account, e.g. dhardin
+#   admin_user           the account, your own login
 #   admin_ssh_keys       a list of its public keys (one line each, ssh-...)
 #   admin_sudo_nopasswd  true: sudo without a password. false (the default):
 #                        sudo asks for the account's password, which then needs
