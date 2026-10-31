@@ -129,7 +129,8 @@ roles: [Air Purifier, Air Quality Sensor, Baby Monitor, Bluetooth Proxy, Camera,
 # eu eufy, am AiMOR, es ESPHome, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere, spot),
 # fire (t TV, s stick), cfan ceiling fan, lb light bulb, cam, noise, humid, tv, air (sensor),
 # pur (purifier; pur24 the H7124), sock, p115, rest (Hatch 2nd gen), pf or yo photo frame,
-# btp Bluetooth proxy.
+# btp Bluetooth proxy. A hostname stays within 15 characters (NetBIOS's limit), so a long one
+# shortens its room: `az<room>echosp` is an Echo Spot with a two-letter room code.
 rules:
 - {name: '^kafan', type: kasa-hs200, role: Smart Power Switch}
 - {name: '^kali', type: kasa-hs200, role: Smart Power Switch}
@@ -137,6 +138,7 @@ rules:
 - {name: '^tp(p115|pl)', type: tp-link-tapo-p115, role: Smart Power Plug}
 - {name: '^azthermo', type: amazon-s6ed3r, role: Thermostat}
 - {name: '^azechospot', type: amazon-echo-spot, role: Voice Interface}
+- {name: '^az[a-z]{2}echosp', type: amazon-echo-spot, role: Voice Interface}
 - {name: '^azechos', type: amazon-echo-dot-4th-gen-clock, role: Voice Interface}
 - {name: '^azecho', type: amazon-echo-dot, role: Voice Interface}
 - {name: '^azfiret', type: amazon-fire-tv-4k-43, role: TV}
