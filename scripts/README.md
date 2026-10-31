@@ -302,7 +302,10 @@ template doesn't encode it, since the cluster would get it plain. With `-Get`
 it outputs a variable's current value instead, as Key Vault holds it, for a
 variable or `Set-Clipboard` (`-Clipboard` does that for you). A secret only an
 app's own ExternalSecret reads is named by its Key Vault name; the script says
-which files read it and leaves cluster-secrets alone. It signs in as your `az login` account; its
+which files read it and leaves cluster-secrets alone. `-Delete` soft-deletes a
+secret once nothing reads it (the live ExternalSecret, another ExternalSecret, a
+`${NAME}` under `kubernetes/`, or a Dockhand stack) and its name is typed, and
+`-Recover` brings one back before Key Vault purges it. It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/keyvault_copy.py` copies every `cluster-secrets` variable into Key
 Vault and compares by hash, a variable the template encodes as its plain value.
