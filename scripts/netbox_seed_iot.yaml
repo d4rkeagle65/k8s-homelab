@@ -65,6 +65,8 @@ device_types:
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: hardwired}]}
 - {slug: eufy-t8417, manufacturer: eufy, model: Indoor Cam E30, description: Indoor pan-and-tilt camera (T8417),
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-c}]}
+- {slug: eufy-c10, manufacturer: eufy, model: Baby Monitor C10, description: Baby camera paired with its own monitor,
+   interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-c}]}
 - {slug: eufy-baby-monitor, manufacturer: eufy, model: Smart Sock Base, description: Base station of the Smart Sock baby monitor,
    interfaces: [{name: wifi0, type: ieee802.11n}], power_ports: [{name: pIn1, type: usb-c}]}
 - {slug: furbo-dog-camera, manufacturer: furbo, model: Dog Camera,
@@ -129,7 +131,7 @@ roles: [Air Purifier, Air Quality Sensor, Baby Monitor, Bluetooth Proxy, Camera,
 # eu eufy, am AiMOR, es ESPHome, ir an IR remote. Device codes: li light, fan, echo (d dot, s sphere, spot),
 # fire (t TV, s stick), cfan ceiling fan, lb light bulb, cam, noise, humid, tv, air (sensor),
 # pur (purifier; pur24 the H7124), sock, p115, rest (Hatch 2nd gen), pf or yo photo frame,
-# btp Bluetooth proxy. A hostname stays within 15 characters (NetBIOS's limit), so a long one
+# btp Bluetooth proxy, c10 the eufy Baby Monitor C10's camera. A hostname stays within 15 characters (NetBIOS's limit), so a long one
 # shortens its room: `az<room>echosp` is an Echo Spot with a two-letter room code.
 rules:
 - {name: '^kafan', type: kasa-hs200, role: Smart Power Switch}
@@ -160,6 +162,7 @@ rules:
 - {name: '^wzpan', type: wyze-pan-cam-v3, role: Camera}
 - {name: '^wzcam', type: wyze-cam-v3, role: Camera}
 - {name: '^eucam', type: eufy-t8417, role: Camera}
+- {name: '^euc10', type: eufy-c10, role: Baby Monitor}
 - {name: '^eu(sock|baby|mon)', type: eufy-baby-monitor, role: Baby Monitor}
 - {name: '^(pf|frame|amyo)', type: generic-android-photo-frame, role: Photo Frame}
 - {name: '^esbtp', type: wireless-tag-wt32-eth01, role: Bluetooth Proxy}
