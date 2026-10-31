@@ -82,8 +82,8 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
    entry on `/vms/...` for this user (an older `TofuDockerVM` entry on `/vms/107` is removed:
    `pveum acl delete /vms/107 -users tofu@pve -roles PVEAuditor,TofuDockerVM`, then
    `pveum role delete TofuDockerVM`).
-2. **A variable group** (Semaphore's sidebar; "environment" in its API) "OpenTofu: Proxmox",
-   as environment variables, not extra variables:
+2. **A variable group** (Semaphore's sidebar; "environment" in its API) "OpenTofu: Proxmox and
+   Talos" (made by the Key Vault sync, `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), as environment variables, not extra variables:
    - variable: `PROXMOX_VE_ENDPOINT` = `https://<a Proxmox host's name>:8006/`, the name its
      Let's Encrypt certificate carries (`ansible/proxmox-setting.yml`). No
      `PROXMOX_VE_INSECURE`: the certificate is verified like any other;
@@ -107,7 +107,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
   the next free key and an import block if it already exists in Cloudflare.
 - **Token:** its own Cloudflare API token, Zone > DNS > Edit and Zone > Zone > Read on the two
   zones only (not cert-manager's or the tunnel controller's).
-- **Semaphore:** a variable group "OpenTofu: Cloudflare", environment variables, all secrets:
+- **Semaphore:** a variable group "OpenTofu: Cloudflare" (made by the Key Vault sync, `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), environment variables, all secrets:
   `CLOUDFLARE_API_TOKEN`, `PG_CONN_STR` (the same as Proxmox's; the schema differs) and
   `TF_VAR_dns` (the note). A template, type OpenTofu, subdirectory `tofu/cloudflare`.
 - **A record that already exists in Cloudflare** is adopted with an import block, keyed by
@@ -131,7 +131,7 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 - **Credentials:** an OAuth client of its own, which doesn't expire: Key Vault's
   `TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID` and `-SECRET` (write on the policy file, DNS, devices
   and feature settings). Not Homepage's `TAILSCALE_API_KEY`.
-- **Semaphore:** a variable group "Setting: Tailscale (OpenTofu)", environment variables. Secrets:
+- **Semaphore:** a variable group "OpenTofu: Tailscale" (made by the Key Vault sync, `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), environment variables. Secrets:
   `TAILSCALE_OAUTH_CLIENT_ID` and `TAILSCALE_OAUTH_CLIENT_SECRET` (the client above),
   `PG_CONN_STR` (the same as Proxmox's; the schema differs), `TF_VAR_netbox_token` (Key
   Vault's `NETBOX-READ-TOKEN`); variable `TF_VAR_netbox_url` = `https://netbox.<domain>`. A

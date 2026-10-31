@@ -118,7 +118,10 @@ templates); each new template has meant another group typed in from Key Vault or
   - [x] The config moved to them (#495, 54 Key Vault names to 41). Task 1471 showed only the
     intended differences; PG_CONN_STR is tofu/README.md's template on TFSTATE-DB-PASSWORD, and
     Tailscale's OAuth client the existing TAILSCALE-OPENTOFU-* (this PR: 41 to 40).
-  - [ ] Managed, in two batches by risk (this PR first): the six whose values are the
+  - [ ] Managed, in two batches by risk. The first (#497) written by task 1474; its checks
+    passed (1475-1480: both NAS baselines VERIFIED Hawser unchanged, the Pi-holes "every
+    setting matches", the Proxmox update's and Windows update's dry runs and the NetBox sync
+    without a failure). The second (this PR): the six whose values are the
     import's copies, unchanged (Synology, Terramaster, Windows Updates, k8s and Talos
     Connection, Netbox Sync, Pi-Hole Settings); then the five whose values now come from
     templates or shared secrets (Debian, Home Assistant, the three OpenTofu, Proxmox Settings).

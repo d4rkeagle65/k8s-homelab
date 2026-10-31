@@ -35,7 +35,8 @@ enough), and each integration's login variables from ha_iot_setup.yaml. The URLs
 HA_URL (else ~/.ha-url) and NETBOX_API.
 
 In Semaphore it is two Python templates like the NetBox sync, on one variable group
-holding all of the above as environment variables (secret): script
+("Home Assistant IoT", made by the Key Vault sync, scripts/semaphore_variable_groups.yaml)
+holding all of the above as environment variables: script
 scripts/ha_iot_setup.py with argument --apply, safe to schedule, and the same with
 --apply --attended, run by hand while someone is at the TVs.
 """
