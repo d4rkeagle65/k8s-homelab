@@ -115,11 +115,12 @@ templates); each new template has meant another group typed in from Key Vault or
     NETBOX-READ-TOKEN and Proxmox's holds it (tofu/README.md: both are that read token); the
     flags host_alloy, host_exporters, nas_block_initialise are "true". Netbox Sync's
     PROXMOX_URL matched no candidate: its own value, kept.
-  - [ ] The config moved to them (this PR, 54 Key Vault names to 41, still unmanaged). Left:
-    a run, its report showing no differences but the intended ones (secret URLs becoming
-    plain, the duplicate PG_CONN_STR going), and the PG_CONN_STR template's result; then each
-    group managed after its check, the site facts to NetBox, and the import's copies no group
-    reads deleted from Key Vault.
+  - [x] The config moved to them (#495, 54 Key Vault names to 41). Task 1471 showed only the
+    intended differences; PG_CONN_STR is tofu/README.md's template on TFSTATE-DB-PASSWORD, and
+    Tailscale's OAuth client the existing TAILSCALE-OPENTOFU-* (this PR: 41 to 40).
+  - [ ] Each group managed in its own PR after its check; the site facts to NetBox; the
+    import's copies no group reads deleted from Key Vault (the sync can list them: every
+    import name the config no longer names).
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 
