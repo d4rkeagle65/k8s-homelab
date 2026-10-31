@@ -10,7 +10,7 @@
 #                             the signups whitelist, smtp-relay.<domain> and
 #                             Authentik's issuer (auth.<domain>) are built from it
 #   VAULTWARDEN_ADMIN_TOKEN   the /admin page's token, an argon2 hash
-#   M365_SHARED_MAILBOX_ADDRESS
+#   M365_RELAY_NOREPLY_EMAIL_ADDRESS
 #                             the shared mailbox its mail is sent from: the relay
 #                             sends as that mailbox, so the Entra app behind
 #                             ENTRA_VAULTWARDEN_SMTP_USERNAME needs send rights on it
@@ -62,7 +62,7 @@ services:
       SMTP_HOST: smtp-relay.${BASE_DOMAIN}
       SMTP_PORT: "8025"
       SMTP_SECURITY: starttls
-      SMTP_FROM: ${M365_SHARED_MAILBOX_ADDRESS}
+      SMTP_FROM: ${M365_RELAY_NOREPLY_EMAIL_ADDRESS}
       SMTP_USERNAME: ${ENTRA_VAULTWARDEN_SMTP_USERNAME}
       SMTP_PASSWORD: ${ENTRA_VAULTWARDEN_SMTP_CLIENT_SECRET}
       SSO_ENABLED: "true"

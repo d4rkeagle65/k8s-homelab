@@ -79,7 +79,7 @@ groups:
     variables:
       admin_ssh_keys: {keyvault: DEBIAN-ADMIN-SSH-KEYS, json: true, secret: false}
       admin_sudo_nopasswd: {value: true}
-      admin_user: {keyvault: DEBIAN-ADMIN-USER, json: true, secret: false}
+      admin_user: {template: "{OWNER-USERNAME}"}
       host_alloy: {value: "true"}
       host_exporters: {value: "true"}
       loki_push_url: {template: "https://loki-push.{BASE-DOMAIN}/loki/api/v1/push"}
@@ -98,7 +98,7 @@ groups:
       NETBOX_API: {template: "https://netbox.{BASE-DOMAIN}"}
       NETBOX_TOKEN: {keyvault: HA-IOT-NETBOX-TOKEN}
       TPLINK_PASSWORD: {keyvault: HA-IOT-TPLINK-PASSWORD}
-      TPLINK_USERNAME: {keyvault: HA-IOT-TPLINK-USERNAME}
+      TPLINK_USERNAME: {keyvault: OWNER-GMAIL}
 
   # scripts/netbox_seed.py and scripts/netbox_guests.py.
   Netbox Sync:
@@ -156,7 +156,7 @@ groups:
     variables:
       acme_cf_zone_id: {keyvault: PROXMOX-SETTINGS-ACME-CF-ZONE-ID, json: true, secret: false}
       acme_domain: {template: "{BASE-DOMAIN}"}
-      acme_email: {keyvault: PROXMOX-SETTINGS-ACME-EMAIL, json: true, secret: false}
+      acme_email: {template: "{OWNER-EMAIL}"}
       lxc_timezone: {template: "{TIMEZONE}"}
       nas_block_initialise: {value: "true"}
       nas_block_portal: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-PORTAL, json: true, secret: false}
