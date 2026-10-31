@@ -25,7 +25,8 @@ compare: [BASE-DOMAIN, TIMEZONE, PVE-API-HOST, PVE-EXPORTER-TOKEN-VALUE, TFSTATE
           NETBOX-READ-TOKEN, NETBOX-HOMEPAGE-TOKEN, NETBOX-SEMAPHORE-TOKEN, NETBOX-DNS-TOKEN,
           NETBOX-DNS-SYNC-TOKEN, RENOVATE-GITHUB-TOKEN, HOMEASSISTANT-TOKEN,
           CERT-MANAGER-CLOUDFLARE-API-TOKEN-API-TOKEN, CLOUDFLARE-HOMEPAGE-API-TOKEN,
-          TAILSCALE-API-KEY, TAILSCALE-EXPORTER-OAUTH-CLIENT-ID, TAILSCALE-EXPORTER-OAUTH-CLIENT-SECRET]
+          TAILSCALE-API-KEY, TAILSCALE-EXPORTER-OAUTH-CLIENT-ID, TAILSCALE-EXPORTER-OAUTH-CLIENT-SECRET,
+          TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID, TAILSCALE-OPENTOFU-OAUTH-CLIENT-SECRET]
 
 groups:
   # scripts/alerting_test.py ("Tool: Alerting test (script)"; n8n/README.md).
@@ -78,11 +79,11 @@ groups:
     managed: false
     variables:
       admin_ssh_keys: {keyvault: DEBIAN-ADMIN-SSH-KEYS, json: true, secret: false}
-      admin_sudo_nopasswd: {keyvault: DEBIAN-ADMIN-SUDO-NOPASSWD, json: true, secret: false}
+      admin_sudo_nopasswd: {value: true}
       admin_user: {keyvault: DEBIAN-ADMIN-USER, json: true, secret: false}
-      host_alloy: {keyvault: DEBIAN-HOST-ALLOY, json: true, secret: false}
-      host_exporters: {keyvault: DEBIAN-HOST-EXPORTERS, json: true, secret: false}
-      loki_push_url: {keyvault: DEBIAN-LOKI-PUSH-URL, json: true, secret: false, candidates: ["https://loki-push.{BASE-DOMAIN}/loki/api/v1/push"]}
+      host_alloy: {value: "true"}
+      host_exporters: {value: "true"}
+      loki_push_url: {template: "https://loki-push.{BASE-DOMAIN}/loki/api/v1/push"}
       management_network: {keyvault: DEBIAN-MANAGEMENT-NETWORK, json: true, secret: false}
     environment:
       loki_push_password: {keyvault: LOKI-PUSH-PASSWORD}
@@ -94,8 +95,8 @@ groups:
     managed: false
     environment:
       HA_TOKEN: {keyvault: HA-IOT-HA-TOKEN}
-      HA_URL: {keyvault: HA-IOT-HA-URL, candidates: ["https://homeassistant.{BASE-DOMAIN}", "https://homeassistant.{BASE-DOMAIN}/", "https://ha.{BASE-DOMAIN}", "https://home.{BASE-DOMAIN}"]}
-      NETBOX_API: {keyvault: HA-IOT-NETBOX-API, candidates: ["https://netbox.{BASE-DOMAIN}", "https://netbox.{BASE-DOMAIN}/", "https://netbox.{BASE-DOMAIN}/api", "https://netbox.{BASE-DOMAIN}/api/"]}
+      HA_URL: {template: "https://homeassistant.{BASE-DOMAIN}"}
+      NETBOX_API: {template: "https://netbox.{BASE-DOMAIN}"}
       NETBOX_TOKEN: {keyvault: HA-IOT-NETBOX-TOKEN}
       TPLINK_PASSWORD: {keyvault: HA-IOT-TPLINK-PASSWORD}
       TPLINK_USERNAME: {keyvault: HA-IOT-TPLINK-USERNAME}
@@ -104,7 +105,7 @@ groups:
   Netbox Sync:
     managed: false
     environment:
-      KEA_URL: {keyvault: NETBOX-SYNC-KEA-URL, secret: false, candidates: ["http://kea-dhcp4:8000", "http://kea-dhcp4:8000/"]}
+      KEA_URL: {value: "http://kea-dhcp4:8000/"}
       PROXMOX_URL: {keyvault: NETBOX-SYNC-PROXMOX-URL, secret: false, candidates: ["https://{PVE-API-HOST}:8006", "https://{PVE-API-HOST}:8006/", "https://{PVE-API-HOST}:8006/api2/json", "https://{PVE-API-HOST}", "https://{PVE-API-HOST}/"]}
       GITHUB_TOKEN: {keyvault: NETBOX-SYNC-GITHUB-TOKEN}
       KEA_API: {keyvault: NETBOX-SYNC-KEA-API}
@@ -116,19 +117,21 @@ groups:
     managed: false
     environment:
       CLOUDFLARE_API_TOKEN: {keyvault: TOFU-CLOUDFLARE-API-TOKEN}
-      PG_CONN_STR: {keyvault: TOFU-CLOUDFLARE-PG-CONN-STR}
+      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR, candidates: ["postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable"]}
       TF_VAR_dns: {keyvault: TOFU-CLOUDFLARE-TF-VAR-DNS}
 
-  # tofu/proxmox/. PG_CONN_STR is both plain and secret here today: the import takes the one
-  # a task sees, and the group keeps it as a secret only.
+  # tofu/proxmox/ (tofu/README.md). PG_CONN_STR is both plain and secret here today; the group
+  # keeps the secret only. The three modules' PG_CONN_STR are one value (task 1470), so one
+  # secret until the candidate template proves it's built from TFSTATE-DB-PASSWORD; NetBox's
+  # token is the shared read-only one, which this module takes with or without "Bearer ".
   "OpenTofu: Proxmox and Talos":
     managed: false
     environment:
-      PROXMOX_VE_ENDPOINT: {keyvault: TOFU-PROXMOX-VE-ENDPOINT, secret: false, candidates: ["https://{PVE-API-HOST}:8006", "https://{PVE-API-HOST}:8006/", "https://{PVE-API-HOST}:8006/api2/json", "https://{PVE-API-HOST}", "https://{PVE-API-HOST}/"]}
-      TF_VAR_netbox_url: {keyvault: TOFU-PROXMOX-TF-VAR-NETBOX-URL, secret: false, candidates: ["https://netbox.{BASE-DOMAIN}", "https://netbox.{BASE-DOMAIN}/", "https://netbox.{BASE-DOMAIN}/api", "https://netbox.{BASE-DOMAIN}/api/"]}
-      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR}
+      PROXMOX_VE_ENDPOINT: {template: "https://{PVE-API-HOST}:8006/"}
+      TF_VAR_netbox_url: {template: "https://netbox.{BASE-DOMAIN}"}
+      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR, candidates: ["postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable"]}
       PROXMOX_VE_API_TOKEN: {keyvault: TOFU-PROXMOX-VE-API-TOKEN}
-      TF_VAR_netbox_token: {keyvault: TOFU-PROXMOX-TF-VAR-NETBOX-TOKEN}
+      TF_VAR_netbox_token: {keyvault: NETBOX-READ-TOKEN}
       TF_VAR_site: {keyvault: TOFU-PROXMOX-TF-VAR-SITE}
       TF_VAR_talos_secrets: {keyvault: TOFU-PROXMOX-TF-VAR-TALOS-SECRETS}
 
@@ -136,11 +139,11 @@ groups:
   "OpenTofu: Tailscale":
     managed: false
     environment:
-      PG_CONN_STR: {keyvault: TOFU-TAILSCALE-PG-CONN-STR, secret: false}
-      TF_VAR_netbox_url: {keyvault: TOFU-TAILSCALE-TF-VAR-NETBOX-URL, secret: false, candidates: ["https://netbox.{BASE-DOMAIN}", "https://netbox.{BASE-DOMAIN}/", "https://netbox.{BASE-DOMAIN}/api", "https://netbox.{BASE-DOMAIN}/api/"]}
+      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR, candidates: ["postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable"]}
+      TF_VAR_netbox_url: {template: "https://netbox.{BASE-DOMAIN}"}
       TAILSCALE_OAUTH_CLIENT_ID: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-ID}
       TAILSCALE_OAUTH_CLIENT_SECRET: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-SECRET}
-      TF_VAR_netbox_token: {keyvault: TOFU-TAILSCALE-TF-VAR-NETBOX-TOKEN}
+      TF_VAR_netbox_token: {keyvault: NETBOX-READ-TOKEN}
 
   # ansible/pihole-setting.yml.
   Pi-Hole Settings:
@@ -153,10 +156,10 @@ groups:
     managed: false
     variables:
       acme_cf_zone_id: {keyvault: PROXMOX-SETTINGS-ACME-CF-ZONE-ID, json: true, secret: false}
-      acme_domain: {keyvault: PROXMOX-SETTINGS-ACME-DOMAIN, json: true, secret: false, candidates: ["{BASE-DOMAIN}", "*.{BASE-DOMAIN}"]}
+      acme_domain: {template: "{BASE-DOMAIN}"}
       acme_email: {keyvault: PROXMOX-SETTINGS-ACME-EMAIL, json: true, secret: false}
-      lxc_timezone: {keyvault: PROXMOX-SETTINGS-LXC-TIMEZONE, json: true, secret: false, candidates: ["{TIMEZONE}"]}
-      nas_block_initialise: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-INITIALISE, json: true, secret: false}
+      lxc_timezone: {template: "{TIMEZONE}"}
+      nas_block_initialise: {value: "true"}
       nas_block_portal: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-PORTAL, json: true, secret: false}
       nas_block_target: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-TARGET, json: true, secret: false}
       ntp_serve_networks: {keyvault: PROXMOX-SETTINGS-NTP-SERVE-NETWORKS, json: true, secret: false}
