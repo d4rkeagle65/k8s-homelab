@@ -44,7 +44,8 @@ id_ed25519*
 # classify_cluster_locality) and the operator's real variable-substitution
 # mapping (varsub.py). Both are regenerated/maintained locally; committing
 /docs/
-# Words the pre-commit hook blocks (domains, hostnames), one per line: never committed.
+# A worktree's own copy of the words the pre-commit hook blocks: read only where the clone's
+# list (scripts/secret_words.py) is absent, and never committed.
 .secret-words
 /secrets/
 # The front-door Bluetooth proxy's ESPHome secrets: its folder's own .gitignore ignores them too.
