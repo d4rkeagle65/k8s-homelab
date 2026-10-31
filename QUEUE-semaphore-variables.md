@@ -75,8 +75,9 @@ templates); each new template has meant another group typed in from Key Vault or
     variables as JSON (`json: true`). Their values exist only in Semaphore, which never
     returns a secret, so a one-time import copies them out from inside a task:
     `ansible/semaphore-tool-keyvault-import.yml`, "Tool: Variable Group → Key Vault (one
-    time)", with "Key Vault Sync" and the group to import attached and `import_group` (survey)
-    naming it; one group a run. It never overwrites. The owner's: "Key Vault Secrets Officer"
+    time)", with "Key Vault Sync" and the group to import attached (it asks Semaphore which; a
+    survey `import_group` overrides); one group a run. Its dry run reads Key Vault and says
+    what it would write, or finds the same or different. It never overwrites. The owner's: "Key Vault Secrets Officer"
     for `semaphore-keyvault-reader` for the import, the template, a dry run, then a run per
     group (the cluster access's four the owner writes from the cluster instead), then the
     role removed. Then a sync run should report nothing missing, and each group goes managed
