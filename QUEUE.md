@@ -119,20 +119,53 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - **The Wyze cameras in Home Assistant** (2026-10-31): the Wyze Cameras dashboard
   (`app/dashboards/wyze-cameras.yaml`) has both. Its switches (power as privacy, motion
   detection, notifications; the sirens disabled by the owner, read back) are HACS' Wyze
-  integration's (SecKatie/ha-wyzeapi), through Wyze's cloud. The hallway v3's picture is the
-  camera's own RTSP: Wyze's old RTSP firmware, plain RTSP on 554, through a Generic camera the
-  owner adds in the UI as `camera.hallway_rtsp` (credentials stay in Home Assistant). The
-  living-room Pan v3 (NetBox lists it as a plain v3: fix its type) has RTSP switched on in the
-  app, but on firmware 4.50.17.25 no TCP port listens at all (every one refused from a worker,
-  2026-10-31), as forum users report for the Pan v3's 4.50.17 builds. Its picture stays the
-  integration's cloud stream: the owner sends Wyze a log, and once a firmware serves RTSP it is
-  added the same way from `rtsps://<user>:<pass>@<address>:322/stream0` (go2rtc in Home
-  Assistant skips the certificate check for an IP address) and the dashboard moves to it. The
-  firewall rule from the workers to the two cameras allows every port for that scan: the owner
-  puts it back to its list, keeping TCP 322 and 554. The Wyze bridge
-  (`kubernetes/prod/apps/homeassistant/wyze-bridge/`) streams neither camera and signs in to the
-  Wyze account beside the integration, the first suspect if either starts losing its login:
-  removing it is the owner's call.
+  integration's (SecKatie/ha-wyzeapi), through Wyze's cloud. The firewall rule from the workers
+  to the two cameras allows every port, for a scan: the owner puts it back to its list, keeping
+  TCP 322 and 554. The Wyze bridge (`kubernetes/prod/apps/homeassistant/wyze-bridge/`) streams
+  neither camera and signs in to the Wyze account beside the integration, the first suspect if
+  either starts losing its login: removing it is the owner's call.
+  - *Hallway v3*: it serves plain RTSP on 554 (LIVE555, Digest auth), as it did before, but the
+    Wyze app's RTSP setup won't save a username and password, on firmware the owner reports
+    current. Next, the owner tries the old credentials with `/live` or `/stream0`; else the
+    forum fix (wait a full minute on the app's Security Warning before Accept, then restart the
+    camera). Then a Generic camera in Home Assistant's UI (stream source
+    `rtsp://<user>:<pass>@<address>:554/stream0`, still image blank, RTSP over TCP; credentials
+    stay in Home Assistant) renamed to `camera.hallway_rtsp`, and this branch's dashboard change
+    merges only once that entity streams.
+  - *Living-room Pan v3* (HL_PAN3, firmware 4.50.17.25; NetBox lists it as a plain v3: fix its
+    type): RTSP is on in the app with secure mode off, yet every TCP port refuses (a full scan
+    from a worker after a restart, 2026-10-31), as forum users report for 4.50.17. Its picture
+    stays the integration's cloud stream until it runs thingino, flashed by USB boot through its
+    base (the owner chose it and has an OTG adapter and an A-to-A cable):
+    1. Image: only master-branch builds pass its secure boot (release and thingino.com builds
+       die in the SPL): build at
+       `https://image-builder.thingino.com/?board=wyze_campan3_t31x_gc2053_atbm6031&branch=master`
+       (GitHub Actions; the download link lasts 30 minutes).
+    2. Hardware: off the oval base cover; unplug the internal power pigtail (power only); a
+       micro-USB OTG adapter (ID pin grounded) in the base's internal connector; a USB A-to-A
+       data cable to the PC, the camera otherwise unpowered. It shows as "Ingenic USB Boot
+       Device".
+    3. Windows: WinUSB with Zadig (remove libusb0.sys first), once on "Ingenic USB Boot Device"
+       and again on the "USB download gadget" after bootstrap, each chosen by name (both are
+       A108:C309).
+    4. `https://webflash.thingino.com` in Chrome or Edge: the FULL backup first (16 MiB, unique
+       to the camera, its Wyze cloud identity and the only way back to stock: never in git; the
+       owner keeps it, e.g. on the Synology), then the image.
+    5. After: its THINGINO-XXXX access point for Wi-Fi (the owner types it); hostname
+       `coiotwzcamliv` before Home Assistant's integration (15 characters at most, and in the
+       entity IDs); `fw_setenv wlan_mac <its MAC>` keeps the Kea reservation (else move it), and
+       NetBox's MAC is updated either way; the owner changes the default root/root (SSH) and
+       thingino/thingino (RTSP) passwords.
+    6. Home Assistant: thingino's integration by MQTT discovery (privacy, motion, IR and
+       day/night, snapshot, PTZ with `enable_ptz` off by default) through the in-cluster
+       Mosquitto (`services/mqtt`), with a firewall rule from the camera to the broker on 1883;
+       video from a Generic camera on `rtsp://<user>:<pass>@<address>/ch0` (`ch1` is 360p) or
+       ONVIF. Then a dashboard pull request moves the living room's picture and switches to the
+       thingino entities, and the Wyze integration loses that camera.
+    Sources: the thingino wiki (camera page "Hualai (Wyze, Atom, Neos, Personal)",
+    Media-Streaming-Endpoints, Integration-:-Home-assistant, Configuration:-General) and
+    thingino/thingino-dfu-rs. joeblack2k/wyze-v3-ota flashes over the air instead (no
+    disassembly; needs DNS redirects; tested on two cameras).
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
