@@ -337,6 +337,12 @@ FAKE_CLIENT_SECRET = "not-" + "a-real-one"  # built, so the leak check sees no l
 SP = {"AZURE_CLIENT_ID": "app-id", "AZURE_CLIENT_SECRET": FAKE_CLIENT_SECRET, "AZURE_TENANT_ID": "tenant-id"}
 
 
+@pytest.fixture(autouse=True)
+def no_proxy_secret(monkeypatch):
+    """A cloud session sets the proxy switch for real; each test sets it only when it means to."""
+    monkeypatch.delenv(m.BY_PROXY, raising=False)
+
+
 def test_a_service_principal_signs_in_from_the_environment_without_the_cli(monkeypatch):
     for name, value in SP.items():
         monkeypatch.setenv(name, value)
@@ -380,6 +386,60 @@ def test_entras_refusal_names_its_code_never_the_secret(monkeypatch):
         m.access_token()
     assert "HTTP 401 invalid_client" in str(stopped.value)
     assert FAKE_CLIENT_SECRET not in str(stopped.value)
+
+
+def test_with_the_secret_by_proxy_the_sign_in_carries_no_secret(monkeypatch):
+    monkeypatch.setenv("AZURE_CLIENT_ID", "app-id")
+    monkeypatch.setenv("AZURE_TENANT_ID", "tenant-id")
+    monkeypatch.delenv("AZURE_CLIENT_SECRET", raising=False)
+    monkeypatch.setenv(m.BY_PROXY, "true")
+    monkeypatch.setattr(m.shutil, "which", lambda name: pytest.fail("used the Azure CLI"))
+    sent = []
+
+    def answer(req, timeout):
+        sent.append(req)
+        return TokenAnswer(b'{"access_token": "tok"}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", answer)
+    assert m.access_token() == "tok"
+    (req,) = sent
+    form = dict(p.split("=", 1) for p in req.data.decode().split("&"))
+    assert form["client_id"] == "app-id" and "client_secret" not in form
+    assert req.get_header("Authorization") is None
+
+
+@pytest.mark.parametrize("env, says", [
+    ({"AZURE_CLIENT_ID": "app-id", "AZURE_TENANT_ID": "tenant-id", "AZURE_CLIENT_SECRET": FAKE_CLIENT_SECRET},
+     "both set"),
+    ({"AZURE_TENANT_ID": "tenant-id"}, "but not AZURE_CLIENT_ID"),
+    ({"AZURE_CLIENT_ID": "app-id"}, "but not AZURE_TENANT_ID"),
+])
+def test_the_secret_by_proxy_stops_on_a_secret_set_or_a_variable_missing(monkeypatch, env, says):
+    for name in SP:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv(m.BY_PROXY, "true")
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout: pytest.fail("signed in"))
+    with pytest.raises(m.Stop) as stopped:
+        m.access_token()
+    assert says in str(stopped.value) and FAKE_CLIENT_SECRET not in str(stopped.value)
+
+
+def test_a_refusal_with_the_secret_by_proxy_points_at_the_network_secret(monkeypatch):
+    for name in SP:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("AZURE_CLIENT_ID", "app-id")
+    monkeypatch.setenv("AZURE_TENANT_ID", "tenant-id")
+    monkeypatch.setenv(m.BY_PROXY, "true")
+
+    def refuse(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, 401, "Unauthorized", {},
+                                     __import__("io").BytesIO(b'{"error": "invalid_client"}'))
+
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    with pytest.raises(m.Stop, match="invalid_client .*network secret for login.microsoftonline.com"):
+        m.access_token()
 
 
 def test_with_no_service_principal_it_signs_in_through_the_cli(monkeypatch):

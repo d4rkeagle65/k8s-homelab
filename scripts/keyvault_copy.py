@@ -23,9 +23,11 @@ answer stops the writing; every name is still read back.
 
 --vault names the vault (its URL is https://<name>.vault.azure.net; the name isn't in this
 repo). It signs in as a service principal when AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and
-AZURE_TENANT_ID are all set (the Docker VM's Claude Code, docker/claude-code/), else as the
-Azure CLI's current account (az login). Writing needs "Key Vault Secrets Officer" on the
-vault, a dry run "Key Vault Secrets User". kubectl uses its current context, or --context.
+AZURE_TENANT_ID are all set (the Docker VM's Claude Code, docker/claude-code/), or with
+AZURE_CLIENT_SECRET_BY_PROXY=true in place of the secret where a proxy adds it (a cloud
+session, scripts/README.md), else as the Azure CLI's current account (az login). Writing
+needs "Key Vault Secrets Officer" on the vault, a dry run "Key Vault Secrets User". kubectl
+uses its current context, or --context.
 """
 from __future__ import annotations
 
@@ -142,13 +144,24 @@ def source_values(external_secret: dict, secret: dict) -> dict[str, str]:
 
 
 SP_VARIABLES = ("AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_TENANT_ID")
+# "true" where a proxy adds the client secret to the sign-in as HTTP Basic, as a Claude Code
+# cloud environment's network secret does, so the secret never reaches the machine.
+BY_PROXY = "AZURE_CLIENT_SECRET_BY_PROXY"
 TOKEN_URL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 
 
 def access_token() -> str:
-    """A Key Vault token: a service principal's when SP_VARIABLES are all set, else the Azure
-    CLI's signed-in account's. Only some of them set is a Stop, not a fallback: it would sign in
-    as someone other than meant."""
+    """A Key Vault token: a service principal's when SP_VARIABLES are all set, or when BY_PROXY
+    is "true" with the ID and tenant set and no secret; else the Azure CLI's signed-in
+    account's. Only some of them set is a Stop, not a fallback: it would sign in as someone
+    other than meant."""
+    if os.environ.get(BY_PROXY, "").lower() == "true":
+        if os.environ.get("AZURE_CLIENT_SECRET"):
+            raise Stop(f"{BY_PROXY} and AZURE_CLIENT_SECRET both set: the secret comes from one of them")
+        missing = [name for name in ("AZURE_CLIENT_ID", "AZURE_TENANT_ID") if not os.environ.get(name)]
+        if missing:
+            raise Stop(f"{BY_PROXY} set but not {', '.join(missing)}")
+        return service_principal_token(os.environ["AZURE_CLIENT_ID"], None, os.environ["AZURE_TENANT_ID"])
     present = [name for name in SP_VARIABLES if os.environ.get(name)]
     if present:
         missing = [name for name in SP_VARIABLES if name not in present]
@@ -167,12 +180,14 @@ def access_token() -> str:
     return json.loads(result.stdout)["accessToken"]
 
 
-def service_principal_token(client_id: str, client_secret: str, tenant: str) -> str:
-    """A Key Vault token for a service principal, by the client credentials grant. Entra's
-    refusal is reported by its error code (invalid_client and the like), never the secret."""
-    form = urllib.parse.urlencode({"grant_type": "client_credentials", "client_id": client_id,
-                                   "client_secret": client_secret,
-                                   "scope": "https://vault.azure.net/.default"}).encode("utf-8")
+def service_principal_token(client_id: str, client_secret: str | None, tenant: str) -> str:
+    """A Key Vault token for a service principal, by the client credentials grant; with no
+    client_secret, the request carries none, for a proxy to add. Entra's refusal is reported by
+    its error code (invalid_client and the like), never the secret."""
+    fields = {"grant_type": "client_credentials", "client_id": client_id, "scope": "https://vault.azure.net/.default"}
+    if client_secret is not None:
+        fields["client_secret"] = client_secret
+    form = urllib.parse.urlencode(fields).encode("utf-8")
     req = urllib.request.Request(TOKEN_URL.format(tenant=urllib.parse.quote(tenant, safe="")), data=form,
                                  method="POST", headers={"Content-Type": "application/x-www-form-urlencoded"})
     try:
@@ -183,7 +198,9 @@ def service_principal_token(client_id: str, client_secret: str, tenant: str) -> 
             code = json.loads(error.read() or b"{}").get("error", "")
         except ValueError:
             code = "unreadable error body"
-        raise Stop(f"Entra refused the service principal's sign-in: HTTP {error.code} {code}") from error
+        hint = (f" (the secret comes from the proxy, {BY_PROXY}: check the network secret for "
+                "login.microsoftonline.com)") if client_secret is None else ""
+        raise Stop(f"Entra refused the service principal's sign-in: HTTP {error.code} {code}{hint}") from error
     except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
         raise Stop(f"no answer from Entra to the service principal's sign-in ({getattr(error, 'reason', error)})") from error
     if not token:

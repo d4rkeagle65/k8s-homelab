@@ -26,8 +26,11 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
     list is absent, so a stale copy is dead weight. That is 15 on the PC (the main checkout and
     each worktree), and one in the Docker VM container's clone once its first session after
     the merge has written the list (`.claude/settings.json`).
-  - **Cloud sessions:** the rule isn't armed there, since they have no Key Vault access. Either
-    give the cloud environment a read scoped to those 14 secrets, or leave it unarmed.
+  - **Cloud sessions:** the owner's steps in `scripts/README.md` ("Cloud sessions", under "Add
+    a word no commit may contain"): the `k8s-homelab-claude-cloud` principal and its Key Vault
+    copies, `secret_words_access.py --apply`, then the environment's network access, network
+    secret and variables. Until a cloud session's start reads the 37 words, the rule isn't
+    armed there, and the sign-in through the proxy's network secret is untested.
   - **Two public logins:** `SECRET-WORDS` still holds the base64 of two app logins #505 made
     public (`IMMICH_POSTGRES_SUPERUSER_USERNAME`, `OBSIDIAN_COUCHDB_ADMINUSERNAME`). Keep them
     or drop them.
