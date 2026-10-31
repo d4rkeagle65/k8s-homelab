@@ -113,7 +113,6 @@ device_types:
    interfaces: [{name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
    power_ports: [{name: pIn1, type: nema-1-15p}]}
 - {slug: wireless-tag-wt32-eth01, manufacturer: wireless-tag, model: WT32-ETH01, description: ESP32 board with 10/100 Ethernet,
-   reserved_on: eth0,
    interfaces: [{name: eth0, type: 100base-tx}, {name: bt0, type: ieee802.15.1}, {name: wifi0, type: ieee802.11n}],
    power_ports: [{name: pIn1, type: dc-terminal}]}
 - {slug: wyze-cam-v3, manufacturer: wyze, model: Cam v3,
