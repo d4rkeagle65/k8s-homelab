@@ -81,8 +81,6 @@ def http(method: str, url: str, headers: dict | None = None, body=None, form: di
 
 def load_config(path: Path) -> dict:
     """The declared groups, checked; raises ValueError naming what's wrong."""
-    # Imported here, not at the top: semaphore_keyvault_import.py uses this module's Key Vault
-    # client under Ansible's Python, which may lack it, and is handed the config parsed.
     from ruamel.yaml import YAML
     doc = YAML(typ="safe", pure=True).load(path.read_text(encoding="utf-8")) or {}
     return check_config(doc)
@@ -381,7 +379,17 @@ def main(argv: list[str]) -> int:
             continue
         want, unread = desired(group, vault)
         have = current(existing) if existing else None
-        for line in (differences(want, have) if have else ["create the group"] + differences(want, current({}))):
+        lines = differences(want, have) if have else ["create the group"] + differences(want, current({}))
+        # A secret is set at every run (its value can't be read back), so it isn't drift.
+        drift = [x for x in lines if not x.startswith("set secret")]
+        if unread:
+            log("  (not compared in full: a value is missing)")
+        elif not drift:
+            log("  no drift")
+        else:
+            log(f"  drift: {len(drift)} difference{'s' if len(drift) != 1 else ''}"
+                + (" (corrected below)" if managed else " (reported only: not managed)"))
+        for line in lines:
             log(f"  {line}")
         if unread:
             for u in unread:
