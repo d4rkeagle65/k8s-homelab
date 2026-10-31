@@ -33,6 +33,21 @@ data:
             {{ $labels.host }} sent logs to Loki the day before but none in the last
             6 hours. Check its log shipper: Alloy (systemctl status alloy; on the
             TerraMaster the terramaster-logs container), or the Synology's Log Center.
+      # The alerting test's marker (scripts/alerting_test.py, Semaphore's "Tool:
+      # Alerting test (script)"): a line it pushes opens a ticket through Alertmanager
+      # and n8n, and its going out of the window closes it. Its own source, so no other
+      # rule counts it; each run its own job, so each run its own ticket.
+      - alert: HomelabAlertingTest
+        expr: |
+          sum by (job) (count_over_time({source="alerting-test"}[2m])) > 0
+        labels:
+          severity: warning
+          namespace: monitoring
+        annotations:
+          summary: The alerting test is running (Semaphore, Tool - Alerting test).
+          description: >-
+            {{ $labels.job }}: a marker line the alerting test pushed to Loki. Its ticket
+            closes by itself once the line is two minutes old; nothing to do.
     # The firewall's own problems, from its syslog (host F80, its box name;
     # QUEUE-network-monitoring.md): each line is one CloudGen writes for as long as
     # the problem lasts, so a count over two hours clears soon after it's fixed.
