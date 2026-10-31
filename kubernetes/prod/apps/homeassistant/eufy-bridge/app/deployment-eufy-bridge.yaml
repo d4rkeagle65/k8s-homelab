@@ -1,8 +1,9 @@
 # One bridge only: eufy allows a single session per account, and a second would sign the
-# first out. On the pod network, not the host's: Home Assistant's own go2rtc pulls the
-# bridge's RTSP and does WebRTC itself, so the bridge's WebRTC (the reason its docs suggest
-# host networking) isn't used. Its P2P to the cameras leaves from the node's address,
-# which the firewall's IoT rule names.
+# first out. On the host's network: on the pod network the C10 answered P2P from another port
+# than it was sent to (14007, not 32108), which the node's NAT couldn't match to the bridge, so
+# every reply got "port unreachable" (a capture on the node, 2026-10-31). Its P2P leaves from
+# the node's address, which the firewall's IoT rule names. Its ports (3000; go2rtc's 1984, 8554
+# and 8555) are free on the nodes; the Wyze bridge's 8554 keeps the two on different nodes.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,6 +20,9 @@ spec:
       labels:
         app: eufy-bridge
     spec:
+      hostNetwork: true
+      # Cluster DNS still, for eufy's cloud and go2rtc's own lookups.
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: bridge
         image: ghcr.io/mega-yfue/ha-eufy-sdk-bridge:0.6.0@sha256:7053521bbd1e6abc1634d710ff09b2dbfdb03dfabda53a28e10f109339de2c86
