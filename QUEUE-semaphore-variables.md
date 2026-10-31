@@ -84,6 +84,12 @@ templates); each new template has meant another group typed in from Key Vault or
     in its own PR, after its check: the NAS baselines' dry runs report Hawser unchanged, a
     Proxmox update's dry run passes its cluster checks, each OpenTofu module's plan shows no
     changes.
+    Imported (template 39), each read back:
+    - [x] k8s and Talos Connection (tasks 1455 dry, 1456): the three the owner wrote from the
+      cluster matched Semaphore's; TALOSCONFIG_B64 written.
+    - [ ] Debian Host Baseline, Home Assistant IoT, Netbox Sync, OpenTofu: Cloudflare,
+      OpenTofu: Proxmox and Talos, OpenTofu: Tailscale, Pi-Hole Settings, Proxmox Settings,
+      Synology Baseline, Terramaster Baseline, Windows Updates.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 
