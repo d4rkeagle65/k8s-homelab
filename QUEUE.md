@@ -141,9 +141,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   ESPHome Bluetooth proxy near the door, a WT32-ETH01 (`devices/door-bt-proxy/`), in NetBox and
   in HA (2026-10-30, read back: NetBox Active in Stairs; HA's ESPHome entry with its key, the
   device in Stairs). It runs on Wi-Fi, since the nearest Ethernet is 6-7 feet from the lock
-  through the concrete slab: its Kea reservation is on the Wi-Fi (base) MAC with the same address
-  and hostname (read back on both Kea servers), so HA's entry, made by address, reconnects.
-  Left, the owner's: `wifi_ssid` and `wifi_password` in its `secrets.yaml`, a flash over serial
+  through the concrete slab: flashed for Wi-Fi and on it (2026-10-30, read back: its Kea lease on
+  the reservation's address, now on the Wi-Fi (base) MAC, and HA holding an API connection). Its
+  reservation and NetBox name are the 15-character one, but the build still carries the old,
+  longer `device_name`. Left, the owner's: the new name in its `secrets.yaml` and an OTA update
   (its README.md), 5 V by the door; then HACS' chaseflick4/ultraloq-ble-ha, set up from U-tec's
   cloud (no Bluetooth range needed), and the lock in Stairs. Mine: after the next NetBox sync,
   read back wifi0 holding the base MAC and the address. The lock's own Bluetooth MAC missing from
