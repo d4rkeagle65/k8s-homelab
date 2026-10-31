@@ -2,7 +2,10 @@
 
 Run from Semaphore on the Docker host (`docker/semaphore/`), which pulls this folder from git.
 What's specific to one site lives only in Semaphore, never here: the inventory (host names
-and addresses), the SSH key, and the Kubernetes token.
+and addresses), the SSH key, and the Kubernetes token. A variable group marked `managed` in
+`scripts/semaphore_variable_groups.yaml` is made from Key Vault by "Sync: Key Vault → Semaphore
+(script)": change its values in Key Vault (or the config), never in Semaphore, where the next
+sync run puts them back.
 
 ## Names
 
@@ -145,8 +148,9 @@ args.
    it reads the nodes and may cordon them, evict pods and switch database primaries over,
    for the reboots; it reads no Secrets. The playbooks that drain download a kubectl
    matching the cluster into a private temporary directory and remove it afterwards.
-   **Variable Groups** > New, "k8s and Talos Connection": these three and the Talos access
-   below, all as **environment variables (secret)** and no extra variables
+   The variable group "k8s and Talos Connection" holds these three and the Talos access
+   below, all as **environment variables (secret)** and no extra variables, made by the Key
+   Vault sync from `SEMAPHORE-K8S-API-URL`, `-CA-B64`, `-TOKEN` and `SEMAPHORE-TALOSCONFIG-B64`
    (`group_vars/all.yml` reads them; Semaphore hands a Python template, the NetBox sync, a
    group's extra variables as arguments, which it refuses). Attach it to every template
    that checks the cluster or drains nodes (the Proxmox upgrade and reboot, the Talos
@@ -210,7 +214,8 @@ args.
 - **Templates:** one for each, with the inventory and the repository; none needs the
   "k8s and Talos Connection" variable group.
 - **The Pi-hole settings** for `pihole-setting.yml` live in a variable group of their own
-  ("Pi-hole settings"), as extra variables, since they name the site's domains:
+  ("Pi-Hole Settings", made by the Key Vault sync from `PIHOLE-SETTINGS`, JSON), as extra
+  variables, since they name the site's domains:
   `{"pihole_settings": {"misc.dnsmasq_lines": [...], "webserver.api.app_sudo": true}}`. The
   playbook's header says which settings it may own. Run it after changing a value there, and
   on a schedule in check mode to report drift.
@@ -367,7 +372,8 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
   can remove that file, and the first step then stops and says so.
 - **Template** "Baseline: Synology NAS", the NetBox inventory, and the variable group
   "Synology Baseline" with `HAWSER_TOKEN` among its secrets (environment variables, not
-  extra variables): a token you choose (`openssl rand -hex 32`), the same one typed into
+  extra variables; the Key Vault sync makes it from `HAWSER-TOKEN-SYNOLOGY`): a token you
+  choose (`openssl rand -hex 32`), the same one typed into
   Dockhand's environment for the Synology (Settings > Environments, Hawser, Standard, the
   Synology's address and port 2376), added after the run that starts Hawser. Without it,
   the run installs Docker and leaves Hawser alone.
@@ -380,8 +386,9 @@ shows only where that line is removed (root's default `~/.bashrc` doesn't set on
 - **Hosts.** The NetBox inventory's hosts tagged `nas` and not `synology`. The login and SSH
   port are the host's `ansible_user` and `ansible_port` in its local config context, an
   administrator with passwordless sudo.
-- **Template** "Setting: TerraMaster Baseline", the NetBox inventory, and a variable group with
-  `HAWSER_TOKEN` among its secrets (Environment Variables, secret): the token Dockhand's
+- **Template** "Setting: TerraMaster Baseline", the NetBox inventory, and the variable group
+  "Terramaster Baseline" with `HAWSER_TOKEN` among its secrets (Environment Variables, secret;
+  the Key Vault sync makes it from `HAWSER-TOKEN-TERRAMASTER`): the token Dockhand's
   environment for the TerraMaster already holds. A different one recreates Hawser with it, and
   Dockhand loses the NAS until its environment has the same; without one, Hawser is left alone.
 - **First run a dry run**: it reports TOS's version, the bastion key, whether Docker answers,

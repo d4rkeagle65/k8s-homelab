@@ -43,19 +43,19 @@ groups:
 
   # ansible/README.md, "The Synology": the Hawser token Dockhand's environment for the Synology holds.
   Synology Baseline:
-    managed: false
+    managed: true
     environment:
       HAWSER_TOKEN: {keyvault: HAWSER-TOKEN-SYNOLOGY}
 
   # ansible/README.md, "The TerraMaster": the Hawser token Dockhand's environment for it holds.
   Terramaster Baseline:
-    managed: false
+    managed: true
     environment:
       HAWSER_TOKEN: {keyvault: HAWSER-TOKEN-TERRAMASTER}
 
   # ansible/windows-update.yml: the account it signs in to the Windows hosts with.
   Windows Updates:
-    managed: false
+    managed: true
     environment:
       WINDOWS_ANSIBLE_USER: {keyvault: WINDOWS-ANSIBLE-USER, secret: false}
       WINDOWS_ANSIBLE_PASSWORD: {keyvault: WINDOWS-ANSIBLE-PASSWORD}
@@ -64,7 +64,7 @@ groups:
   # which reads no Secrets) and an os:admin talosconfig, for the templates that check the
   # cluster or drain nodes.
   k8s and Talos Connection:
-    managed: false
+    managed: true
     environment:
       K8S_API_URL: {keyvault: SEMAPHORE-K8S-API-URL}
       K8S_CA_B64: {keyvault: SEMAPHORE-K8S-CA-B64}
@@ -102,7 +102,7 @@ groups:
 
   # scripts/netbox_seed.py and scripts/netbox_guests.py.
   Netbox Sync:
-    managed: false
+    managed: true
     environment:
       KEA_URL: {value: "http://kea-dhcp4:8000/"}
       PROXMOX_URL: {keyvault: NETBOX-SYNC-PROXMOX-URL, secret: false, candidates: ["https://{PVE-API-HOST}:8006", "https://{PVE-API-HOST}:8006/", "https://{PVE-API-HOST}:8006/api2/json", "https://{PVE-API-HOST}", "https://{PVE-API-HOST}/"]}
@@ -146,7 +146,7 @@ groups:
 
   # ansible/pihole-setting.yml.
   Pi-Hole Settings:
-    managed: false
+    managed: true
     variables:
       pihole_settings: {keyvault: PIHOLE-SETTINGS, json: true, secret: false}
 
