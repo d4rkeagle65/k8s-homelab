@@ -32,10 +32,21 @@ cluster, and three JSON strings bundle values that are their own facts.
   every ExternalSecret ready and the Semaphore sync complete (task 1491). Kept, each for a reason:
   `OBSIDIAN-COUCHDB-ADMINUSERNAME` (its base64 is in .secret-words) and the two Databasus
   passwords (made to differ at the next rotation).
-- [ ] **2. Passwords generated in the cluster**: Authentik's and Immich's Redis, and redis-ha's
-  auth and Sentinel passwords (today two pairs sharing one value each), each from a Password
-  generator into its own Secret; each switch restarts that Redis and its clients once. Then
-  the app secret keys in Key Vault that nothing outside the cluster reads.
+- [ ] **2. Passwords generated in the cluster.** Traced 2026-10-31 (live pod specs, values compared
+  yes/no only):
+  - [x] Authentik's and Immich's `redis-password` Secrets: no pod reads either (Authentik no longer
+    uses Redis; Immich reaches redis-ha through its `REDIS_URL`), so they go (this PR), and after
+    merge their live Secrets by hand (prune-protected) and `AUTHENTIK-REDIS-PASSWORD-PASSWORD`,
+    `IMMICH-REDIS-PASSWORD-PASSWORD` from Key Vault (the owner's).
+  - [ ] redis-ha: `redis-ha-creds`' `auth` and `sentinel-password` are one value, and Immich's
+    `REDIS_URL` (`ioredis://`, a base64 JSON of the three Sentinels, `mymaster`, `password` and
+    `sentinelPassword`) holds it twice. Both from Password generators in redis-ha (each its own,
+    `refreshInterval: 0`, made once), Immich's URL built from them by an ExternalSecret reading
+    redis-ha-creds through a Kubernetes-provider store (read on that one Secret), the Sentinels
+    named with `${CLUSTER_DOMAIN}`. Its merge restarts redis-ha and Immich's server and machine
+    learning together, so the owner picks the time. Then `REDIS-HA-CREDS-AUTH`,
+    `-SENTINEL-PASSWORD` and `IMMICH-REDIS-URL-REDIS-URL` go from cluster-secrets and Key Vault.
+  - [ ] Then the app secret keys in Key Vault that nothing outside the cluster reads.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity
   scoped to those names. First the addresses and names NetBox holds (the Docker VMs', NAS's,

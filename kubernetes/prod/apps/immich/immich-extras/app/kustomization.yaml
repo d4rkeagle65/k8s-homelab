@@ -11,5 +11,4 @@ resources:
 - secret-immich-postgres-superuser.yaml
 - secret-immich-power-tools-apikey.yaml
 - secret-immich-redis-url.yaml
-- secret-redis-password.yaml
 - service-immich-power-tools-svc.yaml
