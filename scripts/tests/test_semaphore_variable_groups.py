@@ -42,6 +42,7 @@ class Fake:
             return self.login, ({"access_token": "kv"} if self.login == 200 else None)
         if url.startswith("https://vault.example/secrets/"):
             name = url.split("/secrets/")[1].split("?")[0]
+            self.reads = getattr(self, "reads", []) + [name]
             return (200, {"value": self.vault[name]}) if name in self.vault else (404, None)
         path = url.split("/api", 1)[1]
         if path == "/projects":
@@ -256,3 +257,35 @@ def test_each_group_opens_with_its_drift_and_a_reset_secret_is_none(monkeypatch,
     assert "Thing (managed):\n  no drift\n  set secret" in out
     assert run(monkeypatch, tmp_path, Fake([existing()]), CONFIG.replace("managed: true", "managed: false")) == 0
     assert "(reported only: not managed)" in capsys.readouterr().out
+
+
+TWO_GROUPS = """project: Homelab
+groups:
+  Thing:
+    managed: true
+    environment:
+      THING_URL: {template: "https://thing.{BASE-DOMAIN}"}
+      A_TOKEN: {keyvault: A-TOKEN}
+  Other:
+    managed: true
+    environment:
+      B_TOKEN: {keyvault: B-TOKEN}
+"""
+
+
+def test_secrets_makes_only_the_groups_reading_them_and_reads_only_their_secrets(monkeypatch, tmp_path, capsys):
+    fake = Fake()
+    assert run(monkeypatch, tmp_path, fake, TWO_GROUPS, argv=("x", "--secrets", "B-TOKEN")) == 0
+    assert [w[1]["name"] for w in fake.writes] == ["Other"] and set(fake.reads) == {"B-TOKEN"}
+    out = capsys.readouterr().out
+    assert "only the groups reading B-TOKEN: Other" in out and "Key Vault, compared" not in out
+    fake = Fake()  # through a template: BASE-DOMAIN is Thing's
+    assert run(monkeypatch, tmp_path, fake, TWO_GROUPS, argv=("x", "--secrets=BASE-DOMAIN")) == 0
+    assert [w[1]["name"] for w in fake.writes] == ["Thing"]
+
+
+def test_secrets_refuses_a_name_no_group_reads_and_any_other_argument(monkeypatch, tmp_path, capsys):
+    assert run(monkeypatch, tmp_path, Fake(), TWO_GROUPS, argv=("x", "--secrets", "NOPE")) == 2
+    assert "no group reads NOPE" in capsys.readouterr().out
+    for argv in (("x", "--secrets"), ("x", "--secrets="), ("x", "admin_user=someone")):
+        assert run(monkeypatch, tmp_path, Fake(), TWO_GROUPS, argv=argv) == 2, argv
