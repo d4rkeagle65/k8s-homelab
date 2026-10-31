@@ -1,15 +1,18 @@
 #!/system/bin/sh
-# Home HQ watchdog on the picture frame (k8s-homelab devices/picture-frame/). Started at boot by
-# its own line in /system/bin/install-recovery.sh. The board's Mali GPU driver can hang with
-# Home HQ's RenderThread stuck in it: the process can't be killed, Android can't restart Home HQ,
-# and only a reboot clears it. Once a minute, with the screen on, it checks Home HQ:
+# Kiosk-app watchdog on the picture frame (k8s-homelab devices/picture-frame/). Started at boot by
+# its own line in /system/bin/install-recovery.sh. The board's Mali GPU driver can hang with the
+# app's RenderThread stuck in it: the process can't be killed, Android can't restart the app, and
+# only a reboot clears it. The app is Home HQ, or the package named in $D/package (one line), so
+# another kiosk app can be tried without a reboot every 20 minutes. Once a minute, with the screen
+# on, it checks the app:
 #   dead or a zombie for DEAD_MIN minutes in a row      -> reboot
 #   alive but not in front for AWAY_MIN minutes in a row -> reboot (someone in Settings has that long)
 # Never within SETTLE_S seconds of boot, nor within COOLDOWN_S of its last reboot (kept in
 # $D/last-reboot, so it holds across boots). DRY_RUN=1 logs "would reboot" instead. It logs to
 # logcat (tag HomeHQWatchdog) and $D/watchdog.log, kept short.
 D=/data/local/watchdog
-PKG=com.wesbos.homehq
+PKG=$(cat $D/package 2>/dev/null)
+PKG=${PKG:-com.wesbos.homehq}
 DEAD_MIN=${DEAD_MIN:-3}
 AWAY_MIN=${AWAY_MIN:-20}
 SETTLE_S=${SETTLE_S:-300}
@@ -25,9 +28,10 @@ note() {
     fi
 }
 
-# Home HQ's process state: a ps line's state column (S, R, D, Z...), or "none". A zombie's
-# name is the kernel's, cut to its last 15 characters: m.wesbos.homehq.
-ZOMBIE_NAME=m.wesbos.homehq
+# The app's process state: a ps line's state column (S, R, D, Z...), or "none". A zombie's
+# name is the kernel's, cut to its last 15 characters (m.wesbos.homehq).
+ZOMBIE_NAME=$PKG
+while [ ${#ZOMBIE_NAME} -gt 15 ]; do ZOMBIE_NAME=${ZOMBIE_NAME#?}; done
 homehq_state() {
     line=$(ps | grep " $PKG\$" | head -n 1)
     [ -z "$line" ] && line=$(ps | grep " $ZOMBIE_NAME\$" | head -n 1)
@@ -40,16 +44,16 @@ homehq_state() {
 uptime_s() { read up rest < /proc/uptime; echo "${up%%.*}"; }
 
 [ "$(uptime_s)" -lt "$SETTLE_S" ] && sleep $(( SETTLE_S - $(uptime_s) ))
-note "started (dead ${DEAD_MIN}m, away ${AWAY_MIN}m, cooldown ${COOLDOWN_S}s, dry run $DRY_RUN)"
+note "started for $PKG (dead ${DEAD_MIN}m, away ${AWAY_MIN}m, cooldown ${COOLDOWN_S}s, dry run $DRY_RUN)"
 dead=0; away=0; last=""
 while true; do
     sleep "$INTERVAL_S"
     if ! dumpsys power | grep -q 'mWakefulness=Awake'; then dead=0; away=0; continue; fi
     state=$(homehq_state)
     if [ "$state" = none ] || [ "$state" = Z ]; then
-        dead=$((dead + 1)); away=0; now="Home HQ $state"
+        dead=$((dead + 1)); away=0; now="$PKG $state"
     elif ! dumpsys activity activities | grep 'mFocusedActivity' | grep -q "$PKG"; then
-        away=$((away + 1)); dead=0; now="Home HQ alive, not in front"
+        away=$((away + 1)); dead=0; now="$PKG alive, not in front"
     else
         dead=0; away=0; now="ok"
     fi
