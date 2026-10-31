@@ -108,11 +108,18 @@ templates); each new template has meant another group typed in from Key Vault or
     - [x] Proxmox Settings (1466), Synology Baseline (1467), Terramaster Baseline (1468),
       Windows Updates (1469). Every group imported; the write role removed (the owner,
       2026-10-31).
-  - [ ] The sync's report (this PR): which Key Vault secrets the config names, and its
-    `compare:` list, hold the same value, contain another's, or match a URL candidate (names
-    only). Left: a run, read; then the config to one secret per value under the naming rule,
-    URLs to their matching templates, the site facts to NetBox, and the import's copies
-    deleted from Key Vault.
+  - [x] The sync's report (#494), first run task 1470: every plain value matched its import;
+    URL templates matched for NETBOX (all three), Loki's push, Home Assistant, Proxmox's
+    endpoint, acme_domain and lxc_timezone; KEA_URL is the literal kea-dhcp4 address; the
+    three PG_CONN_STR are one value holding TFSTATE-DB-PASSWORD; Tailscale's NetBox token is
+    NETBOX-READ-TOKEN and Proxmox's holds it (tofu/README.md: both are that read token); the
+    flags host_alloy, host_exporters, nas_block_initialise are "true". Netbox Sync's
+    PROXMOX_URL matched no candidate: its own value, kept.
+  - [ ] The config moved to them (this PR, 54 Key Vault names to 41, still unmanaged). Left:
+    a run, its report showing no differences but the intended ones (secret URLs becoming
+    plain, the duplicate PG_CONN_STR going), and the PG_CONN_STR template's result; then each
+    group managed after its check, the site facts to NetBox, and the import's copies no group
+    reads deleted from Key Vault.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 
