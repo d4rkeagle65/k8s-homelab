@@ -35,11 +35,35 @@ views:
           - type: heading
             heading: Hallway
             icon: mdi:door-open
+          # The camera is mounted on its side and only flips 180°, so card-mod turns its
+          # 16:9 picture 90° counter-clockwise inside a 9:16 card: the picture is as wide
+          # as the card is tall (16/9 = 177.78%), centred, then rotated. The component's
+          # own styles win a tie with card-mod's, hence !important. The more-info dialog
+          # shows it unturned.
           - type: picture-entity
             entity: camera.hallway_cam
             name: Hallway
             camera_view: live
             show_state: false
+            aspect_ratio: "16:9"
+            card_mod:
+              style: |
+                ha-card {
+                  height: auto !important;
+                  aspect-ratio: 9 / 16;
+                }
+                .image-container {
+                  position: absolute;
+                  inset: 0;
+                }
+                hui-image {
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  width: 177.78%;
+                  height: auto !important;
+                  transform: translate(-50%, -50%) rotate(-90deg);
+                }
           - type: tile
             entity: switch.hallway_cam_power
             name: Camera on
