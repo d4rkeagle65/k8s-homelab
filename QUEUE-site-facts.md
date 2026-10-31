@@ -24,32 +24,29 @@ cluster, and three JSON strings bundle values that are their own facts.
 
 ## Stages
 
-- [ ] **1. Duplicates and renames** (the quick wins). In two PRs, since a new cluster-secrets
-  variable reaches the cluster before what uses it and an entry reads only its own name: the
-  new names, the Semaphore config and the Docker rename (this PR, after the owner adds
-  `OWNER-GMAIL`, `OWNER-USERNAME` and `M365-RELAY-NOREPLY-EMAIL-ADDRESS`); then the cluster's
-  consumers and the old entries; then the owner deletes the old secrets
-  (`keyvault-secrets.ps1 -Delete`, which refuses while anything reads one). Each is a mapping change where the old
-  name is read (`kubernetes/secrets/cluster-secrets.yaml`, an app's ExternalSecret, a Docker
-  stack's `.env`, `scripts/semaphore_variable_groups.yaml`), the new secret made first by the
-  owner (`scripts/keyvault-secrets.ps1`), then the old deleted once nothing reads it:
-  - `SEMAPHORE-KEYVAULT-TENANT-ID` duplicates `ENTRA-TENANT-ID`: deleted (a safekeeping copy).
-  - `EUFY-HOMEASSISTANT-EMAIL`, `HA-IOT-TPLINK-USERNAME`, `WYZE-EMAIL`: one `OWNER-GMAIL`.
-  - `GRIMMORY-ADMIN-USERNAME`, `ORGANIZR-ADMIN-USERNAME`, `TERMIX-SSH-ADMIN-USER`,
-    `YOUTARR-ADMIN-USERNAME`, `DEBIAN-ADMIN-USER`: one owner's username secret.
-  - `GRAFANA-ADMIN-USER`, `OBSIDIAN-COUCHDB-ADMINUSERNAME`, `QBITTORRENT-USERNAME`,
-    `TERMIX-SSH-TERRAMASTER-USER`: the literal name in the manifests (it names nothing of the
-    site), their secrets deleted.
-  - `M365-SHARED-MAILBOX-ADDRESS` renamed `M365-RELAY-NOREPLY-EMAIL-ADDRESS`.
-  - `PROXMOX-SETTINGS-ACME-EMAIL`: the template `{OWNER-EMAIL}`.
-  - Not merged: `DATABASUS-KEA-DB-PASSWORD` and `DATABASUS-SEMAPHORE-DB-PASSWORD` are one role on
-    two databases, so each keeps its name; they're made to differ at the next rotation.
-  - The import's copies the Semaphore config no longer reads (`QUEUE-semaphore-variables.md`),
-    deleted once their groups are managed.
-- [ ] **2. Passwords generated in the cluster**: Authentik's and Immich's Redis, and redis-ha's
-  auth and Sentinel passwords (today two pairs sharing one value each), each from a Password
-  generator into its own Secret; each switch restarts that Redis and its clients once. Then
-  the app secret keys in Key Vault that nothing outside the cluster reads.
+- [x] **1. Duplicates and renames** (#503, #505, 2026-10-31): `OWNER-GMAIL` for the Gmail logins,
+  `OWNER-USERNAME` for the owner's, `M365-RELAY-NOREPLY-EMAIL-ADDRESS` for Vaultwarden's sender,
+  the ACME email as `{OWNER-EMAIL}`; Grafana's and qBittorrent's "admin" in cluster-settings, the
+  TerraMaster's in Termix's ExternalSecret template. The replaced secrets and the import's 20
+  unread copies deleted by the owner (`keyvault-secrets.ps1 -Delete -Yes`, #509); afterwards
+  every ExternalSecret ready and the Semaphore sync complete (task 1491). Kept, each for a reason:
+  `OBSIDIAN-COUCHDB-ADMINUSERNAME` (its base64 is in .secret-words) and the two Databasus
+  passwords (made to differ at the next rotation).
+- [ ] **2. Passwords generated in the cluster.** Traced 2026-10-31 (live pod specs, values compared
+  yes/no only):
+  - [x] Authentik's and Immich's unused `redis-password` Secrets (#511), live and in Key Vault.
+  - [ ] redis-ha (this PR, merged when the owner picks; it restarts redis-ha and Immich): a
+    Password generator makes `redis-ha-auth` (`auth`, `sentinel-password`, each its own,
+    `refreshPolicy: CreatedOnce`), and Immich's `immich-redis` builds its `REDIS_URL` from it
+    through a Kubernetes-provider SecretStore that may read only that Secret. After merge: check
+    both ExternalSecrets ready, the two passwords differ (yes/no), redis-ha has one master and two
+    replicas linked, and Immich's server and machine learning run on the new Secret (its jobs page:
+    re-run "missing" if a queue was lost in the roll). Then by hand the old prune-protected
+    `redis-ha/redis-ha-creds` and `immich/immich-redis-url` (capture would write the second back
+    into `immich-extras` while it is live); then a PR removing `REDIS_HA_CREDS_AUTH`,
+    `REDIS_HA_CREDS_SENTINEL_PASSWORD` and `IMMICH_REDIS_URL_REDIS_URL` from cluster-secrets; then
+    the owner deletes those three from Key Vault.
+  - [ ] Then the app secret keys in Key Vault that nothing outside the cluster reads.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity
   scoped to those names. First the addresses and names NetBox holds (the Docker VMs', NAS's,

@@ -158,8 +158,11 @@ the process a zombie, so Home HQ can't start again, Rootless Launcher shows inst
 8766 still accepts commands nothing carries out. Only a reboot clears it.
 
 `watchdog/watchdog.sh` (in `/data/local/watchdog/`, mode 700) checks once a minute, with the
-screen on, and reboots when Home HQ has been dead or a zombie for 3 minutes, or alive but not in
-front for 20 (time enough to use Settings through Rootless Launcher). Never within 5 minutes of
+screen on, and reboots when the kiosk app has been dead or a zombie for 3 minutes, or alive but
+not in front for 20 (time enough to use Settings through Rootless Launcher). The app is Home HQ,
+or the package named in `/data/local/watchdog/package` (one line), read when the watchdog
+starts: another kiosk app, such as ImmichFrame's own, can be tried as the Home app without
+reboots. Never within 5 minutes of
 boot nor 30 minutes of its last reboot, recorded in `last-reboot` there so it holds across boots.
 It logs each change of state to `watchdog.log` there and to logcat (tag `HomeHQWatchdog`). Its
 limits are environment variables at the top of the script; `DRY_RUN=1` logs "would reboot"
@@ -172,6 +175,11 @@ the boot fixes' `exec`, added the same way (the previous file in
 ```
 /system/bin/sh /data/local/watchdog/watchdog.sh &  # Home HQ watchdog (k8s-homelab devices/picture-frame)
 ```
+
+Start it again by rebooting: a copy started from `adb shell`, even with `nohup` or `setsid`,
+doesn't reliably outlive the session. Find a running copy by its exact command line from a
+script file pushed to the frame, not a one-line `adb shell` loop, which matches its own
+command line.
 
 ## The power button as mute
 

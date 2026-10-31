@@ -13,11 +13,28 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
-- **Key Vault has no copy outside Azure until the first `-Export`** (`scripts/keyvault-secrets.ps1
-  -Export`, tested only against a mock vault): run it to a file off the repo, then `-Import` that
-  file without `-Apply` against the same vault, which should report every secret "the same".
-  Keep the file and its password apart, both off the workstation; until then, losing the vault
-  or its subscription loses every value the cluster and Dockhand read.
+- **Key Vault's copy outside Azure** (`scripts/keyvault-secrets.ps1 -Export`): a first export
+  opens with `-Read` (the owner, 2026-10-31). Left: once the secrets' reorganisation in another
+  session settles, a fresh export, then `-Import` of it without `-Apply` against the same vault,
+  which should report every secret "the same" (an older export reports what changed since).
+  Keep the file and its password apart, both off the workstation: on it, losing the workstation
+  loses the copy with it.
+- **The secret-words list's leftovers, and the cloud** (2026-10-31): `scripts/secret_words.py`
+  writes one list per clone from Key Vault (`SECRET-WORDS` plus `scripts/secret_words.toml`'s
+  variables); on the PC it holds 37 words, read back. Three choices left:
+  - **The old `.secret-words` copies:** delete them. The hook reads one only where its clone's
+    list is absent, so a stale copy is dead weight. That is 15 on the PC (the main checkout and
+    each worktree), and one in the Docker VM container's clone once its first session after
+    the merge has written the list (`.claude/settings.json`).
+  - **Cloud sessions:** the owner's steps in `scripts/README.md` ("Cloud sessions", under "Add
+    a word no commit may contain"): the `k8s-homelab-claude-cloud` principal and its Key Vault
+    copies, `secret_words_access.py --apply`, then the environment's network access, network
+    secret and variables. Until a cloud session's start reads the 37 words, the rule isn't
+    armed there, and the sign-in through the proxy's network secret is untested.
+  - **Two public logins:** `SECRET-WORDS` still holds the base64 of two app logins #505 made
+    public (`IMMICH_POSTGRES_SUPERUSER_USERNAME`, `OBSIDIAN_COUCHDB_ADMINUSERNAME`). Keep them
+    or drop them.
+
 - **n8n's "Zammad: close what's over" isn't imported yet** (`n8n/workflows/`): import it
   and run it once by hand (`n8n/README.md`). Its next version, and the bridge's replacement,
   are in `QUEUE-n8n-zammad.md`.
@@ -484,16 +501,17 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Working queue files
 
-- [QUEUE-bastion.md](QUEUE-bastion.md) (just started): Termix, a web-based bastion into every host, its hosts from NetBox.
-- [QUEUE-tailscale.md](QUEUE-tailscale.md) (just started): the tailnet's policy, DNS and alerts from `tofu/tailscale` and NetBox.
-- [QUEUE-kiosk.md](QUEUE-kiosk.md) (just started): the wall display, a Grafana dashboard on the convertible laptop's screen.
-- [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (just started): SNMPv3, syslog and alerts for the core switch and the firewall.
-- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 85%): every source sends to n8n; left, deleting the bridge.
-- [QUEUE-site-facts.md](QUEUE-site-facts.md) (just started): one Key Vault secret per value, passwords made in the cluster, site facts from NetBox.
-- [QUEUE-semaphore-variables.md](QUEUE-semaphore-variables.md) (about 85%): every group is made from Key Vault; left, deleting the import's copies and a schedule.
-- [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
+- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 85%): every source sends to n8n; left, a real event read back from Semaphore, Databasus and Dockhand, then deleting the bridge.
+- [QUEUE-semaphore-variables.md](QUEUE-semaphore-variables.md) (about 85%): every group is made from Key Vault; left, the groups declared unmanaged, deleting the import's copies, and a schedule.
+- [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container; left, the week-long recheck, the Docker VM's containers, Immich's server and the CPU cap (the owner's).
+- [QUEUE-kept.md](QUEUE-kept.md) (about 80%): Kept deployed and backed up; left, the owner's first account and recovery kit, then a restore test of `kept-db`.
+- [QUEUE-tailscale.md](QUEUE-tailscale.md) (about 75%): the policy applied and the exporter live; left, the travel router's new tag (the owner) and its old one dropped, and a second subnet router later.
+- [QUEUE-bastion.md](QUEUE-bastion.md) (about 70%): Termix live with SSO, the bastion key on every host; left, an alert for an unmerged Termix release, then Docker, Kubernetes and cloud.
+- [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (about 60%): SNMPv3 and syslog from the switch and the firewall; left, the switch's syslog parsing, alerts once real lines are seen, and CloudGen's MIB later.
+- [QUEUE-kiosk.md](QUEUE-kiosk.md) (about 40%): the wall display's share link works; left, the dashboard on the screen, the deploy template and run (the owner), and more tiles.
+- [QUEUE-site-facts.md](QUEUE-site-facts.md) (about 20%): duplicates and renames done; next, the Redis passwords made in the cluster.
 
-The percentages are estimates as of 2026-10-22, from each file's checklist weighed by the
+The percentages are estimates as of 2026-10-31, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
 the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks

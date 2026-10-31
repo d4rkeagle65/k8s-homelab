@@ -1,6 +1,6 @@
 """
 Identifying data in EVERY tracked file, at every commit. The pre-commit hook reads only what
-a commit stages, so a word added to .secret-words later never finds the copy already in the
+a commit stages, so a word added to the list later never finds the copy already in the
 tree, and it has no rule for addresses; this reads the whole tree, every extension, binary
 files included (their ASCII still matches).
 
@@ -8,8 +8,9 @@ files included (their ASCII still matches).
                       the homelab's own, which live in Vaultwarden and NetBox, never git.
                       A network (a /prefix, or a last octet of 0) is fine; examples use
                       RFC 5737's 192.0.2.0/24, 198.51.100.0/24 and 203.0.113.0/24
-  a .secret-words word  matched as the hook matches it (case-blind, anywhere in the text);
-                      the list is gitignored, so a clone without it says the rule is not armed
+  a secret word       matched as the hook matches it (case-blind, anywhere in the text), from
+                      the list scripts/secret_words.py writes outside the tree, so a clone
+                      without it says the rule is not armed
   the hook's shapes   a private key, a GUID labelled as an identifier, a certificate
                       thumbprint, a secret assigned a literal, a cloud or service access key
                       (scripts/tests/test_secrets_hygiene.py also scans for keys, but only
@@ -126,9 +127,25 @@ t.check("  a placeholder secret and a repeated-digit GUID are not",
 t.check("SELF-TEST: UTF-16 is read as text", "10.1.2.3" in decode("10.1.2.3".encode("utf-16")), True)
 t.check("  and a binary file's ASCII still is", "10.1.2.3" in decode(b"\x89PNG\xff\x00 10.1.2.3"), True)
 
+def word_list():
+    """The secret-words list's path, or None: the one the hook names (it runs the suites on a
+    copy that is a repository of its own), else the clone's, in the git folder its worktrees
+    share, else a .secret-words at the top, read only while the clone's is absent."""
+    named = os.environ.get("SECRET_WORDS_FILE")
+    if named:
+        return named
+    res = t.run(["git", "-C", t.root(), "rev-parse", "--path-format=absolute", "--git-common-dir"], merge=False)
+    if res.code != 0:
+        raise RuntimeError("git rev-parse --git-common-dir failed in %s: %s" % (t.root(), res.err.strip()))
+    for path in (os.path.join(res.out.strip(), "secret-words"), os.path.join(t.root(), ".secret-words")):
+        if os.path.isfile(path):
+            return path
+    return None
+
+
 words = []
-listed = os.path.join(t.root(), ".secret-words")
-if os.path.isfile(listed):
+listed = word_list()
+if listed:
     with open(listed, encoding="utf-8", errors="replace") as fh:
         words = sorted({w.strip().lower() for w in fh if w.strip() and not w.lstrip().startswith("#")})
 
@@ -150,14 +167,14 @@ for a in addresses[:12]:
 if addresses:
     t.advise("a ${VARIABLE} from cluster-secrets, a name NetBox resolves, or an RFC 5737 example")
 
-t.section("no .secret-words word in any tracked file")
+t.section("no secret word in any tracked file")
 if words:
-    t.check("no tracked file holds a word listed in .secret-words", len(named), 0)
+    t.check("no tracked file holds a word on the secret-words list", len(named), 0)
     for a in named[:12]:
         t.detail(a, "yellow")
 else:
-    t.skip("no tracked file holds a word listed in .secret-words",
-           "no .secret-words here, so the named-word rule is not armed")
+    t.skip("no tracked file holds a word on the secret-words list",
+           "no secret-words list here (scripts/secret_words.py writes it), so the named-word rule is not armed")
 
 t.section("none of the hook's secret shapes in any tracked file")
 t.check("no tracked file holds a key, labelled ID, thumbprint or secret literal", len(shaped), 0)
