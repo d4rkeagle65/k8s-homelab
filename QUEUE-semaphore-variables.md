@@ -71,13 +71,18 @@ templates); each new template has meant another group typed in from Key Vault or
   one a task sees is Semaphore's choice; declaring the group keeps one (a secret, since it
   holds a password). `TF_VAR_site` and `TF_VAR_dns` are JSON of site facts, which NetBox or
   Key Vault templates may replace when their groups move.
-  - [ ] Batch 1, declared unmanaged (this PR): Synology and Terramaster Baseline (their Hawser
-    tokens, from Dockhand's environments), Windows Updates, k8s and Talos Connection (the
-    README's commands; the talosconfig from its Vaultwarden copy). Left: the owner adds the
-    Key Vault secrets; a sync run reports none missing; each marked managed; then each
-    group's check: a Hawser token Semaphore doesn't hold the same as Dockhand would recreate
-    Hawser, so the NAS baselines' dry runs must report Hawser unchanged, and a Proxmox
-    update's dry run must pass its cluster checks.
+  - [ ] Every group declared unmanaged (#488), each value with its Key Vault name; extra
+    variables as JSON (`json: true`). Their values exist only in Semaphore, which never
+    returns a secret, so a one-time import copies them out from inside a task:
+    `ansible/semaphore-tool-keyvault-import.yml`, "Tool: Variable Group → Key Vault (one
+    time)", with "Key Vault Sync" and the group to import attached and `import_group` (survey)
+    naming it; one group a run. It never overwrites. The owner's: "Key Vault Secrets Officer"
+    for `semaphore-keyvault-reader` for the import, the template, a dry run, then a run per
+    group (the cluster access's four the owner writes from the cluster instead), then the
+    role removed. Then a sync run should report nothing missing, and each group goes managed
+    in its own PR, after its check: the NAS baselines' dry runs report Hawser unchanged, a
+    Proxmox update's dry run passes its cluster checks, each OpenTofu module's plan shows no
+    changes.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 
@@ -90,6 +95,13 @@ read its report.
 
 Every group but "Key Vault Sync" is declared and managed, and adding a template's variables is
 a line in the config and a Key Vault secret.
+
+## After the import
+
+Remove the write role (`az role assignment delete --assignee <client id> --role "Key Vault
+Secrets Officer" --scope <vault id>`), delete the import template, and delete
+`ansible/semaphore-tool-keyvault-import.yml` and `scripts/semaphore_keyvault_import.py`
+with their test, so nothing can write Key Vault from Semaphore again.
 
 ## Renewal
 
