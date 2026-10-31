@@ -8,7 +8,9 @@
 #                           (https://n8n.{BASE-DOMAIN}), so no domain or address is written here
 #   {value: x}              x as it is: only what names nothing of the site (a flag, a count)
 # and `secret: true` or `false` to override where Semaphore keeps it; `json: true` on an extra
-# variable from Key Vault reads the secret as JSON (a list, an object, a flag). A Python template gets a
+# variable from Key Vault reads the secret as JSON (a list, an object, a flag); `candidates:`
+# beside keyvault lists templates the report tests against its value, so a URL can move to
+# the one that matches. A Python template gets a
 # group's extra variables as arguments, which its scripts refuse: give those `environment:` only.
 #
 # A group is written only with `managed: true`, and then exactly as declared: what it holds
@@ -16,6 +18,14 @@
 # changed. A group not listed here is left alone. "Key Vault Sync", the sync's own, is never
 # listed: it holds the credentials the sync reads Key Vault and writes Semaphore with.
 project: Homelab
+
+# Key Vault secrets the sync's report compares with the config's, by name only: which hold the
+# same value, or contain another's. Each is an existing one a group's value may be the same as.
+compare: [BASE-DOMAIN, TIMEZONE, PVE-API-HOST, PVE-EXPORTER-TOKEN-VALUE, TFSTATE-DB-PASSWORD,
+          NETBOX-READ-TOKEN, NETBOX-HOMEPAGE-TOKEN, NETBOX-SEMAPHORE-TOKEN, NETBOX-DNS-TOKEN,
+          NETBOX-DNS-SYNC-TOKEN, RENOVATE-GITHUB-TOKEN, HOMEASSISTANT-TOKEN,
+          CERT-MANAGER-CLOUDFLARE-API-TOKEN-API-TOKEN, CLOUDFLARE-HOMEPAGE-API-TOKEN,
+          TAILSCALE-API-KEY, TAILSCALE-EXPORTER-OAUTH-CLIENT-ID, TAILSCALE-EXPORTER-OAUTH-CLIENT-SECRET]
 
 groups:
   # scripts/alerting_test.py ("Tool: Alerting test (script)"; n8n/README.md).
@@ -72,7 +82,7 @@ groups:
       admin_user: {keyvault: DEBIAN-ADMIN-USER, json: true, secret: false}
       host_alloy: {keyvault: DEBIAN-HOST-ALLOY, json: true, secret: false}
       host_exporters: {keyvault: DEBIAN-HOST-EXPORTERS, json: true, secret: false}
-      loki_push_url: {keyvault: DEBIAN-LOKI-PUSH-URL, json: true, secret: false}
+      loki_push_url: {keyvault: DEBIAN-LOKI-PUSH-URL, json: true, secret: false, candidates: ["https://loki-push.{BASE-DOMAIN}/loki/api/v1/push"]}
       management_network: {keyvault: DEBIAN-MANAGEMENT-NETWORK, json: true, secret: false}
     environment:
       loki_push_password: {keyvault: LOKI-PUSH-PASSWORD}
@@ -84,8 +94,8 @@ groups:
     managed: false
     environment:
       HA_TOKEN: {keyvault: HA-IOT-HA-TOKEN}
-      HA_URL: {keyvault: HA-IOT-HA-URL}
-      NETBOX_API: {keyvault: HA-IOT-NETBOX-API}
+      HA_URL: {keyvault: HA-IOT-HA-URL, candidates: ["https://homeassistant.{BASE-DOMAIN}", "https://homeassistant.{BASE-DOMAIN}/", "https://ha.{BASE-DOMAIN}", "https://home.{BASE-DOMAIN}"]}
+      NETBOX_API: {keyvault: HA-IOT-NETBOX-API, candidates: ["https://netbox.{BASE-DOMAIN}", "https://netbox.{BASE-DOMAIN}/", "https://netbox.{BASE-DOMAIN}/api", "https://netbox.{BASE-DOMAIN}/api/"]}
       NETBOX_TOKEN: {keyvault: HA-IOT-NETBOX-TOKEN}
       TPLINK_PASSWORD: {keyvault: HA-IOT-TPLINK-PASSWORD}
       TPLINK_USERNAME: {keyvault: HA-IOT-TPLINK-USERNAME}
@@ -94,8 +104,8 @@ groups:
   Netbox Sync:
     managed: false
     environment:
-      KEA_URL: {keyvault: NETBOX-SYNC-KEA-URL, secret: false}
-      PROXMOX_URL: {keyvault: NETBOX-SYNC-PROXMOX-URL, secret: false}
+      KEA_URL: {keyvault: NETBOX-SYNC-KEA-URL, secret: false, candidates: ["http://kea-dhcp4:8000", "http://kea-dhcp4:8000/"]}
+      PROXMOX_URL: {keyvault: NETBOX-SYNC-PROXMOX-URL, secret: false, candidates: ["https://{PVE-API-HOST}:8006", "https://{PVE-API-HOST}:8006/", "https://{PVE-API-HOST}:8006/api2/json", "https://{PVE-API-HOST}", "https://{PVE-API-HOST}/"]}
       GITHUB_TOKEN: {keyvault: NETBOX-SYNC-GITHUB-TOKEN}
       KEA_API: {keyvault: NETBOX-SYNC-KEA-API}
       NETBOX_WRITE_TOKEN: {keyvault: NETBOX-SYNC-NETBOX-WRITE-TOKEN}
@@ -114,8 +124,8 @@ groups:
   "OpenTofu: Proxmox and Talos":
     managed: false
     environment:
-      PROXMOX_VE_ENDPOINT: {keyvault: TOFU-PROXMOX-VE-ENDPOINT, secret: false}
-      TF_VAR_netbox_url: {keyvault: TOFU-PROXMOX-TF-VAR-NETBOX-URL, secret: false}
+      PROXMOX_VE_ENDPOINT: {keyvault: TOFU-PROXMOX-VE-ENDPOINT, secret: false, candidates: ["https://{PVE-API-HOST}:8006", "https://{PVE-API-HOST}:8006/", "https://{PVE-API-HOST}:8006/api2/json", "https://{PVE-API-HOST}", "https://{PVE-API-HOST}/"]}
+      TF_VAR_netbox_url: {keyvault: TOFU-PROXMOX-TF-VAR-NETBOX-URL, secret: false, candidates: ["https://netbox.{BASE-DOMAIN}", "https://netbox.{BASE-DOMAIN}/", "https://netbox.{BASE-DOMAIN}/api", "https://netbox.{BASE-DOMAIN}/api/"]}
       PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR}
       PROXMOX_VE_API_TOKEN: {keyvault: TOFU-PROXMOX-VE-API-TOKEN}
       TF_VAR_netbox_token: {keyvault: TOFU-PROXMOX-TF-VAR-NETBOX-TOKEN}
@@ -127,7 +137,7 @@ groups:
     managed: false
     environment:
       PG_CONN_STR: {keyvault: TOFU-TAILSCALE-PG-CONN-STR, secret: false}
-      TF_VAR_netbox_url: {keyvault: TOFU-TAILSCALE-TF-VAR-NETBOX-URL, secret: false}
+      TF_VAR_netbox_url: {keyvault: TOFU-TAILSCALE-TF-VAR-NETBOX-URL, secret: false, candidates: ["https://netbox.{BASE-DOMAIN}", "https://netbox.{BASE-DOMAIN}/", "https://netbox.{BASE-DOMAIN}/api", "https://netbox.{BASE-DOMAIN}/api/"]}
       TAILSCALE_OAUTH_CLIENT_ID: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-ID}
       TAILSCALE_OAUTH_CLIENT_SECRET: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-SECRET}
       TF_VAR_netbox_token: {keyvault: TOFU-TAILSCALE-TF-VAR-NETBOX-TOKEN}
@@ -143,9 +153,9 @@ groups:
     managed: false
     variables:
       acme_cf_zone_id: {keyvault: PROXMOX-SETTINGS-ACME-CF-ZONE-ID, json: true, secret: false}
-      acme_domain: {keyvault: PROXMOX-SETTINGS-ACME-DOMAIN, json: true, secret: false}
+      acme_domain: {keyvault: PROXMOX-SETTINGS-ACME-DOMAIN, json: true, secret: false, candidates: ["{BASE-DOMAIN}", "*.{BASE-DOMAIN}"]}
       acme_email: {keyvault: PROXMOX-SETTINGS-ACME-EMAIL, json: true, secret: false}
-      lxc_timezone: {keyvault: PROXMOX-SETTINGS-LXC-TIMEZONE, json: true, secret: false}
+      lxc_timezone: {keyvault: PROXMOX-SETTINGS-LXC-TIMEZONE, json: true, secret: false, candidates: ["{TIMEZONE}"]}
       nas_block_initialise: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-INITIALISE, json: true, secret: false}
       nas_block_portal: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-PORTAL, json: true, secret: false}
       nas_block_target: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-TARGET, json: true, secret: false}

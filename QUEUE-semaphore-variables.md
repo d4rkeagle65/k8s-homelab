@@ -105,10 +105,14 @@ templates); each new template has meant another group typed in from Key Vault or
       left out of the config (#493).
     - [x] Netbox Sync (1461), OpenTofu: Cloudflare (1462), OpenTofu: Proxmox and Talos
       (1463), OpenTofu: Tailscale (1464), Pi-Hole Settings (1465): every value written, read back.
-    - [ ] Proxmox Settings, Synology Baseline, Terramaster Baseline, Windows Updates.
-  - [ ] Then: the sync reports which Key Vault secrets the config names hold the same value
-    (names only), and whether a proposed template gives an imported value; the config moves
-    to one secret per value under the naming rule, and the site facts to NetBox.
+    - [x] Proxmox Settings (1466), Synology Baseline (1467), Terramaster Baseline (1468),
+      Windows Updates (1469). Every group imported; the write role removed (the owner,
+      2026-10-31).
+  - [ ] The sync's report (this PR): which Key Vault secrets the config names, and its
+    `compare:` list, hold the same value, contain another's, or match a URL candidate (names
+    only). Left: a run, read; then the config to one secret per value under the naming rule,
+    URLs to their matching templates, the site facts to NetBox, and the import's copies
+    deleted from Key Vault.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 

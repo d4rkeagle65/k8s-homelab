@@ -210,3 +210,38 @@ def test_json_true_reads_a_list_from_key_vault_and_bad_json_stops_the_group(monk
     assert "KEYS: not JSON" in capsys.readouterr().out
     bad = JSON_CONFIG.replace("variables:", "environment:")
     assert run(monkeypatch, tmp_path, Fake(), bad) == 2  # json is for an extra variable
+
+
+COMPARE_CONFIG = """project: Homelab
+compare: [SHARED-TOKEN, GONE]
+groups:
+  One:
+    environment:
+      URL: {keyvault: ONE-URL, secret: false, candidates: ["https://n.{BASE-DOMAIN}", "https://n.{BASE-DOMAIN}/"]}
+      TOKEN: {keyvault: ONE-TOKEN}
+      CONN: {keyvault: ONE-CONN}
+    variables:
+      zone: {keyvault: ONE-ZONE, json: true, secret: false, candidates: ["{BASE-DOMAIN}"]}
+  Two:
+    environment:
+      URL: {keyvault: TWO-URL, secret: false, candidates: ["https://n.{BASE-DOMAIN}"]}
+      TOKEN: {keyvault: TWO-TOKEN}
+"""
+COMPARE_VAULT = {"BASE-DOMAIN": "example.org", "ONE-URL": "https://n.example.org/", "TWO-URL": "https://other.example.org",
+                 "ONE-TOKEN": "<same-token-1>", "TWO-TOKEN": "<same-token-1>", "SHARED-TOKEN": "<same-token-1>",
+                 "ONE-CONN": "postgres://u:<db-password-1>@db/x", "DB-PASS": "<db-password-1>", "ONE-ZONE": '"example.org"'}
+
+
+def test_the_report_names_what_holds_the_same_value_contains_another_or_matches_a_candidate(monkeypatch, tmp_path, capsys):
+    vault = dict(COMPARE_VAULT)
+    config = COMPARE_CONFIG.replace("compare: [SHARED-TOKEN, GONE]", "compare: [SHARED-TOKEN, GONE, DB-PASS]")
+    assert run(monkeypatch, tmp_path, Fake(vault=vault), config) == 0  # the report fails nothing
+    out = capsys.readouterr().out
+    report = out[out.index("Key Vault, compared"):]
+    assert "the same value: ONE-TOKEN, SHARED-TOKEN, TWO-TOKEN" in report
+    assert "ONE-CONN contains DB-PASS's value" in report
+    assert "One: URL: is 'https://n.{BASE-DOMAIN}/'" in report          # the second candidate
+    assert "Two: URL: none of 1 candidates" in report
+    assert "One: zone: is '{BASE-DOMAIN}'" in report                     # json: true, compared decoded
+    assert "GONE: not in Key Vault" in report
+    assert not any(v in out for v in ("<same-token-1>", "<db-password-1>", "example.org"))  # names only
