@@ -131,7 +131,7 @@ templates); each new template has meant another group typed in from Key Vault or
   deletes its template (39). Nothing in Semaphore can write Key Vault: the write role went
   2026-10-31. Each group's report now opens with its drift ("no drift", or how many
   differences the run corrects; a secret set again isn't drift).
-- [ ] 4. A daily schedule on "Sync: Key Vault → Semaphore (script)" (template 38; the owner's),
+- [x] 4. A daily schedule on "Sync: Key Vault → Semaphore (script)" (template 38; the owner made it 2026-10-31),
   so a Key Vault change reaches Semaphore, and a hand edit in a managed group is undone,
   within a day without a run by hand.
 
