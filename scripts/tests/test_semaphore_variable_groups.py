@@ -245,3 +245,14 @@ def test_the_report_names_what_holds_the_same_value_contains_another_or_matches_
     assert "One: zone: is '{BASE-DOMAIN}'" in report                     # json: true, compared decoded
     assert "GONE: not in Key Vault" in report
     assert not any(v in out for v in ("<same-token-1>", "<db-password-1>", "example.org"))  # names only
+
+
+def test_each_group_opens_with_its_drift_and_a_reset_secret_is_none(monkeypatch, tmp_path, capsys):
+    fake = Fake([existing()])
+    assert run(monkeypatch, tmp_path, fake, CONFIG) == 0
+    assert "drift: 5 differences (corrected below)" in capsys.readouterr().out
+    assert run(monkeypatch, tmp_path, fake, CONFIG) == 0  # made as declared: only secrets are set again
+    out = capsys.readouterr().out
+    assert "Thing (managed):\n  no drift\n  set secret" in out
+    assert run(monkeypatch, tmp_path, Fake([existing()]), CONFIG.replace("managed: true", "managed: false")) == 0
+    assert "(reported only: not managed)" in capsys.readouterr().out
