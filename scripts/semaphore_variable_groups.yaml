@@ -75,7 +75,7 @@ groups:
   # (json: true), since some are lists; plain where they're plain today, so the sync can
   # compare them.
   Debian Host Baseline:
-    managed: false
+    managed: true
     variables:
       admin_ssh_keys: {keyvault: DEBIAN-ADMIN-SSH-KEYS, json: true, secret: false}
       admin_sudo_nopasswd: {value: true}
@@ -91,7 +91,7 @@ groups:
   # NetBox Locations since #352: the group's empty HA_IOT_AREAS is left out, so managing the
   # group removes it.
   Home Assistant IoT:
-    managed: false
+    managed: true
     environment:
       HA_TOKEN: {keyvault: HA-IOT-HA-TOKEN}
       HA_URL: {template: "https://homeassistant.{BASE-DOMAIN}"}
@@ -113,7 +113,7 @@ groups:
 
   # tofu/cloudflare/.
   "OpenTofu: Cloudflare":
-    managed: false
+    managed: true
     environment:
       CLOUDFLARE_API_TOKEN: {keyvault: TOFU-CLOUDFLARE-API-TOKEN}
       PG_CONN_STR: {template: "postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable", secret: true}
@@ -124,7 +124,7 @@ groups:
   # on TFSTATE-DB-PASSWORD (task 1471); NetBox's token is the shared read-only one, which this
   # module takes with or without "Bearer ".
   "OpenTofu: Proxmox and Talos":
-    managed: false
+    managed: true
     environment:
       PROXMOX_VE_ENDPOINT: {template: "https://{PVE-API-HOST}:8006/"}
       TF_VAR_netbox_url: {template: "https://netbox.{BASE-DOMAIN}"}
@@ -136,7 +136,7 @@ groups:
 
   # tofu/tailscale/ (tofu/README.md: its own OAuth client, Key Vault's TAILSCALE-OPENTOFU-*).
   "OpenTofu: Tailscale":
-    managed: false
+    managed: true
     environment:
       PG_CONN_STR: {template: "postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable", secret: true}
       TF_VAR_netbox_url: {template: "https://netbox.{BASE-DOMAIN}"}
@@ -152,7 +152,7 @@ groups:
 
   # ansible/proxmox-setting.yml.
   Proxmox Settings:
-    managed: false
+    managed: true
     variables:
       acme_cf_zone_id: {keyvault: PROXMOX-SETTINGS-ACME-CF-ZONE-ID, json: true, secret: false}
       acme_domain: {template: "{BASE-DOMAIN}"}

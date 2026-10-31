@@ -222,8 +222,8 @@ args.
 
 ## Trusted certificates on the Proxmox hosts (`proxmox-setting.yml`)
 
-Off until `acme_domain` is set. A variable group "Proxmox ACME", extra variables, added to the
-"Proxmox host" template:
+Off until `acme_domain` is set. The variable group "Proxmox Settings" (made by the Key Vault sync, `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), extra
+variables, on the "Proxmox host" template:
 `{"acme_domain": "<domain>", "acme_email": "<you>", "acme_cf_zone_id": "<zone ID>"}`, and as a
 **secret** extra variable `acme_cf_token`: a Cloudflare API token of its own with **Zone → DNS
 → Edit** on that zone only (Cloudflare: My Profile → API Tokens → Create Token, the "Edit zone
@@ -287,7 +287,7 @@ storage entry lists only the other hosts.
 
 ## Your own login on every machine (`debian-setting-admins.yml`)
 
-- **A variable group "Debian Host Baseline"**, extra variables:
+- **A variable group "Debian Host Baseline"** (made by the Key Vault sync, `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), extra variables:
   `{"admin_user": "dhardin", "admin_ssh_keys": ["ssh-ed25519 AAAA... comment"], "admin_sudo_nopasswd": true}`.
   The public key line is the one `ssh-add -L` shows for the key in your vault. For sudo with a
   password instead, set `admin_sudo_nopasswd` to false and add `admin_password_hash` (from
