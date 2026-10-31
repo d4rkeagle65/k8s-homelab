@@ -30,6 +30,10 @@ template's extra variables as arguments, which this refuses):
   SEMAPHORE_URL         Semaphore's own address, as its tasks reach it
   SEMAPHORE_SYNC_TOKEN  an API token of a user who may manage the project's resources
   SEMAPHORE_VARIABLE_GROUPS  optional: the config's path (default: beside this script)
+With --secrets NAME[,NAME...] (Key Vault names; the template's arguments in Semaphore) it makes
+only the groups reading one of them, directly or through a template, so a changed secret
+reaches its groups without reading every other; the report and the undeclared groups are left
+out. Any other argument is refused.
 Exit 0: every managed group matches, read back; 1: a group couldn't be made or read back,
 or a value couldn't be read; 2: what the run needs is missing or the config is wrong.
 """
@@ -338,10 +342,42 @@ def compare(config: dict, vault: KeyVault) -> list[str]:
     return lines
 
 
+def uses(group: dict) -> set[str]:
+    """Every Key Vault secret a group's values read, directly or through a template."""
+    names = set()
+    for kind in KINDS:
+        for spec in (group.get(kind) or {}).values():
+            if "keyvault" in spec:
+                names.add(spec["keyvault"])
+            names |= set(PLACEHOLDER.findall(spec.get("template", "")))
+    return names
+
+
+def parse_args(argv: list[str]) -> set[str] | None:
+    """The secrets named by --secrets A,B (or --secrets=A,B), or None for all. Anything else is
+    refused: Semaphore hands a Python template a group's extra variables as arguments."""
+    rest, only = list(argv[1:]), None
+    while rest:
+        arg = rest.pop(0)
+        if arg == "--secrets" and rest:
+            value = rest.pop(0)
+        elif arg.startswith("--secrets="):
+            value = arg.split("=", 1)[1]
+        else:
+            raise ValueError(f"unknown argument {arg!r}: only --secrets NAME[,NAME...] (Key Vault names); "
+                             f"its other settings are the {OWN_GROUP!r} group's environment variables")
+        names = {n.strip() for n in value.split(",") if n.strip()}
+        if not names:
+            raise ValueError("--secrets names no secret")
+        only = (only or set()) | names
+    return only
+
+
 def main(argv: list[str]) -> int:
-    if len(argv) > 1:
-        log("semaphore_variable_groups.py takes no arguments: its settings are environment variables "
-            f"(Semaphore: the {OWN_GROUP!r} group's environment variables, never extra variables)")
+    try:
+        only = parse_args(argv)
+    except ValueError as e:
+        log(str(e))
         return 2
     env = dict(os.environ)
     missing = [v for v in NEEDS if not env.get(v, "").strip()]
@@ -363,7 +399,15 @@ def main(argv: list[str]) -> int:
         log(f"stopped before any group: {e}")
         return 1
     failed = False
-    for name, group in config["groups"].items():
+    groups = config["groups"]
+    if only is not None:
+        unknown = sorted(only - set().union(*(uses(g) for g in groups.values())))
+        if unknown:
+            log(f"--secrets: no group reads {', '.join(unknown)} (names are Key Vault's, with -)")
+            return 2
+        groups = {n: g for n, g in groups.items() if uses(g) & only}
+        log(f"only the groups reading {', '.join(sorted(only))}: {', '.join(groups)}")
+    for name, group in groups.items():
         managed = group.get("managed") is True
         log(f"{name} ({'managed' if managed else 'compared only'}):")
         found = live.get(name, [])
@@ -420,6 +464,8 @@ def main(argv: list[str]) -> int:
             failed = True
         else:
             log("  written and read back")
+    if only is not None:
+        return 1 if failed else 0  # the report and the undeclared groups read everything
     log("Key Vault, compared (names only):")
     for line in compare(config, vault) or ["  nothing in common"]:
         log(line)
