@@ -288,14 +288,14 @@ storage entry lists only the other hosts.
 ## Your own login on every machine (`debian-setting-admins.yml`)
 
 - **A variable group "Debian Host Baseline"** (made by the Key Vault sync, `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), extra variables:
-  `{"admin_user": "dhardin", "admin_ssh_keys": ["ssh-ed25519 AAAA... comment"], "admin_sudo_nopasswd": true}`.
+  `{"admin_user": "<your login>", "admin_ssh_keys": ["ssh-ed25519 AAAA... comment"], "admin_sudo_nopasswd": true}`.
   The public key line is the one `ssh-add -L` shows for the key in your vault. For sudo with a
   password instead, set `admin_sudo_nopasswd` to false and add `admin_password_hash` (from
   `openssl passwd -6`) as a secret.
 - **Run it through `debian-baseline.yml`** (below), which takes the same variable group; a template
   of `debian-setting-admins.yml` alone is only for the admin login without the rest.
-- **Afterwards**, `ssh dhardin@<host>` and `sudo -n true` prove it on each machine; then
-  `~/.ssh/config` can say `User dhardin`.
+- **Afterwards**, `ssh <your login>@<host>` and `sudo -n true` prove it on each machine; then
+  `~/.ssh/config` can say `User <your login>`.
 
 ## Every Debian host at once (`debian-baseline.yml`)
 
