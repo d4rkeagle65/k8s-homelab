@@ -46,14 +46,32 @@ templates); each new template has meant another group typed in from Key Vault or
 
 ## Checklist
 
-- [ ] 1. The sync (this PR, after #480, whose "Alerting Test" it declares): the script, its
-  config, its tests; no group managed but "Alerting Test", which is new. Left, the owner's: the service principal
-  (done: commands given 2026-10-31), a Manager's API token, the "Key Vault Sync" group, and the
-  template; then one run, whose report lists every group's variable names.
-- [ ] 2. "Alerting Test" managed: the first group written (it's new, nothing to lose), then
-  "Tool: Alerting test (script)" (`n8n/README.md`) attached to it and run.
+- [x] 1. The sync (#484), run as "Sync: Key Vault → Semaphore (script)" (template 38; the owner
+  made "Key Vault Sync" and it, 2026-10-31). Task 1447 made "Alerting Test", read back.
+- [x] 2. "Alerting Test" managed: made by task 1447. Left: "Tool: Alerting test (script)"
+  (`n8n/README.md`) attached to it and run once.
 - [ ] 3. Each existing group, one PR each: its values into Key Vault where missing, declared,
-  its report read, then `managed: true`. The report of step 1 lists what each holds.
+  its report read, then `managed: true`. What each held at task 1447 (names only):
+
+  | Group | Extra variables | Environment | Secrets |
+  |---|---|---|---|
+  | Debian Host Baseline | admin_ssh_keys, admin_sudo_nopasswd, admin_user, host_alloy, host_exporters, loki_push_url, management_network | | env loki_push_password |
+  | Home Assistant IoT | | | env HA_IOT_AREAS, HA_TOKEN, HA_URL, NETBOX_API, NETBOX_TOKEN, TPLINK_PASSWORD, TPLINK_USERNAME |
+  | Netbox Sync | | KEA_URL, PROXMOX_URL | env GITHUB_TOKEN, KEA_API, NETBOX_WRITE_TOKEN, PROXMOX_TOKEN |
+  | OpenTofu: Cloudflare | | | env CLOUDFLARE_API_TOKEN, PG_CONN_STR, TF_VAR_dns |
+  | OpenTofu: Proxmox and Talos | | PG_CONN_STR, PROXMOX_VE_ENDPOINT, TF_VAR_netbox_url | env PG_CONN_STR, PROXMOX_VE_API_TOKEN, TF_VAR_netbox_token, TF_VAR_site, TF_VAR_talos_secrets |
+  | OpenTofu: Tailscale | | PG_CONN_STR, TF_VAR_netbox_url | env TAILSCALE_OAUTH_CLIENT_ID, TAILSCALE_OAUTH_CLIENT_SECRET, TF_VAR_netbox_token |
+  | Pi-Hole Settings | pihole_settings | | |
+  | Proxmox Settings | acme_cf_zone_id, acme_domain, acme_email, lxc_timezone, nas_block_initialise, nas_block_portal, nas_block_target, ntp_serve_networks | | var acme_cf_token |
+  | Synology Baseline, Terramaster Baseline | | | env HAWSER_TOKEN (each its own) |
+  | Windows Updates | | WINDOWS_ANSIBLE_USER | env WINDOWS_ANSIBLE_PASSWORD |
+  | k8s and Talos Connection | | | env K8S_API_URL, K8S_CA_B64, K8S_TOKEN, TALOSCONFIG_B64 |
+
+  `PG_CONN_STR` is both a plain variable and a secret in "OpenTofu: Proxmox and Talos": which
+  one a task sees is Semaphore's choice; declaring the group keeps one (a secret, since it
+  holds a password). `TF_VAR_site` and `TF_VAR_dns` are JSON of site facts, which NetBox or
+  Key Vault templates may replace when their groups move. The easiest first: Synology and
+  Terramaster Baseline (one secret each), then k8s and Talos Connection (eight templates).
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 
