@@ -374,11 +374,12 @@ clone's secret-words list: a domain, a hostname, a name. The list is
 `<git common dir>/secret-words`, one copy that every worktree of the clone reads,
 and `scripts/secret_words.py` writes it from Key Vault. A Claude Code session
 refreshes it when it starts (`.claude/settings.json`), at most every 12 hours, so
-this PC and the Docker VM's container stay current on their own; a cloud session
-has no Key Vault access, so its hook says the rule is not armed.
+this PC, the Docker VM's container and cloud sessions (below) stay current on
+their own.
 
 - **A value a `cluster-secrets` variable holds:** add the variable's name to
-  `scripts/secret_words.toml`. The list follows the value when it changes.
+  `scripts/secret_words.toml`, then run `python scripts/secret_words_access.py
+  --apply` so cloud sessions can read it. The list follows the value when it changes.
 - **Any other word:** `python scripts/secret_words.py --add-from FILE` adds the
   words in FILE (one a line, `-` reads them typed in, ended by Ctrl-Z Enter on
   Windows or Ctrl-D elsewhere) to the Key Vault secret `SECRET-WORDS`, reads it
@@ -390,6 +391,43 @@ has no Key Vault access, so its hook says the rule is not armed.
 A word under 4 characters would match ordinary text, so it is left out and named
 by where it came from. A read Key Vault refuses or doesn't answer leaves the old
 list as it was. The vault, sign-in and roles are in the script's docstring.
+
+**Cloud sessions** sign in as `k8s-homelab-claude-cloud`, which reads only the
+secrets `secret_words.toml` names and writes only `SECRET-WORDS`, each role on its
+one secret. Its client secret never enters the session: the environment's
+network secret adds it to the sign-in, so a session can use it but can't copy it
+out. Once, on the PC (PowerShell, repo root):
+
+1. The principal, its client secret (ending 2027-10-31) and their Key Vault copies:
+
+   ```powershell
+   $app = az ad app create --display-name k8s-homelab-claude-cloud --sign-in-audience AzureADMyOrg | ConvertFrom-Json
+   az ad sp create --id $app.appId | Out-Null
+   $secret = az ad app credential reset --id $app.appId --display-name cloud-network-secret --end-date 2027-10-31 --query password -o tsv
+   ./scripts/keyvault-secrets.ps1 ENTRA_CLAUDE_CLOUD_CLIENT_ID -New -Raw -NoSync -Value $app.appId
+   ./scripts/keyvault-secrets.ps1 ENTRA_CLAUDE_CLOUD_CLIENT_SECRET -New -Raw -NoSync -Value $secret
+   Remove-Variable secret
+   ```
+
+2. Its roles: `python scripts/secret_words_access.py` reports what it lacks, and
+   `--apply` adds it and reads it back. It changes only this principal's roles on the
+   vault, and reports any it holds above the vault for you to remove.
+3. In the cloud environment's settings (claude.ai, Code):
+   - **Network access:** Custom, with `*.vault.azure.net` and `*.microsoftonline.com`
+     as allowed domains and the default list kept.
+   - **Network secret:** for `login.microsoftonline.com`, a username and password: the
+     client ID and the client secret, each copied with
+     `./scripts/keyvault-secrets.ps1 ENTRA_CLAUDE_CLOUD_CLIENT_SECRET -Get -Clipboard`
+     (and `ENTRA_CLAUDE_CLOUD_CLIENT_ID`).
+   - **Environment variables:** `AZURE_CLIENT_ID` (the client ID), `AZURE_TENANT_ID`
+     (`ENTRA_TENANT_ID`'s value), `AZURE_KEYVAULT_URL` (the vault's URL) and
+     `AZURE_CLIENT_SECRET_BY_PROXY=true`. No secret goes here: everyone using the
+     environment reads its variables.
+4. A new cloud session's start says `secret words: 37 (...)`; a refused sign-in names
+   the network secret.
+
+To renew the client secret, make a new one with `az ad app credential reset --id
+<client ID> --append`, then replace the network secret and Key Vault's copy.
 
 ### Bring the test environment up, and take it down
 
