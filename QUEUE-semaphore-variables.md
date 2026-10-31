@@ -8,6 +8,18 @@ templates); each new template has meant another group typed in from Key Vault or
 
 ## Settled
 
+- **One Key Vault secret per value, named for what it is when it's shared, and for its one user
+  when it's that user's alone** (the owner, 2026-10-31): a value several groups use has a generic
+  name (`NETBOX-URL`, not `TOFU-PROXMOX-TF-VAR-NETBOX-URL`); a credential made for one template
+  is named for it (`TOFU-PROXMOX-NETBOX-TOKEN`), so it can be rotated or revoked alone. A URL that
+  is only `<name>.<domain>` is a template on `BASE-DOMAIN` rather than a secret of its own. The
+  import's per-group names are a first copy: each moves to its lasting name once the sync's
+  report shows which hold the same value, and the copies are then deleted from Key Vault.
+- **Site facts belong in NetBox, not Key Vault**: `pihole_settings`, Proxmox Settings' ACME, NTP
+  and timezone values, the Debian baseline's admin login and management network become config
+  contexts on their tags, which the NetBox inventory hands each host; the group's copy goes in
+  the same step, since an extra variable outranks a host variable. Key Vault keeps secrets.
+
 - **A sync owns the groups: git says what each holds, Key Vault holds the values.**
   `scripts/semaphore_variable_groups.yaml` declares each group's extra variables and
   environment variables, each from one source: `keyvault: <SECRET-NAME>` (a secret by default),
@@ -90,10 +102,13 @@ templates); each new template has meant another group typed in from Key Vault or
     - [x] Debian Host Baseline (task 1458): 7 written; loki_push_password matched
       LOKI-PUSH-PASSWORD.
     - [x] Home Assistant IoT (task 1459): 6 written; HA_IOT_AREAS empty and unread since #352,
-      left out of the config (this PR).
-    - [ ] Netbox Sync, OpenTofu: Cloudflare,
-      OpenTofu: Proxmox and Talos, OpenTofu: Tailscale, Pi-Hole Settings, Proxmox Settings,
-      Synology Baseline, Terramaster Baseline, Windows Updates.
+      left out of the config (#493).
+    - [x] Netbox Sync (1461), OpenTofu: Cloudflare (1462), OpenTofu: Proxmox and Talos
+      (1463), OpenTofu: Tailscale (1464), Pi-Hole Settings (1465): every value written, read back.
+    - [ ] Proxmox Settings, Synology Baseline, Terramaster Baseline, Windows Updates.
+  - [ ] Then: the sync reports which Key Vault secrets the config names hold the same value
+    (names only), and whether a proposed template gives an imported value; the config moves
+    to one secret per value under the naming rule, and the site facts to NetBox.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 
