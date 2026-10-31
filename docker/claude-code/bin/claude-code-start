@@ -44,10 +44,10 @@ fi
 git -C "$repo" config core.hooksPath .githooks
 
 # A lane's worktree, made on first use with nothing checked out (its process
-# makes a branch per change), plus the local-only files the clone has and a
-# new worktree lacks: .secret-words for the commit hook, and the empty .github
-# the structure test expects. A lane that can't be made is reported and
-# skipped, not fatal: the other lanes still start.
+# makes a branch per change), plus the empty .github the structure test
+# expects, which a new worktree lacks. The commit hook's word list needs no
+# copy: it's the clone's, in the git folder every lane shares. A lane that
+# can't be made is reported and skipped, not fatal: the other lanes still start.
 ensure_lane() {
     local dir="$1"
     if [ ! -e "$dir" ]; then
@@ -59,9 +59,6 @@ ensure_lane() {
     if [ "$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" != "$(cd "$dir" && pwd -P)" ]; then
         echo "lane $dir: exists but isn't a git worktree; skipped"
         return 1
-    fi
-    if [ -f "$repo/.secret-words" ] && [ ! -e "$dir/.secret-words" ]; then
-        cp "$repo/.secret-words" "$dir/.secret-words"
     fi
     mkdir -p "$dir/.github"
 }

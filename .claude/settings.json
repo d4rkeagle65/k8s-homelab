@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "command -v py >/dev/null 2>&1 && p='py -3' || p=python3; $p \"$CLAUDE_PROJECT_DIR/scripts/secret_words.py\" --if-older 12 2>&1; exit 0",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
