@@ -28,7 +28,12 @@ cluster, and three JSON strings bundle values that are their own facts.
   variable reaches the cluster before what uses it and an entry reads only its own name: the
   new names, the Semaphore config and the Docker rename (this PR, after the owner adds
   `OWNER-GMAIL`, `OWNER-USERNAME` and `M365-RELAY-NOREPLY-EMAIL-ADDRESS`); then the cluster's
-  consumers and the old entries; then the owner deletes the old secrets
+  consumers and the old entries (#503 merged 2026-10-31; this PR the second: the Gmail and
+  username consumers on OWNER_GMAIL and OWNER_USERNAME, Termix's admin on OWNER-USERNAME; the
+  apps' own "admin" logins in cluster-settings, public, under their names: GRAFANA_ADMIN_USER and
+  QBITTORRENT_USERNAME, and the TerraMaster's in Termix's ExternalSecret template. Obsidian's
+  CouchDB login stays in Key Vault: its Secret reads it in data:, as base64, and that base64 is
+  in .secret-words); then the owner deletes the old secrets
   (`keyvault-secrets.ps1 -Delete`, which refuses while anything reads one). Each is a mapping change where the old
   name is read (`kubernetes/secrets/cluster-secrets.yaml`, an app's ExternalSecret, a Docker
   stack's `.env`, `scripts/semaphore_variable_groups.yaml`), the new secret made first by the
@@ -37,9 +42,9 @@ cluster, and three JSON strings bundle values that are their own facts.
   - `EUFY-HOMEASSISTANT-EMAIL`, `HA-IOT-TPLINK-USERNAME`, `WYZE-EMAIL`: one `OWNER-GMAIL`.
   - `GRIMMORY-ADMIN-USERNAME`, `ORGANIZR-ADMIN-USERNAME`, `TERMIX-SSH-ADMIN-USER`,
     `YOUTARR-ADMIN-USERNAME`, `DEBIAN-ADMIN-USER`: one owner's username secret.
-  - `GRAFANA-ADMIN-USER`, `OBSIDIAN-COUCHDB-ADMINUSERNAME`, `QBITTORRENT-USERNAME`,
-    `TERMIX-SSH-TERRAMASTER-USER`: the literal name in the manifests (it names nothing of the
-    site), their secrets deleted.
+  - `GRAFANA-ADMIN-USER`, `QBITTORRENT-USERNAME`, `TERMIX-SSH-TERRAMASTER-USER`: the literal
+    name in git (it names nothing of the site), their secrets deleted.
+    `OBSIDIAN-COUCHDB-ADMINUSERNAME` stays: its base64 form is in .secret-words.
   - `M365-SHARED-MAILBOX-ADDRESS` renamed `M365-RELAY-NOREPLY-EMAIL-ADDRESS`.
   - `PROXMOX-SETTINGS-ACME-EMAIL`: the template `{OWNER-EMAIL}`.
   - Not merged: `DATABASUS-KEA-DB-PASSWORD` and `DATABASUS-SEMAPHORE-DB-PASSWORD` are one role on
