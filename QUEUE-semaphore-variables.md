@@ -87,7 +87,11 @@ templates); each new template has meant another group typed in from Key Vault or
     Imported (template 39), each read back:
     - [x] k8s and Talos Connection (tasks 1455 dry, 1456): the three the owner wrote from the
       cluster matched Semaphore's; TALOSCONFIG_B64 written.
-    - [ ] Debian Host Baseline, Home Assistant IoT, Netbox Sync, OpenTofu: Cloudflare,
+    - [x] Debian Host Baseline (task 1458): 7 written; loki_push_password matched
+      LOKI-PUSH-PASSWORD.
+    - [x] Home Assistant IoT (task 1459): 6 written; HA_IOT_AREAS empty and unread since #352,
+      left out of the config (this PR).
+    - [ ] Netbox Sync, OpenTofu: Cloudflare,
       OpenTofu: Proxmox and Talos, OpenTofu: Tailscale, Pi-Hole Settings, Proxmox Settings,
       Synology Baseline, Terramaster Baseline, Windows Updates.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
