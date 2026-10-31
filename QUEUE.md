@@ -13,6 +13,11 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **Key Vault has no copy outside Azure until the first `-Export`** (`scripts/keyvault-secrets.ps1
+  -Export`, tested only against a mock vault): run it to a file off the repo, then `-Import` that
+  file without `-Apply` against the same vault, which should report every secret "the same".
+  Keep the file and its password apart, both off the workstation; until then, losing the vault
+  or its subscription loses every value the cluster and Dockhand read.
 - **n8n's "Zammad: close what's over" isn't imported yet** (`n8n/workflows/`): import it
   and run it once by hand (`n8n/README.md`). Its next version, and the bridge's replacement,
   are in `QUEUE-n8n-zammad.md`.

@@ -62,6 +62,17 @@ the script reads back and prints; until then a secret of that name can't be
 added. -Recover brings a deleted secret back, with the value it had, reads it
 back, and force-syncs cluster-secrets when that maps it.
 
+-Export FILE writes every secret in the vault, values included, to FILE,
+encrypted with a password typed twice (AES-256 with an HMAC, keys from
+PBKDF2-SHA256), then decrypts the file again and checks it holds every value
+read. FILE must be new and outside this repository, which is public. A disabled
+secret's value can't be read, so it's listed by name only. -Import FILE reads
+such a file and reports, by name, what it would add to the vault, what's the
+same and what differs; -Apply adds the missing ones, and -Overwrite also
+replaces the ones that differ (Key Vault keeps the old value as an earlier
+version). Each written value is read back. Neither touches the cluster, so on a
+rebuild name the new vault with -Vault. Values are never shown.
+
 A secret an app's own ExternalSecret reads straight from Key Vault (in a
 namespace opted in to the azure-keyvault store, not through cluster-secrets) is
 named by its Key Vault name, with "-" or "_"; the script says which files read
@@ -75,7 +86,7 @@ comes first. -New, which adds a secret, runs only with -Raw (scripts/README.md's
 
 It signs in as the Azure CLI's current account (az login), which needs "Key
 Vault Secrets Officer" on the vault to set, delete or recover a secret, or "Key
-Vault Secrets User" to list. The vault's URL comes from the azure-keyvault-bootstrap Secret
+Vault Secrets User" to list, read or -Export (-Import -Apply writes, so it needs Officer). The vault's URL comes from the azure-keyvault-bootstrap Secret
 in flux-system (or -Vault names the vault), the variable mapping and template
 from the live ExternalSecret, and the variable usage from the kubernetes/
 folder of this checkout. Run `git pull` first.
@@ -116,6 +127,14 @@ Deletes a secret nothing reads any more, once its name is typed.
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1 OLD_VARIABLE -Recover
 Brings a deleted secret back before its purge date.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 -Export D:\backup\keyvault-2026-10-31.json
+Writes every secret to an encrypted file, asking for its password twice.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 -Import D:\backup\keyvault-2026-10-31.json -Vault new-vault -Apply
+Adds the secrets a new vault lacks from that file, after a dry run without -Apply.
 #>
 [CmdletBinding()]
 param(
@@ -142,7 +161,18 @@ param(
     # once nothing reads it and its name is typed to confirm.
     [switch]$Delete,
     # Recover a deleted secret, with the value it had.
-    [switch]$Recover
+    [switch]$Recover,
+    # Write every secret, values included, to this file, encrypted with a password
+    # typed twice. The file must not exist yet, nor be inside this repository.
+    [string]$Export,
+    # Read a file -Export wrote and report what it would add to the vault; with
+    # -Apply, add them. Needs no cluster: name the vault with -Vault.
+    [string]$Import,
+    # With -Import: write what it reports, instead of only reporting.
+    [switch]$Apply,
+    # With -Import -Apply: also replace a secret the vault holds with a different
+    # value (Key Vault keeps the old value as an earlier version).
+    [switch]$Overwrite
 )
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -161,6 +191,14 @@ if ($Delete -or $Recover) {
     if ($others) { throw "$(if ($Delete) { '-Delete' } else { '-Recover' }) takes only a name (and -Vault, -NoSync): leave out -$($others -join ', -')." }
     if (-not $Name) { throw "$(if ($Delete) { '-Delete' } else { '-Recover' }) needs the name of the secret." }
 }
+if ($Export -or $Import) {
+    $mode = if ($Export) { '-Export' } else { '-Import' }
+    if ($Export -and $Import) { throw '-Export and -Import go in opposite directions: give one.' }
+    $others = @('Name', 'Value', 'Get', 'Raw', 'New', 'NoSync', 'Generate', 'Clipboard', 'Delete', 'Recover') | Where-Object { $PSBoundParameters.ContainsKey($_) }
+    if ($others) { throw "$mode takes only a file (and -Vault): leave out -$($others -join ', -')." }
+}
+if (($Apply -or $Overwrite) -and -not $Import) { throw '-Apply and -Overwrite go with -Import.' }
+if ($Overwrite -and -not $Apply) { throw '-Overwrite only changes what -Apply writes: give both.' }
 if ($Clipboard -and -not (Get-Command Set-Clipboard -ErrorAction SilentlyContinue)) {
     throw "-Clipboard needs Set-Clipboard, which this PowerShell doesn't have."
 }
@@ -407,6 +445,189 @@ function Get-VaultSecrets {
         $url = $result.Body.nextLink
     }
     $secrets
+}
+
+# The export file: JSON holding the format, PBKDF2's iteration count and salt, AES-256-CBC's
+# IV and ciphertext, and an HMAC-SHA256 over all of them (encrypt-then-MAC), so a wrong
+# password or a changed byte is caught before anything is decrypted. The keys are 64 bytes
+# of PBKDF2-SHA256 of the password: the first 32 encrypt, the last 32 authenticate. AES-GCM
+# would be simpler, but Windows PowerShell's .NET doesn't have it.
+$ExportFormat = 'homelab-keyvault-export'
+$ExportVersion = 1
+$ExportIterations = 600000
+
+function Read-Password([string]$prompt) {
+    $secure = Read-Host $prompt -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+}
+
+function Get-ExportKeys([string]$password, [byte[]]$salt, [int]$iterations) {
+    $kdf = [Security.Cryptography.Rfc2898DeriveBytes]::new([Text.Encoding]::UTF8.GetBytes($password), $salt, $iterations, [Security.Cryptography.HashAlgorithmName]::SHA256)
+    try { $bytes = $kdf.GetBytes(64) } finally { $kdf.Dispose() }
+    @{ Enc = [byte[]]$bytes[0..31]; Mac = [byte[]]$bytes[32..63] }
+}
+
+function Get-ExportMac([byte[]]$key, $file) {
+    $hmac = [Security.Cryptography.HMACSHA256]::new($key)
+    try {
+        $signed = @($file.format, $file.version, $file.iterations, $file.salt, $file.iv, $file.ciphertext) -join '|'
+        [Convert]::ToBase64String($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($signed)))
+    }
+    finally { $hmac.Dispose() }
+}
+
+function Protect-Export([string]$plain, [string]$password) {
+    $salt = [byte[]]::new(16)
+    $iv = [byte[]]::new(16)
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($salt); $rng.GetBytes($iv) } finally { $rng.Dispose() }
+    $keys = Get-ExportKeys $password $salt $ExportIterations
+    $bytes = [Text.Encoding]::UTF8.GetBytes($plain)
+    $aes = [Security.Cryptography.Aes]::Create()
+    try {
+        $aes.Mode = 'CBC'; $aes.Padding = 'PKCS7'; $aes.Key = $keys.Enc; $aes.IV = $iv
+        $encryptor = $aes.CreateEncryptor()
+        try { $cipher = $encryptor.TransformFinalBlock($bytes, 0, $bytes.Length) } finally { $encryptor.Dispose() }
+    }
+    finally { $aes.Dispose(); [Array]::Clear($bytes, 0, $bytes.Length) }
+    $file = [pscustomobject][ordered]@{
+        format = $ExportFormat; version = $ExportVersion; iterations = $ExportIterations
+        salt = [Convert]::ToBase64String($salt); iv = [Convert]::ToBase64String($iv)
+        ciphertext = [Convert]::ToBase64String($cipher); mac = ''
+    }
+    $file.mac = Get-ExportMac $keys.Mac $file
+    $file | ConvertTo-Json
+}
+
+# The decrypted text of an export file, once its MAC proves the password and the bytes.
+function Unprotect-Export([string]$path, [string]$password) {
+    try { $file = Get-Content -Raw -Encoding UTF8 -LiteralPath $path | ConvertFrom-Json }
+    catch { throw "$path isn't an export file: it isn't JSON." }
+    if ($file.format -ne $ExportFormat) { throw "$path isn't an export file (format '$($file.format)')." }
+    if ($file.version -ne $ExportVersion) { throw "$path is export version $($file.version); this script reads version $ExportVersion." }
+    if ([int]$file.iterations -lt 100000) { throw "$path asks for $($file.iterations) PBKDF2 iterations, too few to be one this script wrote." }
+    $keys = Get-ExportKeys $password ([Convert]::FromBase64String($file.salt)) ([int]$file.iterations)
+    $want = [Convert]::FromBase64String((Get-ExportMac $keys.Mac $file))
+    $have = [Convert]::FromBase64String([string]$file.mac)
+    # Compared in full, not stopping at the first difference.
+    $diff = $want.Length -bxor $have.Length
+    for ($i = 0; $i -lt [Math]::Min($want.Length, $have.Length); $i++) { $diff = $diff -bor ($want[$i] -bxor $have[$i]) }
+    if ($diff -ne 0) { throw "Wrong password, or $path was changed or damaged: nothing read from it." }
+    $cipher = [Convert]::FromBase64String($file.ciphertext)
+    $aes = [Security.Cryptography.Aes]::Create()
+    try {
+        $aes.Mode = 'CBC'; $aes.Padding = 'PKCS7'; $aes.Key = $keys.Enc; $aes.IV = [Convert]::FromBase64String($file.iv)
+        $decryptor = $aes.CreateDecryptor()
+        try { $bytes = $decryptor.TransformFinalBlock($cipher, 0, $cipher.Length) } finally { $decryptor.Dispose() }
+    }
+    finally { $aes.Dispose() }
+    try { [Text.Encoding]::UTF8.GetString($bytes) } finally { [Array]::Clear($bytes, 0, $bytes.Length) }
+}
+
+# A path as given, made absolute against the current folder.
+function Resolve-ExportPath([string]$given) {
+    [IO.Path]::GetFullPath($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($given))
+}
+
+if ($Export) {
+    $path = Resolve-ExportPath $Export
+    # This repository is public: a file inside it is one `git add` from being published,
+    # encrypted or not.
+    $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd('\', '/')
+    foreach ($sep in [IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) {
+        if ($path.StartsWith("$repo$sep", [StringComparison]::OrdinalIgnoreCase)) { throw "$path is inside this repository, which is public: export outside it." }
+    }
+    if (Test-Path -LiteralPath $path) { throw "$path already exists: export to a new file." }
+    $folder = Split-Path -Parent $path
+    if (-not (Test-Path -LiteralPath $folder -PathType Container)) { throw "There's no folder $folder." }
+    $vaultUrl = Get-VaultUrl
+    $token = Get-AccessToken
+    $password = Read-Password 'A password for the export (at least 12 characters)'
+    if ($password.Length -lt 12) { throw 'The password is shorter than 12 characters; nothing exported.' }
+    if ((Read-Password 'The same password again') -cne $password) { throw "The two passwords differ; nothing exported." }
+    $inVault = Get-VaultSecrets
+    $secrets = [Collections.Generic.List[object]]::new()
+    $disabled = [Collections.Generic.List[string]]::new()
+    foreach ($secretName in $inVault.Keys) {
+        $read = Invoke-KeyVault GET (Get-SecretUrl $secretName) $null
+        if ($read.Status -eq 200) {
+            $secrets.Add([ordered]@{ name = $secretName; value = [string]$read.Body.value; contentType = $read.Body.contentType; tags = $read.Body.tags })
+            continue
+        }
+        # A disabled secret's value can't be read (403): it's listed by name only.
+        if (-not $inVault[$secretName] -and $read.Status -eq 403) { $disabled.Add($secretName); continue }
+        throw "Key Vault refused to read $secretName`: HTTP $($read.Status) $(Get-ErrorCode $read), so the export would be incomplete; nothing written."
+    }
+    $plain = [ordered]@{ vault = $vaultUrl; exported = (Get-Date).ToUniversalTime().ToString('o'); secrets = $secrets.ToArray(); disabled = $disabled.ToArray() } |
+        ConvertTo-Json -Depth 6 -Compress
+    [IO.File]::WriteAllText($path, (Protect-Export $plain $password), [Text.UTF8Encoding]::new($false))
+    # Read back: the file as written decrypts with the password and holds every value read.
+    $back = (Unprotect-Export $path $password) | ConvertFrom-Json
+    $wrote = @{}
+    foreach ($s in @($back.secrets)) { $wrote[$s.name] = Get-Sha256 $s.value }
+    $missing = @($secrets | Where-Object { $wrote[$_.name] -ne (Get-Sha256 $_.value) } | ForEach-Object { $_.name })
+    if ($wrote.Count -ne $secrets.Count -or $missing) {
+        throw "Read back, $path doesn't hold what was read ($($wrote.Count) of $($secrets.Count) secrets$(if ($missing) { "; different: $($missing -join ', ')" })): don't rely on it."
+    }
+    Write-Host "Exported $($secrets.Count) secrets from $vaultUrl to $path ($([Math]::Ceiling((Get-Item -LiteralPath $path).Length / 1KB)) KB), read back with the password."
+    if ($disabled.Count) { Write-Warning "$($disabled.Count) disabled, so their values can't be read and aren't in it: $($disabled -join ', ')" }
+    Write-Host 'Keep the file and its password apart, both off this machine; without the password the file is useless.'
+    return
+}
+
+if ($Import) {
+    $path = Resolve-ExportPath $Import
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "There's no file $path." }
+    $vaultUrl = Get-VaultUrl
+    $token = Get-AccessToken
+    $data = (Unprotect-Export $path (Read-Password "The password for $path")) | ConvertFrom-Json
+    $imported = @($data.secrets)
+    Write-Host "$path holds $($imported.Count) secrets, exported from $($data.vault) at $($data.exported); into $vaultUrl."
+    if (@($data.disabled).Count) { Write-Warning "$(@($data.disabled).Count) were disabled at export, so their values aren't in the file: $(@($data.disabled) -join ', ')" }
+    # What each would do: add (absent here), same, differs, deleted (held as deleted here,
+    # so it can't be added until recovered or purged), or unreadable (disabled here).
+    $plan = foreach ($s in $imported) {
+        $read = Invoke-KeyVault GET (Get-SecretUrl $s.name) $null
+        $action = if ($read.Status -eq 200) { if ((Get-Sha256 $read.Body.value) -eq (Get-Sha256 $s.value)) { 'same' } else { 'differs' } }
+                  elseif ($read.Status -eq 403) { 'unreadable' }
+                  elseif ($read.Status -eq 404) {
+                      $held = Invoke-KeyVault GET (Get-DeletedSecretUrl $s.name '') $null
+                      if ($held.Status -eq 200) { 'deleted' } elseif ($held.Status -eq 404) { 'add' }
+                      else { throw "Key Vault refused to read deleted $($s.name): HTTP $($held.Status) $(Get-ErrorCode $held); nothing written." }
+                  }
+                  else { throw "Key Vault refused to read $($s.name): HTTP $($read.Status) $(Get-ErrorCode $read); nothing written." }
+        [pscustomobject]@{ Secret = $s; Action = $action }
+    }
+    $plan = @($plan)
+    $count = { param($a) @($plan | Where-Object Action -eq $a).Count }
+    Write-Host "$(& $count 'add') to add, $(& $count 'differs') different here, $(& $count 'same') the same, $(& $count 'deleted') held as deleted here, $(& $count 'unreadable') disabled here."
+    foreach ($p in $plan | Where-Object Action -ne 'same') {
+        $note = switch ($p.Action) {
+            'add' { 'add' }
+            'differs' { if ($Overwrite) { 'replace' } else { 'differs, kept (-Overwrite replaces it)' } }
+            'deleted' { 'held as deleted here: -Recover it, or purge it, first' }
+            'unreadable' { 'disabled here: left alone' }
+        }
+        Write-Host "  $($p.Secret.name): $note"
+    }
+    $writes = @($plan | Where-Object { $_.Action -eq 'add' -or ($_.Action -eq 'differs' -and $Overwrite) })
+    if (-not $Apply) { Write-Host "Dry run: nothing written (-Apply writes the $($writes.Count))."; return }
+    $failed = [Collections.Generic.List[string]]::new()
+    foreach ($p in $writes) {
+        $s = $p.Secret
+        $body = @{ value = [string]$s.value }
+        if ($s.contentType) { $body.contentType = $s.contentType }
+        if ($s.tags) { $body.tags = $s.tags }
+        $put = Invoke-KeyVault PUT (Get-SecretUrl $s.name) $body
+        if ($put.Status -ne 200) { $failed.Add("$($s.name) (HTTP $($put.Status) $(Get-ErrorCode $put))"); continue }
+        $back = Invoke-KeyVault GET (Get-SecretUrl $s.name) $null
+        if ($back.Status -ne 200 -or (Get-Sha256 $back.Body.value) -ne (Get-Sha256 $s.value)) { $failed.Add("$($s.name) (read back HTTP $($back.Status), or a different value)") }
+    }
+    Write-Host "Wrote $($writes.Count - $failed.Count) of $($writes.Count), each read back."
+    if ($failed.Count) { throw "Not written or not read back: $($failed -join '; ')" }
+    return
 }
 
 $es = kubectl get externalsecret cluster-secrets -n flux-system -o json | ConvertFrom-Json
