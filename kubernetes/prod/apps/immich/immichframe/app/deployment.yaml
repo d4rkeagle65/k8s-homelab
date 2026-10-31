@@ -91,7 +91,14 @@ spec:
         - name: secrets
           mountPath: /app/secrets
           readOnly: true
+        # DownloadImages (admin UI) caches images here; the rest of /app is the image's
+        # and not writable. Emptied when the pod restarts, which a cache can live with.
+        - name: image-cache
+          mountPath: /app/ImageCache
       volumes:
+      - name: image-cache
+        emptyDir:
+          sizeLimit: 2Gi
       - name: config
         persistentVolumeClaim:
           claimName: immichframe-config
