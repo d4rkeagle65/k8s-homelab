@@ -5,10 +5,12 @@ kind: Kustomization
 resources:
 - cluster-immich-postgres.yaml
 - deployment-immich-power-tools.yaml
+- externalsecret-immich-redis.yaml
 - ingress-immich-cloudflared.yaml
 - ingress-immich-power-tools-ingress.yaml
 - persistentvolumeclaim-immich-data.yaml
 - secret-immich-postgres-superuser.yaml
 - secret-immich-power-tools-apikey.yaml
-- secret-immich-redis-url.yaml
+- secretstore-redis-ha.yaml
 - service-immich-power-tools-svc.yaml
+- serviceaccount-immich-redis-reader.yaml

@@ -34,19 +34,18 @@ cluster, and three JSON strings bundle values that are their own facts.
   passwords (made to differ at the next rotation).
 - [ ] **2. Passwords generated in the cluster.** Traced 2026-10-31 (live pod specs, values compared
   yes/no only):
-  - [ ] Authentik's and Immich's `redis-password` Secrets: no pod reads either (Authentik no longer
-    uses Redis; Immich reaches redis-ha through its `REDIS_URL`); their ExternalSecrets are gone
-    (#511). Left, both the owner's: the live Secrets, prune-protected
-    (`kubectl -n authentik delete secret redis-password`, the same in `immich`), and
-    `AUTHENTIK-REDIS-PASSWORD-PASSWORD`, `IMMICH-REDIS-PASSWORD-PASSWORD` from Key Vault.
-  - [ ] redis-ha: `redis-ha-creds`' `auth` and `sentinel-password` are one value, and Immich's
-    `REDIS_URL` (`ioredis://`, a base64 JSON of the three Sentinels, `mymaster`, `password` and
-    `sentinelPassword`) holds it twice. Both from Password generators in redis-ha (each its own,
-    `refreshInterval: 0`, made once), Immich's URL built from them by an ExternalSecret reading
-    redis-ha-creds through a Kubernetes-provider store (read on that one Secret), the Sentinels
-    named with `${CLUSTER_DOMAIN}`. Its merge restarts redis-ha and Immich's server and machine
-    learning together, so the owner picks the time. Then `REDIS-HA-CREDS-AUTH`,
-    `-SENTINEL-PASSWORD` and `IMMICH-REDIS-URL-REDIS-URL` go from cluster-secrets and Key Vault.
+  - [x] Authentik's and Immich's unused `redis-password` Secrets (#511), live and in Key Vault.
+  - [ ] redis-ha (this PR, merged when the owner picks; it restarts redis-ha and Immich): a
+    Password generator makes `redis-ha-auth` (`auth`, `sentinel-password`, each its own,
+    `refreshPolicy: CreatedOnce`), and Immich's `immich-redis` builds its `REDIS_URL` from it
+    through a Kubernetes-provider SecretStore that may read only that Secret. After merge: check
+    both ExternalSecrets ready, the two passwords differ (yes/no), redis-ha has one master and two
+    replicas linked, and Immich's server and machine learning run on the new Secret (its jobs page:
+    re-run "missing" if a queue was lost in the roll). Then by hand the old prune-protected
+    `redis-ha/redis-ha-creds` and `immich/immich-redis-url` (capture would write the second back
+    into `immich-extras` while it is live); then a PR removing `REDIS_HA_CREDS_AUTH`,
+    `REDIS_HA_CREDS_SENTINEL_PASSWORD` and `IMMICH_REDIS_URL_REDIS_URL` from cluster-secrets; then
+    the owner deletes those three from Key Vault.
   - [ ] Then the app secret keys in Key Vault that nothing outside the cluster reads.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity

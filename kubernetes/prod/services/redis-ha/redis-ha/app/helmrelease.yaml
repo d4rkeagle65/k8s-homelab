@@ -18,7 +18,7 @@ spec:
   values:
     auth: true
     authKey: auth
-    existingSecret: redis-ha-creds
+    existingSecret: redis-ha-auth
     hardAntiAffinity: true
     image:
       repository: public.ecr.aws/docker/library/redis
@@ -57,7 +57,7 @@ spec:
           memory: 256Mi
       auth: true
       authKey: sentinel-password
-      existingSecret: redis-ha-creds
+      existingSecret: redis-ha-auth
   commonMetadata:
     labels:
       homelab.local/env: prod

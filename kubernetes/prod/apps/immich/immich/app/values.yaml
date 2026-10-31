@@ -20,7 +20,7 @@ controllers:
             valueFrom:
               secretKeyRef:
                 key: REDIS_URL
-                name: immich-redis-url
+                name: immich-redis
         image:
           repository: ghcr.io/immich-app/immich-server
           tag: v3.3.5
