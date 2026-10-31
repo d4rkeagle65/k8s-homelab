@@ -24,6 +24,18 @@ auth_oidc:
   features:
     default_redirect: true
 
+# Dashboards kept in git (app/dashboards/; kustomization.yaml says how they arrive).
+# The others are made in the UI and stay there: storage stays the default mode. A
+# url_path needs a hyphen.
+lovelace:
+  dashboards:
+    front-door:
+      mode: yaml
+      title: Front Door
+      icon: mdi:door
+      show_in_sidebar: true
+      filename: dashboards/front-door.yaml
+
 # The Prometheus endpoint (/api/prometheus), scraped from the cluster with a
 # long-lived token (monitors/scrapeconfig-homeassistant.yaml).
 prometheus:
