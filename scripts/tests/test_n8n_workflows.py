@@ -335,6 +335,11 @@ def test_tickets_in_writes_only_with_write_on_and_answers_after_its_last_node():
     assert "onError" not in nodes["Zammad: write"] and "onError" not in nodes["Zammad: open tickets"]
     assert nodes["Alertmanager"]["parameters"]["authentication"] == "headerAuth"
     assert nodes["Alertmanager"]["parameters"]["responseMode"] == "lastNode"  # a failure is a 500: it's sent again
+    # ...and a run with nothing to write, its last node giving no item, answers 200 with no
+    # body rather than n8n's 500 "No item to return", which Alertmanager would retry and
+    # Semaphore logs as a failed alert.
+    for name in ("Alertmanager", "Semaphore", "Databasus"):
+        assert nodes[name]["parameters"].get("responseData") == "noData", name
     for name in ("Semaphore", "Databasus"):
         p = nodes[name]["parameters"]
         assert p["authentication"] == "basicAuth" and p["responseMode"] == "lastNode" and nodes[name].get("webhookId")
