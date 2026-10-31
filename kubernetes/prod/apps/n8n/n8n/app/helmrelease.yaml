@@ -79,7 +79,7 @@ spec:
               - name: N8N_RUNNERS_AUTH_TOKEN
                 valueFrom:
                   secretKeyRef:
-                    name: n8n
+                    name: n8n-runners
                     key: runners-auth-token
               - name: N8N_NATIVE_PYTHON_RUNNER
                 value: "true"
@@ -139,7 +139,7 @@ spec:
               - name: N8N_RUNNERS_AUTH_TOKEN
                 valueFrom:
                   secretKeyRef:
-                    name: n8n
+                    name: n8n-runners
                     key: runners-auth-token
             # The launcher's health server (/healthz on 5680, on the pod's
             # address), not the runners' own (5681, off unless enabled).

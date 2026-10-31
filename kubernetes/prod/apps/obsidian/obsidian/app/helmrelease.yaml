@@ -42,7 +42,7 @@ spec:
     createAdminSecret: false
     dns:
       clusterDomainSuffix: ${CLUSTER_DOMAIN}
-    extraSecretName: obsidian-couchdb
+    extraSecretName: obsidian-couchdb-auth
     image:
       repository: couchdb
       tag: 3.5.3

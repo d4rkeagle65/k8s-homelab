@@ -17,7 +17,8 @@ spec:
     kind: GitRepository
     name: flux-system
   targetNamespace: homepage
-  dependsOn: []
+  dependsOn:
+  - name: external-secrets
   postBuild:
     substituteFrom:
     - kind: ConfigMap

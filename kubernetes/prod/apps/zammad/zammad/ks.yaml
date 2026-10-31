@@ -23,6 +23,7 @@ spec:
   - name: cnpg
   - name: plugin-barman-cloud
   - name: eck-operator
+  - name: external-secrets
   postBuild:
     substituteFrom:
     - kind: ConfigMap

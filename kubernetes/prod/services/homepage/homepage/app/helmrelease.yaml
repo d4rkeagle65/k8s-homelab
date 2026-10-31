@@ -53,6 +53,8 @@ spec:
             envFrom:
               - secretRef:
                   name: homepage
+              - secretRef:
+                  name: homepage-auth
             resources:
               requests: {cpu: 60m, memory: 288Mi}
               limits: {cpu: 1000m, memory: 640Mi}
