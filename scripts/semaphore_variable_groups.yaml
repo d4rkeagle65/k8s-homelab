@@ -7,7 +7,8 @@
 #   {template: "text"}      the text with each {NAME} replaced by Key Vault's secret NAME
 #                           (https://n8n.{BASE-DOMAIN}), so no domain or address is written here
 #   {value: x}              x as it is: only what names nothing of the site (a flag, a count)
-# and `secret: true` or `false` to override where Semaphore keeps it. A Python template gets a
+# and `secret: true` or `false` to override where Semaphore keeps it; `json: true` on an extra
+# variable from Key Vault reads the secret as JSON (a list, an object, a flag). A Python template gets a
 # group's extra variables as arguments, which its scripts refuse: give those `environment:` only.
 #
 # A group is written only with `managed: true`, and then exactly as declared: what it holds
@@ -29,3 +30,123 @@ groups:
       DATABASUS_ALERT_TOKEN: {keyvault: DATABASUS-ALERT-TOKEN}
       DOCKHAND_ALERT_TOKEN: {keyvault: DOCKHAND-ALERT-TOKEN}
       LOKI_PUSH_PASSWORD: {keyvault: LOKI-PUSH-PASSWORD}
+
+  # ansible/README.md, "The Synology": the Hawser token Dockhand's environment for the Synology holds.
+  Synology Baseline:
+    managed: false
+    environment:
+      HAWSER_TOKEN: {keyvault: HAWSER-TOKEN-SYNOLOGY}
+
+  # ansible/README.md, "The TerraMaster": the Hawser token Dockhand's environment for it holds.
+  Terramaster Baseline:
+    managed: false
+    environment:
+      HAWSER_TOKEN: {keyvault: HAWSER-TOKEN-TERRAMASTER}
+
+  # ansible/windows-update.yml: the account it signs in to the Windows hosts with.
+  Windows Updates:
+    managed: false
+    environment:
+      WINDOWS_ANSIBLE_USER: {keyvault: WINDOWS-ANSIBLE-USER, secret: false}
+      WINDOWS_ANSIBLE_PASSWORD: {keyvault: WINDOWS-ANSIBLE-PASSWORD}
+
+  # ansible/README.md, step 4: Semaphore's access to the cluster (cluster-access/semaphore,
+  # which reads no Secrets) and an os:admin talosconfig, for the templates that check the
+  # cluster or drain nodes.
+  k8s and Talos Connection:
+    managed: false
+    environment:
+      K8S_API_URL: {keyvault: SEMAPHORE-K8S-API-URL}
+      K8S_CA_B64: {keyvault: SEMAPHORE-K8S-CA-B64}
+      K8S_TOKEN: {keyvault: SEMAPHORE-K8S-TOKEN}
+      TALOSCONFIG_B64: {keyvault: SEMAPHORE-TALOSCONFIG-B64}
+
+  # ansible/README.md, "Debian Host Baseline". Its extra variables are JSON in Key Vault
+  # (json: true), since some are lists; plain where they're plain today, so the sync can
+  # compare them.
+  Debian Host Baseline:
+    managed: false
+    variables:
+      admin_ssh_keys: {keyvault: DEBIAN-ADMIN-SSH-KEYS, json: true, secret: false}
+      admin_sudo_nopasswd: {keyvault: DEBIAN-ADMIN-SUDO-NOPASSWD, json: true, secret: false}
+      admin_user: {keyvault: DEBIAN-ADMIN-USER, json: true, secret: false}
+      host_alloy: {keyvault: DEBIAN-HOST-ALLOY, json: true, secret: false}
+      host_exporters: {keyvault: DEBIAN-HOST-EXPORTERS, json: true, secret: false}
+      loki_push_url: {keyvault: DEBIAN-LOKI-PUSH-URL, json: true, secret: false}
+      management_network: {keyvault: DEBIAN-MANAGEMENT-NETWORK, json: true, secret: false}
+    environment:
+      loki_push_password: {keyvault: LOKI-PUSH-PASSWORD}
+
+  # scripts/ha_iot_setup.py ("Sync: NetBox IoT → Home Assistant (script)").
+  Home Assistant IoT:
+    managed: false
+    environment:
+      HA_IOT_AREAS: {keyvault: HA-IOT-AREAS}
+      HA_TOKEN: {keyvault: HA-IOT-HA-TOKEN}
+      HA_URL: {keyvault: HA-IOT-HA-URL}
+      NETBOX_API: {keyvault: HA-IOT-NETBOX-API}
+      NETBOX_TOKEN: {keyvault: HA-IOT-NETBOX-TOKEN}
+      TPLINK_PASSWORD: {keyvault: HA-IOT-TPLINK-PASSWORD}
+      TPLINK_USERNAME: {keyvault: HA-IOT-TPLINK-USERNAME}
+
+  # scripts/netbox_seed.py and scripts/netbox_guests.py.
+  Netbox Sync:
+    managed: false
+    environment:
+      KEA_URL: {keyvault: NETBOX-SYNC-KEA-URL, secret: false}
+      PROXMOX_URL: {keyvault: NETBOX-SYNC-PROXMOX-URL, secret: false}
+      GITHUB_TOKEN: {keyvault: NETBOX-SYNC-GITHUB-TOKEN}
+      KEA_API: {keyvault: NETBOX-SYNC-KEA-API}
+      NETBOX_WRITE_TOKEN: {keyvault: NETBOX-SYNC-NETBOX-WRITE-TOKEN}
+      PROXMOX_TOKEN: {keyvault: NETBOX-SYNC-PROXMOX-TOKEN}
+
+  # tofu/cloudflare/.
+  "OpenTofu: Cloudflare":
+    managed: false
+    environment:
+      CLOUDFLARE_API_TOKEN: {keyvault: TOFU-CLOUDFLARE-API-TOKEN}
+      PG_CONN_STR: {keyvault: TOFU-CLOUDFLARE-PG-CONN-STR}
+      TF_VAR_dns: {keyvault: TOFU-CLOUDFLARE-TF-VAR-DNS}
+
+  # tofu/proxmox/. PG_CONN_STR is both plain and secret here today: the import takes the one
+  # a task sees, and the group keeps it as a secret only.
+  "OpenTofu: Proxmox and Talos":
+    managed: false
+    environment:
+      PROXMOX_VE_ENDPOINT: {keyvault: TOFU-PROXMOX-VE-ENDPOINT, secret: false}
+      TF_VAR_netbox_url: {keyvault: TOFU-PROXMOX-TF-VAR-NETBOX-URL, secret: false}
+      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR}
+      PROXMOX_VE_API_TOKEN: {keyvault: TOFU-PROXMOX-VE-API-TOKEN}
+      TF_VAR_netbox_token: {keyvault: TOFU-PROXMOX-TF-VAR-NETBOX-TOKEN}
+      TF_VAR_site: {keyvault: TOFU-PROXMOX-TF-VAR-SITE}
+      TF_VAR_talos_secrets: {keyvault: TOFU-PROXMOX-TF-VAR-TALOS-SECRETS}
+
+  # tofu/tailscale/.
+  "OpenTofu: Tailscale":
+    managed: false
+    environment:
+      PG_CONN_STR: {keyvault: TOFU-TAILSCALE-PG-CONN-STR, secret: false}
+      TF_VAR_netbox_url: {keyvault: TOFU-TAILSCALE-TF-VAR-NETBOX-URL, secret: false}
+      TAILSCALE_OAUTH_CLIENT_ID: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-ID}
+      TAILSCALE_OAUTH_CLIENT_SECRET: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-SECRET}
+      TF_VAR_netbox_token: {keyvault: TOFU-TAILSCALE-TF-VAR-NETBOX-TOKEN}
+
+  # ansible/pihole-setting.yml.
+  Pi-Hole Settings:
+    managed: false
+    variables:
+      pihole_settings: {keyvault: PIHOLE-SETTINGS, json: true, secret: false}
+
+  # ansible/proxmox-setting.yml.
+  Proxmox Settings:
+    managed: false
+    variables:
+      acme_cf_zone_id: {keyvault: PROXMOX-SETTINGS-ACME-CF-ZONE-ID, json: true, secret: false}
+      acme_domain: {keyvault: PROXMOX-SETTINGS-ACME-DOMAIN, json: true, secret: false}
+      acme_email: {keyvault: PROXMOX-SETTINGS-ACME-EMAIL, json: true, secret: false}
+      lxc_timezone: {keyvault: PROXMOX-SETTINGS-LXC-TIMEZONE, json: true, secret: false}
+      nas_block_initialise: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-INITIALISE, json: true, secret: false}
+      nas_block_portal: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-PORTAL, json: true, secret: false}
+      nas_block_target: {keyvault: PROXMOX-SETTINGS-NAS-BLOCK-TARGET, json: true, secret: false}
+      ntp_serve_networks: {keyvault: PROXMOX-SETTINGS-NTP-SERVE-NETWORKS, json: true, secret: false}
+      acme_cf_token: {keyvault: PROXMOX-SETTINGS-ACME-CF-TOKEN, json: true}

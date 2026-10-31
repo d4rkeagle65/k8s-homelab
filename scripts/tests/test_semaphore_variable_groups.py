@@ -190,3 +190,23 @@ def test_the_real_config_loads_and_gives_the_alerting_test_what_it_reads():
     group = config["groups"]["Alerting Test"]
     reads = {"ZAMMAD_URL", "ZAMMAD_API_TOKEN"} | {v for needs in alerting.NEEDS.values() for v in needs}
     assert set(group["environment"]) == reads and not group.get("variables")  # a Python template: environment only
+
+
+JSON_CONFIG = """project: Homelab
+groups:
+  Thing:
+    managed: true
+    variables:
+      keys: {keyvault: KEYS, json: true, secret: false}
+"""
+
+
+def test_json_true_reads_a_list_from_key_vault_and_bad_json_stops_the_group(monkeypatch, tmp_path, capsys):
+    fake = Fake(vault=dict(VAULT, KEYS='["ssh-ed25519 <a>", "ssh-ed25519 <b>"]'))
+    assert run(monkeypatch, tmp_path, fake, JSON_CONFIG) == 0
+    assert json.loads(fake.writes[0][1]["json"]) == {"keys": ["ssh-ed25519 <a>", "ssh-ed25519 <b>"]}
+    fake = Fake(vault=dict(VAULT, KEYS="not json"))
+    assert run(monkeypatch, tmp_path, fake, JSON_CONFIG) == 1 and fake.writes == []
+    assert "KEYS: not JSON" in capsys.readouterr().out
+    bad = JSON_CONFIG.replace("variables:", "environment:")
+    assert run(monkeypatch, tmp_path, Fake(), bad) == 2  # json is for an extra variable
