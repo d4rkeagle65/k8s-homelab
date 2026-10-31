@@ -385,6 +385,9 @@ function Get-AccessToken {
 # One Key Vault REST call: its HTTP status and JSON body, an error's too. Works
 # in Windows PowerShell and PowerShell 7, which report an HTTP error differently.
 function Invoke-KeyVault([string]$Method, [string]$Url, $Body) {
+    # Invoke-WebRequest's own progress bar would draw over the script's at every call, and
+    # slows Windows PowerShell's downloads; set here, it ends with this function.
+    $ProgressPreference = 'SilentlyContinue'
     $params = @{ Method = $Method; Uri = $Url; Headers = @{ Authorization = "Bearer $script:token" }; UseBasicParsing = $true }
     if ($null -ne $Body) {
         $params.Body = [Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Compress))
@@ -431,12 +434,31 @@ function Wait-KeyVault([string]$url, [int]$want) {
     $result
 }
 
+# A progress bar for a run's long steps: $done of $total, with the time left estimated
+# from the pace so far ($started, when the step began). Write-Progress draws on the
+# console only, never into the output, and PowerShell clears it when the script ends.
+function Show-Progress([string]$activity, [int]$done, [int]$total, [string]$current, [datetime]$started) {
+    $progress = @{ Id = 1; Activity = $activity; Status = "$done of $total$(if ($current) { ": $current" })" }
+    if ($total -gt 0) {
+        $progress.PercentComplete = [Math]::Min(100, [int](100 * $done / $total))
+        if ($done -gt 0) { $progress.SecondsRemaining = [int](((Get-Date) - $started).TotalSeconds / $done * ($total - $done)) }
+    }
+    Write-Progress @progress
+}
+
+# A step whose length isn't known, such as deriving the keys, shown by name alone.
+function Show-Step([string]$activity, [string]$status) { Write-Progress -Id 1 -Activity $activity -Status $status }
+
 # Every secret in the vault: name -> enabled. Names compare without case, as
-# Key Vault's do.
+# Key Vault's do. Key Vault sends 25 a page and doesn't say how many there are, so the
+# progress shown is the pages read so far.
 function Get-VaultSecrets {
     $secrets = [ordered]@{}
     $url = "$vaultUrl/secrets?api-version=$ApiVersion&maxresults=25"
+    $page = 0
     while ($url) {
+        $page++
+        Show-Step 'Listing the vault' "page $page, $($secrets.Count) secrets so far"
         $result = Invoke-KeyVault GET $url $null
         if ($result.Status -ne 200) { throw "Key Vault refused the list of secrets: HTTP $($result.Status) $(Get-ErrorCode $result)" }
         foreach ($item in @($result.Body.value)) {
@@ -444,6 +466,7 @@ function Get-VaultSecrets {
         }
         $url = $result.Body.nextLink
     }
+    Write-Progress -Id 1 -Activity 'Listing the vault' -Completed
     $secrets
 }
 
@@ -550,7 +573,11 @@ if ($Export) {
     $inVault = Get-VaultSecrets
     $secrets = [Collections.Generic.List[object]]::new()
     $disabled = [Collections.Generic.List[string]]::new()
+    $started = Get-Date
+    $done = 0
     foreach ($secretName in $inVault.Keys) {
+        Show-Progress 'Exporting: reading each secret' $done $inVault.Count $secretName $started
+        $done++
         $read = Invoke-KeyVault GET (Get-SecretUrl $secretName) $null
         if ($read.Status -eq 200) {
             $secrets.Add([ordered]@{ name = $secretName; value = [string]$read.Body.value; contentType = $read.Body.contentType; tags = $read.Body.tags })
@@ -562,9 +589,12 @@ if ($Export) {
     }
     $plain = [ordered]@{ vault = $vaultUrl; exported = (Get-Date).ToUniversalTime().ToString('o'); secrets = $secrets.ToArray(); disabled = $disabled.ToArray() } |
         ConvertTo-Json -Depth 6 -Compress
+    Show-Step 'Exporting' 'Encrypting the file (deriving the key from the password takes a few seconds)'
     [IO.File]::WriteAllText($path, (Protect-Export $plain $password), [Text.UTF8Encoding]::new($false))
     # Read back: the file as written decrypts with the password and holds every value read.
+    Show-Step 'Exporting' 'Reading the file back with the password'
     $back = (Unprotect-Export $path $password) | ConvertFrom-Json
+    Write-Progress -Id 1 -Activity 'Exporting' -Completed
     $wrote = @{}
     foreach ($s in @($back.secrets)) { $wrote[$s.name] = Get-Sha256 $s.value }
     $missing = @($secrets | Where-Object { $wrote[$_.name] -ne (Get-Sha256 $_.value) } | ForEach-Object { $_.name })
@@ -582,13 +612,19 @@ if ($Import) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "There's no file $path." }
     $vaultUrl = Get-VaultUrl
     $token = Get-AccessToken
-    $data = (Unprotect-Export $path (Read-Password "The password for $path")) | ConvertFrom-Json
+    $password = Read-Password "The password for $path"
+    Show-Step 'Importing' 'Decrypting the file (deriving the key from the password takes a few seconds)'
+    $data = (Unprotect-Export $path $password) | ConvertFrom-Json
     $imported = @($data.secrets)
     Write-Host "$path holds $($imported.Count) secrets, exported from $($data.vault) at $($data.exported); into $vaultUrl."
     if (@($data.disabled).Count) { Write-Warning "$(@($data.disabled).Count) were disabled at export, so their values aren't in the file: $(@($data.disabled) -join ', ')" }
     # What each would do: add (absent here), same, differs, deleted (held as deleted here,
     # so it can't be added until recovered or purged), or unreadable (disabled here).
+    $started = Get-Date
+    $done = 0
     $plan = foreach ($s in $imported) {
+        Show-Progress 'Importing: comparing with the vault' $done $imported.Count $s.name $started
+        $done++
         $read = Invoke-KeyVault GET (Get-SecretUrl $s.name) $null
         $action = if ($read.Status -eq 200) { if ((Get-Sha256 $read.Body.value) -eq (Get-Sha256 $s.value)) { 'same' } else { 'differs' } }
                   elseif ($read.Status -eq 403) { 'unreadable' }
@@ -601,6 +637,7 @@ if ($Import) {
         [pscustomobject]@{ Secret = $s; Action = $action }
     }
     $plan = @($plan)
+    Write-Progress -Id 1 -Activity 'Importing' -Completed
     $count = { param($a) @($plan | Where-Object Action -eq $a).Count }
     Write-Host "$(& $count 'add') to add, $(& $count 'differs') different here, $(& $count 'same') the same, $(& $count 'deleted') held as deleted here, $(& $count 'unreadable') disabled here."
     foreach ($p in $plan | Where-Object Action -ne 'same') {
@@ -615,8 +652,12 @@ if ($Import) {
     $writes = @($plan | Where-Object { $_.Action -eq 'add' -or ($_.Action -eq 'differs' -and $Overwrite) })
     if (-not $Apply) { Write-Host "Dry run: nothing written (-Apply writes the $($writes.Count))."; return }
     $failed = [Collections.Generic.List[string]]::new()
+    $started = Get-Date
+    $done = 0
     foreach ($p in $writes) {
         $s = $p.Secret
+        Show-Progress 'Importing: writing and reading back' $done $writes.Count $s.name $started
+        $done++
         $body = @{ value = [string]$s.value }
         if ($s.contentType) { $body.contentType = $s.contentType }
         if ($s.tags) { $body.tags = $s.tags }
@@ -625,6 +666,7 @@ if ($Import) {
         $back = Invoke-KeyVault GET (Get-SecretUrl $s.name) $null
         if ($back.Status -ne 200 -or (Get-Sha256 $back.Body.value) -ne (Get-Sha256 $s.value)) { $failed.Add("$($s.name) (read back HTTP $($back.Status), or a different value)") }
     }
+    Write-Progress -Id 1 -Activity 'Importing' -Completed
     Write-Host "Wrote $($writes.Count - $failed.Count) of $($writes.Count), each read back."
     if ($failed.Count) { throw "Not written or not read back: $($failed -join '; ')" }
     return
