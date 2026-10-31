@@ -20,8 +20,10 @@ never a word.
 
 The vault is --vault, else AZURE_KEYVAULT_URL, else the azure-keyvault-bootstrap Secret in
 flux-system (kubectl's current context). The sign-in is keyvault_copy.py's: a service
-principal from AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and AZURE_TENANT_ID, else az login.
-Reading needs "Key Vault Secrets User"; --add-from needs "Key Vault Secrets Officer".
+principal from AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and AZURE_TENANT_ID (in a cloud session,
+AZURE_CLIENT_SECRET_BY_PROXY in place of the secret), else az login. Reading needs "Key Vault
+Secrets User"; --add-from needs "Key Vault Secrets Officer". secret_words_access.py gives a
+principal those roles on exactly these secrets.
 """
 from __future__ import annotations
 
