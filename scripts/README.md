@@ -309,7 +309,8 @@ secret once nothing reads it (the live ExternalSecret, another ExternalSecret, a
 every secret, values included, to a password-encrypted file outside this
 repository, read back before it reports; `-Import FILE` reports what it would add
 to a vault and `-Apply` adds it, so a rebuild can refill a new vault (`-Vault`)
-with no cluster yet. It signs in as your `az login` account; its
+with no cluster yet; `-Read FILE` outputs a file's secrets as objects, for
+`Out-GridView` or a filter, with no vault at all. It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/keyvault_copy.py` copies every `cluster-secrets` variable into Key
 Vault and compares by hash, a variable the template encodes as its plain value.

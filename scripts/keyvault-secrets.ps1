@@ -73,6 +73,11 @@ replaces the ones that differ (Key Vault keeps the old value as an earlier
 version). Each written value is read back. Neither touches the cluster, so on a
 rebuild name the new vault with -Vault. Values are never shown.
 
+-Read FILE decrypts such a file and outputs one object per secret (Name, Value,
+ContentType, Tags), touching neither Key Vault nor the cluster: like -Get, the
+values show only where you send the objects, such as Out-GridView or a
+Where-Object filter. It also checks a backup opens with its password.
+
 A secret an app's own ExternalSecret reads straight from Key Vault (in a
 namespace opted in to the azure-keyvault store, not through cluster-secrets) is
 named by its Key Vault name, with "-" or "_"; the script says which files read
@@ -135,6 +140,10 @@ Writes every secret to an encrypted file, asking for its password twice.
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1 -Import D:\backup\keyvault-2026-10-31.json -Vault new-vault -Apply
 Adds the secrets a new vault lacks from that file, after a dry run without -Apply.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 -Read D:\backup\keyvault-2026-10-31.json | Out-GridView
+Opens an export in a searchable window (Windows), with no vault or cluster.
 #>
 [CmdletBinding()]
 param(
@@ -172,7 +181,9 @@ param(
     [switch]$Apply,
     # With -Import -Apply: also replace a secret the vault holds with a different
     # value (Key Vault keeps the old value as an earlier version).
-    [switch]$Overwrite
+    [switch]$Overwrite,
+    # Decrypt a file -Export wrote and output its secrets, values included, as objects.
+    [string]$Read
 )
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -194,8 +205,12 @@ if ($Delete -or $Recover) {
 if ($Export -or $Import) {
     $mode = if ($Export) { '-Export' } else { '-Import' }
     if ($Export -and $Import) { throw '-Export and -Import go in opposite directions: give one.' }
-    $others = @('Name', 'Value', 'Get', 'Raw', 'New', 'NoSync', 'Generate', 'Clipboard', 'Delete', 'Recover') | Where-Object { $PSBoundParameters.ContainsKey($_) }
+    $others = @('Name', 'Value', 'Get', 'Raw', 'New', 'NoSync', 'Generate', 'Clipboard', 'Delete', 'Recover', 'Read') | Where-Object { $PSBoundParameters.ContainsKey($_) }
     if ($others) { throw "$mode takes only a file (and -Vault): leave out -$($others -join ', -')." }
+}
+if ($Read) {
+    $others = @($PSBoundParameters.Keys | Where-Object { $_ -ne 'Read' -and $_ -notin [Management.Automation.PSCmdlet]::CommonParameters })
+    if ($others) { throw "-Read takes only a file: it reads no vault. Leave out -$($others -join ', -')." }
 }
 if (($Apply -or $Overwrite) -and -not $Import) { throw '-Apply and -Overwrite go with -Import.' }
 if ($Overwrite -and -not $Apply) { throw '-Overwrite only changes what -Apply writes: give both.' }
@@ -604,6 +619,21 @@ if ($Export) {
     Write-Host "Exported $($secrets.Count) secrets from $vaultUrl to $path ($([Math]::Ceiling((Get-Item -LiteralPath $path).Length / 1KB)) KB), read back with the password."
     if ($disabled.Count) { Write-Warning "$($disabled.Count) disabled, so their values can't be read and aren't in it: $($disabled -join ', ')" }
     Write-Host 'Keep the file and its password apart, both off this machine; without the password the file is useless.'
+    return
+}
+
+if ($Read) {
+    $path = Resolve-ExportPath $Read
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "There's no file $path." }
+    $password = Read-Password "The password for $path"
+    Show-Step 'Reading' 'Decrypting the file (deriving the key from the password takes a few seconds)'
+    $data = (Unprotect-Export $path $password) | ConvertFrom-Json
+    Write-Progress -Id 1 -Activity 'Reading' -Completed
+    Write-Host "$path holds $(@($data.secrets).Count) secrets, exported from $($data.vault) at $($data.exported)."
+    if (@($data.disabled).Count) { Write-Warning "$(@($data.disabled).Count) were disabled at export, so their values aren't in the file: $(@($data.disabled) -join ', ')" }
+    foreach ($s in @($data.secrets)) {
+        [pscustomobject]@{ Name = $s.name; Value = $s.value; ContentType = $s.contentType; Tags = $s.tags }
+    }
     return
 }
 
