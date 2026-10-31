@@ -127,8 +127,13 @@ templates); each new template has meant another group typed in from Key Vault or
     the three OpenTofu plans "No changes" (1482-1484).
   - [ ] The import's copies no group reads deleted from Key Vault (the owner's; QUEUE-site-facts.md,
     stage 1, lists them with the other duplicates). The site facts move to NetBox there.
-- [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
-  Semaphore without a run by hand.
+- [x] The one-time import removed (this PR): its playbook, script and test; the owner
+  deletes its template (39). Nothing in Semaphore can write Key Vault: the write role went
+  2026-10-31. Each group's report now opens with its drift ("no drift", or how many
+  differences the run corrects; a secret set again isn't drift).
+- [ ] 4. A daily schedule on "Sync: Key Vault → Semaphore (script)" (template 38; the owner's),
+  so a Key Vault change reaches Semaphore, and a hand edit in a managed group is undone,
+  within a day without a run by hand.
 
 ## Resume
 
@@ -139,13 +144,6 @@ read its report.
 
 Every group but "Key Vault Sync" is declared and managed, and adding a template's variables is
 a line in the config and a Key Vault secret.
-
-## After the import
-
-Remove the write role (`az role assignment delete --assignee <client id> --role "Key Vault
-Secrets Officer" --scope <vault id>`), delete the import template, and delete
-`ansible/semaphore-tool-keyvault-import.yml` and `scripts/semaphore_keyvault_import.py`
-with their test, so nothing can write Key Vault from Semaphore again.
 
 ## Renewal
 
