@@ -402,6 +402,8 @@ def test_iot_kind_reads_what_follows_iot_and_the_first_matching_rule_wins():
     rules = iot_catalogue()["rules"]
     assert m.iot_kind("zziotkalikitchen", rules)["type"] == "kasa-hs200"
     assert m.iot_kind("ZZIOTKAPLDESK", rules)["role"] == "Smart Power Plug"
+    assert m.iot_kind("zziotazechospotliving", rules)["type"] == "amazon-echo-spot"
+    assert m.iot_kind("zziotazbrechosp", rules)["type"] == "amazon-echo-spot"
     assert m.iot_kind("zziotazechosbedroom", rules)["type"] == "amazon-echo-dot-4th-gen-clock"
     assert m.iot_kind("zziotazechodkitchen", rules)["type"] == "amazon-echo-dot"
     assert m.iot_kind("zziotazfiretliving", rules)["role"] == "TV"
