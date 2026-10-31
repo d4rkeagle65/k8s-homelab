@@ -1,0 +1,31 @@
+# Semaphore's variable groups, made from Key Vault by scripts/semaphore_variable_groups.py,
+# Semaphore's "Sync: Key Vault → Semaphore (script)" (QUEUE-semaphore-variables.md).
+#
+# Each group lists its extra variables (`variables:`, Ansible's) and its environment variables
+# (`environment:`), each from one source:
+#   {keyvault: NAME}        Key Vault's secret NAME; a secret in Semaphore unless secret: false
+#   {template: "text"}      the text with each {NAME} replaced by Key Vault's secret NAME
+#                           (https://n8n.{BASE-DOMAIN}), so no domain or address is written here
+#   {value: x}              x as it is: only what names nothing of the site (a flag, a count)
+# and `secret: true` or `false` to override where Semaphore keeps it. A Python template gets a
+# group's extra variables as arguments, which its scripts refuse: give those `environment:` only.
+#
+# A group is written only with `managed: true`, and then exactly as declared: what it holds
+# that isn't declared here is removed. One without it is compared and reported, never
+# changed. A group not listed here is left alone. "Key Vault Sync", the sync's own, is never
+# listed: it holds the credentials the sync reads Key Vault and writes Semaphore with.
+project: Homelab
+
+groups:
+  # scripts/alerting_test.py ("Tool: Alerting test (script)"; n8n/README.md).
+  Alerting Test:
+    managed: true
+    environment:
+      N8N_URL: {template: "https://n8n.{BASE-DOMAIN}"}
+      ZAMMAD_URL: {template: "https://zammad.{BASE-DOMAIN}"}
+      LOKI_PUSH_URL: {template: "https://loki-push.{BASE-DOMAIN}/loki/api/v1/push"}
+      ZAMMAD_API_TOKEN: {keyvault: ZAMMAD-BRIDGE-API-TOKEN}
+      SEMAPHORE_ALERT_TOKEN: {keyvault: SEMAPHORE-ALERT-TOKEN}
+      DATABASUS_ALERT_TOKEN: {keyvault: DATABASUS-ALERT-TOKEN}
+      DOCKHAND_ALERT_TOKEN: {keyvault: DOCKHAND-ALERT-TOKEN}
+      LOKI_PUSH_PASSWORD: {keyvault: LOKI-PUSH-PASSWORD}
