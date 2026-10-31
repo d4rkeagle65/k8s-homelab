@@ -1,16 +1,19 @@
 # One Semaphore variable group's values into Key Vault, once (QUEUE-semaphore-variables.md):
 # Semaphore never returns a secret's value, but hands a task its groups' values. Run as
-# "Tool: Variable Group → Key Vault (one time)" with two variable groups, "Key Vault Sync" (the
-# Azure login) and the group to import, and the survey's import_group naming that group as
-# scripts/semaphore_variable_groups.yaml does. One group a run: several groups share a
-# variable's name (HAWSER_TOKEN, PG_CONN_STR), and in one task the last would win.
+# "Tool: Variable Group → Key Vault (one time)" with two variable groups attached, "Key Vault
+# Sync" (the Azure login and Semaphore's token) and the group to import; change the second
+# between runs. One group a run: several groups share a variable's name (HAWSER_TOKEN,
+# PG_CONN_STR), and in one task the last would win.
 #
-# It gathers each variable the config declares for the group, from the run's extra variables
-# or environment, and hands them to scripts/semaphore_keyvault_import.py on its standard
-# input (no file, no_log), which writes each to its Key Vault secret unless Key Vault already
-# holds one, and reads each write back; it prints names only. Writing needs "Key Vault Secrets
-# Officer" on the vault for the sync's identity, granted for the import and removed after.
-# In check mode (--check) it lists what it would import and writes nothing.
+# It gathers every variable scripts/semaphore_variable_groups.yaml declares, for any group,
+# from the run's extra variables or environment (no_log), and hands them on standard input
+# (no file) to scripts/semaphore_keyvault_import.py, which asks Semaphore which group this
+# template has attached and writes that group's values to their Key Vault secrets, unless
+# Key Vault already holds one, reading each write back; it prints names only. A survey
+# variable import_group, if given, names the group instead. Writing needs "Key Vault Secrets
+# Officer" for the sync's identity, granted for the import and removed after. In check mode
+# (--check) it reads Key Vault and says, for each value, whether it would write it, or finds
+# it the same or different, and writes nothing.
 
 - ansible.builtin.import_playbook: _semaphore-host.yml
 
@@ -20,60 +23,43 @@
   vars:
     groups_config: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../scripts/semaphore_variable_groups.yaml') | from_yaml }}"
   tasks:
-    - name: Check the group named is one the config declares
-      ansible.builtin.assert:
-        that:
-          - import_group is defined and import_group | length > 0
-          - import_group in groups_config.groups
-        fail_msg: >-
-          Set import_group (the survey) to a group scripts/semaphore_variable_groups.yaml
-          declares, and attach that group to this template beside "Key Vault Sync".
-        quiet: true
-
-    - name: Name the variables to import
-      ansible.builtin.set_fact:
-        import_declared: "{{ groups_config.groups[import_group] }}"
-        import_names: >-
-          {{ (groups_config.groups[import_group].variables | default({}) | dict2items
-              | map(attribute='key') | map('regex_replace', '^', 'variables:') | list)
-           + (groups_config.groups[import_group].environment | default({}) | dict2items
-              | map(attribute='key') | map('regex_replace', '^', 'environment:') | list) }}
-
     - name: Gather each from the run's extra variables or environment
       ansible.builtin.set_fact:
         import_values: >-
-          {{ import_values | default({}) | combine({item.split(':', 1)[1]:
-               (vars[item.split(':', 1)[1]] if item.startswith('variables:') and item.split(':', 1)[1] in vars
-                else (lookup('ansible.builtin.env', item.split(':', 1)[1], default='') if item.startswith('environment:')
-                else none))}) }}
-      loop: "{{ import_names }}"
+          {{ import_values | default({}) | combine({item.0:
+               (vars[item.0] if item.1 == 'variables' and item.0 in vars
+                else (lookup('ansible.builtin.env', item.0, default='') if item.1 == 'environment' else none))}) }}
+      loop: >-
+        {{ groups_config.groups.values()
+           | map(attribute='variables', default={}) | map('dict2items') | flatten
+           | map(attribute='key') | product(['variables']) | list
+         + groups_config.groups.values()
+           | map(attribute='environment', default={}) | map('dict2items') | flatten
+           | map(attribute='key') | product(['environment']) | list }}
       loop_control:
-        label: "{{ item }}"
+        label: "{{ item.0 }}"
       no_log: true
 
-    - name: Say what a real run would import
-      ansible.builtin.debug:
-        msg: "{{ import_group }}: would import {{ import_names | map('regex_replace', '^[a-z]+:', '') | join(', ') }}"
-      when: ansible_check_mode
-
-    - name: Write them to Key Vault
+    - name: Write them to Key Vault (in check mode, compare them)
       ansible.builtin.command:
         argv:
           - "{{ ansible_playbook_python }}"
           - "{{ playbook_dir }}/../scripts/semaphore_keyvault_import.py"
-        stdin: "{{ {'group': import_group, 'declared': import_declared, 'values': import_values} | to_json }}"
+        stdin: >-
+          {{ {'project': groups_config.project, 'groups': groups_config.groups,
+              'group': import_group | default(none) or none, 'dry_run': ansible_check_mode,
+              'values': import_values | default({})} | to_json }}
+      check_mode: false
       register: imported
       changed_when: "'written to' in imported.stdout"
       failed_when: false
       no_log: true
-      when: not ansible_check_mode
 
     - name: What it did (names only)
       ansible.builtin.debug:
         msg: "{{ imported.stdout_lines + ([] if not imported.stderr else ['(and ' ~ imported.stderr_lines | length ~ ' lines on stderr, not shown: they could quote the input)']) }}"
-      when: not ansible_check_mode
 
     - name: Stop when a value isn't in Key Vault as the group has it
       ansible.builtin.fail:
-        msg: "Not every value is in Key Vault as {{ import_group }} has it: see the lines above."
-      when: not ansible_check_mode and imported.rc != 0
+        msg: "Not every value is (or would be) in Key Vault as the group has it: see the lines above."
+      when: imported.rc != 0
