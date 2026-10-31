@@ -394,7 +394,8 @@ def test_a_reservation_goes_on_wifi0_unless_its_type_names_another_interface():
     types = {t["slug"]: t for t in iot_catalogue()["device_types"]}
     proxy = m.iot_kind("zziotesbtpfront", rules)
     assert proxy["role"] == "Bluetooth Proxy"
-    assert m.reserved_interface(types[proxy["type"]])[0] == "eth0"
+    # The door proxy runs on Wi-Fi (devices/door-bt-proxy/README.md), its reservation on the base MAC.
+    assert m.reserved_interface(types[proxy["type"]])[0] == "wifi0"
 
 
 def test_iot_kind_reads_what_follows_iot_and_the_first_matching_rule_wins():
