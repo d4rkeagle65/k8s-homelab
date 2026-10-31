@@ -53,6 +53,15 @@ variable or Set-Clipboard rather than the screen; with -Clipboard it goes
 straight to the clipboard and nothing is output. It warns, without the value, when
 the value starts or ends with whitespace (a space, tab, newline...).
 
+With -Name and -Delete, deletes the secret, refusing while anything reads it:
+the live cluster-secrets ExternalSecret mapping it, another ExternalSecret
+reading it straight from Key Vault, a file under kubernetes/ using ${NAME}, or a
+Dockhand stack in docker/secret-names.yaml. It asks for the secret's name to be
+typed to confirm. Key Vault keeps a deleted secret until its purge date, which
+the script reads back and prints; until then a secret of that name can't be
+added. -Recover brings a deleted secret back, with the value it had, reads it
+back, and force-syncs cluster-secrets when that maps it.
+
 A secret an app's own ExternalSecret reads straight from Key Vault (in a
 namespace opted in to the azure-keyvault store, not through cluster-secrets) is
 named by its Key Vault name, with "-" or "_"; the script says which files read
@@ -65,8 +74,8 @@ comes first. -New, which adds a secret, runs only with -Raw (scripts/README.md's
 "A new private value").
 
 It signs in as the Azure CLI's current account (az login), which needs "Key
-Vault Secrets Officer" on the vault to set a secret, or "Key Vault Secrets
-User" to list. The vault's URL comes from the azure-keyvault-bootstrap Secret
+Vault Secrets Officer" on the vault to set, delete or recover a secret, or "Key
+Vault Secrets User" to list. The vault's URL comes from the azure-keyvault-bootstrap Secret
 in flux-system (or -Vault names the vault), the variable mapping and template
 from the live ExternalSecret, and the variable usage from the kubernetes/
 folder of this checkout. Run `git pull` first.
@@ -99,6 +108,14 @@ Asks for a new variable's value and adds its secret, plain.
 ./scripts/keyvault-secrets.ps1 SNMP-V3-AUTH-PASSPHRASE -New -Raw -Generate 16 -Clipboard
 Adds a secret holding 16 random letters and digits, and copies it to paste into
 a device's settings.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 OLD_VARIABLE -Delete
+Deletes a secret nothing reads any more, once its name is typed.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 OLD_VARIABLE -Recover
+Brings a deleted secret back before its purge date.
 #>
 [CmdletBinding()]
 param(
@@ -120,7 +137,12 @@ param(
     # Set a random value of this many letters and digits, in place of -Value.
     [ValidateRange(8, 4096)][int]$Generate,
     # Copy the value (set, or read with -Get) to the clipboard.
-    [switch]$Clipboard
+    [switch]$Clipboard,
+    # Delete the secret (soft delete: -Recover brings it back until it's purged),
+    # once nothing reads it and its name is typed to confirm.
+    [switch]$Delete,
+    # Recover a deleted secret, with the value it had.
+    [switch]$Recover
 )
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -132,6 +154,12 @@ if ($New -and -not $Raw -and -not $Get) {
 }
 if ($Generate -and ($PSBoundParameters.ContainsKey('Value') -or $Get)) {
     throw '-Generate makes the value: leave out -Value and -Get.'
+}
+if ($Delete -or $Recover) {
+    $others = @('Value', 'Get', 'Raw', 'New', 'Generate', 'Clipboard') | Where-Object { $PSBoundParameters.ContainsKey($_) }
+    if ($Delete -and $Recover) { throw '-Delete and -Recover undo each other: give one.' }
+    if ($others) { throw "$(if ($Delete) { '-Delete' } else { '-Recover' }) takes only a name (and -Vault, -NoSync): leave out -$($others -join ', -')." }
+    if (-not $Name) { throw "$(if ($Delete) { '-Delete' } else { '-Recover' }) needs the name of the secret." }
 }
 if ($Clipboard -and -not (Get-Command Set-Clipboard -ErrorAction SilentlyContinue)) {
     throw "-Clipboard needs Set-Clipboard, which this PowerShell doesn't have."
@@ -344,6 +372,27 @@ function Get-ErrorCode($result) { if ($result.Body -and $result.Body.error) { $r
 
 function Get-SecretUrl([string]$secretName) { "$vaultUrl/secrets/$([uri]::EscapeDataString($secretName))?api-version=$ApiVersion" }
 
+function Get-DeletedSecretUrl([string]$secretName, [string]$action) {
+    "$vaultUrl/deletedsecrets/$([uri]::EscapeDataString($secretName))$action`?api-version=$ApiVersion"
+}
+
+# A Key Vault time (seconds since 1970) as local time, or 'unknown'.
+function Format-VaultTime($seconds) {
+    if ($seconds) { [DateTimeOffset]::FromUnixTimeSeconds([long]$seconds).ToLocalTime().ToString('yyyy-MM-dd HH:mm zzz') } else { 'unknown' }
+}
+
+# Key Vault deletes and recovers in the background: polls GET $url until it answers
+# $want, up to 60 seconds, and returns the last answer.
+function Wait-KeyVault([string]$url, [int]$want) {
+    $deadline = (Get-Date).AddSeconds(60)
+    do {
+        $result = Invoke-KeyVault GET $url $null
+        if ($result.Status -eq $want) { return $result }
+        Start-Sleep -Seconds 2
+    } until ((Get-Date) -gt $deadline)
+    $result
+}
+
 # Every secret in the vault: name -> enabled. Names compare without case, as
 # Key Vault's do.
 function Get-VaultSecrets {
@@ -429,6 +478,54 @@ $direct = @(Get-DirectReaders $secretName)
 if ($secretName -notmatch '^[A-Za-z0-9-]{1,127}$') { throw "$secretName isn't a valid Key Vault name (letters, digits and '-', 1-127)." }
 
 $files = $usage[$Name]
+
+if ($Delete) {
+    # Every reader the repo and the live ExternalSecret show; any one of them stops it,
+    # since a deleted secret fails what reads it at its next sync or deploy.
+    $readers = @(
+        if ($mapped.Contains($Name)) { "the live cluster-secrets ExternalSecret (remove its entry in kubernetes/secrets/cluster-secrets.yaml, and let Flux apply that, first)" }
+        $direct | ForEach-Object { "ExternalSecret in kubernetes/$_" }
+        if ($files) { $files.Keys | Sort-Object | ForEach-Object { "kubernetes/$_ (`${$Name})" } }
+        $dockhandReaders = (Get-DockhandUsage)[$secretName.ToLowerInvariant()]
+        if ($dockhandReaders) { $dockhandReaders | Sort-Object | ForEach-Object { "$_ (docker/secret-names.yaml)" } }
+    )
+    if ($readers) { throw "$secretName is still read, so it isn't deleted:`n  $($readers -join "`n  ")" }
+    $current = Invoke-KeyVault GET (Get-SecretUrl $secretName) $null
+    if ($current.Status -eq 404) { throw "Key Vault has no secret named $secretName (a deleted one is brought back with -Recover)." }
+    # A disabled secret's read is refused (403) but it can still be deleted.
+    if ($current.Status -ne 200 -and $current.Status -ne 403) { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
+    Write-Host "Nothing in this checkout or the live cluster-secrets reads $secretName."
+    $typed = Read-Host "Type $secretName to delete it"
+    if ($typed -cne $secretName) { throw 'Not the same name; nothing deleted.' }
+    $deleted = Invoke-KeyVault DELETE (Get-SecretUrl $secretName) $null
+    if ($deleted.Status -ne 200) { throw "Key Vault refused to delete $secretName`: HTTP $($deleted.Status) $(Get-ErrorCode $deleted)" }
+    if (-not $deleted.Body.recoveryId) { throw "Key Vault deleted $secretName without keeping it to recover: the vault's soft delete is off, so it's gone." }
+    $gone = Wait-KeyVault (Get-SecretUrl $secretName) 404
+    $kept = Wait-KeyVault (Get-DeletedSecretUrl $secretName '') 200
+    if ($gone.Status -ne 404 -or $kept.Status -ne 200) {
+        throw "Read back, $secretName isn't yet both gone (HTTP $($gone.Status)) and held as deleted (HTTP $($kept.Status)): check it in Key Vault."
+    }
+    Write-Host "Deleted $secretName, read back. Recoverable with -Recover until $(Format-VaultTime $kept.Body.scheduledPurgeDate), when Key Vault purges it."
+    return
+}
+
+if ($Recover) {
+    $kept = Invoke-KeyVault GET (Get-DeletedSecretUrl $secretName '') $null
+    if ($kept.Status -eq 404) { throw "Key Vault holds no deleted secret named $secretName (already purged, recovered, or never deleted)." }
+    if ($kept.Status -ne 200) { throw "Key Vault refused to read deleted $secretName`: HTTP $($kept.Status) $(Get-ErrorCode $kept)" }
+    $recovered = Invoke-KeyVault POST (Get-DeletedSecretUrl $secretName '/recover') $null
+    if ($recovered.Status -ne 200) { throw "Key Vault refused to recover $secretName`: HTTP $($recovered.Status) $(Get-ErrorCode $recovered)" }
+    $back = Wait-KeyVault (Get-SecretUrl $secretName) 200
+    if ($back.Status -ne 200) { throw "Read back, $secretName isn't readable yet (HTTP $($back.Status)): check it in Key Vault." }
+    Write-Host "Recovered $secretName (deleted $(Format-VaultTime $kept.Body.deletedDate)), with the value it had, read back."
+    if ($mapped.Contains($Name) -and -not $NoSync) {
+        kubectl annotate externalsecret cluster-secrets -n flux-system "force-sync=$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())" --overwrite | Out-Null
+        Write-Host 'Force-synced cluster-secrets; check it with: kubectl get externalsecret cluster-secrets -n flux-system'
+    }
+    elseif ($direct) { Write-Host "Read straight from Key Vault by: $($direct -join ', '); they pick it up within their refreshInterval." }
+    return
+}
+
 $inSecret = $files -and ($files.Values -contains 'data')
 $plainUses = @(if ($files) { $files.Keys | Where-Object { $files[$_] -ne 'data' } | Sort-Object })
 $encodes = $templated[$Name]
