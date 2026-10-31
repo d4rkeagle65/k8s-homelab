@@ -118,19 +118,15 @@ templates); each new template has meant another group typed in from Key Vault or
   - [x] The config moved to them (#495, 54 Key Vault names to 41). Task 1471 showed only the
     intended differences; PG_CONN_STR is tofu/README.md's template on TFSTATE-DB-PASSWORD, and
     Tailscale's OAuth client the existing TAILSCALE-OPENTOFU-* (this PR: 41 to 40).
-  - [ ] Managed, in two batches by risk. The first (#497) written by task 1474; its checks
-    passed (1475-1480: both NAS baselines VERIFIED Hawser unchanged, the Pi-holes "every
-    setting matches", the Proxmox update's and Windows update's dry runs and the NetBox sync
-    without a failure). The second (this PR): the six whose values are the
-    import's copies, unchanged (Synology, Terramaster, Windows Updates, k8s and Talos
-    Connection, Netbox Sync, Pi-Hole Settings); then the five whose values now come from
-    templates or shared secrets (Debian, Home Assistant, the three OpenTofu, Proxmox Settings).
-    After each sync run that writes them, their checks: the NAS baselines' dry runs show
-    Hawser unchanged, a Proxmox update's dry run passes its cluster checks, the NetBox sync and
-    Pi-hole setting run as before, each OpenTofu plan shows no changes.
-  - [ ] Then the site facts to NetBox; the
-    import's copies no group reads deleted from Key Vault (the sync can list them: every
-    import name the config no longer names).
+  - [x] Every group managed, in two batches by risk (#497, #499), written by tasks 1474 and
+    1481, each read back. Checks passed: both NAS baselines VERIFIED Hawser unchanged (1475,
+    1476), the Pi-holes "every setting matches" (1477), the Proxmox update's, Windows
+    update's, Debian baseline's and Proxmox setting's dry runs and the NetBox sync without a
+    failure (1478, 1479, 1485, 1486, 1480; the Debian baseline's only changes are drift from
+    before: the bash setup, the Pi-holes' sshd drop-in, the Docker VMs' DNS caching), and
+    the three OpenTofu plans "No changes" (1482-1484).
+  - [ ] The import's copies no group reads deleted from Key Vault (the owner's; QUEUE-site-facts.md,
+    stage 1, lists them with the other duplicates). The site facts move to NetBox there.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 
