@@ -21,7 +21,8 @@ spec:
   targetNamespace: redis-ha
   # Set by generate: the operators whose APIs this app's manifests use
   # (scripts/k8s_backup/dependencies.py).
-  dependsOn: []
+  dependsOn:
+  - name: external-secrets
   postBuild:
     substituteFrom:
     - kind: ConfigMap
