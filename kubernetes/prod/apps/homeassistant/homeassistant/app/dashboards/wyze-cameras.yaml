@@ -11,16 +11,59 @@ views:
     type: sections
     max_columns: 2
     sections:
+      # Both pictures in one row of a section two columns wide, whose grid is 24 columns
+      # (12 per column it spans): the living room's 16:9 takes 18 and the hallway's
+      # portrait 6, so the hallway is the smaller and both are the same height. On a phone
+      # the section is 12 columns: the living room takes the row, the hallway half the next.
       - type: grid
+        column_span: 2
         cards:
-          - type: heading
-            heading: Living room
-            icon: mdi:sofa
           - type: picture-entity
             entity: camera.living_room_cam
             name: Living room
             camera_view: live
             show_state: false
+            grid_options:
+              columns: 18
+          # The camera is mounted on its side and only flips 180°, so card-mod turns its
+          # 16:9 picture 90° counter-clockwise. At 18 and 6 columns with 8px gaps, the
+          # living room's picture is 3.06-3.11 times this card's width at any window size,
+          # so this card is 100:173 (1.73 = 9/16 x 3.07), not 9:16, and the heights match
+          # within 1%. The picture is as wide as the card is tall (173%), centred, then
+          # rotated: it fills the height, with a sliver to either side. The component's
+          # own styles win a tie with card-mod's, hence !important. The more-info dialog
+          # shows it unturned.
+          - type: picture-entity
+            entity: camera.hallway_cam
+            name: Hallway
+            camera_view: live
+            show_state: false
+            aspect_ratio: "16:9"
+            grid_options:
+              columns: 6
+            card_mod:
+              style: |
+                ha-card {
+                  height: auto !important;
+                  aspect-ratio: 100 / 173;
+                }
+                .image-container {
+                  position: absolute;
+                  inset: 0;
+                }
+                hui-image {
+                  position: absolute;
+                  top: 50%;
+                  left: 50%;
+                  width: 173%;
+                  height: auto !important;
+                  transform: translate(-50%, -50%) rotate(-90deg);
+                }
+      - type: grid
+        cards:
+          - type: heading
+            heading: Living room
+            icon: mdi:sofa
           - type: tile
             entity: switch.living_room_cam_power
             name: Camera on
@@ -35,35 +78,6 @@ views:
           - type: heading
             heading: Hallway
             icon: mdi:door-open
-          # The camera is mounted on its side and only flips 180°, so card-mod turns its
-          # 16:9 picture 90° counter-clockwise inside a 9:16 card: the picture is as wide
-          # as the card is tall (16/9 = 177.78%), centred, then rotated. The component's
-          # own styles win a tie with card-mod's, hence !important. The more-info dialog
-          # shows it unturned.
-          - type: picture-entity
-            entity: camera.hallway_cam
-            name: Hallway
-            camera_view: live
-            show_state: false
-            aspect_ratio: "16:9"
-            card_mod:
-              style: |
-                ha-card {
-                  height: auto !important;
-                  aspect-ratio: 9 / 16;
-                }
-                .image-container {
-                  position: absolute;
-                  inset: 0;
-                }
-                hui-image {
-                  position: absolute;
-                  top: 50%;
-                  left: 50%;
-                  width: 177.78%;
-                  height: auto !important;
-                  transform: translate(-50%, -50%) rotate(-90deg);
-                }
           - type: tile
             entity: switch.hallway_cam_power
             name: Camera on
