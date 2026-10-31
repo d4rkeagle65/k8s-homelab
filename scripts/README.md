@@ -365,6 +365,30 @@ forms and what the copy refuses are in `dockhand_keyvault_copy.py`'s docstring.
    holds it plain" has its value held base64 there: rewrite it plain first.
 5. Delete the JSON once the stacks read Key Vault.
 
+### Add a word no commit may contain
+
+The pre-commit hook and `tests/test-identifying-data.py` block every word on the
+clone's secret-words list: a domain, a hostname, a name. The list is
+`<git common dir>/secret-words`, one copy that every worktree of the clone reads,
+and `scripts/secret_words.py` writes it from Key Vault. A Claude Code session
+refreshes it when it starts (`.claude/settings.json`), at most every 12 hours, so
+this PC and the Docker VM's container stay current on their own; a cloud session
+has no Key Vault access, so its hook says the rule is not armed.
+
+- **A value a `cluster-secrets` variable holds:** add the variable's name to
+  `scripts/secret_words.toml`. The list follows the value when it changes.
+- **Any other word:** `python scripts/secret_words.py --add-from FILE` adds the
+  words in FILE (one a line, `-` reads them typed in, ended by Ctrl-Z Enter on
+  Windows or Ctrl-D elsewhere) to the Key Vault secret `SECRET-WORDS`, reads it
+  back, and rewrites the list here. A word never goes on the command line, which
+  would keep it in the shell's history. An old `.secret-words` folds in the same way.
+- **Refresh now, or check:** `python scripts/secret_words.py` rewrites the list;
+  `--check` compares it with Key Vault and writes nothing (exit 1 when they differ).
+
+A word under 4 characters would match ordinary text, so it is left out and named
+by where it came from. A read Key Vault refuses or doesn't answer leaves the old
+list as it was. The vault, sign-in and roles are in the script's docstring.
+
 ### Bring the test environment up, and take it down
 
 `cluster-test` (`kubernetes/flux/config/test.yaml`) applies `kubernetes/test/`:

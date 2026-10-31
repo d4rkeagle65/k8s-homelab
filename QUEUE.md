@@ -18,6 +18,18 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   file without `-Apply` against the same vault, which should report every secret "the same".
   Keep the file and its password apart, both off the workstation; until then, losing the vault
   or its subscription loses every value the cluster and Dockhand read.
+- **The secret-words list's leftovers, and the cloud** (2026-10-31): `scripts/secret_words.py`
+  writes one list per clone from Key Vault (`SECRET-WORDS` plus `scripts/secret_words.toml`'s
+  variables); on the PC it holds 37 words, read back. Three choices left:
+  - **The old `.secret-words` copies:** delete them. The hook reads one only where its clone's
+    list is absent, so a stale copy is dead weight. That is 15 on the PC (the main checkout and
+    each worktree), and one in the Docker VM container's clone once its first session after
+    the merge has written the list (`.claude/settings.json`).
+  - **Cloud sessions:** the rule isn't armed there, since they have no Key Vault access. Either
+    give the cloud environment a read scoped to those 14 secrets, or leave it unarmed.
+  - **Two public logins:** `SECRET-WORDS` still holds the base64 of two app logins #505 made
+    public (`IMMICH_POSTGRES_SUPERUSER_USERNAME`, `OBSIDIAN_COUCHDB_ADMINUSERNAME`). Keep them
+    or drop them.
 - **n8n's "Zammad: close what's over" isn't imported yet** (`n8n/workflows/`): import it
   and run it once by hand (`n8n/README.md`). Its next version, and the bridge's replacement,
   are in `QUEUE-n8n-zammad.md`.
