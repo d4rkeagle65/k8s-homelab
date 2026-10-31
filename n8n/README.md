@@ -29,3 +29,27 @@ list completes, so no address is written here.
 |---|---|---|
 | `zammad-close-whats-over.json` | Every 10 minutes, lists Zammad's open tickets, asks each Alertmanager pod for its active alerts (they share none; either failing makes alert tickets unknown) and each Docker host's proxy for its containers (`docker-vm-1.n8n` and so on, `kubernetes/prod/apps/n8n/n8n/app/docker-hosts.yaml`), and its Python "Verdict" judges each ticket the alerts made: over, ongoing or unknown. An alert's ticket is over once no active alert's labels rebuild to its host, with the rule "Zammad: tickets in" opens it with (the tests hold both nodes to the same lines). It closes those over, with an internal note, then reads each back. `close` in its Settings node is `false` (a dry run: they end at "Would close"). | **Zammad API** (`ZammadApiFromKV1`): Header Auth, `Authorization: Token token=…` from `ZAMMAD-BRIDGE-API-TOKEN`, an agent's token with ticket.agent |
 | `zammad-tickets-in.json` | Opens, notes and closes Zammad tickets from each source's webhook (`/webhook/zammad/<source>`, Basic Auth): a Python node per source turns its notification into an event (host, service, state, text), and "Decide" does what Zammad's Checkmk endpoint did, through Zammad's ticket API: a failure opens a ticket in Alerts keyed `preferences.check_mk` {host, service}, or notes the open one; a recovery closes them. Each write is read back ("Verify" fails the run otherwise). `write_sources` in its Settings node lists the sources whose decisions are written; any other's end at "Would write" (a dry run). Sources, all written: Semaphore, Databasus, Dockhand, and Alertmanager (`/webhook/zammad/alertmanager`, Header Auth, a bearer token; it answers after its last node, so a failed write is a 500 Alertmanager sends again; a group alert's members down come from Prometheus). Dockhand's answers at once, and a stack container's failure waits out a hold (a Wait node, 180 s, 200 for a kill or stop, whose die follows) and is asked of the Docker hosts again: one running again by then opens nothing. Dockhand's channel: Settings, Notifications, an Apprise channel `jsons://dockhand:<DOCKHAND-ALERT-TOKEN>@n8n.<domain>/webhook/zammad/dockhand`. | **Zammad API**; **Semaphore alerts**, **Databasus alerts** and **Dockhand alerts** (`SemaphoreAlertKV`, `DatabasusAlertKV`, `DockhandAlertsKV`): Basic Auth, users `semaphore`, `databasus` and `dockhand`, passwords `SEMAPHORE-ALERT-TOKEN`, `DATABASUS-ALERT-TOKEN` and `DOCKHAND-ALERT-TOKEN`; **Alertmanager** (`AlertmanagerKV01`): Header Auth, `Authorization: Bearer …` from `ALERTMANAGER-N8N-TOKEN` |
+
+## Testing every path into Zammad
+
+`scripts/alerting_test.py`, run from Semaphore as **"Tool: Alerting test (script)"** (by hand,
+after changing any part of alerting), sends each source a failure and its recovery and checks
+through Zammad's API that each opened its ticket and closed it, in about ten minutes:
+
+| Leg | Sent | Proves |
+|---|---|---|
+| alertmanager | a marker line to Loki's push route, which Loki's `HomelabAlertingTest` rule (`monitors/app/configmap-loki-rules-homelab.yaml`) fires on | Loki's ruler, both Alertmanager pods' routing, n8n, Zammad |
+| semaphore, databasus, dockhand | a failure and a recovery in each sender's format, to its n8n webhook with its token | n8n and Zammad |
+
+Each run's tickets carry its time ("Semaphore Alerting test 20261031…"), and mail as any
+ticket does. `scripts/tests/test_alerting_test.py` runs n8n's own Code nodes on the test's
+alerts, so the keys it waits for are the ones n8n opens.
+
+**The template:** a Python template, script `scripts/alerting_test.py`, no inventory, and a
+variable group **"Alerting Test"** holding, as environment variables only (Semaphore hands a
+Python template's extra variables as arguments, which the script refuses):
+`N8N_URL` (`https://n8n.<domain>`), `ZAMMAD_URL` (`https://<Zammad's host>`) and
+`LOKI_PUSH_URL` (`https://loki-push.<domain>/loki/api/v1/push`); and as secrets
+`ZAMMAD_API_TOKEN`, `SEMAPHORE_ALERT_TOKEN`, `DATABASUS_ALERT_TOKEN`, `DOCKHAND_ALERT_TOKEN`
+(Key Vault, the same names with `-`) and `LOKI_PUSH_PASSWORD` (the Debian Host Baseline
+group's). `ALERTING_TEST_LEGS` (comma-separated) runs only some legs.
