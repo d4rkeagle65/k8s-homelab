@@ -100,11 +100,9 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   to one pod, so the closing check, asking the Service, saw its alerts half the time (this
   PR: Loki sends to each pod; the check asks each). `close` stays false until a day of its
   dry runs reads right against both pods.
-- [ ] **An end-to-end test of every path** (the owner, 2026-10-31; this PR):
-  `scripts/alerting_test.py` and Loki's `HomelabAlertingTest` rule. Left: its variable group,
-  "Alerting Test", made by the Key Vault sync (QUEUE-semaphore-variables.md, step 2), then the
-  owner's "Tool: Alerting test (script)" template (`n8n/README.md`), then one run, read back. Manual only,
-  no schedule (the owner's choice).
+- [x] **An end-to-end test of every path** (the owner, 2026-10-31): "Tool: Alerting Test"
+  (template 40, `scripts/alerting_test.py`, its variable group made by the Key Vault sync),
+  run by hand. Task 1487 passed all four legs, each ticket opened and closed, in 347 s.
 - [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/` and
   `scripts/tests/test_zammad_bridge.py`; the `zammad-bridge` Pi-hole record, deleted by hand
   (ExternalDNS is upsert-only, so the removed Ingress's record stays); `DOCKHAND_ALERT_TOKEN`,
