@@ -304,12 +304,14 @@ variable or `Set-Clipboard` (`-Clipboard` does that for you). A secret only an
 app's own ExternalSecret reads is named by its Key Vault name; the script says
 which files read it and leaves cluster-secrets alone. `-Delete` soft-deletes a
 secret once nothing reads it (the live ExternalSecret, another ExternalSecret, a
-`${NAME}` under `kubernetes/`, or a Dockhand stack) and its name is typed, and
+`${NAME}` under `kubernetes/` that cluster-settings doesn't define, or a Dockhand stack)
+and its name is typed (`-Yes` skips the typing, for a list in a loop), and
 `-Recover` brings one back before Key Vault purges it. `-Export FILE` writes
 every secret, values included, to a password-encrypted file outside this
 repository, read back before it reports; `-Import FILE` reports what it would add
 to a vault and `-Apply` adds it, so a rebuild can refill a new vault (`-Vault`)
-with no cluster yet. It signs in as your `az login` account; its
+with no cluster yet; `-Read FILE` outputs a file's secrets as objects, for
+`Out-GridView` or a filter, with no vault at all. It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/keyvault_copy.py` copies every `cluster-secrets` variable into Key
 Vault and compares by hash, a variable the template encodes as its plain value.
