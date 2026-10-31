@@ -118,7 +118,14 @@ templates); each new template has meant another group typed in from Key Vault or
   - [x] The config moved to them (#495, 54 Key Vault names to 41). Task 1471 showed only the
     intended differences; PG_CONN_STR is tofu/README.md's template on TFSTATE-DB-PASSWORD, and
     Tailscale's OAuth client the existing TAILSCALE-OPENTOFU-* (this PR: 41 to 40).
-  - [ ] Each group managed in its own PR after its check; the site facts to NetBox; the
+  - [ ] Managed, in two batches by risk (this PR first): the six whose values are the
+    import's copies, unchanged (Synology, Terramaster, Windows Updates, k8s and Talos
+    Connection, Netbox Sync, Pi-Hole Settings); then the five whose values now come from
+    templates or shared secrets (Debian, Home Assistant, the three OpenTofu, Proxmox Settings).
+    After each sync run that writes them, their checks: the NAS baselines' dry runs show
+    Hawser unchanged, a Proxmox update's dry run passes its cluster checks, the NetBox sync and
+    Pi-hole setting run as before, each OpenTofu plan shows no changes.
+  - [ ] Then the site facts to NetBox; the
     import's copies no group reads deleted from Key Vault (the sync can list them: every
     import name the config no longer names).
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches

@@ -6,7 +6,8 @@
 # Inventory: the NetBox tag windows beside ansible, and a primary IPv4. Over WinRM on
 # port 5985 with NTLM, which encrypts the session itself (no certificate). The login
 # is a Windows administrator (on a domain controller, a Domain Admins member), from
-# the environment of the template's variable group, never git: WINDOWS_ANSIBLE_USER
+# the environment of the template's variable group ("Windows Updates", made by the Key Vault
+# sync from WINDOWS-ANSIBLE-USER and -PASSWORD), never git: WINDOWS_ANSIBLE_USER
 # (DOMAIN\name) and WINDOWS_ANSIBLE_PASSWORD (secret). The server's WinRM listener
 # must answer the Docker VM on 5985 (`winrm quickconfig` sets it up).
 #
