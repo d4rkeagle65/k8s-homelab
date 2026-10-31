@@ -37,8 +37,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from ruamel.yaml import YAML
-
 OWN_GROUP = "Key Vault Sync"
 NEEDS = ("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_KEYVAULT_URL",
          "SEMAPHORE_URL", "SEMAPHORE_SYNC_TOKEN")
@@ -76,7 +74,15 @@ def http(method: str, url: str, headers: dict | None = None, body=None, form: di
 
 def load_config(path: Path) -> dict:
     """The declared groups, checked; raises ValueError naming what's wrong."""
+    # Imported here, not at the top: semaphore_keyvault_import.py uses this module's Key Vault
+    # client under Ansible's Python, which may lack it, and is handed the config parsed.
+    from ruamel.yaml import YAML
     doc = YAML(typ="safe", pure=True).load(path.read_text(encoding="utf-8")) or {}
+    return check_config(doc)
+
+
+def check_config(doc: dict) -> dict:
+    """The declared groups, checked; raises ValueError naming what's wrong."""
     groups = doc.get("groups") or {}
     if not isinstance(doc.get("project"), str) or not isinstance(groups, dict):
         raise ValueError("needs project: <name> and groups: {<group>: ...}")
@@ -89,8 +95,10 @@ def load_config(path: Path) -> dict:
         for kind in KINDS:
             for var, spec in (group.get(kind) or {}).items():
                 if not isinstance(spec, dict) or len(set(spec) & {"keyvault", "template", "value"}) != 1 \
-                        or set(spec) - {"keyvault", "template", "value", "secret"}:
-                    raise ValueError(f"{name}: {var}: one of keyvault, template or value (and secret)")
+                        or set(spec) - {"keyvault", "template", "value", "secret", "json"}:
+                    raise ValueError(f"{name}: {var}: one of keyvault, template or value (and secret, json)")
+                if spec.get("json") and (kind != "variables" or "keyvault" not in spec):
+                    raise ValueError(f"{name}: {var}: json is for an extra variable from Key Vault")
                 if kind == "environment" and isinstance(spec.get("value"), (dict, list)):
                     raise ValueError(f"{name}: {var}: an environment variable is a single value")
                 if var in seen:
@@ -120,6 +128,7 @@ class KeyVault:
         self.token = body["access_token"]
 
     def get(self, name: str) -> str:
+        """The secret's value; Unread when it isn't there or the read failed."""
         if name not in self.cache:
             try:
                 status, body = http("GET", f"{self.url}/secrets/{urllib.parse.quote(name)}?api-version=7.4",
@@ -133,10 +142,23 @@ class KeyVault:
             self.cache[name] = body["value"]
         return self.cache[name]
 
+    def put(self, name: str, value: str) -> int:
+        """Set the secret; Key Vault's status (403 when this identity may only read)."""
+        self.cache.pop(name, None)
+        status, _ = http("PUT", f"{self.url}/secrets/{urllib.parse.quote(name)}?api-version=7.4",
+                         {"Authorization": f"Bearer {self.token}"}, {"value": value})
+        return status
+
 
 def resolve(spec: dict, vault: KeyVault):
     if "keyvault" in spec:
-        return vault.get(spec["keyvault"])
+        raw = vault.get(spec["keyvault"])
+        if not spec.get("json"):
+            return raw
+        try:
+            return json.loads(raw)
+        except ValueError:
+            raise Unread(f"{spec['keyvault']}: not JSON, as json: true says it is")
     if "template" in spec:
         return PLACEHOLDER.sub(lambda m: vault.get(m.group(1)), spec["template"])
     return spec["value"]
