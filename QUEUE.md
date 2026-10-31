@@ -19,18 +19,13 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   which should report every secret "the same" (an older export reports what changed since).
   Keep the file and its password apart, both off the workstation: on it, losing the workstation
   loses the copy with it.
-- **The secret-words list's leftovers, and the cloud** (2026-10-31): `scripts/secret_words.py`
-  writes one list per clone from Key Vault (`SECRET-WORDS` plus `scripts/secret_words.toml`'s
-  variables); on the PC it holds 37 words, read back. Three choices left:
+- **The secret-words list's leftovers** (2026-10-31): `scripts/secret_words.py` writes one list
+  per clone from Key Vault (`SECRET-WORDS` plus `scripts/secret_words.toml`'s variables); the PC
+  and a cloud session each read back all 37 words. Two choices left:
   - **The old `.secret-words` copies:** delete them. The hook reads one only where its clone's
     list is absent, so a stale copy is dead weight. That is 15 on the PC (the main checkout and
     each worktree), and one in the Docker VM container's clone once its first session after
     the merge has written the list (`.claude/settings.json`).
-  - **Cloud sessions:** the owner's steps in `scripts/README.md` ("Cloud sessions", under "Add
-    a word no commit may contain"): the `k8s-homelab-claude-cloud` principal and its Key Vault
-    copies, `secret_words_access.py --apply`, then the environment's network access, network
-    secret and variables. Until a cloud session's start reads the 37 words, the rule isn't
-    armed there, and the sign-in through the proxy's network secret is untested.
   - **Two public logins:** `SECRET-WORDS` still holds the base64 of two app logins #505 made
     public (`IMMICH_POSTGRES_SUPERUSER_USERNAME`, `OBSIDIAN_COUCHDB_ADMINUSERNAME`). Keep them
     or drop them.
