@@ -154,8 +154,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   live view works directly (the firewall's UDP to it). Devices the bridge can't reach directly (the E20,
   its sock and base behind the travel router; the C10 until it's on the IoT network) get events but no
   live video: eufy's relay refuses its keys (`get_dsk_keys` 20028, upstream mega-yfue/ha-eufy-sdk #154,
-  no fix; the owner chose to wait, not comment). The C10 is on the IoT network as `coioteuc10nurs` (Kea reservation 2026-10-31; its type
-  with this pull request): left, the firewall's UDP allowance for it, as the E30 has, then its live view; the unnamed T8353's name and room (the owner). The living-room Fire TV reports its Ethernet MAC to HA (an unused port, through ADB), so its
+  no fix; the owner chose to wait, not comment). The C10 is on the IoT network as `coioteuc10nurs` and streams live in Home Assistant
+  (2026-10-31, after the bridge moved to host networking, #517); the unnamed T8353's name and room (the owner). The living-room Fire TV reports its Ethernet MAC to HA (an unused port, through ADB), so its
   eth0 MAC goes in NetBox (the owner's) and the script matches any interface MAC (this pull request).
   Laundry (2026-10-26): `binary_sensor.washer_running` and `dryer_running` from the Tapo plugs' power
   and a phone notification when either finishes (`configuration.yaml`'s `template:` and `automation
