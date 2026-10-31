@@ -99,23 +99,23 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   After the app's pull request merges, read back: the pod Ready, the init container's log says "seeded",
   `/admin` asks for the password, and the slideshow plays a video. A frame on the IoT network
   needs the firewall to let it reach the ingress address on 443; whether it can isn't checked.
-- **The Wyze cameras in Home Assistant** (2026-10-30): HACS' Wyze integration (SecKatie/ha-wyzeapi)
-  has both, through Wyze's cloud: video, the power (privacy), motion detection and notification
-  switches, the sirens disabled by the owner (read back), on the Wyze Cameras dashboard
-  (`app/dashboards/wyze-cameras.yaml`). It signs in to the same Wyze account as the bridge,
-  separately: if either starts losing its login, that's the first suspect. The Wyze bridge
-  (`kubernetes/prod/apps/homeassistant/wyze-bridge/`, host networking) signs in and connects to
-  both cameras, but neither streams yet. The living-room Pan v3 (NetBox lists it as a plain v3:
-  fix its type) fails go2rtc's `discovery timeout` on the pod network and on the host's too, so
-  the camera's UDP dial-back to the bridge is dropped: next, the owner adds UDP from the two Wyze
-  cameras to the four workers in the firewall; if it still times out, a packet capture on the
-  bridge's node. The hallway v3 answers `only DTLS cameras are supported`: its firmware needs an
-  update in the Wyze app. Then each is added to Home Assistant as a Generic camera from
-  `rtsp://wyze-bridge.homeassistant:8554/<cam>` (the setup's options sit under `advanced`), and
-  its picture on the Wyze Cameras dashboard moves to it from the cloud's. Decide then on the
-  bridge's `TUTK_FALLBACK_THRESHOLD`: after 5 failed local connections in a row, for any reason
-  including privacy mode, the bridge moves a camera to Wyze's cloud path until it restarts
-  (`recordTUTKFailure`, v4.5.0); 0 turns that off.
+- **The Wyze cameras in Home Assistant** (2026-10-31): the Wyze Cameras dashboard
+  (`app/dashboards/wyze-cameras.yaml`) has both. Its switches (power as privacy, motion
+  detection, notifications; the sirens disabled by the owner, read back) are HACS' Wyze
+  integration's (SecKatie/ha-wyzeapi), through Wyze's cloud. The hallway v3's picture is the
+  camera's own RTSP: Wyze's old RTSP firmware, plain RTSP on 554, through a Generic camera the
+  owner adds in the UI as `camera.hallway_rtsp` (credentials stay in Home Assistant). The
+  living-room Pan v3 (NetBox lists it as a plain v3: fix its type) has RTSP switched on in the
+  app, but on firmware 4.50.17.25 no TCP port listens at all (every one refused from a worker,
+  2026-10-31), as forum users report for the Pan v3's 4.50.17 builds. Its picture stays the
+  integration's cloud stream: the owner sends Wyze a log, and once a firmware serves RTSP it is
+  added the same way from `rtsps://<user>:<pass>@<address>:322/stream0` (go2rtc in Home
+  Assistant skips the certificate check for an IP address) and the dashboard moves to it. The
+  firewall rule from the workers to the two cameras allows every port for that scan: the owner
+  puts it back to its list, keeping TCP 322 and 554. The Wyze bridge
+  (`kubernetes/prod/apps/homeassistant/wyze-bridge/`) streams neither camera and signs in to the
+  Wyze account beside the integration, the first suspect if either starts losing its login:
+  removing it is the owner's call.
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach

@@ -1,8 +1,10 @@
 # The Wyze cameras' dashboard, in YAML mode (kustomization.yaml says how it reaches Home
-# Assistant): change it here, never in the UI. The video is the Wyze integration's, through
-# Wyze's cloud, which gives no stills, so each picture is live and streams while the page is
-# open. The cameras' sirens are disabled entities and stay off this page. The other cameras
-# stay on the UI's Cameras dashboard: their names are private.
+# Assistant): change it here, never in the UI. The hallway's video is the camera's own RTSP,
+# through a Generic camera made in the UI (camera.hallway_rtsp; its credentials stay in Home
+# Assistant). The living room's is the Wyze integration's, through Wyze's cloud. Each picture
+# is live and streams while the page is open. The switches are the Wyze integration's; the
+# cameras' sirens are disabled entities and stay off this page. The other cameras stay on the
+# UI's Cameras dashboard: their names are private.
 title: Wyze Cameras
 views:
   - title: Cameras
@@ -34,7 +36,7 @@ views:
           # own styles win a tie with card-mod's, hence !important. The more-info dialog
           # shows it unturned.
           - type: picture-entity
-            entity: camera.hallway_cam
+            entity: camera.hallway_rtsp
             name: Hallway
             camera_view: live
             show_state: false
