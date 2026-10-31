@@ -11,6 +11,13 @@ its plain variables must equal the declared ones and its secrets be exactly the 
 names and types. Semaphore never returns a secret's value, so a managed group's secrets are
 set at every run (the report says "set") and can't be compared.
 
+Then it compares, in memory, every Key Vault secret the config names and those its `compare:`
+list adds, and reports by name which hold the same value, which contain another's (a
+connection string holding a password), and, for a variable with `candidates:` (templates),
+which candidate gives exactly its value: so a value several groups hold under their own names
+can move to one, and a URL to a template, on evidence (QUEUE-semaphore-variables.md). No value
+is printed.
+
 A group with any value Key Vault didn't give (missing, or the read failed) isn't written, and
 the run fails naming it: a failed read is not an empty value. "Key Vault Sync", the group this
 template runs with, is never declared: it holds the credentials below.
@@ -84,6 +91,8 @@ def load_config(path: Path) -> dict:
 def check_config(doc: dict) -> dict:
     """The declared groups, checked; raises ValueError naming what's wrong."""
     groups = doc.get("groups") or {}
+    if not isinstance(doc.get("compare", []), list):
+        raise ValueError("compare is a list of Key Vault secret names")
     if not isinstance(doc.get("project"), str) or not isinstance(groups, dict):
         raise ValueError("needs project: <name> and groups: {<group>: ...}")
     if OWN_GROUP in groups:
@@ -95,8 +104,10 @@ def check_config(doc: dict) -> dict:
         for kind in KINDS:
             for var, spec in (group.get(kind) or {}).items():
                 if not isinstance(spec, dict) or len(set(spec) & {"keyvault", "template", "value"}) != 1 \
-                        or set(spec) - {"keyvault", "template", "value", "secret", "json"}:
-                    raise ValueError(f"{name}: {var}: one of keyvault, template or value (and secret, json)")
+                        or set(spec) - {"keyvault", "template", "value", "secret", "json", "candidates"}:
+                    raise ValueError(f"{name}: {var}: one of keyvault, template or value (and secret, json, candidates)")
+                if "candidates" in spec and ("keyvault" not in spec or not isinstance(spec["candidates"], list)):
+                    raise ValueError(f"{name}: {var}: candidates is a list of templates, beside keyvault")
                 if spec.get("json") and (kind != "variables" or "keyvault" not in spec):
                     raise ValueError(f"{name}: {var}: json is for an extra variable from Key Vault")
                 if kind == "environment" and isinstance(spec.get("value"), (dict, list)):
@@ -281,6 +292,54 @@ def matches(want: dict, back: dict) -> list[str]:
     return wrong
 
 
+def compare(config: dict, vault: KeyVault) -> list[str]:
+    """What the config's Key Vault secrets show against each other, by name only."""
+    names, lines = set(config.get("compare") or []), []
+    for group in config["groups"].values():
+        for kind in KINDS:
+            for spec in (group.get(kind) or {}).values():
+                if "keyvault" in spec:
+                    names.add(spec["keyvault"])
+                for text in [spec.get("template", "")] + list(spec.get("candidates") or []):
+                    names |= set(PLACEHOLDER.findall(text))
+    pool = {}
+    for name in sorted(names):
+        try:
+            pool[name] = vault.get(name)
+        except Unread as e:
+            lines.append(f"  {e}")
+    by_value: dict[str, list[str]] = {}
+    for name, value in pool.items():
+        by_value.setdefault(value, []).append(name)
+    for same in sorted(n for n in by_value.values() if len(n) > 1):
+        lines.append(f"  the same value: {', '.join(same)}")
+    for a, va in sorted(pool.items()):
+        for b, vb in sorted(pool.items()):
+            if a != b and len(vb) >= 8 and len(va) > len(vb) and vb in va:
+                lines.append(f"  {a} contains {b}'s value")
+    for gname, group in config["groups"].items():
+        for kind in KINDS:
+            for var, spec in (group.get(kind) or {}).items():
+                if not spec.get("candidates") or spec["keyvault"] not in pool:
+                    continue
+                have = pool[spec["keyvault"]]
+                if spec.get("json"):
+                    try:
+                        have = json.loads(have)
+                    except ValueError:
+                        lines.append(f"  {gname}: {var}: {spec['keyvault']} isn't JSON, so compared as it is")
+                hits, unbuilt = [], 0
+                for text in spec["candidates"]:
+                    if all(n in pool for n in PLACEHOLDER.findall(text)):
+                        if PLACEHOLDER.sub(lambda m: pool[m.group(1)], text) == have:
+                            hits.append(text)
+                    else:
+                        unbuilt += 1
+                found = f"is {hits[0]!r}" if hits else f"none of {len(spec['candidates'])} candidates"
+                lines.append(f"  {gname}: {var}: {found}" + (f" ({unbuilt} couldn't be built: a name above isn't in Key Vault)" if unbuilt else ""))
+    return lines
+
+
 def main(argv: list[str]) -> int:
     if len(argv) > 1:
         log("semaphore_variable_groups.py takes no arguments: its settings are environment variables "
@@ -353,6 +412,9 @@ def main(argv: list[str]) -> int:
             failed = True
         else:
             log("  written and read back")
+    log("Key Vault, compared (names only):")
+    for line in compare(config, vault) or ["  nothing in common"]:
+        log(line)
     declared = set(config["groups"]) | {OWN_GROUP}
     for name in sorted(n for n in live if n not in declared):
         for e in live[name]:
