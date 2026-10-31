@@ -45,11 +45,7 @@ Each run's tickets carry its time ("Semaphore Alerting test 20261031…"), and m
 ticket does. `scripts/tests/test_alerting_test.py` runs n8n's own Code nodes on the test's
 alerts, so the keys it waits for are the ones n8n opens.
 
-**The template:** a Python template, script `scripts/alerting_test.py`, no inventory, and a
-variable group **"Alerting Test"** holding, as environment variables only (Semaphore hands a
-Python template's extra variables as arguments, which the script refuses):
-`N8N_URL` (`https://n8n.<domain>`), `ZAMMAD_URL` (`https://<Zammad's host>`) and
-`LOKI_PUSH_URL` (`https://loki-push.<domain>/loki/api/v1/push`); and as secrets
-`ZAMMAD_API_TOKEN`, `SEMAPHORE_ALERT_TOKEN`, `DATABASUS_ALERT_TOKEN`, `DOCKHAND_ALERT_TOKEN`
-(Key Vault, the same names with `-`) and `LOKI_PUSH_PASSWORD` (the Debian Host Baseline
-group's). `ALERTING_TEST_LEGS` (comma-separated) runs only some legs.
+**The template:** a Python template, script `scripts/alerting_test.py`, no inventory, and the
+variable group **"Alerting Test"**, which the Key Vault sync makes and keeps
+(`scripts/semaphore_variable_groups.yaml` lists what it holds; QUEUE-semaphore-variables.md).
+`ALERTING_TEST_LEGS` (comma-separated) runs only some legs.
