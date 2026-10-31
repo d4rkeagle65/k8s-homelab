@@ -9,5 +9,9 @@ metadata:
 data:
   MEDIA_PUID: "1028"
   MEDIA_PGID: "100"
+  # Logins that are each app's own default, not the site's: public, so here rather than in
+  # Key Vault.
+  GRAFANA_ADMIN_USER: "admin"
+  QBITTORRENT_USERNAME: "admin"
   # Empty in production; the test overlay sets "-test".
   SUBDOMAIN_SUFFIX: ""
