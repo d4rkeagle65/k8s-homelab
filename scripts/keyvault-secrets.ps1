@@ -55,9 +55,10 @@ the value starts or ends with whitespace (a space, tab, newline...).
 
 With -Name and -Delete, deletes the secret, refusing while anything reads it:
 the live cluster-secrets ExternalSecret mapping it, another ExternalSecret
-reading it straight from Key Vault, a file under kubernetes/ using ${NAME}, or a
-Dockhand stack in docker/secret-names.yaml. It asks for the secret's name to be
-typed to confirm. Key Vault keeps a deleted secret until its purge date, which
+reading it straight from Key Vault, a file under kubernetes/ using ${NAME} (unless
+cluster-settings defines NAME, so git supplies it), or a Dockhand stack in
+docker/secret-names.yaml. It asks for the secret's name to be typed to confirm;
+-Yes skips that, for a list in a loop, and every reader still stops it. Key Vault keeps a deleted secret until its purge date, which
 the script reads back and prints; until then a secret of that name can't be
 added. -Recover brings a deleted secret back, with the value it had, reads it
 back, and force-syncs cluster-secrets when that maps it.
@@ -130,6 +131,11 @@ a device's settings.
 Deletes a secret nothing reads any more, once its name is typed.
 
 .EXAMPLE
+foreach ($n in "OLD_ONE", "OLD_TWO") { try { ./scripts/keyvault-secrets.ps1 $n -Delete -Yes } catch { Write-Warning $_ } }
+Deletes each secret nothing reads, without typing each name; one still read is
+refused with a warning saying what reads it, and the loop goes on.
+
+.EXAMPLE
 ./scripts/keyvault-secrets.ps1 OLD_VARIABLE -Recover
 Brings a deleted secret back before its purge date.
 
@@ -169,6 +175,9 @@ param(
     # Delete the secret (soft delete: -Recover brings it back until it's purged),
     # once nothing reads it and its name is typed to confirm.
     [switch]$Delete,
+    # With -Delete: no typed confirmation, for a list in a loop. Every reader still
+    # stops it; the secret stays recoverable until it's purged.
+    [switch]$Yes,
     # Recover a deleted secret, with the value it had.
     [switch]$Recover,
     # Write every secret, values included, to this file, encrypted with a password
@@ -196,6 +205,7 @@ if ($New -and -not $Raw -and -not $Get) {
 if ($Generate -and ($PSBoundParameters.ContainsKey('Value') -or $Get)) {
     throw '-Generate makes the value: leave out -Value and -Get.'
 }
+if ($Yes -and -not $Delete) { throw '-Yes goes with -Delete: it skips typing the name to confirm.' }
 if ($Delete -or $Recover) {
     $others = @('Value', 'Get', 'Raw', 'New', 'Generate', 'Clipboard') | Where-Object { $PSBoundParameters.ContainsKey($_) }
     if ($Delete -and $Recover) { throw '-Delete and -Recover undo each other: give one.' }
@@ -252,6 +262,20 @@ function Get-VariableUsage {
         }
     }
     $usage
+}
+
+# The variables cluster-settings defines (kubernetes/flux/meta/vars/cluster-settings.yaml's
+# data: keys): a ${NAME} one of them supplies isn't read from Key Vault.
+function Get-SettingsVariables {
+    $file = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..')).Path 'kubernetes/flux/meta/vars/cluster-settings.yaml'
+    $names = @{}
+    $inData = $false
+    foreach ($line in (Get-Content -Encoding UTF8 -LiteralPath $file)) {
+        if ($line -match '^data:\s*$') { $inData = $true; continue }
+        if ($line -match '^\S') { $inData = $false }
+        if ($inData -and $line -match '^  ([A-Za-z0-9_]+):') { $names[$Matches[1]] = $true }
+    }
+    $names
 }
 
 # Key Vault secret name (lower case) -> the Dockhand stacks that read it, from
@@ -778,7 +802,8 @@ if ($Delete) {
     $readers = @(
         if ($mapped.Contains($Name)) { "the live cluster-secrets ExternalSecret (remove its entry in kubernetes/secrets/cluster-secrets.yaml, and let Flux apply that, first)" }
         $direct | ForEach-Object { "ExternalSecret in kubernetes/$_" }
-        if ($files) { $files.Keys | Sort-Object | ForEach-Object { "kubernetes/$_ (`${$Name})" } }
+        # A ${NAME} cluster-settings supplies reads git, not this secret.
+        if ($files -and -not (Get-SettingsVariables).ContainsKey($Name)) { $files.Keys | Sort-Object | ForEach-Object { "kubernetes/$_ (`${$Name})" } }
         $dockhandReaders = (Get-DockhandUsage)[$secretName.ToLowerInvariant()]
         if ($dockhandReaders) { $dockhandReaders | Sort-Object | ForEach-Object { "$_ (docker/secret-names.yaml)" } }
     )
@@ -788,8 +813,10 @@ if ($Delete) {
     # A disabled secret's read is refused (403) but it can still be deleted.
     if ($current.Status -ne 200 -and $current.Status -ne 403) { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
     Write-Host "Nothing in this checkout or the live cluster-secrets reads $secretName."
-    $typed = Read-Host "Type $secretName to delete it"
-    if ($typed -cne $secretName) { throw 'Not the same name; nothing deleted.' }
+    if (-not $Yes) {
+        $typed = Read-Host "Type $secretName to delete it"
+        if ($typed -cne $secretName) { throw 'Not the same name; nothing deleted.' }
+    }
     $deleted = Invoke-KeyVault DELETE (Get-SecretUrl $secretName) $null
     if ($deleted.Status -ne 200) { throw "Key Vault refused to delete $secretName`: HTTP $($deleted.Status) $(Get-ErrorCode $deleted)" }
     if (-not $deleted.Body.recoveryId) { throw "Key Vault deleted $secretName without keeping it to recover: the vault's soft delete is off, so it's gone." }
