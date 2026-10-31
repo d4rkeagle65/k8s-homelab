@@ -18,6 +18,7 @@ and the order to set it up again. Its address, MAC and name are in NetBox and Ke
 | Kiosk page | Home HQ's saved URL is ImmichFrame's address. |
 | Boot fixes | Upstream's `scripts/pf1007l-boot` (`install.sh apply`): `MAC` (a fixed Wi-Fi MAC, made from the serial number), `NTP_SERVER` (a local time server), `WIFI_DEFER=1`, `POWER_FIX=1` (it runs on a charger above 500 mA), `IGNORE_IPV6_RA=1`, `KIOSK` set to Home HQ, `ADB_ALLOW` empty. |
 | SSH | Dropbear on port 22, key-only, for root; the key allowed is the Termix bastion's (`bastion_ssh_keys`), in `/system/etc/dropbear/authorized_keys`, and Termix reaches it through NetBox (below). |
+| Watchdog | `watchdog/watchdog.sh`, started at boot: reboots the frame when Home HQ is dead or stuck (below). |
 | Home Assistant | Controls it over HTTP, not ADB: scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` call Home HQ's command listener (below). `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
 
 ## Setting it up again
@@ -65,6 +66,7 @@ adb connect <frame-address>:5555
    which needs TCP 8766. Check: run the script `picture_frame_next` and see the photo change.
 
 9. **SSH** (below).
+10. **The watchdog** (below).
 
 Check the result:
 
@@ -147,6 +149,29 @@ runs it waits on the daemon for good.
 Termix: the frame's NetBox device carries the tag `bastion-key` and the local context
 `{"termix_user": "root"}`; Termix's hourly sync then adds it by its primary address. The
 workers reach it on TCP 22 through the same firewall rule as 8766.
+
+## The watchdog
+
+The board's Mali GPU driver can hang with Home HQ's RenderThread stuck inside it
+(`_mali_osk_wait_queue_wait_event`, state D): Android kills Home HQ but the stuck thread keeps
+the process a zombie, so Home HQ can't start again, Rootless Launcher shows instead, and port
+8766 still accepts commands nothing carries out. Only a reboot clears it.
+
+`watchdog/watchdog.sh` (in `/data/local/watchdog/`, mode 700) checks once a minute, with the
+screen on, and reboots when Home HQ has been dead or a zombie for 3 minutes, or alive but not in
+front for 20 (time enough to use Settings through Rootless Launcher). Never within 5 minutes of
+boot nor 30 minutes of its last reboot, recorded in `last-reboot` there so it holds across boots.
+It logs each change of state to `watchdog.log` there and to logcat (tag `HomeHQWatchdog`). Its
+limits are environment variables at the top of the script; `DRY_RUN=1` logs "would reboot"
+instead.
+
+It starts from its own line in `/system/bin/install-recovery.sh`, after Dropbear's and before
+the boot fixes' `exec`, added the same way (the previous file in
+`/data/local/watchdog/install-recovery.sh.before-watchdog`):
+
+```
+/system/bin/sh /data/local/watchdog/watchdog.sh &  # Home HQ watchdog (k8s-homelab devices/picture-frame)
+```
 
 ## The power button as mute
 
