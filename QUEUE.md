@@ -94,7 +94,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   After the app's pull request merges, read back: the pod Ready, the init container's log says "seeded",
   `/admin` asks for the password, and the slideshow plays a video. A frame on the IoT network
   needs the firewall to let it reach the ingress address on 443; whether it can isn't checked.
-- **The Wyze cameras in Home Assistant** (2026-10-30): the Wyze bridge
+- **The Wyze cameras in Home Assistant** (2026-10-30): HACS' Wyze integration (SecKatie/ha-wyzeapi)
+  has both, through Wyze's cloud: video, the power (privacy), motion detection and notification
+  switches, the sirens disabled by the owner (read back), on the Wyze Cameras dashboard
+  (`app/dashboards/wyze-cameras.yaml`). It signs in to the same Wyze account as the bridge,
+  separately: if either starts losing its login, that's the first suspect. The Wyze bridge
   (`kubernetes/prod/apps/homeassistant/wyze-bridge/`, host networking) signs in and connects to
   both cameras, but neither streams yet. The living-room Pan v3 (NetBox lists it as a plain v3:
   fix its type) fails go2rtc's `discovery timeout` on the pod network and on the host's too, so
@@ -102,8 +106,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   cameras to the four workers in the firewall; if it still times out, a packet capture on the
   bridge's node. The hallway v3 answers `only DTLS cameras are supported`: its firmware needs an
   update in the Wyze app. Then each is added to Home Assistant as a Generic camera from
-  `rtsp://wyze-bridge.homeassistant:8554/<cam>` (the setup's options sit under `advanced`) and
-  put on the Cameras dashboard.
+  `rtsp://wyze-bridge.homeassistant:8554/<cam>` (the setup's options sit under `advanced`), and
+  its picture on the Wyze Cameras dashboard moves to it from the cloud's. Decide then on the
+  bridge's `TUTK_FALLBACK_THRESHOLD`: after 5 failed local connections in a row, for any reason
+  including privacy mode, the bridge moves a camera to Wyze's cloud path until it restarts
+  (`recordTUTKFailure`, v4.5.0); 0 turns that off.
 - **Kept in the cluster** (2026-10-24): `QUEUE-kept.md` (decisions, the owner's Key Vault and
   Garage steps first, then two pull requests in order).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
