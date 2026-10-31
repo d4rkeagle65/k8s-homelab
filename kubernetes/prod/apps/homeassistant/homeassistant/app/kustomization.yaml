@@ -14,3 +14,15 @@ configMapGenerator:
   namespace: homeassistant
   files:
   - config/configuration.yaml
+# The dashboards kept in git, one file each in dashboards/, declared in
+# configuration.yaml's lovelace: dashboards:. This name has no hash and the
+# Deployment mounts it as a folder at /config/dashboards, so the kubelet
+# updates the files in place and Home Assistant, which rereads a dashboard
+# whose file changed, shows the change at the next page load, no restart.
+# The UI can't edit these; the other dashboards are made there.
+- name: homeassistant-dashboards
+  namespace: homeassistant
+  files:
+  - dashboards/front-door.yaml
+  options:
+    disableNameSuffixHash: true
