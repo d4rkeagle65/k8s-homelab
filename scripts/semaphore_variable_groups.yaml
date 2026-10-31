@@ -25,8 +25,7 @@ compare: [BASE-DOMAIN, TIMEZONE, PVE-API-HOST, PVE-EXPORTER-TOKEN-VALUE, TFSTATE
           NETBOX-READ-TOKEN, NETBOX-HOMEPAGE-TOKEN, NETBOX-SEMAPHORE-TOKEN, NETBOX-DNS-TOKEN,
           NETBOX-DNS-SYNC-TOKEN, RENOVATE-GITHUB-TOKEN, HOMEASSISTANT-TOKEN,
           CERT-MANAGER-CLOUDFLARE-API-TOKEN-API-TOKEN, CLOUDFLARE-HOMEPAGE-API-TOKEN,
-          TAILSCALE-API-KEY, TAILSCALE-EXPORTER-OAUTH-CLIENT-ID, TAILSCALE-EXPORTER-OAUTH-CLIENT-SECRET,
-          TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID, TAILSCALE-OPENTOFU-OAUTH-CLIENT-SECRET]
+          TAILSCALE-API-KEY, TAILSCALE-EXPORTER-OAUTH-CLIENT-ID, TAILSCALE-EXPORTER-OAUTH-CLIENT-SECRET]
 
 groups:
   # scripts/alerting_test.py ("Tool: Alerting test (script)"; n8n/README.md).
@@ -117,32 +116,32 @@ groups:
     managed: false
     environment:
       CLOUDFLARE_API_TOKEN: {keyvault: TOFU-CLOUDFLARE-API-TOKEN}
-      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR, candidates: ["postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable"]}
+      PG_CONN_STR: {template: "postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable", secret: true}
       TF_VAR_dns: {keyvault: TOFU-CLOUDFLARE-TF-VAR-DNS}
 
   # tofu/proxmox/ (tofu/README.md). PG_CONN_STR is both plain and secret here today; the group
-  # keeps the secret only. The three modules' PG_CONN_STR are one value (task 1470), so one
-  # secret until the candidate template proves it's built from TFSTATE-DB-PASSWORD; NetBox's
-  # token is the shared read-only one, which this module takes with or without "Bearer ".
+  # keeps the secret only. The three modules' PG_CONN_STR are one value, tofu/README.md's form
+  # on TFSTATE-DB-PASSWORD (task 1471); NetBox's token is the shared read-only one, which this
+  # module takes with or without "Bearer ".
   "OpenTofu: Proxmox and Talos":
     managed: false
     environment:
       PROXMOX_VE_ENDPOINT: {template: "https://{PVE-API-HOST}:8006/"}
       TF_VAR_netbox_url: {template: "https://netbox.{BASE-DOMAIN}"}
-      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR, candidates: ["postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable"]}
+      PG_CONN_STR: {template: "postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable", secret: true}
       PROXMOX_VE_API_TOKEN: {keyvault: TOFU-PROXMOX-VE-API-TOKEN}
       TF_VAR_netbox_token: {keyvault: NETBOX-READ-TOKEN}
       TF_VAR_site: {keyvault: TOFU-PROXMOX-TF-VAR-SITE}
       TF_VAR_talos_secrets: {keyvault: TOFU-PROXMOX-TF-VAR-TALOS-SECRETS}
 
-  # tofu/tailscale/.
+  # tofu/tailscale/ (tofu/README.md: its own OAuth client, Key Vault's TAILSCALE-OPENTOFU-*).
   "OpenTofu: Tailscale":
     managed: false
     environment:
-      PG_CONN_STR: {keyvault: TOFU-PROXMOX-PG-CONN-STR, candidates: ["postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable"]}
+      PG_CONN_STR: {template: "postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable", secret: true}
       TF_VAR_netbox_url: {template: "https://netbox.{BASE-DOMAIN}"}
-      TAILSCALE_OAUTH_CLIENT_ID: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-ID}
-      TAILSCALE_OAUTH_CLIENT_SECRET: {keyvault: TOFU-TAILSCALE-OAUTH-CLIENT-SECRET}
+      TAILSCALE_OAUTH_CLIENT_ID: {keyvault: TAILSCALE-OPENTOFU-OAUTH-CLIENT-ID}
+      TAILSCALE_OAUTH_CLIENT_SECRET: {keyvault: TAILSCALE-OPENTOFU-OAUTH-CLIENT-SECRET}
       TF_VAR_netbox_token: {keyvault: NETBOX-READ-TOKEN}
 
   # ansible/pihole-setting.yml.
