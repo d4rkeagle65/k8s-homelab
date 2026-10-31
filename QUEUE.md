@@ -484,6 +484,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (just started): the wall display, a Grafana dashboard on the convertible laptop's screen.
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (just started): SNMPv3, syslog and alerts for the core switch and the firewall.
 - [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 85%): every source sends to n8n; left, deleting the bridge.
+- [QUEUE-site-facts.md](QUEUE-site-facts.md) (just started): one Key Vault secret per value, passwords made in the cluster, site facts from NetBox.
 - [QUEUE-semaphore-variables.md](QUEUE-semaphore-variables.md) (about 20%): the sync runs; 1 of 12 groups managed; the rest move one at a time.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container, in batches.
 
