@@ -24,5 +24,6 @@ configMapGenerator:
   namespace: homeassistant
   files:
   - dashboards/front-door.yaml
+  - dashboards/wyze-cameras.yaml
   options:
     disableNameSuffixHash: true

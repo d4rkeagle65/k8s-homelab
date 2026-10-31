@@ -35,6 +35,12 @@ lovelace:
       icon: mdi:door
       show_in_sidebar: true
       filename: dashboards/front-door.yaml
+    wyze-cameras:
+      mode: yaml
+      title: Wyze Cameras
+      icon: mdi:cctv
+      show_in_sidebar: true
+      filename: dashboards/wyze-cameras.yaml
 
 # The Prometheus endpoint (/api/prometheus), scraped from the cluster with a
 # long-lived token (monitors/scrapeconfig-homeassistant.yaml).

@@ -1,0 +1,59 @@
+# The Wyze cameras' dashboard, in YAML mode (kustomization.yaml says how it reaches Home
+# Assistant): change it here, never in the UI. The video is the Wyze integration's, through
+# Wyze's cloud, which gives no stills, so each picture is live and streams while the page is
+# open. The cameras' sirens are disabled entities and stay off this page. The other cameras
+# stay on the UI's Cameras dashboard: their names are private.
+title: Wyze Cameras
+views:
+  - title: Cameras
+    path: cameras
+    icon: mdi:cctv
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Living room
+            icon: mdi:sofa
+          - type: picture-entity
+            entity: camera.living_room_cam
+            name: Living room
+            camera_view: live
+            show_state: false
+          - type: tile
+            entity: switch.living_room_cam_power
+            name: Camera on
+          - type: tile
+            entity: switch.living_room_cam_motion_detection
+            name: Motion detection
+          - type: tile
+            entity: switch.living_room_cam_notifications
+            name: Notifications
+      - type: grid
+        cards:
+          - type: heading
+            heading: Hallway
+            icon: mdi:door-open
+          - type: picture-entity
+            entity: camera.hallway_cam
+            name: Hallway
+            camera_view: live
+            show_state: false
+          - type: tile
+            entity: switch.hallway_cam_power
+            name: Camera on
+          - type: tile
+            entity: switch.hallway_cam_motion_detection
+            name: Motion detection
+          - type: tile
+            entity: switch.hallway_cam_notifications
+            name: Notifications
+      - type: grid
+        cards:
+          - type: heading
+            heading: Wyze
+            icon: mdi:bell
+          - type: tile
+            entity: switch.wyze_notifications
+            name: All notifications
