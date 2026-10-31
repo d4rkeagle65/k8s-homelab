@@ -70,8 +70,14 @@ templates); each new template has meant another group typed in from Key Vault or
   `PG_CONN_STR` is both a plain variable and a secret in "OpenTofu: Proxmox and Talos": which
   one a task sees is Semaphore's choice; declaring the group keeps one (a secret, since it
   holds a password). `TF_VAR_site` and `TF_VAR_dns` are JSON of site facts, which NetBox or
-  Key Vault templates may replace when their groups move. The easiest first: Synology and
-  Terramaster Baseline (one secret each), then k8s and Talos Connection (eight templates).
+  Key Vault templates may replace when their groups move.
+  - [ ] Batch 1, declared unmanaged (this PR): Synology and Terramaster Baseline (their Hawser
+    tokens, from Dockhand's environments), Windows Updates, k8s and Talos Connection (the
+    README's commands; the talosconfig from its Vaultwarden copy). Left: the owner adds the
+    Key Vault secrets; a sync run reports none missing; each marked managed; then each
+    group's check: a Hawser token Semaphore doesn't hold the same as Dockhand would recreate
+    Hawser, so the NAS baselines' dry runs must report Hawser unchanged, and a Proxmox
+    update's dry run must pass its cluster checks.
 - [ ] 4. A schedule (daily), once several groups are managed, so a Key Vault change reaches
   Semaphore without a run by hand.
 

@@ -29,3 +29,33 @@ groups:
       DATABASUS_ALERT_TOKEN: {keyvault: DATABASUS-ALERT-TOKEN}
       DOCKHAND_ALERT_TOKEN: {keyvault: DOCKHAND-ALERT-TOKEN}
       LOKI_PUSH_PASSWORD: {keyvault: LOKI-PUSH-PASSWORD}
+
+  # ansible/README.md, "The Synology": the Hawser token Dockhand's environment for the Synology holds.
+  Synology Baseline:
+    managed: false
+    environment:
+      HAWSER_TOKEN: {keyvault: HAWSER-TOKEN-SYNOLOGY}
+
+  # ansible/README.md, "The TerraMaster": the Hawser token Dockhand's environment for it holds.
+  Terramaster Baseline:
+    managed: false
+    environment:
+      HAWSER_TOKEN: {keyvault: HAWSER-TOKEN-TERRAMASTER}
+
+  # ansible/windows-update.yml: the account it signs in to the Windows hosts with.
+  Windows Updates:
+    managed: false
+    environment:
+      WINDOWS_ANSIBLE_USER: {keyvault: WINDOWS-ANSIBLE-USER, secret: false}
+      WINDOWS_ANSIBLE_PASSWORD: {keyvault: WINDOWS-ANSIBLE-PASSWORD}
+
+  # ansible/README.md, step 4: Semaphore's access to the cluster (cluster-access/semaphore,
+  # which reads no Secrets) and an os:admin talosconfig, for the templates that check the
+  # cluster or drain nodes.
+  k8s and Talos Connection:
+    managed: false
+    environment:
+      K8S_API_URL: {keyvault: SEMAPHORE-K8S-API-URL}
+      K8S_CA_B64: {keyvault: SEMAPHORE-K8S-CA-B64}
+      K8S_TOKEN: {keyvault: SEMAPHORE-K8S-TOKEN}
+      TALOSCONFIG_B64: {keyvault: SEMAPHORE-TALOSCONFIG-B64}
