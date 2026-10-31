@@ -138,20 +138,21 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   laundry:`), tuned from the first wash and dry (2026-10-27).
   The front-door ULTRALOQ is the Bluetooth model behind its Bridge, which U-tec's cloud OpenAPI
   doesn't offer (the HACS U-tec Locks integration found no lock: remove it from HACS). Next, an
-  ESPHome Bluetooth proxy near the door, a WT32-ETH01 (`devices/door-bt-proxy/`): flashed,
-  reserved in Kea, in NetBox and in HA (2026-10-30, read back: NetBox Active with its type, role
-  and eth0 carrying the reservation; HA's ESPHome entry with its key, the device in Stairs, its
-  Bluetooth adapter registered). It runs at the rack, 6-7 feet from the lock through the concrete
-  slab, the nearest the Ethernet goes. Left, the owner's: HACS' chaseflick4/ultraloq-ble-ha, set
-  up from where things stand (setup needs only U-tec's cloud), then the lock in Stairs; whether
-  the proxy reaches it shows then. The lock's own Bluetooth MAC missing from HA's advertisement
-  monitor proves little: a lock with a wake-up receiver advertises that instead, at an address
-  the integration takes from the cloud at setup. Out of range, the proxy goes on Wi-Fi (ESPHome
-  runs `ethernet:` or `wifi:`, not both) on 5 V by an outlet near the lock, or a small Wi-Fi
-  ESP32 board does, or Ethernet reaches past the slab (the stair opening). That fork keeps no U-tec password, but has never run against a real lock and was last
-  updated before upstream's v1.1.1 fix for locks whose entities all stay unavailable. Upstream
-  (inventor7777/ultraloq-ble-ha) is the fallback; its config entry keeps the U-tec email and
-  password, in HA's backups too. Both are the `ultraloq_ble` domain, so one at a time.
+  ESPHome Bluetooth proxy near the door, a WT32-ETH01 (`devices/door-bt-proxy/`), in NetBox and
+  in HA (2026-10-30, read back: NetBox Active in Stairs; HA's ESPHome entry with its key, the
+  device in Stairs). It runs on Wi-Fi, since the nearest Ethernet is 6-7 feet from the lock
+  through the concrete slab: its Kea reservation is on the Wi-Fi (base) MAC with the same address
+  and hostname (read back on both Kea servers), so HA's entry, made by address, reconnects.
+  Left, the owner's: `wifi_ssid` and `wifi_password` in its `secrets.yaml`, a flash over serial
+  (its README.md), 5 V by the door; then HACS' chaseflick4/ultraloq-ble-ha, set up from U-tec's
+  cloud (no Bluetooth range needed), and the lock in Stairs. Mine: after the next NetBox sync,
+  read back wifi0 holding the base MAC and the address. The lock's own Bluetooth MAC missing from
+  HA's advertisement monitor proves little: a lock with a wake-up receiver advertises that
+  instead, at an address the integration takes from the cloud at setup. That fork keeps no U-tec
+  password, but has never run against a real lock and was last updated before upstream's v1.1.1
+  fix for locks whose entities all stay unavailable. Upstream (inventor7777/ultraloq-ble-ha) is
+  the fallback; its config entry keeps the U-tec email and password, in HA's backups too. Both
+  are the `ultraloq_ble` domain, so one at a time.
 - **The IoT devices' exact models and DNS names** (2026-10-23): the NetBox sync's "iot
   devices:" step (#340) made all 39 on its first run (task 1244, read back: 39 devices, each
   wifi0 with its MAC and address), types and roles from `scripts/netbox_seed_iot.yaml`'s rules.
