@@ -35,17 +35,14 @@ cluster, and three JSON strings bundle values that are their own facts.
 - [ ] **2. Passwords generated in the cluster.** Traced 2026-10-31 (live pod specs, values compared
   yes/no only):
   - [x] Authentik's and Immich's unused `redis-password` Secrets (#511), live and in Key Vault.
-  - [ ] redis-ha (this PR, merged when the owner picks; it restarts redis-ha and Immich): a
-    Password generator makes `redis-ha-auth` (`auth`, `sentinel-password`, each its own,
-    `refreshPolicy: CreatedOnce`), and Immich's `immich-redis` builds its `REDIS_URL` from it
-    through a Kubernetes-provider SecretStore that may read only that Secret. After merge: check
-    both ExternalSecrets ready, the two passwords differ (yes/no), redis-ha has one master and two
-    replicas linked, and Immich's server and machine learning run on the new Secret (its jobs page:
-    re-run "missing" if a queue was lost in the roll). Then by hand the old prune-protected
-    `redis-ha/redis-ha-creds` and `immich/immich-redis-url` (capture would write the second back
-    into `immich-extras` while it is live); then a PR removing `REDIS_HA_CREDS_AUTH`,
-    `REDIS_HA_CREDS_SENTINEL_PASSWORD` and `IMMICH_REDIS_URL_REDIS_URL` from cluster-secrets; then
-    the owner deletes those three from Key Vault.
+  - [ ] redis-ha's passwords are generated in the cluster (`redis-ha-auth`, #512) and Immich's
+    `REDIS_URL` is built from them (`immich-redis`); checked live: both ready, the passwords
+    differ, one master and two replicas, Immich on the new Secret. Left: the owner deletes by hand
+    the old prune-protected `redis-ha/redis-ha-creds` and `immich/immich-redis-url` (no pod reads
+    either; capture writes the second back into `immich-extras` while it is live), checks Immich's
+    jobs page for a queue lost in the roll (re-run "missing"), and after this PR deletes
+    `REDIS-HA-CREDS-AUTH`, `REDIS-HA-CREDS-SENTINEL-PASSWORD` and `IMMICH-REDIS-URL-REDIS-URL`
+    from Key Vault.
   - [ ] Then the app secret keys in Key Vault that nothing outside the cluster reads.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity
