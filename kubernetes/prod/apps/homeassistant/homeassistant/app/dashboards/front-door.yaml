@@ -1,0 +1,69 @@
+# The Front Door dashboard, in YAML mode (kustomization.yaml says how it reaches Home
+# Assistant): change it here, never in the UI, which can't edit it. The lock tile's icon
+# opens the lock's dialog rather than toggling it, so one tap never unlocks the door.
+title: Front Door
+views:
+  - title: Door
+    path: door
+    icon: mdi:door
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Lock
+            icon: mdi:lock
+          - type: tile
+            entity: lock.front_door
+            name: Front door
+            icon_tap_action:
+              action: more-info
+          - type: tile
+            entity: sensor.front_door_lock_mode
+            name: Mode
+          - type: tile
+            entity: sensor.front_door_battery_level
+            name: Battery
+      - type: grid
+        cards:
+          - type: heading
+            heading: Auto-lock
+            icon: mdi:lock-clock
+          - type: tile
+            entity: number.front_door_autolock_time
+            name: Auto-lock after
+            features:
+              - type: numeric-input
+                style: buttons
+          - type: tile
+            entity: button.front_door_rescan
+            name: Refresh status
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.front_door_rescan
+      - type: grid
+        cards:
+          - type: heading
+            heading: Activity
+            icon: mdi:history
+          - type: logbook
+            target:
+              entity_id: lock.front_door
+            hours_to_show: 48
+      - type: grid
+        cards:
+          - type: heading
+            heading: Lights
+            icon: mdi:lightbulb-group
+          - type: tile
+            entity: switch.stair_light
+            name: Stairs
+          - type: tile
+            entity: switch.hallway_light
+            name: Hallway
+          - type: tile
+            entity: switch.front_closet_light
+            name: Front closet
