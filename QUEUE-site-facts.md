@@ -35,14 +35,9 @@ cluster, and three JSON strings bundle values that are their own facts.
 - [ ] **2. Passwords generated in the cluster.** Traced 2026-10-31 (live pod specs, values compared
   yes/no only):
   - [x] Authentik's and Immich's unused `redis-password` Secrets (#511), live and in Key Vault.
-  - [ ] redis-ha's passwords are generated in the cluster (`redis-ha-auth`, #512) and Immich's
-    `REDIS_URL` is built from them (`immich-redis`); checked live: both ready, the passwords
-    differ, one master and two replicas, Immich on the new Secret. Left: the owner deletes by hand
-    the old prune-protected `redis-ha/redis-ha-creds` and `immich/immich-redis-url` (no pod reads
-    either; capture writes the second back into `immich-extras` while it is live), checks Immich's
-    jobs page for a queue lost in the roll (re-run "missing"), and after this PR deletes
-    `REDIS-HA-CREDS-AUTH`, `REDIS-HA-CREDS-SENTINEL-PASSWORD` and `IMMICH-REDIS-URL-REDIS-URL`
-    from Key Vault.
+  - [x] redis-ha's passwords generated in the cluster (`redis-ha-auth`, #512), Immich's `REDIS_URL`
+    built from them (`immich-redis`); the old Secrets, cluster-secrets entries (#515) and Key Vault
+    secrets deleted.
   - [ ] Then the app secret keys in Key Vault that nothing outside the cluster reads.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity
