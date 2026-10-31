@@ -77,11 +77,12 @@ groups:
     environment:
       loki_push_password: {keyvault: LOKI-PUSH-PASSWORD}
 
-  # scripts/ha_iot_setup.py ("Sync: NetBox IoT → Home Assistant (script)").
+  # scripts/ha_iot_setup.py ("Sync: NetBox IoT → Home Assistant (script)"). Rooms come from
+  # NetBox Locations since #352: the group's empty HA_IOT_AREAS is left out, so managing the
+  # group removes it.
   Home Assistant IoT:
     managed: false
     environment:
-      HA_IOT_AREAS: {keyvault: HA-IOT-AREAS}
       HA_TOKEN: {keyvault: HA-IOT-HA-TOKEN}
       HA_URL: {keyvault: HA-IOT-HA-URL}
       NETBOX_API: {keyvault: HA-IOT-NETBOX-API}
