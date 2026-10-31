@@ -1,0 +1,24 @@
+# Lets Immich's SecretStore (immich-extras' secretstore-redis-ha.yaml) read redis-ha-auth,
+# and no other Secret here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: immich-redis-reader
+rules:
+- apiGroups: [""]
+  resources: [secrets]
+  resourceNames: [redis-ha-auth]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: immich-redis-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: immich-redis-reader
+subjects:
+- kind: ServiceAccount
+  name: immich-redis-reader
+  namespace: immich
