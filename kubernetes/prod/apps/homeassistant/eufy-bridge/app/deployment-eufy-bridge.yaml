@@ -32,6 +32,12 @@ spec:
         env:
         - name: EUFY_COUNTRY
           value: US
+        # Temporary (QUEUE.md, the travel router's E20): which addresses the P2P library tries.
+        # Very noisy; off again once read.
+        - name: BRIDGE_DEBUG
+          value: "1"
+        - name: BRIDGE_DEBUG_P2P
+          value: "1"
         - name: BRIDGE_PORT
           value: "3000"
         - name: TZ
