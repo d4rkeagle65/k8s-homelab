@@ -1,0 +1,51 @@
+#!/bin/sh
+# Commit-message gate: a commit's message is as public as its files, and the pre-commit hook
+# reads only the files. This refuses a message holding a word on the secret-words list, matched
+# as pre-commit matches the files (each entry whole, case-blind, anywhere in the text), and
+# names the line, never the word. git's own comment lines and, with --verbose, everything below
+# the scissors line (the diff, not the message) are left out, as git leaves them out.
+#
+# The list: SECRET_WORDS_FILE when set, else the clone's (scripts/secret_words.py writes it into
+# the git folder its worktrees share), else a .secret-words at the worktree's top. A clone with
+# none says so and lets the commit through, as pre-commit does.
+#
+# Install with: git config core.hooksPath .githooks
+
+set -e
+msg="$1"
+[ -n "$msg" ] && [ -f "$msg" ] || { echo "commit-msg: no message file given"; exit 1; }
+
+list="${SECRET_WORDS_FILE:-}"
+if [ -z "$list" ]; then
+    list="$(git rev-parse --path-format=absolute --git-common-dir)/secret-words"
+    [ -f "$list" ] || list="$(git rev-parse --show-toplevel)/.secret-words"
+fi
+if [ ! -f "$list" ]; then
+    echo "  note: no secret-words list here (scripts/secret_words.py writes it), so the commit message isn't checked"
+    exit 0
+fi
+
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+# The message as git will keep it: up to the scissors line, without comment lines.
+comment="$(git config --get core.commentChar 2>/dev/null || true)"
+case "$comment" in ""|auto) comment="#" ;; esac
+tr -d '\r' < "$msg" | awk -v c="$comment" '
+    /^[^ ]+ -+ >8 -+$/ { exit }
+    index($0, c) == 1 { print ""; next }
+    { print }' > "$work/message"
+tr -d '\r' < "$list" | grep -v '^\s*#' | grep -v '^\s*$' | tr 'A-Z' 'a-z' | sort -u > "$work/words" || true
+
+bad=0
+while IFS= read -r w; do
+    lines=$(grep -niF -- "$w" "$work/message" | cut -d: -f1 | tr '\n' ' ') || true
+    if [ -n "$lines" ]; then
+        echo "  BLOCKED  the commit message contains a word on the secret-words list (line ${lines% })"
+        bad=1
+    fi
+done < "$work/words"
+if [ "$bad" -ne 0 ]; then
+    echo ""
+    echo "Commit refused: reword the message without it (the message file keeps your text: git commit -e -F $msg)."
+    exit 1
+fi

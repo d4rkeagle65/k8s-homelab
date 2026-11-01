@@ -99,13 +99,13 @@ Read before changing anything:
 ## Project-specific rules
 
 - **No real values in git, and a new variable reaches the cluster before what uses it.** No
-  domains, IPs, hostnames or secrets in files, commit messages or PR text: use `${VARIABLE}`s,
-  from `cluster-secrets` (Azure Key Vault, a secret per variable, `_` as `-`; `kubernetes/secrets/`)
-  or `cluster-settings` (`kubernetes/flux/meta/vars/`). Real values live only in Key Vault,
-  Vaultwarden and the gitignored `kubernetes/.local/`; `tests/test-identifying-data.py` checks
-  every tracked file for them and the words `scripts/secret_words.py` lists. An undefined variable
-  fails its Kustomization, so the owner adds the Key Vault secret, then its `cluster-secrets.yaml`
-  entry lands in a pull request of its own, merged before anything uses it. An empty value is fine.
+  domains, IPs, hostnames, people's names or secrets in files, commit messages or PR text: use
+  `${VARIABLE}`s from `cluster-secrets` (Key Vault, a secret per variable, `_` as `-`) or
+  `cluster-settings`. `tests/test-identifying-data.py` checks every tracked file for them and the
+  words `scripts/secret_words.py` lists, the commit-msg hook each message; PR text has no hook, so
+  check it against that list first, naming a device, never its person. An undefined variable
+  fails its Kustomization: the owner adds the Key Vault secret, then its `cluster-secrets.yaml`
+  entry merges in a pull request of its own before anything uses it. An empty value is fine.
 - **Every change reaches `main` through a pull request the owner merges; a merge is a
   deploy.** Flux applies whatever reaches `main`, and the owner's review keeps a wrong change
   from a session working on its own out of the cluster. One branch per change: commit to it,
