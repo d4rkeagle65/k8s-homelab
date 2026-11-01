@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - secret.yaml
 - externalsecret.yaml
+- externalsecret-runners.yaml
 - docker-hosts.yaml
 - pvc.yaml
 - db.yaml

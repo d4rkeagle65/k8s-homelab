@@ -20,6 +20,7 @@ spec:
   dependsOn:
   - name: cnpg
   - name: n8n-backup
+  - name: external-secrets
   postBuild:
     substituteFrom:
     - kind: ConfigMap

@@ -18,8 +18,13 @@ cluster, and three JSON strings bundle values that are their own facts.
   unchanged. The job's identity may write only the names it owns (Key Vault RBAC scoped to each
   secret), and reads each write back.
 - **A password nothing outside the cluster needs is generated in the cluster**: External
-  Secrets' Password generator writes it to its Kubernetes Secret, so it's never in Key Vault,
-  and each consumer has its own.
+  Secrets' Password generator writes it once (`refreshPolicy: CreatedOnce`) to a Secret of its
+  own with a new name, so pods roll onto it and nothing adopts a live Secret. Except a key whose
+  loss makes restored data unreadable (Authentik's, n8n's and Kept's keys, Organizr's hash key,
+  Kept's backup password): a generated value dies with the cluster, so those stay in Key Vault.
+  So do values something outside the cluster holds, passwords the owner types, and API keys an
+  app issues itself. A value whose consumers must change together (redis-ha's) restarts them all
+  at once, never one pod at a time.
 - **No value in git, a commit or a PR**: the export stays in the chat it was pasted into.
 
 ## Stages
@@ -38,7 +43,23 @@ cluster, and three JSON strings bundle values that are their own facts.
   - [x] redis-ha's passwords generated in the cluster (`redis-ha-auth`, #512), Immich's `REDIS_URL`
     built from them (`immich-redis`); the old Secrets, cluster-secrets entries (#515) and Key Vault
     secrets deleted.
-  - [ ] Then the app secret keys in Key Vault that nothing outside the cluster reads.
+  - [ ] Batch 1 (this PR, merged when the owner picks; restarts n8n, Zammad, Obsidian's CouchDB,
+    Homepage and Linkwarden, and logs out Homepage, Linkwarden and CouchDB sessions):
+    `n8n-runners`, `zammad-redis-auth`, `homepage-auth`, `linkwarden-auth`, and
+    `obsidian-couchdb-auth` (its admin login read from Key Vault directly, the namespace opted in).
+    After merge: each ExternalSecret ready, each app up on its new Secret; then by hand the old
+    prune-protected `obsidian/obsidian-couchdb` (Zammad's old `zammad-redis` Flux prunes); then a
+    PR removing `N8N_RUNNERS_AUTH_TOKEN`, `ZAMMAD_REDIS_PASSWORD`, `HOMEPAGE_AUTH_SECRET`,
+    `LINKWARDEN_NEXTAUTH_SECRET`, `OBSIDIAN_COUCHDB_COOKIEAUTHSECRET`, `OBSIDIAN_COUCHDB_ERLANGCOOKIE`
+    and the two `OBSIDIAN_COUCHDB_ADMIN*` entries from cluster-secrets; then the owner deletes the
+    first six from Key Vault (the admin pair stays).
+  - [ ] Batch 2, shared across namespaces (read through a Kubernetes-provider store, as Immich
+    reads redis-ha's): `KEPT_METRICS_TOKEN`, and the client secrets of the six blueprint OIDC apps
+    whose other side is in the cluster (Grafana, Grimmory, Homepage, Kept, Linkwarden, Organizr).
+    A blueprint applied before its value exists fails once and is re-applied by hand.
+  - [ ] Batch 3, database passwords: `KEPT_DB_*` (CloudNativePG managed roles), `GRIMMORY_DB_*`,
+    `YOUTARR_DB_*` (MariaDB operator), `IMMICH_POSTGRES_SUPERUSER_PASSWORD`; first prove each
+    operator writes a changed Secret into its database.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity
   scoped to those names. First the addresses and names NetBox holds (the Docker VMs', NAS's,

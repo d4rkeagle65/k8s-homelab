@@ -43,7 +43,7 @@ spec:
         secretKey: password
       redis:
         useExisting: true
-        secretName: zammad-redis
+        secretName: zammad-redis-auth
         secretKey: redis-password
     # Zammad's first setup, applied once by its auto wizard at the first visit to
     # the web UI (the chart makes the Secret from it): the owner's admin account,
@@ -151,7 +151,7 @@ spec:
     # logging in again, so no volume.
     redis:
       auth:
-        existingSecret: zammad-redis
+        existingSecret: zammad-redis-auth
         existingSecretPasswordKey: redis-password
       persistence:
         enabled: false
