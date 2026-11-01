@@ -43,16 +43,13 @@ cluster, and three JSON strings bundle values that are their own facts.
   - [x] redis-ha's passwords generated in the cluster (`redis-ha-auth`, #512), Immich's `REDIS_URL`
     built from them (`immich-redis`); the old Secrets, cluster-secrets entries (#515) and Key Vault
     secrets deleted.
-  - [ ] Batch 1 (this PR, merged when the owner picks; restarts n8n, Zammad, Obsidian's CouchDB,
-    Homepage and Linkwarden, and logs out Homepage, Linkwarden and CouchDB sessions):
-    `n8n-runners`, `zammad-redis-auth`, `homepage-auth`, `linkwarden-auth`, and
-    `obsidian-couchdb-auth` (its admin login read from Key Vault directly, the namespace opted in).
-    After merge: each ExternalSecret ready, each app up on its new Secret; then by hand the old
-    prune-protected `obsidian/obsidian-couchdb` (Zammad's old `zammad-redis` Flux prunes); then a
-    PR removing `N8N_RUNNERS_AUTH_TOKEN`, `ZAMMAD_REDIS_PASSWORD`, `HOMEPAGE_AUTH_SECRET`,
-    `LINKWARDEN_NEXTAUTH_SECRET`, `OBSIDIAN_COUCHDB_COOKIEAUTHSECRET`, `OBSIDIAN_COUCHDB_ERLANGCOOKIE`
-    and the two `OBSIDIAN_COUCHDB_ADMIN*` entries from cluster-secrets; then the owner deletes the
-    first six from Key Vault (the admin pair stays).
+  - [ ] Batch 1 (#519): `n8n-runners`, `zammad-redis-auth`, `homepage-auth`, `linkwarden-auth` and
+    `obsidian-couchdb-auth` generated; checked live: every ExternalSecret ready, all five releases
+    upgraded, no auth errors, CouchDB's admin login unchanged. Left: the owner deletes by hand the
+    old prune-protected `obsidian/obsidian-couchdb`, and after this PR deletes
+    `N8N-RUNNERS-AUTH-TOKEN`, `ZAMMAD-REDIS-PASSWORD`, `HOMEPAGE-AUTH-SECRET`,
+    `LINKWARDEN-NEXTAUTH-SECRET`, `OBSIDIAN-COUCHDB-COOKIEAUTHSECRET` and
+    `OBSIDIAN-COUCHDB-ERLANGCOOKIE` from Key Vault (the admin pair stays: Obsidian reads it directly).
   - [ ] Batch 2, shared across namespaces (read through a Kubernetes-provider store, as Immich
     reads redis-ha's): `KEPT_METRICS_TOKEN`, and the client secrets of the six blueprint OIDC apps
     whose other side is in the cluster (Grafana, Grimmory, Homepage, Kept, Linkwarden, Organizr).
