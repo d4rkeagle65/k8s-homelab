@@ -68,6 +68,8 @@ spec:
             envFrom:
               - secretRef:
                   name: linkwarden
+              - secretRef:
+                  name: linkwarden-auth
             probes:
               startup: &probe
                 enabled: true

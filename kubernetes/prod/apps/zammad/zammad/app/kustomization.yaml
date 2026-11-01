@@ -5,5 +5,5 @@ resources:
 - objectstore.yaml
 - db.yaml
 - scheduledbackup-db.yaml
-- secret-redis.yaml
+- externalsecret-redis.yaml
 - helmrelease.yaml
