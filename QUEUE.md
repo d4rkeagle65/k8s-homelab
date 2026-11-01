@@ -151,10 +151,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   ADB connection but its prompt never showed (asleep or off its input), the living-room Fire TV
   and the Samsung TV were off the network; the next attended run with each TV on and showing. Eufy (2026-10-26): the eufy-sdk bridge (`kubernetes/prod/apps/homeassistant/eufy-bridge/`)
   signed in with a second, admin account, push connected; six devices in HA. The living-room E30's
-  live view works directly (the firewall's UDP to it). Devices the bridge can't reach directly (the E20,
-  its sock and base behind the travel router; the C10 until it's on the IoT network) get events but no
-  live video: eufy's relay refuses its keys (`get_dsk_keys` 20028, upstream mega-yfue/ha-eufy-sdk #154,
-  no fix; the owner chose to wait, not comment). The C10 is on the IoT network as `coioteuc10nurs` and streams live in Home Assistant
+  live view works directly (the firewall's UDP to it). The travel router's devices stay on it (it's the portable
+  baby kit). Read with the bridge's P2P debug log (2026-11-01, #518): the bridge reaches them through
+  eufy's public P2P route, not Tailscale, and holds a live session with the sock base (T8351); it
+  never opens one with the E20 baby camera (T8352), so Home Assistant offers it no stream, and it
+  logs "per-device params are owner-gated for this account" (it signs in with a shared admin
+  account). eufy's relay still refuses its keys (`get_dsk_keys` 20028, upstream #154; the owner
+  chose not to comment there). Next, the owner's call: report the E20 (T8352, no session while its
+  sock base connects) to the bridge's author as a new issue. The C10 is on the IoT network as `coioteuc10nurs` and streams live in Home Assistant
   (2026-10-31, after the bridge moved to host networking, #517); the unnamed T8353's name and room (the owner). The living-room Fire TV reports its Ethernet MAC to HA (an unused port, through ADB), so its
   eth0 MAC goes in NetBox (the owner's) and the script matches any interface MAC (this pull request).
   Laundry (2026-10-26): `binary_sensor.washer_running` and `dryer_running` from the Tapo plugs' power
