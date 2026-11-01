@@ -369,7 +369,8 @@ forms and what the copy refuses are in `dockhand_keyvault_copy.py`'s docstring.
 
 ### Add a word no commit may contain
 
-The pre-commit hook and `tests/test-identifying-data.py` block every word on the
+The pre-commit hook (staged files), the commit-msg hook (the message) and
+`tests/test-identifying-data.py` (every tracked file) block every word on the
 clone's secret-words list: a domain, a hostname, a name. The list is
 `<git common dir>/secret-words`, one copy that every worktree of the clone reads,
 and `scripts/secret_words.py` writes it from Key Vault. A Claude Code session

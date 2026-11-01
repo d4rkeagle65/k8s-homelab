@@ -26,6 +26,7 @@ repo is public.
 import ipaddress
 import os
 import re
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -35,7 +36,8 @@ files = [f for f in t.tracked_files() if os.path.isfile(f)]
 t.scanned("AllFiles", len(files), "tracked files, every extension")
 
 # The hook and this suite hold the patterns and their self-tests, so neither is read for them.
-SELF = {".githooks/pre-commit", ".githooks/pre-commit.template", "tests/test-identifying-data.py"}
+SELF = {".githooks/pre-commit", ".githooks/pre-commit.template", ".githooks/commit-msg",
+        "tests/test-identifying-data.py"}
 
 PRIVATE = re.compile(
     r"(?<![\d.])(?:10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])|192\.168|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7]))"
@@ -175,6 +177,35 @@ if words:
 else:
     t.skip("no tracked file holds a word on the secret-words list",
            "no secret-words list here (scripts/secret_words.py writes it), so the named-word rule is not armed")
+
+t.section("the commit-msg hook refuses a listed word in a message")
+sh = shutil.which("sh")
+if not sh:
+    t.skip("the commit-msg hook refuses a listed word", "no sh here to run .githooks/commit-msg")
+else:
+    box = t.scratch("commit-msg", fresh=True)
+    fixture = os.path.join(box, "list")
+    with open(fixture, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("# a comment\nacme widgets\nzebrafish\n")
+
+    def commit_msg(message):
+        """The hook's exit code and output for a message, against the fixture list."""
+        path = os.path.join(box, "message")
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(message)
+        res = t.run([sh, t.project_file("commit-msg"), path], cwd=t.root(),
+                    env=dict(os.environ, SECRET_WORDS_FILE=fixture))
+        return res.code, res.out
+
+    code, out = commit_msg("Fix the frame\n\nThe ZebraFish camera\n")
+    t.check("a listed word in the body is refused, whatever its case", code, 1)
+    t.check("  and the refusal names its line", "line 3" in out, True)
+    t.check("  but never the word", "zebrafish" in out.lower(), False)
+    t.check("a listed entry of two words is matched whole", commit_msg("Acme Widgets moved\n")[0], 1)
+    t.check("a message without one passes (the positive control)", commit_msg("Fix the frame\n\nAll clean\n")[0], 0)
+    t.check("a listed word only in git's comment lines or below the scissors passes",
+            commit_msg("Fix the frame\n# zebrafish in a comment\n"
+                       "# ------------------------ >8 ------------------------\ndiff: zebrafish\n")[0], 0)
 
 t.section("none of the hook's secret shapes in any tracked file")
 t.check("no tracked file holds a key, labelled ID, thumbprint or secret literal", len(shaped), 0)
