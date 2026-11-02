@@ -9,7 +9,6 @@ resources:
 - ingress-immich-cloudflared.yaml
 - ingress-immich-power-tools-ingress.yaml
 - persistentvolumeclaim-immich-data.yaml
-- secret-immich-postgres-superuser.yaml
 - secret-immich-power-tools-apikey.yaml
 - secretstore-redis-ha.yaml
 - service-immich-power-tools-svc.yaml

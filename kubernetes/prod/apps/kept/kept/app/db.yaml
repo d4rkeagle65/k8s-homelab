@@ -2,8 +2,8 @@
 # kept_owner owns the database and runs migrations and backups; kept_app serves
 # requests; kept_auth and kept_system hold sign-in and the job queue. This
 # Cluster makes them as that script does, so the chart's roles Job, which
-# needs the superuser's password, stays off. Their passwords are in
-# secret-db-logins.yaml.
+# needs the superuser's password, stays off. Their passwords are generated
+# (externalsecret-db-passwords.yaml).
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -49,7 +49,7 @@ spec:
       database: kept
       owner: kept_owner
       secret:
-        name: kept-db-owner
+        name: kept-db-owner-login
       # Run once, when the database is first made: the other three logins
       # (their passwords come from managed.roles below), kept_app's timeouts,
       # the extensions, and the schema handed to kept_owner.
@@ -66,21 +66,27 @@ spec:
       - ALTER SCHEMA public OWNER TO kept_owner
   managed:
     roles:
+    # The owner too, so CloudNativePG applies its password after the first setup.
+    - name: kept_owner
+      ensure: present
+      login: true
+      passwordSecret:
+        name: kept-db-owner-login
     - name: kept_app
       ensure: present
       login: true
       passwordSecret:
-        name: kept-db-app
+        name: kept-db-app-login
     - name: kept_auth
       ensure: present
       login: true
       passwordSecret:
-        name: kept-db-auth
+        name: kept-db-auth-login
     - name: kept_system
       ensure: present
       login: true
       passwordSecret:
-        name: kept-db-system
+        name: kept-db-system-login
   storage:
     size: 4Gi
     storageClass: local-db

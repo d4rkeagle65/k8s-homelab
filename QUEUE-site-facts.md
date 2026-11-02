@@ -21,7 +21,9 @@ cluster, and three JSON strings bundle values that are their own facts.
   Secrets' Password generator writes it once (`refreshPolicy: CreatedOnce`) to a Secret of its
   own with a new name, so pods roll onto it and nothing adopts a live Secret. Except a key whose
   loss makes restored data unreadable (Authentik's, n8n's and Kept's keys, Organizr's hash key,
-  Kept's backup password): a generated value dies with the cluster, so those stay in Key Vault.
+  Kept's backup password) or that an operator won't apply when it changes (the MariaDB root
+  passwords: the operator logs in as root, and a restored backup keeps the old one): a
+  generated value dies with the cluster, so those stay in Key Vault.
   So do values something outside the cluster holds, passwords the owner types, and API keys an
   app issues itself. A value whose consumers must change together (redis-ha's) restarts them all
   at once, never one pod at a time.
@@ -48,9 +50,20 @@ cluster, and three JSON strings bundle values that are their own facts.
     secrets gone.
   - [x] Batch 2 (#523, #524): the six OIDC client secrets and Kept's metrics token generated in
     their apps' namespaces; logins confirmed, the old Secrets, entries and Key Vault secrets gone.
-  - [ ] Batch 3, database passwords: `KEPT_DB_*` (CloudNativePG managed roles), `GRIMMORY_DB_*`,
-    `YOUTARR_DB_*` (MariaDB operator), `IMMICH_POSTGRES_SUPERUSER_PASSWORD`; first prove each
-    operator writes a changed Secret into its database.
+  - [ ] Batch 3 (this PR, merged when the owner picks; restarts Kept and its database, Grimmory and
+    Youtarr): Kept's four logins from one generated `kept-db-passwords` (`kept_owner` now a managed
+    role too, so CloudNativePG applies it), built into `kept-db-<role>-login` and
+    `kept-db-role-passwords` through a same-namespace store; Grimmory's and Youtarr's app users
+    from `<app>-db-user` (labelled `k8s.mariadb.com/watch`, the label the operator needs to apply a
+    change); Immich's superuser Secret left to CloudNativePG, which makes its own when it's
+    missing. After merge: every ExternalSecret ready; `kept-db`'s `managedRolesStatus` shows all
+    four reconciled; the MariaDB Users ready; Kept, Grimmory (and its relink CronJob's next run)
+    and Youtarr up on the new passwords. Then by hand the old prune-protected Secrets
+    (`kept/kept-db-{owner,app,auth,system}`, `kept/kept-db-roles`,
+    `immich/immich-postgres-superuser`, which capture writes back into immich-extras while it is
+    live; CloudNativePG then makes its own); then a PR removing `KEPT_DB_{OWNER,APP,AUTH,SYSTEM}_PASSWORD`,
+    `GRIMMORY_DB_PASSWORD`, `YOUTARR_DB_PASSWORD` and `IMMICH_POSTGRES_SUPERUSER_PASSWORD` from
+    cluster-secrets; then the owner deletes those seven from Key Vault.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity
   scoped to those names. First the addresses and names NetBox holds (the Docker VMs', NAS's,

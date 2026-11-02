@@ -36,7 +36,7 @@ spec:
     # kept-db makes the logins itself (db.yaml).
     roles:
       create: false
-      existingSecret: kept-db-roles
+      existingSecret: kept-db-role-passwords
     keys:
       existingSecret: kept-keys
     # Photos, receipts and manuals.

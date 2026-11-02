@@ -59,7 +59,7 @@ spec:
                 - {name: DB_NAME, value: grimmory}
                 - {name: DB_USER, value: grimmory}
                 - name: DB_PASSWORD
-                  valueFrom: {secretKeyRef: {name: grimmory-db, key: password}}
+                  valueFrom: {secretKeyRef: {name: grimmory-db-user, key: password}}
               # Unmeasured: it holds one row per book file and reads 12 KiB of
               # each file no book claims.
               resources:

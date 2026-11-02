@@ -22,8 +22,9 @@ cluster.
   standard image, which has `vector`, `pg_trgm` and `unaccent` (checked on mealie-db's).
   The chart's roles Job is off (`roles.create: false`): the Cluster makes Kept's four logins
   itself, as the chart's `files/roles.sh` would (owner, app, auth, system; the database and
-  `public` owned by `kept_owner`; `kept_app`'s timeouts), each login's password from its
-  `KEPT_DB_*_PASSWORD`. Passwords go into postgres:// URLs, so they are hex.
+  `public` owned by `kept_owner`; `kept_app`'s timeouts), all four managed roles, their
+  passwords generated in the cluster (`kept-db-passwords`, QUEUE-site-facts.md). Passwords go into
+  postgres:// URLs, so they are letters and digits only.
 - **Keys from Key Vault** (`KEPT_SECRET_KEY`, `KEPT_AUTH_SECRET`: 32 random bytes, base64url),
   not generated into the config volume: losing that volume would make every stored secret
   unreadable.
@@ -75,8 +76,7 @@ made in PowerShell 7 and passed with `-Value` from a variable, so no value is pr
 ```powershell
 $hex = { [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24)).ToLower() }
 $key = { [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).TrimEnd('=').Replace('+','-').Replace('/','_') }
-foreach ($n in 'KEPT_DB_OWNER_PASSWORD','KEPT_DB_APP_PASSWORD','KEPT_DB_AUTH_PASSWORD','KEPT_DB_SYSTEM_PASSWORD',
-               'KEPT_BACKUP_PASSWORD') {
+foreach ($n in 'KEPT_BACKUP_PASSWORD') {
   $v = & $hex; ./scripts/keyvault-secrets.ps1 $n -New -Raw -Value $v }
 foreach ($n in 'KEPT_SECRET_KEY','KEPT_AUTH_SECRET') {
   $v = & $key; ./scripts/keyvault-secrets.ps1 $n -New -Raw -Value $v }
