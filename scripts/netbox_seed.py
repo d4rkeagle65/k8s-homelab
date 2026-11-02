@@ -115,6 +115,10 @@ TERMIX_TAGS = {
     # termix_credential names.
     "rdp": (["dcim.device", "virtualization.virtualmachine"],
             "A remote desktop host in Termix, with its local context's termix_credential (Termix's sync)"),
+    # A camera running Thingino firmware: its Dropbear takes root's key, and the web
+    # bastion's and Semaphore's keys are put in root's authorized_keys by hand.
+    "thingino": (["dcim.device"],
+                 "A Thingino camera: SSH as root, with the web bastion's key (Termix's sync)"),
 }
 
 
