@@ -50,10 +50,20 @@ cluster, and three JSON strings bundle values that are their own facts.
     `N8N-RUNNERS-AUTH-TOKEN`, `ZAMMAD-REDIS-PASSWORD`, `HOMEPAGE-AUTH-SECRET`,
     `LINKWARDEN-NEXTAUTH-SECRET`, `OBSIDIAN-COUCHDB-COOKIEAUTHSECRET` and
     `OBSIDIAN-COUCHDB-ERLANGCOOKIE` from Key Vault (the admin pair stays: Obsidian reads it directly).
-  - [ ] Batch 2, shared across namespaces (read through a Kubernetes-provider store, as Immich
-    reads redis-ha's): `KEPT_METRICS_TOKEN`, and the client secrets of the six blueprint OIDC apps
-    whose other side is in the cluster (Grafana, Grimmory, Homepage, Kept, Linkwarden, Organizr).
-    A blueprint applied before its value exists fails once and is re-applied by hand.
+  - [ ] Batch 2 (this PR, merged when the owner picks; restarts Authentik's worker, Grafana,
+    Homepage, Kept and Linkwarden and reruns Grimmory's and Organizr's sync Jobs; each app's
+    Authentik login fails until both sides run on the new value): each value generated in its
+    app's namespace (`<app>-oidc-client`, `kept-metrics-token`), with a Role there letting one
+    ServiceAccount read only it; Authentik's copies (`authentik-<app>-client`) through a
+    Kubernetes-provider SecretStore per namespace in authentik-extras, Prometheus's
+    (`kept-metrics-token` in monitoring) through one in monitoring-extras. After merge: every
+    ExternalSecret ready; each blueprint applied (re-apply by hand one that failed before its
+    value existed); a login to each of the six through Authentik; both sync Jobs succeeded; Kept's
+    scrape up. Then by hand the old prune-protected Secrets: `authentik/authentik-<app>-oidc` (six;
+    capture writes them back into authentik-extras while live), `monitoring/grafana-oidc`,
+    `monitoring/kept-metrics`, `kept/kept-oidc`, `kept/kept-metrics`, `linkwarden/linkwarden`. Then
+    a PR removing `AUTHENTIK_{GRAFANA,GRIMMORY,HOMEPAGE,KEPT,LINKWARDEN,ORGANIZR}_OIDC_CLIENT_SECRET`
+    and `KEPT_METRICS_TOKEN` from cluster-secrets, and the owner deletes the seven from Key Vault.
   - [ ] Batch 3, database passwords: `KEPT_DB_*` (CloudNativePG managed roles), `GRIMMORY_DB_*`,
     `YOUTARR_DB_*` (MariaDB operator), `IMMICH_POSTGRES_SUPERUSER_PASSWORD`; first prove each
     operator writes a changed Secret into its database.

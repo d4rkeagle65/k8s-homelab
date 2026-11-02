@@ -20,6 +20,7 @@ spec:
   # Its MariaDB is mariadb-operator's.
   dependsOn:
   - name: mariadb-operator
+  - name: external-secrets
   postBuild:
     substituteFrom:
     - kind: ConfigMap

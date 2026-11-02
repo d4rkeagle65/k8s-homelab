@@ -55,7 +55,7 @@ spec:
         KEPT_BACKUP_S3_REGION: garage
         KEPT_BACKUP_S3_FORCE_PATH_STYLE: "true"
     metrics:
-      tokenSecret: kept-metrics
+      tokenSecret: kept-metrics-token
     # Traefik's pods, so X-Forwarded-For is believed only from them.
     trustedProxies: ${CALICO_POD_CIDR}
     # Private only: the websecure entry point (the tunnel reaches port 80) and the
@@ -83,7 +83,7 @@ spec:
       value: Kept Users
     extraEnvFrom:
     - secretRef:
-        name: kept-oidc
+        name: kept-oidc-client
     resources:
       requests:
         cpu: 50m

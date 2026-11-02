@@ -37,6 +37,8 @@ spec:
           envFrom:
             - secretRef:
                 name: organizr-sync
+            - secretRef:
+                name: organizr-oidc-client
           resources:
             requests: {cpu: 10m, memory: 64Mi}
             limits: {cpu: 500m, memory: 256Mi}

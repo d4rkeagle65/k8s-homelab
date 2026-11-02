@@ -37,6 +37,8 @@ spec:
           envFrom:
             - secretRef:
                 name: grimmory-sync
+            - secretRef:
+                name: grimmory-oidc-client
           resources:
             requests: {cpu: 10m, memory: 64Mi}
             limits: {cpu: 500m, memory: 256Mi}

@@ -780,7 +780,7 @@ spec:
       envValueFrom:
         GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
           secretKeyRef:
-            name: grafana-oidc
+            name: grafana-oidc-client
             key: client-secret
       # Dashboards in ConfigMaps labelled grafana_dashboard, from any
       # namespace, so a chart can ship its own (CloudNativePG's does).

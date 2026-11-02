@@ -12,7 +12,7 @@ spec:
   authorization:
     type: Bearer
     credentials:
-      name: kept-metrics
+      name: kept-metrics-token
       key: token
   scrapeInterval: 60s
   relabelings:

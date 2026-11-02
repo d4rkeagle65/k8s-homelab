@@ -67,7 +67,7 @@ spec:
               ARCHIVE_TAKE_COUNT: "1"
             envFrom:
               - secretRef:
-                  name: linkwarden
+                  name: linkwarden-oidc-client
               - secretRef:
                   name: linkwarden-auth
             probes:
