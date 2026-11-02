@@ -39,32 +39,40 @@ cluster, and three JSON strings bundle values that are their own facts.
   every ExternalSecret ready and the Semaphore sync complete (task 1491). Kept, each for a reason:
   `OBSIDIAN-COUCHDB-ADMINUSERNAME` (its base64 is in .secret-words) and the two Databasus
   passwords (made to differ at the next rotation).
-- [ ] **2. Passwords generated in the cluster.** Traced 2026-10-31 (live pod specs, values compared
-  yes/no only):
-  - [x] Authentik's and Immich's unused `redis-password` Secrets (#511), live and in Key Vault.
-  - [x] redis-ha's passwords generated in the cluster (`redis-ha-auth`, #512), Immich's `REDIS_URL`
-    built from them (`immich-redis`); the old Secrets, cluster-secrets entries (#515) and Key Vault
-    secrets deleted.
-  - [x] Batch 1 (#519, #521): n8n's runners token, Zammad's Redis password, Homepage's and
-    Linkwarden's session keys and CouchDB's cookies generated; the old Secrets, entries and Key Vault
-    secrets gone.
-  - [x] Batch 2 (#523, #524): the six OIDC client secrets and Kept's metrics token generated in
-    their apps' namespaces; logins confirmed, the old Secrets, entries and Key Vault secrets gone.
-  - [ ] Batch 3 (#526): Kept's four logins, Grimmory's and Youtarr's database users generated, Immich's
-    superuser left to CloudNativePG; checked live: every ExternalSecret ready, `kept-db`'s four
-    roles reconciled, both MariaDB Users ready, the three releases upgraded and their apps up with
-    no auth errors. Left, the owner's: by hand the old prune-protected Secrets
-    (`kept/kept-db-{owner,app,auth,system}`, `kept/kept-db-roles`, and
-    `immich/immich-postgres-superuser` soon: capture writes it back into immich-extras while it is
-    live, and CloudNativePG makes its own once it's gone); after this PR, the seven from Key Vault.
-- [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
-  others), a scheduled Semaphore job writing what differs and reading it back, its identity
-  scoped to those names. First the addresses and names NetBox holds (the Docker VMs', NAS's,
-  Pi-holes', switches', access points', the picture frame's, the Proxmox API host, the worker
-  nodes), then what's derived from them (the Pi-hole and Garage URLs, `KEA_DB_CLIENTS`, the
-  Kubernetes API URL), then the cluster's VIPs and MetalLB pool (NetBox records them from the
-  cluster already) and Tailscale's routes, host name and tags. `CLUSTER_DOMAIN` and the pod
-  CIDR are the cluster's own (the Talos config in git), so they come from there.
+- [x] **2. Passwords generated in the cluster** (#511–#528, 2026-11-02): redis-ha's, then three
+  batches (n8n, Zammad, Obsidian, Homepage, Linkwarden; the six in-cluster OIDC client secrets and
+  Kept's metrics token; Kept's, Grimmory's and Youtarr's database logins), and Immich's superuser
+  left to CloudNativePG. The Key Vault secrets they replaced are deleted.
+- [ ] **3. The facts sync** (`scripts/keyvault_facts.py`, a Semaphore Python template).
+  - **How a Key Vault name finds its NetBox object:** a NetBox custom field `keyvault_secrets`
+    (multiple selection, its choices the map's names) on IP addresses, IP ranges and prefixes. The
+    object says which secrets it feeds, so no host name or address is in git. The map in git
+    (`scripts/keyvault_facts.yaml`) says only what each name takes from its object (`address`, the
+    host part; `cidr`; `dns_name`; `range`, `start-end`) or a template on other names
+    (`{PIHOLE1-MGMT-ADDRESS}`).
+  - **Status:** written only from an object NetBox's status table lets be used (README.md, "What a
+    NetBox status means"): the address Active, Reserved or DHCP and its device or VM Staged or
+    Active. Anything else, a name no object claims, or one two claim, is reported and its Key
+    Vault value left alone.
+  - **The runs:** `--find` compares every Key Vault secret with every NetBox address, range and
+    prefix in each form and reports which equal which (`NAS-HOSTNAME: dns_name of IP address
+    #123`); that evidence says what to tag and how each name maps, with no value seen. The plain
+    run reports, per mapped name, whether NetBox and Key Vault agree. `--write` sets what differs
+    and reads it back. A value is never printed.
+  - **Identity:** reads with the sync's reader (`semaphore-keyvault-reader`); writes with a service
+    principal of its own, `Key Vault Secrets Officer` assigned on each mapped secret, never the
+    vault (the owner's: the script prints the `az role assignment` lines from the map).
+  - [ ] Step 1: the script with `--find` and the plain run, its map empty, tests, and a template
+    that runs `--find` (read-only, mine).
+  - [ ] Step 2: the custom field and its choices (mine, through NetBox's API); each object tagged
+    from `--find`'s evidence; the map filled in.
+  - [ ] Step 3: plain runs agreeing for every name; the owner makes the writer identity; `--write`
+    on a schedule (the owner's).
+  - First the addresses and names NetBox holds (the Docker VMs', NAS's, Pi-holes', switches',
+    access points', the picture frame's, the Proxmox API host, the worker nodes, the VIPs and
+    MetalLB pool), then what's derived from them (the Pi-hole and Garage URLs, `KEA_DB_CLIENTS`).
+    `CLUSTER_DOMAIN` and the pod CIDR are the cluster's own (the Talos config in git); Tailscale's
+    routes, host name and tags come later.
 - [ ] **4. The JSON strings, one at a time**: `TOFU-PROXMOX-TF-VAR-SITE` (the Proxmox module
   reads its site facts from NetBox at plan time, as it already does for guests),
   `PIHOLE-SETTINGS` (its dnsmasq lines from NetBox DNS's zones), `TOFU-CLOUDFLARE-TF-VAR-DNS`
