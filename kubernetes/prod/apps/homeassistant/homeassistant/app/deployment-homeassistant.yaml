@@ -28,7 +28,7 @@ spec:
             secretKeyRef:
               name: picture-frame
               key: command-token
-        image: ghcr.io/home-assistant/home-assistant:2026.10.2
+        image: ghcr.io/home-assistant/home-assistant:2026.10.4
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
