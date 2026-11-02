@@ -501,9 +501,11 @@ def test_the_tailscale_tags_each_go_on_one_kind_of_object():
 
 
 def test_the_termix_tags_go_on_hosts_only():
-    assert set(m.TERMIX_TAGS) == {"bastion-key", "rdp"}
-    for tag in m.TERMIX_TAGS:
+    assert set(m.TERMIX_TAGS) == {"bastion-key", "rdp", "thingino"}
+    for tag in ("bastion-key", "rdp"):
         assert set(m.TERMIX_TAGS[tag][0]) == {"dcim.device", "virtualization.virtualmachine"}
+    # A camera is a device, never a VM.
+    assert m.TERMIX_TAGS["thingino"][0] == ["dcim.device"]
     assert not set(m.TERMIX_TAGS) & set(m.TAILSCALE_TAGS)
 
 

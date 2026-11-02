@@ -3,7 +3,8 @@
 The hosts are NetBox's devices and VMs open to access (status Active, Staged, or Failed for
 its repair: README.md, "What a NetBox status means") that the playbooks give the web
 bastion's key: tagged
-debian (the owner's admin account, TERMIX_SSH_ADMIN_USER), openwrt_aps (root), synology
+debian (the owner's admin account, TERMIX_SSH_ADMIN_USER), openwrt_aps (root), thingino (a
+camera on Thingino firmware, root, its keys put on by hand), synology
 (TERMIX_SSH_SYNOLOGY_USER), nas without synology, the TerraMaster
 (TERMIX_SSH_TERRAMASTER_USER), or bastion-key, a device given the key by hand (a switch, the
 firewall), as the termix_user in its NetBox local context. Each is reached by its DNS name on the management network
@@ -60,6 +61,7 @@ RDP_PLUGIN = "remote-desktop"
 ACCOUNTS = [
     ("debian", {"env": "TERMIX_SSH_ADMIN_USER"}),
     ("openwrt_aps", {"name": "root"}),
+    ("thingino", {"name": "root"}),
     ("synology", {"env": "TERMIX_SSH_SYNOLOGY_USER"}),
     ("nas", {"env": "TERMIX_SSH_TERRAMASTER_USER"}),  # a nas not tagged synology
     ("bastion-key", {"context": "termix_user"}),

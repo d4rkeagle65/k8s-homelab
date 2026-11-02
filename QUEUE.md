@@ -126,7 +126,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   The living-room Pan v3 now runs thingino (a master build - the Pan v3 has secure boot, so only
   master builds boot) and is its own ONVIF camera in Home Assistant
   (`camera.living_room_camera_profile_0`, its IP reserved in Kea), re-pointed on the dashboard;
-  it is off the Wyze integration and the bridge, and its old Wyze switches are gone. Left: fix
+  it is off the Wyze integration and the bridge, and its old Wyze switches are gone. Root's
+  `authorized_keys` holds the bastion and Semaphore keys, and NetBox tags it `thingino` (the
+  owner, 2026-11-02). Left: once the sync that logs `thingino` in as root is merged, read it back
+  in Termix (its next run adds the camera; until then it has no login tag, so it's skipped); fix
   its NetBox entry (listed as a plain v3 - it's a Pan v3 - with its MAC now a locally-administered
   one thingino derives, not the stock Wyze MAC); and, for pan/tilt in Home Assistant, bring the
   motors in over thingino's MQTT or an ONVIF PTZ profile, as the ONVIF profile it advertises has

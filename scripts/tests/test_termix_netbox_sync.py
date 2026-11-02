@@ -55,6 +55,15 @@ def test_each_platform_gets_its_login_and_the_management_name(monkeypatch):
     assert any(s.startswith("nas1: username not set") for s in skipped)
 
 
+def test_a_thingino_camera_logs_in_as_root_on_its_management_name():
+    camera = obj(8, "camera", ["thingino"], "Camera", kind="device")
+    hosts, skipped = m.wanted_hosts([camera], [addr(8, "192.0.2.8/24", "camera.mgmt.example", kind="device")],
+                                    PREFIXES, [])
+    assert hosts["camera"]["username"] == "root" and hosts["camera"]["login"] == "thingino"
+    assert hosts["camera"]["ip"] == "camera.mgmt.example" and hosts["camera"]["port"] == 22
+    assert hosts["camera"]["folder"] == "Camera" and not skipped
+
+
 def test_the_terramaster_isnt_taken_for_the_synology(monkeypatch):
     monkeypatch.setenv("TERMIX_SSH_SYNOLOGY_USER", "syn")
     monkeypatch.setenv("TERMIX_SSH_TERRAMASTER_USER", "tnas")
