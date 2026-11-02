@@ -29,7 +29,7 @@ spec:
               # The slim image (about 440 MB; the full one is 2.6 GB, too much
               # for the nodes' 7 GiB of image storage). It installs a tool when
               # a task needs one (Python for generate), cached on the claim.
-              image: ghcr.io/renovatebot/renovate:44.180.0
+              image: ghcr.io/renovatebot/renovate:44.199.2
               env:
                 - {name: RENOVATE_CONFIG_FILE, value: /config/config.js}
                 - {name: LOG_LEVEL, value: info}
