@@ -50,14 +50,10 @@ cluster, and three JSON strings bundle values that are their own facts.
     `N8N-RUNNERS-AUTH-TOKEN`, `ZAMMAD-REDIS-PASSWORD`, `HOMEPAGE-AUTH-SECRET`,
     `LINKWARDEN-NEXTAUTH-SECRET`, `OBSIDIAN-COUCHDB-COOKIEAUTHSECRET` and
     `OBSIDIAN-COUCHDB-ERLANGCOOKIE` from Key Vault (the admin pair stays: Obsidian reads it directly).
-  - [ ] Batch 2 (#523): the six OIDC client secrets and Kept's metrics token generated in their
-    apps' namespaces and copied to Authentik and Prometheus; checked live: every ExternalSecret and
-    store ready, each copy equal to its source (yes/no), every release upgraded, both sync Jobs
-    succeeded, Kept's scrape up. Left, the owner's: a login through Authentik to each of the six;
-    by hand the old prune-protected Secrets (`authentik/authentik-{grafana,grimmory,homepage,kept,
-    linkwarden,organizr}-oidc` first: capture writes them back into authentik-extras while live;
-    then `monitoring/grafana-oidc`, `monitoring/kept-metrics`, `kept/kept-oidc`, `kept/kept-metrics`,
-    `linkwarden/linkwarden`); after this PR, the seven from Key Vault.
+  - [ ] Batch 2 (#523, #524): the six OIDC client secrets and Kept's metrics token generated in
+    their apps' namespaces; logins through Authentik confirmed by the owner, the old Secrets and
+    cluster-secrets entries gone. Left, the owner's: `AUTHENTIK-{GRAFANA,GRIMMORY,HOMEPAGE,KEPT,
+    LINKWARDEN,ORGANIZR}-OIDC-CLIENT-SECRET` and `KEPT-METRICS-TOKEN` from Key Vault.
   - [ ] Batch 3, database passwords: `KEPT_DB_*` (CloudNativePG managed roles), `GRIMMORY_DB_*`,
     `YOUTARR_DB_*` (MariaDB operator), `IMMICH_POSTGRES_SUPERUSER_PASSWORD`; first prove each
     operator writes a changed Secret into its database.
