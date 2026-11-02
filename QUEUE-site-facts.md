@@ -43,17 +43,11 @@ cluster, and three JSON strings bundle values that are their own facts.
   - [x] redis-ha's passwords generated in the cluster (`redis-ha-auth`, #512), Immich's `REDIS_URL`
     built from them (`immich-redis`); the old Secrets, cluster-secrets entries (#515) and Key Vault
     secrets deleted.
-  - [ ] Batch 1 (#519): `n8n-runners`, `zammad-redis-auth`, `homepage-auth`, `linkwarden-auth` and
-    `obsidian-couchdb-auth` generated; checked live: every ExternalSecret ready, all five releases
-    upgraded, no auth errors, CouchDB's admin login unchanged. Left: the owner deletes by hand the
-    old prune-protected `obsidian/obsidian-couchdb`, and after this PR deletes
-    `N8N-RUNNERS-AUTH-TOKEN`, `ZAMMAD-REDIS-PASSWORD`, `HOMEPAGE-AUTH-SECRET`,
-    `LINKWARDEN-NEXTAUTH-SECRET`, `OBSIDIAN-COUCHDB-COOKIEAUTHSECRET` and
-    `OBSIDIAN-COUCHDB-ERLANGCOOKIE` from Key Vault (the admin pair stays: Obsidian reads it directly).
-  - [ ] Batch 2 (#523, #524): the six OIDC client secrets and Kept's metrics token generated in
-    their apps' namespaces; logins through Authentik confirmed by the owner, the old Secrets and
-    cluster-secrets entries gone. Left, the owner's: `AUTHENTIK-{GRAFANA,GRIMMORY,HOMEPAGE,KEPT,
-    LINKWARDEN,ORGANIZR}-OIDC-CLIENT-SECRET` and `KEPT-METRICS-TOKEN` from Key Vault.
+  - [x] Batch 1 (#519, #521): n8n's runners token, Zammad's Redis password, Homepage's and
+    Linkwarden's session keys and CouchDB's cookies generated; the old Secrets, entries and Key Vault
+    secrets gone.
+  - [x] Batch 2 (#523, #524): the six OIDC client secrets and Kept's metrics token generated in
+    their apps' namespaces; logins confirmed, the old Secrets, entries and Key Vault secrets gone.
   - [ ] Batch 3, database passwords: `KEPT_DB_*` (CloudNativePG managed roles), `GRIMMORY_DB_*`,
     `YOUTARR_DB_*` (MariaDB operator), `IMMICH_POSTGRES_SUPERUSER_PASSWORD`; first prove each
     operator writes a changed Secret into its database.
