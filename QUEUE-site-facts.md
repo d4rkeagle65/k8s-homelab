@@ -50,20 +50,13 @@ cluster, and three JSON strings bundle values that are their own facts.
     secrets gone.
   - [x] Batch 2 (#523, #524): the six OIDC client secrets and Kept's metrics token generated in
     their apps' namespaces; logins confirmed, the old Secrets, entries and Key Vault secrets gone.
-  - [ ] Batch 3 (this PR, merged when the owner picks; restarts Kept and its database, Grimmory and
-    Youtarr): Kept's four logins from one generated `kept-db-passwords` (`kept_owner` now a managed
-    role too, so CloudNativePG applies it), built into `kept-db-<role>-login` and
-    `kept-db-role-passwords` through a same-namespace store; Grimmory's and Youtarr's app users
-    from `<app>-db-user` (labelled `k8s.mariadb.com/watch`, the label the operator needs to apply a
-    change); Immich's superuser Secret left to CloudNativePG, which makes its own when it's
-    missing. After merge: every ExternalSecret ready; `kept-db`'s `managedRolesStatus` shows all
-    four reconciled; the MariaDB Users ready; Kept, Grimmory (and its relink CronJob's next run)
-    and Youtarr up on the new passwords. Then by hand the old prune-protected Secrets
-    (`kept/kept-db-{owner,app,auth,system}`, `kept/kept-db-roles`,
-    `immich/immich-postgres-superuser`, which capture writes back into immich-extras while it is
-    live; CloudNativePG then makes its own); then a PR removing `KEPT_DB_{OWNER,APP,AUTH,SYSTEM}_PASSWORD`,
-    `GRIMMORY_DB_PASSWORD`, `YOUTARR_DB_PASSWORD` and `IMMICH_POSTGRES_SUPERUSER_PASSWORD` from
-    cluster-secrets; then the owner deletes those seven from Key Vault.
+  - [ ] Batch 3 (#526): Kept's four logins, Grimmory's and Youtarr's database users generated, Immich's
+    superuser left to CloudNativePG; checked live: every ExternalSecret ready, `kept-db`'s four
+    roles reconciled, both MariaDB Users ready, the three releases upgraded and their apps up with
+    no auth errors. Left, the owner's: by hand the old prune-protected Secrets
+    (`kept/kept-db-{owner,app,auth,system}`, `kept/kept-db-roles`, and
+    `immich/immich-postgres-superuser` soon: capture writes it back into immich-extras while it is
+    live, and CloudNativePG makes its own once it's gone); after this PR, the seven from Key Vault.
 - [ ] **3. The facts sync**: a map in git (Key Vault name: its NetBox source, or a template on
   others), a scheduled Semaphore job writing what differs and reading it back, its identity
   scoped to those names. First the addresses and names NetBox holds (the Docker VMs', NAS's,
