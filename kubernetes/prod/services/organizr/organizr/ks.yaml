@@ -19,6 +19,7 @@ spec:
   targetNamespace: organizr
   dependsOn:
   - name: traefik
+  - name: external-secrets
   postBuild:
     substituteFrom:
     - kind: ConfigMap

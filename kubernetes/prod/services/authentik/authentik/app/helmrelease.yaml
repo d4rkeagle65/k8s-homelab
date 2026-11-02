@@ -114,12 +114,12 @@ spec:
         valueFrom:
           secretKeyRef:
             key: client-secret
-            name: authentik-grafana-oidc
+            name: authentik-grafana-client
       - name: GRIMMORY_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
             key: client-secret
-            name: authentik-grimmory-oidc
+            name: authentik-grimmory-client
       - name: TERMIX_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
@@ -129,17 +129,17 @@ spec:
         valueFrom:
           secretKeyRef:
             key: client-secret
-            name: authentik-homepage-oidc
+            name: authentik-homepage-client
       - name: KEPT_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
             key: client-secret
-            name: authentik-kept-oidc
+            name: authentik-kept-client
       - name: LINKWARDEN_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
             key: client-secret
-            name: authentik-linkwarden-oidc
+            name: authentik-linkwarden-client
       - name: NETBOX_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
@@ -149,7 +149,7 @@ spec:
         valueFrom:
           secretKeyRef:
             key: client-secret
-            name: authentik-organizr-oidc
+            name: authentik-organizr-client
       - name: SEMAPHORE_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:

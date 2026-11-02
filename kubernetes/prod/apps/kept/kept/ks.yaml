@@ -21,6 +21,7 @@ spec:
   dependsOn:
   - name: cnpg
   - name: plugin-barman-cloud
+  - name: external-secrets
   postBuild:
     substituteFrom:
     - kind: ConfigMap

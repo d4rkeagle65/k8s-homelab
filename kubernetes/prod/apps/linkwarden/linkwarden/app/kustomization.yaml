@@ -6,7 +6,7 @@ resources:
 - db.yaml
 - scheduledbackup-db.yaml
 - pvc.yaml
-- secret.yaml
+- externalsecret-oidc-client.yaml
 - externalsecret-auth.yaml
 - helmrelease.yaml
 - ingress-cloudflared.yaml

@@ -99,12 +99,12 @@ worker:
     valueFrom:
       secretKeyRef:
         key: client-secret
-        name: authentik-grafana-oidc
+        name: authentik-grafana-client
   - name: GRIMMORY_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         key: client-secret
-        name: authentik-grimmory-oidc
+        name: authentik-grimmory-client
   # Termix's, from Key Vault through the authentik-termix-oidc ExternalSecret
   # (authentik-extras), not cluster-secrets.
   - name: TERMIX_OIDC_CLIENT_SECRET
@@ -116,17 +116,17 @@ worker:
     valueFrom:
       secretKeyRef:
         key: client-secret
-        name: authentik-homepage-oidc
+        name: authentik-homepage-client
   - name: KEPT_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         key: client-secret
-        name: authentik-kept-oidc
+        name: authentik-kept-client
   - name: LINKWARDEN_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
         key: client-secret
-        name: authentik-linkwarden-oidc
+        name: authentik-linkwarden-client
   - name: NETBOX_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:
@@ -136,7 +136,7 @@ worker:
     valueFrom:
       secretKeyRef:
         key: client-secret
-        name: authentik-organizr-oidc
+        name: authentik-organizr-client
   - name: SEMAPHORE_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:

@@ -4,3 +4,4 @@ resources:
 - helmrelease.yaml
 - secret.yaml
 - externalsecret-auth.yaml
+- externalsecret-oidc-client.yaml

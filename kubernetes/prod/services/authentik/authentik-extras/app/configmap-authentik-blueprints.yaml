@@ -57,7 +57,7 @@ data:
   grafana.yaml: |
     # Authentik blueprint: Grafana's OIDC login (monitoring). Like dockhand.yaml:
     # the client secret is the worker's GRAFANA_OIDC_CLIENT_SECRET env var, from
-    # the authentik-grafana-oidc Secret. Members of Grafana Admins or Grafana
+    # the authentik-grafana-client Secret. Members of Grafana Admins or Grafana
     # Viewers may log in; Grafana makes Grafana Admins its Admins, the rest
     # Viewers (role_attribute_path in its HelmRelease). Membership is set in the
     # UI: these entries set only the groups' names, so it isn't reverted.
@@ -122,7 +122,7 @@ data:
     # Authentik blueprint: Grimmory's OIDC login (its settings come from
     # grimmory.yaml through the grimmory-sync Job). Like grafana.yaml: the client
     # secret is the worker's GRIMMORY_OIDC_CLIENT_SECRET env var, from the
-    # authentik-grimmory-oidc Secret. Members of Grimmory Admins or Grimmory
+    # authentik-grimmory-client Secret. Members of Grimmory Admins or Grimmory
     # Users may log in; Grimmory sets their rights from the group
     # (groupMappings). Membership is set in the UI.
     version: 1
@@ -185,7 +185,7 @@ data:
   homepage.yaml: |
     # Authentik blueprint: Homepage's OIDC login (its built-in auth gate). Like
     # dockhand.yaml: the client secret is the worker's HOMEPAGE_OIDC_CLIENT_SECRET
-    # env var, from the authentik-homepage-oidc Secret, and only authentik Admins
+    # env var, from the authentik-homepage-client Secret, and only authentik Admins
     # may log in: Homepage admits whoever this provider authorizes, and its
     # widgets show the homelab's internals.
     version: 1
@@ -234,7 +234,7 @@ data:
   kept.yaml: |
     # Authentik blueprint: Kept's OIDC login (QUEUE-kept.md). The client secret
     # is the worker's KEPT_OIDC_CLIENT_SECRET env var, from the
-    # authentik-kept-oidc Secret. Members of Kept Users may log in, and Kept
+    # authentik-kept-client Secret. Members of Kept Users may log in, and Kept
     # makes them an account on their first sign-in (its
     # KEPT_OIDC_AUTOPROVISION_GROUPS, read from the groups claim the profile
     # scope carries); membership is set in the UI.
@@ -287,7 +287,7 @@ data:
   linkwarden.yaml: |
     # Authentik blueprint: Linkwarden's OIDC login, its only one (passwords and
     # sign-up are off in Linkwarden). The client secret is the worker's
-    # LINKWARDEN_OIDC_CLIENT_SECRET env var, from the authentik-linkwarden-oidc
+    # LINKWARDEN_OIDC_CLIENT_SECRET env var, from the authentik-linkwarden-client
     # Secret. Members of Linkwarden Users or Linkwarden Admins may log in;
     # membership is set in the UI. Linkwarden is reachable from the internet too
     # (the Cloudflare tunnel), so this binding is what keeps strangers out.
@@ -529,7 +529,7 @@ data:
     # Authentik blueprint: Organizr's OIDC login (its settings come from
     # organizr.yaml through the organizr-sync Job). Like grafana.yaml: the client
     # secret is the worker's ORGANIZR_OIDC_CLIENT_SECRET env var, from the
-    # authentik-organizr-oidc Secret. Members of Organizr Admins or Organizr
+    # authentik-organizr-client Secret. Members of Organizr Admins or Organizr
     # Users may log in; Organizr makes Organizr Admins its Admins, the rest
     # Users (oidcGroupMappings). Membership is set in the UI.
     version: 1

@@ -9,6 +9,7 @@ resources:
 - pvc.yaml
 - secret-grimmory-db.yaml
 - secret-grimmory-sync.yaml
+- externalsecret-oidc-client.yaml
 - secret-mariadb-backup-s3.yaml
 # Grimmory's configuration and the script that applies it. The generated name
 # carries a hash of both, so a change renames the ConfigMap and the Job runs

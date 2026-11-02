@@ -8,7 +8,7 @@ cluster.
 - **Private only:** `kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}` on the `traefik` IngressClass,
   `websecure` and `traefik_private-networks@kubernetescrd`, never the tunnel.
 - **Sign-in through Authentik:** an OIDC blueprint ("Kept", client id `kept`), its client
-  secret `AUTHENTIK_KEPT_OIDC_CLIENT_SECRET`. Callback `<public URL>/api/v1/auth/callback/oidc`
+  secret generated in the cluster (`kept-oidc-client`, QUEUE-site-facts.md). Callback `<public URL>/api/v1/auth/callback/oidc`
   (Kept's `apps/server/src/auth/oidc.ts`). Kept links an Authentik login only to an existing or
   invited account, unless `KEPT_OIDC_AUTOPROVISION_GROUPS` names a group the login carries:
   members of the Authentik group "Kept Users" get an account on first sign-in.
@@ -27,7 +27,8 @@ cluster.
 - **Keys from Key Vault** (`KEPT_SECRET_KEY`, `KEPT_AUTH_SECRET`: 32 random bytes, base64url),
   not generated into the config volume: losing that volume would make every stored secret
   unreadable.
-- **Metrics:** `/metrics` with the bearer `KEPT_METRICS_TOKEN`, scraped by Prometheus.
+- **Metrics:** `/metrics` with a bearer generated in the cluster (`kept-metrics-token`), scraped
+  by Prometheus.
 - **Allow private addresses is on** (Kept's Admin > Sign-up > Private addresses, kept in its
   database, read at startup): Authentik's address resolves privately inside the house, and
   without it Kept turns OIDC off. A rebuilt Kept needs it set again, then a restart.
@@ -75,7 +76,7 @@ made in PowerShell 7 and passed with `-Value` from a variable, so no value is pr
 $hex = { [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24)).ToLower() }
 $key = { [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).TrimEnd('=').Replace('+','-').Replace('/','_') }
 foreach ($n in 'KEPT_DB_OWNER_PASSWORD','KEPT_DB_APP_PASSWORD','KEPT_DB_AUTH_PASSWORD','KEPT_DB_SYSTEM_PASSWORD',
-               'KEPT_BACKUP_PASSWORD','KEPT_METRICS_TOKEN','AUTHENTIK_KEPT_OIDC_CLIENT_SECRET') {
+               'KEPT_BACKUP_PASSWORD') {
   $v = & $hex; ./scripts/keyvault-secrets.ps1 $n -New -Raw -Value $v }
 foreach ($n in 'KEPT_SECRET_KEY','KEPT_AUTH_SECRET') {
   $v = & $key; ./scripts/keyvault-secrets.ps1 $n -New -Raw -Value $v }
