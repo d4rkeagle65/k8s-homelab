@@ -62,8 +62,12 @@ cluster, and three JSON strings bundle values that are their own facts.
   - **Identity:** reads with the sync's reader (`semaphore-keyvault-reader`); writes with a service
     principal of its own, `Key Vault Secrets Officer` assigned on each mapped secret, never the
     vault (the owner's: the script prints the `az role assignment` lines from the map).
-  - [ ] Step 1: the script with `--find` and the plain run, its map empty, tests, and a template
-    that runs `--find` (read-only, mine).
+  - [ ] Step 1 (this PR): the script (`--find`, the plain run, `--write`, `--roles`), its map
+    empty, tests, and the "Key Vault Facts" group (`NETBOX_URL`, `NETBOX_TOKEN` from
+    `NETBOX-READ-TOKEN`). Its NetBox half checked against the live NetBox (144 objects, read
+    only). Left, the owner's: the template "Sync: NetBox → Key Vault (script)" (Python,
+    `scripts/keyvault_facts.py`, no inventory, both "Key Vault Sync" and "Key Vault Facts", the
+    argument `--find`); then I run it and read its report.
   - [ ] Step 2: the custom field and its choices (mine, through NetBox's API); each object tagged
     from `--find`'s evidence; the map filled in.
   - [ ] Step 3: plain runs agreeing for every name; the owner makes the writer identity; `--write`

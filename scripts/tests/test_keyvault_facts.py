@@ -1,0 +1,242 @@
+"""scripts/keyvault_facts.py: a Key Vault name takes its value only from the one NetBox object
+claiming it, and only one whose status lets it be used; --write sets what differs and reads it
+back; --find reports which secrets equal or contain which NetBox object's forms; no run ever
+prints a value.
+"""
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts"))
+spec = importlib.util.spec_from_file_location("keyvault_facts", ROOT / "scripts" / "keyvault_facts.py")
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+
+ENV = {"AZURE_TENANT_ID": "t", "AZURE_CLIENT_ID": "reader", "AZURE_CLIENT_SECRET": "s",
+       "AZURE_KEYVAULT_URL": "https://vault.example", "NETBOX_URL": "https://netbox.example",
+       "NETBOX_TOKEN": "nbt_x"}
+WRITER = {"FACTS_AZURE_CLIENT_ID": "writer", "FACTS_AZURE_CLIENT_SECRET": "w"}
+
+
+def ip(id_, address, dns="", status="active", claims=(), vm=None):
+    obj = {"id": id_, "address": address, "dns_name": dns, "status": {"value": status},
+           "custom_fields": {m.FIELD: list(claims)}, "assigned_object": None}
+    if vm is not None:
+        obj["assigned_object"] = {"virtual_machine": {"id": vm}}
+    return obj
+
+
+class Fake:
+    """Azure's login, Key Vault (list, get, put) and NetBox's API, recording each write."""
+
+    def __init__(self, vault, ips=(), ranges=(), prefixes=(), vms=None, field=True, choices=None,
+                 put_drops=False):
+        self.vault, self.writes, self.put_drops = dict(vault), [], put_drops
+        self.nb = {"ipam/ip-addresses": list(ips), "ipam/ip-ranges": list(ranges), "ipam/prefixes": list(prefixes)}
+        self.vms, self.field, self.choices = vms or {}, field, choices
+
+    def http(self, method, url, headers=None, body=None, form=None, timeout=30):
+        if "login.microsoftonline.com" in url:
+            return 200, {"access_token": form["client_id"]}
+        if url.startswith("https://vault.example/secrets?"):
+            return 200, {"value": [{"id": f"https://vault.example/secrets/{n}", "attributes": {"enabled": True}}
+                                   for n in self.vault]}
+        if url.startswith("https://vault.example/secrets/"):
+            name = url.split("/secrets/")[1].split("?")[0]
+            if method == "PUT":
+                if headers["Authorization"] != "Bearer writer":
+                    return 403, None
+                self.writes.append(name)
+                if not self.put_drops:
+                    self.vault[name] = body["value"]
+                return 200, {}
+            return (200, {"value": self.vault[name]}) if name in self.vault else (404, None)
+        path = url.split("/api/", 1)[1]
+        if path.startswith("extras/custom-fields/"):
+            return 200, {"results": [{"name": m.FIELD, "choice_set": {"id": 1}}] if self.field else []}
+        if path.startswith("extras/custom-field-choice-sets/"):
+            return 200, {"extra_choices": [[c, c] for c in (self.choices or [])]}
+        if path.startswith("virtualization/virtual-machines/"):
+            vid = int(path.rstrip("/").rsplit("/", 1)[1])
+            return 200, {"id": vid, "status": {"value": self.vms[vid]}}
+        base = path.split("/?")[0]
+        return 200, {"results": self.nb[base], "next": None}
+
+
+def go(monkeypatch, tmp_path, capsys, fake, facts, args=(), env=ENV):
+    mapfile = tmp_path / "map.yaml"
+    mapfile.write_text("facts:\n" + "".join(f"  {k}: {v}\n" for k, v in facts.items()) if facts else "facts: {}\n")
+    monkeypatch.setattr(m, "http", fake.http)
+    monkeypatch.setattr(sys.modules["semaphore_variable_groups"], "http", fake.http)
+    for k in list(ENV) + list(WRITER) + ["KEYVAULT_FACTS"]:
+        monkeypatch.delenv(k, raising=False)
+    for k, v in {**env, "KEYVAULT_FACTS": str(mapfile)}.items():
+        monkeypatch.setenv(k, v)
+    rc = m.main(list(args))
+    return rc, capsys.readouterr().out
+
+
+VALUES = ["192.0.2.20", "nas.lan.example", "198.51.100.200-198.51.100.220"]
+
+
+def no_values(out):
+    for v in VALUES + ["192.0.2.21", "192.0.2.30"]:
+        assert v not in out, v
+
+
+def test_find_reports_what_equals_or_contains_which_object_and_never_a_value(monkeypatch, tmp_path, capsys):
+    fake = Fake({"PIHOLE-ADDRESS": "192.0.2.20\n", "PIHOLE-URL": "http://192.0.2.20/admin",
+                 "NAS-HOSTNAME": "nas.lan.example", "POOL": "198.51.100.200-198.51.100.220",
+                 "NEAR": "192.0.2.201", "A-TOKEN": "<x>"},
+                ips=[ip(7, "192.0.2.20/24"), ip(8, "192.0.2.30/24", dns="nas.lan.example", status="deprecated")],
+                ranges=[{"id": 3, "start_address": "198.51.100.200/24", "end_address": "198.51.100.220/24",
+                         "status": {"value": "active"}, "custom_fields": {}}])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {}, ["--find"])
+    assert rc == 0
+    assert "PIHOLE-ADDRESS: equals address of IP address #7 (active) (after trimming whitespace)" in out
+    assert "PIHOLE-URL: contains address of IP address #7 (active)" in out
+    assert "NAS-HOSTNAME: equals dns_name of IP address #8 (deprecated)" in out
+    assert "POOL: equals range of IP range #3 (active)" in out
+    assert "NEAR" not in out  # 192.0.2.201 is another address, not one containing .20
+    assert "2 match nothing in NetBox" in out
+    assert fake.writes == []
+    no_values(out)
+
+
+def test_each_name_takes_its_one_usable_source_and_reports_agreement(monkeypatch, tmp_path, capsys):
+    fake = Fake({"PIHOLE-ADDRESS": "192.0.2.20", "NAS-HOSTNAME": "old.example", "POOL": "198.51.100.200-198.51.100.220"},
+                ips=[ip(7, "192.0.2.20/24", claims=["PIHOLE-ADDRESS"], vm=1),
+                     ip(8, "192.0.2.30/24", dns="nas.lan.example", claims=["NAS-HOSTNAME"])],
+                ranges=[{"id": 3, "start_address": "198.51.100.200/24", "end_address": "198.51.100.220/24",
+                         "status": {"value": "active"}, "custom_fields": {m.FIELD: ["POOL"]}}],
+                vms={1: "active"}, choices=["PIHOLE-ADDRESS", "NAS-HOSTNAME", "POOL", "PIHOLE-URL"])
+    facts = {"PIHOLE-ADDRESS": "{take: address}", "NAS-HOSTNAME": "{take: dns_name}", "POOL": "{take: range}",
+             "PIHOLE-URL": '{template: "http://{PIHOLE-ADDRESS}/admin"}'}
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts)
+    assert rc == 0
+    assert "PIHOLE-ADDRESS: agrees (address of IP address #7)" in out
+    assert "NAS-HOSTNAME: differs (dns_name of IP address #8)" in out
+    assert "POOL: agrees (range of IP range #3)" in out
+    assert "PIHOLE-URL: not in Key Vault (its template on PIHOLE-ADDRESS)" in out
+    assert fake.writes == []
+    no_values(out)
+
+
+def test_write_sets_what_differs_with_the_writer_and_reads_it_back(monkeypatch, tmp_path, capsys):
+    fake = Fake({"NAS-HOSTNAME": "old.example", "PIHOLE-ADDRESS": "192.0.2.20"},
+                ips=[ip(7, "192.0.2.20/24", claims=["PIHOLE-ADDRESS"]),
+                     ip(8, "192.0.2.30/24", dns="nas.lan.example", claims=["NAS-HOSTNAME"])],
+                choices=["PIHOLE-ADDRESS", "NAS-HOSTNAME"])
+    facts = {"PIHOLE-ADDRESS": "{take: address}", "NAS-HOSTNAME": "{take: dns_name}"}
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], {**ENV, **WRITER})
+    assert rc == 0
+    assert fake.writes == ["NAS-HOSTNAME"]
+    assert fake.vault["NAS-HOSTNAME"] == "nas.lan.example"
+    assert "set, and reads back the same" in out
+    no_values(out)
+
+
+def test_a_write_that_doesnt_take_fails_the_run(monkeypatch, tmp_path, capsys):
+    fake = Fake({"NAS-HOSTNAME": "old.example"}, ips=[ip(8, "192.0.2.30/24", dns="nas.lan.example",
+                                                         claims=["NAS-HOSTNAME"])],
+                choices=["NAS-HOSTNAME"], put_drops=True)
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"NAS-HOSTNAME": "{take: dns_name}"}, ["--write"],
+                 {**ENV, **WRITER})
+    assert rc == 1
+    assert "set, but reads back different" in out
+
+
+def test_write_needs_the_writer_identity(monkeypatch, tmp_path, capsys):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {"A": "{take: address}"}, ["--write"])
+    assert rc == 2
+    assert "FACTS_AZURE_CLIENT_ID" in out
+
+
+@pytest.mark.parametrize("ips, vms, line, rc", [
+    ([], {}, "A: no NetBox object claims it", 1),
+    ([ip(1, "192.0.2.20/24", claims=["A"]), ip(2, "192.0.2.21/24", claims=["A"])], {},
+     "A: claimed by 2 objects (IP address #1, IP address #2): left alone", 1),
+    ([ip(1, "192.0.2.20/24", status="deprecated", claims=["A"])], {},
+     "A: IP address #1: the address is deprecated, so it's left alone", 0),
+    ([ip(1, "192.0.2.20/24", claims=["A"], vm=4)], {4: "offline"},
+     "A: IP address #1: its device or VM is offline, so it's left alone", 0),
+    ([ip(1, "192.0.2.20/24", claims=["A"], vm=4)], {4: "decommissioning"},
+     "A: IP address #1: its device or VM is decommissioning, so it's left alone", 0),
+])
+def test_a_name_without_one_usable_source_is_never_written(monkeypatch, tmp_path, capsys, ips, vms, line, rc):
+    fake = Fake({"A": "old"}, ips=ips, vms=vms, choices=["A"])
+    got, out = go(monkeypatch, tmp_path, capsys, fake, {"A": "{take: address}"}, ["--write"], {**ENV, **WRITER})
+    assert got == rc
+    assert line in out
+    assert fake.writes == []
+
+
+def test_a_template_on_a_name_left_alone_is_left_alone_too(monkeypatch, tmp_path, capsys):
+    fake = Fake({"A": "old", "URL": "old"}, ips=[ip(1, "192.0.2.20/24", status="deprecated", claims=["A"])],
+                choices=["A", "URL"])
+    facts = {"A": "{take: address}", "URL": '{template: "http://{A}"}'}
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], {**ENV, **WRITER})
+    assert "URL: left alone, since a name its template reads has no usable value above" in out
+    assert fake.writes == []
+
+
+def test_the_field_and_its_choices_are_checked(monkeypatch, tmp_path, capsys):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}, field=False), {"A": "{take: address}"})
+    assert "NetBox has no custom field keyvault_secrets" in out
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}, choices=[]), {"A": "{take: address}"})
+    assert "keyvault_secrets's choices lack A" in out
+
+
+def test_a_claim_the_map_lacks_is_reported(monkeypatch, tmp_path, capsys):
+    fake = Fake({"A": "192.0.2.20"}, ips=[ip(1, "192.0.2.20/24", claims=["A", "B"])], choices=["A", "B"])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"A": "{take: address}"})
+    assert "IP address #1 claims B, which keyvault_facts.yaml doesn't map" in out
+
+
+def test_any_other_argument_is_refused_without_repeating_it(monkeypatch, tmp_path, capsys):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {}, ["NETBOX_TOKEN=<secret-value>"])
+    assert rc == 2
+    assert "<secret-value>" not in out
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {}, ["--find", "--write"])
+    assert rc == 2
+
+
+@pytest.mark.parametrize("facts, msg", [
+    ({"A": "{take: owner}"}, "take: is one of"),
+    ({"A": '{template: "plain"}'}, "names no other secret"),
+    ({"A": '{template: "{B}"}', "B": '{template: "{C}"}'}, "only taken or unmapped"),
+    ({"A": "{take: address, template: x}"}, "exactly one of"),
+    ({"a_b": "{take: address}"}, "isn't a Key Vault name"),
+])
+def test_what_the_map_may_not_say(monkeypatch, tmp_path, capsys, facts, msg):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), facts)
+    assert rc == 2
+    assert msg in out
+
+
+def test_roles_prints_one_scoped_assignment_per_mapped_name(monkeypatch, tmp_path, capsys):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {"A": "{take: address}", "B": "{take: cidr}"},
+                 ["--roles"], env={})
+    assert rc == 0
+    lines = [x for x in out.splitlines() if x.startswith("az role assignment")]
+    assert len(lines) == 2 and lines[0].endswith('/secrets/A"') and "Key Vault Secrets Officer" in lines[0]
+
+
+def test_the_real_map_loads():
+    m.load_map(ROOT / "scripts" / "keyvault_facts.yaml")
+
+
+def test_its_variable_group_gives_what_it_reads_beside_the_syncs_own():
+    groups = importlib.util.spec_from_file_location("svg", ROOT / "scripts" / "semaphore_variable_groups.py")
+    svg = importlib.util.module_from_spec(groups)
+    groups.loader.exec_module(svg)
+    config = svg.load_config(ROOT / "scripts" / "semaphore_variable_groups.yaml")
+    group = config["groups"]["Key Vault Facts"]
+    # The Azure reader comes from "Key Vault Sync", the sync's own group, which isn't declared.
+    reads = set(m.NEEDS) - {v for v in m.NEEDS if v.startswith("AZURE_")}
+    assert set(group["environment"]) == reads and not group.get("variables")
