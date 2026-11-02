@@ -1,8 +1,10 @@
-# The Wyze cameras' dashboard, in YAML mode (kustomization.yaml says how it reaches Home
-# Assistant): change it here, never in the UI. The video is the Wyze integration's, through
-# Wyze's cloud, which gives no stills, so each picture is live and streams while the page is
-# open. The cameras' sirens are disabled entities and stay off this page. The other cameras
-# stay on the UI's Cameras dashboard: their names are private.
+# The Wyze Cameras dashboard, in YAML mode (kustomization.yaml says how it reaches Home
+# Assistant): change it here, never in the UI. The hallway's video is the Wyze integration's,
+# through Wyze's cloud, which gives no stills, so its picture is live and streams while the page
+# is open, and its siren is a disabled entity kept off this page. The living room runs thingino
+# and is its own ONVIF camera in Home Assistant, not the Wyze cloud, so it has no Wyze
+# power/motion/notification switches here. The other cameras stay on the UI's Cameras dashboard:
+# their names are private.
 title: Wyze Cameras
 views:
   - title: Cameras
@@ -19,7 +21,7 @@ views:
         column_span: 2
         cards:
           - type: picture-entity
-            entity: camera.living_room_cam
+            entity: camera.living_room_camera_profile_0
             name: Living room
             camera_view: live
             show_state: false
@@ -59,20 +61,6 @@ views:
                   height: auto !important;
                   transform: translate(-50%, -50%) rotate(-90deg);
                 }
-      - type: grid
-        cards:
-          - type: heading
-            heading: Living room
-            icon: mdi:sofa
-          - type: tile
-            entity: switch.living_room_cam_power
-            name: Camera on
-          - type: tile
-            entity: switch.living_room_cam_motion_detection
-            name: Motion detection
-          - type: tile
-            entity: switch.living_room_cam_notifications
-            name: Notifications
       - type: grid
         cards:
           - type: heading
