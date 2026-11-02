@@ -50,8 +50,8 @@ spec:
               DB_PASSWORD:
                 valueFrom:
                   secretKeyRef:
-                    name: youtarr
-                    key: db-password
+                    name: youtarr-db-user
+                    key: password
               # Its own login, set at every start from the Secret (Key Vault).
               AUTH_PRESET_USERNAME:
                 valueFrom:

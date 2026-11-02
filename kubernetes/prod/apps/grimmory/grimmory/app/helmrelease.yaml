@@ -51,7 +51,7 @@ spec:
               DATABASE_PASSWORD:
                 valueFrom:
                   secretKeyRef:
-                    name: grimmory-db
+                    name: grimmory-db-user
                     key: password
               SWAGGER_ENABLED: "false"
               # The library is on the NAS over NFS: Grimmory then never deletes,

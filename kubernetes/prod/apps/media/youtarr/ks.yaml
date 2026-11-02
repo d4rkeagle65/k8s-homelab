@@ -17,6 +17,7 @@ spec:
   # Its MariaDB is mariadb-operator's.
   dependsOn:
   - name: mariadb-operator
+  - name: external-secrets
   sourceRef:
     kind: GitRepository
     name: flux-system

@@ -5,10 +5,9 @@ kind: Kustomization
 resources:
 - secret-cnpg-backup-s3.yaml
 - objectstore.yaml
-- secret-db-logins.yaml
+- externalsecret-db-passwords.yaml
 - db.yaml
 - scheduledbackup-db.yaml
-- secret-kept-db-roles.yaml
 - secret-kept-keys.yaml
 - secret-kept-backup.yaml
 - externalsecret-metrics.yaml

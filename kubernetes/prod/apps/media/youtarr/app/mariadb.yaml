@@ -44,8 +44,8 @@ spec:
   mariaDbRef: {name: youtarr-db}
   host: "%"
   passwordSecretKeyRef:
-    name: youtarr
-    key: db-password
+    name: youtarr-db-user
+    key: password
   # The operator's default is 10 (too few for Grimmory's pool).
   maxUserConnections: 30
   cleanupPolicy: Skip

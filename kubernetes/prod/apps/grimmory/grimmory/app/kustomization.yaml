@@ -8,6 +8,7 @@ resources:
 - mariadb.yaml
 - pvc.yaml
 - secret-grimmory-db.yaml
+- externalsecret-db-user.yaml
 - secret-grimmory-sync.yaml
 - externalsecret-oidc-client.yaml
 - secret-mariadb-backup-s3.yaml

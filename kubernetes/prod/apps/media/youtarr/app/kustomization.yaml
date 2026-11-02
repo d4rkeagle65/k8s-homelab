@@ -5,4 +5,5 @@ resources:
   - mariadb.yaml
   - pvc.yaml
   - secret.yaml
+  - externalsecret-db-user.yaml
   - secret-mariadb-backup-s3.yaml
