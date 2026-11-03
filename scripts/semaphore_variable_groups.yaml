@@ -111,14 +111,22 @@ groups:
       NETBOX_WRITE_TOKEN: {keyvault: NETBOX-SYNC-NETBOX-WRITE-TOKEN}
       PROXMOX_TOKEN: {keyvault: NETBOX-SYNC-PROXMOX-TOKEN}
 
-  # scripts/keyvault_facts.py ("Sync: NetBox → Key Vault (script)"), with "Key Vault Sync" for
-  # its reader. Read only: the writer's FACTS_AZURE_* get a group of their own, which only the
-  # template that runs --write uses, so no run of this one can write whatever its arguments.
+  # scripts/keyvault_facts.py ("Sync: NetBox → Key Vault (read)" and "(write)"), with "Key Vault
+  # Sync" for its reader. Read only: the writer's are in the group below, which only "(write)"
+  # uses, so no run of "(read)" can write whatever its arguments.
   Key Vault Facts:
     managed: true
     environment:
       NETBOX_URL: {template: "https://netbox.{BASE-DOMAIN}"}
       NETBOX_TOKEN: {keyvault: NETBOX-READ-TOKEN}
+
+  # The writer, semaphore-keyvault-facts: Key Vault Secrets Officer on each secret
+  # keyvault_facts.yaml maps and nothing else (its "roles" mode prints the assignments).
+  Key Vault Facts Writer:
+    managed: true
+    environment:
+      FACTS_AZURE_CLIENT_ID: {keyvault: KEYVAULT-FACTS-WRITER-CLIENT-ID}
+      FACTS_AZURE_CLIENT_SECRET: {keyvault: KEYVAULT-FACTS-WRITER-CLIENT-SECRET}
 
   # tofu/cloudflare/.
   "OpenTofu: Cloudflare":

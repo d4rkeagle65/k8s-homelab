@@ -260,6 +260,9 @@ def test_its_variable_group_gives_what_it_reads_beside_the_syncs_own():
     # The Azure reader comes from "Key Vault Sync", the sync's own group, which isn't declared.
     reads = set(m.NEEDS) - {v for v in m.NEEDS if v.startswith("AZURE_")}
     assert set(group["environment"]) == reads and not group.get("variables")
+    # The writer only in its own group, which only the write template uses.
+    assert set(config["groups"]["Key Vault Facts Writer"]["environment"]) == set(m.WRITER)
+    assert not set(m.WRITER) & set(group["environment"])
 
 
 def prefix(id_, cidr, claims=(), status="active", vlan=None):
