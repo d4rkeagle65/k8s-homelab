@@ -83,17 +83,14 @@ cluster, and three JSON strings bundle values that are their own facts.
     reports each JSON variable's leaves by path: which NetBox form (or a prefix's network address or
     first three octets) or other Key Vault secret each equals, and the paths that match nothing; a
     view is written from that, never from the value (#541). A JSON key is printed only when it's a
-    plain name, otherwise by position (#542): task 1542's log carries two Cloudflare zone keys,
-    which are domains, so the owner deletes that task in Semaphore.
-    - [ ] `TOFU-PROXMOX-TF-VAR-SITE` (this PR): the view `tofu_proxmox_site`, which built from NetBox
-      and Key Vault equals the value Key Vault holds (compared in memory before the PR). Networks
-      from each bridge's VLAN prefix (`netbox_seed.yaml`), a gateway from the DNS record tagged
-      `gateway` in its prefix (#119), DNS servers from the Pi-hole VMs' Production addresses, the
-      API's name and address from the record tagged `kubernetes-api` (#136); its own secrets
-      `NODE-SEARCH-DOMAIN`, `KUBERNETES-SERVICE-CIDR`, `OWNER-SSH-PUBLIC-KEY` and
-      `SEMAPHORE-SHARED-SSH-PUBLIC-KEY` (the owner's), with `CLUSTER-DOMAIN`, `CALICO-POD-CIDR` and
-      `OWNER-USERNAME`. Before the next write: `keyvault-secrets.ps1 -FactsWriter -Apply` (38
-      names). Then a check run agreeing.
+    plain name, otherwise by position (#542; task 1542's log, from before it, the owner keeps).
+    - [x] `TOFU-PROXMOX-TF-VAR-SITE` (#543): the view `tofu_proxmox_site`, agreeing (task 1543).
+      Networks from each bridge's VLAN prefix (`netbox_seed.yaml`), a gateway from the DNS record
+      tagged `gateway` in its prefix (#119), DNS servers from the Pi-hole VMs' Production addresses,
+      the API from the record tagged `kubernetes-api` (#136); its own secrets `NODE-SEARCH-DOMAIN`,
+      `KUBERNETES-SERVICE-CIDR`, `OWNER-SSH-PUBLIC-KEY`, `SEMAPHORE-SHARED-SSH-PUBLIC-KEY`. The
+      writer holds all 38. The next write rewrites it compact (the same data) and names it
+      "changed".
     - [ ] The nodes' search domain: `NODE-SEARCH-DOMAIN` keeps a name from a restructure that didn't
       happen; whether the nodes and Docker VMs should search the Production zone instead is the
       owner's call (it changes every node at the next OpenTofu apply).
