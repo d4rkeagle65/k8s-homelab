@@ -22,6 +22,16 @@ spec:
         kind: HelmRepository
         name: keptinventory
         namespace: flux-system
+  # The chart has no priority class setting. Kept is one of what may stop when a worker is
+  # down and memory is short (QUEUE-resource-limits.md); its database stays critical.
+  postRenderers:
+  - kustomize:
+      patches:
+      - target: {kind: Deployment, name: kept}
+        patch: |
+          - op: add
+            path: /spec/template/spec/priorityClassName
+            value: homelab-low
   values:
     publicUrl: https://kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
     postgres:
@@ -86,8 +96,8 @@ spec:
         name: kept-oidc-client
     resources:
       requests:
-        cpu: 50m
-        memory: 384Mi
+        cpu: 20m
+        memory: 448Mi
       limits:
         cpu: 1000m
         memory: 1Gi
