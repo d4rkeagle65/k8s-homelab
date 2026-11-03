@@ -91,14 +91,9 @@ cluster, and three JSON strings bundle values that are their own facts.
       `KUBERNETES-SERVICE-CIDR`, `OWNER-SSH-PUBLIC-KEY`, `SEMAPHORE-SHARED-SSH-PUBLIC-KEY`. The
       writer holds all 38. The next write rewrites it compact (the same data) and names it
       "changed".
-    - [ ] The nodes' search domain (this PR, the owner's choice): `node_search_domain` is the zone
-      the Production prefix names (`dns_zone`), not `NODE-SEARCH-DOMAIN` (a name from a restructure
-      that didn't happen). Only the plain LXC containers read it (`guests.tf`); the Docker VMs only
-      at creation (their initialization is ignored after), Talos and the Pi-holes not at all.
-      Built from NetBox, the site variable now differs from Key Vault's in that one path. After
-      merge: a write on template 42 and template 38 (`SYNC_SECRETS` TOFU-PROXMOX-TF-VAR-SITE),
-      both the owner's; an OpenTofu plan (mine) showing only the containers' DNS domain; the
-      owner's apply; then `NODE-SEARCH-DOMAIN` deleted.
+    - [x] The nodes' search domain (#560): the zone the Production prefix names; plan 1567 and
+      apply 1568 changed one plain container's DNS domain and nothing else; `NODE-SEARCH-DOMAIN`
+      deleted.
     - [ ] `PIHOLE-SETTINGS` (#544; task 1544: differs only in the lines' order, as expected): the
       view `pihole_settings`, a `local=/<zone>/` line for each
       active NetBox DNS zone tagged `pihole-local` (#7, #8, #9, and the DMZ's and work laptops'
@@ -118,7 +113,10 @@ cluster, and three JSON strings bundle values that are their own facts.
       docker/tailscale's compose.yaml (the secret deleted), `TAILSCALE-HOSTNAME` Docker VM 1's
       NetBox name (VM #4 claims it). Redeployed 2026-11-03: the router reports the VM's name, online,
       its home routes and exit node enabled (the exporter's metrics).
-    - [ ] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one entry equals the Management prefix, #1).
+    - [ ] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (this PR): the view `proxmox_ntp_serve_networks`,
+      the prefixes tagged `ntp-clients` (the Management prefix, #1, tagged), equal to Key Vault's
+      value. After merge, the owner's: `keyvault-secrets.ps1 PROXMOX-SETTINGS-NTP-SERVE-NETWORKS
+      -FromNetBox` (it exists, so this gives the writer its role), then a write.
     - [x] `DEBIAN-ADMIN-SSH-KEYS` (#546): the Debian Host Baseline group builds `admin_ssh_keys` from
       `OWNER-SSH-PUBLIC-KEY` (a template with `json: true`; task 1546 rebuilt it); the old copy is
       deleted. The next Debian admins or baseline run rewrites each `authorized_keys` line once,

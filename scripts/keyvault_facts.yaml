@@ -45,6 +45,7 @@ facts:
   PIHOLE-SETTINGS: {view: pihole_settings}
   PIHOLE1-MGMT-ADDRESS: {take: address}
   PIHOLE2-MGMT-ADDRESS: {take: address}
+  PROXMOX-SETTINGS-NTP-SERVE-NETWORKS: {view: proxmox_ntp_serve_networks}
   PVE-API-HOST: {take: fqdn}
   SEMAPHORE-K8S-API-URL: {take: fqdn, format: "https://{}:6443"}
   SWITCH-02-ADDRESS: {take: address}
