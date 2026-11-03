@@ -7,12 +7,15 @@
 # environment: are Tailscale's own:
 #   TAILSCALE_AUTH_KEY  an auth key (Settings > Keys), or an OAuth client's
 #                       secret with ?ephemeral=false&preauthorized=true
-#                       appended, which never expires (needs TAILSCALE_TAGS)
-#   TAILSCALE_TAGS      tags to register with, e.g. tag:subnet-router. A
-#                       tagged node's key never expires, and the policy file's
-#                       autoApprovers can approve its routes and exit node.
+#                       appended, which never expires (needs the tag below)
 #   TAILSCALE_HOSTNAME  the machine name it shows in the tailnet
-#   TAILSCALE_ROUTES    subnets to advertise, comma-separated
+#   TAILSCALE_ROUTES    subnets to advertise, comma-separated: the prefixes NetBox
+#                       tags tailscale-route-home, written to Key Vault by the facts
+#                       sync (scripts/keyvault_views/tailscale_routes.py), the same
+#                       tag tofu/tailscale's policy approves
+#
+# It registers with tag:subnet-router, the tag tofu/tailscale/policy.tf owns and
+# approves routes for. A tagged node's key never expires.
 #
 # Its fixed flags: advertise the exit node; forward without source NAT and
 # without stateful filtering (replies to tailnet clients come back through
@@ -49,7 +52,7 @@ services:
       TS_ROUTES: ${TAILSCALE_ROUTES}
       # Applied when the node registers. Later starts only reapply
       # TS_ROUTES and TS_HOSTNAME; see README.md to change the rest.
-      TS_EXTRA_ARGS: --advertise-exit-node --snat-subnet-routes=false --stateful-filtering=false --accept-routes --advertise-tags=${TAILSCALE_TAGS:-}
+      TS_EXTRA_ARGS: --advertise-exit-node --snat-subnet-routes=false --stateful-filtering=false --accept-routes --advertise-tags=tag:subnet-router
       # A fixed port for the encrypted tunnel; direct connections work
       # through the firewall's NAT without a port forward.
       TS_TAILSCALED_EXTRA_ARGS: --port=41641

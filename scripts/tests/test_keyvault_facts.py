@@ -576,3 +576,15 @@ def test_the_pihole_view_answers_each_tagged_zone_locally_and_keeps_the_fixed_se
     fake.nb["plugins/netbox-dns/zones"] = [zone(3, "public.example", tags=())]
     rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-SETTINGS": "{view: pihole_settings}"})
     assert rc == 1 and "no active NetBox DNS zone is tagged pihole-local" in out
+
+
+def test_the_tailscale_routes_view_is_the_prefixes_tagged_for_the_home_router(monkeypatch, tmp_path, capsys):
+    def tagged(p, *slugs):
+        p["tags"] = [{"slug": s} for s in slugs]
+        return p
+    fake = Fake({"ROUTES": "old"}, prefixes=[tagged(prefix(1, "198.51.100.0/24"), "tailscale-route-home"),
+                                             tagged(prefix(2, "192.0.2.0/24"), "tailscale-route-home"),
+                                             tagged(prefix(3, "203.0.113.0/24"), "tailscale-route-travel"),
+                                             tagged(prefix(4, "192.0.2.128/25", status="deprecated"), "tailscale-route-home")])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"ROUTES": "{view: tailscale_routes}"}, ["--write"], {**ENV, **WRITER})
+    assert rc == 0 and fake.vault["ROUTES"] == "192.0.2.0/24,198.51.100.0/24"
