@@ -181,7 +181,7 @@ def test_a_template_on_a_name_left_alone_is_left_alone_too(monkeypatch, tmp_path
                 choices=["A", "URL"])
     facts = {"A": "{take: address}", "URL": '{template: "http://{A}"}'}
     rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], {**ENV, **WRITER})
-    assert "URL: left alone, since a name its template reads has no usable value above" in out
+    assert "URL: a name its template reads has no usable value above, so it's left alone" in out
     assert fake.writes == []
 
 
@@ -209,7 +209,7 @@ def test_any_other_argument_is_refused_without_repeating_it(monkeypatch, tmp_pat
 @pytest.mark.parametrize("facts, msg", [
     ({"A": "{take: owner}"}, "take: is one of"),
     ({"A": '{template: "plain"}'}, "names no other secret"),
-    ({"A": '{template: "{B}"}', "B": '{template: "{C}"}'}, "only taken or unmapped"),
+    ({"A": '{template: "{B}"}', "B": '{template: "{C}"}'}, "aren't templates"),
     ({"A": "{take: address, template: x}"}, "exactly one of"),
     ({"a_b": "{take: address}"}, "isn't a Key Vault name"),
 ])
@@ -240,3 +240,82 @@ def test_its_variable_group_gives_what_it_reads_beside_the_syncs_own():
     # The Azure reader comes from "Key Vault Sync", the sync's own group, which isn't declared.
     reads = set(m.NEEDS) - {v for v in m.NEEDS if v.startswith("AZURE_")}
     assert set(group["environment"]) == reads and not group.get("variables")
+
+
+def prefix(id_, cidr, claims=(), status="active", vlan=None):
+    return {"id": id_, "prefix": cidr, "status": {"value": status}, "custom_fields": {m.FIELD: list(claims)},
+            "vlan": vlan}
+
+
+def test_collect_joins_every_claimant_so_tagging_another_adds_it(monkeypatch, tmp_path, capsys):
+    claims = ["CLIENTS"]
+    nets = [prefix(1, "192.0.2.0/24", claims), prefix(2, "198.51.100.0/24", claims),
+            prefix(3, "203.0.113.0/24", claims, status="deprecated")]
+    fake = Fake({"CLIENTS": "192.0.2.0/24"}, prefixes=nets, choices=claims)
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"CLIENTS": '{collect: cidr, join: " "}'},
+                 ["--write"], {**ENV, **WRITER})
+    assert rc == 0
+    assert "CLIENTS: differs (cidr of 2 objects (1 left out by status))" in out
+    assert fake.vault["CLIENTS"] == "192.0.2.0/24 198.51.100.0/24"
+    assert "203.0.113" not in fake.vault["CLIENTS"]
+
+
+def view(monkeypatch, tmp_path, name, body):
+    d = tmp_path / "views"
+    d.mkdir(exist_ok=True)
+    (d / f"{name}.py").write_text(body)
+    monkeypatch.setattr(m, "VIEWS", d)
+
+
+SITE_VIEW = '''
+def build(site):
+    nets = {}
+    for p in site.usable("prefix"):
+        nets[p["vlan"]["name"]] = {"prefix": site.form("prefix", p)["cidr"]}
+    return {"networks": nets, "domain": site.secret("BASE-DOMAIN")}
+'''
+
+
+def test_a_view_builds_json_from_netbox_compared_as_data_and_reported_by_path(monkeypatch, tmp_path, capsys):
+    view(monkeypatch, tmp_path, "site", SITE_VIEW)
+    nets = [prefix(1, "192.0.2.0/24", vlan={"name": "Management"}), prefix(2, "198.51.100.0/24", vlan={"name": "IoT"})]
+    # The same data with other spacing and order agrees; the value is never printed.
+    held = '{ "domain": "example.org", "networks": {"IoT": {"prefix": "198.51.100.0/24"}, "Management": {"prefix": "192.0.2.0/24"}} }'
+    fake = Fake({"SITE": held, "BASE-DOMAIN": "example.org"}, prefixes=nets)
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"SITE": "{view: site}"})
+    assert rc == 0 and "SITE: agrees (view site)" in out
+    # A prefix added in NetBox reaches it at the next run, reported by path.
+    fake.nb["ipam/prefixes"].append(prefix(3, "203.0.113.0/24", vlan={"name": "DMZ"}))
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"SITE": "{view: site}"}, ["--write"], {**ENV, **WRITER})
+    assert "SITE: differs (view site)" in out and "networks.DMZ (only in NetBox's)" in out
+    assert "203.0.113" not in out and "example.org" not in out
+    import json as j
+    assert j.loads(fake.vault["SITE"])["networks"]["DMZ"] == {"prefix": "203.0.113.0/24"}
+
+
+def test_a_view_that_fails_is_reported_by_type_and_line_never_its_message(monkeypatch, tmp_path, capsys):
+    view(monkeypatch, tmp_path, "broken", 'def build(site):\n    raise ValueError(site.secret("A-TOKEN"))\n')
+    fake = Fake({"OUT": "x", "A-TOKEN": "<the-value>"})
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"OUT": "{view: broken}"}, ["--write"], {**ENV, **WRITER})
+    assert rc == 1
+    assert "OUT: its view failed: ValueError at broken.py:2" in out
+    assert "<the-value>" not in out and fake.writes == []
+
+
+def test_a_template_on_a_name_that_failed_never_falls_back_to_key_vault(monkeypatch, tmp_path, capsys):
+    fake = Fake({"A": "old", "URL": "old"}, choices=["A", "URL"])  # nothing claims A
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"A": "{take: address}", "URL": '{template: "http://{A}"}'},
+                 ["--write"], {**ENV, **WRITER})
+    assert rc == 1 and fake.writes == []
+    assert "URL: a name its template reads has no usable value above, so it's left alone" in out
+
+
+@pytest.mark.parametrize("facts, msg", [
+    ({"A": '{take: address, join: ","}'}, "join: goes only with collect:"),
+    ({"A": "{view: nowhere}"}, "names a file in scripts/keyvault_views/"),
+    ({"A": "{view: ../x}"}, "names a file in scripts/keyvault_views/"),
+    ({"A": "{collect: owner}"}, "collect: is one of"),
+])
+def test_what_collect_and_view_may_not_say(monkeypatch, tmp_path, capsys, facts, msg):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), facts)
+    assert rc == 2 and msg in out

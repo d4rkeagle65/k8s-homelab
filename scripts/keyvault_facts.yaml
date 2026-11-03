@@ -4,7 +4,9 @@
 #   {take: cidr}       an IP address, or a prefix, with its mask
 #   {take: dns_name}   an IP address's DNS name
 #   {take: range}      an IP range, "start-end", host parts
+#   {collect: FORM}    every claiming object's FORM, sorted, joined with "," (or join: "x")
 #   {template: "text"} the text with each {NAME} replaced: a name mapped here gives its
-#                      NetBox value, any other Key Vault's
+#                      value, any other Key Vault's
+#   {view: NAME}       scripts/keyvault_views/NAME.py, for a value with structure (JSON)
 # A name is added once --find's evidence shows its object and form, and the object is tagged.
 facts: {}
