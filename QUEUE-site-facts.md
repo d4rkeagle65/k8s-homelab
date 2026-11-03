@@ -102,23 +102,12 @@ cluster, and three JSON strings bundle values that are their own facts.
       switches, which are configuration (in the view). The same lines as Key Vault's, in another
       order, so its first write is followed, at the next Pi-hole setting run, by one set and FTL
       restart per Pi-hole. Before that write: `keyvault-secrets.ps1 -FactsWriter -Apply` (39 names).
-    - [ ] Cloudflare's records from NetBox, the owner's ask (2026-11-03): no Key Vault value at all;
-      `tofu/cloudflare` reads NetBox at plan time, as `tofu/tailscale` does. The public records share
-      names with private ones (the public `babybuddy` CNAME beside its private A record), so they go
-      in a NetBox DNS view of their own, `public`, its copies of the two zones tagged `cloudflare`.
-      - [x] 1 (#545): what reads NetBox DNS keeps to the default view, each zone saying so in
-        its nested view: netbox-dns-sync (else public answers reach the Pi-holes) and ExternalDNS's
-        webhook (else an Ingress's private A record could land in a public zone, and OpenTofu would
-        publish it). Every zone is in the default view today, so neither changes yet. After merge:
-        Dockhand redeploys netbox-dns-sync, Flux rolls ExternalDNS; check both run clean.
-      - [x] 2 (NetBox's API, from Key Vault's value): view `public` (#2), zones #14 and #15 (tagged
-        `cloudflare`, `cloudflare_zone_id`), the field `cloudflare_proxied`, the 29 records; rebuilt
-        from NetBox they equal Key Vault's value, and the Pi-hole sync still reads 8 zones, 157 records.
-      - [x] 3 (#547, this PR): `tofu/cloudflare` reads NetBox (`netbox.tf`), its records keyed by
-        NetBox ID; plan task 1548 and apply task 1549: 29 moves, nothing added, changed or
-        destroyed. This PR removes `moved.tf` and `TF_VAR_dns` from the group. Left: a Key Vault sync
-        run (template 38), then the owner deletes `TOFU-CLOUDFLARE-TF-VAR-DNS`; not before, since the
-        sync would fail on a group reading a missing secret.
+    - [x] Cloudflare's records from NetBox (#545, #547, #548; the owner's ask): `tofu/cloudflare`
+      reads NetBox DNS's `public` view (#2), zones #14 and #15 tagged `cloudflare`, at every plan;
+      local DNS and ExternalDNS keep to the default view. Plan 1548 and apply 1549: 29 moves, nothing
+      else; plan 1551 and 1553: no changes. `TF_VAR_dns` and `TOFU-CLOUDFLARE-TF-VAR-DNS` are gone. A
+      public zone's nameservers, SOA primary and contact are Cloudflare's (`dns.cloudflare.com`):
+      copied from a local zone, NetBox DNS made NS and SOA records naming the Pi-holes.
     - [ ] Then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
       entry equals the Management prefix, #1).
     - [x] `DEBIAN-ADMIN-SSH-KEYS` (#546): the Debian Host Baseline group builds `admin_ssh_keys` from
