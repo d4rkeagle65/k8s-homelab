@@ -79,37 +79,55 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   over" gathers Zammad's open tickets, Alertmanager's active alerts and each Docker host's
   containers, and a Python Code node ("Verdict") judges each ticket.
 - [ ] **2. Semaphore and Databasus** through "Zammad: tickets in" (`n8n/workflows/`): built,
-  imported and published 2026-10-29; each source's test notification decided "create"; `write`
-  on, and both sources point at n8n (Semaphore by #461, Databasus in its UI), 2026-10-29.
-  Databasus's test message opened a ticket through n8n, read back (run 20); the bridge's
-  routes go (this PR). Left: a real Semaphore failure and its success, and a Databasus success
-  closing a ticket, read in n8n's executions.
-- [ ] **3. Dockhand** through "Zammad: tickets in": built (this PR), with the stack check and
-  the 180-second hold (a Wait node, offloaded to the database past 65 s, so it survives a
-  restart). Live since 2026-10-29: Dockhand's channel points at n8n, and the bridge's
-  `/dockhand` route goes (this PR). Environment events are keyed by the environment their
-  message names, so "online" closes its "offline" (the bridge keyed both by title, so neither
-  paired). Left: a real container failure holds, opens and its recovery closes; the owner
-  closes the bridge's two open "Dockhand Environment offline"-kind tickets by hand (their key
-  changed).
+  imported and published 2026-10-29; both sources point at n8n (Semaphore by #461, Databasus in
+  its UI), `write` on. Semaphore's real failures opened, noted and closed tickets, each read
+  back (executions 2399, 2402, 2454; 2735, 2736, 2753, 2026-11-03). Left: a real Databasus
+  notification read in n8n's executions (every one so far is a test: 17, 19, 20, the alerting
+  test's 1134 and 1135). Databasus sends only when a backup fails, so this waits for one;
+  the bridge's decommission doesn't.
+- [ ] **3. Dockhand** through "Zammad: tickets in", live since 2026-10-29, with the stack check
+  and the 180-second hold (a Wait node, offloaded to the database past 65 s, so it survives a
+  restart). Environment events are keyed by the environment their message names, so "online"
+  closes its "offline". Holds read right: eight container stops by redeploys (netbox-dns-sync,
+  Tailscale, cAdvisor) were held, asked again, found running, and opened nothing (executions
+  150, 2587-2590, 2936-2938). Left: a container that stays down past its hold opens a ticket,
+  and its recovery closes it; the owner closes the bridge's two open "Dockhand Environment
+  offline"-kind tickets by hand (their key changed).
 - [x] **4. Alertmanager** through "Zammad: tickets in", since 2026-10-30 (#464, #465, #467):
   n8n's dry run matched the bridge on every alert (8 notes on its tickets; a stopped cAdvisor's
   TargetDown, the same ticket and its members down, then its close) before `alertmanager`
   joined `write_sources` and the bridge's webhook_config went. Live writes read back
   2026-10-30 (creates, notes and closes). Loki's ruler sent through the Alertmanager Service
   to one pod, so the closing check, asking the Service, saw its alerts half the time (this
-  PR: Loki sends to each pod; the check asks each). `close` stays false until a day of its
-  dry runs reads right against both pods.
+  PR: Loki sends to each pod; the check asks each).
+- [ ] **The closing check closes** (`close: true` in "Zammad: close what's over"'s Settings,
+  then the live workflow restored from git, `n8n/README.md`). Its dry runs read right: 747 runs
+  from 2026-10-29 to 2026-11-03, none failed; each ticket at "Would close" had no active alert
+  on either Alertmanager pod, or its stack's containers were running again. Semaphore's,
+  Databasus's and non-stack Dockhand tickets are never judged ("unknown"), so they close only
+  by their source's recovery. The Firewall* alerts flap, so their tickets will close and reopen
+  as the bridge's did. n8n also holds an inactive older copy of the workflow
+  (`wWL0t4WchYKTkh3G`): the owner deletes it.
 - [x] **An end-to-end test of every path** (the owner, 2026-10-31): "Tool: Alerting Test"
   (template 40, `scripts/alerting_test.py`, its variable group made by the Key Vault sync),
   run by hand. Task 1487 passed all four legs, each ticket opened and closed, in 347 s.
-- [ ] **5. Decommission:** `kubernetes/prod/system/monitoring/zammad-bridge/` and
-  `scripts/tests/test_zammad_bridge.py`; the `zammad-bridge` Pi-hole record, deleted by hand
-  (ExternalDNS is upsert-only, so the removed Ingress's record stays); `DOCKHAND_ALERT_TOKEN`,
-  `SEMAPHORE_ALERT_TOKEN`, `DATABASUS_ALERT_TOKEN` and `ZAMMAD_ALERT_WEBHOOK_URL` in
-  `kubernetes/secrets/cluster-secrets.yaml` once nothing reads them (n8n and Semaphore's
-  `.env` read Key Vault themselves); every other mention (`git grep zammad-bridge`). Move this
-  file to `old-queues/`.
+- [ ] **5. Decommission**, in this order. Nothing has sent to the bridge since 2026-10-30 01:21
+  (its log), when Alertmanager moved to n8n; every route it served is gone.
+  - [ ] A PR: `kubernetes/prod/system/monitoring/zammad-bridge/`, its `ks.yaml` line in the
+    monitoring `kustomization.yaml`, `scripts/tests/test_zammad_bridge.py`, and the
+    PrometheusRule's comment naming it. Check: Flux prunes the `zammad-bridge` Kustomization,
+    Deployment, Service and Secret, and `monitoring` stays Ready.
+  - [ ] After that is applied, a PR removing `DOCKHAND_ALERT_TOKEN`, `SEMAPHORE_ALERT_TOKEN`,
+    `DATABASUS_ALERT_TOKEN` and `ZAMMAD_ALERT_WEBHOOK_URL` from
+    `kubernetes/secrets/cluster-secrets.yaml`: nothing in the cluster reads them then. The three
+    tokens' Key Vault secrets stay (n8n, Semaphore's `.env`, the alerting test read them);
+    `ZAMMAD-ALERT-WEBHOOK-URL` has no reader left, so the owner deletes it from Key Vault after
+    that PR is applied.
+  - [ ] The owner: a `zammad-bridge` entry in Pi-hole's Local DNS, if one is left (NetBox has
+    none, so netbox-dns-sync won't remove it).
+  - Left as they are: the workflows' code comments naming the bridge (`zammad-tickets-in.json`,
+    each says what it does as the bridge did); changing them means a live restore for a
+    comment. Then this file moves to `old-queues/`.
 
 ## Resume
 

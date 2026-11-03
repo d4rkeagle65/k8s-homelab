@@ -61,8 +61,8 @@ templates); each new template has meant another group typed in from Key Vault or
 - [x] 1. The sync (#484), run as "Sync: Key Vault → Semaphore (script)" (template 38; the owner
   made "Key Vault Sync" and it, 2026-10-31). Task 1447 made "Alerting Test", read back.
 - [x] 2. "Alerting Test" managed: made by task 1447. Left: "Tool: Alerting test (script)"
-  (`n8n/README.md`) attached to it and run once.
-- [ ] 3. Each existing group, one PR each: its values into Key Vault where missing, declared,
+  (`n8n/README.md`) attached to it and run once: task 1487, every leg passed.
+- [x] 3. Each existing group, one PR each: its values into Key Vault where missing, declared,
   its report read, then `managed: true`. What each held at task 1447 (names only):
 
   | Group | Extra variables | Environment | Secrets |
@@ -83,7 +83,7 @@ templates); each new template has meant another group typed in from Key Vault or
   one a task sees is Semaphore's choice; declaring the group keeps one (a secret, since it
   holds a password). `TF_VAR_site` and `TF_VAR_dns` are JSON of site facts, which NetBox or
   Key Vault templates may replace when their groups move.
-  - [ ] Every group declared unmanaged (#488), each value with its Key Vault name; extra
+  - [x] Every group declared unmanaged (#488), each value with its Key Vault name; extra
     variables as JSON (`json: true`). Their values exist only in Semaphore, which never
     returns a secret, so a one-time import copies them out from inside a task:
     `ansible/semaphore-tool-keyvault-import.yml`, "Tool: Variable Group → Key Vault (one
@@ -125,8 +125,8 @@ templates); each new template has meant another group typed in from Key Vault or
     failure (1478, 1479, 1485, 1486, 1480; the Debian baseline's only changes are drift from
     before: the bash setup, the Pi-holes' sshd drop-in, the Docker VMs' DNS caching), and
     the three OpenTofu plans "No changes" (1482-1484).
-  - [ ] The import's copies no group reads deleted from Key Vault (the owner's; old-queues/QUEUE-site-facts.md,
-    stage 1, lists them with the other duplicates). The site facts move to NetBox there.
+  - [x] The import's copies no group reads deleted from Key Vault (the owner's, #509;
+    old-queues/QUEUE-site-facts.md, stage 1). The site facts moved to NetBox there.
 - [x] The one-time import removed (this PR): its playbook, script and test; the owner
   deletes its template (39). Nothing in Semaphore can write Key Vault: the write role went
   2026-10-31. Each group's report now opens with its drift ("no drift", or how many

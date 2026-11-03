@@ -30,9 +30,6 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
     public (`IMMICH_POSTGRES_SUPERUSER_USERNAME`, `OBSIDIAN_COUCHDB_ADMINUSERNAME`). Keep them
     or drop them.
 
-- **n8n's "Zammad: close what's over" isn't imported yet** (`n8n/workflows/`): import it
-  and run it once by hand (`n8n/README.md`). Its next version, and the bridge's replacement,
-  are in `QUEUE-n8n-zammad.md`.
 - **The HP convertible laptop joins the cluster when its Ethernet adapters arrive** (NetBox:
   Staged, tags `ansible` and `debian`, its address on Production, its local context
   `ansible_user`, `ansible_python_interpreter`, `host_exporters_defer: true` and
@@ -522,8 +519,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Working queue files
 
-- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 85%): every source sends to n8n; left, a real event read back from Semaphore, Databasus and Dockhand, then deleting the bridge.
-- [QUEUE-semaphore-variables.md](QUEUE-semaphore-variables.md) (about 85%): every group is made from Key Vault; left, the groups declared unmanaged, deleting the import's copies, and a schedule.
+- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 90%): every source sends to n8n and nothing to the bridge; left, the closing check closing, the bridge's deletion, then a real Databasus notification and a lasting container failure read back.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container; left, the week-long recheck, the Docker VM's containers, Immich's server and the CPU cap (the owner's).
 - [QUEUE-kept.md](QUEUE-kept.md) (about 80%): Kept deployed and backed up; left, the owner's first account and recovery kit, then a restore test of `kept-db`.
 - [QUEUE-tailscale.md](QUEUE-tailscale.md) (about 75%): the policy applied and the exporter live; left, the travel router's new tag (the owner) and its old one dropped, and a second subnet router later.
