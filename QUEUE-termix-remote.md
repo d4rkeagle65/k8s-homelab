@@ -24,8 +24,13 @@ Kubernetes Ingress rather than a Cloudflare Access application.
 - **Fail closed:** the route carries the allow-list and Authentik's forward auth; a middleware
   that's missing makes Traefik refuse the route (404), never serve it open. The route and its
   middleware go in before the tunnel Ingress that publishes the name.
-- **Defence in depth:** past the address check, Authentik's login, then Termix's own SSH
-  credentials per host.
+- **Defence in depth:** past the address check, Authentik's gate, Termix's own login, then
+  Termix's SSH credentials per host.
+- **Authentik's gate is per name** (`termix.yaml` blueprint: `forward_single` for Termix's own
+  name), so the remote name gets a provider and application of its own, bound to Termix Admins
+  and on the outpost's list. Termix's OIDC provider accepts one callback; the remote name adds its
+  own, and Termix must send it: whether Termix's SSO settings fix one callback URL is the owner's to
+  read (if they do, the remote route signs in with a Termix local account instead).
 
 ## Steps
 
@@ -35,7 +40,9 @@ Kubernetes Ingress rather than a Cloudflare Access application.
       `keyvault-secrets.ps1 TERMIX-REMOTE-SOURCES -FromNetBox` (or `-New -Raw` and `-FactsWriter
       -Apply`), a write on template 42; then a check run on template 41 agreeing (mine).
 - [ ] 2. PR: `TERMIX_REMOTE_SOURCES` in cluster-secrets (plain), merged before anything reads it.
-- [ ] 3. PR: Traefik's `web` trusts forwarded headers from `${CALICO_POD_CIDR}`; the Middleware
+- [ ] 3. PR: the remote name's gate in `termix.yaml` (provider, application, policy binding, the
+      outpost's list) and, if Termix follows the host, its OIDC callback; Traefik's `web` trusts
+      forwarded headers from `${CALICO_POD_CIDR}`; the Middleware
       `termix-remote` (ipAllowList, sourceRange `[${TERMIX_REMOTE_SOURCES}]`, excludedIPs the pod
       CIDR); Termix's Ingress for `termix-remote.${BASE_DOMAIN}` on `web` with it and Authentik's.
       Checked live before step 4: from here (the house's own address, not allowed) the route
