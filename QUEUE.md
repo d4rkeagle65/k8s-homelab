@@ -368,8 +368,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Most survivors are boundaries the tests replace with fakes, HTTP handlers, loops and
   `main()`. The logic among them, worst first; left, a regression in any of these passes the
   commit gate:
-  - `kubernetes/prod/services/organizr/organizr/app/sync/organizr-sync.py`: `apply_settings`,
-    `apply_list`, `differs`, `first_run`, `resolve`, `is_secret`.
   - `scripts/k8s_backup/flux.py`'s `helm_release`, `helm_repository`, `oci_repository`,
     `root_cluster_kustomization`, `cluster_resources_kustomization`, and `generate.py`'s
     `_generate_repository_kustomization`: generate's own tests don't read what they write;
