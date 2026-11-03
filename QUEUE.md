@@ -504,6 +504,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   three jobs' `pyyaml==6.0.3` pin to it, since Renovate can't see a pin inside a command.
   Left, each run spends its first minute building PyYAML.
 
+- **Authentik's proxy outpost can't hold its websocket to Authentik** (`ak-outpost-default-proxy-outpost`,
+  "reconnecting websocket in 300s", attempt 176 on 2026-11-03, "peer closed connection without
+  sending TLS close_notify"). It still loads its providers through the API, but only now and then,
+  so a new forward-auth provider (a blueprint's) waits for that load, and changes to a session
+  aren't pushed. Find where the connection is closed (the outpost's `AUTHENTIK_HOST`, the server,
+  Traefik) and fix it.
+
 ## Working queue files
 
 - [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 85%): every source sends to n8n; left, a real event read back from Semaphore, Databasus and Dockhand, then deleting the bridge.
@@ -515,7 +522,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (about 60%): SNMPv3 and syslog from the switch and the firewall; left, the switch's syslog parsing, alerts once real lines are seen, and CloudGen's MIB later.
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (about 40%): the wall display's share link works; left, the dashboard on the screen, the deploy template and run (the owner), and more tiles.
 - [QUEUE-site-facts.md](QUEUE-site-facts.md) (about 80%): the cluster's passwords made there, 42 names and three JSON variables built from NetBox, Cloudflare's records in NetBox; left, the NTP networks' view, the nodes' search domain (the owner's), and the Tailscale router's rename at a redeploy.
-- [QUEUE-termix-remote.md](QUEUE-termix-remote.md) (about 10%): Termix through the tunnel for the office's address only; the NetBox prefix made; next, its view and variable, then Traefik's trust, the route and the tunnel Ingress.
+- [QUEUE-termix-remote.md](QUEUE-termix-remote.md) (about 75%): Termix through the tunnel for the office's address only; the sources from NetBox, the allow-list and route live and refusing others; left, the remote gate seen in Authentik, then the tunnel Ingress.
 
 The percentages are estimates as of 2026-10-31, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
