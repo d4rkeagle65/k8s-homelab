@@ -8,6 +8,11 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "5.28.0"
     }
+    # The records, read from NetBox at every plan (netbox.tf).
+    http = {
+      source  = "hashicorp/http"
+      version = "3.6.2"
+    }
   }
 
   # State in Semaphore's PostgreSQL, like proxmox/, in a schema of its own.
