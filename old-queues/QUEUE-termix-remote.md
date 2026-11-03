@@ -49,9 +49,9 @@ Kubernetes Ingress rather than a Cloudflare Access application.
 - [x] 4. The tunnel Ingress (#557) for `termix-remote.${BASE_DOMAIN}` (traefik's
       `ingress-cloudflare-tunnel.yaml`). From the office the owner passed the address check and
       Authentik's gate.
-- [ ] 5. PR (this one): Termix signs in through Authentik's OIDC after all, building its callback
-      from the name it was reached on, so its provider allows termix-remote's callback too. After
-      merge: the owner signs in from the office; from here, through Cloudflare, 403 (mine).
+- [x] 5. Termix signs in through Authentik's OIDC, building its callback from the name it was
+      reached on, so its provider allows termix-remote's callback too (#558). The owner signs in
+      from the office; from the house, through Cloudflare, 403, plain and forged.
 
 ## Resume
 
@@ -63,6 +63,11 @@ From the office the owner reaches Termix through Authentik; from anywhere else t
 403; and the allowed sources come only from NetBox.
 
 ## Checked, negative
+
+- The public name's certificate is Cloudflare's edge (Universal SSL, Google Trust Services), not
+  the cluster's Let's Encrypt: through the tunnel, TLS ends at Cloudflare.
+- Inside the house the name resolves privately (ExternalDNS writes every Traefik host's record)
+  to Traefik's websecure, where it has no route: it's for use from outside.
 
 - Traefik's `private-networks` middleware: it reads the connection's address, which behind the
   tunnel is always `cloudflared`'s, so it can't tell one client from another there.
