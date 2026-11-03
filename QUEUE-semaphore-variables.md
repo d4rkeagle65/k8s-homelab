@@ -125,7 +125,7 @@ templates); each new template has meant another group typed in from Key Vault or
     failure (1478, 1479, 1485, 1486, 1480; the Debian baseline's only changes are drift from
     before: the bash setup, the Pi-holes' sshd drop-in, the Docker VMs' DNS caching), and
     the three OpenTofu plans "No changes" (1482-1484).
-  - [ ] The import's copies no group reads deleted from Key Vault (the owner's; QUEUE-site-facts.md,
+  - [ ] The import's copies no group reads deleted from Key Vault (the owner's; old-queues/QUEUE-site-facts.md,
     stage 1, lists them with the other duplicates). The site facts move to NetBox there.
 - [x] The one-time import removed (this PR): its playbook, script and test; the owner
   deletes its template (39). Nothing in Semaphore can write Key Vault: the write role went

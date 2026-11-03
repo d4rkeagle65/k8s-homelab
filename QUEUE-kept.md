@@ -8,7 +8,7 @@ cluster.
 - **Private only:** `kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}` on the `traefik` IngressClass,
   `websecure` and `traefik_private-networks@kubernetescrd`, never the tunnel.
 - **Sign-in through Authentik:** an OIDC blueprint ("Kept", client id `kept`), its client
-  secret generated in the cluster (`kept-oidc-client`, QUEUE-site-facts.md). Callback `<public URL>/api/v1/auth/callback/oidc`
+  secret generated in the cluster (`kept-oidc-client`, old-queues/QUEUE-site-facts.md). Callback `<public URL>/api/v1/auth/callback/oidc`
   (Kept's `apps/server/src/auth/oidc.ts`). Kept links an Authentik login only to an existing or
   invited account, unless `KEPT_OIDC_AUTOPROVISION_GROUPS` names a group the login carries:
   members of the Authentik group "Kept Users" get an account on first sign-in.
@@ -23,7 +23,7 @@ cluster.
   The chart's roles Job is off (`roles.create: false`): the Cluster makes Kept's four logins
   itself, as the chart's `files/roles.sh` would (owner, app, auth, system; the database and
   `public` owned by `kept_owner`; `kept_app`'s timeouts), all four managed roles, their
-  passwords generated in the cluster (`kept-db-passwords`, QUEUE-site-facts.md). Passwords go into
+  passwords generated in the cluster (`kept-db-passwords`, old-queues/QUEUE-site-facts.md). Passwords go into
   postgres:// URLs, so they are letters and digits only.
 - **Keys from Key Vault** (`KEPT_SECRET_KEY`, `KEPT_AUTH_SECRET`: 32 random bytes, base64url),
   not generated into the config volume: losing that volume would make every stored secret

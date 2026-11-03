@@ -43,7 +43,7 @@ cluster, and three JSON strings bundle values that are their own facts.
   batches (n8n, Zammad, Obsidian, Homepage, Linkwarden; the six in-cluster OIDC client secrets and
   Kept's metrics token; Kept's, Grimmory's and Youtarr's database logins), and Immich's superuser
   left to CloudNativePG. The Key Vault secrets they replaced are deleted.
-- [ ] **3. Every derived value from NetBox** (`scripts/keyvault_facts.py`, a Semaphore Python
+- [x] **3. Every derived value from NetBox** (`scripts/keyvault_facts.py`, a Semaphore Python
   template), the owner's ask (2026-11-03): each value made from NetBox by one mechanism that
   grows by adding to it, so a change in NetBox (another prefix, address or record) reaches every
   value built on it at the next run with no edit anywhere else.
@@ -79,7 +79,7 @@ cluster, and three JSON strings bundle values that are their own facts.
     zammad-bridge reads it, so it goes with the bridge (QUEUE-n8n-zammad.md, stage 5). A claim lost
     to a NetBox sync shows in a check run as "no NetBox object claims it". `CLUSTER_DOMAIN` and the
     pod CIDR are the cluster's own (the Talos config in git).
-  - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees. `--find`
+  - [x] Step 4: the JSON variables as views, one per PR, each until its plain run agrees. `--find`
     reports each JSON variable's leaves by path: which NetBox form (or a prefix's network address or
     first three octets) or other Key Vault secret each equals, and the paths that match nothing; a
     view is written from that, never from the value (#541). A JSON key is printed only when it's a
@@ -113,7 +113,8 @@ cluster, and three JSON strings bundle values that are their own facts.
       docker/tailscale's compose.yaml (the secret deleted), `TAILSCALE-HOSTNAME` Docker VM 1's
       NetBox name (VM #4 claims it). Redeployed 2026-11-03: the router reports the VM's name, online,
       its home routes and exit node enabled (the exporter's metrics).
-    - [ ] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (#561; check 1569 agrees, untagged): the view `proxmox_ntp_serve_networks`,
+    - [x] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (#561; check 1570 agrees, the writer's role given,
+      tagged at the next write): the view `proxmox_ntp_serve_networks`,
       the prefixes tagged `ntp-clients` (the Management prefix, #1, tagged), equal to Key Vault's
       value. After merge, the owner's: `keyvault-secrets.ps1 PROXMOX-SETTINGS-NTP-SERVE-NETWORKS
       -FromNetBox` (it exists, so this gives the writer its role), then a write.

@@ -530,7 +530,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-bastion.md](QUEUE-bastion.md) (about 70%): Termix live with SSO, the bastion key on every host; left, an alert for an unmerged Termix release, then Docker, Kubernetes and cloud.
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (about 60%): SNMPv3 and syslog from the switch and the firewall; left, the switch's syslog parsing, alerts once real lines are seen, and CloudGen's MIB later.
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (about 40%): the wall display's share link works; left, the dashboard on the screen, the deploy template and run (the owner), and more tiles.
-- [QUEUE-site-facts.md](QUEUE-site-facts.md) (about 80%): the cluster's passwords made there, 42 names and three JSON variables built from NetBox, Cloudflare's records in NetBox; left, the NTP networks' view and the nodes' search domain (the owner's).
 
 The percentages are estimates as of 2026-10-31, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
