@@ -73,22 +73,12 @@ cluster, and three JSON strings bundle values that are their own facts.
   - [x] Step 2 (#531): `collect:` and `view:`, the `Site` a view reads through, JSON compared by
     path; template 41 ("Sync: NetBox → Key Vault (script)", `--find`, groups 14 and 16; task 1518:
     30 of 250 secrets match NetBox objects).
-  - [ ] Step 3: the custom field `keyvault_secrets` (#5, multiple selection, choice set #2 "Key
-    Vault secrets") on addresses, ranges, prefixes, devices, VMs and NetBox DNS records; 31 objects
-    tagged and read back; 37 names mapped (#532–#534 and this PR, from `--find` runs 1518 and 1522
-    and the owner's shapes for the URLs). Left:
-    - [x] a check run on template 41 agreeing for every name (task 1532: all 34, none yet by
-      fingerprint, since nothing is tagged until the first write);
-    - the four worker VMs kept their claims through NetBox sync task 1519, which had no change to
-      write to them; the first sync that does write one (its `vmid`, through PATCH, which NetBox
-      merges) is the real test, and a check run reports a lost claim as "no NetBox object claims it";
-    - this PR: `KEA-DB-CLIENTS` as a view (the smallest prefix holding both Docker VMs' production
-      addresses, stopping beyond /30), `NETBOX-SYNC-PROXMOX-URL` and `SEMAPHORE-K8S-API-URL` from
-      DNS records #50 and #136 with a format. Before its merge, the owner gives the writer Key Vault
-      Secrets Officer on those three (a write run fails on a name it can't set).
-    - `ZAMMAD-ALERT-WEBHOOK-URL` isn't a fact (it carries a token) and only zammad-bridge reads it:
-      it goes with the bridge (QUEUE-n8n-zammad.md, stage 5).
-    `CLUSTER_DOMAIN` and the pod CIDR are the cluster's own (the Talos config in git).
+  - [x] Step 3 (#532–#534, #539): the custom field `keyvault_secrets` (#5, multiple selection, choice
+    set #2) on addresses, ranges, prefixes, devices, VMs and NetBox DNS records; 31 objects claim
+    37 names; every one agrees (task 1540). `ZAMMAD-ALERT-WEBHOOK-URL` carries a token and only
+    zammad-bridge reads it, so it goes with the bridge (QUEUE-n8n-zammad.md, stage 5). A claim lost
+    to a NetBox sync shows in a check run as "no NetBox object claims it". `CLUSTER_DOMAIN` and the
+    pod CIDR are the cluster's own (the Talos config in git).
   - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees:
     `TOFU-PROXMOX-TF-VAR-SITE` (networks from prefixes by VLAN, `netbox_seed.yaml`'s bridge
     list; its SSH keys their own secrets), `PIHOLE-SETTINGS` (dnsmasq lines from NetBox DNS's
@@ -103,8 +93,7 @@ cluster, and three JSON strings bundle values that are their own facts.
     exists each value is read, as now.
   - [x] The survey (#536): `FACTS_MODE` (`check`, `find`, `full`, `write`, `write-full`), an
     argument `FACTS_MODE=value` or an environment variable, in place of the flags. Template 41
-    ("(read)") has it, no arguments, groups 14 and 16 only. Left, the owner's: `roles` out of 41's
-    survey, a mode that's gone (this PR moves it to `keyvault-secrets.ps1 -FactsWriter`).
+    ("(read)") has it (`check`, `find`, `full`), no arguments, groups 14 and 16 only.
   - [ ] Step 5, the writer: service principal `semaphore-keyvault-facts`, Key Vault Secrets Officer
     on the 34 mapped secrets only, its ID and secret in Key Vault (`KEYVAULT-FACTS-WRITER-CLIENT-ID`,
     `-SECRET`); template 42 ("(write)", groups 14, 16, 17). Its first write (task 1533) changed no
