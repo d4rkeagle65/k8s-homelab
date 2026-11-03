@@ -465,13 +465,12 @@ def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None, full: bool 
         return 0
     tags = vault.listing()
     key = None
-    if not full:
-        try:
-            key = vault.get(FINGERPRINT_KEY)
-        except Unread as e:
-            if "not in Key Vault" not in str(e):
-                raise
-            log(f"{FINGERPRINT_KEY} isn't in Key Vault, so each value is read rather than fingerprinted")
+    try:
+        key = vault.get(FINGERPRINT_KEY)
+    except Unread as e:
+        if "not in Key Vault" not in str(e):
+            raise
+        log(f"{FINGERPRINT_KEY} isn't in Key Vault, so each value is read rather than fingerprinted")
     if any(w in spec for spec in facts.values() for w in ("take", "collect")):
         field = nb.field()
         if field is None:
@@ -509,7 +508,7 @@ def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None, full: bool 
             continue
         value, data, source = result
         mark = fingerprint(key, name, value) if key else None
-        if mark and (tags.get(name) or {}).get(TAG) == mark:
+        if mark and not full and (tags.get(name) or {}).get(TAG) == mark:
             by_print += 1
             log(f"{name}: agrees, by fingerprint ({source})")
             continue
@@ -552,7 +551,7 @@ def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None, full: bool 
         else:
             log(f"  not set: Key Vault answered {status}" if back is None else "  set, but reads back different")
             failed = True
-    if key:
+    if key and not full:
         log(f"{by_print} of {len(facts)} agreed by fingerprint, their values not read")
     if changed:
         # For the Key Vault sync's --secrets, so only the groups reading these are made again.

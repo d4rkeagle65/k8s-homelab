@@ -422,6 +422,11 @@ def test_full_reads_every_value_and_a_missing_key_reads_too(monkeypatch, tmp_pat
     fake.tags["PIHOLE-ADDRESS"] = {m.TAG: m.fingerprint("<fingerprint-key>", "PIHOLE-ADDRESS", "192.0.2.20")}
     rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-ADDRESS": "{take: address}"}, ["--full"])
     assert rc == 0 and "PIHOLE-ADDRESS" in fake.reads and "by fingerprint" not in out
+    # --full with --write still tags what it sets.
+    fake.nb["ipam/ip-addresses"][0]["address"] = "192.0.2.21/24"
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-ADDRESS": "{take: address}"}, ["--write", "--full"],
+                 {**ENV, **WRITER})
+    assert fake.tags["PIHOLE-ADDRESS"][m.TAG] == m.fingerprint("<fingerprint-key>", "PIHOLE-ADDRESS", "192.0.2.21")
     del fake.vault[m.FINGERPRINT_KEY]
     fake.reads.clear()
     rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-ADDRESS": "{take: address}"})
