@@ -50,6 +50,7 @@ facts:
   SWITCH-04-ADDRESS: {take: address}
   SWITCH-CORE-ADDRESS: {take: address}
   TERRAMASTER-MGMT-ADDRESS: {take: address}
+  TOFU-PROXMOX-TF-VAR-SITE: {view: tofu_proxmox_site}
   TRAEFIK-MGMT-ADDRESS: {take: address}
   WORKER-NODE-4: {take: name}
   WORKER-NODE-5: {take: name}

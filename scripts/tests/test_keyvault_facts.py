@@ -515,6 +515,41 @@ def test_find_reports_where_each_leaf_of_a_json_variable_comes_from(monkeypatch,
         assert v not in out, v
 
 
+def test_the_proxmox_site_view_builds_tofus_site_from_netbox_and_its_own_secrets(monkeypatch, tmp_path, capsys):
+    import json as j
+    vlan = lambda vid, name: {"vid": vid, "name": name}
+    nets = [prefix(1, "192.0.2.0/25", vlan=vlan(5, "Management")), prefix(2, "198.51.100.0/24", vlan=vlan(3, "Work laptop")),
+            prefix(3, "203.0.113.0/24", vlan=vlan(6, "IoT")), prefix(4, "192.0.2.128/25", vlan=vlan(7, "Production")),
+            prefix(5, "198.51.100.128/25", vlan=vlan(8, "DMZ"))]
+    def tag(r, slug):
+        r["tags"] = [{"slug": slug}]
+        return r
+    records = [tag(record(19, "gw.lan.example.", value="192.0.2.254"), "gateway"),
+               tag(record(36, "api.lan.example.", value="192.0.2.140"), "kubernetes-api")]
+    piholes = [{"id": 2, "name": "pihole2", "role": {"name": "Pi-hole"}, "status": {"value": "active"}, "custom_fields": {}},
+               {"id": 1, "name": "pihole1", "role": {"name": "Pi-hole"}, "status": {"value": "active"}, "custom_fields": {}}]
+    ips = [ip(16, "192.0.2.131/25", vm=2), ip(11, "192.0.2.130/25", vm=1), ip(12, "192.0.2.10/25", vm=1)]
+    secrets = {"NODE-SEARCH-DOMAIN": "nodes.example", "CLUSTER-DOMAIN": "svc.cluster.example", "CALICO-POD-CIDR": "10.10.0.0/16",
+               "KUBERNETES-SERVICE-CIDR": "10.20.0.0/16", "OWNER-USERNAME": "<owner>", "OWNER-SSH-PUBLIC-KEY": "<key-a>",
+               "SEMAPHORE-SHARED-SSH-PUBLIC-KEY": "<key-b>"}
+    fake = Fake({**secrets, "SITE": "{}"}, prefixes=nets, records=records, vm_list=piholes, ips=ips, vms={1: "active", 2: "active"})
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"SITE": "{view: tofu_proxmox_site}"}, ["--write"], {**ENV, **WRITER})
+    assert rc == 0, out
+    got = j.loads(fake.vault["SITE"])
+    assert got["networks"]["vmbr7"] == {"prefix": "192.0.2", "prefix_length": 25, "gateway": "192.0.2.254"}
+    assert got["networks"]["vmbr0"] == {"prefix": "192.0.2", "prefix_length": 25}  # no gateway record in it
+    assert set(got["networks"]) == {"vmbr0", "vmbr2", "vmbr6", "vmbr7", "vmbr8"}  # vmbr1 has no VLAN
+    assert got["node_dns_servers"] == ["192.0.2.130", "192.0.2.131"]  # the Pi-holes' Production addresses, by name
+    assert got["talos"] == {"cluster_endpoint": "api.lan.example:6443", "api_vip": "192.0.2.140", "dns_domain": "svc.cluster.example",
+                            "pod_subnet": "10.10.0.0/16", "service_subnet": "10.20.0.0/16"}
+    assert got["vm_login"] == {"user": "<owner>", "ssh_keys": ["<key-a>", "<key-b>"]} and got["node_search_domain"] == "nodes.example"
+    assert "<key-a>" not in out and "192.0.2" not in out
+    # A second gateway record in one prefix stops it rather than guess.
+    fake.nb["plugins/netbox-dns/records"].append(tag(record(20, "gw2.lan.example.", value="192.0.2.253"), "gateway"))
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"SITE": "{view: tofu_proxmox_site}"})
+    assert rc == 1 and "vmbr7: 2 gateway records in its prefix, not one" in out
+
+
 def test_a_json_key_that_could_be_data_is_never_printed(monkeypatch, tmp_path, capsys):
     import json as j
     dns = {"zones": {"lan.example": "<zone-id>", "192.0.2.1": "x"}, "records": {"r01": {"name": "www"}}}
