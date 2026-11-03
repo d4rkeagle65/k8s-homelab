@@ -519,7 +519,8 @@ def test_the_proxmox_site_view_builds_tofus_site_from_netbox_and_its_own_secrets
     import json as j
     vlan = lambda vid, name: {"vid": vid, "name": name}
     nets = [prefix(1, "192.0.2.0/25", vlan=vlan(5, "Management")), prefix(2, "198.51.100.0/24", vlan=vlan(3, "Work laptop")),
-            prefix(3, "203.0.113.0/24", vlan=vlan(6, "IoT")), prefix(4, "192.0.2.128/25", vlan=vlan(7, "Production")),
+            prefix(3, "203.0.113.0/24", vlan=vlan(6, "IoT")),
+            dict(prefix(4, "192.0.2.128/25", vlan=vlan(7, "Production")), custom_fields={"dns_zone": {"name": "nodes.example."}}),
             prefix(5, "198.51.100.128/25", vlan=vlan(8, "DMZ"))]
     def tag(r, slug):
         r["tags"] = [{"slug": slug}]
@@ -529,7 +530,7 @@ def test_the_proxmox_site_view_builds_tofus_site_from_netbox_and_its_own_secrets
     piholes = [{"id": 2, "name": "pihole2", "role": {"name": "Pi-hole"}, "status": {"value": "active"}, "custom_fields": {}},
                {"id": 1, "name": "pihole1", "role": {"name": "Pi-hole"}, "status": {"value": "active"}, "custom_fields": {}}]
     ips = [ip(16, "192.0.2.131/25", vm=2), ip(11, "192.0.2.130/25", vm=1), ip(12, "192.0.2.10/25", vm=1)]
-    secrets = {"NODE-SEARCH-DOMAIN": "nodes.example", "CLUSTER-DOMAIN": "svc.cluster.example", "CALICO-POD-CIDR": "10.10.0.0/16",
+    secrets = {"CLUSTER-DOMAIN": "svc.cluster.example", "CALICO-POD-CIDR": "10.10.0.0/16",
                "KUBERNETES-SERVICE-CIDR": "10.20.0.0/16", "OWNER-USERNAME": "<owner>", "OWNER-SSH-PUBLIC-KEY": "<key-a>",
                "SEMAPHORE-SHARED-SSH-PUBLIC-KEY": "<key-b>"}
     fake = Fake({**secrets, "SITE": "{}"}, prefixes=nets, records=records, vm_list=piholes, ips=ips, vms={1: "active", 2: "active"})
