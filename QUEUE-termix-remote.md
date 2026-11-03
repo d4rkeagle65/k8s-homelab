@@ -42,15 +42,15 @@ Kubernetes Ingress rather than a Cloudflare Access application.
 - [x] 2a. The view writes a YAML list (#555); the live cluster-secrets value parses as one.
 - [x] 2. PR (#553): `TERMIX_REMOTE_SOURCES` in cluster-secrets (plain: a Middleware reads it,
       not a Secret's `data:`); it's in the live cluster-secrets Secret.
-- [ ] 3. The remote gate, Traefik's trust, the Middleware and Termix's remote route (#556): Traefik
+- [x] 3. The remote gate, Traefik's trust, the Middleware and Termix's remote route (#556): Traefik
       rolled with them; from here the remote route answers 403, plain and with a forged
       `X-Forwarded-For` naming the office; Termix's own name still redirects on 80 and reaches
-      Authentik's login on 443. Left: the remote gate in Authentik (Applications: "Termix (remote
-      gate)"; the outpost's providers list it; the owner's look in the UI), since the outpost
-      hadn't refreshed by 19:46 (it holds no websocket to Authentik: QUEUE.md).
-- [ ] 4. PR: the tunnel Ingress for `termix-remote.${BASE_DOMAIN}` (traefik's
-      `ingress-cloudflare-tunnel.yaml`). Checked live: from here, 403; the owner, from the office,
-      reaches Authentik's login.
+      Authentik's login on 443. The owner saw "Termix (remote gate)" and the outpost's list in
+      Authentik; the outpost loaded its 5 providers at 19:46:53.
+- [ ] 4. PR (this one): the tunnel Ingress for `termix-remote.${BASE_DOMAIN}` (traefik's
+      `ingress-cloudflare-tunnel.yaml`). After merge: the tunnel controller makes the public name;
+      from here, through Cloudflare, 403 (mine); the owner, from the office, reaches Authentik's
+      login, then Termix's.
 
 ## Resume
 

@@ -40,3 +40,24 @@ spec:
               number: 80
         path: /
         pathType: Prefix
+---
+# Termix's remote name (QUEUE-termix-remote.md): Traefik serves it on web, where this
+# arrives, only to the sources NetBox tags termix-remote and then through Authentik's
+# gate for this name (termix's ingress.yaml); every other address gets 403.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: termix-remote-cloudflare-tunnel
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: termix-remote${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - backend:
+          service:
+            name: traefik
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
