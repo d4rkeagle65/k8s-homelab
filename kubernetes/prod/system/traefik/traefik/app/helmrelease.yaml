@@ -117,6 +117,13 @@ spec:
         transport:
           respondingTimeouts:
             readTimeout: 0
+        # The Cloudflare tunnel's cloudflared runs on the pod network and passes on the
+        # X-Forwarded-* Cloudflare set (the client's address, https): trusted from there
+        # only, so a tunnel route sees its real client, and nothing on the LAN can claim
+        # one (termix-remote's allow-list reads it; QUEUE-termix-remote.md).
+        forwardedHeaders:
+          trustedIPs:
+          - ${CALICO_POD_CIDR}
         http:
           aliasHeadersStrategy: delete
           middlewares:
@@ -316,6 +323,22 @@ spec:
           - 172.16.0.0/12
           - 192.168.0.0/16
           - 100.64.0.0/10
+    # Termix's tunnel route (QUEUE-termix-remote.md): only the sources NetBox tags
+    # termix-remote (TERMIX_REMOTE_SOURCES, from the facts sync). The client is the
+    # first address in X-Forwarded-For, from the right, that isn't on the pod network
+    # (cloudflared, and Traefik's own, are), so it holds whether or not Traefik appends.
+    - apiVersion: traefik.io/v1alpha1
+      kind: Middleware
+      metadata:
+        name: termix-remote
+        namespace: traefik
+      spec:
+        ipAllowList:
+          # A YAML list as Key Vault holds it ([a, b]), so it stays one when Flux fills it in.
+          sourceRange: ${TERMIX_REMOTE_SOURCES}
+          ipStrategy:
+            excludedIPs:
+            - ${CALICO_POD_CIDR}
     # Plain TCP (STARTTLS passes through to the relay, which holds the
     # certificate). In the relay's namespace: the CRD provider doesn't
     # follow references across namespaces.
