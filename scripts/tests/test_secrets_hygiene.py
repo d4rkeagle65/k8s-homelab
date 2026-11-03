@@ -76,7 +76,7 @@ def test_no_banned_key_material_file_extensions(all_files, repo_root):
     )
 
 
-def test_no_secret_manifests_captured(all_yaml_files, load_yaml, repo_root):
+def test_no_secret_manifests_captured(all_yaml_files, load_yaml_all, repo_root):
     """No Secret manifest may be CAPTURED FROM THE CLUSTER -- the generator
     never fetches "secret" as a resource kind anywhere in capture.py, only
     metadata via _capture_secrets() into docs/secrets-inventory.csv.
@@ -107,10 +107,10 @@ def test_no_secret_manifests_captured(all_yaml_files, load_yaml, repo_root):
         if path == allowed_path:
             continue
         try:
-            doc = load_yaml(path)
+            docs = load_yaml_all(path)
         except Exception:
             continue
-        if isinstance(doc, dict) and doc.get("kind") == "Secret" and not only_placeholders(doc):
+        if any(isinstance(doc, dict) and doc.get("kind") == "Secret" and not only_placeholders(doc) for doc in docs):
             offenders.append(path)
     assert not offenders, (
         "found a captured Secret manifest -- this generator must never write Secret "
@@ -158,11 +158,11 @@ def test_secrets_inventory_csv_columns_have_no_leaked_values(repo_root):
                 )
 
 
-def test_values_files_have_no_plaintext_credentials(repo_root, load_yaml, allowlist):
+def test_values_files_have_no_plaintext_credentials(repo_root, load_yaml_all, allowlist):
     offenders = []
     for path in sorted(repo_root.glob("kubernetes/prod/*/*/*/app/values*.yaml")):
         try:
-            data = load_yaml(path)
+            data = load_yaml_all(path)  # every document: a file may hold several
         except Exception:
             continue
         if not data:
@@ -179,14 +179,14 @@ def test_values_files_have_no_plaintext_credentials(repo_root, load_yaml, allowl
     )
 
 
-def test_no_high_entropy_secrets_in_captured_manifests(repo_root, all_yaml_files, load_yaml, allowlist):
+def test_no_high_entropy_secrets_in_captured_manifests(repo_root, all_yaml_files, load_yaml_all, allowlist):
     local_store = _local_secret_store(repo_root, all_yaml_files)
     offenders = []
     for path in all_yaml_files:
         if path in local_store:
             continue
         try:
-            data = load_yaml(path)
+            data = load_yaml_all(path)  # every document: a file may hold several
         except Exception:
             continue
         if not data:
@@ -204,7 +204,7 @@ def test_no_high_entropy_secrets_in_captured_manifests(repo_root, all_yaml_files
     )
 
 
-def test_no_env_var_credentials_in_captured_manifests(repo_root, all_yaml_files, load_yaml, allowlist):
+def test_no_env_var_credentials_in_captured_manifests(repo_root, all_yaml_files, load_yaml_all, allowlist):
     """`env: [{name: DB_PASSWORD, value: literal}]` in a captured Deployment/
     CronJob/etc -- the single most common way a credential ends up baked
     into a pod spec instead of behind `valueFrom.secretKeyRef`.
@@ -215,7 +215,7 @@ def test_no_env_var_credentials_in_captured_manifests(repo_root, all_yaml_files,
         if path in local_store:
             continue
         try:
-            data = load_yaml(path)
+            data = load_yaml_all(path)  # every document: a file may hold several
         except Exception:
             continue
         if not data:
@@ -269,7 +269,7 @@ def test_no_substitution_literal_leaks_outside_local(repo_root, all_files):
     )
 
 
-def test_no_public_ip_addresses(repo_root, all_yaml_files, load_yaml, allowlist):
+def test_no_public_ip_addresses(repo_root, all_yaml_files, load_yaml_all, allowlist):
     """Private/RFC1918 addresses are expected, load-bearing content in a
     homelab infra backup (this repo documents its own MetalLB pool, NFS
     server, etc. by IP). A PUBLIC address is different: it's specific
@@ -280,7 +280,7 @@ def test_no_public_ip_addresses(repo_root, all_yaml_files, load_yaml, allowlist)
     offenders = []
     for path in all_yaml_files:
         try:
-            data = load_yaml(path)
+            data = load_yaml_all(path)  # every document: a file may hold several
         except Exception:
             continue
         if not data:

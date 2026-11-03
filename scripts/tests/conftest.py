@@ -64,7 +64,8 @@ def _documents(path: Path) -> list:
 def load_yaml():
     """A file's one YAML document (None when it has none), as YAML.load gives it: a file of
     several documents raises ComposerError. Each call gets its own copy, so a test may change
-    what it's given."""
+    what it's given. A scan that skips a file it can't load uses load_yaml_all, or it skips
+    every file of several documents unread."""
     def _load(path: Path):
         docs = _documents(path)
         if len(docs) > 1:
