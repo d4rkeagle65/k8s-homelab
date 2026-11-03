@@ -42,6 +42,7 @@ class Fake:
     def __init__(self, vault, ips=(), ranges=(), prefixes=(), vms=None, field=True, choices=None,
                  put_drops=False, vm_list=(), devices=(), records=()):
         self.vault, self.writes, self.put_drops = dict(vault), [], put_drops
+        self.tags, self.version, self.reads, self.tagged = {}, {n: 1 for n in vault}, [], []
         self.nb = {"ipam/ip-addresses": list(ips), "ipam/ip-ranges": list(ranges), "ipam/prefixes": list(prefixes),
                    "virtualization/virtual-machines": list(vm_list), "dcim/devices": list(devices),
                    "plugins/netbox-dns/records": list(records)}
@@ -51,18 +52,30 @@ class Fake:
         if "login.microsoftonline.com" in url:
             return 200, {"access_token": form["client_id"]}
         if url.startswith("https://vault.example/secrets?"):
-            return 200, {"value": [{"id": f"https://vault.example/secrets/{n}", "attributes": {"enabled": True}}
-                                   for n in self.vault]}
+            return 200, {"value": [{"id": f"https://vault.example/secrets/{n}", "attributes": {"enabled": True},
+                                    "tags": self.tags.get(n, {})} for n in self.vault]}
         if url.startswith("https://vault.example/secrets/"):
-            name = url.split("/secrets/")[1].split("?")[0]
+            name, _, version = url.split("/secrets/")[1].split("?")[0].partition("/")
+            if method in ("PUT", "PATCH") and headers["Authorization"] != "Bearer writer":
+                return 403, None
             if method == "PUT":
-                if headers["Authorization"] != "Bearer writer":
-                    return 403, None
                 self.writes.append(name)
                 if not self.put_drops:
-                    self.vault[name] = body["value"]
+                    # A new version carries only the tags it's given, as in Key Vault.
+                    self.vault[name], self.tags[name] = body["value"], dict(body.get("tags") or {})
+                    self.version[name] = self.version.get(name, 0) + 1
                 return 200, {}
-            return (200, {"value": self.vault[name]}) if name in self.vault else (404, None)
+            if method == "PATCH":
+                if version != f"v{self.version[name]}":
+                    return 404, None
+                self.tagged.append(name)
+                self.tags[name] = dict(body["tags"])
+                return 200, {}
+            self.reads.append(name)
+            if name not in self.vault:
+                return 404, None
+            return 200, {"value": self.vault[name], "id": f"https://vault.example/secrets/{name}/v{self.version[name]}",
+                         "tags": self.tags.get(name, {})}
         path = url.split("/api/", 1)[1]
         if path.startswith("extras/custom-fields/"):
             return 200, {"results": [{"name": m.FIELD, "choice_set": {"id": 1}}] if self.field else []}
@@ -368,3 +381,64 @@ def test_a_host_name_comes_from_its_dns_record_and_a_url_from_a_format(monkeypat
 def test_what_format_may_not_say(monkeypatch, tmp_path, capsys, facts, msg):
     rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), facts)
     assert rc == 2 and msg in out
+
+
+KEY = {m.FINGERPRINT_KEY: "<fingerprint-key>"}
+
+
+def test_fingerprints_spare_the_reads_and_a_hand_edit_is_still_caught(monkeypatch, tmp_path, capsys):
+    fake = Fake({"NAS-HOSTNAME": "nas.lan.example", "PIHOLE-ADDRESS": "192.0.2.20", **KEY},
+                ips=[ip(7, "192.0.2.20/24", claims=["PIHOLE-ADDRESS"]),
+                     ip(8, "192.0.2.30/24", dns="nas.lan.example", claims=["NAS-HOSTNAME"])],
+                choices=["PIHOLE-ADDRESS", "NAS-HOSTNAME"])
+    facts = {"PIHOLE-ADDRESS": "{take: address}", "NAS-HOSTNAME": "{take: dns_name}"}
+    writer = {**ENV, **WRITER}
+    # The first --write finds both agreeing but untagged: it tags them, their values untouched.
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], writer)
+    assert rc == 0 and sorted(fake.tagged) == ["NAS-HOSTNAME", "PIHOLE-ADDRESS"] and fake.writes == []
+    assert "fingerprint added" in out
+    # Next run: both agree by fingerprint, and neither value is read.
+    fake.reads.clear()
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts)
+    assert rc == 0 and [r for r in fake.reads if r != m.FINGERPRINT_KEY] == []
+    assert "2 of 2 agreed by fingerprint, their values not read" in out
+    # A hand edit makes an untagged version: it's read, found different, and set back.
+    fake.vault["PIHOLE-ADDRESS"], fake.tags["PIHOLE-ADDRESS"] = "192.0.2.99", {}
+    fake.version["PIHOLE-ADDRESS"] += 1
+    fake.reads.clear()
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], writer)
+    assert fake.reads.count("PIHOLE-ADDRESS") == 2 and "NAS-HOSTNAME" not in fake.reads  # its read, and the read back
+    assert fake.vault["PIHOLE-ADDRESS"] == "192.0.2.20" and "changed: PIHOLE-ADDRESS" in out
+    # A change in NetBox changes the fingerprint, so that one is read and set.
+    fake.nb["ipam/ip-addresses"][1]["dns_name"] = "nas2.lan.example"
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], writer)
+    assert fake.vault["NAS-HOSTNAME"] == "nas2.lan.example" and "changed: NAS-HOSTNAME" in out
+    assert "<fingerprint-key>" not in out and "192.0.2" not in out
+
+
+def test_full_reads_every_value_and_a_missing_key_reads_too(monkeypatch, tmp_path, capsys):
+    fake = Fake({"PIHOLE-ADDRESS": "192.0.2.20", **KEY}, ips=[ip(7, "192.0.2.20/24", claims=["PIHOLE-ADDRESS"])],
+                choices=["PIHOLE-ADDRESS"])
+    fake.tags["PIHOLE-ADDRESS"] = {m.TAG: m.fingerprint("<fingerprint-key>", "PIHOLE-ADDRESS", "192.0.2.20")}
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-ADDRESS": "{take: address}"}, ["--full"])
+    assert rc == 0 and "PIHOLE-ADDRESS" in fake.reads and "by fingerprint" not in out
+    del fake.vault[m.FINGERPRINT_KEY]
+    fake.reads.clear()
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-ADDRESS": "{take: address}"})
+    assert rc == 0 and "isn't in Key Vault, so each value is read" in out and "PIHOLE-ADDRESS" in fake.reads
+
+
+def test_the_fingerprint_is_keyed_and_tied_to_the_name():
+    a = m.fingerprint("<k1>", "A", "192.0.2.20")
+    assert a != m.fingerprint("<k2>", "A", "192.0.2.20") and a != m.fingerprint("<k1>", "B", "192.0.2.20")
+    assert a != __import__("hashlib").sha256(b"192.0.2.20").hexdigest()
+
+
+@pytest.mark.parametrize("args, ok", [(["--write", "--full"], True), (["--full"], True), (["--find", "--full"], False),
+                                      (["--full", "--full"], False), (["--roles", "--full"], False)])
+def test_full_goes_alone_or_with_write(args, ok):
+    if ok:
+        assert m.parse_args(args)[1] is True
+    else:
+        with pytest.raises(ValueError):
+            m.parse_args(args)

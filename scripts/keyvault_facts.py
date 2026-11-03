@@ -31,6 +31,12 @@ The runs (a value is never printed, only names, NetBox object IDs, JSON paths an
   (none)    for each mapped name, whether NetBox and Key Vault agree; for JSON, which paths
             differ (compared as data, so formatting doesn't count)
   --write   the same, then sets each that differs and reads it back
+  --full    alone or with --write: read every mapped value, ignoring fingerprints (an audit)
+A run lists Key Vault once (values unread) and reads a value only when the fingerprint tag on
+its current version (keyvault-facts, a keyed hash made with KEYVAULT-FACTS-FINGERPRINT-KEY)
+doesn't match the value NetBox gives: one NetBox changed, or one set by hand (a new version,
+untagged). --write tags what it sets, and an agreeing value it finds untagged. Its last line,
+"changed: A,B", is the names it set, for the Key Vault sync's --secrets.
   --find    compares every Key Vault secret with every NetBox object above in
             each form and reports which equal or contain which: the evidence for tagging an
             object and mapping its name, with no value seen
@@ -52,6 +58,8 @@ name couldn't be answered, a mapped name has no single source, or a write didn't
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import importlib.util
 import ipaddress
 import json
@@ -73,6 +81,10 @@ VIEW = re.compile(r"^[a-z0-9_]+$")
 NEEDS = ["AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_KEYVAULT_URL",
          "NETBOX_URL", "NETBOX_TOKEN"]
 WRITER = ["FACTS_AZURE_CLIENT_ID", "FACTS_AZURE_CLIENT_SECRET"]
+# The key the fingerprint tag is made with, and the tag: a run whose value's fingerprint matches
+# the tag on the secret's current version needs no read of the value.
+FINGERPRINT_KEY = "KEYVAULT-FACTS-FINGERPRINT-KEY"
+TAG = "keyvault-facts"
 PLACEHOLDER = re.compile(r"\{([A-Za-z0-9-]+)\}")
 NAME = re.compile(r"^[A-Za-z0-9-]{1,127}$")
 # README.md, "What a NetBox status means": what a job may use.
@@ -261,9 +273,10 @@ class Site:
 # --- Key Vault ----------------------------------------------------------------------------
 
 class Vault(KeyVault):
-    def names(self) -> list[str]:
-        """Every enabled secret's name; Unread when the list failed."""
-        out, url = [], f"{self.url}/secrets?api-version=7.4"
+    def listing(self) -> dict[str, dict]:
+        """{name: tags} for every enabled secret, values left unread: about one call per 25
+        secrets. Unread when the list failed."""
+        out, url = {}, f"{self.url}/secrets?api-version=7.4"
         while url:
             try:
                 status, body = http("GET", url, {"Authorization": f"Bearer {self.token}"})
@@ -271,10 +284,47 @@ class Vault(KeyVault):
                 raise Unread(f"Key Vault's list couldn't be asked ({type(e).__name__})")
             if status != 200 or not isinstance((body or {}).get("value"), list):
                 raise Unread(f"Key Vault answered HTTP {status} for its list of secrets")
-            out += [s["id"].rstrip("/").rsplit("/", 1)[1] for s in body["value"]
-                    if (s.get("attributes") or {}).get("enabled", True)]
+            for s in body["value"]:
+                if (s.get("attributes") or {}).get("enabled", True):
+                    out[s["id"].rstrip("/").rsplit("/", 1)[1]] = s.get("tags") or {}
             url = body.get("nextLink")
         return out
+
+    def names(self) -> list[str]:
+        return list(self.listing())
+
+    def read(self, name: str) -> tuple[str, str, dict] | None:
+        """(value, version, tags) of the current version, or None when it isn't in Key Vault."""
+        try:
+            status, body = http("GET", f"{self.url}/secrets/{urllib.parse.quote(name)}?api-version=7.4",
+                                {"Authorization": f"Bearer {self.token}"})
+        except (urllib.error.URLError, OSError) as e:
+            raise Unread(f"{name}: Key Vault couldn't be asked ({type(e).__name__})")
+        if status == 404:
+            return None
+        if status != 200 or not isinstance((body or {}).get("value"), str):
+            raise Unread(f"{name}: Key Vault answered HTTP {status}")
+        self.cache[name] = body["value"]
+        return body["value"], body["id"].rstrip("/").rsplit("/", 1)[1], body.get("tags") or {}
+
+    def set(self, name: str, value: str, tags: dict) -> int:
+        """A new version with these tags; Key Vault's status."""
+        self.cache.pop(name, None)
+        status, _ = http("PUT", f"{self.url}/secrets/{urllib.parse.quote(name)}?api-version=7.4",
+                         {"Authorization": f"Bearer {self.token}"}, {"value": value, "tags": tags})
+        return status
+
+    def tag(self, name: str, version: str, tags: dict) -> int:
+        """Replace the tags on a version, its value untouched; Key Vault's status."""
+        status, _ = http("PATCH", f"{self.url}/secrets/{urllib.parse.quote(name)}/{version}?api-version=7.4",
+                         {"Authorization": f"Bearer {self.token}"}, {"tags": tags})
+        return status
+
+
+def fingerprint(key: str, name: str, value: str) -> str:
+    """A keyed hash of the value, safe as a tag: without the key it tells nothing, even of an
+    address, which a plain hash would give away to anyone who tried them all."""
+    return hmac.new(key.encode(), f"{name}\0{value}".encode(), hashlib.sha256).hexdigest()
 
 
 def writer_env(env: dict) -> dict:
@@ -408,11 +458,20 @@ def agree(have: str | None, value: str, data) -> tuple[bool, list[str]]:
     return not diff, diff
 
 
-def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None) -> int:
-    failed = False
+def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None, full: bool = False) -> int:
+    failed, changed, by_print = False, [], 0
     if not facts:
         log("keyvault_facts.yaml maps no names yet")
         return 0
+    tags = vault.listing()
+    key = None
+    if not full:
+        try:
+            key = vault.get(FINGERPRINT_KEY)
+        except Unread as e:
+            if "not in Key Vault" not in str(e):
+                raise
+            log(f"{FINGERPRINT_KEY} isn't in Key Vault, so each value is read rather than fingerprinted")
     if any(w in spec for spec in facts.values() for w in ("take", "collect")):
         field = nb.field()
         if field is None:
@@ -449,17 +508,30 @@ def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None) -> int:
             log(f"{name}: {result}")
             continue
         value, data, source = result
+        mark = fingerprint(key, name, value) if key else None
+        if mark and (tags.get(name) or {}).get(TAG) == mark:
+            by_print += 1
+            log(f"{name}: agrees, by fingerprint ({source})")
+            continue
         try:
-            have = vault.get(name)
+            held = vault.read(name)
         except Unread as e:
-            if "not in Key Vault" not in str(e):
-                log(f"{name}: couldn't read Key Vault: {e}")
-                failed = True
-                continue
-            have = None
+            log(f"{name}: couldn't read Key Vault: {e}")
+            failed = True
+            continue
+        have, version, held_tags = held if held else (None, None, {})
         same, diff = agree(have, value, data)
         if same:
-            log(f"{name}: agrees ({source})")
+            if writer is not None and mark and held_tags.get(TAG) != mark:
+                # It agrees but wasn't fingerprinted (set by hand, or before fingerprints): tag
+                # this version, which leaves its value alone, so the next run needn't read it.
+                status = writer.tag(name, version, {**held_tags, TAG: mark})
+                back = writer.read(name) if status == 200 else None
+                ok = back is not None and back[2].get(TAG) == mark and back[0] == have
+                log(f"{name}: agrees ({source}); " + ("fingerprint added" if ok else f"fingerprint not added (Key Vault answered {status})"))
+                failed = failed or not ok
+            else:
+                log(f"{name}: agrees ({source})")
             continue
         log(f"{name}: {'not in Key Vault' if have is None else 'differs'} ({source})")
         for p in diff[:20]:
@@ -468,16 +540,23 @@ def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None) -> int:
             log(f"  and {len(diff) - 20} more paths")
         if writer is None:
             continue
-        status = writer.put(name, value)
+        new_tags = {**held_tags, TAG: mark} if mark else {k: v for k, v in held_tags.items() if k != TAG}
+        status = writer.set(name, value, new_tags)
         try:
-            back = writer.get(name) if status == 200 else None
+            back = writer.read(name) if status == 200 else None
         except Unread as e:
             back, status = None, f"{status}, then the read back failed: {e}"
-        if back == value:
+        if back is not None and back[0] == value and back[2].get(TAG) == (mark or back[2].get(TAG)):
             log("  set, and reads back the same")
+            changed.append(name)
         else:
             log(f"  not set: Key Vault answered {status}" if back is None else "  set, but reads back different")
             failed = True
+    if key:
+        log(f"{by_print} of {len(facts)} agreed by fingerprint, their values not read")
+    if changed:
+        # For the Key Vault sync's --secrets, so only the groups reading these are made again.
+        log(f"changed: {','.join(changed)}")
     return 1 if failed else 0
 
 
@@ -489,19 +568,22 @@ def roles(facts: dict) -> None:
             f'--role "Key Vault Secrets Officer" --scope "$(az keyvault show -n $vault --query id -o tsv)/secrets/{name}"')
 
 
-def parse_args(argv: list[str]) -> str | None:
-    """'find', 'write', 'roles' or None; ValueError for anything else, never repeating it."""
+def parse_args(argv: list[str]) -> tuple[str | None, bool]:
+    """(the mode: 'find', 'write', 'roles' or None, and --full); ValueError for anything else,
+    never repeating it."""
     known = {"--find": "find", "--write": "write", "--roles": "roles"}
     picked = [known[a] for a in argv if a in known]
-    if len(picked) != len(argv) or len(picked) > 1:
-        raise ValueError("refused: give at most one of --find, --write, --roles; any other argument "
-                         "isn't taken (not shown: it may be a value)")
-    return picked[0] if picked else None
+    full = "--full" in argv
+    if len(picked) + full != len(argv) or len(picked) > 1 or argv.count("--full") > 1 \
+            or (full and picked and picked[0] != "write"):
+        raise ValueError("refused: give at most one of --find, --write, --roles, and --full only alone "
+                         "or with --write; any other argument isn't taken (not shown: it may be a value)")
+    return (picked[0] if picked else None), full
 
 
 def main(argv: list[str]) -> int:
     try:
-        mode = parse_args(argv)
+        mode, full = parse_args(argv)
     except ValueError as e:
         log(str(e))
         return 2
@@ -526,7 +608,7 @@ def main(argv: list[str]) -> int:
         if mode == "write":
             writer = Vault(writer_env(env))
             writer.login()
-        return find(vault, nb) if mode == "find" else run(vault, nb, facts, writer)
+        return find(vault, nb) if mode == "find" else run(vault, nb, facts, writer, full)
     except (Unread, RuntimeError, urllib.error.URLError, OSError) as e:
         log(f"stopped: {e}")
         return 1
