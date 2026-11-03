@@ -30,7 +30,8 @@ template's extra variables as arguments, which this refuses):
   SEMAPHORE_URL         Semaphore's own address, as its tasks reach it
   SEMAPHORE_SYNC_TOKEN  an API token of a user who may manage the project's resources
   SEMAPHORE_VARIABLE_GROUPS  optional: the config's path (default: beside this script)
-With --secrets NAME[,NAME...] (Key Vault names; the template's arguments in Semaphore) it makes
+With --secrets NAME[,NAME...], or SYNC_SECRETS=NAME[,NAME...] (an optional survey variable on the
+template, whose answer Semaphore passes as that argument; left empty, every group), it makes
 only the groups reading one of them, directly or through a template, so a changed secret
 reaches its groups without reading every other; the report and the undeclared groups are left
 out. Any other argument is refused.
@@ -354,18 +355,25 @@ def uses(group: dict) -> set[str]:
 
 
 def parse_args(argv: list[str]) -> set[str] | None:
-    """The secrets named by --secrets A,B (or --secrets=A,B), or None for all. Anything else is
-    refused: Semaphore hands a Python template a group's extra variables as arguments."""
+    """The secrets named by --secrets A,B (or --secrets=A,B), or by SYNC_SECRETS=A,B (a Semaphore
+    survey's answer, which it hands over as that argument; empty means all), or None for all.
+    Anything else is refused without repeating it: Semaphore hands a Python template a group's
+    extra variables as arguments too, and one may be a value."""
     rest, only = list(argv[1:]), None
     while rest:
         arg = rest.pop(0)
-        if arg == "--secrets" and rest:
+        if arg.startswith("SYNC_SECRETS="):
+            value = arg.split("=", 1)[1]
+            if not value.strip():
+                continue
+        elif arg == "--secrets" and rest:
             value = rest.pop(0)
         elif arg.startswith("--secrets="):
             value = arg.split("=", 1)[1]
         else:
-            raise ValueError(f"unknown argument {arg!r}: only --secrets NAME[,NAME...] (Key Vault names); "
-                             f"its other settings are the {OWN_GROUP!r} group's environment variables")
+            raise ValueError("refused an argument (not shown: it may be a value): only --secrets NAME[,NAME...] or "
+                             f"SYNC_SECRETS=NAME[,NAME...] (Key Vault names); the sync's other settings are the "
+                             f"{OWN_GROUP!r} group's environment variables")
         names = {n.strip() for n in value.split(",") if n.strip()}
         if not names:
             raise ValueError("--secrets names no secret")

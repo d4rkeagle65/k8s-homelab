@@ -289,3 +289,12 @@ def test_secrets_refuses_a_name_no_group_reads_and_any_other_argument(monkeypatc
     assert "no group reads NOPE" in capsys.readouterr().out
     for argv in (("x", "--secrets"), ("x", "--secrets="), ("x", "admin_user=someone")):
         assert run(monkeypatch, tmp_path, Fake(), TWO_GROUPS, argv=argv) == 2, argv
+    # An argument it refuses is never repeated: it may be a group's extra variable, a value.
+    run(monkeypatch, tmp_path, Fake(), TWO_GROUPS, argv=("x", "api_token=<a-value>"))
+    assert "<a-value>" not in capsys.readouterr().out
+
+
+def test_the_survey_names_secrets_or_left_empty_means_all():
+    assert m.parse_args(["x", "SYNC_SECRETS=A-TOKEN, B-TOKEN"]) == {"A-TOKEN", "B-TOKEN"}
+    assert m.parse_args(["x", "SYNC_SECRETS="]) is None
+    assert m.parse_args(["x", "SYNC_SECRETS=A-TOKEN", "--secrets", "B-TOKEN"]) == {"A-TOKEN", "B-TOKEN"}

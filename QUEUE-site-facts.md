@@ -106,8 +106,9 @@ cluster, and three JSON strings bundle values that are their own facts.
     `-SECRET`); template 42 ("(write)", groups 14, 16, 17). Its first write (task 1533) changed no
     value and tagged all 34; the next check (task 1534) agreed for all 34 by fingerprint, no value
     read. This PR declares group 17 ("Key Vault Facts Writer") so the sync fills it from Key Vault.
-    Left: after merge, a Key Vault sync run (`--secrets KEYVAULT-FACTS-WRITER-CLIENT-ID,KEYVAULT-FACTS-WRITER-CLIENT-SECRET`)
-    and a check that group 17 holds both; on 42 its survey's default `write` and CLI override off
+    Left: a Key Vault sync run (template 38; with this PR's survey, `SYNC_SECRETS` left empty for
+    all, or the writer's two names) and a check that group 17 holds both; on 38 an optional survey
+    variable `SYNC_SECRETS` (String, empty default: a comma-separated list of Key Vault names); on 42 its survey's default `write` and CLI override off
     (the owner's); then a schedule on 42 before the jobs reading these values, followed by the Key
     Vault sync with `--secrets` set to its "changed:" names. A name mapped later needs its role
     assignment first. Template 41 never gets group 17.
