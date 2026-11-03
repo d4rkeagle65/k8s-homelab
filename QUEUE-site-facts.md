@@ -101,19 +101,16 @@ cluster, and three JSON strings bundle values that are their own facts.
   - [ ] The survey (this PR): `FACTS_MODE` (`check`, `find`, `full`, `roles`, `write`,
     `write-full`), an argument `FACTS_MODE=value` or an environment variable, in place of the flags.
     Template 41 ("(read)") has it, no arguments, groups 14 and 16 only.
-  - [ ] Step 5, the writer. The owner made template 42 ("Sync: NetBox → Key Vault (write)", groups
-    14, 16 and 17) and group 17 ("Key Vault Facts Writer", holding `FACTS_AZURE_CLIENT_ID` and
-    `FACTS_AZURE_CLIENT_SECRET` as secrets, typed into Semaphore). Left on 42: its survey's default
-    `write` (it's `check`, so a scheduled run would only check) and CLI override off. Then: the
-    owner makes the service principal and its role assignments (`roles`
-    prints them: Key Vault Secrets Officer on each mapped secret, never the vault) and puts its
-    client ID and secret in Key Vault; then I declare the group "Key Vault Facts Writer"
-    (`FACTS_AZURE_CLIENT_ID`, `FACTS_AZURE_CLIENT_SECRET`) in `semaphore_variable_groups.yaml`, not
-    before (a declared value missing from Key Vault fails the whole sync). Then the owner's template
-    "Sync: NetBox → Key Vault (write)": the three groups, no arguments, CLI override off, survey
-    `FACTS_MODE` (Enum: `write` default, `write-full`); on a schedule before the jobs that read
-    these values, then the Key Vault sync with `--secrets` set to the run's "changed:" names.
-    Template 41 never gets the writer group.
+  - [ ] Step 5, the writer: service principal `semaphore-keyvault-facts`, Key Vault Secrets Officer
+    on the 34 mapped secrets only, its ID and secret in Key Vault (`KEYVAULT-FACTS-WRITER-CLIENT-ID`,
+    `-SECRET`); template 42 ("(write)", groups 14, 16, 17). Its first write (task 1533) changed no
+    value and tagged all 34; the next check (task 1534) agreed for all 34 by fingerprint, no value
+    read. This PR declares group 17 ("Key Vault Facts Writer") so the sync fills it from Key Vault.
+    Left: after merge, a Key Vault sync run (`--secrets KEYVAULT-FACTS-WRITER-CLIENT-ID,KEYVAULT-FACTS-WRITER-CLIENT-SECRET`)
+    and a check that group 17 holds both; on 42 its survey's default `write` and CLI override off
+    (the owner's); then a schedule on 42 before the jobs reading these values, followed by the Key
+    Vault sync with `--secrets` set to its "changed:" names. A name mapped later needs its role
+    assignment first. Template 41 never gets group 17.
 
 ## Resume
 
