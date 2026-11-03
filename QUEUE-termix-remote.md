@@ -13,7 +13,8 @@ Kubernetes Ingress rather than a Cloudflare Access application.
   80, so it would loop (kubernetes/CLAUDE.md, "Ingress").
 - **The allowed sources are NetBox's:** prefixes tagged `termix-remote` (the office's static
   address, a /32), written to Key Vault as `TERMIX-REMOTE-SOURCES` by the facts sync (a view,
-  comma-separated), reaching the cluster as the variable `TERMIX_REMOTE_SOURCES`. Allowing another
+  a YAML flow list, `[a, b]`, so `sourceRange: ${TERMIX_REMOTE_SOURCES}` stays a list once Flux
+  fills it in), reaching the cluster as the variable `TERMIX_REMOTE_SOURCES`. Allowing another
   place is tagging its prefix in NetBox. No address is in git.
 - **Traefik reads the client from `X-Forwarded-For`,** which Cloudflare sets: `web` trusts forwarded
   headers from the pod network only (`${CALICO_POD_CIDR}`, where `cloudflared` runs), and the
@@ -38,13 +39,14 @@ Kubernetes Ingress rather than a Cloudflare Access application.
 - [x] 1. The view `termix_remote_sources` (prefixes tagged `termix-remote`, sorted,
       comma-separated) mapped as `TERMIX-REMOTE-SOURCES` (#551); `-FromNetBox` made the secret
       (#552); check task 1558 agrees.
-- [ ] 2. PR (#553): `TERMIX_REMOTE_SOURCES` in cluster-secrets (plain: a Middleware reads it,
-      not a Secret's `data:`), merged before anything reads it. After merge: it's in the live
-      cluster-secrets Secret (mine).
+- [ ] 2a. PR (this one): the view writes a YAML list. After merge, a write on template 42
+      (the owner's), then the live cluster-secrets value is a list (mine).
+- [x] 2. PR (#553): `TERMIX_REMOTE_SOURCES` in cluster-secrets (plain: a Middleware reads it,
+      not a Secret's `data:`); it's in the live cluster-secrets Secret.
 - [ ] 3. PR: the remote name's gate in `termix.yaml` (provider, application, policy binding, the
       outpost's list) and, if Termix follows the host, its OIDC callback; Traefik's `web` trusts
       forwarded headers from `${CALICO_POD_CIDR}`; the Middleware
-      `termix-remote` (ipAllowList, sourceRange `[${TERMIX_REMOTE_SOURCES}]`, excludedIPs the pod
+      `termix-remote` (ipAllowList, sourceRange `${TERMIX_REMOTE_SOURCES}`, excludedIPs the pod
       CIDR); Termix's Ingress for `termix-remote.${BASE_DOMAIN}` on `web` with it and Authentik's.
       Checked live before step 4: from here (the house's own address, not allowed) the route
       answers 403 through Traefik directly with a forged header naming the office, and 403 without.
