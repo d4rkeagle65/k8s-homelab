@@ -143,7 +143,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   there, adds --attended for the TVs' setups, and lets one device's timeout not stop the run;
   Semaphore task 1275 stopped on the Fire Stick's ADB prompt, creating nothing). NetBox has a
   Location per room, and all 49 IoT devices are in theirs (read back). Left:
-  merge it; a second Semaphore template with --apply --attended beside template 32; then a run of each.
+  a Semaphore template with `--apply --attended` beside template 32 (or that template's
+  arguments, if it is already made), with a survey variable `ATTENDED` (text, not required):
+  the attended devices to set up, by NetBox name, comma-separated; left empty, every one. A dry
+  run names each waiting device as `ATTENDED=<name>`. Then a run of each.
   HA's Nursery area stays for Baby Buddy. Tabled by the owner on 2026-10-24. The dryer and
   washer Tapo plugs refuse the TP-Link login (invalid_auth, tasks 1276-1280, also after a
   restart of both), though the group's values are copied from the owner's working login: next,

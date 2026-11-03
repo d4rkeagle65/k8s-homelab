@@ -9,7 +9,8 @@
 # a later step asks for; unset, the flow is closed and the device is reported as
 # waiting for the login, which the owner enters in Home Assistant's UI. `attended: true`
 # marks a flow that needs someone at the device (a prompt or PIN on a TV): a run
-# skips it unless given --attended.
+# skips it unless given --attended, alone for every one or with the devices' NetBox names
+# (also ATTENDED=NAME,..., a Semaphore survey's answer) for only those.
 
 integrations:
 - {manufacturer: kasa, handler: tplink,
