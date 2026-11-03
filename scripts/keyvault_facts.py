@@ -349,8 +349,8 @@ def contains(value: str, part: str) -> bool:
 def leaves(data, at: str = ""):
     """(path, text) for each string or number inside JSON data."""
     if isinstance(data, dict):
-        for k, v in data.items():
-            yield from leaves(v, f"{at}.{k}" if at else str(k))
+        for i, (k, v) in enumerate(data.items(), 1):
+            yield from leaves(v, step(at, k, i))
     elif isinstance(data, list):
         for i, v in enumerate(data):
             yield from leaves(v, f"{at}[{i}]")
@@ -442,12 +442,22 @@ def build_view(view: str, site: Site):
     return json.dumps(data, sort_keys=True, separators=(",", ":")), data
 
 
+# A JSON key printed in a path: a name (vmbr0, records, r14) as it is; anything else (a domain, an
+# address: a key can be data) by its position, so a path never carries a value.
+SAFE_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}$")
+
+
+def step(at: str, key, position: int) -> str:
+    shown = key if isinstance(key, str) and SAFE_KEY.match(key) else f"<key {position}>"
+    return f"{at}.{shown}" if at else shown
+
+
 def paths(a, b, at: str = "") -> list[str]:
     """Where two JSON values differ, as paths: never the values."""
     if isinstance(a, dict) and isinstance(b, dict):
         out = []
-        for k in sorted(set(a) | set(b), key=str):
-            p = f"{at}.{k}" if at else str(k)
+        for i, k in enumerate(sorted(set(a) | set(b), key=str), 1):
+            p = step(at, k, i)
             if k not in a:
                 out.append(f"{p} (only in Key Vault)")
             elif k not in b:
