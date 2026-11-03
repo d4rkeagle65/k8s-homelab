@@ -47,5 +47,5 @@ alerts, so the keys it waits for are the ones n8n opens.
 
 **The template:** a Python template, script `scripts/alerting_test.py`, no inventory, and the
 variable group **"Alerting Test"**, which the Key Vault sync makes and keeps
-(`scripts/semaphore_variable_groups.yaml` lists what it holds; QUEUE-semaphore-variables.md).
+(`scripts/semaphore_variable_groups.yaml` lists what it holds).
 `ALERTING_TEST_LEGS` (comma-separated) runs only some legs.

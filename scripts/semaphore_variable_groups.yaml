@@ -1,5 +1,6 @@
 # Semaphore's variable groups, made from Key Vault by scripts/semaphore_variable_groups.py,
-# Semaphore's "Sync: Key Vault → Semaphore (script)" (QUEUE-semaphore-variables.md).
+# Semaphore's "Sync: Key Vault → Semaphore (script)"; each Key Vault name follows
+# scripts/README.md's "Add or change a substitution variable".
 #
 # Each group lists its extra variables (`variables:`, Ansible's) and its environment variables
 # (`environment:`), each from one source:
