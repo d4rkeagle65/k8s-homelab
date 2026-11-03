@@ -44,7 +44,8 @@ untagged). --write tags what it sets, and an agreeing value it finds untagged. I
 "changed: A,B", is the names it set, for the Key Vault sync's --secrets.
   --find    compares every Key Vault secret with every NetBox object above in
             each form and reports which equal or contain which: the evidence for tagging an
-            object and mapping its name, with no value seen
+            object and mapping its name, with no value seen; inside a JSON variable, each
+            leaf by path, against NetBox and every other Key Vault secret, for its view
 Any other argument is refused, unnamed: Semaphore passes a group's extra variables as
 arguments, and this never echoes one.
 
@@ -345,21 +346,68 @@ def contains(value: str, part: str) -> bool:
     return re.search(r"(?<![\w.-])" + re.escape(part) + r"(?![\w-]|\.\w)", value) is not None
 
 
+def leaves(data, at: str = ""):
+    """(path, text) for each string or number inside JSON data."""
+    if isinstance(data, dict):
+        for k, v in data.items():
+            yield from leaves(v, f"{at}.{k}" if at else str(k))
+    elif isinstance(data, list):
+        for i, v in enumerate(data):
+            yield from leaves(v, f"{at}[{i}]")
+    elif isinstance(data, (str, int, float)) and not isinstance(data, bool):
+        yield at, str(data)
+
+
 def find(vault: Vault, nb: NetBox) -> int:
     index = [(take, v, kind, obj) for kind, obj in objects(nb) for take, v in forms(kind, obj).items()]
-    names, unread, unmatched = vault.names(), [], 0
+    # For what a view computes: a prefix's network address and its first three octets.
+    for kind, obj in objects(nb):
+        if kind == "prefix":
+            net = ipaddress.ip_network(obj["prefix"], strict=False)
+            index.append(("network address", str(net.network_address), kind, obj))
+            if net.version == 4:
+                index.append(("first three octets", ".".join(str(net.network_address).split(".")[:3]), kind, obj))
+    names, unread, unmatched, values = vault.names(), [], 0, {}
     log(f"{len(names)} Key Vault secrets against {len({(k, o['id']) for _, _, k, o in index})} NetBox objects:")
     for name in sorted(names):
         try:
-            value = vault.get(name)
+            values[name] = vault.get(name)
         except Unread as e:
             unread.append(str(e))
-            continue
+    by_value = {}
+    for name, value in values.items():
+        if len(value.strip()) >= 4:
+            by_value.setdefault(value.strip(), []).append(name)
+
+    def hits_for(text: str, whole: bool) -> list[str]:
+        out = [f"equals {take} of {label(kind, obj)} ({status_of(obj)})" for take, v, kind, obj in index if v == text]
+        if not out and not whole:
+            out = [f"equals Key Vault's {n}" for n in by_value.get(text, [])]
+        if not out:
+            out = [f"contains {take} of {label(kind, obj)} ({status_of(obj)})" for take, v, kind, obj in index
+                   if take in ("address", "dns_name", "fqdn", "value") and v and contains(text, v)]
+        return out
+
+    for name in sorted(values):
+        value = values[name]
         trimmed = value.strip()
-        hits = [f"equals {take} of {label(kind, obj)} ({status_of(obj)})" for take, v, kind, obj in index if v == trimmed]
-        if not hits:
-            hits = [f"contains {take} of {label(kind, obj)} ({status_of(obj)})" for take, v, kind, obj in index
-                    if take in ("address", "dns_name", "fqdn", "value") and v and contains(value, v)]
+        try:
+            data = json.loads(trimmed) if trimmed[:1] in ("{", "[") else None
+        except ValueError:
+            data = None
+        if isinstance(data, (dict, list)):
+            # Inside a JSON variable: where each leaf comes from, by path, for its view.
+            found, bare = [], []
+            for path, text in leaves(data):
+                h = [x for x in hits_for(text.strip(), False) if not x.endswith(f"Key Vault's {name}")]
+                (found if h else bare).append(f"{path}: {'; '.join(h)}" if h else path)
+            log(f"  {name} (JSON, {len(found) + len(bare)} leaves):")
+            for line in found:
+                log(f"    {line}")
+            if bare:
+                log(f"    match nothing: {', '.join(bare)}")
+            continue
+        hits = hits_for(trimmed, True)
         if hits:
             note = " (after trimming whitespace)" if trimmed != value and any(h.startswith("equals") for h in hits) else ""
             log(f"  {name}: {'; '.join(hits)}{note}")

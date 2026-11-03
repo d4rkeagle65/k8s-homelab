@@ -495,3 +495,21 @@ def test_kea_db_clients_is_the_smallest_prefix_holding_both_docker_vms(monkeypat
     fake = Fake({"KEA-DB-CLIENTS": "192.0.2.40/31"}, ips=vms("192.0.2.40/24", "192.0.2.90/24"))
     rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], {**ENV, **WRITER})
     assert rc == 1 and fake.writes == [] and "wider than /30" in out and "192.0.2" not in out
+
+
+def test_find_reports_where_each_leaf_of_a_json_variable_comes_from(monkeypatch, tmp_path, capsys):
+    import json as j
+    site = {"networks": {"vmbr0": {"prefix": "192.0.2", "gateway": "192.0.2.1"}},
+            "vm_login": {"user": "<the-user>", "ssh_keys": ["<a-key>"]}, "zone": "lan.example"}
+    fake = Fake({"SITE": j.dumps(site), "OWNER-SSH-KEY": "<a-key>"},
+                ips=[ip(3, "192.0.2.1/24")], prefixes=[prefix(1, "192.0.2.0/24")],
+                records=[record(9, "nas.lan.example.", value="192.0.2.30")])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {}, ["--find"])
+    assert rc == 0
+    assert "SITE (JSON, 5 leaves):" in out
+    assert "networks.vmbr0.prefix: equals first three octets of prefix #1 (active)" in out
+    assert "networks.vmbr0.gateway: equals address of IP address #3 (active)" in out
+    assert "vm_login.ssh_keys[0]: equals Key Vault's OWNER-SSH-KEY" in out
+    assert "match nothing: vm_login.user, zone" in out
+    for v in ("192.0.2", "<the-user>", "<a-key>", "lan.example"):
+        assert v not in out, v
