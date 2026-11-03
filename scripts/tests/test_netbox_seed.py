@@ -543,3 +543,313 @@ def test_dns_names_follow_status_and_leave_decommissioning_and_hand_set_names():
              _owned(12, "192.0.2.12/24", 3, dns="guest1.mgmt.example"),    # decommissioning: left
              _owned(13, "192.0.2.13/24", 4, dns="handmade.example")]       # failed, hand-set name: left
     assert m.dns_plan(addrs, PREFIXES, vms, [], frozenset()) == {10: "guest1.mgmt.example", 11: ""}
+
+
+# --- NetBox's writes and read-backs, against an in-memory NetBox ------------------------------
+
+import urllib.parse
+
+import pytest
+
+
+class FakeNetBox:
+    """NetBox's REST API in memory: objects per path; GET filters by query (field=value, a
+    nested object's id by <field>_id or <field>) and pages by limit and offset; POST, PATCH
+    and DELETE change what the next GET reads. `keep_deleted` answers a DELETE and keeps the
+    object, as a NetBox that refused it quietly would."""
+
+    def __init__(self, keep_deleted=False):
+        self.objects: dict[str, list[dict]] = {}
+        self.calls: list[tuple[str, str, object]] = []
+        self.next_id = 100
+        self.keep_deleted = keep_deleted
+
+    def add(self, path, **obj):
+        self.next_id += 1
+        obj = {"id": self.next_id, **obj}
+        self.objects.setdefault(path, []).append(obj)
+        return obj
+
+    @staticmethod
+    def _matches(obj, key, value):
+        for k in (key, key[:-3] if key.endswith("_id") else None):
+            if k and k in obj:
+                v = obj[k]["id"] if isinstance(obj[k], dict) else obj[k]
+                return str(v) == value
+        return False
+
+    def http(self, method, url, headers, body=None, **kw):
+        self.calls.append((method, url, body))
+        parts = urllib.parse.urlsplit(url)
+        path = parts.path.split("/api/", 1)[1].strip("/")
+        if method == "GET":
+            q = dict(urllib.parse.parse_qsl(parts.query))
+            limit, offset = int(q.pop("limit", 50)), int(q.pop("offset", 0))
+            hits = [o for o in self.objects.get(path, []) if all(self._matches(o, k, v) for k, v in q.items())]
+            page = hits[offset:offset + limit]
+            more = offset + limit < len(hits)
+            nxt = f"{parts.scheme}://{parts.netloc}{parts.path}?{parts.query}&offset={offset + limit}" if more else None
+            return {"count": len(hits), "results": page, "next": nxt}
+        kind, _, oid = path.rpartition("/")
+        if method == "POST":
+            return self.add(path, **body)
+        obj = next(o for o in self.objects[kind] if o["id"] == int(oid))
+        if method == "PATCH":
+            obj.update(body)
+            return obj
+        if method == "DELETE":
+            if not self.keep_deleted:
+                self.objects[kind].remove(obj)
+            return None
+        raise AssertionError(method)
+
+    def writes(self):
+        return [(m_, u.split("/api/", 1)[1], b) for m_, u, b in self.calls if m_ != "GET"]
+
+
+@pytest.fixture
+def netbox(monkeypatch):
+    def make(apply=True, **kw):
+        fake = FakeNetBox(**kw)
+        monkeypatch.setattr(m, "http", fake.http)
+        return fake, m.NetBox("https://netbox.example", "token", apply)
+    return make
+
+
+def test_ensure_creates_with_the_lookup_and_fields_only_when_applying(netbox):
+    fake, nb = netbox(apply=True)
+    made = nb.ensure("dcim/sites", {"slug": "home"}, {"name": "Home", "status": "active"}, "Home")
+    assert fake.writes() == [("POST", "dcim/sites/", {"slug": "home", "name": "Home", "status": "active"})]
+    assert made["id"] > 0 and fake.objects["dcim/sites"] == [made]
+    assert nb.counts == {"create dcim/sites": 1}
+
+    fake, nb = netbox(apply=False)
+    first = nb.ensure("dcim/sites", {"slug": "home"}, {"name": "Home"}, "Home")
+    second = nb.ensure("dcim/sites", {"slug": "lab"}, {"name": "Lab"}, "Lab")
+    assert fake.writes() == [] and (first["id"], second["id"]) == (-1, -2)
+    assert first == {"id": -1, "slug": "home", "name": "Home"}
+
+
+def test_ensure_patches_only_what_differs_and_leaves_a_match_alone(netbox):
+    fake, nb = netbox(apply=True)
+    site = fake.add("dcim/sites", slug="home", name="Home", status={"value": "active", "label": "Active"})
+    assert nb.ensure("dcim/sites", {"slug": "home"}, {"name": "Home", "status": "active"}, "Home") == site
+    assert fake.writes() == [] and nb.counts == {}
+    nb.ensure("dcim/sites", {"slug": "home"}, {"name": "Home Lab", "status": "active"}, "Home")
+    assert fake.writes() == [("PATCH", f"dcim/sites/{site['id']}/", {"name": "Home Lab"})]
+    assert nb.counts == {"update dcim/sites": 1}
+
+    fake, nb = netbox(apply=False)
+    fake.add("dcim/sites", slug="home", name="Home")
+    nb.ensure("dcim/sites", {"slug": "home"}, {"name": "Home Lab"}, "Home")
+    assert fake.writes() == [] and nb.counts == {"update dcim/sites": 1}
+
+
+def test_ensure_looks_up_nothing_by_an_object_the_dry_run_only_would_create(netbox):
+    fake, nb = netbox(apply=False)
+    made = nb.ensure("dcim/interfaces", {"device_id": -3, "name": "vmbr0"}, {"type": "bridge"}, "n vmbr0")
+    assert fake.calls == [] and made["id"] < 0
+
+
+def test_find_refuses_more_than_one_match(netbox):
+    fake, nb = netbox()
+    fake.add("dcim/devices", name="pve1")
+    assert nb.find("dcim/devices", name="pve1")["name"] == "pve1"
+    assert nb.find("dcim/devices", name="pve2") is None
+    fake.add("dcim/devices", name="pve1")
+    with pytest.raises(SystemExit):
+        nb.find("dcim/devices", name="pve1")
+
+
+def test_all_reads_every_page(netbox):
+    fake, nb = netbox()
+    for i in range(1203):
+        fake.add("ipam/ip-addresses", address=f"192.0.2.{i % 250}/24", role="vip" if i % 3 == 0 else "")
+    assert len(nb.all("ipam/ip-addresses")) == 1203
+    assert len(nb.all("ipam/ip-addresses", role="vip")) == 401
+    assert sum(1 for c in fake.calls if c[0] == "GET") == 3 + 1
+
+
+def test_delete_writes_only_when_allowed_and_applying_and_reads_it_back(netbox):
+    fake, nb = netbox(apply=True)
+    port = fake.add("dcim/interfaces", name="eno2")
+    nb.delete("dcim/interfaces", port, "pve1 eno2", allowed=False)
+    assert fake.writes() == [] and nb.counts == {"stale dcim/interfaces": 1}
+    nb.delete("dcim/interfaces", port, "pve1 eno2", allowed=True)
+    assert fake.writes() == [("DELETE", f"dcim/interfaces/{port['id']}/", None)]
+    assert fake.objects["dcim/interfaces"] == []
+    assert fake.calls[-1][0] == "GET", "the delete is read back"
+
+    fake, nb = netbox(apply=False)
+    port = fake.add("dcim/interfaces", name="eno2")
+    nb.delete("dcim/interfaces", port, "pve1 eno2", allowed=True)
+    assert fake.calls == [] and nb.counts == {"delete dcim/interfaces": 1}
+
+
+def test_a_delete_netbox_didnt_do_stops_the_run(netbox):
+    fake, nb = netbox(apply=True, keep_deleted=True)
+    port = fake.add("dcim/interfaces", name="eno2")
+    with pytest.raises(SystemExit):
+        nb.delete("dcim/interfaces", port, "pve1 eno2", allowed=True)
+
+
+def test_set_ref_points_the_field_once_both_objects_exist(netbox):
+    fake, nb = netbox(apply=True)
+    dev = fake.add("dcim/devices", name="pve1", primary_ip4=None)
+    ip = fake.add("ipam/ip-addresses", address="192.0.2.5/24")
+    nb.set_ref("dcim/devices", dev, "primary_ip4", ip, "pve1")
+    assert fake.writes() == [("PATCH", f"dcim/devices/{dev['id']}/", {"primary_ip4": ip["id"]})]
+    nb.set_ref("dcim/devices", {**dev, "primary_ip4": {"id": ip["id"]}}, "primary_ip4", ip, "pve1")
+    assert len(fake.writes()) == 1, "already pointing there: nothing written"
+
+    dev, ip = {"id": 900, "primary_ip4": None}, {"id": 901}
+    for apply, obj, target in ((True, {"id": -1}, ip), (True, dev, {"id": -2}), (False, dev, ip)):
+        fake, nb = netbox(apply=apply)
+        nb.set_ref("dcim/devices", obj, "primary_ip4", target, "pve1")
+        assert fake.writes() == [] and nb.counts == {"set primary_ip4/dcim/devices": 1}
+
+
+def test_differ_reports_an_owned_shape_and_writes_nothing(netbox, capsys):
+    fake, nb = netbox(apply=True)
+    m.differ(nb, "vm1", {"vcpus": (4, 4), "memory": (8192, 4096)})
+    assert fake.calls == [] and nb.counts == {"differ owned/shape": 1}
+    out = capsys.readouterr().out
+    assert "vm1 memory: NetBox 8192, Proxmox 4096" in out and "vcpus" not in out
+
+
+def test_own_iot_devices_are_the_sites_devices_with_the_mark(netbox):
+    fake, nb = netbox()
+    mine = fake.add("dcim/devices", name="plug-1", site={"id": 7}, description=m.IOT_DEVICE_MARK)
+    fake.add("dcim/devices", name="pve1", site={"id": 7}, description="")
+    fake.add("dcim/devices", name="plug-2", site={"id": 8}, description=m.IOT_DEVICE_MARK)
+    assert m.own_iot_devices(nb, 7) == [mine]
+
+
+def test_with_len_takes_the_holding_prefixes_length():
+    prefixes = {"192.0.2.0/24": {}, "198.51.100.0/25": {}}
+    assert m.with_len("192.0.2.9", prefixes) == "192.0.2.9/24"
+    assert m.with_len("198.51.100.9/32", prefixes) == "198.51.100.9/25"
+    assert m.with_len("203.0.113.9/28", prefixes) == "203.0.113.9/28"
+    assert m.with_len("203.0.113.9", prefixes) == "203.0.113.9/32"
+
+
+def test_primary_of_is_the_address_without_its_length():
+    assert m.primary_of({"primary_ip4": {"id": 1, "address": "192.0.2.5/24"}}) == "192.0.2.5"
+    assert m.primary_of({"primary_ip4": None}) is None
+    assert m.primary_of({}) is None
+
+
+def test_bridge_of():
+    assert m.bridge_of("virtio=BC:24:11:00:00:01,bridge=vmbr7,firewall=1") == "vmbr7"
+    assert m.bridge_of("virtio=BC:24:11:00:00:01") is None
+
+
+NODE_IFACES = [
+    {"iface": "eno1.30", "type": "vlan"},
+    {"iface": "eno1", "type": "eth", "comments": " uplink "},
+    {"iface": "vmbr0", "type": "bridge", "bridge_ports": "eno1", "cidr": "192.0.2.5/24"},
+    {"iface": "vmbr30", "type": "bridge", "bridge_ports": "eno1.30", "cidr": "198.51.100.5/24"},
+]
+
+
+def test_node_interfaces_nests_ports_in_bridges_and_vlans_under_ports(netbox):
+    fake, nb = netbox(apply=True)
+    dev = fake.add("dcim/devices", name="pve1")
+    vlan = fake.add("ipam/vlans", vid=30, name="IoT")
+    prefixes = {"192.0.2.0/24": {}, "198.51.100.0/24": {}}
+    primary = m.node_interfaces(nb, prefixes, {30: vlan}, dev, "pve1", NODE_IFACES, None)
+
+    made = [b for meth, path, b in fake.writes() if path == "dcim/interfaces/" and meth == "POST"]
+    assert [b["name"] for b in made] == ["vmbr0", "vmbr30", "eno1", "eno1.30"], "bridges, then ports, then VLANs"
+    by = {o["name"]: o for o in fake.objects["dcim/interfaces"]}
+    assert by["eno1"]["bridge"] == by["vmbr0"]["id"] and by["eno1"]["description"] == "uplink"
+    assert by["eno1.30"]["parent"] == by["eno1"]["id"] and by["eno1.30"]["bridge"] == by["vmbr30"]["id"]
+    assert (by["eno1.30"]["mode"], by["eno1.30"]["untagged_vlan"], by["eno1.30"]["description"]) == \
+        ("access", vlan["id"], "VLAN 30")
+    assert {o["type"] for o in made if o["name"].startswith("vmbr")} == {"bridge"}
+    ips = {o["address"]: o for o in fake.objects["ipam/ip-addresses"]}
+    assert set(ips) == {"192.0.2.5/24", "198.51.100.5/24"}
+    assert ips["192.0.2.5/24"]["assigned_object_id"] == by["vmbr0"]["id"]
+    assert primary == ips["192.0.2.5/24"], "no primary in NetBox: the management bridge's"
+
+
+def test_node_interfaces_keeps_the_primary_netbox_has_while_the_node_has_it(netbox):
+    fake, nb = netbox(apply=True)
+    dev = fake.add("dcim/devices", name="pve1")
+    prefixes = {"192.0.2.0/24": {}, "198.51.100.0/24": {}}
+    primary = m.node_interfaces(nb, prefixes, {}, dev, "pve1", NODE_IFACES, "198.51.100.5")
+    assert primary["address"] == "198.51.100.5/24"
+    gone = m.node_interfaces(nb, prefixes, {}, dev, "pve1", NODE_IFACES, "203.0.113.1")
+    assert gone["address"] == "192.0.2.5/24"
+
+
+def test_same_tells_lists_of_different_objects_apart():
+    assert m.same([{"slug": "a"}, {"slug": "b"}], ["b", "a"])
+    assert not m.same([{"slug": "a"}, {"slug": "b"}], ["a", "c"])
+    assert not m.same([{"id": 1}], [2])
+
+
+def test_kea_networks_reads_plain_and_shared_subnets_and_their_pools(monkeypatch):
+    answer = [{"result": 0, "arguments": {"Dhcp4": {
+        "subnet4": [{"subnet": "192.0.2.0/24", "pools": [{"pool": "192.0.2.100 - 192.0.2.199"}]}],
+        "shared-networks": [{"subnet4": [{"subnet": "198.51.100.0/24",
+                                          "pools": [{"pool": "198.51.100.10-198.51.100.20"},
+                                                    {"pool": "198.51.100.30-198.51.100.40"}]}]}]}}}]
+    sent = []
+    monkeypatch.setattr(m, "http", lambda method, url, headers, body=None, **kw: sent.append(body) or answer)
+    subnets, pools = m.kea_networks("http://kea.example/", "user:pass")
+    assert subnets == ["192.0.2.0/24", "198.51.100.0/24"]
+    assert pools == {"192.0.2.0/24": [("192.0.2.100", "192.0.2.199")],
+                     "198.51.100.0/24": [("198.51.100.10", "198.51.100.20"), ("198.51.100.30", "198.51.100.40")]}
+    assert sent == [{"command": "config-get", "service": ["dhcp4"]}]
+
+
+def test_a_kea_error_answer_stops_the_run(monkeypatch):
+    monkeypatch.setattr(m, "http", lambda *a, **kw: [{"result": 1, "text": "unauthorized"}])
+    with pytest.raises(SystemExit):
+        m.kea_networks("http://kea.example/", "user:pass")
+
+
+def test_proxmox_state_reads_nodes_and_guests_and_the_agents_addresses(monkeypatch):
+    ifaces = [{"iface": "vmbr0", "type": "bridge", "cidr": "192.0.2.5/24", "active": 1},
+              {"iface": "wlx0", "type": "eth", "active": 0},
+              {"iface": "vmbr9", "type": "bridge", "cidr": "203.0.113.5/24", "active": 0}]
+    agent = {"result": [
+        {"hardware-address": "bc:24:11:00:00:01",
+         "ip-addresses": [{"ip-address-type": "ipv4", "ip-address": "192.0.2.50", "prefix": 24},
+                          {"ip-address-type": "ipv6", "ip-address": "fe80::1", "prefix": 64},
+                          {"ip-address-type": "ipv4", "ip-address": "127.0.0.1", "prefix": 8}]},
+        {"hardware-address": "bc:24:11:00:00:02",
+         "ip-addresses": [{"ip-address-type": "ipv4", "ip-address": "198.51.100.9", "prefix": 24}]},
+        {"hardware-address": "00:00:00:00:00:00",
+         "ip-addresses": [{"ip-address-type": "ipv4", "ip-address": "127.0.0.1", "prefix": 8}]}]}
+    answers = {
+        "/cluster/status": [{"type": "cluster", "name": "lab"}, {"type": "node", "name": "pve1"}],
+        "/nodes": [{"node": "pve1", "maxcpu": 8, "status": "online"}],
+        "/nodes/pve1/network": ifaces,
+        "/cluster/resources?type=vm": [{"node": "pve1", "type": "qemu", "vmid": 101, "name": "vm1", "status": "running"},
+                                       {"node": "pve1", "type": "qemu", "vmid": 102, "name": "vm2", "status": "running"}],
+        "/nodes/pve1/qemu/101/config": {"agent": "1", "net0": "virtio=BC:24:11:00:00:01,bridge=vmbr0",
+                                        "net1": "virtio=BC:24:11:00:00:02,bridge=vmbr7",
+                                        "ipconfig1": "ip=198.51.100.24/24"},
+        "/nodes/pve1/qemu/101/agent/network-get-interfaces": agent,
+        "/nodes/pve1/qemu/102/config": {"agent": "1", "net0": "virtio=BC:24:11:00:00:03,bridge=vmbr0"},
+    }
+
+    def fake_http(method, url, headers, body=None, **kw):
+        p = url.split("/api2/json", 1)[1]
+        if p == "/nodes/pve1/qemu/102/agent/network-get-interfaces":
+            raise SystemExit("FAIL: no agent")
+        return {"data": answers[p]}
+
+    monkeypatch.setattr(m, "http", fake_http)
+    cluster, nodes, guests = m.proxmox_state("https://pve.example:8006", "token")
+    assert cluster == "lab"
+    assert nodes["pve1"]["bridges"] == {"vmbr0": "192.0.2.5/24"}, "an interface that's down stays out"
+    assert nodes["pve1"]["names"] == {"vmbr0", "wlx0", "vmbr9"}, "but it still counts as the node's"
+    vm1, vm2 = guests
+    assert vm1["ips"] == {"net0": ["192.0.2.50/24"], "net1": ["198.51.100.24/24"]}, \
+        "the agent's IPv4 on a NIC without a configured address; a configured NIC keeps only that"
+    assert vm1["nets"] == {"net0": "vmbr0", "net1": "vmbr7"}
+    assert vm1["macs"] == {"net0": "BC:24:11:00:00:01", "net1": "BC:24:11:00:00:02"}
+    assert vm2["ips"] == {}, "an agent that doesn't answer adds nothing and stops nothing"
