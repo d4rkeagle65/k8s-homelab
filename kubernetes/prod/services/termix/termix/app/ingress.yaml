@@ -57,7 +57,7 @@ spec:
             port:
               number: 8080
 ---
-# Termix through the Cloudflare tunnel (QUEUE-termix-remote.md): a name of its own, on
+# Termix through the Cloudflare tunnel (old-queues/QUEUE-termix-remote.md): a name of its own, on
 # web, where the tunnel arrives (Termix's own name redirects web to websecure, which
 # would loop). Only the sources NetBox tags termix-remote, then Authentik's gate for
 # this name (the termix.yaml blueprint's remote gate), then Termix's own Authentik login

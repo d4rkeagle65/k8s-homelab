@@ -739,7 +739,7 @@ data:
     # Authentik blueprint: Termix, the web bastion (QUEUE-bastion.md). A forward-auth
     # gate on the outpost (on mesh-mini.yaml's outpost list) stands in front of it on
     # each of its names: its own, and termix-remote's, the Cloudflare tunnel's route
-    # for a few source addresses (QUEUE-termix-remote.md). Only Termix Admins pass.
+    # for a few source addresses (old-queues/QUEUE-termix-remote.md). Only Termix Admins pass.
     # Then Termix's own Authentik login (the OIDC provider below), whose callback Termix
     # builds from the name it was reached on, so both names are allowed. Its client
     # secret is the worker's TERMIX_OIDC_CLIENT_SECRET, from Key Vault (the

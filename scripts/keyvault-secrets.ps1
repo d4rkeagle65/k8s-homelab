@@ -631,7 +631,7 @@ function Resolve-ExportPath([string]$given) {
     [IO.Path]::GetFullPath($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($given))
 }
 
-# -FactsWriter: the writer of scripts/keyvault_facts.py (QUEUE-site-facts.md) gets Key Vault
+# -FactsWriter: the writer of scripts/keyvault_facts.py (scripts/README.md) gets Key Vault
 # Secrets Officer on exactly the secrets its map lists. The map is the one list: keyvault_facts.py
 # --names gives it and the writer's name. Without -Apply it only reports; with it, it adds what's
 # missing and reads the assignments back. One the writer holds on a name the map no longer
