@@ -211,6 +211,12 @@ Queries (Prometheus, `kube-prometheus-stack`):
       (external-secrets has no LimitRange).
       Nobody holds this: the session that made the 4.2-day pass was closed on 2026-10-18. Its
       per-container figures are in the batches' pull requests (#57, #58, #60, #62, #63, #64).
+      Monitoring, done (#575): Prometheus 4384Mi on the critical tier's peak rule (3591Mi in
+      5Gi) and 70m, Grafana 1216Mi in 1920Mi (88% of its limit) and 90m, Loki 448Mi and 120m
+      with a 1000m CPU limit (throttled 13%), Grafana's sidecars a 1000m CPU limit (12%);
+      Alloy back to 128Mi on every node (its working set is page cache: RSS peaked at 97Mi).
+      After it's applied: if w05a is above 95% requested, prometheus-kps-1 moves to w06a
+      (cordon, delete the pod, uncordon), with the owner's go-ahead, before the databases' PR.
       Where things stood that evening, for comparison: memory requests 77% of the nodes'
       allocatable and use 52%; one worker (the 9.7GiB one) at 93% requested, so a raise there
       needs the node-fit check above; CPU requests 34%, use 29%
