@@ -79,7 +79,10 @@ cluster, and three JSON strings bundle values that are their own facts.
     zammad-bridge reads it, so it goes with the bridge (QUEUE-n8n-zammad.md, stage 5). A claim lost
     to a NetBox sync shows in a check run as "no NetBox object claims it". `CLUSTER_DOMAIN` and the
     pod CIDR are the cluster's own (the Talos config in git).
-  - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees:
+  - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees. First
+    (this PR) `--find` reports each JSON variable's leaves by path: which NetBox form (or a
+    prefix's network address or first three octets) or other Key Vault secret each equals, and
+    the paths that match nothing; a view is written from that, never from the value. Then:
     `TOFU-PROXMOX-TF-VAR-SITE` (networks from prefixes by VLAN, `netbox_seed.yaml`'s bridge
     list; its SSH keys their own secrets), `PIHOLE-SETTINGS` (dnsmasq lines from NetBox DNS's
     zones), `TOFU-CLOUDFLARE-TF-VAR-DNS` (Cloudflare's records as NetBox DNS records tagged for
