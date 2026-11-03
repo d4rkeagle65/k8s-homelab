@@ -72,6 +72,44 @@ def test_attended_setups_run_only_on_an_attended_run_and_known_macs_never():
     assert m.plan_device(fire, INTEGRATIONS, known, attended=True)[0] == "present"
 
 
+def test_attended_alone_is_every_one_and_names_or_the_survey_pick_only_those():
+    assert m.attended_choice(None, []) == (set(), [])        # no --attended: none
+    assert m.attended_choice("", []) == (None, [])           # --attended alone: every one
+    assert m.attended_choice("Bedroom-TV, den-tv", []) == ({"bedroom-tv", "den-tv"}, [])
+    # Semaphore's survey answer arrives as an argument; other arguments are left for the check.
+    assert m.attended_choice("", ["ATTENDED=den-tv living-tv", "X=1"]) == ({"den-tv", "living-tv"}, ["X=1"])
+    assert m.attended_choice(None, ["ATTENDED=den-tv"]) == ({"den-tv"}, [])
+    # An empty survey answer leaves the run as its flags say.
+    assert m.attended_choice("", ["ATTENDED="]) == (None, [])
+    assert m.attended_choice(None, ["ATTENDED= "]) == (set(), [])
+    with pytest.raises(ValueError):
+        m.attended_choice(None, ["ATTENDED=a", "ATTENDED=b"])
+
+
+def test_a_name_value_argparse_takes_for_attendeds_names_is_handed_back(monkeypatch, capsys):
+    # The template's "--apply --attended" with the survey's answer after it: argparse gives
+    # --attended the next word, which is the survey's argument, not a device name.
+    assert m.attended_choice("ATTENDED=den-tv", []) == ({"den-tv"}, [])
+    assert m.attended_choice("ATTENDED=", []) == (None, [])
+    # An extra variable there is left for the unexpected-argument check, never read as a name.
+    assert m.attended_choice("TOKEN=abc", []) == (None, ["TOKEN=abc"])
+    monkeypatch.setenv("NETBOX_API", "https://netbox.invalid")
+    monkeypatch.setenv("HA_URL", "https://ha.invalid")
+    monkeypatch.setattr(sys, "argv", ["ha_iot_setup.py", "--apply", "--attended", "TOKEN=abc"])
+    with pytest.raises(SystemExit) as stop:
+        m.main()
+    assert "TOKEN" in str(stop.value) and "abc" not in str(stop.value)
+
+
+def test_a_chosen_name_must_be_an_attended_device_in_netbox():
+    devices = [{"name": "den-tv", "type": "amazon-fire-stick-4k", "manufacturer": "amazon"},
+               {"name": "plug", "type": "kasa-hs200", "manufacturer": "kasa"}]
+    assert m.unknown_attended({"den-tv"}, devices, INTEGRATIONS) == []
+    assert m.unknown_attended(None, devices, INTEGRATIONS) == []
+    # A device that isn't attended, or isn't there, is named so the run stops before changing anything.
+    assert m.unknown_attended({"plug", "gone-tv", "den-tv"}, devices, INTEGRATIONS) == ["gone-tv", "plug"]
+
+
 def test_home_assistant_devices_by_mac_whatever_its_format():
     by = m.ha_device_by_mac([{"id": "a", "connections": [["mac", "00:00:5E:00:53:01"]]},
                              {"id": "b", "connections": [["zigbee", "x"]]}])

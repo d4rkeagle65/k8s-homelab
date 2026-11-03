@@ -33,8 +33,8 @@ reservation is gone is set Offline, never deleted; one set Decommissioning in Ne
 being removed by hand and is left exactly as it is. Its addresses get no DNS name, for the
 reason above.
 
-It defines the tags tofu/tailscale reads (TAILSCALE_TAGS) and Termix's sync reads
-(TERMIX_TAGS) but never applies them. It
+It defines the tags tofu/tailscale reads (TAILSCALE_TAGS), Termix's sync reads
+(TERMIX_TAGS) and ha_iot_generate.py reads (HA_TAGS) but never applies them. It
 leaves alone what NetBox owns: tags (Ansible's groups), config contexts (their
 variables), each host's local context, and the devices Proxmox doesn't run (the
 access points). A primary address NetBox already has is kept while the host
@@ -119,6 +119,14 @@ TERMIX_TAGS = {
     # bastion's and Semaphore's keys are put in root's authorized_keys by hand.
     "thingino": (["dcim.device"],
                  "A Thingino camera: SSH as root, with the web bastion's key (Termix's sync)"),
+}
+
+# The tags ha_iot_generate.py reads to write ha_iot_setup.yaml, by slug, as above.
+HA_TAGS = {
+    "ha-setup": (["dcim.device"],
+                 "Home Assistant adds this IoT device by its address (scripts/ha_iot_generate.py)"),
+    "ha-attended": (["dcim.device"],
+                    "Its Home Assistant setup needs someone at the device: a prompt or PIN (scripts/ha_iot_generate.py)"),
 }
 
 
@@ -882,8 +890,8 @@ def main() -> None:
               {"type": "text", "object_types": ["virtualization.virtualmachine"], "label": "Proxmox tags",
                "description": "A guest's Proxmox tags, separated by ; (old-queues/QUEUE-netbox-shape.md)"},
               "custom field proxmox_tags")
-    # The tags tofu/tailscale and Termix's sync read, defined here and applied by hand.
-    for tag, (types, about) in {**TAILSCALE_TAGS, **TERMIX_TAGS}.items():
+    # The tags tofu/tailscale, Termix's sync and ha_iot_generate.py read, defined here and applied by hand.
+    for tag, (types, about) in {**TAILSCALE_TAGS, **TERMIX_TAGS, **HA_TAGS}.items():
         nb.ensure("extras/tags", {"slug": tag}, {"name": tag, "object_types": types, "description": about},
                   f"tag {tag}")
     vm_roles = {key: nb.ensure("dcim/device-roles", {"slug": slug(name)}, {"name": name, "vm_role": True}, name)

@@ -7,14 +7,19 @@ its interfaces' MACs (the reservation's on wifi0, or on the interface its type's
 A device Home Assistant already has is one whose device registry entry carries one of
 those MACs, or one ha_iot_setup.yaml's derived_macs works out from them (an ESP32
 reports its base MAC, not its Ethernet one). For the rest, the first of
-ha_iot_setup.yaml's integrations matching the
+ha_iot_setup.yaml's integrations (ha_iot_generate.py writes them from NetBox) matching the
 device's type or manufacturer names the integration, and the script runs its setup
 flow by address, as the UI's "Add integration" would. A flow that asks for what the
 script can't give (a login it has no variables for, a PIN shown on a TV) is closed
 and the device reported as waiting; the owner finishes it in the UI or supplies the
 login and runs again. A flow ha_iot_setup.yaml marks attended (someone approves a
 prompt or reads a PIN at the device) runs only with --attended; without it, those
-devices are listed as waiting for an attended run. The device must be on and showing
+devices are listed as waiting for an attended run, by the names to choose them by.
+--attended alone runs every attended setup; --attended NAME[,NAME...], or ATTENDED=NAME[,NAME...]
+(a Semaphore survey's answer, which it hands over as that argument), runs only those devices'
+(NetBox names, any case, separated by commas or spaces), and an empty ATTENDED leaves the run
+as its flags say. A name that isn't an attended device in NetBox stops the run before it
+changes anything, listing the ones there are. The device must be on and showing
 (a Fire TV's prompt appears only on its screen, and a Samsung TV leaves the network in
 standby), or its setup fails as cannot_connect. Devices no entry matches are the cloud integrations' and are
 only placed in rooms.
@@ -38,7 +43,8 @@ In Semaphore it is two Python templates like the NetBox sync, on one variable gr
 ("Home Assistant IoT", made by the Key Vault sync, scripts/semaphore_variable_groups.yaml)
 holding all of the above as environment variables: script
 scripts/ha_iot_setup.py with argument --apply, safe to schedule, and the same with
---apply --attended, run by hand while someone is at the TVs.
+--apply --attended, run by hand while someone is at the TVs, with an optional survey
+variable ATTENDED (text) to pick which of them.
 """
 from __future__ import annotations
 
@@ -249,6 +255,36 @@ def integration_for(device: dict, integrations: list[dict]) -> dict | None:
                  if i.get("type") == device["type"] or i.get("manufacturer") == device["manufacturer"]), None)
 
 
+def attended_choice(flag: str | None, extras: list[str]) -> tuple[set[str] | None, list[str]]:
+    """Which attended setups a run may start, from --attended (flag: None when not given,
+    "" alone, else its names) and an ATTENDED=... argument among extras: None for every one,
+    else the chosen devices' names, casefolded (empty: none). Returns the other extras too."""
+    # A NAME=value argument right after a bare --attended (Semaphore appends the survey's
+    # answer, and a group's extra variables, after the template's arguments) is that argument,
+    # never a device name: no device name holds "=", and printing it could show a value.
+    if flag and "=" in flag:
+        extras, flag = [flag, *extras], ""
+    rest, survey = [], []
+    for arg in extras:
+        (survey if arg.startswith("ATTENDED=") else rest).append(arg)
+    if len(survey) > 1:
+        raise ValueError("ATTENDED is given once")
+    names = {n.casefold() for n in re.split(r"[\s,]+", flag or "") if n}
+    if survey:
+        names |= {n.casefold() for n in re.split(r"[\s,]+", survey[0].split("=", 1)[1]) if n}
+    if names:
+        return names, rest
+    return (None if flag is not None else set()), rest
+
+
+def unknown_attended(chosen: set[str] | None, devices: list[dict], integrations: list[dict]) -> list[str]:
+    """The chosen names that aren't an attended device in NetBox."""
+    if not chosen:
+        return []
+    attended = {d["name"].casefold() for d in devices if (integration_for(d, integrations) or {}).get("attended")}
+    return sorted(chosen - attended)
+
+
 def plan_device(device: dict, integrations: list[dict], by_mac: dict, attended: bool) -> tuple[str, dict | None]:
     """What a run does with one NetBox device, and its ha_iot_setup.yaml entry: "present"
     (Home Assistant has one of its MACs), "cloud" (no entry: set up by hand), "attended" (its
@@ -361,11 +397,16 @@ def main() -> None:
     ap.add_argument("--ha-url", default=ha_url, required=not ha_url,
                     help="Home Assistant's URL (default: $HA_URL, else ~/.ha-url)")
     ap.add_argument("--apply", action="store_true", help="add devices and set areas (default: report only)")
-    ap.add_argument("--attended", action="store_true",
-                    help="also run the setups that need someone at the device (ha_iot_setup.yaml's attended)")
+    ap.add_argument("--attended", nargs="?", const="", default=None, metavar="NAME[,NAME...]",
+                    help="also run the setups that need someone at the device (ha_iot_setup.yaml's attended): "
+                         "every one, or only the devices named (also ATTENDED=NAME[,NAME...])")
     args, extras = ap.parse_known_args()
     # One line at a time, as it happens: Semaphore's log otherwise shows the whole run at its end.
     sys.stdout.reconfigure(line_buffering=True)
+    try:
+        chosen, extras = attended_choice(args.attended, extras)
+    except ValueError as e:
+        raise SystemExit(f"FAIL: {e}")
     if extras:
         raise SystemExit(unexpected(extras))
 
@@ -379,6 +420,11 @@ def main() -> None:
                                  config.get("derived_macs") or [])
     if not devices:
         raise SystemExit("FAIL: NetBox lists no IoT device (netbox_seed.py's); nothing to compare against")
+    unknown = unknown_attended(chosen, devices, integrations)
+    if unknown:
+        there = sorted(d["name"] for d in devices if (integration_for(d, integrations) or {}).get("attended"))
+        raise SystemExit(f"FAIL: not an attended device in NetBox: {', '.join(unknown)}; nothing changed. "
+                         f"The attended ones: {', '.join(there) or 'none'}")
     ha = HomeAssistant(args.ha_url, read_secret(".ha-token", "HA_TOKEN"))
     by_mac = ha_device_by_mac(ha.devices())
     print(f"read: {len(devices)} IoT devices in NetBox, {len(by_mac)} MACs in Home Assistant's devices")
@@ -392,11 +438,13 @@ def main() -> None:
             print(f"  {d['name']}: NetBox has no {'address' if not d['host'] else 'MAC'} for it")
             failed += 1
             continue
-        action, entry = plan_device(d, integrations, by_mac, args.attended)
+        may = chosen is None or d["name"].casefold() in chosen
+        action, entry = plan_device(d, integrations, by_mac, may)
         if action in ("present", "cloud"):
             continue
         if action == "attended":
-            print(f"  waiting: {d['name']} ({entry['handler']}): needs someone at the device; run with --attended")
+            print(f"  waiting: {d['name']} ({entry['handler']}): needs someone at the device; "
+                  f"run with --attended, or ATTENDED={d['name']}" + (" (not chosen this run)" if chosen else ""))
             continue
         if not args.apply:
             print(f"  would add {d['name']} ({entry['handler']})")

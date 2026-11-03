@@ -101,6 +101,15 @@ groups:
       TPLINK_PASSWORD: {keyvault: HA-IOT-TPLINK-PASSWORD}
       TPLINK_USERNAME: {keyvault: OWNER-GMAIL}
 
+  # scripts/ha_iot_generate.py ("Sync: NetBox IoT → Git (script)", --pr): ha_iot_setup.yaml from
+  # NetBox, as a pull request. Its own group, so the IoT setup's templates hold no GitHub token.
+  Home Assistant IoT to Git:
+    managed: true
+    environment:
+      NETBOX_API: {template: "https://netbox.{BASE-DOMAIN}"}
+      NETBOX_TOKEN: {keyvault: HA-IOT-NETBOX-TOKEN}
+      GITHUB_TOKEN: {keyvault: NETBOX-SYNC-GITHUB-TOKEN}
+
   # scripts/netbox_seed.py and scripts/netbox_guests.py.
   Netbox Sync:
     managed: true
