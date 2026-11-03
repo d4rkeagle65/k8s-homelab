@@ -33,11 +33,10 @@ spec:
     clusterName: ${CLUSTER_DOMAIN}
     metrics:
       enabled: true
-    # Requests and limits by the rules (QUEUE-resource-limits.md); measure
-    # after a week and tighten.
+    # Requests and limits by the rules (QUEUE-resource-limits.md).
     resources:
-      requests: {cpu: 10m, memory: 64Mi}
-      limits: {cpu: 500m, memory: 256Mi}
+      requests: {cpu: 10m, memory: 192Mi}
+      limits: {cpu: 500m, memory: 512Mi}
     # Every MariaDB, User, Grant and PhysicalBackup change passes its webhook, so
     # one pod on a drained node fails them all until its replacement is ready:
     # two, on different nodes, and a drain takes only one at a time.
@@ -56,9 +55,9 @@ spec:
             matchLabels:
               app.kubernetes.io/name: mariadb-operator-webhook
       resources:
-        requests: {cpu: 10m, memory: 32Mi}
+        requests: {cpu: 10m, memory: 64Mi}
         limits: {cpu: 200m, memory: 128Mi}
     certController:
       resources:
-        requests: {cpu: 10m, memory: 32Mi}
-        limits: {cpu: 200m, memory: 128Mi}
+        requests: {cpu: 10m, memory: 96Mi}
+        limits: {cpu: 200m, memory: 256Mi}

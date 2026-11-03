@@ -11,11 +11,11 @@ frrk8s:
 # Requests and limits by QUEUE-resource-limits.md's rules (batch 6).
 controller:
   resources:
-    requests: {cpu: 10m, memory: 160Mi}
+    requests: {cpu: 10m, memory: 96Mi}
     limits: {cpu: 500m, memory: 512Mi}
 speaker:
   frr:
     enabled: false
   resources:
-    requests: {cpu: 10m, memory: 128Mi}
+    requests: {cpu: 10m, memory: 64Mi}
     limits: {cpu: 500m, memory: 512Mi}

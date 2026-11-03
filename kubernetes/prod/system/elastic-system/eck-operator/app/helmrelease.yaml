@@ -29,9 +29,9 @@ spec:
   values:
     managedNamespaces: [zammad]
     # Requests and limits by QUEUE-resource-limits.md's rules, in place of the
-    # chart's 1 CPU and 1 GiB; re-measured after a week.
+    # chart's 1 CPU and 1 GiB.
     resources:
-      requests: {cpu: 10m, memory: 160Mi}
+      requests: {cpu: 10m, memory: 96Mi}
       limits: {cpu: 500m, memory: 512Mi}
     # No usage data gathered for Kibana's telemetry (there's no Kibana).
     telemetry:
