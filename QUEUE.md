@@ -368,8 +368,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Most survivors are boundaries the tests replace with fakes, HTTP handlers, loops and
   `main()`. The logic among them, worst first; left, a regression in any of these passes the
   commit gate:
-  - `scripts/netbox_seed.py`: `ensure`, `delete`, `set_ref` (its writes and read-backs),
-    `kea_networks`, `node_interfaces`, `differ`, `with_len`, `primary_of`, `own_iot_devices`.
   - `kubernetes/prod/services/organizr/organizr/app/sync/organizr-sync.py`: `apply_settings`,
     `apply_list`, `differs`, `first_run`, `resolve`, `is_secret`.
   - `scripts/k8s_backup/flux.py`'s `helm_release`, `helm_repository`, `oci_repository`,

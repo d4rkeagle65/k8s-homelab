@@ -760,6 +760,77 @@ def unexpected(extras: list[str]) -> str:
             "not its extra variables.")
 
 
+def with_len(addr: str, prefixes) -> str:
+    """An address with its network's prefix length (NetBox stores it so): the first of
+    prefixes (subnets) holding it, else the length it has, else /32."""
+    ip = ipaddress.ip_address(addr.split("/")[0])
+    for subnet in prefixes:
+        if ip in ipaddress.ip_network(subnet):
+            return f"{ip}/{subnet.split('/')[1]}"
+    return addr if "/" in addr else f"{ip}/32"
+
+
+def address(nb: NetBox, prefixes, addr: str, assigned_type: str, assigned_id: int, label: str):
+    """The NetBox address for addr, active and assigned to the given object."""
+    return nb.ensure("ipam/ip-addresses", {"address": with_len(addr, prefixes)},
+                     {"status": "active", "assigned_object_type": assigned_type, "assigned_object_id": assigned_id},
+                     label)
+
+
+def primary_of(obj: dict) -> str | None:
+    """The address of NetBox's primary IPv4 for obj, without its length."""
+    p = obj.get("primary_ip4")
+    return p["address"].split("/")[0] if isinstance(p, dict) and p.get("address") else None
+
+
+def node_interfaces(nb: NetBox, prefixes, vlan_by_vid: dict, dev: dict, name: str, ifaces: list[dict],
+                    wanted: str | None):
+    """A Proxmox node's bridges, ports and VLAN subinterfaces as Proxmox has them:
+    each port in its bridge, each VLAN under its port, each address on its bridge.
+    The primary address stays the one NetBox has while the node still has it, else
+    it's the management bridge's."""
+    made: dict[str, dict] = {}
+    primary = fallback = None
+    # Bridges first, then the ports in them, then the VLANs on those ports.
+    order = {"bridge": 0, "eth": 1, "bond": 1, "vlan": 2}
+    members = {p: i["iface"] for i in ifaces for p in str(i.get("bridge_ports") or "").split() if i["type"] == "bridge"}
+    for i in sorted(ifaces, key=lambda i: (order.get(i["type"], 3), i["iface"])):
+        iname = i["iface"]
+        fields = {"device": dev["id"], "type": {"bridge": "bridge", "eth": "other", "bond": "lag"}.get(i["type"], "virtual"),
+                  "description": i.get("comments", "").strip()}
+        if iname in members and members[iname] in made:
+            fields["bridge"] = made[members[iname]]["id"]
+        if i["type"] == "vlan":
+            port, _, vid = iname.partition(".")
+            if port in made:
+                fields["parent"] = made[port]["id"]
+            fields["description"] = fields["description"] or f"VLAN {vid}"
+            if int(vid) in vlan_by_vid:
+                fields.update(mode="access", untagged_vlan=vlan_by_vid[int(vid)]["id"])
+        made[iname] = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": iname}, fields, f"{name} {iname}")
+        addr = i.get("cidr")
+        if addr:
+            ip = address(nb, prefixes, addr, "dcim.interface", made[iname]["id"], f"{name} {iname}")
+            if wanted and addr.split("/")[0] == wanted:
+                primary = ip
+            elif iname == "vmbr0":
+                fallback = ip
+    return primary or fallback
+
+
+def differ(nb: NetBox, name: str, pairs: dict):
+    """Report where Proxmox differs from a shape NetBox owns; nothing is written."""
+    for field, (netbox, proxmox) in pairs.items():
+        if not same(netbox, proxmox):
+            print(f"  NetBox owns {name} {field}: NetBox {netbox}, Proxmox {proxmox} (left as NetBox has it)")
+            nb._note("differ owned/shape")
+
+
+def own_iot_devices(nb: NetBox, site_id: int) -> list[dict]:
+    """The site's devices this script made for IoT reservations (IOT_DEVICE_MARK)."""
+    return [d for d in nb.all("dcim/devices", site_id=site_id) if (d.get("description") or "") == IOT_DEVICE_MARK]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -830,14 +901,6 @@ def main() -> None:
                       {"end_address": f"{last}/{plen}", "status": "active", "description": f"{net['name']}: Kea DHCP pool"},
                       f"{net['name']} DHCP pool")
 
-    def with_len(addr: str) -> str:
-        """An address with its network's prefix length (NetBox stores it so)."""
-        ip = ipaddress.ip_address(addr.split("/")[0])
-        for subnet in prefixes:
-            if ip in ipaddress.ip_network(subnet):
-                return f"{ip}/{subnet.split('/')[1]}"
-        return addr if "/" in addr else f"{ip}/32"
-
     # MetalLB's: each pool's range (a single address is only its address below), and each
     # address a Service holds, as a VIP named for the Services.
     print("load balancers:")
@@ -849,12 +912,12 @@ def main() -> None:
         nb.retire("ipam/ip-addresses", a, f"{a['address']} ({a['description']})")
     for pool, first, last in lb_pools:
         if first != last:
-            plen = with_len(first).split("/")[1]
+            plen = with_len(first, prefixes).split("/")[1]
             nb.ensure("ipam/ip-ranges", {"start_address": f"{first}/{plen}"},
                       {"end_address": f"{last}/{plen}", "status": "active", "description": f"MetalLB pool {pool}"},
                       f"MetalLB pool {pool}")
     for ip, holders in lb_ips.items():
-        nb.ensure("ipam/ip-addresses", {"address": with_len(ip)},
+        nb.ensure("ipam/ip-addresses", {"address": with_len(ip, prefixes)},
                   {"status": "active", "role": "vip", "description": "LoadBalancer " + ", ".join(holders)},
                   f"LoadBalancer {', '.join(holders)}")
 
@@ -867,11 +930,6 @@ def main() -> None:
     ctype = nb.ensure("virtualization/cluster-types", {"slug": slug(cfg["cluster_type"])}, {"name": cfg["cluster_type"]}, cfg["cluster_type"])
     cluster = nb.ensure("virtualization/clusters", {"name": cluster_name},
                         {"type": ctype["id"], "scope_type": "dcim.site", "scope_id": site["id"], "status": "active"}, "the Proxmox cluster")
-
-    def address(addr: str, assigned_type: str, assigned_id: int, label: str):
-        return nb.ensure("ipam/ip-addresses", {"address": with_len(addr)},
-                         {"status": "active", "assigned_object_type": assigned_type, "assigned_object_id": assigned_id},
-                         label)
 
     # Each VM's VMID, which OpenTofu finds it by (tofu/proxmox).
     nb.ensure("extras/custom-fields", {"name": "vmid"},
@@ -898,44 +956,6 @@ def main() -> None:
                 for key, name in cfg["vm_roles"].items()}
     owned_roles = {r["id"] for r in vm_roles.values()}
 
-    def primary_of(obj: dict) -> str | None:
-        """The address of NetBox's primary IPv4 for obj, without its length."""
-        p = obj.get("primary_ip4")
-        return p["address"].split("/")[0] if isinstance(p, dict) and p.get("address") else None
-
-    def node_interfaces(dev: dict, name: str, ifaces: list[dict], wanted: str | None):
-        """A Proxmox node's bridges, ports and VLAN subinterfaces as Proxmox has them:
-        each port in its bridge, each VLAN under its port, each address on its bridge.
-        The primary address stays the one NetBox has while the node still has it, else
-        it's the management bridge's."""
-        made: dict[str, dict] = {}
-        primary = fallback = None
-        # Bridges first, then the ports in them, then the VLANs on those ports.
-        order = {"bridge": 0, "eth": 1, "bond": 1, "vlan": 2}
-        members = {p: i["iface"] for i in ifaces for p in str(i.get("bridge_ports") or "").split() if i["type"] == "bridge"}
-        for i in sorted(ifaces, key=lambda i: (order.get(i["type"], 3), i["iface"])):
-            iname = i["iface"]
-            fields = {"device": dev["id"], "type": {"bridge": "bridge", "eth": "other", "bond": "lag"}.get(i["type"], "virtual"),
-                      "description": i.get("comments", "").strip()}
-            if iname in members and members[iname] in made:
-                fields["bridge"] = made[members[iname]]["id"]
-            if i["type"] == "vlan":
-                port, _, vid = iname.partition(".")
-                if port in made:
-                    fields["parent"] = made[port]["id"]
-                fields["description"] = fields["description"] or f"VLAN {vid}"
-                if int(vid) in vlan_by_vid:
-                    fields.update(mode="access", untagged_vlan=vlan_by_vid[int(vid)]["id"])
-            made[iname] = nb.ensure("dcim/interfaces", {"device_id": dev["id"], "name": iname}, fields, f"{name} {iname}")
-            addr = i.get("cidr")
-            if addr:
-                ip = address(addr, "dcim.interface", made[iname]["id"], f"{name} {iname}")
-                if wanted and addr.split("/")[0] == wanted:
-                    primary = ip
-                elif iname == "vmbr0":
-                    fallback = ip
-        return primary or fallback
-
     print("devices:")
     node_devs = {}
     for name in sorted(nodes):
@@ -945,7 +965,7 @@ def main() -> None:
             node_fields["status"] = node_status
         dev = nb.ensure("dcim/devices", {"name": name}, node_fields, name)
         node_devs[name] = dev
-        primary = node_interfaces(dev, name, nodes[name]["ifaces"], primary_of(dev))
+        primary = node_interfaces(nb, prefixes, vlan_by_vid, dev, name, nodes[name]["ifaces"], primary_of(dev))
         if primary:
             nb.set_ref("dcim/devices", dev, "primary_ip4", primary, name)
 
@@ -961,13 +981,6 @@ def main() -> None:
             print(f"  KEEP {name} {i['name']}: not in Proxmox, but {reason}")
         for i in delete:
             nb.delete("dcim/interfaces", i, f"{name} {i['name']}", prune)
-
-    def differ(name: str, pairs: dict):
-        """Report where Proxmox differs from a shape NetBox owns; nothing is written."""
-        for field, (netbox, proxmox) in pairs.items():
-            if not same(netbox, proxmox):
-                print(f"  NetBox owns {name} {field}: NetBox {netbox}, Proxmox {proxmox} (left as NetBox has it)")
-                nb._note("differ owned/shape")
 
     print("virtual machines:")
     skip = set(cfg.get("skip_vmids") or [])
@@ -993,14 +1006,14 @@ def main() -> None:
         role = ((before or {}).get("role") or {}).get("id")
         owned = role in owned_roles
         if owned:
-            differ(g["name"], {k: (before.get(k), v) for k, v in shape.items()})
+            differ(nb, g["name"], {k: (before.get(k), v) for k, v in shape.items()})
         else:
             fields.update(shape)
         vm = nb.ensure("virtualization/virtual-machines", {"name": g["name"]}, fields, g["name"])
         for key, mb in sorted(disk_sizes(cfg_g).items()):
             have = nb.find("virtualization/virtual-disks", virtual_machine_id=vm["id"], name=key) if vm["id"] > 0 else None
             if have and owned:
-                differ(g["name"], {f"disk {key} (MB)": (have.get("size"), mb)})
+                differ(nb, g["name"], {f"disk {key} (MB)": (have.get("size"), mb)})
                 continue
             nb.ensure("virtualization/virtual-disks", {"virtual_machine_id": vm["id"], "name": key},
                       {"virtual_machine": vm["id"], "size": mb}, f"{g['name']} {key}")
@@ -1020,7 +1033,7 @@ def main() -> None:
                                 f"{g['name']} {key} MAC")
                 nb.set_ref("virtualization/interfaces", itf, "primary_mac_address", mac, f"{g['name']} {key}")
             for addr in g["ips"].get(key, []):
-                ip = address(addr, "virtualization.vminterface", itf["id"], f"{g['name']} {key}")
+                ip = address(nb, prefixes, addr, "virtualization.vminterface", itf["id"], f"{g['name']} {key}")
                 if primary is None or (wanted and addr.split("/")[0] == wanted):
                     primary = ip
         if primary:
@@ -1029,10 +1042,7 @@ def main() -> None:
     # Kea's reservations, after the VMs, so an address one of them holds is seen as theirs.
     print("reservations:")
 
-    def own_iot_devices() -> list[dict]:
-        return [d for d in nb.all("dcim/devices", site_id=site["id"]) if (d.get("description") or "") == IOT_DEVICE_MARK]
-
-    own_ids = frozenset(d["id"] for d in own_iot_devices()) if site["id"] > 0 else frozenset()
+    own_ids = frozenset(d["id"] for d in own_iot_devices(nb, site["id"])) if site["id"] > 0 else frozenset()
     record, held, stale = plan_reservations(nb.all("ipam/ip-addresses"), kea_reserved, own_ids)
     for a in stale:
         nb.retire("ipam/ip-addresses", a, f"{a['address']} ({a['description']})", "Kea")
@@ -1041,7 +1051,7 @@ def main() -> None:
         nb._note("held-elsewhere ipam/ip-addresses")
     for ip in record:
         label = reservation_label(kea_reserved[ip])
-        nb.ensure("ipam/ip-addresses", {"address": with_len(ip)}, {"status": "dhcp", "description": label}, label)
+        nb.ensure("ipam/ip-addresses", {"address": with_len(ip, prefixes)}, {"status": "dhcp", "description": label}, label)
 
     # The IoT network's reservations as devices (netbox_seed_iot.yaml): each named after its
     # reservation, its kind from its hostname's rule (NetBox owns it once the device exists,
@@ -1072,7 +1082,7 @@ def main() -> None:
             types[t["slug"]] = dt
             reserved_on[t["slug"]] = reserved_interface(t)
         roles = {r: nb.ensure("dcim/device-roles", {"slug": slug(r)}, {"name": r}, r) for r in iot["roles"]}
-        for dev in stale_iot_devices(own_iot_devices() if site["id"] > 0 else [], {d["name"] for d in devices}):
+        for dev in stale_iot_devices(own_iot_devices(nb, site["id"]) if site["id"] > 0 else [], {d["name"] for d in devices}):
             nb.retire("dcim/devices", dev, dev["name"], "Kea's reservations", status="offline")
         recorded = set(record)
         for d in devices:
@@ -1115,7 +1125,7 @@ def main() -> None:
                 print(f"  no address: {d['ip']} isn't this script's to assign to {d['name']} (see above)")
                 continue
             label = reservation_label(kea_reserved[d["ip"]])
-            ip = nb.ensure("ipam/ip-addresses", {"address": with_len(d["ip"])},
+            ip = nb.ensure("ipam/ip-addresses", {"address": with_len(d["ip"], prefixes)},
                            {"status": "dhcp", "description": label,
                             "assigned_object_type": "dcim.interface", "assigned_object_id": itf["id"]}, label)
             nb.set_ref("dcim/devices", dev, "primary_ip4", ip, d["name"])
@@ -1125,7 +1135,7 @@ def main() -> None:
     # names go into DNS is the owner's decision (QUEUE-kea-ha.md).
     print("dns names:")
     addresses = nb.all("ipam/ip-addresses")
-    iot_ids = frozenset(d["id"] for d in own_iot_devices()) if site["id"] > 0 else frozenset()
+    iot_ids = frozenset(d["id"] for d in own_iot_devices(nb, site["id"])) if site["id"] > 0 else frozenset()
     prefixes_all = nb.all("ipam/prefixes")
     plan = dns_plan(addresses, prefixes_all, nb.all("virtualization/virtual-machines"), nb.all("dcim/devices"), iot_ids)
     for a in sorted(addresses, key=lambda a: a["address"]):
