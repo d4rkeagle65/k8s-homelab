@@ -139,23 +139,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - **The IoT devices in Home Assistant** (2026-10-23): a firewall rule lets the 4 workers reach
   the IoT prefix on the devices' ports (HA is hostNetwork, so devices are added by IP, without
   discovery). `scripts/ha_iot_setup.py` adds each local device from NetBox by its setup flow
-  and puts devices in rooms from their NetBox Location (this branch's pull request moves rooms
-  there, adds --attended for the TVs' setups, and lets one device's timeout not stop the run;
-  Semaphore task 1275 stopped on the Fire Stick's ADB prompt, creating nothing). NetBox has a
+  and puts devices in rooms from their NetBox Location; NetBox's `ha-setup` and `ha-attended`
+  tags and its `home_assistant` config contexts make its `ha_iot_setup.yaml`
+  (`scripts/ha_iot_generate.py`, a pull request from Semaphore), and an attended run picks its
+  TVs by the survey's `ATTENDED` (the owner, 2026-11-03: all of it run and working). NetBox has a
   Location per room, and all 49 IoT devices are in theirs (read back). Left:
-  a Semaphore template with `--apply --attended` beside template 32 (or that template's
-  arguments, if it is already made), with a survey variable `ATTENDED` (text, not required):
-  the attended devices to set up, by NetBox name, comma-separated; left empty, every one. A dry
-  run names each waiting device as `ATTENDED=<name>`. Then a run of each.
-  `ha_iot_setup.yaml` from NetBox (`scripts/ha_iot_generate.py`; the owner, 2026-11-03), left,
-  in order: the seed's next run makes the tags `ha-setup` and `ha-attended`; the owner makes a
-  config context per integration holding `home_assistant` (handler, fields, login, derived_mac:
-  the generator's docstring), each assigned to its device types, and tags the devices (every
-  active IoT device of a set-up type, or the run refuses); the Key Vault sync makes the group
-  "Home Assistant IoT to Git"; a template "Sync: NetBox IoT → Git (script)" on it, argument
-  `--pr`; a run, whose pull request should keep today's five setups (the Kasa and TP-Link
-  manufacturer entries become one per device type). Until it merges, the hand-written file
-  stays the one in use.
   HA's Nursery area stays for Baby Buddy. Tabled by the owner on 2026-10-24. The dryer and
   washer Tapo plugs refuse the TP-Link login (invalid_auth, tasks 1276-1280, also after a
   restart of both), though the group's values are copied from the owner's working login: next,
