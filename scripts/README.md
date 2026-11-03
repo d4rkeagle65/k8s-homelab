@@ -289,6 +289,22 @@ stacks' alike (`docker/secret-names.yaml` maps each stack variable to its name):
    Flux Kustomization that uses it (strict substitution, on by default since
    kustomize-controller v1.9), so that app stops updating until it exists.
 
+**A new value from NetBox** (an address, a name, a list, a JSON variable: anything NetBox holds
+or a value is built from; `scripts/keyvault_facts.py`'s docstring has the details):
+1. In NetBox, mark its source: an object's custom field `keyvault_secrets` claims the name (add
+   the name to the field's choices first), or a tag a view selects by.
+2. In a pull request, map it in `scripts/keyvault_facts.yaml` (`take:`, `collect:`, `template:`,
+   or `view:` with its file in `scripts/keyvault_views/`). After merge, `git pull`.
+3. `./scripts/keyvault-secrets.ps1 NAME -FromNetBox`: creates the secret if Key Vault lacks it (a
+   placeholder) and gives the facts sync's writer its role on it.
+4. Run Semaphore's "Sync: NetBox → Key Vault (write)": it sets the value from NetBox and tags it.
+   "(read)" in check mode reports whether every name agrees, without writing.
+5. If the cluster reads it, its `cluster-secrets.yaml` entry follows in a pull request of its own,
+   as for any variable (above); a Semaphore group reads it as any Key Vault secret.
+
+From then on NetBox is where it changes: the next write run carries a change to Key Vault, and
+what reads it gets it at its next sync or deploy.
+
 **Changing a value:** set a new version of its secret in Key Vault. Flux picks
 it up after the next sync. capture reads the live Secret, so from then on it
 replaces the new value.
@@ -313,7 +329,8 @@ to a vault and `-Apply` adds it, so a rebuild can refill a new vault (`-Vault`)
 with no cluster yet; `-Read FILE` outputs a file's secrets as objects, for
 `Out-GridView` or a filter, with no vault at all; `-FactsWriter` reports which secrets
 `scripts/keyvault_facts.yaml` maps that its writer lacks Key Vault Secrets Officer on, and
-`-Apply` gives it them. It signs in as your `az login` account; its
+`-Apply` gives it them; `NAME -FromNetBox` creates a mapped name's secret and gives the writer
+its role in one step ("A new value from NetBox", above). It signs in as your `az login` account; its
 help (`Get-Help ./scripts/keyvault-secrets.ps1 -Full`) has the details.
 `scripts/keyvault_copy.py` copies every `cluster-secrets` variable into Key
 Vault and compares by hash, a variable the template encodes as its plain value.
