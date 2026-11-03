@@ -8,7 +8,9 @@
 #   TAILSCALE_AUTH_KEY  an auth key (Settings > Keys), or an OAuth client's
 #                       secret with ?ephemeral=false&preauthorized=true
 #                       appended, which never expires (needs the tag below)
-#   TAILSCALE_HOSTNAME  the machine name it shows in the tailnet
+#   TAILSCALE_HOSTNAME  the machine name it shows in the tailnet: the name of the
+#                       NetBox VM it runs on (the VM claims TAILSCALE-HOSTNAME),
+#                       written to Key Vault by the facts sync
 #   TAILSCALE_ROUTES    subnets to advertise, comma-separated: the prefixes NetBox
 #                       tags tailscale-route-home, written to Key Vault by the facts
 #                       sync (scripts/keyvault_views/tailscale_routes.py), the same
