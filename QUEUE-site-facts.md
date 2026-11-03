@@ -72,18 +72,18 @@ cluster, and three JSON strings bundle values that are their own facts.
     path; template 41 ("Sync: NetBox → Key Vault (script)", `--find`, groups 14 and 16; task 1518:
     30 of 250 secrets match NetBox objects).
   - [ ] Step 3: the custom field `keyvault_secrets` (#5, multiple selection, choice set #2 "Key
-    Vault secrets") on addresses, ranges, prefixes, devices, VMs and NetBox DNS records; 23 objects
-    tagged and read back; 27 names mapped (#532, and this PR: the two Pi-hole URLs, Garage's S3
-    endpoint and the MariaDB backup host, from the owner's shapes; `take: fqdn` and `take: value`
-    from DNS records, `format:`). Left:
-    - a `--find` run on template 41 (it now searches DNS records): `NAS-HOSTNAME` (the Synology's
-      FQDN), `PVE-API-HOST` (the Proxmox API host's FQDN) and `NFS-SERVER` (the Synology's
-      production address, which no NetBox IP address holds) are expected to match a record's
-      `fqdn` or `value`; one that doesn't is added to NetBox (the NAS's production address on its
-      device, with its DNS name);
-    - `WORKER-NODE-4`–`7`: their VMs tagged (`take: name`), from that run;
-    - `KEA-DB-CLIENTS` as a collect (it contains Docker VM 1's production address);
-    - then a plain run on template 41 (arguments overridden to none) agreeing for every name.
+    Vault secrets") on addresses, ranges, prefixes, devices, VMs and NetBox DNS records; 29 objects
+    tagged and read back; 34 names mapped (#532, #533, and this PR: the Synology's FQDN and
+    production address from its DNS record, the Proxmox API host's FQDN, the four worker nodes'
+    names, from task 1522's `--find`). Left:
+    - a plain run on template 41 (arguments overridden to none) agreeing for every name;
+    - after the next NetBox sync (template "Netbox Sync"), the four worker VMs still claim their
+      names: the sync writes their `vmid` custom field, and a sync that replaced the whole
+      custom-field set would drop the claims;
+    - `KEA-DB-CLIENTS` (contains Docker VM 1's production address) as a collect, and three URLs
+      on a NetBox DNS name (`NETBOX-SYNC-PROXMOX-URL`, record #50; `SEMAPHORE-K8S-API-URL`,
+      #136; `ZAMMAD-ALERT-WEBHOOK-URL`, #27) as templates or formats: their shapes asked of the
+      owner by class, never value.
     `CLUSTER_DOMAIN` and the pod CIDR are the cluster's own (the Talos config in git).
   - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees:
     `TOFU-PROXMOX-TF-VAR-SITE` (networks from prefixes by VLAN, `netbox_seed.yaml`'s bridge
