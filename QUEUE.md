@@ -368,8 +368,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Most survivors are boundaries the tests replace with fakes, HTTP handlers, loops and
   `main()`. The logic among them, worst first; left, a regression in any of these passes the
   commit gate:
-  - `talos/gen-config.py`: `site_patch`, `etcd_patch`, `encryption_patch` (the providers'
-    order), `check_issuer`, `node_network`: a wrong Talos patch is generated silently.
   - `scripts/netbox_seed.py`: `ensure`, `delete`, `set_ref` (its writes and read-backs),
     `kea_networks`, `node_interfaces`, `differ`, `with_len`, `primary_of`, `own_iot_devices`.
   - `kubernetes/prod/services/organizr/organizr/app/sync/organizr-sync.py`: `apply_settings`,
