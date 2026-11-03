@@ -82,15 +82,16 @@ Hands-off, which also survives losing `/opt/tailscale`:
    expire.
 2. In the policy file: `tagOwners` for the tag, and `autoApprovers` for the
    advertised subnets and `exitNode`, so the node's routes need no clicks.
-3. Set Key Vault's `TAILSCALE-TAGS` to the tag and `TAILSCALE-AUTH-KEY` to the client secret with
-   `?ephemeral=false&preauthorized=true` appended.
+3. Set Key Vault's `TAILSCALE-AUTH-KEY` to the client secret with
+   `?ephemeral=false&preauthorized=true` appended. The tag is in `compose.yaml`'s
+   `--advertise-tags`.
 
 A tagged node is owned by the tag, not a user; that only matters to access
 rules that name users as the source of its traffic.
 
 ## Changing its flags later
 
-`TS_EXTRA_ARGS` (and so `TAILSCALE_TAGS`) only applies when the node registers;
+`TS_EXTRA_ARGS` (and so its tag) only applies when the node registers;
 later starts reapply just `TS_ROUTES` and `TS_HOSTNAME` (`TAILSCALE_ROUTES` and
 `TAILSCALE_HOSTNAME`). To change another
 flag on a running node:
@@ -100,7 +101,7 @@ docker exec tailscale tailscale set --accept-routes=false
 ```
 
 Tags can't be changed that way. Either remove the node from the tailnet,
-empty `/opt/tailscale` and redeploy with the new `TAILSCALE_TAGS`, or re-register
+empty `/opt/tailscale` and redeploy with the new tag in `compose.yaml`, or re-register
 in place (`docker exec tailscale tailscale up --force-reauth
 --auth-key=<key> --advertise-tags=<tags>` with the same flags as
 `TS_EXTRA_ARGS`).

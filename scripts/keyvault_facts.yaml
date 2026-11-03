@@ -50,6 +50,7 @@ facts:
   SWITCH-02-ADDRESS: {take: address}
   SWITCH-04-ADDRESS: {take: address}
   SWITCH-CORE-ADDRESS: {take: address}
+  TAILSCALE-ROUTES: {view: tailscale_routes}
   TERRAMASTER-MGMT-ADDRESS: {take: address}
   TOFU-PROXMOX-TF-VAR-SITE: {view: tofu_proxmox_site}
   TRAEFIK-MGMT-ADDRESS: {take: address}

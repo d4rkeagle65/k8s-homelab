@@ -108,8 +108,14 @@ cluster, and three JSON strings bundle values that are their own facts.
       else; plan 1551 and 1553: no changes. `TF_VAR_dns` and `TOFU-CLOUDFLARE-TF-VAR-DNS` are gone. A
       public zone's nameservers, SOA primary and contact are Cloudflare's (`dns.cloudflare.com`):
       copied from a local zone, NetBox DNS made NS and SOA records naming the Pi-holes.
-    - [ ] Then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
-      entry equals the Management prefix, #1).
+    - [ ] Tailscale (this PR): `TAILSCALE-ROUTES` the view `tailscale_routes` (the prefixes tagged
+      `tailscale-route-home`, the tag tofu/tailscale's policy approves; equal to Key Vault's value),
+      `TAILSCALE-TAGS` (`tag:subnet-router`, a name policy.tf owns) in docker/tailscale's
+      compose.yaml. After merge: the owner deletes `TAILSCALE-TAGS`; before the next write, the
+      writer's assignment (`keyvault-secrets.ps1 -FactsWriter -Apply`). A route change reaches the
+      router at its next redeploy (containerboot reapplies TS_ROUTES at start). `TAILSCALE-HOSTNAME`:
+      the owner says whether it's a name to keep (its own secret) or a NetBox name.
+    - [ ] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one entry equals the Management prefix, #1).
     - [x] `DEBIAN-ADMIN-SSH-KEYS` (#546): the Debian Host Baseline group builds `admin_ssh_keys` from
       `OWNER-SSH-PUBLIC-KEY` (a template with `json: true`; task 1546 rebuilt it); the old copy is
       deleted. The next Debian admins or baseline run rewrites each `authorized_keys` line once,
