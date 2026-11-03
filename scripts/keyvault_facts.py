@@ -32,6 +32,9 @@ The runs (a value is never printed, only names, NetBox object IDs, JSON paths an
             differ (compared as data, so formatting doesn't count)
   --write   the same, then sets each that differs and reads it back
   --full    alone or with --write: read every mapped value, ignoring fingerprints (an audit)
+  FACTS_MODE=check|find|full|roles|write|write-full  the same as no flag, --find, --full,
+            --roles, --write, --write --full: the choice of a Semaphore survey (a dropdown),
+            given as that argument or in the environment
 A run lists Key Vault once (values unread) and reads a value only when the fingerprint tag on
 its current version (keyvault-facts, a keyed hash made with KEYVAULT-FACTS-FINGERPRINT-KEY)
 doesn't match the value NetBox gives: one NetBox changed, or one set by hand (a new version,
@@ -567,9 +570,24 @@ def roles(facts: dict) -> None:
             f'--role "Key Vault Secrets Officer" --scope "$(az keyvault show -n $vault --query id -o tsv)/secrets/{name}"')
 
 
-def parse_args(argv: list[str]) -> tuple[str | None, bool]:
+# Semaphore's survey (a dropdown on the template) hands its choice over as FACTS_MODE=value.
+MODES = {"check": (None, False), "find": ("find", False), "full": (None, True), "roles": ("roles", False),
+         "write": ("write", False), "write-full": ("write", True)}
+
+
+def parse_args(argv: list[str], env: dict | None = None) -> tuple[str | None, bool]:
     """(the mode: 'find', 'write', 'roles' or None, and --full); ValueError for anything else,
-    never repeating it."""
+    never repeating it. FACTS_MODE, an argument FACTS_MODE=value or an environment variable,
+    names the same choices as the flags (MODES), in place of them."""
+    given = [a for a in argv if a.startswith("FACTS_MODE=")]
+    choice = given[0].split("=", 1)[1] if given else (env or {}).get("FACTS_MODE", "").strip() or None
+    if choice is not None:
+        if len(given) > 1 or len(argv) != len(given):
+            raise ValueError("refused: FACTS_MODE goes alone, without flags or other arguments "
+                             "(not shown: they may be values)")
+        if choice not in MODES:
+            raise ValueError(f"refused: FACTS_MODE is one of {', '.join(MODES)} (the value given isn't shown)")
+        return MODES[choice]
     known = {"--find": "find", "--write": "write", "--roles": "roles"}
     picked = [known[a] for a in argv if a in known]
     full = "--full" in argv
@@ -582,7 +600,7 @@ def parse_args(argv: list[str]) -> tuple[str | None, bool]:
 
 def main(argv: list[str]) -> int:
     try:
-        mode, full = parse_args(argv)
+        mode, full = parse_args(argv, dict(os.environ))
     except ValueError as e:
         log(str(e))
         return 2
