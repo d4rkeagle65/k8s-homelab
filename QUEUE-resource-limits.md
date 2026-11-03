@@ -206,6 +206,11 @@ Queries (Prometheus, `kube-prometheus-stack`):
         where they are, higher with Immich's server sized on its import (5.3 GiB peak, 1.3
         requested). Room to drain a worker (Talos upgrades, `old-queues/QUEUE-updates.md`) comes from
         another basis for the lower tiers, which is the owner's call, or more worker memory.
+      The other apps, done (#573): Immich's machine learning back from the import's sizes
+      (1120Mi, 10m), its server 1760Mi and 940m (a 935m p95: thumbnails and transcodes), Home
+      Assistant 1120Mi in 1792Mi (81% of its limit) and 150m, Emby 1216Mi; the rest lowered,
+      Zammad's Elasticsearch on the stores' peak rule. Grimmory's CPU request goes to its p95
+      (30m): no comment kept the 100m.
       Init containers that run once at start have none: babybuddy's check-db-ready and mealie's
       wait-for-db take their namespace's defaults; the Bitwarden CLI's fetch-cli gets nothing
       (external-secrets has no LimitRange).
@@ -214,13 +219,6 @@ Queries (Prometheus, `kube-prometheus-stack`):
       Where things stood that evening, for comparison: memory requests 77% of the nodes'
       allocatable and use 52%; one worker (the 9.7GiB one) at 93% requested, so a raise there
       needs the node-fit check above; CPU requests 34%, use 29%
-- [ ] Immich's server, with the owner (asked in its pull request, the apps batch): its 4.2 days
-      are the import (5401Mi peak in the 6Gi limit set for it, p95 992m at the 1000m cap,
-      throttled in 26% of periods) against requests of 1376Mi and 30m. The OneDrive import, which
-      it waited for, finished 2026-10-21 21:58: since 2026-10-21 16:48 it peaked at 5574Mi in the
-      6Gi limit and reached the 1000m cap (its two restarts at 21:41 were its database
-      restarting, not OOM kills). Ready to size (3Gi was OOM-killed within 30 seconds of each
-      start)
 - [x] `primaryUpdateMethod: switchover` on every Cluster with a replica (the owner, 2026-10-18),
       after the re-measure's in-place restarts took Authentik down for about 3.5 minutes: all 15
       (`kubernetes/CLAUDE.md`; `test_replicated_databases_switch_over` holds new ones to it).
