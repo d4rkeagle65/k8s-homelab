@@ -101,8 +101,8 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   to one pod, so the closing check, asking the Service, saw its alerts half the time (this
   PR: Loki sends to each pod; the check asks each).
 - [ ] **The closing check closes**: `close: true` in "Zammad: close what's over"'s Settings
-  (this PR). Left once merged: the live workflow restored from git (`n8n/README.md`), and its
-  first closes read in its executions. Its dry runs read right: 747 runs
+  (#566), restored live from git and active again, read back 2026-11-03. Left: its first closes
+  read in its executions (each closed ticket read back by "Verify"). Its dry runs read right: 747 runs
   from 2026-10-29 to 2026-11-03, none failed; each ticket at "Would close" had no active alert
   on either Alertmanager pod, or its stack's containers were running again. Semaphore's,
   Databasus's and non-stack Dockhand tickets are never judged ("unknown"), so they close only
@@ -117,12 +117,12 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   - [x] The bridge's folder, its `ks.yaml` line and its test removed (this PR). Check once
     merged: Flux prunes the `zammad-bridge` Kustomization, Deployment, Service and Secret, and
     the monitoring Kustomizations stay Ready.
-  - [ ] After that is applied, a PR removing `DOCKHAND_ALERT_TOKEN`, `SEMAPHORE_ALERT_TOKEN`,
-    `DATABASUS_ALERT_TOKEN` and `ZAMMAD_ALERT_WEBHOOK_URL` from
-    `kubernetes/secrets/cluster-secrets.yaml`: nothing in the cluster reads them then. The three
-    tokens' Key Vault secrets stay (n8n, Semaphore's `.env`, the alerting test read them);
-    `ZAMMAD-ALERT-WEBHOOK-URL` has no reader left, so the owner deletes it from Key Vault after
-    that PR is applied.
+  - [x] `DOCKHAND_ALERT_TOKEN`, `SEMAPHORE_ALERT_TOKEN`, `DATABASUS_ALERT_TOKEN` and
+    `ZAMMAD_ALERT_WEBHOOK_URL` out of `kubernetes/secrets/cluster-secrets.yaml` (this PR). The
+    three tokens' Key Vault secrets stay (n8n, Semaphore's `.env`, the alerting test read them).
+  - [ ] The owner, once this PR is applied: `ZAMMAD-ALERT-WEBHOOK-URL` deleted from Key Vault
+    (nothing reads it), and the Secret `zammad-bridge-dockhand-tls` in `monitoring` deleted (its
+    Certificate went with the bridge's Dockhand route; cert-manager leaves the Secret).
   - [ ] The owner: a `zammad-bridge` entry in Pi-hole's Local DNS, if one is left (NetBox has
     none, so netbox-dns-sync won't remove it).
   - Left as they are: the workflows' code comments naming the bridge (`zammad-tickets-in.json`,
