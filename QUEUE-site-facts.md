@@ -79,21 +79,33 @@ cluster, and three JSON strings bundle values that are their own facts.
     zammad-bridge reads it, so it goes with the bridge (QUEUE-n8n-zammad.md, stage 5). A claim lost
     to a NetBox sync shows in a check run as "no NetBox object claims it". `CLUSTER_DOMAIN` and the
     pod CIDR are the cluster's own (the Talos config in git).
-  - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees. First
-    (this PR) `--find` reports each JSON variable's leaves by path: which NetBox form (or a
-    prefix's network address or first three octets) or other Key Vault secret each equals, and
-    the paths that match nothing; a view is written from that, never from the value. Then:
-    `TOFU-PROXMOX-TF-VAR-SITE` (networks from prefixes by VLAN, `netbox_seed.yaml`'s bridge
-    list; its SSH keys their own secrets), `PIHOLE-SETTINGS` (dnsmasq lines from NetBox DNS's
-    zones), `TOFU-CLOUDFLARE-TF-VAR-DNS` (Cloudflare's records as NetBox DNS records tagged for
-    it, the record IDs in a custom field). Then Tailscale's routes, host name and tags.
-  - [ ] Fingerprints (this PR): a run lists Key Vault once and reads a value only where the keyed
+  - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees. `--find`
+    reports each JSON variable's leaves by path: which NetBox form (or a prefix's network address or
+    first three octets) or other Key Vault secret each equals, and the paths that match nothing; a
+    view is written from that, never from the value (#541). A JSON key is printed only when it's a
+    plain name, otherwise by position (#542): task 1542's log carries two Cloudflare zone keys,
+    which are domains, so the owner deletes that task in Semaphore.
+    - [ ] `TOFU-PROXMOX-TF-VAR-SITE` (this PR): the view `tofu_proxmox_site`, which built from NetBox
+      and Key Vault equals the value Key Vault holds (compared in memory before the PR). Networks
+      from each bridge's VLAN prefix (`netbox_seed.yaml`), a gateway from the DNS record tagged
+      `gateway` in its prefix (#119), DNS servers from the Pi-hole VMs' Production addresses, the
+      API's name and address from the record tagged `kubernetes-api` (#136); its own secrets
+      `NODE-SEARCH-DOMAIN`, `KUBERNETES-SERVICE-CIDR`, `OWNER-SSH-PUBLIC-KEY` and
+      `SEMAPHORE-SHARED-SSH-PUBLIC-KEY` (the owner's), with `CLUSTER-DOMAIN`, `CALICO-POD-CIDR` and
+      `OWNER-USERNAME`. Before the next write: `keyvault-secrets.ps1 -FactsWriter -Apply` (38
+      names). Then a check run agreeing.
+    - [ ] The nodes' search domain: `NODE-SEARCH-DOMAIN` keeps a name from a restructure that didn't
+      happen; whether the nodes and Docker VMs should search the Production zone instead is the
+      owner's call (it changes every node at the next OpenTofu apply).
+    - [ ] `PIHOLE-SETTINGS` (its dnsmasq lines from NetBox DNS's zones), `TOFU-CLOUDFLARE-TF-VAR-DNS`
+      (Cloudflare's records as NetBox DNS records tagged for it, the record IDs in a custom field),
+      then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
+      entry equals prefix #1) and `DEBIAN-ADMIN-SSH-KEYS` (no Key Vault secret holds its key).
+  - [x] Fingerprints (#535): a run lists Key Vault once and reads a value only where the keyed
     fingerprint tag (`keyvault-facts`, an HMAC with `KEYVAULT-FACTS-FINGERPRINT-KEY`) on its current
     version doesn't match NetBox's value; `--write` tags what it sets and an agreeing value it finds
     untagged (the tag only, the value untouched); `--full` reads every value; the last line names
-    what changed, for the Key Vault sync's `--secrets`. Left, the owner's: the key
-    (`keyvault-secrets.ps1 KEYVAULT-FACTS-FINGERPRINT-KEY -New -Raw -Generate 64`); until it
-    exists each value is read, as now.
+    what changed, for the Key Vault sync's `--secrets`. The key exists; every value is tagged.
   - [x] The survey (#536): `FACTS_MODE` (`check`, `find`, `full`, `write`, `write-full`), an
     argument `FACTS_MODE=value` or an environment variable, in place of the flags. Template 41
     ("(read)") has it (`check`, `find`, `full`), no arguments, groups 14 and 16 only.
