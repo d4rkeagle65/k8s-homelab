@@ -1,5 +1,5 @@
 # The homelab's own alerts, beside the chart's: what the chart has no rule for.
-# warning and critical alerts become Zammad tickets (zammad-bridge), so each says
+# warning and critical alerts become Zammad tickets (n8n's "Zammad: tickets in"), so each says
 # what to look at. The chart's KubePodCrashLooping and CPUThrottlingHigh already
 # cover the cluster's restart loops and throttling.
 apiVersion: monitoring.coreos.com/v1

@@ -113,10 +113,9 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   run by hand. Task 1487 passed all four legs, each ticket opened and closed, in 347 s.
 - [ ] **5. Decommission**, in this order. Nothing has sent to the bridge since 2026-10-30 01:21
   (its log), when Alertmanager moved to n8n; every route it served is gone.
-  - [ ] A PR: `kubernetes/prod/system/monitoring/zammad-bridge/`, its `ks.yaml` line in the
-    monitoring `kustomization.yaml`, `scripts/tests/test_zammad_bridge.py`, and the
-    PrometheusRule's comment naming it. Check: Flux prunes the `zammad-bridge` Kustomization,
-    Deployment, Service and Secret, and `monitoring` stays Ready.
+  - [x] The bridge's folder, its `ks.yaml` line and its test removed (this PR). Check once
+    merged: Flux prunes the `zammad-bridge` Kustomization, Deployment, Service and Secret, and
+    the monitoring Kustomizations stay Ready.
   - [ ] After that is applied, a PR removing `DOCKHAND_ALERT_TOKEN`, `SEMAPHORE_ALERT_TOKEN`,
     `DATABASUS_ALERT_TOKEN` and `ZAMMAD_ALERT_WEBHOOK_URL` from
     `kubernetes/secrets/cluster-secrets.yaml`: nothing in the cluster reads them then. The three
