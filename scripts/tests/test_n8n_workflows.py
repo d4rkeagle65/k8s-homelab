@@ -209,7 +209,7 @@ def test_the_workflow_closes_only_what_verdict_calls_over_and_only_with_close_on
     assert wf["connections"]["Over?"]["main"][0][0]["node"] == "Closing?"
     assert wf["connections"]["Closing?"]["main"][0][0]["node"] == "Zammad: close it"
     settings = nodes["Settings"]["parameters"]["assignments"]["assignments"]
-    assert [a["value"] for a in settings if a["name"] == "close"] == [False]  # the dry run, in git
+    assert [a["value"] for a in settings if a["name"] == "close"] == [True]
 
 
 # --- "Zammad: tickets in" -----------------------------------------------------------------

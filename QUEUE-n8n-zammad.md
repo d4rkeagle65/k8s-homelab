@@ -100,8 +100,9 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   2026-10-30 (creates, notes and closes). Loki's ruler sent through the Alertmanager Service
   to one pod, so the closing check, asking the Service, saw its alerts half the time (this
   PR: Loki sends to each pod; the check asks each).
-- [ ] **The closing check closes** (`close: true` in "Zammad: close what's over"'s Settings,
-  then the live workflow restored from git, `n8n/README.md`). Its dry runs read right: 747 runs
+- [ ] **The closing check closes**: `close: true` in "Zammad: close what's over"'s Settings
+  (this PR). Left once merged: the live workflow restored from git (`n8n/README.md`), and its
+  first closes read in its executions. Its dry runs read right: 747 runs
   from 2026-10-29 to 2026-11-03, none failed; each ticket at "Would close" had no active alert
   on either Alertmanager pod, or its stack's containers were running again. Semaphore's,
   Databasus's and non-stack Dockhand tickets are never judged ("unknown"), so they close only
