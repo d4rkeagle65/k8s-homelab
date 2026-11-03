@@ -24,10 +24,12 @@ facts:
   INGRESS-IP: {take: address}
   ISOLATED-INGRESS-IP: {take: address}
   KEA-DB-ADDRESS: {take: address}
+  KEA-DB-CLIENTS: {view: kea_db_clients}
   MARIADB-BACKUP-S3-HOST: {template: "{TERRAMASTER-MGMT-ADDRESS}:3900"}
   METALLB-POOL-RANGE: {take: range}
   NAS-HOSTNAME: {take: fqdn}
   NAS-MGMT-HOSTNAME: {take: address}
+  NETBOX-SYNC-PROXMOX-URL: {take: fqdn, format: "https://{}"}
   NFS-SERVER: {take: value}
   OPENWRT-AP1-ADDRESS: {take: address}
   OPENWRT-AP2-ADDRESS: {take: address}
@@ -39,6 +41,7 @@ facts:
   PIHOLE1-MGMT-ADDRESS: {take: address}
   PIHOLE2-MGMT-ADDRESS: {take: address}
   PVE-API-HOST: {take: fqdn}
+  SEMAPHORE-K8S-API-URL: {take: fqdn, format: "https://{}:6443"}
   SWITCH-02-ADDRESS: {take: address}
   SWITCH-04-ADDRESS: {take: address}
   SWITCH-CORE-ADDRESS: {take: address}

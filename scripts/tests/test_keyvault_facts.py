@@ -473,3 +473,19 @@ def test_the_survey_argument_runs_its_mode_end_to_end(monkeypatch, tmp_path, cap
     rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {"A": "{take: address}", "B": "{take: cidr}"},
                  ["FACTS_MODE=roles"], env={})
     assert rc == 0 and out.count("az role assignment") == 2
+
+
+def test_kea_db_clients_is_the_smallest_prefix_holding_both_docker_vms(monkeypatch, tmp_path, capsys):
+    vms = lambda a, b: [ip(22, a, claims=["DOCKER-VM-1-PROD-ADDRESS"]), ip(47, b, claims=["DOCKER-VM-2-PROD-ADDRESS"])]
+    facts = {"KEA-DB-CLIENTS": "{view: kea_db_clients}"}
+    fake = Fake({"KEA-DB-CLIENTS": "192.0.2.40/31"}, ips=vms("192.0.2.40/24", "192.0.2.41/24"))
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts)
+    assert rc == 0 and "KEA-DB-CLIENTS: agrees (view kea_db_clients)" in out
+    # A VM moved one address along: a /30 then holds both.
+    fake = Fake({"KEA-DB-CLIENTS": "192.0.2.40/31"}, ips=vms("192.0.2.41/24", "192.0.2.42/24"))
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], {**ENV, **WRITER})
+    assert fake.vault["KEA-DB-CLIENTS"] == "192.0.2.40/30"
+    # Far apart: it stops rather than let a wide prefix into the database.
+    fake = Fake({"KEA-DB-CLIENTS": "192.0.2.40/31"}, ips=vms("192.0.2.40/24", "192.0.2.90/24"))
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts, ["--write"], {**ENV, **WRITER})
+    assert rc == 1 and fake.writes == [] and "wider than /30" in out and "192.0.2" not in out
