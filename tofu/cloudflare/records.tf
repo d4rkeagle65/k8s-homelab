@@ -1,7 +1,7 @@
 resource "cloudflare_dns_record" "this" {
-  for_each = var.dns.records
+  for_each = local.records
 
-  zone_id = var.dns.zones[each.value.zone]
+  zone_id = local.zones[each.value.zone]
   name    = each.value.name
   type    = each.value.type
   ttl     = each.value.ttl
@@ -9,6 +9,5 @@ resource "cloudflare_dns_record" "this" {
   content = each.value.content
   # Cloudflare keeps an SRV record's priority at the top as well as in data.
   priority = each.value.type == "SRV" ? each.value.data.priority : each.value.priority
-  comment  = each.value.comment
   data     = each.value.data
 }

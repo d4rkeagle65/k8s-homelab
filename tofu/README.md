@@ -100,21 +100,24 @@ OpenTofu as `versions.tf` requires. The decisions it was built on are in `old-qu
 
 ## The Cloudflare module (`cloudflare/`)
 
-- **What's specific to the site** is one JSON value, `TF_VAR_dns`: each zone's name and id,
-  and the records keyed `r01`, `r02`, ... (meaningless on purpose, so git names nothing), each
-  with its zone, Cloudflare's record id, and the record. Its **master copy is a Vaultwarden
-  note** ("OpenTofu DNS (Cloudflare)"), handled like the Proxmox site note. A new record takes
-  the next free key and an import block if it already exists in Cloudflare.
+- **Nothing about the site is stored for it.** Its records are read from NetBox at every plan
+  (`netbox.tf`): the active zones tagged `cloudflare` in NetBox DNS's `public` view (the public
+  copies of zones that also exist locally; local DNS and ExternalDNS keep to the default view),
+  each zone's Cloudflare ID in its custom field `cloudflare_zone_id`, and their active records
+  that NetBox DNS doesn't manage itself, keyed by NetBox record ID. A record's custom field
+  `cloudflare_proxied` says whether Cloudflare proxies it. To add, change or remove a public
+  record, do it in NetBox, then plan and apply.
+- **A record that already exists in Cloudflare** is adopted with an import block, keyed by its
+  NetBox ID, removed again once applied: `import { to = cloudflare_dns_record.this["<NetBox ID>"]
+  id = "<Cloudflare zone ID>/<Cloudflare record ID>" }`. A new record needs none: the apply
+  creates it.
 - **Token:** its own Cloudflare API token, Zone > DNS > Edit and Zone > Zone > Read on the two
   zones only (not cert-manager's or the tunnel controller's).
-- **Semaphore:** a variable group "OpenTofu: Cloudflare" (made by the Key Vault sync, `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), environment variables, all secrets:
-  `CLOUDFLARE_API_TOKEN`, `PG_CONN_STR` (the same as Proxmox's; the schema differs) and
-  `TF_VAR_dns` (the note). A template, type OpenTofu, subdirectory `tofu/cloudflare`.
-- **A record that already exists in Cloudflare** is adopted with an import block, keyed by
-  its `r` key, its id from `TF_VAR_dns`, removed again once applied: OpenTofu takes import keys
-  only written out, not looped over a variable (`import { to = cloudflare_dns_record.this["r30"]
-  id = "${var.dns.zones[var.dns.records["r30"].zone]}/${var.dns.records["r30"].id}" }`). A new
-  record needs none: the apply creates it.
+- **Semaphore:** a variable group "OpenTofu: Cloudflare" (made by the Key Vault sync,
+  `scripts/semaphore_variable_groups.yaml`, which says where each value comes from), environment
+  variables: `CLOUDFLARE_API_TOKEN`, `PG_CONN_STR` (the same as Proxmox's; the schema differs),
+  `TF_VAR_netbox_url` and `TF_VAR_netbox_token` (the shared read-only token). A template, type
+  OpenTofu, subdirectory `tofu/cloudflare`.
 
 
 ## The Tailscale module (`tailscale/`)
