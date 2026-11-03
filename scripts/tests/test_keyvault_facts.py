@@ -600,3 +600,12 @@ def test_the_termix_sources_view_is_the_prefixes_tagged_for_it(monkeypatch, tmp_
     from ruamel.yaml import YAML
     # Flux fills it into `sourceRange: ${...}`, and it reads back as a list.
     assert YAML(typ="safe", pure=True).load("sourceRange: " + fake.vault["SOURCES"]) == {"sourceRange": ["203.0.113.7/32"]}
+
+
+def test_the_ntp_view_is_the_prefixes_tagged_for_it_as_json(monkeypatch, tmp_path, capsys):
+    import json as j
+    p = prefix(1, "192.0.2.0/24")
+    p["tags"] = [{"slug": "ntp-clients"}]
+    fake = Fake({"NTP": '["192.0.2.0/24"]'}, prefixes=[p, prefix(2, "198.51.100.0/24")])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"NTP": "{view: proxmox_ntp_serve_networks}"})
+    assert rc == 0 and "NTP: agrees (view proxmox_ntp_serve_networks)" in out
