@@ -18,7 +18,20 @@ From Prometheus: the peak and the 95th percentile over the history it has (a wee
 2026-10-21; the 2026-10-18 pass had 4.2 days, so it only raised). CPU uses the 5-minute rate,
 which smooths short bursts, hence the generous CPU limits.
 
-- **Memory request:** 1.2 x peak, at least 64Mi, rounded up to 32Mi.
+- **Memory request, by tier** (the owner, 2026-11-03: 1.2 x peak everywhere came to 104% of
+  the workers' allocatable, and no worker's loss would fit):
+  - `homelab-critical` and the stores (PostgreSQL, MariaDB, CouchDB, Redis, Elasticsearch,
+    Prometheus, Loki): 1.2 x the peak over the history, at least 64Mi, rounded up to 32Mi.
+  - Everything else: 1.2 x the 7-day 95th percentile of the working set, same floor and
+    rounding. Where the working-set peak is 1.5 x the RSS peak or more (page cache: the media
+    apps, Immich's server), the lower of the two figures.
+  - Checked each pass: every worker up, the workers' requests under about 80% of allocatable;
+    any one worker lost, what must move fits the other three's free room once `homelab-low`
+    pods are preempted. The 2026-11-03 figures: 78%, and losing the 19 GiB worker leaves
+    1.9 GiB that the low tier's 6 GiB covers.
+  - `homelab-low` is what may stop when a worker is down: the media apps, ImmichFrame, the Wyze
+    bridge, and (the owner, 2026-11-03) Kept and ManicTime's server. A pod with no class sits
+    above it.
 - **Memory limit: what the container can allocate under load, not what was sampled.** A scrape
   every 30 to 60 seconds misses short spikes: Immich's database never sampled above 150Mi and
   was OOM-killed at 384Mi by an upgrade's migrations. Never below the request.
@@ -32,7 +45,9 @@ which smooths short bursts, hence the generous CPU limits.
   - **Apps:** 2.5 x peak, rounded up to 128Mi, at least 512Mi; the .NET media apps (Sonarr,
     Radarr, Lidarr, Prowlarr, Whisparr, Bookshelf) at least 1Gi for library scans and imports.
   - **Sidecars and exporters:** 2 x peak, at least 256Mi.
-- **CPU request:** the 95th percentile, at least 10m, rounded up to 10m.
+- **CPU request:** the 7-day 95th percentile, at least 10m, rounded up to 10m. A two-week window
+  takes in a one-day event (the restore tests on 2026-10-21 put five databases near 700m) at
+  exactly the 95th percentile.
 - **CPU limit:** 3 x peak, rounded up to 100m, between 500m and 1000m (above 1000m a scan
   starves the databases beside it; whether that still holds is the owner's question below).
   Raise to 1000m when throttled in more than 10% of CFS periods over the window
@@ -163,7 +178,10 @@ Queries (Prometheus, `kube-prometheus-stack`):
       second Docker VM (`kea-standby`), scraped for node-exporter only since 2026-10-22 (#315),
       no cAdvisor; Garage, whose metrics have no memory figure. Dockhand's own container has no
       memory limit (it isn't a `docker/` stack, so the stacks' rule doesn't reach it)
-- [ ] Recheck at a full week, **from 2026-10-21 16:48** (Prometheus's history starts 2026-10-14
+- [ ] Recheck at a full week, **from 2026-10-21 16:48**. In progress (2026-11-03): measured over
+      14 days (both replicas from 2026-10-19 18:00), the CPU p95 over 7; no OOM kill in 14
+      days. One pull request per area (media and the low tier, the other apps, the platform and
+      monitoring, then the databases, which restart their instances). The plan as first written: (Prometheus's history starts 2026-10-14
       16:48). The 2026-10-18 pass (each batch's "Re-measured" above) had 4.2 days and only
       raised, so this one:
       - raises any request a 7-day peak now exceeds, mainly weekly jobs the short window missed;
