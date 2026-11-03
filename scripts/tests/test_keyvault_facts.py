@@ -588,3 +588,11 @@ def test_the_tailscale_routes_view_is_the_prefixes_tagged_for_the_home_router(mo
                                              tagged(prefix(4, "192.0.2.128/25", status="deprecated"), "tailscale-route-home")])
     rc, out = go(monkeypatch, tmp_path, capsys, fake, {"ROUTES": "{view: tailscale_routes}"}, ["--write"], {**ENV, **WRITER})
     assert rc == 0 and fake.vault["ROUTES"] == "192.0.2.0/24,198.51.100.0/24"
+
+
+def test_the_termix_sources_view_is_the_prefixes_tagged_for_it(monkeypatch, tmp_path, capsys):
+    p = prefix(9, "203.0.113.7/32")
+    p["tags"] = [{"slug": "termix-remote"}]
+    fake = Fake({"SOURCES": "x"}, prefixes=[p, prefix(1, "192.0.2.0/24")])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"SOURCES": "{view: termix_remote_sources}"}, ["--write"], {**ENV, **WRITER})
+    assert rc == 0 and fake.vault["SOURCES"] == "203.0.113.7/32" and "203.0.113" not in out

@@ -52,6 +52,7 @@ facts:
   SWITCH-CORE-ADDRESS: {take: address}
   TAILSCALE-HOSTNAME: {take: name}
   TAILSCALE-ROUTES: {view: tailscale_routes}
+  TERMIX-REMOTE-SOURCES: {view: termix_remote_sources}
   TERRAMASTER-MGMT-ADDRESS: {take: address}
   TOFU-PROXMOX-TF-VAR-SITE: {view: tofu_proxmox_site}
   TRAEFIK-MGMT-ADDRESS: {take: address}
