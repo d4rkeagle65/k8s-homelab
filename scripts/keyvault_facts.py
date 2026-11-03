@@ -1,12 +1,13 @@
 """Write the site's facts NetBox holds into Key Vault: Semaphore's "Sync: NetBox → Key Vault
 (script)" (QUEUE-site-facts.md, stage 3).
 
-A NetBox IP address, IP range or prefix says which Key Vault secrets it feeds in its custom
-field `keyvault_secrets` (a multiple selection), so no host name or address is in git.
+A NetBox IP address, IP range, prefix, device or VM says which Key Vault secrets it feeds in
+its custom field `keyvault_secrets` (a multiple selection), so no host name or address is in git.
 keyvault_facts.yaml says how each name's value is made, in one of four ways:
   take: FORM      from the one object claiming the name; FORM is one of
                     address   an IP address's host part   cidr    an address or prefix with its mask
                     dns_name  an IP address's DNS name    range   an IP range, "start-end"
+                    name      a device's or VM's name
   collect: FORM   from every object claiming the name, sorted and joined (join:, default ","):
                   tagging another object in NetBox adds it at the next run
   template: TEXT  TEXT with each {NAME} replaced: a name mapped here gives its value, any
@@ -18,7 +19,7 @@ keyvault_facts.yaml says how each name's value is made, in one of four ways:
 
 A value is taken only from an object NetBox's status table lets be used (README.md, "What a
 NetBox status means"): an address Active, Reserved or DHCP, and its device or VM Staged or
-Active; a range or prefix Active or Reserved. A name whose object is in any other status is
+Active; a range or prefix Active or Reserved; a device or VM Staged or Active. A name whose object is in any other status is
 reported and its Key Vault secret left alone. A mapped name no object claims, or two do, is
 reported too, and fails the run: the map promises it a source.
 
@@ -26,7 +27,7 @@ The runs (a value is never printed, only names, NetBox object IDs, JSON paths an
   (none)    for each mapped name, whether NetBox and Key Vault agree; for JSON, which paths
             differ (compared as data, so formatting doesn't count)
   --write   the same, then sets each that differs and reads it back
-  --find    compares every Key Vault secret with every NetBox address, range and prefix in
+  --find    compares every Key Vault secret with every NetBox address, range, prefix, device and VM in
             each form and reports which equal or contain which: the evidence for tagging an
             object and mapping its name, with no value seen
 Any other argument is refused, unnamed: Semaphore passes a group's extra variables as
@@ -38,7 +39,8 @@ The environment (Semaphore's "Key Vault Sync" and "Key Vault Facts" groups):
   NETBOX_URL, NETBOX_TOKEN   NetBox's API, read only
   FACTS_AZURE_CLIENT_ID, FACTS_AZURE_CLIENT_SECRET
                         --write only: the writer, "Key Vault Secrets Officer" on each mapped
-                        secret and nothing else (--roles prints the az lines for them)
+                        secret and nothing else (--roles prints the az lines for them), in a
+                        group only the --write template uses: without them nothing is written
   KEYVAULT_FACTS        optional: the map's path (default: beside this script)
 Exit 0: every name answered (and with --write, every difference set and read back); 1: a
 name couldn't be answered, a mapped name has no single source, or a write didn't take;
@@ -60,7 +62,7 @@ from pathlib import Path
 from semaphore_variable_groups import KeyVault, Unread, http, log
 
 FIELD = "keyvault_secrets"
-TAKES = {"address", "cidr", "dns_name", "range"}
+TAKES = {"address", "cidr", "dns_name", "range", "name"}
 WAYS = ("take", "collect", "template", "view")
 VIEWS = Path(__file__).resolve().parent / "keyvault_views"
 VIEW = re.compile(r"^[a-z0-9_]+$")
@@ -74,7 +76,8 @@ USABLE_ADDRESS = {"active", "reserved", "dhcp"}
 USABLE_HOST = {"staged", "active"}
 USABLE_SPAN = {"active", "reserved"}
 KINDS = {"ip": ("ipam/ip-addresses", "IP address"), "range": ("ipam/ip-ranges", "IP range"),
-         "prefix": ("ipam/prefixes", "prefix")}
+         "prefix": ("ipam/prefixes", "prefix"), "device": ("dcim/devices", "device"),
+         "vm": ("virtualization/virtual-machines", "VM")}
 
 
 # --- the map ------------------------------------------------------------------------------
@@ -177,6 +180,8 @@ def forms(kind: str, obj: dict) -> dict[str, str]:
         start = ipaddress.ip_interface(obj["start_address"]).ip
         end = ipaddress.ip_interface(obj["end_address"]).ip
         return {"range": f"{start}-{end}"}
+    if kind in ("device", "vm"):
+        return {"name": obj["name"]} if obj.get("name") else {}
     return {"cidr": obj["prefix"]}
 
 
@@ -190,11 +195,18 @@ def usable(nb: NetBox, kind: str, obj: dict) -> str | None:
         if host is not None and host not in USABLE_HOST:
             return f"its device or VM is {host or 'without a status'}"
         return None
+    if kind in ("device", "vm"):
+        return None if status in USABLE_HOST else f"it is {status or 'without a status'}"
     return None if status in USABLE_SPAN else f"it is {status or 'without a status'}"
 
 
 def objects(nb: NetBox) -> list[tuple[str, dict]]:
     return [(kind, obj) for kind, (path, _) in KINDS.items() for obj in nb.all(path)]
+
+
+def claimed(obj: dict) -> list[str]:
+    """The names an object's keyvault_secrets selects (NetBox gives each as {value, label})."""
+    return [c["value"] if isinstance(c, dict) else c for c in (obj.get("custom_fields") or {}).get(FIELD) or []]
 
 
 def label(kind: str, obj: dict) -> str:
@@ -209,12 +221,12 @@ class Site:
         self.nb, self.vault = nb, vault
 
     def usable(self, kind: str) -> list[dict]:
-        """The objects of a kind ("ip", "range", "prefix") a job may use (the status table)."""
+        """The objects of a kind ("ip", "range", "prefix", "device", "vm") a job may use (the status table)."""
         return [o for o in self.nb.all(KINDS[kind][0]) if usable(self.nb, kind, o) is None]
 
     def claiming(self, name: str) -> list[tuple[str, dict]]:
         """The usable objects whose keyvault_secrets names name."""
-        return [(k, o) for k in KINDS for o in self.usable(k) if name in (o.get("custom_fields") or {}).get(FIELD) or []]
+        return [(k, o) for k in KINDS for o in self.usable(k) if name in claimed(o)]
 
     def all(self, path: str) -> list[dict]:
         """Every object at an API path (dcim/devices, ipam/vlans, plugins/netbox-dns/records):
@@ -289,7 +301,7 @@ def sources(nb: NetBox, facts: dict) -> tuple[dict, list[str]]:
     """{name: [(kind, obj)]} for every object claiming a name, and the claims the map lacks."""
     claims, stray = {n: [] for n in facts}, []
     for kind, obj in objects(nb):
-        for name in (obj.get("custom_fields") or {}).get(FIELD) or []:
+        for name in claimed(obj):
             if name in claims:
                 claims[name].append((kind, obj))
             else:

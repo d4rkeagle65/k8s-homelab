@@ -112,7 +112,8 @@ groups:
       PROXMOX_TOKEN: {keyvault: NETBOX-SYNC-PROXMOX-TOKEN}
 
   # scripts/keyvault_facts.py ("Sync: NetBox → Key Vault (script)"), with "Key Vault Sync" for
-  # its reader; the writer's FACTS_AZURE_* join this group once the writer exists.
+  # its reader. Read only: the writer's FACTS_AZURE_* get a group of their own, which only the
+  # template that runs --write uses, so no run of this one can write whatever its arguments.
   Key Vault Facts:
     managed: true
     environment:

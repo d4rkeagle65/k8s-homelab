@@ -68,23 +68,29 @@ cluster, and three JSON strings bundle values that are their own facts.
     `template:` or `collect:`, and a JSON variable a `view:`; a secret in one is its own Key Vault
     secret, named for its user, which the view reads with `site.secret`.
   - [x] Step 1 (#530): the script, its map empty, tests, the "Key Vault Facts" group.
-  - [ ] Step 2 (this PR): `collect:` and `view:`, the `Site` a view reads through, JSON compared by
-    path. Left, the owner's: the template "Sync: NetBox → Key Vault (script)" (Python,
-    `scripts/keyvault_facts.py`, no inventory, both "Key Vault Sync" and "Key Vault Facts", the
-    argument `--find`), after a Key Vault sync makes its group; then I run it and read its report.
-  - [ ] Step 3: the custom field and its choices (mine, through NetBox's API); each object tagged
-    from `--find`'s evidence; the single values mapped (the Docker VMs', NAS's, Pi-holes',
-    switches', access points', the picture frame's, the Proxmox API host, the worker nodes, the
-    VIPs, the MetalLB pool), then the derived ones (the Pi-hole and Garage URLs as templates,
-    `KEA_DB_CLIENTS` as a collect). `CLUSTER_DOMAIN` and the pod CIDR are the cluster's own (the
-    Talos config in git).
+  - [x] Step 2 (#531): `collect:` and `view:`, the `Site` a view reads through, JSON compared by
+    path; template 41 ("Sync: NetBox → Key Vault (script)", `--find`, groups 14 and 16; task 1518:
+    30 of 250 secrets match NetBox objects).
+  - [ ] Step 3: the custom field `keyvault_secrets` (#5, multiple selection, choice set #2 "Key
+    Vault secrets") on addresses, ranges, prefixes, devices and VMs; 22 objects tagged and read
+    back, 23 names mapped (this PR, with `take: name` for devices and VMs). Left:
+    - the plain run on template 41 (arguments overridden to none) agreeing for all 23;
+    - `WORKER-NODE-4`–`7`: their VMs tagged (`take: name`), from a `--find` run that matches names;
+    - `NAS-HOSTNAME`, `NFS-SERVER`, `PVE-API-HOST`: NetBox doesn't hold them (no address or DNS
+      name matches); the owner says what each is (a name on which network) so NetBox records it;
+    - the templates (the two Pi-hole URLs, Garage's S3 endpoint, the MariaDB backup host: each
+      contains an address `--find` found) and `KEA-DB-CLIENTS` as a collect, their shapes asked of
+      the owner by class, never value.
+    `CLUSTER_DOMAIN` and the pod CIDR are the cluster's own (the Talos config in git).
   - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees:
     `TOFU-PROXMOX-TF-VAR-SITE` (networks from prefixes by VLAN, `netbox_seed.yaml`'s bridge
     list; its SSH keys their own secrets), `PIHOLE-SETTINGS` (dnsmasq lines from NetBox DNS's
     zones), `TOFU-CLOUDFLARE-TF-VAR-DNS` (Cloudflare's records as NetBox DNS records tagged for
     it, the record IDs in a custom field). Then Tailscale's routes, host name and tags.
-  - [ ] Step 5: the owner makes the writer identity (`--roles` prints its assignments); `--write`
-    on a schedule, and before the jobs that read these values.
+  - [ ] Step 5: the owner makes the writer identity (`--roles` prints its assignments), its
+    credentials in a group of their own ("Key Vault Facts Writer") and a second template that runs
+    `--write` with it, on a schedule and before the jobs that read these values; template 41, which
+    may have its arguments overridden, never gets the writer.
 
 ## Resume
 
