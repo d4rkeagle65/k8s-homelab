@@ -111,8 +111,8 @@ def check_config(doc: dict) -> dict:
                     raise ValueError(f"{name}: {var}: one of keyvault, template or value (and secret, json, candidates)")
                 if "candidates" in spec and ("keyvault" not in spec or not isinstance(spec["candidates"], list)):
                     raise ValueError(f"{name}: {var}: candidates is a list of templates, beside keyvault")
-                if spec.get("json") and (kind != "variables" or "keyvault" not in spec):
-                    raise ValueError(f"{name}: {var}: json is for an extra variable from Key Vault")
+                if spec.get("json") and (kind != "variables" or "value" in spec):
+                    raise ValueError(f"{name}: {var}: json is for an extra variable from Key Vault or a template")
                 if kind == "environment" and isinstance(spec.get("value"), (dict, list)):
                     raise ValueError(f"{name}: {var}: an environment variable is a single value")
                 if var in seen:
@@ -174,7 +174,15 @@ def resolve(spec: dict, vault: KeyVault):
         except ValueError:
             raise Unread(f"{spec['keyvault']}: not JSON, as json: true says it is")
     if "template" in spec:
-        return PLACEHOLDER.sub(lambda m: vault.get(m.group(1)), spec["template"])
+        if not spec.get("json"):
+            return PLACEHOLDER.sub(lambda m: vault.get(m.group(1)), spec["template"])
+        # JSON built around Key Vault values: each goes in escaped as a JSON string's inside,
+        # so a quote or backslash in one can't change the JSON's shape.
+        text = PLACEHOLDER.sub(lambda m: json.dumps(vault.get(m.group(1)))[1:-1], spec["template"])
+        try:
+            return json.loads(text)
+        except ValueError:
+            raise Unread(f"its template isn't JSON once filled in (json: true): {spec['template']}")
     return spec["value"]
 
 

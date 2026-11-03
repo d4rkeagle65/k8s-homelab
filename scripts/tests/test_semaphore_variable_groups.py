@@ -298,3 +298,19 @@ def test_the_survey_names_secrets_or_left_empty_means_all():
     assert m.parse_args(["x", "SYNC_SECRETS=A-TOKEN, B-TOKEN"]) == {"A-TOKEN", "B-TOKEN"}
     assert m.parse_args(["x", "SYNC_SECRETS="]) is None
     assert m.parse_args(["x", "SYNC_SECRETS=A-TOKEN", "--secrets", "B-TOKEN"]) == {"A-TOKEN", "B-TOKEN"}
+
+
+JSON_TEMPLATE_CONFIG = """project: Homelab
+groups:
+  Thing:
+    managed: true
+    variables:
+      keys: {template: '["{A-KEY}", "{B-KEY}"]', json: true, secret: false}
+"""
+
+
+def test_a_json_template_builds_a_list_from_secrets_escaping_each(monkeypatch, tmp_path, capsys):
+    # A quote or backslash in a value goes in escaped, so it can't change the JSON's shape.
+    fake = Fake(vault=dict(VAULT, **{"A-KEY": 'ssh-ed25519 <a> me', "B-KEY": 'odd "quoted" \\ value'}))
+    assert run(monkeypatch, tmp_path, fake, JSON_TEMPLATE_CONFIG) == 0
+    assert json.loads(fake.writes[0][1]["json"]) == {"keys": ["ssh-ed25519 <a> me", 'odd "quoted" \\ value']}

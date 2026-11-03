@@ -106,7 +106,7 @@ cluster, and three JSON strings bundle values that are their own facts.
       `tofu/cloudflare` reads NetBox at plan time, as `tofu/tailscale` does. The public records share
       names with private ones (the public `babybuddy` CNAME beside its private A record), so they go
       in a NetBox DNS view of their own, `public`, its copies of the two zones tagged `cloudflare`.
-      - [ ] 1 (this PR): what reads NetBox DNS keeps to the default view, each zone saying so in
+      - [x] 1 (#545): what reads NetBox DNS keeps to the default view, each zone saying so in
         its nested view: netbox-dns-sync (else public answers reach the Pi-holes) and ExternalDNS's
         webhook (else an Ingress's private A record could land in a public zone, and OpenTofu would
         publish it). Every zone is in the default view today, so neither changes yet. After merge:
@@ -118,8 +118,14 @@ cluster, and three JSON strings bundle values that are their own facts.
         `moved` blocks from `r01`… so no record is recreated); a plan (mine) shows only the moves;
         then `TF_VAR_dns` leaves its group, and `TOFU-CLOUDFLARE-TF-VAR-DNS` Key Vault.
     - [ ] Then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
-      entry equals the Management prefix, #1); `DEBIAN-ADMIN-SSH-KEYS` (no Key Vault secret holds
-      its key: whose it is, asked of the owner).
+      entry equals the Management prefix, #1).
+    - [ ] `DEBIAN-ADMIN-SSH-KEYS` held the owner's key without its comment; nothing derives it now:
+      the Debian Host Baseline group builds `admin_ssh_keys` from `OWNER-SSH-PUBLIC-KEY` (a template
+      with `json: true`, this PR). After merge: a Key Vault sync run (template 38, `SYNC_SECRETS`
+      `OWNER-SSH-PUBLIC-KEY`), then the owner deletes `DEBIAN-ADMIN-SSH-KEYS`. The next Debian admins
+      or baseline run rewrites each host's `authorized_keys` line once, the comment added.
+    - [ ] #545 live: ExternalDNS's NetBox pod runs it ("All records are already up to date"); the
+      owner checks in Dockhand that netbox-dns-sync was rebuilt and its round is clean.
   - [x] Fingerprints (#535): a run lists Key Vault once and reads a value only where the keyed
     fingerprint tag (`keyvault-facts`, an HMAC with `KEYVAULT-FACTS-FINGERPRINT-KEY`) on its current
     version doesn't match NetBox's value; `--write` tags what it sets and an agreeing value it finds
