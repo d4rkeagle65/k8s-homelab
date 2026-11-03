@@ -1,6 +1,7 @@
 """TERMIX-REMOTE-SOURCES: the sources allowed to reach Termix through the Cloudflare tunnel
-(QUEUE-termix-remote.md): the active prefixes NetBox tags termix-remote, sorted,
-comma-separated, which Traefik's termix-remote allow-list reads as TERMIX_REMOTE_SOURCES."""
+(QUEUE-termix-remote.md): the active prefixes NetBox tags termix-remote, sorted, as a YAML
+flow list ("[a, b]"). Traefik's termix-remote allow-list reads it as TERMIX_REMOTE_SOURCES in
+`sourceRange: ${TERMIX_REMOTE_SOURCES}`, which stays a list once Flux fills it in."""
 
 
 def build(site):
@@ -8,4 +9,4 @@ def build(site):
                      if any(t.get("slug") == "termix-remote" for t in p.get("tags") or []))
     if not sources:
         raise LookupError("no usable prefix is tagged termix-remote")
-    return ",".join(sources)
+    return "[" + ", ".join(sources) + "]"
