@@ -66,8 +66,9 @@ def call(method: str, url: str, headers: dict, body=None, verify: bool = True):
 # --- NetBox -------------------------------------------------------------------
 
 def netbox_wanted(url: str, token: str) -> tuple[list[str], set[tuple[str, str, str]]]:
-    """NetBox's active zones, and its active A, AAAA and CNAME records in them as
-    (name, type, value), names fully qualified without a trailing dot."""
+    """NetBox's active zones in its default view, and its active A, AAAA and CNAME records
+    in them as (name, type, value), names fully qualified without a trailing dot. Another
+    view (the public one, whose zones share these names) is never read into local DNS."""
     token = token.strip().removeprefix("Bearer ")
     h = {"Authorization": f"Bearer {token}"}
 
@@ -81,7 +82,8 @@ def netbox_wanted(url: str, token: str) -> tuple[list[str], set[tuple[str, str, 
             nxt = body.get("next")
         return out
 
-    zones = {z["id"]: z["name"].rstrip(".").lower() for z in every("zones") if status_of(z) == "active"}
+    zones = {z["id"]: z["name"].rstrip(".").lower() for z in every("zones")
+             if status_of(z) == "active" and (z.get("view") or {}).get("default_view") is True}
     if not zones:
         raise Refused("NetBox lists no active zone: refusing to treat that as no records")
     wanted = set()

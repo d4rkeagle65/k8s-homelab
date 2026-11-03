@@ -103,8 +103,8 @@ class Fake:
         return 404, {"error": {"message": "not found"}}
 
 
-def zone(id, name, status="active"):
-    return {"id": id, "name": name, "status": {"value": status}}
+def zone(id, name, status="active", default_view=True):
+    return {"id": id, "name": name, "status": {"value": status}, "view": {"id": 1 if default_view else 2, "default_view": default_view}}
 
 
 def rec(zone_id, name, type, value, status="active"):
@@ -198,3 +198,16 @@ def test_piholes_are_numbered_without_a_gap_and_need_a_password():
 def test_unexpected_arguments_are_named_never_shown():
     msg = m.unexpected(["--password=hunter2-long", "value"])
     assert "--password" in msg and "hunter2" not in msg
+
+
+def test_only_the_default_views_zones_reach_the_pi_holes(monkeypatch):
+    """The public view holds the same zone names with public answers: none of it is local DNS."""
+    fake = Fake([zone(1, "mgmt.example"), zone(2, "mgmt.example", default_view=False)],
+                [rec(1, "host1", "A", "192.0.2.1"), rec(2, "host1", "CNAME", "elsewhere.example."), rec(2, "www", "A", "198.51.100.1")],
+                [])
+    monkeypatch.setattr(m, "call", fake)
+    zones, wanted = m.netbox_wanted("https://netbox.example", "t")
+    assert zones == ["mgmt.example"] and wanted == {("host1.mgmt.example", "A", "192.0.2.1")}
+    fake.zones = [zone(2, "mgmt.example", default_view=False)]
+    with pytest.raises(m.Refused):  # no local zone is no local DNS to write, not an empty one
+        m.netbox_wanted("https://netbox.example", "t")
