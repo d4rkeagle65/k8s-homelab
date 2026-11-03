@@ -94,7 +94,7 @@ cluster, and three JSON strings bundle values that are their own facts.
     - [x] The nodes' search domain (#560): the zone the Production prefix names; plan 1567 and
       apply 1568 changed one plain container's DNS domain and nothing else; `NODE-SEARCH-DOMAIN`
       deleted.
-    - [ ] `PIHOLE-SETTINGS` (#544; task 1544: differs only in the lines' order, as expected): the
+    - [x] `PIHOLE-SETTINGS` (#544; task 1544: differs only in the lines' order, as expected): the
       view `pihole_settings`, a `local=/<zone>/` line for each
       active NetBox DNS zone tagged `pihole-local` (#7, #8, #9, and the DMZ's and work laptops'
       #12 and #13, made for it, unlinked from their prefixes, since a prefix's `dns_zone` makes the
@@ -113,7 +113,7 @@ cluster, and three JSON strings bundle values that are their own facts.
       docker/tailscale's compose.yaml (the secret deleted), `TAILSCALE-HOSTNAME` Docker VM 1's
       NetBox name (VM #4 claims it). Redeployed 2026-11-03: the router reports the VM's name, online,
       its home routes and exit node enabled (the exporter's metrics).
-    - [ ] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (this PR): the view `proxmox_ntp_serve_networks`,
+    - [ ] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (#561; check 1569 agrees, untagged): the view `proxmox_ntp_serve_networks`,
       the prefixes tagged `ntp-clients` (the Management prefix, #1, tagged), equal to Key Vault's
       value. After merge, the owner's: `keyvault-secrets.ps1 PROXMOX-SETTINGS-NTP-SERVE-NETWORKS
       -FromNetBox` (it exists, so this gives the writer its role), then a write.
@@ -121,7 +121,7 @@ cluster, and three JSON strings bundle values that are their own facts.
       `OWNER-SSH-PUBLIC-KEY` (a template with `json: true`; task 1546 rebuilt it); the old copy is
       deleted. The next Debian admins or baseline run rewrites each `authorized_keys` line once,
       the key's comment added.
-    - [ ] #545 live: ExternalDNS's NetBox pod runs it ("All records are already up to date"); the
+    - [x] #545 live: ExternalDNS's NetBox pod runs it ("All records are already up to date"); the
       owner checks in Dockhand that netbox-dns-sync was rebuilt and its round is clean.
   - [x] Fingerprints (#535): a run lists Key Vault once and reads a value only where the keyed
     fingerprint tag (`keyvault-facts`, an HMAC with `KEYVAULT-FACTS-FINGERPRINT-KEY`) on its current
@@ -131,17 +131,10 @@ cluster, and three JSON strings bundle values that are their own facts.
   - [x] The survey (#536): `FACTS_MODE` (`check`, `find`, `full`, `write`, `write-full`), an
     argument `FACTS_MODE=value` or an environment variable, in place of the flags. Template 41
     ("(read)") has it (`check`, `find`, `full`), no arguments, groups 14 and 16 only.
-  - [ ] Step 5, the writer: service principal `semaphore-keyvault-facts`, Key Vault Secrets Officer
-    on the 34 mapped secrets only, its ID and secret in Key Vault (`KEYVAULT-FACTS-WRITER-CLIENT-ID`,
-    `-SECRET`); template 42 ("(write)", groups 14, 16, 17). Its first write (task 1533) changed no
-    value and tagged all 34; the next check (task 1534) agreed for all 34 by fingerprint, no value
-    read. This PR declares group 17 ("Key Vault Facts Writer") so the sync fills it from Key Vault.
-    Group 17 is filled from Key Vault (task 1538, template 38 with its `SYNC_SECRETS` survey:
-    written and read back); 42's survey defaults to `write`. Left: a write run on 42 (the owner's)
-    agreeing for all 34 by fingerprint, which proves the credentials from Key Vault work; then a
-    schedule on 42 before the jobs that read these values, followed by template 38 with
-    `SYNC_SECRETS` set to its "changed:" names. A name mapped later needs its role assignment
-    first. Template 41 never gets group 17.
+  - [x] Step 5, the writer: service principal `semaphore-keyvault-facts`, Key Vault Secrets Officer
+    on each mapped secret only (`keyvault-secrets.ps1 -FactsWriter` / `NAME -FromNetBox`), its ID and
+    secret in Key Vault, group 17 from the sync; template 42 ("(write)", survey `write`) runs daily
+    at 03:30, before template 38's 04:00 sync; a failed run tickets through n8n.
 
 ## Resume
 
