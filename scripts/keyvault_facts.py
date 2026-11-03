@@ -32,9 +32,11 @@ The runs (a value is never printed, only names, NetBox object IDs, JSON paths an
             differ (compared as data, so formatting doesn't count)
   --write   the same, then sets each that differs and reads it back
   --full    alone or with --write: read every mapped value, ignoring fingerprints (an audit)
-  FACTS_MODE=check|find|full|roles|write|write-full  the same as no flag, --find, --full,
-            --roles, --write, --write --full: the choice of a Semaphore survey (a dropdown),
-            given as that argument or in the environment
+  --names   the writer's name and the mapped names, as JSON, for keyvault-secrets.ps1
+            -FactsWriter; it reads neither NetBox nor Key Vault
+  FACTS_MODE=check|find|full|write|write-full  the same as no flag, --find, --full, --write,
+            --write --full: the choice of a Semaphore survey (a dropdown), given as that
+            argument or in the environment
 A run lists Key Vault once (values unread) and reads a value only when the fingerprint tag on
 its current version (keyvault-facts, a keyed hash made with KEYVAULT-FACTS-FINGERPRINT-KEY)
 doesn't match the value NetBox gives: one NetBox changed, or one set by hand (a new version,
@@ -51,9 +53,10 @@ The environment (Semaphore's "Key Vault Sync" and "Key Vault Facts" groups):
                         the sync's reader (scripts/semaphore_variable_groups.py)
   NETBOX_URL, NETBOX_TOKEN   NetBox's API, read only
   FACTS_AZURE_CLIENT_ID, FACTS_AZURE_CLIENT_SECRET
-                        --write only: the writer, "Key Vault Secrets Officer" on each mapped
-                        secret and nothing else (--roles prints the az lines for them), in a
-                        group only the --write template uses: without them nothing is written
+                        --write only: the writer (keyvault_facts.yaml's writer:), "Key Vault
+                        Secrets Officer" on each mapped secret and nothing else
+                        (keyvault-secrets.ps1 -FactsWriter keeps it so), in a group only the
+                        --write template uses: without them nothing is written
   KEYVAULT_FACTS        optional: the map's path (default: beside this script)
 Exit 0: every name answered (and with --write, every difference set and read back); 1: a
 name couldn't be answered, a mapped name has no single source, or a write didn't take;
@@ -562,21 +565,23 @@ def run(vault: Vault, nb: NetBox, facts: dict, writer: Vault | None, full: bool 
     return 1 if failed else 0
 
 
-def roles(facts: dict) -> None:
-    """The az lines that give the writer exactly the mapped secrets."""
-    log("# As the vault's owner, with $writer the writer's object ID and $vault the vault's name:")
-    for name in facts:
-        log(f'az role assignment create --assignee-object-id $writer --assignee-principal-type ServicePrincipal '
-            f'--role "Key Vault Secrets Officer" --scope "$(az keyvault show -n $vault --query id -o tsv)/secrets/{name}"')
+def names(path: Path, facts: dict) -> None:
+    """The writer's name and the mapped names, as JSON: what keyvault-secrets.ps1 -FactsWriter
+    gives Key Vault Secrets Officer to, so the map stays the one list."""
+    from ruamel.yaml import YAML
+    writer = (YAML(typ="safe", pure=True).load(path.read_text(encoding="utf-8")) or {}).get("writer")
+    if not isinstance(writer, str) or not writer.strip():
+        raise ValueError("writer: names the writer's service principal")
+    print(json.dumps({"writer": writer.strip(), "names": list(facts)}))
 
 
 # Semaphore's survey (a dropdown on the template) hands its choice over as FACTS_MODE=value.
-MODES = {"check": (None, False), "find": ("find", False), "full": (None, True), "roles": ("roles", False),
+MODES = {"check": (None, False), "find": ("find", False), "full": (None, True),
          "write": ("write", False), "write-full": ("write", True)}
 
 
 def parse_args(argv: list[str], env: dict | None = None) -> tuple[str | None, bool]:
-    """(the mode: 'find', 'write', 'roles' or None, and --full); ValueError for anything else,
+    """(the mode: 'find', 'write', 'names' or None, and --full); ValueError for anything else,
     never repeating it. FACTS_MODE, an argument FACTS_MODE=value or an environment variable,
     names the same choices as the flags (MODES), in place of them."""
     given = [a for a in argv if a.startswith("FACTS_MODE=")]
@@ -588,12 +593,12 @@ def parse_args(argv: list[str], env: dict | None = None) -> tuple[str | None, bo
         if choice not in MODES:
             raise ValueError(f"refused: FACTS_MODE is one of {', '.join(MODES)} (the value given isn't shown)")
         return MODES[choice]
-    known = {"--find": "find", "--write": "write", "--roles": "roles"}
+    known = {"--find": "find", "--write": "write", "--names": "names"}
     picked = [known[a] for a in argv if a in known]
     full = "--full" in argv
     if len(picked) + full != len(argv) or len(picked) > 1 or argv.count("--full") > 1 \
             or (full and picked and picked[0] != "write"):
-        raise ValueError("refused: give at most one of --find, --write, --roles, and --full only alone "
+        raise ValueError("refused: give at most one of --find, --write, --names, and --full only alone "
                          "or with --write; any other argument isn't taken (not shown: it may be a value)")
     return (picked[0] if picked else None), full
 
@@ -611,8 +616,12 @@ def main(argv: list[str]) -> int:
     except (OSError, ValueError) as e:
         log(f"{path.name}: {e}")
         return 2
-    if mode == "roles":
-        roles(facts)
+    if mode == "names":
+        try:
+            names(path, facts)
+        except (OSError, ValueError) as e:
+            log(f"{path.name}: {e}")
+            return 2
         return 0
     missing = [v for v in NEEDS + (WRITER if mode == "write" else []) if not env.get(v, "").strip()]
     if missing:

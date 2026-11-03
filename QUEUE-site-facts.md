@@ -58,8 +58,10 @@ cluster, and three JSON strings bundle values that are their own facts.
     status means"); anything else is reported and its Key Vault value left alone. A name no object
     claims, or two claim for `take:`, fails the run.
   - **The runs:** `--find` (which secrets equal or contain which object; the evidence for tagging),
-    the plain run (agree or differ, by name), `--write` (set what differs, read back), `--roles`
-    (the writer's `az role assignment` lines). A value is never printed.
+    the plain run (agree or differ, by name), `--write` (set what differs, read back). A value is never printed.
+    The writer's role assignments: `keyvault-secrets.ps1 -FactsWriter` reports which mapped secrets
+    it lacks, `-Apply` adds them (the map's `writer:` names it; `keyvault_facts.py --names` gives
+    the list).
   - **Identity:** reads with the sync's reader (`semaphore-keyvault-reader`); writes with a service
     principal of its own, `Key Vault Secrets Officer` on each mapped secret, never the vault (the
     owner's). A new name needs its map line and its role assignment once; more objects under a
@@ -99,9 +101,10 @@ cluster, and three JSON strings bundle values that are their own facts.
     what changed, for the Key Vault sync's `--secrets`. Left, the owner's: the key
     (`keyvault-secrets.ps1 KEYVAULT-FACTS-FINGERPRINT-KEY -New -Raw -Generate 64`); until it
     exists each value is read, as now.
-  - [ ] The survey (this PR): `FACTS_MODE` (`check`, `find`, `full`, `roles`, `write`,
-    `write-full`), an argument `FACTS_MODE=value` or an environment variable, in place of the flags.
-    Template 41 ("(read)") has it, no arguments, groups 14 and 16 only.
+  - [x] The survey (#536): `FACTS_MODE` (`check`, `find`, `full`, `write`, `write-full`), an
+    argument `FACTS_MODE=value` or an environment variable, in place of the flags. Template 41
+    ("(read)") has it, no arguments, groups 14 and 16 only. Left, the owner's: `roles` out of 41's
+    survey, a mode that's gone (this PR moves it to `keyvault-secrets.ps1 -FactsWriter`).
   - [ ] Step 5, the writer: service principal `semaphore-keyvault-facts`, Key Vault Secrets Officer
     on the 34 mapped secrets only, its ID and secret in Key Vault (`KEYVAULT-FACTS-WRITER-CLIENT-ID`,
     `-SECRET`); template 42 ("(write)", groups 14, 16, 17). Its first write (task 1533) changed no

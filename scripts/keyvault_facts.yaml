@@ -12,7 +12,11 @@
 #   {template: "text"} the text with each {NAME} replaced: a name mapped here gives its
 #                      value, any other Key Vault's
 #   {view: NAME}       scripts/keyvault_views/NAME.py, for a value with structure (JSON)
-# A name is added once --find's evidence shows its object and form, and the object is tagged.
+# A name is added once --find's evidence shows its object and form, and the object is tagged,
+# and the writer is given Key Vault Secrets Officer on it (keyvault-secrets.ps1 -FactsWriter -Apply).
+
+# The writer's service principal, by display name: the one identity that sets these secrets.
+writer: semaphore-keyvault-facts
 facts:
   ALLOY-SYSLOG-ADDRESS: {take: address}
   DOCKER-VM-1-MGMT-ADDRESS: {take: address}

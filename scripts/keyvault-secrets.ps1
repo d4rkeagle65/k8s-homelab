@@ -90,6 +90,13 @@ cluster would get the plain value where base64 belongs, so its template entry
 comes first. -New, which adds a secret, runs only with -Raw (scripts/README.md's
 "A new private value").
 
+-FactsWriter reports which of scripts/keyvault_facts.yaml's secrets its writer (the map's
+writer:) lacks "Key Vault Secrets Officer" on, and -FactsWriter -Apply gives it them and reads
+the assignments back; one on a name the map no longer lists, or on the whole vault, is
+reported with its removal command, never removed. It needs Python (it reads the map through
+keyvault_facts.py --names) and an account allowed to assign roles on the vault (its Owner,
+or "User Access Administrator").
+
 It signs in as the Azure CLI's current account (az login), which needs "Key
 Vault Secrets Officer" on the vault to set, delete or recover a secret, or "Key
 Vault Secrets User" to list, read or -Export (-Import -Apply writes, so it needs Officer). The vault's URL comes from the azure-keyvault-bootstrap Secret
@@ -150,6 +157,11 @@ Adds the secrets a new vault lacks from that file, after a dry run without -Appl
 .EXAMPLE
 ./scripts/keyvault-secrets.ps1 -Read D:\backup\keyvault-2026-10-31.json | Out-GridView
 Opens an export in a searchable window (Windows), with no vault or cluster.
+
+.EXAMPLE
+./scripts/keyvault-secrets.ps1 -FactsWriter -Apply
+Gives the facts sync's writer Key Vault Secrets Officer on each secret keyvault_facts.yaml maps
+that it lacks, after a run without -Apply that reports them.
 #>
 [CmdletBinding()]
 param(
@@ -192,7 +204,10 @@ param(
     # value (Key Vault keeps the old value as an earlier version).
     [switch]$Overwrite,
     # Decrypt a file -Export wrote and output its secrets, values included, as objects.
-    [string]$Read
+    [string]$Read,
+    # Report which of scripts/keyvault_facts.yaml's secrets its writer lacks Key Vault Secrets
+    # Officer on; with -Apply, give it them. Never removes one.
+    [switch]$FactsWriter
 )
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -222,7 +237,12 @@ if ($Read) {
     $others = @($PSBoundParameters.Keys | Where-Object { $_ -ne 'Read' -and $_ -notin [Management.Automation.PSCmdlet]::CommonParameters })
     if ($others) { throw "-Read takes only a file: it reads no vault. Leave out -$($others -join ', -')." }
 }
-if (($Apply -or $Overwrite) -and -not $Import) { throw '-Apply and -Overwrite go with -Import.' }
+if ($FactsWriter) {
+    $others = @($PSBoundParameters.Keys | Where-Object { $_ -notin 'FactsWriter', 'Apply', 'Vault' -and $_ -notin [Management.Automation.PSCmdlet]::CommonParameters })
+    if ($others) { throw "-FactsWriter takes only -Apply (and -Vault): leave out -$($others -join ', -')." }
+}
+if ($Apply -and -not ($Import -or $FactsWriter)) { throw '-Apply goes with -Import or -FactsWriter.' }
+if ($Overwrite -and -not $Import) { throw '-Overwrite goes with -Import.' }
 if ($Overwrite -and -not $Apply) { throw '-Overwrite only changes what -Apply writes: give both.' }
 if ($Clipboard -and -not (Get-Command Set-Clipboard -ErrorAction SilentlyContinue)) {
     throw "-Clipboard needs Set-Clipboard, which this PowerShell doesn't have."
@@ -591,6 +611,53 @@ function Unprotect-Export([string]$path, [string]$password) {
 # A path as given, made absolute against the current folder.
 function Resolve-ExportPath([string]$given) {
     [IO.Path]::GetFullPath($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($given))
+}
+
+# -FactsWriter: the writer of scripts/keyvault_facts.py (QUEUE-site-facts.md) gets Key Vault
+# Secrets Officer on exactly the secrets its map lists. The map is the one list: keyvault_facts.py
+# --names gives it and the writer's name. Without -Apply it only reports; with it, it adds what's
+# missing and reads the assignments back. One the writer holds on a name the map no longer
+# lists, or on the whole vault, is reported with the command that removes it, never removed here.
+if ($FactsWriter) {
+    if (-not (Get-Command az -ErrorAction SilentlyContinue)) { throw "The Azure CLI (az) isn't on PATH." }
+    $python = @('python', 'python3', 'py') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
+    if (-not $python) { throw "Python isn't on PATH: -FactsWriter reads the map through scripts/keyvault_facts.py." }
+    $out = & $python (Join-Path $PSScriptRoot 'keyvault_facts.py') --names
+    if ($LASTEXITCODE -ne 0) { throw "keyvault_facts.py --names failed: $($out -join ' ')" }
+    $map = ($out -join "`n") | ConvertFrom-Json
+    $vaultName = ([uri](Get-VaultUrl)).Host.Split('.')[0]
+    $vaultId = az keyvault show -n $vaultName --query id -o tsv
+    if ($LASTEXITCODE -ne 0 -or -not $vaultId) { throw "az keyvault show -n $vaultName failed: run az login first." }
+    $ids = @(az ad sp list --display-name $map.writer --query '[].id' -o json | ConvertFrom-Json)
+    if ($LASTEXITCODE -ne 0) { throw "az ad sp list failed for $($map.writer)." }
+    if ($ids.Count -ne 1) { throw "$($ids.Count) service principals are named $($map.writer), not one: keyvault_facts.yaml's writer: must name exactly one." }
+    $writer = $ids[0]
+    $role = 'Key Vault Secrets Officer'
+    $scopes = {
+        $listed = az role assignment list --assignee $writer --all --query "[?roleDefinitionName=='$role'].scope" -o json | ConvertFrom-Json
+        if ($LASTEXITCODE -ne 0) { throw "az role assignment list failed for $($map.writer)." }
+        @($listed)
+    }
+    $want = @($map.names | ForEach-Object { "$vaultId/secrets/$_" })
+    $have = & $scopes
+    # -notin compares without case, as Azure's resource IDs do.
+    $missing = @($want | Where-Object { $_ -notin $have })
+    foreach ($s in @($have | Where-Object { $_ -notin $want })) {
+        $what = if ($s -like '*/secrets/*') { "$($s.Split('/')[-1]), which keyvault_facts.yaml doesn't list" } else { "$s, more than one secret" }
+        Write-Warning "$($map.writer) holds $role on $what. To remove it: az role assignment delete --assignee $writer --role `"$role`" --scope `"$s`""
+    }
+    Write-Host "$($map.writer): $role on $($want.Count - $missing.Count) of the $($want.Count) secrets keyvault_facts.yaml lists."
+    if (-not $missing) { return }
+    Write-Host "  missing: $(($missing | ForEach-Object { $_.Split('/')[-1] }) -join ', ')"
+    if (-not $Apply) { Write-Host '  -FactsWriter -Apply adds them.'; return }
+    foreach ($s in $missing) {
+        az role assignment create --assignee-object-id $writer --assignee-principal-type ServicePrincipal --role $role --scope $s --only-show-errors | Out-Null
+        if ($LASTEXITCODE -ne 0) { Write-Warning "$($s.Split('/')[-1]): az role assignment create failed." }
+    }
+    $still = @($want | Where-Object { $_ -notin (& $scopes) })
+    if ($still) { throw "Read back, $($map.writer) still lacks $role on: $(($still | ForEach-Object { $_.Split('/')[-1] }) -join ', ')." }
+    Write-Host "  added $($missing.Count); read back, it holds all $($want.Count)."
+    return
 }
 
 if ($Export) {

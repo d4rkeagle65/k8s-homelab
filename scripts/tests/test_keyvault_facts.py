@@ -239,12 +239,16 @@ def test_what_the_map_may_not_say(monkeypatch, tmp_path, capsys, facts, msg):
     assert msg in out
 
 
-def test_roles_prints_one_scoped_assignment_per_mapped_name(monkeypatch, tmp_path, capsys):
-    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {"A": "{take: address}", "B": "{take: cidr}"},
-                 ["--roles"], env={})
-    assert rc == 0
-    lines = [x for x in out.splitlines() if x.startswith("az role assignment")]
-    assert len(lines) == 2 and lines[0].endswith('/secrets/A"') and "Key Vault Secrets Officer" in lines[0]
+def test_names_gives_the_writer_and_every_mapped_name_reading_nothing(monkeypatch, tmp_path, capsys):
+    mapfile = tmp_path / "map.yaml"
+    mapfile.write_text("writer: some-writer\nfacts:\n  A: {take: address}\n  B: {take: cidr}\n")
+    monkeypatch.setenv("KEYVAULT_FACTS", str(mapfile))
+    monkeypatch.setattr(m, "http", lambda *a, **k: pytest.fail("--names reads nothing"))
+    assert m.main(["--names"]) == 0
+    import json as j
+    assert j.loads(capsys.readouterr().out) == {"writer": "some-writer", "names": ["A", "B"]}
+    mapfile.write_text("facts:\n  A: {take: address}\n")
+    assert m.main(["--names"]) == 2 and "writer: names the writer" in capsys.readouterr().out
 
 
 def test_the_real_map_loads():
@@ -443,7 +447,7 @@ def test_the_fingerprint_is_keyed_and_tied_to_the_name():
 
 
 @pytest.mark.parametrize("args, ok", [(["--write", "--full"], True), (["--full"], True), (["--find", "--full"], False),
-                                      (["--full", "--full"], False), (["--roles", "--full"], False)])
+                                      (["--full", "--full"], False), (["--names", "--full"], False)])
 def test_full_goes_alone_or_with_write(args, ok):
     if ok:
         assert m.parse_args(args)[1] is True
@@ -453,7 +457,7 @@ def test_full_goes_alone_or_with_write(args, ok):
 
 
 @pytest.mark.parametrize("choice, want", [("check", (None, False)), ("find", ("find", False)), ("full", (None, True)),
-                                          ("roles", ("roles", False)), ("write", ("write", False)),
+                                          ("write", ("write", False)),
                                           ("write-full", ("write", True))])
 def test_facts_mode_names_each_choice_as_an_argument_or_in_the_environment(choice, want):
     assert m.parse_args([f"FACTS_MODE={choice}"]) == want
@@ -470,9 +474,11 @@ def test_facts_mode_goes_alone_and_names_only_a_known_choice(argv, env):
 
 
 def test_the_survey_argument_runs_its_mode_end_to_end(monkeypatch, tmp_path, capsys):
-    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {"A": "{take: address}", "B": "{take: cidr}"},
-                 ["FACTS_MODE=roles"], env={})
-    assert rc == 0 and out.count("az role assignment") == 2
+    fake = Fake({"A": "192.0.2.20"}, ips=[ip(7, "192.0.2.20/24", claims=["A"])], choices=["A"])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"A": "{take: address}"}, ["FACTS_MODE=check"])
+    assert rc == 0 and "A: agrees (address of IP address #7)" in out
+    with pytest.raises(ValueError):
+        m.parse_args(["FACTS_MODE=roles"])  # gone: keyvault-secrets.ps1 -FactsWriter keeps the writer's roles
 
 
 def test_kea_db_clients_is_the_smallest_prefix_holding_both_docker_vms(monkeypatch, tmp_path, capsys):
