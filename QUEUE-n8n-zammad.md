@@ -91,8 +91,7 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   closes its "offline". Holds read right: eight container stops by redeploys (netbox-dns-sync,
   Tailscale, cAdvisor) were held, asked again, found running, and opened nothing (executions
   150, 2587-2590, 2936-2938). Left: a container that stays down past its hold opens a ticket,
-  and its recovery closes it; the owner closes the bridge's two open "Dockhand Environment
-  offline"-kind tickets by hand (their key changed).
+  and its recovery closes it.
 - [x] **4. Alertmanager** through "Zammad: tickets in", since 2026-10-30 (#464, #465, #467):
   n8n's dry run matched the bridge on every alert (8 notes on its tickets; a stopped cAdvisor's
   TargetDown, the same ticket and its members down, then its close) before `alertmanager`
@@ -107,12 +106,11 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   on either Alertmanager pod, or its stack's containers were running again. Semaphore's,
   Databasus's and non-stack Dockhand tickets are never judged ("unknown"), so they close only
   by their source's recovery. The Firewall* alerts flap, so their tickets will close and reopen
-  as the bridge's did. n8n also holds an inactive older copy of the workflow
-  (`wWL0t4WchYKTkh3G`): the owner deletes it.
+  as the bridge's did.
 - [x] **An end-to-end test of every path** (the owner, 2026-10-31): "Tool: Alerting Test"
   (template 40, `scripts/alerting_test.py`, its variable group made by the Key Vault sync),
   run by hand. Task 1487 passed all four legs, each ticket opened and closed, in 347 s.
-- [ ] **5. Decommission**, in this order. Nothing has sent to the bridge since 2026-10-30 01:21
+- [x] **5. Decommission** (2026-11-03). Nothing has sent to the bridge since 2026-10-30 01:21
   (its log), when Alertmanager moved to n8n; every route it served is gone.
   - [x] The bridge's folder, its `ks.yaml` line and its test removed (this PR). Check once
     merged: Flux prunes the `zammad-bridge` Kustomization, Deployment, Service and Secret, and
@@ -120,11 +118,9 @@ querying Docker and Alertmanager itself, and the bridge is decommissioned.
   - [x] `DOCKHAND_ALERT_TOKEN`, `SEMAPHORE_ALERT_TOKEN`, `DATABASUS_ALERT_TOKEN` and
     `ZAMMAD_ALERT_WEBHOOK_URL` out of `kubernetes/secrets/cluster-secrets.yaml` (this PR). The
     three tokens' Key Vault secrets stay (n8n, Semaphore's `.env`, the alerting test read them).
-  - [ ] The owner, once this PR is applied: `ZAMMAD-ALERT-WEBHOOK-URL` deleted from Key Vault
-    (nothing reads it), and the Secret `zammad-bridge-dockhand-tls` in `monitoring` deleted (its
-    Certificate went with the bridge's Dockhand route; cert-manager leaves the Secret).
-  - [ ] The owner: a `zammad-bridge` entry in Pi-hole's Local DNS, if one is left (NetBox has
-    none, so netbox-dns-sync won't remove it).
+  - [x] The owner, 2026-11-03: `ZAMMAD-ALERT-WEBHOOK-URL` deleted from Key Vault, and the
+    Secret `zammad-bridge-dockhand-tls` in `monitoring`.
+  - [x] The owner, 2026-11-03: the `zammad-bridge` Pi-hole entry removed.
   - Left as they are: the workflows' code comments naming the bridge (`zammad-tickets-in.json`,
     each says what it does as the bridge did); changing them means a live restore for a
     comment. Then this file moves to `old-queues/`.

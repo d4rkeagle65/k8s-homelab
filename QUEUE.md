@@ -541,7 +541,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Working queue files
 
-- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 90%): every source sends to n8n and nothing to the bridge; left, the closing check closing, the bridge's deletion, then a real Databasus notification and a lasting container failure read back.
+- [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 95%): the bridge is gone and every source tickets through n8n; left, a real Databasus notification and a container down past its hold, read back.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container; left, the week-long recheck, the Docker VM's containers, Immich's server and the CPU cap (the owner's).
 - [QUEUE-kept.md](QUEUE-kept.md) (about 80%): Kept deployed and backed up; left, the owner's first account and recovery kit, then a restore test of `kept-db`.
 - [QUEUE-tailscale.md](QUEUE-tailscale.md) (about 75%): the policy applied and the exporter live; left, the travel router's new tag (the owner) and its old one dropped, and a second subnet router later.
