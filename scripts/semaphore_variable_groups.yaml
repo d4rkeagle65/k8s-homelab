@@ -137,8 +137,6 @@ groups:
       PG_CONN_STR: {template: "postgres://tfstate:{TFSTATE-DB-PASSWORD}@semaphore-postgres:5432/tfstate?sslmode=disable", secret: true}
       TF_VAR_netbox_url: {template: "https://netbox.{BASE-DOMAIN}"}
       TF_VAR_netbox_token: {keyvault: NETBOX-READ-TOKEN}
-      # Read by nothing since tofu/cloudflare reads NetBox; goes once the moves are applied.
-      TF_VAR_dns: {keyvault: TOFU-CLOUDFLARE-TF-VAR-DNS}
 
   # tofu/proxmox/ (tofu/README.md). PG_CONN_STR is both plain and secret here today; the group
   # keeps the secret only. The three modules' PG_CONN_STR are one value, tofu/README.md's form

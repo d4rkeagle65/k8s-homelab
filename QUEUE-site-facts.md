@@ -114,11 +114,11 @@ cluster, and three JSON strings bundle values that are their own facts.
       - [x] 2 (NetBox's API, from Key Vault's value): view `public` (#2), zones #14 and #15 (tagged
         `cloudflare`, `cloudflare_zone_id`), the field `cloudflare_proxied`, the 29 records; rebuilt
         from NetBox they equal Key Vault's value, and the Pi-hole sync still reads 8 zones, 157 records.
-      - [ ] 3 (#547): `tofu/cloudflare` reads NetBox (`netbox.tf`), its records keyed by NetBox ID,
-        `moved.tf` from `r01`…; the group has `TF_VAR_netbox_url` and `TF_VAR_netbox_token` (task
-        1547). Plan task 1548: 29 moves, 0 to add, change or destroy. Left: the owner's apply
-        (template 18), then a PR removing `moved.tf` and `TF_VAR_dns` from the group, and the owner
-        deletes `TOFU-CLOUDFLARE-TF-VAR-DNS`.
+      - [x] 3 (#547, this PR): `tofu/cloudflare` reads NetBox (`netbox.tf`), its records keyed by
+        NetBox ID; plan task 1548 and apply task 1549: 29 moves, nothing added, changed or
+        destroyed. This PR removes `moved.tf` and `TF_VAR_dns` from the group. Left: a Key Vault sync
+        run (template 38), then the owner deletes `TOFU-CLOUDFLARE-TF-VAR-DNS`; not before, since the
+        sync would fail on a group reading a missing secret.
     - [ ] Then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
       entry equals the Management prefix, #1).
     - [x] `DEBIAN-ADMIN-SSH-KEYS` (#546): the Debian Host Baseline group builds `admin_ssh_keys` from
