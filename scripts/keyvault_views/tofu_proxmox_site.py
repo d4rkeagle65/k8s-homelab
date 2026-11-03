@@ -5,7 +5,7 @@ built from NetBox, and from Key Vault for what NetBox doesn't hold.
                       (its first three octets and its length), and a gateway where an active DNS
                       record tagged "gateway" has its address in the prefix
   node_dns_servers    the Pi-hole VMs' addresses on the nodes' network (Production), by VM name
-  node_search_domain  Key Vault's NODE-SEARCH-DOMAIN
+  node_search_domain  the NetBox DNS zone the nodes' network's prefix names (its dns_zone)
   talos               the active DNS record tagged "kubernetes-api": its name with the API's port
                       (cluster_endpoint) and its address (api_vip); the cluster's domain, pod and
                       service subnets from Key Vault
@@ -50,6 +50,10 @@ def build(site):
         networks[bridge] = entry
         if name == NODES_NETWORK:
             nodes_net = net
+            zone = ((found[0].get("custom_fields") or {}).get("dns_zone") or {}).get("name")
+            if not zone:
+                raise LookupError(f"the {NODES_NETWORK} prefix names no dns_zone, the nodes' search domain")
+            search_domain = zone.rstrip(".")
     if nodes_net is None:
         raise LookupError(f"netbox_seed.yaml names no {NODES_NETWORK} network")
     piholes = {v["id"]: v["name"] for v in site.all("virtualization/virtual-machines")
@@ -65,7 +69,7 @@ def build(site):
     return {
         "networks": networks,
         "node_dns_servers": [address for _, address in servers],
-        "node_search_domain": site.secret("NODE-SEARCH-DOMAIN").strip(),
+        "node_search_domain": search_domain,
         "talos": {
             "cluster_endpoint": f"{api[0]['fqdn'].rstrip('.')}:{API_PORT}",
             "api_vip": api[0]["value"],

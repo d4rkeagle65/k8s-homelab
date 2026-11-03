@@ -91,9 +91,14 @@ cluster, and three JSON strings bundle values that are their own facts.
       `KUBERNETES-SERVICE-CIDR`, `OWNER-SSH-PUBLIC-KEY`, `SEMAPHORE-SHARED-SSH-PUBLIC-KEY`. The
       writer holds all 38. The next write rewrites it compact (the same data) and names it
       "changed".
-    - [ ] The nodes' search domain: `NODE-SEARCH-DOMAIN` keeps a name from a restructure that didn't
-      happen; whether the nodes and Docker VMs should search the Production zone instead is the
-      owner's call (it changes every node at the next OpenTofu apply).
+    - [ ] The nodes' search domain (this PR, the owner's choice): `node_search_domain` is the zone
+      the Production prefix names (`dns_zone`), not `NODE-SEARCH-DOMAIN` (a name from a restructure
+      that didn't happen). Only the plain LXC containers read it (`guests.tf`); the Docker VMs only
+      at creation (their initialization is ignored after), Talos and the Pi-holes not at all.
+      Built from NetBox, the site variable now differs from Key Vault's in that one path. After
+      merge: a write on template 42 and template 38 (`SYNC_SECRETS` TOFU-PROXMOX-TF-VAR-SITE),
+      both the owner's; an OpenTofu plan (mine) showing only the containers' DNS domain; the
+      owner's apply; then `NODE-SEARCH-DOMAIN` deleted.
     - [ ] `PIHOLE-SETTINGS` (#544; task 1544: differs only in the lines' order, as expected): the
       view `pihole_settings`, a `local=/<zone>/` line for each
       active NetBox DNS zone tagged `pihole-local` (#7, #8, #9, and the DMZ's and work laptops'
