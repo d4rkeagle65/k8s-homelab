@@ -43,45 +43,48 @@ cluster, and three JSON strings bundle values that are their own facts.
   batches (n8n, Zammad, Obsidian, Homepage, Linkwarden; the six in-cluster OIDC client secrets and
   Kept's metrics token; Kept's, Grimmory's and Youtarr's database logins), and Immich's superuser
   left to CloudNativePG. The Key Vault secrets they replaced are deleted.
-- [ ] **3. The facts sync** (`scripts/keyvault_facts.py`, a Semaphore Python template).
-  - **How a Key Vault name finds its NetBox object:** a NetBox custom field `keyvault_secrets`
-    (multiple selection, its choices the map's names) on IP addresses, IP ranges and prefixes. The
-    object says which secrets it feeds, so no host name or address is in git. The map in git
-    (`scripts/keyvault_facts.yaml`) says only what each name takes from its object (`address`, the
-    host part; `cidr`; `dns_name`; `range`, `start-end`) or a template on other names
-    (`{PIHOLE1-MGMT-ADDRESS}`).
-  - **Status:** written only from an object NetBox's status table lets be used (README.md, "What a
-    NetBox status means"): the address Active, Reserved or DHCP and its device or VM Staged or
-    Active. Anything else, a name no object claims, or one two claim, is reported and its Key
-    Vault value left alone.
-  - **The runs:** `--find` compares every Key Vault secret with every NetBox address, range and
-    prefix in each form and reports which equal which (`NAS-HOSTNAME: dns_name of IP address
-    #123`); that evidence says what to tag and how each name maps, with no value seen. The plain
-    run reports, per mapped name, whether NetBox and Key Vault agree. `--write` sets what differs
-    and reads it back. A value is never printed.
+- [ ] **3. Every derived value from NetBox** (`scripts/keyvault_facts.py`, a Semaphore Python
+  template), the owner's ask (2026-11-03): each value made from NetBox by one mechanism that
+  grows by adding to it, so a change in NetBox (another prefix, address or record) reaches every
+  value built on it at the next run with no edit anywhere else.
+  - **How a value is made** (`scripts/keyvault_facts.yaml`, one line per Key Vault name):
+    `take:` one form (`address`, `cidr`, `dns_name`, `range`) of the one object claiming the name
+    in NetBox's custom field `keyvault_secrets`; `collect:` the same from every claimant, joined;
+    `template:` text on other names; `view:` a Python file in `scripts/keyvault_views/` building
+    a value with structure (a JSON variable) from NetBox through `site`. A JSON variable is
+    compared as data and a difference reported as JSON paths. No host name or address is in git:
+    an object is chosen by its claim, a VLAN's name, a role or a tag.
+  - **Status:** only from an object NetBox's status table lets be used (README.md, "What a NetBox
+    status means"); anything else is reported and its Key Vault value left alone. A name no object
+    claims, or two claim for `take:`, fails the run.
+  - **The runs:** `--find` (which secrets equal or contain which object; the evidence for tagging),
+    the plain run (agree or differ, by name), `--write` (set what differs, read back), `--roles`
+    (the writer's `az role assignment` lines). A value is never printed.
   - **Identity:** reads with the sync's reader (`semaphore-keyvault-reader`); writes with a service
-    principal of its own, `Key Vault Secrets Officer` assigned on each mapped secret, never the
-    vault (the owner's: the script prints the `az role assignment` lines from the map).
-  - [ ] Step 1 (this PR): the script (`--find`, the plain run, `--write`, `--roles`), its map
-    empty, tests, and the "Key Vault Facts" group (`NETBOX_URL`, `NETBOX_TOKEN` from
-    `NETBOX-READ-TOKEN`). Its NetBox half checked against the live NetBox (144 objects, read
-    only). Left, the owner's: the template "Sync: NetBox → Key Vault (script)" (Python,
+    principal of its own, `Key Vault Secrets Officer` on each mapped secret, never the vault (the
+    owner's). A new name needs its map line and its role assignment once; more objects under a
+    name need neither.
+  - **A new Key Vault name is new only when nothing derives it:** a URL or list built from facts is a
+    `template:` or `collect:`, and a JSON variable a `view:`; a secret in one is its own Key Vault
+    secret, named for its user, which the view reads with `site.secret`.
+  - [x] Step 1 (#530): the script, its map empty, tests, the "Key Vault Facts" group.
+  - [ ] Step 2 (this PR): `collect:` and `view:`, the `Site` a view reads through, JSON compared by
+    path. Left, the owner's: the template "Sync: NetBox → Key Vault (script)" (Python,
     `scripts/keyvault_facts.py`, no inventory, both "Key Vault Sync" and "Key Vault Facts", the
-    argument `--find`); then I run it and read its report.
-  - [ ] Step 2: the custom field and its choices (mine, through NetBox's API); each object tagged
-    from `--find`'s evidence; the map filled in.
-  - [ ] Step 3: plain runs agreeing for every name; the owner makes the writer identity; `--write`
-    on a schedule (the owner's).
-  - First the addresses and names NetBox holds (the Docker VMs', NAS's, Pi-holes', switches',
-    access points', the picture frame's, the Proxmox API host, the worker nodes, the VIPs and
-    MetalLB pool), then what's derived from them (the Pi-hole and Garage URLs, `KEA_DB_CLIENTS`).
-    `CLUSTER_DOMAIN` and the pod CIDR are the cluster's own (the Talos config in git); Tailscale's
-    routes, host name and tags come later.
-- [ ] **4. The JSON strings, one at a time**: `TOFU-PROXMOX-TF-VAR-SITE` (the Proxmox module
-  reads its site facts from NetBox at plan time, as it already does for guests),
-  `PIHOLE-SETTINGS` (its dnsmasq lines from NetBox DNS's zones), `TOFU-CLOUDFLARE-TF-VAR-DNS`
-  (Cloudflare's records as NetBox DNS records tagged for it). An SSH key in one becomes its own
-  secret, named for its user.
+    argument `--find`), after a Key Vault sync makes its group; then I run it and read its report.
+  - [ ] Step 3: the custom field and its choices (mine, through NetBox's API); each object tagged
+    from `--find`'s evidence; the single values mapped (the Docker VMs', NAS's, Pi-holes',
+    switches', access points', the picture frame's, the Proxmox API host, the worker nodes, the
+    VIPs, the MetalLB pool), then the derived ones (the Pi-hole and Garage URLs as templates,
+    `KEA_DB_CLIENTS` as a collect). `CLUSTER_DOMAIN` and the pod CIDR are the cluster's own (the
+    Talos config in git).
+  - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees:
+    `TOFU-PROXMOX-TF-VAR-SITE` (networks from prefixes by VLAN, `netbox_seed.yaml`'s bridge
+    list; its SSH keys their own secrets), `PIHOLE-SETTINGS` (dnsmasq lines from NetBox DNS's
+    zones), `TOFU-CLOUDFLARE-TF-VAR-DNS` (Cloudflare's records as NetBox DNS records tagged for
+    it, the record IDs in a custom field). Then Tailscale's routes, host name and tags.
+  - [ ] Step 5: the owner makes the writer identity (`--roles` prints its assignments); `--write`
+    on a schedule, and before the jobs that read these values.
 
 ## Resume
 
@@ -90,8 +93,9 @@ class (same as, contains, an address) rather than its value.
 
 ## Done when
 
-No two Key Vault secrets hold the same value but for a stated reason, every address and name is
-NetBox's, and the cluster's own passwords are made there.
+No two Key Vault secrets hold the same value but for a stated reason, the cluster's own
+passwords are made there, and every Key Vault value built on the site's facts (an address, a name,
+a URL, a list, a JSON variable) is made from NetBox by the facts sync on a schedule.
 
 ## Checked, negative
 
