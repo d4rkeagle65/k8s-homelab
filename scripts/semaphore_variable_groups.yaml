@@ -111,6 +111,14 @@ groups:
       NETBOX_WRITE_TOKEN: {keyvault: NETBOX-SYNC-NETBOX-WRITE-TOKEN}
       PROXMOX_TOKEN: {keyvault: NETBOX-SYNC-PROXMOX-TOKEN}
 
+  # scripts/keyvault_facts.py ("Sync: NetBox → Key Vault (script)"), with "Key Vault Sync" for
+  # its reader; the writer's FACTS_AZURE_* join this group once the writer exists.
+  Key Vault Facts:
+    managed: true
+    environment:
+      NETBOX_URL: {template: "https://netbox.{BASE-DOMAIN}"}
+      NETBOX_TOKEN: {keyvault: NETBOX-READ-TOKEN}
+
   # tofu/cloudflare/.
   "OpenTofu: Cloudflare":
     managed: true
