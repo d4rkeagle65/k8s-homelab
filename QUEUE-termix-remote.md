@@ -35,11 +35,12 @@ Kubernetes Ingress rather than a Cloudflare Access application.
 ## Steps
 
 - [x] NetBox: the tag `termix-remote` and the office's /32, tagged (mine, through the API).
-- [ ] 1. The view `termix_remote_sources` (prefixes tagged `termix-remote`, sorted,
-      comma-separated) mapped as `TERMIX-REMOTE-SOURCES` (#551). Left, the owner's:
-      `keyvault-secrets.ps1 TERMIX-REMOTE-SOURCES -FromNetBox` (or `-New -Raw` and `-FactsWriter
-      -Apply`), a write on template 42; then a check run on template 41 agreeing (mine).
-- [ ] 2. PR: `TERMIX_REMOTE_SOURCES` in cluster-secrets (plain), merged before anything reads it.
+- [x] 1. The view `termix_remote_sources` (prefixes tagged `termix-remote`, sorted,
+      comma-separated) mapped as `TERMIX-REMOTE-SOURCES` (#551); `-FromNetBox` made the secret
+      (#552); check task 1558 agrees.
+- [ ] 2. PR (#553): `TERMIX_REMOTE_SOURCES` in cluster-secrets (plain: a Middleware reads it,
+      not a Secret's `data:`), merged before anything reads it. After merge: it's in the live
+      cluster-secrets Secret (mine).
 - [ ] 3. PR: the remote name's gate in `termix.yaml` (provider, application, policy binding, the
       outpost's list) and, if Termix follows the host, its OIDC callback; Traefik's `web` trusts
       forwarded headers from `${CALICO_POD_CIDR}`; the Middleware
