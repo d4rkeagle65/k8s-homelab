@@ -40,10 +40,11 @@ class Fake:
     """Azure's login, Key Vault (list, get, put) and NetBox's API, recording each write."""
 
     def __init__(self, vault, ips=(), ranges=(), prefixes=(), vms=None, field=True, choices=None,
-                 put_drops=False, vm_list=(), devices=()):
+                 put_drops=False, vm_list=(), devices=(), records=()):
         self.vault, self.writes, self.put_drops = dict(vault), [], put_drops
         self.nb = {"ipam/ip-addresses": list(ips), "ipam/ip-ranges": list(ranges), "ipam/prefixes": list(prefixes),
-                   "virtualization/virtual-machines": list(vm_list), "dcim/devices": list(devices)}
+                   "virtualization/virtual-machines": list(vm_list), "dcim/devices": list(devices),
+                   "plugins/netbox-dns/records": list(records)}
         self.vms, self.field, self.choices = vms or {}, field, choices
 
     def http(self, method, url, headers=None, body=None, form=None, timeout=30):
@@ -337,3 +338,33 @@ def test_a_node_name_comes_from_its_vm_and_only_while_the_vm_may_be_used(monkeyp
     fake.vault["WORKER-NODE-4"] = "worker-old"
     rc, out = go(monkeypatch, tmp_path, capsys, fake, {"WORKER-NODE-4": "{take: name}"}, ["--write"], {**ENV, **WRITER})
     assert "VM #9: it is decommissioning, so it's left alone" in out and fake.vault["WORKER-NODE-4"] == "worker-old"
+
+
+def record(id_, fqdn, claims=(), status="active", type_="A", value="192.0.2.227"):
+    return {"id": id_, "fqdn": fqdn, "type": type_, "status": status, "active": True, "value": value,
+            "custom_fields": {m.FIELD: nb_claims(claims)}}
+
+
+def test_a_host_name_comes_from_its_dns_record_and_a_url_from_a_format(monkeypatch, tmp_path, capsys):
+    fake = Fake({"NAS-HOSTNAME": "nas.lan.example", "PIHOLE-2-URL": "http://192.0.2.21"},
+                records=[record(4, "nas.lan.example.", ["NAS-HOSTNAME"]), record(5, "lan.example.", type_="SOA")],
+                ips=[ip(16, "192.0.2.21/24", claims=["PIHOLE-2-URL"])], choices=["NAS-HOSTNAME", "PIHOLE-2-URL"])
+    facts = {"NAS-HOSTNAME": "{take: fqdn}", "PIHOLE-2-URL": '{take: address, format: "http://{}"}'}
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, facts)
+    assert rc == 0
+    assert "NAS-HOSTNAME: agrees (fqdn of DNS record #4)" in out
+    assert "PIHOLE-2-URL: agrees (address of IP address #16)" in out
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({"NAS-HOSTNAME": "nas.lan.example", "NFS-SERVER": "192.0.2.227"},
+                 records=[record(4, "nas.lan.example.")]), {}, ["--find"])
+    assert "NAS-HOSTNAME: equals fqdn of DNS record #4 (active)" in out
+    assert "NFS-SERVER: equals value of DNS record #4 (active)" in out
+    assert "192.0.2.227" not in out
+
+
+@pytest.mark.parametrize("facts, msg", [
+    ({"A": '{take: address, format: "http://"}'}, "format: is text with one {} where the value goes"),
+    ({"A": '{template: "{B}", format: "{}"}'}, "format: with take: or collect:"),
+])
+def test_what_format_may_not_say(monkeypatch, tmp_path, capsys, facts, msg):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), facts)
+    assert rc == 2 and msg in out

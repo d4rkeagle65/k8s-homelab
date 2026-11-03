@@ -5,6 +5,9 @@
 #   {take: dns_name}   an IP address's DNS name
 #   {take: range}      an IP range, "start-end", host parts
 #   {take: name}       a device's or VM's name
+#   {take: fqdn}       a NetBox DNS record's name
+#   {take: value}      a NetBox DNS record's value (its address, or a CNAME's target)
+#   format: "x{}y"     beside take: or collect:, puts the value into text (a URL on an address)
 #   {collect: FORM}    every claiming object's FORM, sorted, joined with "," (or join: "x")
 #   {template: "text"} the text with each {NAME} replaced: a name mapped here gives its
 #                      value, any other Key Vault's
@@ -17,15 +20,19 @@ facts:
   DOCKER-VM-2-MGMT-ADDRESS: {take: address}
   DOCKER-VM-2-PROD-ADDRESS: {take: address}
   DOCKHAND-ADDRESS: {take: dns_name}
+  GARAGE-S3-ENDPOINT: {template: "http://{TERRAMASTER-MGMT-ADDRESS}:3900"}
   INGRESS-IP: {take: address}
   ISOLATED-INGRESS-IP: {take: address}
   KEA-DB-ADDRESS: {take: address}
+  MARIADB-BACKUP-S3-HOST: {template: "{TERRAMASTER-MGMT-ADDRESS}:3900"}
   METALLB-POOL-RANGE: {take: range}
   NAS-MGMT-HOSTNAME: {take: address}
   OPENWRT-AP1-ADDRESS: {take: address}
   OPENWRT-AP2-ADDRESS: {take: address}
   OPENWRT-AP3-ADDRESS: {take: address}
   PICTURE-FRAME-ADDRESS: {take: address}
+  PIHOLE-1-URL: {template: "http://{PIHOLE-ADDRESS}"}
+  PIHOLE-2-URL: {take: address, format: "http://{}"}
   PIHOLE-ADDRESS: {take: address}
   PIHOLE1-MGMT-ADDRESS: {take: address}
   PIHOLE2-MGMT-ADDRESS: {take: address}

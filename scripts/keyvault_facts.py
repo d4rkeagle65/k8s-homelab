@@ -1,13 +1,16 @@
 """Write the site's facts NetBox holds into Key Vault: Semaphore's "Sync: NetBox → Key Vault
 (script)" (QUEUE-site-facts.md, stage 3).
 
-A NetBox IP address, IP range, prefix, device or VM says which Key Vault secrets it feeds in
-its custom field `keyvault_secrets` (a multiple selection), so no host name or address is in git.
+A NetBox IP address, IP range, prefix, device, VM or NetBox DNS record says which Key Vault
+secrets it feeds in its custom field `keyvault_secrets` (a multiple selection), so no host name
+or address is in git.
 keyvault_facts.yaml says how each name's value is made, in one of four ways:
   take: FORM      from the one object claiming the name; FORM is one of
                     address   an IP address's host part   cidr    an address or prefix with its mask
                     dns_name  an IP address's DNS name    range   an IP range, "start-end"
-                    name      a device's or VM's name
+                    name      a device's or VM's name   fqdn    a NetBox DNS record's name
+                    value     a NetBox DNS record's value (its address, or a CNAME's target)
+                  and format: "http://{}" puts it in text
   collect: FORM   from every object claiming the name, sorted and joined (join:, default ","):
                   tagging another object in NetBox adds it at the next run
   template: TEXT  TEXT with each {NAME} replaced: a name mapped here gives its value, any
@@ -19,7 +22,8 @@ keyvault_facts.yaml says how each name's value is made, in one of four ways:
 
 A value is taken only from an object NetBox's status table lets be used (README.md, "What a
 NetBox status means"): an address Active, Reserved or DHCP, and its device or VM Staged or
-Active; a range or prefix Active or Reserved; a device or VM Staged or Active. A name whose object is in any other status is
+Active; a range or prefix Active or Reserved; a device or VM Staged or Active; a DNS record
+active. A name whose object is in any other status is
 reported and its Key Vault secret left alone. A mapped name no object claims, or two do, is
 reported too, and fails the run: the map promises it a source.
 
@@ -27,7 +31,7 @@ The runs (a value is never printed, only names, NetBox object IDs, JSON paths an
   (none)    for each mapped name, whether NetBox and Key Vault agree; for JSON, which paths
             differ (compared as data, so formatting doesn't count)
   --write   the same, then sets each that differs and reads it back
-  --find    compares every Key Vault secret with every NetBox address, range, prefix, device and VM in
+  --find    compares every Key Vault secret with every NetBox object above in
             each form and reports which equal or contain which: the evidence for tagging an
             object and mapping its name, with no value seen
 Any other argument is refused, unnamed: Semaphore passes a group's extra variables as
@@ -62,7 +66,7 @@ from pathlib import Path
 from semaphore_variable_groups import KeyVault, Unread, http, log
 
 FIELD = "keyvault_secrets"
-TAKES = {"address", "cidr", "dns_name", "range", "name"}
+TAKES = {"address", "cidr", "dns_name", "range", "name", "fqdn", "value"}
 WAYS = ("take", "collect", "template", "view")
 VIEWS = Path(__file__).resolve().parent / "keyvault_views"
 VIEW = re.compile(r"^[a-z0-9_]+$")
@@ -77,7 +81,9 @@ USABLE_HOST = {"staged", "active"}
 USABLE_SPAN = {"active", "reserved"}
 KINDS = {"ip": ("ipam/ip-addresses", "IP address"), "range": ("ipam/ip-ranges", "IP range"),
          "prefix": ("ipam/prefixes", "prefix"), "device": ("dcim/devices", "device"),
-         "vm": ("virtualization/virtual-machines", "VM")}
+         "vm": ("virtualization/virtual-machines", "VM"),
+         "record": ("plugins/netbox-dns/records", "DNS record")}
+RECORD_TYPES = {"A", "AAAA", "CNAME"}
 
 
 # --- the map ------------------------------------------------------------------------------
@@ -93,10 +99,14 @@ def load_map(path: Path) -> dict:
         if not isinstance(name, str) or not NAME.match(name):
             raise ValueError(f"{name!r} isn't a Key Vault name")
         ways = [w for w in WAYS if w in (spec if isinstance(spec, dict) else {})]
-        extra = set(spec if isinstance(spec, dict) else {}) - set(WAYS) - ({"join"} if ways == ["collect"] else set())
+        allowed = {"take": {"format"}, "collect": {"format", "join"}}.get(ways[0] if len(ways) == 1 else "", set())
+        extra = set(spec if isinstance(spec, dict) else {}) - set(WAYS) - allowed
         if len(ways) != 1 or extra:
             raise ValueError(f"{name}: give exactly one of {', '.join(w + ':' for w in WAYS)}"
-                             + (" (join: goes only with collect:)" if "join" in extra else ""))
+                             + (" (join: goes only with collect:, format: with take: or collect:)"
+                                if extra & {"join", "format"} else ""))
+        if "format" in spec and (not isinstance(spec["format"], str) or spec["format"].count("{}") != 1):
+            raise ValueError(f"{name}: format: is text with one {{}} where the value goes")
         for way in ("take", "collect"):
             if way in spec and spec[way] not in TAKES:
                 raise ValueError(f"{name}: {way}: is one of {', '.join(sorted(TAKES))}")
@@ -166,7 +176,9 @@ class NetBox:
 
 
 def status_of(obj: dict) -> str:
-    return (obj.get("status") or {}).get("value") or ""
+    """The object's status (NetBox DNS gives it as a plain string, the rest as {value, label})."""
+    status = obj.get("status")
+    return (status if isinstance(status, str) else (status or {}).get("value")) or ""
 
 
 def forms(kind: str, obj: dict) -> dict[str, str]:
@@ -182,6 +194,10 @@ def forms(kind: str, obj: dict) -> dict[str, str]:
         return {"range": f"{start}-{end}"}
     if kind in ("device", "vm"):
         return {"name": obj["name"]} if obj.get("name") else {}
+    if kind == "record":
+        if obj.get("type") not in RECORD_TYPES or not obj.get("fqdn"):
+            return {}
+        return {"fqdn": obj["fqdn"].rstrip("."), "value": str(obj.get("value") or "").rstrip(".")}
     return {"cidr": obj["prefix"]}
 
 
@@ -197,6 +213,8 @@ def usable(nb: NetBox, kind: str, obj: dict) -> str | None:
         return None
     if kind in ("device", "vm"):
         return None if status in USABLE_HOST else f"it is {status or 'without a status'}"
+    if kind == "record":
+        return None if status == "active" and obj.get("active") is not False else f"it is {status or 'without a status'}"
     return None if status in USABLE_SPAN else f"it is {status or 'without a status'}"
 
 
@@ -285,7 +303,7 @@ def find(vault: Vault, nb: NetBox) -> int:
         hits = [f"equals {take} of {label(kind, obj)} ({status_of(obj)})" for take, v, kind, obj in index if v == trimmed]
         if not hits:
             hits = [f"contains {take} of {label(kind, obj)} ({status_of(obj)})" for take, v, kind, obj in index
-                    if take in ("address", "dns_name") and contains(value, v)]
+                    if take in ("address", "dns_name", "fqdn", "value") and v and contains(value, v)]
         if hits:
             note = " (after trimming whitespace)" if trimmed != value and any(h.startswith("equals") for h in hits) else ""
             log(f"  {name}: {'; '.join(hits)}{note}")
@@ -358,7 +376,7 @@ def make(name: str, spec: dict, claims: dict, nb: NetBox, site: Site, made: dict
             value = forms(kind, obj).get(take)
             if value is None:
                 raise LookupError(f"{label(kind, obj)} has no {take}")
-            values.append((value, label(kind, obj)))
+            values.append((spec.get("format", "{}").replace("{}", value), label(kind, obj)))
         if not values:
             return f"{'; '.join(skipped)}, so it's left alone"
         if "take" in spec:
