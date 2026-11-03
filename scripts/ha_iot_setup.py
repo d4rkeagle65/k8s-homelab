@@ -7,7 +7,7 @@ its interfaces' MACs (the reservation's on wifi0, or on the interface its type's
 A device Home Assistant already has is one whose device registry entry carries one of
 those MACs, or one ha_iot_setup.yaml's derived_macs works out from them (an ESP32
 reports its base MAC, not its Ethernet one). For the rest, the first of
-ha_iot_setup.yaml's integrations matching the
+ha_iot_setup.yaml's integrations (ha_iot_generate.py writes them from NetBox) matching the
 device's type or manufacturer names the integration, and the script runs its setup
 flow by address, as the UI's "Add integration" would. A flow that asks for what the
 script can't give (a login it has no variables for, a PIN shown on a TV) is closed

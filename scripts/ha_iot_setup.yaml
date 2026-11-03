@@ -1,5 +1,7 @@
 # Which Home Assistant integration adds each kind of IoT device by its address
-# (scripts/ha_iot_setup.py). The devices are NetBox's from the IoT network
+# (scripts/ha_iot_setup.py). Written by hand until scripts/ha_iot_generate.py's first pull
+# request replaces it with one generated from NetBox (its docstring says what NetBox holds);
+# from then on, change NetBox, not this file. The devices are NetBox's from the IoT network
 # (netbox_seed_iot.yaml); the first entry whose `type` (a NetBox device type slug) or
 # `manufacturer` (a NetBox manufacturer slug) matches decides. A device no entry
 # matches is left to the integrations set up by hand in Home Assistant (the cloud ones).
