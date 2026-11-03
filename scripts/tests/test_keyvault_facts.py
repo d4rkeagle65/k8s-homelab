@@ -23,9 +23,14 @@ ENV = {"AZURE_TENANT_ID": "t", "AZURE_CLIENT_ID": "reader", "AZURE_CLIENT_SECRET
 WRITER = {"FACTS_AZURE_CLIENT_ID": "writer", "FACTS_AZURE_CLIENT_SECRET": "w"}
 
 
+def nb_claims(claims):
+    """A multiple selection as NetBox's API gives it."""
+    return [{"value": c, "label": c} for c in claims]
+
+
 def ip(id_, address, dns="", status="active", claims=(), vm=None):
     obj = {"id": id_, "address": address, "dns_name": dns, "status": {"value": status},
-           "custom_fields": {m.FIELD: list(claims)}, "assigned_object": None}
+           "custom_fields": {m.FIELD: nb_claims(claims)}, "assigned_object": None}
     if vm is not None:
         obj["assigned_object"] = {"virtual_machine": {"id": vm}}
     return obj
@@ -35,9 +40,10 @@ class Fake:
     """Azure's login, Key Vault (list, get, put) and NetBox's API, recording each write."""
 
     def __init__(self, vault, ips=(), ranges=(), prefixes=(), vms=None, field=True, choices=None,
-                 put_drops=False):
+                 put_drops=False, vm_list=(), devices=()):
         self.vault, self.writes, self.put_drops = dict(vault), [], put_drops
-        self.nb = {"ipam/ip-addresses": list(ips), "ipam/ip-ranges": list(ranges), "ipam/prefixes": list(prefixes)}
+        self.nb = {"ipam/ip-addresses": list(ips), "ipam/ip-ranges": list(ranges), "ipam/prefixes": list(prefixes),
+                   "virtualization/virtual-machines": list(vm_list), "dcim/devices": list(devices)}
         self.vms, self.field, self.choices = vms or {}, field, choices
 
     def http(self, method, url, headers=None, body=None, form=None, timeout=30):
@@ -61,9 +67,9 @@ class Fake:
             return 200, {"results": [{"name": m.FIELD, "choice_set": {"id": 1}}] if self.field else []}
         if path.startswith("extras/custom-field-choice-sets/"):
             return 200, {"extra_choices": [[c, c] for c in (self.choices or [])]}
-        if path.startswith("virtualization/virtual-machines/"):
-            vid = int(path.rstrip("/").rsplit("/", 1)[1])
-            return 200, {"id": vid, "status": {"value": self.vms[vid]}}
+        tail = path.split("/?")[0].rstrip("/").rsplit("/", 1)[-1]
+        if path.startswith("virtualization/virtual-machines/") and tail.isdigit():
+            return 200, {"id": int(tail), "status": {"value": self.vms[int(tail)]}}
         base = path.split("/?")[0]
         return 200, {"results": self.nb[base], "next": None}
 
@@ -113,7 +119,7 @@ def test_each_name_takes_its_one_usable_source_and_reports_agreement(monkeypatch
                 ips=[ip(7, "192.0.2.20/24", claims=["PIHOLE-ADDRESS"], vm=1),
                      ip(8, "192.0.2.30/24", dns="nas.lan.example", claims=["NAS-HOSTNAME"])],
                 ranges=[{"id": 3, "start_address": "198.51.100.200/24", "end_address": "198.51.100.220/24",
-                         "status": {"value": "active"}, "custom_fields": {m.FIELD: ["POOL"]}}],
+                         "status": {"value": "active"}, "custom_fields": {m.FIELD: nb_claims(["POOL"])}}],
                 vms={1: "active"}, choices=["PIHOLE-ADDRESS", "NAS-HOSTNAME", "POOL", "PIHOLE-URL"])
     facts = {"PIHOLE-ADDRESS": "{take: address}", "NAS-HOSTNAME": "{take: dns_name}", "POOL": "{take: range}",
              "PIHOLE-URL": '{template: "http://{PIHOLE-ADDRESS}/admin"}'}
@@ -243,7 +249,7 @@ def test_its_variable_group_gives_what_it_reads_beside_the_syncs_own():
 
 
 def prefix(id_, cidr, claims=(), status="active", vlan=None):
-    return {"id": id_, "prefix": cidr, "status": {"value": status}, "custom_fields": {m.FIELD: list(claims)},
+    return {"id": id_, "prefix": cidr, "status": {"value": status}, "custom_fields": {m.FIELD: nb_claims(claims)},
             "vlan": vlan}
 
 
@@ -319,3 +325,15 @@ def test_a_template_on_a_name_that_failed_never_falls_back_to_key_vault(monkeypa
 def test_what_collect_and_view_may_not_say(monkeypatch, tmp_path, capsys, facts, msg):
     rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), facts)
     assert rc == 2 and msg in out
+
+
+def test_a_node_name_comes_from_its_vm_and_only_while_the_vm_may_be_used(monkeypatch, tmp_path, capsys):
+    node = {"id": 9, "name": "worker-a", "status": {"value": "active"},
+            "custom_fields": {m.FIELD: nb_claims(["WORKER-NODE-4"])}}
+    fake = Fake({"WORKER-NODE-4": "worker-old"}, vm_list=[node], choices=["WORKER-NODE-4"])
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"WORKER-NODE-4": "{take: name}"}, ["--write"], {**ENV, **WRITER})
+    assert rc == 0 and fake.vault["WORKER-NODE-4"] == "worker-a" and "worker-a" not in out
+    node["status"] = {"value": "decommissioning"}
+    fake.vault["WORKER-NODE-4"] = "worker-old"
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"WORKER-NODE-4": "{take: name}"}, ["--write"], {**ENV, **WRITER})
+    assert "VM #9: it is decommissioning, so it's left alone" in out and fake.vault["WORKER-NODE-4"] == "worker-old"
