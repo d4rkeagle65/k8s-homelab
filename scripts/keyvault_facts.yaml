@@ -1,5 +1,5 @@
 # What each Key Vault secret takes from the NetBox object that claims it in its custom field
-# keyvault_secrets, for scripts/keyvault_facts.py (QUEUE-site-facts.md, stage 3):
+# keyvault_secrets, for scripts/keyvault_facts.py (scripts/README.md, "A new value from NetBox"):
 #   {take: address}    an IP address's host part
 #   {take: cidr}       an IP address, or a prefix, with its mask
 #   {take: dns_name}   an IP address's DNS name

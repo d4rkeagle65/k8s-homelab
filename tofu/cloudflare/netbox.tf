@@ -1,4 +1,4 @@
-# Every record this module owns, read from NetBox at every plan (QUEUE-site-facts.md): the
+# Every record this module owns, read from NetBox at every plan (tofu/README.md): the
 # active zones tagged cloudflare outside NetBox DNS's default view (the public view, whose
 # zones share names with the local ones), each zone's Cloudflare ID in its custom field
 # cloudflare_zone_id, and their active records that NetBox DNS doesn't manage itself (it

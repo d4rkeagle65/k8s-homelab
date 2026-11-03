@@ -1,5 +1,5 @@
 """Write the site's facts NetBox holds into Key Vault: Semaphore's "Sync: NetBox → Key Vault
-(script)" (QUEUE-site-facts.md, stage 3).
+(script)" (scripts/README.md, "A new value from NetBox").
 
 A NetBox IP address, IP range, prefix, device, VM or NetBox DNS record says which Key Vault
 secrets it feeds in its custom field `keyvault_secrets` (a multiple selection), so no host name
