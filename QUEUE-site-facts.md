@@ -119,11 +119,10 @@ cluster, and three JSON strings bundle values that are their own facts.
         then `TF_VAR_dns` leaves its group, and `TOFU-CLOUDFLARE-TF-VAR-DNS` Key Vault.
     - [ ] Then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
       entry equals the Management prefix, #1).
-    - [ ] `DEBIAN-ADMIN-SSH-KEYS` held the owner's key without its comment; nothing derives it now:
-      the Debian Host Baseline group builds `admin_ssh_keys` from `OWNER-SSH-PUBLIC-KEY` (a template
-      with `json: true`, this PR). After merge: a Key Vault sync run (template 38, `SYNC_SECRETS`
-      `OWNER-SSH-PUBLIC-KEY`), then the owner deletes `DEBIAN-ADMIN-SSH-KEYS`. The next Debian admins
-      or baseline run rewrites each host's `authorized_keys` line once, the comment added.
+    - [x] `DEBIAN-ADMIN-SSH-KEYS` (#546): the Debian Host Baseline group builds `admin_ssh_keys` from
+      `OWNER-SSH-PUBLIC-KEY` (a template with `json: true`; task 1546 rebuilt it); the old copy is
+      deleted. The next Debian admins or baseline run rewrites each `authorized_keys` line once,
+      the key's comment added.
     - [ ] #545 live: ExternalDNS's NetBox pod runs it ("All records are already up to date"); the
       owner checks in Dockhand that netbox-dns-sync was rebuilt and its round is clean.
   - [x] Fingerprints (#535): a run lists Key Vault once and reads a value only where the keyed
