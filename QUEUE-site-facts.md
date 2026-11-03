@@ -76,7 +76,8 @@ cluster, and three JSON strings bundle values that are their own facts.
     tagged and read back; 34 names mapped (#532, #533, and this PR: the Synology's FQDN and
     production address from its DNS record, the Proxmox API host's FQDN, the four worker nodes'
     names, from task 1522's `--find`). Left:
-    - a plain run on template 41 (arguments overridden to none) agreeing for every name;
+    - [x] a check run on template 41 agreeing for every name (task 1532: all 34, none yet by
+      fingerprint, since nothing is tagged until the first write);
     - after the next NetBox sync (template "Netbox Sync"), the four worker VMs still claim their
       names: the sync writes their `vmid` custom field, and a sync that replaced the whole
       custom-field set would drop the claims;
@@ -99,9 +100,12 @@ cluster, and three JSON strings bundle values that are their own facts.
     exists each value is read, as now.
   - [ ] The survey (this PR): `FACTS_MODE` (`check`, `find`, `full`, `roles`, `write`,
     `write-full`), an argument `FACTS_MODE=value` or an environment variable, in place of the flags.
-    Left, the owner's: on template 41 a survey variable `FACTS_MODE` (Enum: `check` default,
-    `find`, `full`, `roles`; never `write`) and its Arguments cleared.
-  - [ ] Step 5, the writer: the owner makes the service principal and its role assignments (`roles`
+    Template 41 ("(read)") has it, no arguments, groups 14 and 16 only.
+  - [ ] Step 5, the writer. The owner made template 42 ("Sync: NetBox → Key Vault (write)", groups
+    14, 16 and 17) and group 17 ("Key Vault Facts Writer", holding `FACTS_AZURE_CLIENT_ID` and
+    `FACTS_AZURE_CLIENT_SECRET` as secrets, typed into Semaphore). Left on 42: its survey's default
+    `write` (it's `check`, so a scheduled run would only check) and CLI override off. Then: the
+    owner makes the service principal and its role assignments (`roles`
     prints them: Key Vault Secrets Officer on each mapped secret, never the vault) and puts its
     client ID and secret in Key Vault; then I declare the group "Key Vault Facts Writer"
     (`FACTS_AZURE_CLIENT_ID`, `FACTS_AZURE_CLIENT_SECRET`) in `semaphore_variable_groups.yaml`, not
