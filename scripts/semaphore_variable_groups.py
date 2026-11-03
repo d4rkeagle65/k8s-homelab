@@ -1,5 +1,5 @@
 """Make Semaphore's variable groups from Key Vault: Semaphore's "Sync: Key Vault → Semaphore
-(script)" (QUEUE-semaphore-variables.md).
+(script)".
 
 semaphore_variable_groups.yaml declares each group: its extra variables and environment
 variables, each from Key Vault (a secret), a template of Key Vault values, or a plain value.
@@ -15,8 +15,8 @@ Then it compares, in memory, every Key Vault secret the config names and those i
 list adds, and reports by name which hold the same value, which contain another's (a
 connection string holding a password), and, for a variable with `candidates:` (templates),
 which candidate gives exactly its value: so a value several groups hold under their own names
-can move to one, and a URL to a template, on evidence (QUEUE-semaphore-variables.md). No value
-is printed.
+can move to one, and a URL to a template, on evidence (the names: scripts/README.md's "Add or
+change a substitution variable"). No value is printed.
 
 A group with any value Key Vault didn't give (missing, or the read failed) isn't written, and
 the run fails naming it: a failed read is not an empty value. "Key Vault Sync", the group this
