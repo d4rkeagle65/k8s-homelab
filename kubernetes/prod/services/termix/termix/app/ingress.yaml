@@ -1,6 +1,6 @@
 # Termix's route: private networks only (LAN, cluster, tailnet; never the Cloudflare
 # tunnel), behind Authentik's forward-auth gate (Termix Admins: the termix.yaml
-# blueprint), then Termix's own Authentik login.
+# blueprint), then Termix's own login.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -49,6 +49,39 @@ spec:
   - host: termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
     http:
       paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: termix
+            port:
+              number: 8080
+---
+# Termix through the Cloudflare tunnel (QUEUE-termix-remote.md): a name of its own, on
+# web, where the tunnel arrives (Termix's own name redirects web to websecure, which
+# would loop). Only the sources NetBox tags termix-remote, then Authentik's gate for
+# this name (the termix.yaml blueprint's remote gate), then Termix's own login. With a
+# middleware missing, Traefik refuses the route rather than serve it open.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: termix-remote
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_termix-remote@kubernetescrd,traefik_authentik@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: termix-remote${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /outpost.goauthentik.io
+        pathType: Prefix
+        backend:
+          service:
+            name: authentik-outpost
+            port:
+              number: 9000
       - path: /
         pathType: Prefix
         backend:
