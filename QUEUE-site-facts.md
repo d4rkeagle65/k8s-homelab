@@ -108,13 +108,11 @@ cluster, and three JSON strings bundle values that are their own facts.
       else; plan 1551 and 1553: no changes. `TF_VAR_dns` and `TOFU-CLOUDFLARE-TF-VAR-DNS` are gone. A
       public zone's nameservers, SOA primary and contact are Cloudflare's (`dns.cloudflare.com`):
       copied from a local zone, NetBox DNS made NS and SOA records naming the Pi-holes.
-    - [ ] Tailscale (#549, this PR): `TAILSCALE-ROUTES` the view `tailscale_routes` (the prefixes
+    - [x] Tailscale (#549, #550): `TAILSCALE-ROUTES` the view `tailscale_routes` (the prefixes
       tagged `tailscale-route-home`, the tag tofu/tailscale's policy approves), `TAILSCALE-TAGS` in
-      docker/tailscale's compose.yaml, `TAILSCALE-HOSTNAME` the name of the VM the router runs on
-      (VM #4 claims it, the owner's choice). The first write renames the node in the tailnet, and
-      its MagicDNS name, at the router's next deploy after that write (Dockhand resolves `azurekv://`
-      values at deploy, and containerboot reapplies TS_HOSTNAME and TS_ROUTES at start). Left, the owner's: delete `TAILSCALE-TAGS`; `keyvault-secrets.ps1
-      -FactsWriter -Apply` before the next write.
+      docker/tailscale's compose.yaml (the secret deleted), `TAILSCALE-HOSTNAME` Docker VM 1's
+      NetBox name (VM #4 claims it). Redeployed 2026-11-03: the router reports the VM's name, online,
+      its home routes and exit node enabled (the exporter's metrics).
     - [ ] `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one entry equals the Management prefix, #1).
     - [x] `DEBIAN-ADMIN-SSH-KEYS` (#546): the Debian Host Baseline group builds `admin_ssh_keys` from
       `OWNER-SSH-PUBLIC-KEY` (a template with `json: true`; task 1546 rebuilt it); the old copy is
