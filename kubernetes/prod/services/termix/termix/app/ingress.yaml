@@ -1,6 +1,6 @@
 # Termix's route: private networks only (LAN, cluster, tailnet; never the Cloudflare
 # tunnel), behind Authentik's forward-auth gate (Termix Admins: the termix.yaml
-# blueprint), then Termix's own login.
+# blueprint), then Termix's own Authentik login.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -60,7 +60,8 @@ spec:
 # Termix through the Cloudflare tunnel (QUEUE-termix-remote.md): a name of its own, on
 # web, where the tunnel arrives (Termix's own name redirects web to websecure, which
 # would loop). Only the sources NetBox tags termix-remote, then Authentik's gate for
-# this name (the termix.yaml blueprint's remote gate), then Termix's own login. With a
+# this name (the termix.yaml blueprint's remote gate), then Termix's own Authentik login
+# (its OIDC provider allows this name's callback too). With a
 # middleware missing, Traefik refuses the route rather than serve it open.
 apiVersion: networking.k8s.io/v1
 kind: Ingress

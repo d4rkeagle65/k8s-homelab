@@ -30,8 +30,7 @@ Kubernetes Ingress rather than a Cloudflare Access application.
 - **Authentik's gate is per name** (`termix.yaml` blueprint: `forward_single` for Termix's own
   name), so the remote name gets a provider and application of its own, bound to Termix Admins
   and on the outpost's list. Termix's OIDC provider accepts one callback; the remote name adds its
-  own, and Termix must send it: whether Termix's SSO settings fix one callback URL is the owner's to
-  read (if they do, the remote route signs in with a Termix local account instead).
+  own: Termix builds it from the name it's reached on (seen in Authentik's log).
 
 ## Steps
 
@@ -47,10 +46,12 @@ Kubernetes Ingress rather than a Cloudflare Access application.
       `X-Forwarded-For` naming the office; Termix's own name still redirects on 80 and reaches
       Authentik's login on 443. The owner saw "Termix (remote gate)" and the outpost's list in
       Authentik; the outpost loaded its 5 providers at 19:46:53.
-- [ ] 4. PR (this one): the tunnel Ingress for `termix-remote.${BASE_DOMAIN}` (traefik's
-      `ingress-cloudflare-tunnel.yaml`). After merge: the tunnel controller makes the public name;
-      from here, through Cloudflare, 403 (mine); the owner, from the office, reaches Authentik's
-      login, then Termix's.
+- [x] 4. The tunnel Ingress (#557) for `termix-remote.${BASE_DOMAIN}` (traefik's
+      `ingress-cloudflare-tunnel.yaml`). From the office the owner passed the address check and
+      Authentik's gate.
+- [ ] 5. PR (this one): Termix signs in through Authentik's OIDC after all, building its callback
+      from the name it was reached on, so its provider allows termix-remote's callback too. After
+      merge: the owner signs in from the office; from here, through Cloudflare, 403 (mine).
 
 ## Resume
 
