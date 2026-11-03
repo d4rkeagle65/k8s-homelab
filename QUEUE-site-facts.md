@@ -82,7 +82,10 @@ cluster, and three JSON strings bundle values that are their own facts.
   - [ ] Step 4: the JSON variables as views, one per PR, each until its plain run agrees. First
     (this PR) `--find` reports each JSON variable's leaves by path: which NetBox form (or a
     prefix's network address or first three octets) or other Key Vault secret each equals, and
-    the paths that match nothing; a view is written from that, never from the value. Then:
+    the paths that match nothing; a view is written from that, never from the value (#541). A
+    JSON key is printed only when it's a plain name, otherwise by position (this PR): task 1542's
+    log carries two Cloudflare zone keys, which are domains, so the owner deletes that task in
+    Semaphore. Then:
     `TOFU-PROXMOX-TF-VAR-SITE` (networks from prefixes by VLAN, `netbox_seed.yaml`'s bridge
     list; its SSH keys their own secrets), `PIHOLE-SETTINGS` (dnsmasq lines from NetBox DNS's
     zones), `TOFU-CLOUDFLARE-TF-VAR-DNS` (Cloudflare's records as NetBox DNS records tagged for

@@ -513,3 +513,14 @@ def test_find_reports_where_each_leaf_of_a_json_variable_comes_from(monkeypatch,
     assert "match nothing: vm_login.user, zone" in out
     for v in ("192.0.2", "<the-user>", "<a-key>", "lan.example"):
         assert v not in out, v
+
+
+def test_a_json_key_that_could_be_data_is_never_printed(monkeypatch, tmp_path, capsys):
+    import json as j
+    dns = {"zones": {"lan.example": "<zone-id>", "192.0.2.1": "x"}, "records": {"r01": {"name": "www"}}}
+    fake = Fake({"DNS": j.dumps(dns)})
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {}, ["--find"])
+    assert "zones.<key 1>" in out and "zones.<key 2>" in out and "records.r01.name" in out
+    assert "lan.example" not in out and "192.0.2.1" not in out
+    # The plain run's JSON difference too.
+    assert m.paths({"zones": {"lan.example": 1}}, {"zones": {}}) == ["zones.<key 1> (only in NetBox's)"]
