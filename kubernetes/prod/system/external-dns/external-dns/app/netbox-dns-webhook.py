@@ -12,7 +12,9 @@ Ownership: a record this provider writes carries OWNER_MARK as its description;
 only those are listed, changed or deleted. A hand-made record of the same name
 and type is never touched: the change is skipped and logged. A record goes in
 the NetBox DNS zone whose name is the longest suffix of the hostname; with no
-such zone it's skipped and logged (zones are made by hand in NetBox).
+such zone it's skipped and logged (zones are made by hand in NetBox). Only NetBox
+DNS's default view counts, zones and records alike: another view (the public one,
+whose zones share these names) is never read or written.
 
 A failed read of NetBox answers 500, never an empty list: ExternalDNS would read
 an empty answer as "nothing exists" and create everything again.
@@ -72,6 +74,17 @@ class NetBox:
             nxt = page.get("next")
             url = nxt.split("/api/plugins/netbox-dns/", 1)[1] if nxt else None
         return out
+
+
+def local_view(zones: list[dict], records: list[dict]) -> tuple[list, list]:
+    """The zones in NetBox DNS's default view (each zone says, in its view) and the records
+    in them; NetBoxError when zones exist but none is in it, rather than guess."""
+    local = [z for z in zones if (z.get("view") or {}).get("default_view") is True]
+    if zones and not local:
+        raise NetBoxError("no NetBox DNS zone is in the default view")
+    zones = local
+    ids = {z["id"] for z in zones}
+    return zones, [r for r in records if (r.get("zone") or {}).get("id") in ids]
 
 
 def zone_for(fqdn: str, zones: list[dict]) -> dict | None:
@@ -180,8 +193,7 @@ class Handler(BaseHTTPRequestHandler):
             self.answer(200, {"include": self.domains})
         elif self.path == "/records":
             try:
-                zones = self.netbox.all("zones/")
-                records = self.netbox.all("records/")
+                zones, records = local_view(self.netbox.all("zones/"), self.netbox.all("records/"))
             except NetBoxError as e:
                 log(f"listing records failed: {e}")
                 self.answer(500, {"error": str(e)})
@@ -199,8 +211,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             changes = self.body() or {}
-            zones = self.netbox.all("zones/")
-            records = self.netbox.all("records/")
+            zones, records = local_view(self.netbox.all("zones/"), self.netbox.all("records/"))
             creates, deletes, skipped = plan(changes, records, zones)
             if skipped != Handler.last_skipped:
                 sizes = {k: len(v or []) for k, v in changes.items() if isinstance(v, list)}

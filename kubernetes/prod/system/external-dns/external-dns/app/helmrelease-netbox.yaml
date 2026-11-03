@@ -48,7 +48,7 @@ spec:
     # The webhook script's checksum (its first 12 hex digits), so a change to it
     # rolls the pod; test_netbox_dns_webhook.py checks it matches.
     podAnnotations:
-      homelab.local/webhook-sha256: "2104f8631fad"
+      homelab.local/webhook-sha256: "5da442c66e6c"
     # The webhook is a native sidecar (initContainers below), not the chart's
     # provider.webhook container: Kubernetes starts ExternalDNS only once its
     # startup probe passes, where the chart's runs beside it and ExternalDNS

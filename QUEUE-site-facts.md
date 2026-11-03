@@ -94,17 +94,32 @@ cluster, and three JSON strings bundle values that are their own facts.
     - [ ] The nodes' search domain: `NODE-SEARCH-DOMAIN` keeps a name from a restructure that didn't
       happen; whether the nodes and Docker VMs should search the Production zone instead is the
       owner's call (it changes every node at the next OpenTofu apply).
-    - [ ] `PIHOLE-SETTINGS` (this PR): the view `pihole_settings`, a `local=/<zone>/` line for each
+    - [ ] `PIHOLE-SETTINGS` (#544; task 1544: differs only in the lines' order, as expected): the
+      view `pihole_settings`, a `local=/<zone>/` line for each
       active NetBox DNS zone tagged `pihole-local` (#7, #8, #9, and the DMZ's and work laptops'
       #12 and #13, made for it, unlinked from their prefixes, since a prefix's `dns_zone` makes the
       NetBox sync name every address in it), sorted by name, then `filter-rr=HTTPS` and the NTP
       switches, which are configuration (in the view). The same lines as Key Vault's, in another
       order, so its first write is followed, at the next Pi-hole setting run, by one set and FTL
       restart per Pi-hole. Before that write: `keyvault-secrets.ps1 -FactsWriter -Apply` (39 names).
-    - [ ] `TOFU-CLOUDFLARE-TF-VAR-DNS`
-      (Cloudflare's records as NetBox DNS records tagged for it, the record IDs in a custom field),
-      then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
-      entry equals prefix #1) and `DEBIAN-ADMIN-SSH-KEYS` (no Key Vault secret holds its key).
+    - [ ] Cloudflare's records from NetBox, the owner's ask (2026-11-03): no Key Vault value at all;
+      `tofu/cloudflare` reads NetBox at plan time, as `tofu/tailscale` does. The public records share
+      names with private ones (the public `babybuddy` CNAME beside its private A record), so they go
+      in a NetBox DNS view of their own, `public`, its copies of the two zones tagged `cloudflare`.
+      - [ ] 1 (this PR): what reads NetBox DNS keeps to the default view, each zone saying so in
+        its nested view: netbox-dns-sync (else public answers reach the Pi-holes) and ExternalDNS's
+        webhook (else an Ingress's private A record could land in a public zone, and OpenTofu would
+        publish it). Every zone is in the default view today, so neither changes yet. After merge:
+        Dockhand redeploys netbox-dns-sync, Flux rolls ExternalDNS; check both run clean.
+      - [ ] 2 (mine, NetBox's API, from Key Vault's value): the `public` view, its two zones
+        (tagged `cloudflare`, a custom field for the Cloudflare zone ID), a `cloudflare_proxied`
+        field on records, the 29 records. Not before 1 is live.
+      - [ ] 3: `tofu/cloudflare` builds its records from NetBox (keyed by NetBox record ID, with
+        `moved` blocks from `r01`… so no record is recreated); a plan (mine) shows only the moves;
+        then `TF_VAR_dns` leaves its group, and `TOFU-CLOUDFLARE-TF-VAR-DNS` Key Vault.
+    - [ ] Then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
+      entry equals the Management prefix, #1); `DEBIAN-ADMIN-SSH-KEYS` (no Key Vault secret holds
+      its key: whose it is, asked of the owner).
   - [x] Fingerprints (#535): a run lists Key Vault once and reads a value only where the keyed
     fingerprint tag (`keyvault-facts`, an HMAC with `KEYVAULT-FACTS-FINGERPRINT-KEY`) on its current
     version doesn't match NetBox's value; `--write` tags what it sets and an agreeing value it finds

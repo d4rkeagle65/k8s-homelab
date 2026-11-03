@@ -30,7 +30,8 @@ def load():
 
 m = load()
 
-ZONES = [{"id": 1, "name": "example.net"}, {"id": 2, "name": "lab.example.net"}]
+LOCAL = {"id": 1, "default_view": True}
+ZONES = [{"id": 1, "name": "example.net", "view": LOCAL}, {"id": 2, "name": "lab.example.net", "view": LOCAL}]
 
 
 def rec(rid, name, zone, value, rtype="A", owner=True):
@@ -165,3 +166,16 @@ def test_the_same_changes_in_another_order_skip_the_same_list():
     eps = [ep("a.example.org", "192.0.2.1"), ep("b.example.org", "192.0.2.2"), ep("c.example.org", "192.0.2.3")]
     first = m.plan({"Create": eps}, [], ZONES)[2]
     assert first == m.plan({"Create": eps[::-1]}, [], ZONES)[2] and len(first) == 3
+
+
+def test_only_the_default_views_zones_and_records_are_read_or_written():
+    """A public zone of the same name is never chosen for a record, nor its records counted."""
+    zones = ZONES + [{"id": 9, "name": "example.net", "view": {"id": 2, "default_view": False}}]
+    public = {"id": 90, "name": "app", "zone": {"id": 9, "name": "example.net"}, "type": "A", "value": "198.51.100.1",
+              "ttl": None, "description": "", "fqdn": "app.example.net."}
+    kept, records = m.local_view(zones, [rec(1, "app", 1, "192.0.2.10"), public])
+    assert [z["id"] for z in kept] == [1, 2] and [r["id"] for r in records] == [1]
+    creates, _, _ = m.plan({"Create": [ep("new.example.net", "192.0.2.50")]}, records, kept)
+    assert creates[0]["zone"] == 1
+    with pytest.raises(m.NetBoxError):
+        m.local_view([zones[-1]], [])
