@@ -90,6 +90,11 @@ cluster would get the plain value where base64 belongs, so its template entry
 comes first. -New, which adds a secret, runs only with -Raw (scripts/README.md's
 "A new private value").
 
+NAME -FromNetBox is for a secret whose value comes from NetBox: for a name keyvault_facts.yaml
+maps, it creates the secret if Key Vault lacks it (a placeholder, marked as from NetBox, which the
+facts sync's next write replaces) and gives the writer its role, as -FactsWriter -Apply does. It
+refuses a name the map doesn't list, which is also what a stale checkout looks like: git pull.
+
 -FactsWriter reports which of scripts/keyvault_facts.yaml's secrets its writer (the map's
 writer:) lacks "Key Vault Secrets Officer" on, and -FactsWriter -Apply gives it them and reads
 the assignments back; one on a name the map no longer lists, or on the whole vault, is
@@ -159,6 +164,11 @@ Adds the secrets a new vault lacks from that file, after a dry run without -Appl
 Opens an export in a searchable window (Windows), with no vault or cluster.
 
 .EXAMPLE
+./scripts/keyvault-secrets.ps1 TERMIX-REMOTE-SOURCES -FromNetBox
+Creates the secret a newly mapped name needs and lets the facts sync's writer set it; the next
+write run fills it from NetBox.
+
+.EXAMPLE
 ./scripts/keyvault-secrets.ps1 -FactsWriter -Apply
 Gives the facts sync's writer Key Vault Secrets Officer on each secret keyvault_facts.yaml maps
 that it lacks, after a run without -Apply that reports them.
@@ -207,7 +217,10 @@ param(
     [string]$Read,
     # Report which of scripts/keyvault_facts.yaml's secrets its writer lacks Key Vault Secrets
     # Officer on; with -Apply, give it them. Never removes one.
-    [switch]$FactsWriter
+    [switch]$FactsWriter,
+    # For a name keyvault_facts.yaml maps: create its secret if Key Vault lacks it (a placeholder
+    # the facts sync's next write replaces from NetBox) and give the writer its role, at once.
+    [switch]$FromNetBox
 )
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [Text.UTF8Encoding]::new($false)
@@ -240,6 +253,11 @@ if ($Read) {
 if ($FactsWriter) {
     $others = @($PSBoundParameters.Keys | Where-Object { $_ -notin 'FactsWriter', 'Apply', 'Vault' -and $_ -notin [Management.Automation.PSCmdlet]::CommonParameters })
     if ($others) { throw "-FactsWriter takes only -Apply (and -Vault): leave out -$($others -join ', -')." }
+}
+if ($FromNetBox) {
+    $others = @($PSBoundParameters.Keys | Where-Object { $_ -notin 'FromNetBox', 'Name', 'Vault' -and $_ -notin [Management.Automation.PSCmdlet]::CommonParameters })
+    if ($others) { throw "-FromNetBox takes only a name (and -Vault): its value comes from NetBox. Leave out -$($others -join ', -')." }
+    if (-not $Name) { throw '-FromNetBox needs the name of a secret keyvault_facts.yaml maps.' }
 }
 if ($Apply -and -not ($Import -or $FactsWriter)) { throw '-Apply goes with -Import or -FactsWriter.' }
 if ($Overwrite -and -not $Import) { throw '-Overwrite goes with -Import.' }
@@ -618,13 +636,36 @@ function Resolve-ExportPath([string]$given) {
 # --names gives it and the writer's name. Without -Apply it only reports; with it, it adds what's
 # missing and reads the assignments back. One the writer holds on a name the map no longer
 # lists, or on the whole vault, is reported with the command that removes it, never removed here.
-if ($FactsWriter) {
+if ($FactsWriter -or $FromNetBox) {
     if (-not (Get-Command az -ErrorAction SilentlyContinue)) { throw "The Azure CLI (az) isn't on PATH." }
     $python = @('python', 'python3', 'py') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
     if (-not $python) { throw "Python isn't on PATH: -FactsWriter reads the map through scripts/keyvault_facts.py." }
     $out = & $python (Join-Path $PSScriptRoot 'keyvault_facts.py') --names
     if ($LASTEXITCODE -ne 0) { throw "keyvault_facts.py --names failed: $($out -join ' ')" }
     $map = ($out -join "`n") | ConvertFrom-Json
+    if ($FromNetBox) {
+        # A Key Vault name, given with '_' or '-'.
+        $secretName = $Name -replace '_', '-'
+        if ($secretName -notin $map.names) {
+            throw "$secretName isn't in scripts/keyvault_facts.yaml: map it there first (a merged pull request), and git pull."
+        }
+        $vaultUrl = Get-VaultUrl
+        $token = Get-AccessToken
+        $current = Invoke-KeyVault GET (Get-SecretUrl $secretName) $null
+        if ($current.Status -eq 404) {
+            # Marked so the portal says where its value comes from; the next write replaces it.
+            $put = Invoke-KeyVault PUT (Get-SecretUrl $secretName) @{
+                value = '(not set yet: the facts sync writes it from NetBox)'; contentType = 'from NetBox (scripts/keyvault_facts.py)'
+                tags = @{ source = 'netbox' } }
+            if ($put.Status -eq 409) { throw "$secretName is deleted but not purged: -Recover it, or wait for its purge, then run this again." }
+            if ($put.Status -ne 200) { throw "Key Vault refused to create $secretName`: HTTP $($put.Status) $(Get-ErrorCode $put)" }
+            if ((Invoke-KeyVault GET (Get-SecretUrl $secretName) $null).Status -ne 200) { throw "$secretName isn't there after creating it." }
+            Write-Host "$secretName`: created, marked as from NetBox; the next write run on the facts sync sets its value."
+        }
+        elseif ($current.Status -eq 200 -or $current.Status -eq 403) { Write-Host "$secretName`: already in Key Vault, its value left as it is." }
+        else { throw "Key Vault refused to read $secretName`: HTTP $($current.Status) $(Get-ErrorCode $current)" }
+        $Apply = $true
+    }
     $vaultName = ([uri](Get-VaultUrl)).Host.Split('.')[0]
     $vaultId = az keyvault show -n $vaultName --query id -o tsv
     if ($LASTEXITCODE -ne 0 -or -not $vaultId) { throw "az keyvault show -n $vaultName failed: run az login first." }
