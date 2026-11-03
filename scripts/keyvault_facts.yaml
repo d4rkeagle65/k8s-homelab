@@ -42,6 +42,7 @@ facts:
   PIHOLE-1-URL: {template: "http://{PIHOLE-ADDRESS}"}
   PIHOLE-2-URL: {take: address, format: "http://{}"}
   PIHOLE-ADDRESS: {take: address}
+  PIHOLE-SETTINGS: {view: pihole_settings}
   PIHOLE1-MGMT-ADDRESS: {take: address}
   PIHOLE2-MGMT-ADDRESS: {take: address}
   PVE-API-HOST: {take: fqdn}

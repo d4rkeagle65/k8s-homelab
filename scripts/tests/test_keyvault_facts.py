@@ -559,3 +559,20 @@ def test_a_json_key_that_could_be_data_is_never_printed(monkeypatch, tmp_path, c
     assert "lan.example" not in out and "192.0.2.1" not in out
     # The plain run's JSON difference too.
     assert m.paths({"zones": {"lan.example": 1}}, {"zones": {}}) == ["zones.<key 1> (only in NetBox's)"]
+
+
+def test_the_pihole_view_answers_each_tagged_zone_locally_and_keeps_the_fixed_settings(monkeypatch, tmp_path, capsys):
+    import json as j
+    zone = lambda id_, name, tags=("pihole-local",), status="active": {"id": id_, "name": name + ".", "status": status,
+                                                                        "tags": [{"slug": t} for t in tags]}
+    fake = Fake({"PIHOLE-SETTINGS": "{}"})
+    fake.nb["plugins/netbox-dns/zones"] = [zone(1, "prod.example"), zone(2, "dmz.example"), zone(3, "public.example", tags=()),
+                                           zone(4, "old.example", status="deprecated")]
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-SETTINGS": "{view: pihole_settings}"}, ["--write"], {**ENV, **WRITER})
+    assert rc == 0, out
+    assert j.loads(fake.vault["PIHOLE-SETTINGS"]) == {
+        "misc.dnsmasq_lines": ["local=/dmz.example/", "local=/prod.example/", "filter-rr=HTTPS"],
+        "ntp.ipv4.active": False, "ntp.sync.active": False, "ntp.sync.rtc.set": False}
+    fake.nb["plugins/netbox-dns/zones"] = [zone(3, "public.example", tags=())]
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"PIHOLE-SETTINGS": "{view: pihole_settings}"})
+    assert rc == 1 and "no active NetBox DNS zone is tagged pihole-local" in out
