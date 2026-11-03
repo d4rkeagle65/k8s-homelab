@@ -94,7 +94,14 @@ cluster, and three JSON strings bundle values that are their own facts.
     - [ ] The nodes' search domain: `NODE-SEARCH-DOMAIN` keeps a name from a restructure that didn't
       happen; whether the nodes and Docker VMs should search the Production zone instead is the
       owner's call (it changes every node at the next OpenTofu apply).
-    - [ ] `PIHOLE-SETTINGS` (its dnsmasq lines from NetBox DNS's zones), `TOFU-CLOUDFLARE-TF-VAR-DNS`
+    - [ ] `PIHOLE-SETTINGS` (this PR): the view `pihole_settings`, a `local=/<zone>/` line for each
+      active NetBox DNS zone tagged `pihole-local` (#7, #8, #9, and the DMZ's and work laptops'
+      #12 and #13, made for it, unlinked from their prefixes, since a prefix's `dns_zone` makes the
+      NetBox sync name every address in it), sorted by name, then `filter-rr=HTTPS` and the NTP
+      switches, which are configuration (in the view). The same lines as Key Vault's, in another
+      order, so its first write is followed, at the next Pi-hole setting run, by one set and FTL
+      restart per Pi-hole. Before that write: `keyvault-secrets.ps1 -FactsWriter -Apply` (39 names).
+    - [ ] `TOFU-CLOUDFLARE-TF-VAR-DNS`
       (Cloudflare's records as NetBox DNS records tagged for it, the record IDs in a custom field),
       then Tailscale's routes, host name and tags; `PROXMOX-SETTINGS-NTP-SERVE-NETWORKS` (its one
       entry equals prefix #1) and `DEBIAN-ADMIN-SSH-KEYS` (no Key Vault secret holds its key).
