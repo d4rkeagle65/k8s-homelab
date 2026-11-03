@@ -298,6 +298,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
+- **YAML the hygiene scans can't parse is skipped without a word**
+  (`scripts/tests/test_secrets_hygiene.py`, each scan's `except Exception: continue`): three
+  tracked files hold tags the safe loader refuses (Home Assistant's `configuration.yaml`,
+  configarr's `config.yml`, `devices/door-bt-proxy/door-bt-proxy.yaml`), so the Secret,
+  entropy, env-var and public-IP scans never read them. The text scans (credential patterns,
+  identifying data, the hook's shapes) still do. Left as is, a value in one of them gets past
+  those four scans. The fix: load them with the unknown tags as plain values, or fail on an
+  unparseable file outside a named list.
+
 - **The removed Config Diff plugin's leftovers in NetBox's database** (found 2026-10-28, Run
   Command task 1407): its four object types (`netbox_config_diff.*`, pks 197-200) are still
   there, and likely its tables and migration records. The owner's, on the host, after a backup;
