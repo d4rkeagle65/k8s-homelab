@@ -366,6 +366,30 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Later
 
+- **Script logic no test checks** (a mutation sweep, 2026-11-03: each function's body
+  replaced by `return None`, the pytest files reaching it run; 139 of 595 stayed green).
+  Most survivors are boundaries the tests replace with fakes, HTTP handlers, loops and
+  `main()`. The logic among them, worst first; left, a regression in any of these passes the
+  commit gate:
+  - `talos/gen-config.py`: `site_patch`, `etcd_patch`, `encryption_patch` (the providers'
+    order), `check_issuer`, `node_network`: a wrong Talos patch is generated silently.
+  - `scripts/netbox_seed.py`: `ensure`, `delete`, `set_ref` (its writes and read-backs),
+    `kea_networks`, `node_interfaces`, `differ`, `with_len`, `primary_of`, `own_iot_devices`.
+  - `kubernetes/prod/services/organizr/organizr/app/sync/organizr-sync.py`: `apply_settings`,
+    `apply_list`, `differs`, `first_run`, `resolve`, `is_secret`.
+  - `scripts/k8s_backup/flux.py`'s `helm_release`, `helm_repository`, `oci_repository`,
+    `root_cluster_kustomization`, `cluster_resources_kustomization`, and `generate.py`'s
+    `_generate_repository_kustomization`: generate's own tests don't read what they write;
+    only `test_structure.py` does, once the output is committed.
+  - Smaller: `limitrange_jobs.py` `peaks` and `hook_jobs`; `docker/kea/ha_exporter.py`
+    `collect`; `filetracker.py` `_prune_empty_dirs`; `varsub.py` `load_settings`;
+    `keyvault_facts.py` `choices`; `semaphore_variable_groups.py` `put`; `cli.py`
+    `_activate_pre_commit_hook`; `secretscan.py`'s IP purposes (`classify_ip_purpose`,
+    `build_ip_context`, `_ip_in_metallb_range`).
+  - No pytest test at all, 19 scripts, the largest `docker/kea/tools/dnsmasq_to_kea.py`,
+    `rreading-glasses-repair.py`, `media-sync.py`, `grimmory-sync.py`,
+    `garage-backup-exporter.py` and `ansible/files/proxmox-backup-metrics.py`.
+
 - **Key Vault per app, with workload identity, so `cluster-secrets` can retire** (the owner,
   2026-10-24): today one service principal reads the whole vault, and the `azure-keyvault`
   store serves `flux-system` and namespaces labelled `homelab.local/keyvault: allowed`

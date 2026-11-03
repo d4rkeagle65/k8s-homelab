@@ -145,10 +145,16 @@ def find_high_entropy_strings(obj, path: str = "") -> list[tuple[str, str]]:
     return findings
 
 
+# An env var's value that holds no credential whatever its name says: empty, or a
+# switch (ALLOW_PASSWORD_LOGIN: "false").
+_NOT_A_CREDENTIAL = {"", "true", "false"}
+
+
 def _looks_like_env_var_list(val: list) -> bool:
-    return bool(val) and all(
-        isinstance(item, dict) and "name" in item and "value" in item for item in val
-    )
+    """A list of named entries: a container's env, whose items carry either a literal
+    value or a valueFrom. Each item's own check reads only a literal string value, so a
+    valueFrom item beside a literal one never hides it."""
+    return bool(val) and all(isinstance(item, dict) and "name" in item for item in val)
 
 
 def find_env_var_credentials(obj, path: str = "") -> list[tuple[str, str]]:
@@ -171,7 +177,7 @@ def find_env_var_credentials(obj, path: str = "") -> list[tuple[str, str]]:
                         and SUSPICIOUS_KEY_RE.search(name)
                         and not _is_safe_key(name)
                         and isinstance(value, str)
-                        and value.strip() != ""
+                        and value.strip().lower() not in _NOT_A_CREDENTIAL
                     ):
                         findings.append((f"{child_path}[{i}].value", value))
             findings.extend(find_env_var_credentials(val, child_path))
@@ -420,7 +426,7 @@ def _redact_env_var_credentials(obj, path, redactions: list[Redaction]) -> None:
                         and SUSPICIOUS_KEY_RE.search(name)
                         and not _is_safe_key(name)
                         and isinstance(value, str)
-                        and value.strip() != ""
+                        and value.strip().lower() not in _NOT_A_CREDENTIAL
                         and value != REDACTION_PLACEHOLDER
                     ):
                         item["value"] = REDACTION_PLACEHOLDER
