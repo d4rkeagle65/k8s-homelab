@@ -28,7 +28,7 @@
             {
               "id": "cf2d7ce3-954b-4c00-a788-d6c2d41d7861",
               "name": "close",
-              "value": false,
+              "value": true,
               "type": "boolean"
             }
           ]
