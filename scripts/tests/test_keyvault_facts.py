@@ -447,3 +447,26 @@ def test_full_goes_alone_or_with_write(args, ok):
     else:
         with pytest.raises(ValueError):
             m.parse_args(args)
+
+
+@pytest.mark.parametrize("choice, want", [("check", (None, False)), ("find", ("find", False)), ("full", (None, True)),
+                                          ("roles", ("roles", False)), ("write", ("write", False)),
+                                          ("write-full", ("write", True))])
+def test_facts_mode_names_each_choice_as_an_argument_or_in_the_environment(choice, want):
+    assert m.parse_args([f"FACTS_MODE={choice}"]) == want
+    assert m.parse_args([], {"FACTS_MODE": choice}) == want
+
+
+@pytest.mark.parametrize("argv, env", [(["FACTS_MODE=<other>"], None), (["FACTS_MODE=find", "--write"], None),
+                                       (["FACTS_MODE=find", "FACTS_MODE=write"], None),
+                                       (["--write"], {"FACTS_MODE": "find"}), ([], {"FACTS_MODE": "<other>"})])
+def test_facts_mode_goes_alone_and_names_only_a_known_choice(argv, env):
+    with pytest.raises(ValueError) as e:
+        m.parse_args(argv, env)
+    assert "<other>" not in str(e.value)
+
+
+def test_the_survey_argument_runs_its_mode_end_to_end(monkeypatch, tmp_path, capsys):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}), {"A": "{take: address}", "B": "{take: cidr}"},
+                 ["FACTS_MODE=roles"], env={})
+    assert rc == 0 and out.count("az role assignment") == 2

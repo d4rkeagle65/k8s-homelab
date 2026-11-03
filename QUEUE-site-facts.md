@@ -97,11 +97,19 @@ cluster, and three JSON strings bundle values that are their own facts.
     what changed, for the Key Vault sync's `--secrets`. Left, the owner's: the key
     (`keyvault-secrets.ps1 KEYVAULT-FACTS-FINGERPRINT-KEY -New -Raw -Generate 64`); until it
     exists each value is read, as now.
-  - [ ] Step 5: the owner makes the writer identity (`--roles` prints its assignments), its
-    credentials in a group of their own ("Key Vault Facts Writer") and a second template that runs
-    `--write` with it, on a schedule and before the jobs that read these values, then the Key Vault
-    sync with `--secrets` set to the run's "changed:" names; template 41, which may have its
-    arguments overridden, never gets the writer.
+  - [ ] The survey (this PR): `FACTS_MODE` (`check`, `find`, `full`, `roles`, `write`,
+    `write-full`), an argument `FACTS_MODE=value` or an environment variable, in place of the flags.
+    Left, the owner's: on template 41 a survey variable `FACTS_MODE` (Enum: `check` default,
+    `find`, `full`, `roles`; never `write`) and its Arguments cleared.
+  - [ ] Step 5, the writer: the owner makes the service principal and its role assignments (`roles`
+    prints them: Key Vault Secrets Officer on each mapped secret, never the vault) and puts its
+    client ID and secret in Key Vault; then I declare the group "Key Vault Facts Writer"
+    (`FACTS_AZURE_CLIENT_ID`, `FACTS_AZURE_CLIENT_SECRET`) in `semaphore_variable_groups.yaml`, not
+    before (a declared value missing from Key Vault fails the whole sync). Then the owner's template
+    "Sync: NetBox → Key Vault (write)": the three groups, no arguments, CLI override off, survey
+    `FACTS_MODE` (Enum: `write` default, `write-full`); on a schedule before the jobs that read
+    these values, then the Key Vault sync with `--secrets` set to the run's "changed:" names.
+    Template 41 never gets the writer group.
 
 ## Resume
 
