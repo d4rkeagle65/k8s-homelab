@@ -357,7 +357,7 @@ def _node_names(obj, path=""):
             yield from _node_names(value, f"{path}[{i}]")
 
 
-def test_node_names_are_placeholders(repo_root, all_yaml_files):
+def test_node_names_are_placeholders(repo_root, all_yaml_files, load_yaml_all):
     """Node names are hostnames, which stay out of this public repo. Unlike
     test_no_substitution_literal_leaks_outside_local this needs no local
     file, so it also runs in a fresh clone: every field that names a node
@@ -370,7 +370,7 @@ def test_node_names_are_placeholders(repo_root, all_yaml_files):
         if path.is_relative_to(local_root) or path in ignored:
             continue
         try:
-            docs = list(_yaml_all(path))
+            docs = load_yaml_all(path)
         except Exception:
             continue
         for doc in docs:
@@ -381,9 +381,3 @@ def test_node_names_are_placeholders(repo_root, all_yaml_files):
         "a node name is written out in a git-tracked file; use a ${VARIABLE} "
         f"placeholder instead (the value is not shown here): {offenders}"
     )
-
-
-def _yaml_all(path):
-    from ruamel.yaml import YAML
-
-    return YAML(typ="safe", pure=True).load_all(path.read_text(encoding="utf-8"))

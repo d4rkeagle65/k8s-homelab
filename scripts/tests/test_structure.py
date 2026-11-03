@@ -641,7 +641,7 @@ def _middleware_ref_problem(ref: str, defined: set[tuple[str, str]]) -> str | No
     return None if (namespace, name) in defined else "no such Middleware"
 
 
-def test_traefik_middleware_references_resolve(repo_root):
+def test_traefik_middleware_references_resolve(repo_root, load_yaml_all):
     """Traefik drops a router whose middleware it can't resolve, and that app then answers
     404 for every request. Each router.middlewares entry must name a Middleware defined in
     git, as <namespace>_<name>@kubernetescrd (Traefik's safe naming here).
@@ -661,7 +661,7 @@ def test_traefik_middleware_references_resolve(repo_root):
             continue
         parts = Path(rel).parts
         folder_ns = parts[3] if len(parts) > 3 and parts[1] == "prod" else ""
-        for doc in _yaml.load_all(text):
+        for doc in load_yaml_all(repo_root / rel):
             for node in _walk(doc):
                 if node.get("kind") == "Middleware" and str(node.get("apiVersion", "")).startswith("traefik."):
                     meta = node.get("metadata") or {}
@@ -688,16 +688,18 @@ def test_cluster_secrets_maps_each_variable_once(repo_root, load_yaml):
     assert not twice, f"mapped more than once in kubernetes/secrets/cluster-secrets.yaml: {twice}"
 
 
-def _variable_uses(text: str) -> tuple[set[str], set[str]]:
+def _variable_uses(text: str, docs: list | None = None) -> tuple[set[str], set[str]]:
     """(the ${VAR}s a Secret's data: reads, the ${VAR}s read anywhere else) in one YAML file,
     from its parsed documents: a comment naming one is no use, since kustomize drops it before
     Flux substitutes. A Secret nested in another object (a chart's values) counts too. A file
     that isn't plain YAML (an app's config a generator reads, with its own tags) is read as
-    text, every variable in it read elsewhere."""
-    try:
-        docs = list(_yaml.load_all(text))
-    except YAMLError:
-        return set(), set(_VARIABLE_RE.findall(text))
+    text, every variable in it read elsewhere. docs, when given, are the text's documents
+    already parsed (conftest's load_yaml_all)."""
+    if docs is None:
+        try:
+            docs = list(_yaml.load_all(text))
+        except YAMLError:
+            return set(), set(_VARIABLE_RE.findall(text))
     in_data: set[str] = set()
     elsewhere: set[str] = set()
 
@@ -718,7 +720,7 @@ def _variable_uses(text: str) -> tuple[set[str], set[str]]:
     return in_data, elsewhere
 
 
-def test_cluster_secrets_encodes_what_a_secrets_data_reads(repo_root, load_yaml):
+def test_cluster_secrets_encodes_what_a_secrets_data_reads(repo_root, load_yaml, load_yaml_all):
     """Key Vault holds every value plain, and a Secret's data: takes base64, so cluster-secrets'
     template encodes each variable a Secret's data: reads, as exactly {{ .NAME | b64enc }}.
     Without that entry the Secret gets the plain value where base64 belongs: the API server
@@ -744,7 +746,11 @@ def test_cluster_secrets_encodes_what_a_secrets_data_reads(repo_root, load_yaml)
         text = (repo_root / rel).read_text(encoding="utf-8")
         if "${" not in text:
             continue
-        data_vars, other_vars = _variable_uses(text)
+        try:
+            docs = load_yaml_all(repo_root / rel)
+        except YAMLError:
+            docs = None  # _variable_uses reads it as text, as it says
+        data_vars, other_vars = _variable_uses(text, docs)
         for name in data_vars:
             in_data.setdefault(name, set()).add(rel)
         for name in other_vars:

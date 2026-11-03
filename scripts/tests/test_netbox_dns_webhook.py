@@ -105,7 +105,8 @@ class FakeNetBox:
 @pytest.fixture
 def server():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), m.Handler)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    # shutdown() waits for serve_forever's next poll: 0.5 s by default, at every test.
+    threading.Thread(target=srv.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"
     srv.shutdown()
 
