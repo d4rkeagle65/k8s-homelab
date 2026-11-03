@@ -50,11 +50,10 @@ machine-learning:
           # Its memory is the face and search models it loads, far above its idle
           # use: 1918Mi at peak during the library import. 3Gi rather than the
           # rules' 2.5 x peak (4.7Gi), since more jobs reuse the loaded models.
-          # The requests are the import's: sized again once it's done.
           resources:
             requests:
-              cpu: 620m
-              memory: 2304Mi
+              cpu: 10m
+              memory: 1120Mi
             limits:
               cpu: 1000m
               memory: 3Gi
@@ -75,12 +74,12 @@ server:
           image:
             pullPolicy: IfNotPresent
             repository: ghcr.io/immich-app/immich-server
-          # It makes thumbnails and transcodes on upload, hence a whole core; 6Gi
-          # while the owner's library import runs (QUEUE-resource-limits.md).
+          # It makes thumbnails and transcodes on upload, hence a whole core. 6Gi:
+          # the library import peaked at 5.4Gi.
           resources:
             requests:
-              cpu: 30m
-              memory: 1376Mi
+              cpu: 940m
+              memory: 1760Mi
             limits:
               cpu: 1000m
               memory: 6Gi

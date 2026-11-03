@@ -136,11 +136,11 @@ spec:
           limits: {cpu: 500m, memory: 512Mi}
       railsserver:
         resources:
-          requests: {cpu: 100m, memory: 768Mi}
+          requests: {cpu: 20m, memory: 544Mi}
           limits: {cpu: 1000m, memory: 1536Mi}
       scheduler:
         resources:
-          requests: {cpu: 50m, memory: 672Mi}
+          requests: {cpu: 10m, memory: 544Mi}
           limits: {cpu: 1000m, memory: 1408Mi}
       websocket:
         resources:
@@ -223,5 +223,5 @@ spec:
               # The heap, about as much again off it (direct buffers, the JVM's
               # own): its resident memory reached 952Mi in 1Gi.
               resources:
-                requests: {cpu: 100m, memory: 1184Mi}
+                requests: {cpu: 30m, memory: 1216Mi}
                 limits: {cpu: 1000m, memory: 1536Mi}

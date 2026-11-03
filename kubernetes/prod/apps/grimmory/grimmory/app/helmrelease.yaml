@@ -67,7 +67,7 @@ spec:
             # defaults to a quarter of the memory limit, so the limit sizes the
             # heap too; the rest of its working set is the books' file cache.
             resources:
-              requests: {cpu: 100m, memory: 864Mi}
+              requests: {cpu: 30m, memory: 480Mi}
               limits: {cpu: 1000m, memory: 2Gi}
             probes:
               startup: &probe

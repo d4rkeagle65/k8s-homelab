@@ -102,7 +102,7 @@ spec:
             # Archiving a page starts Chromium, far above the idle use; a link
             # that fails that way is retried on every restart.
             resources:
-              requests: {cpu: 100m, memory: 960Mi}
+              requests: {cpu: 10m, memory: 576Mi}
               limits: {cpu: 1000m, memory: 3Gi}
     service:
       linkwarden:

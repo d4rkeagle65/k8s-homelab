@@ -123,7 +123,7 @@ spec:
             resources:
               requests:
                 cpu: 60m
-                memory: 672Mi
+                memory: 480Mi
               limits:
                 cpu: 500m
                 memory: 1408Mi
@@ -160,7 +160,7 @@ spec:
             # their idle use.
             resources:
               requests:
-                cpu: 10m
+                cpu: 80m
                 memory: 64Mi
               limits:
                 cpu: 1000m
