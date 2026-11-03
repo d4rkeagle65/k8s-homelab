@@ -90,10 +90,18 @@ cluster, and three JSON strings bundle values that are their own facts.
     list; its SSH keys their own secrets), `PIHOLE-SETTINGS` (dnsmasq lines from NetBox DNS's
     zones), `TOFU-CLOUDFLARE-TF-VAR-DNS` (Cloudflare's records as NetBox DNS records tagged for
     it, the record IDs in a custom field). Then Tailscale's routes, host name and tags.
+  - [ ] Fingerprints (this PR): a run lists Key Vault once and reads a value only where the keyed
+    fingerprint tag (`keyvault-facts`, an HMAC with `KEYVAULT-FACTS-FINGERPRINT-KEY`) on its current
+    version doesn't match NetBox's value; `--write` tags what it sets and an agreeing value it finds
+    untagged (the tag only, the value untouched); `--full` reads every value; the last line names
+    what changed, for the Key Vault sync's `--secrets`. Left, the owner's: the key
+    (`keyvault-secrets.ps1 KEYVAULT-FACTS-FINGERPRINT-KEY -New -Raw -Generate 64`); until it
+    exists each value is read, as now.
   - [ ] Step 5: the owner makes the writer identity (`--roles` prints its assignments), its
     credentials in a group of their own ("Key Vault Facts Writer") and a second template that runs
-    `--write` with it, on a schedule and before the jobs that read these values; template 41, which
-    may have its arguments overridden, never gets the writer.
+    `--write` with it, on a schedule and before the jobs that read these values, then the Key Vault
+    sync with `--secrets` set to the run's "changed:" names; template 41, which may have its
+    arguments overridden, never gets the writer.
 
 ## Resume
 
