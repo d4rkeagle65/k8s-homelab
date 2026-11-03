@@ -740,8 +740,8 @@ data:
     # gate on the outpost (on mesh-mini.yaml's outpost list) stands in front of it on
     # each of its names: its own, and termix-remote's, the Cloudflare tunnel's route
     # for a few source addresses (QUEUE-termix-remote.md). Only Termix Admins pass.
-    # Then Termix's own login: the OIDC provider below is ready for its SSO, which has
-    # no provider attached yet, so it signs in with Termix's local accounts. Its client
+    # Then Termix's own Authentik login (the OIDC provider below), whose callback Termix
+    # builds from the name it was reached on, so both names are allowed. Its client
     # secret is the worker's TERMIX_OIDC_CLIENT_SECRET, from Key Vault (the
     # authentik-termix-oidc ExternalSecret). Membership is set in the UI.
     version: 1
@@ -816,6 +816,8 @@ data:
         redirect_uris:
         - matching_mode: strict
           url: https://termix${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/users/oidc/callback
+        - matching_mode: strict
+          url: https://termix-remote${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/users/oidc/callback
         authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
         invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
         signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
