@@ -187,9 +187,8 @@ Queries (Prometheus, `kube-prometheus-stack`):
         350m); Kept to `homelab-low` by a post-renderer (its chart has none). rreading-glasses'
         memory and the repair job's stay, as their comments say; Grimmory's authors and
         Termix's sync jobs stay under the 64Mi floor (well inside their limits).
-      - [ ] ManicTime's server to `homelab-low`: its chart (the owner's helm-charts repository)
-        has no priority class value and generate has no post-renderer, so it waits on the
-        owner's choice of the two. Its request is lowered (this PR).
+      - [x] ManicTime's server to `homelab-low` (this PR): its chart's 0.1.1 takes a
+        `priorityClassName` (the owner's helm-charts repository, pull request 1, merged first).
       - [ ] The other apps; the platform and monitoring; the databases.
       The plan as first written: (Prometheus's history starts 2026-10-14
       16:48). The 2026-10-18 pass (each batch's "Re-measured" above) had 4.2 days and only

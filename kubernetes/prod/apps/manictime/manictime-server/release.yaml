@@ -5,7 +5,7 @@
 release: manictime-server
 namespace: manictime
 chart: manictime-server
-chartVersion: 0.1.0
+chartVersion: 0.1.1
 appVersion: ""
 revision: 8
 status: deployed

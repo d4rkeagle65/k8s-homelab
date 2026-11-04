@@ -10,7 +10,7 @@ spec:
   chart:
     spec:
       chart: manictime-server
-      version: 0.1.0
+      version: 0.1.1
       sourceRef:
         kind: HelmRepository
         name: d4rkeagle65
@@ -43,6 +43,7 @@ spec:
     rbac:
       k8sLocking:
         enabled: true
+    priorityClassName: homelab-low
     resources:
       requests:
         cpu: 10m

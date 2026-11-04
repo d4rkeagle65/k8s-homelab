@@ -25,6 +25,8 @@ persistence:
 rbac:
   k8sLocking:
     enabled: true
+# What may stop when a worker is down and memory is short (QUEUE-resource-limits.md).
+priorityClassName: homelab-low
 resources:
   requests:
     cpu: 10m
