@@ -70,8 +70,8 @@ server:
   replicas: 1
   resources:
     requests:
-      cpu: 80m
-      memory: 992Mi
+      cpu: 40m
+      memory: 928Mi
     limits:
       cpu: 500m
       memory: 2Gi

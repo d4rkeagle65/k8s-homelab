@@ -50,8 +50,8 @@ resources:
     cpu: 2000m
     memory: 4Gi
   requests:
-    cpu: 30m
-    memory: 896Mi
+    cpu: 10m
+    memory: 1216Mi
 service:
   httpPort: 8096
   httpsPort: 8920
