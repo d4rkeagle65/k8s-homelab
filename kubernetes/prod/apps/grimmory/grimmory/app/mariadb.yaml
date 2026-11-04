@@ -42,7 +42,7 @@ spec:
   # Scheduled before ordinary pods when nodes are short (cluster-policy).
   priorityClassName: homelab-critical
   resources:
-    requests: {cpu: 30m, memory: 224Mi}
+    requests: {cpu: 10m, memory: 288Mi}
     limits: {cpu: 1000m, memory: 768Mi}
   # The operator's mysqld-exporter and ServiceMonitor.
   metrics:
