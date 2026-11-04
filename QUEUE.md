@@ -368,10 +368,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Most survivors are boundaries the tests replace with fakes, HTTP handlers, loops and
   `main()`. The logic among them, worst first; left, a regression in any of these passes the
   commit gate:
-  - `scripts/k8s_backup/flux.py`'s `helm_release`, `helm_repository`, `oci_repository`,
-    `root_cluster_kustomization`, `cluster_resources_kustomization`, and `generate.py`'s
-    `_generate_repository_kustomization`: generate's own tests don't read what they write;
-    only `test_structure.py` does, once the output is committed.
   - Smaller: `limitrange_jobs.py` `peaks` and `hook_jobs`; `docker/kea/ha_exporter.py`
     `collect`; `filetracker.py` `_prune_empty_dirs`; `varsub.py` `load_settings`;
     `keyvault_facts.py` `choices`; `semaphore_variable_groups.py` `put`; `cli.py`
