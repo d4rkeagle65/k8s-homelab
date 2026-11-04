@@ -110,8 +110,8 @@ spec:
                     key: api-key
             resources:
               requests:
-                cpu: 20m
-                memory: 128Mi
+                cpu: 10m
+                memory: 64Mi
               limits:
                 cpu: 500m
                 memory: 512Mi

@@ -106,11 +106,11 @@ spec:
                   failureThreshold: 5
             resources:
               requests:
-                cpu: 10m
-                memory: 320Mi
+                cpu: 220m
+                memory: 416Mi
               limits:
                 cpu: 500m
-                memory: 640Mi
+                memory: 1Gi
           node:
             image:
               repository: ghcr.io/haveagitgat/tdarr_node
@@ -132,8 +132,8 @@ spec:
                 value: "8266"
             resources:
               requests:
-                cpu: 10m
-                memory: 256Mi
+                cpu: 350m
+                memory: 224Mi
               limits:
                 cpu: 2000m
                 memory: 4Gi

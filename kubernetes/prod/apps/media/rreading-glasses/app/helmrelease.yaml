@@ -88,7 +88,7 @@ spec:
             # that cache (a 215Mi peak).
             resources:
               requests:
-                cpu: 80m
+                cpu: 10m
                 memory: 256Mi
               limits:
                 cpu: 500m

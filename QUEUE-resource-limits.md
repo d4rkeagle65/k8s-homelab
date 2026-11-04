@@ -181,7 +181,17 @@ Queries (Prometheus, `kube-prometheus-stack`):
 - [ ] Recheck at a full week, **from 2026-10-21 16:48**. In progress (2026-11-03): measured over
       14 days (both replicas from 2026-10-19 18:00), the CPU p95 over 7; no OOM kill in 14
       days. One pull request per area (media and the low tier, the other apps, the platform and
-      monitoring, then the databases, which restart their instances). The plan as first written: (Prometheus's history starts 2026-10-14
+      monitoring, then the databases, which restart their instances).
+      - [x] The media apps and the low tier (this PR): every request to the tier basis; Tdarr's
+        server 1Gi (its peak was 99% of 640Mi) and both Tdarr containers' CPU to their p95 (220m,
+        350m); Kept to `homelab-low` by a post-renderer (its chart has none). rreading-glasses'
+        memory and the repair job's stay, as their comments say; Grimmory's authors and
+        Termix's sync jobs stay under the 64Mi floor (well inside their limits).
+      - [ ] ManicTime's server to `homelab-low`: its chart (the owner's helm-charts repository)
+        has no priority class value and generate has no post-renderer, so it waits on the
+        owner's choice of the two. Its request is lowered (this PR).
+      - [ ] The other apps; the platform and monitoring; the databases.
+      The plan as first written: (Prometheus's history starts 2026-10-14
       16:48). The 2026-10-18 pass (each batch's "Re-measured" above) had 4.2 days and only
       raised, so this one:
       - raises any request a 7-day peak now exceeds, mainly weekly jobs the short window missed;

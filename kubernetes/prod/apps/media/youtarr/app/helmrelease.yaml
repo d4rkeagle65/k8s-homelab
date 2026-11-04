@@ -95,8 +95,8 @@ spec:
             # ffmpeg. Measure after a week of downloads and tighten.
             resources:
               requests:
-                cpu: 20m
-                memory: 512Mi
+                cpu: 10m
+                memory: 288Mi
               limits:
                 cpu: 2000m
                 memory: 2Gi
