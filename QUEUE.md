@@ -88,6 +88,29 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **Host-loss capacity, by the owner's rule (2026-11-04):** any one Proxmox host down for a
+  rolling restart (`proxmox-reboot.yml`) without an issue; any two down, and `homelab-critical`
+  and Docker VM 1 stay up. Measured 2026-11-04 (worker requests with native sidecars, after
+  #578), the gaps:
+  - **One host:** only deprox01's loss fails, 4.0 GiB short (w04a's 11.7 GiB to move, 7.8
+    free, the low tier 2.7). w06a 16 to 20 GiB closes it with room (hpprox01 has 10.1 GiB
+    available): its memory in NetBox, the guests sync's pull request, an OpenTofu apply (the
+    owner's), then `talos-reboot.yml` for that VM (the owner's run).
+  - **deprox02 nearly ran out:** 86 MiB available at its lowest in 14 days (w05a 14 GiB and
+    Docker VM 1 12 GiB on 31 GiB). Docker VM 1 used at most about 5.6 GiB (6.1 GiB available at
+    its lowest): 9 GiB would leave room on the host and make it easier to place under HA.
+  - **Two hosts, etcd:** three control planes on deprox01, leprox01 and hpprox02, so any two of
+    those lose quorum. Surviving any two needs five, one per host (deprox02 and hpprox01 have
+    none), which deprox02 has no memory for.
+  - **Two hosts, databases:** every CloudNativePG cluster has two instances on local disk, so 8
+    of the 10 host pairs leave some cluster with none (rreading-glasses-db has one instance).
+    Three instances on three hosts for each database that must stay up; which ones are
+    critical is the owner's call (the media apps' are on `homelab-critical` today).
+  - **Two hosts, Docker VM 1:** HA needs a surviving host with its memory free: today only
+    deprox01 has 12 GiB, so deprox01 and deprox02 down leaves it nowhere.
+  - The critical tier's stateless pods fit on any two surviving workers once lower tiers are
+    preempted. Meeting the two-host rule in full needs more host memory than the hosts have.
+
 - **Monitoring Staged hosts without alerts** (from `old-queues/QUEUE-netbox-status.md`): the
   status standard says a Staged device or VM is scraped but raises no alerts. Prometheus's
   NetBox discovery takes Active and Failed only; Staged needs its status as a target label
