@@ -225,7 +225,7 @@ Queries (Prometheus, `kube-prometheus-stack`):
       after the re-measure's in-place restarts took Authentik down for about 3.5 minutes: all 15
       (`kubernetes/CLAUDE.md`; `test_replicated_databases_switch_over` holds new ones to it).
       rreading-glasses-db has one instance and restarts in place either way
-- [ ] The databases (#576), merged last: once #572-#575 are applied and prometheus-kps-1 is off
+- [ ] The databases (#577), merged last: once #572-#575 are applied and prometheus-kps-1 is off
       w05a (the owner agreed, 2026-11-04). Every Cluster on the peak rule: Immich's 736Mi (a
       609Mi peak; its 1.5Gi limit stays for upgrades), Zammad's 416Mi, Kept's 352Mi, n8n's
       256Mi, the small ones 160-224Mi, Whisparr's and Linkwarden's and ManicTime's lower;
