@@ -394,19 +394,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Later
 
-- **Script logic no test checks** (a mutation sweep, 2026-11-03: each function's body
-  replaced by `return None`, the pytest files reaching it run; 139 of 595 stayed green).
-  Most survivors are boundaries the tests replace with fakes, HTTP handlers, loops and
-  `main()`. The logic among them, worst first; left, a regression in any of these passes the
-  commit gate:
-  - Smaller: `limitrange_jobs.py` `peaks` and `hook_jobs`; `docker/kea/ha_exporter.py`
-    `collect`; `filetracker.py` `_prune_empty_dirs`; `varsub.py` `load_settings`;
-    `keyvault_facts.py` `choices`; `semaphore_variable_groups.py` `put`; `cli.py`
-    `_activate_pre_commit_hook`; `secretscan.py`'s IP purposes (`classify_ip_purpose`,
-    `build_ip_context`, `_ip_in_metallb_range`).
-  - No pytest test at all, 19 scripts, the largest `docker/kea/tools/dnsmasq_to_kea.py`,
-    `rreading-glasses-repair.py`, `media-sync.py`, `grimmory-sync.py`,
-    `garage-backup-exporter.py` and `ansible/files/proxmox-backup-metrics.py`.
+- **Script logic no test checks**: the mutation sweep's gaps, worked through in
+  [QUEUE-test-gaps.md](QUEUE-test-gaps.md).
 
 - **Key Vault per app, with workload identity, so `cluster-secrets` can retire** (the owner,
   2026-10-24): today one service principal reads the whole vault, and the `azure-keyvault`
@@ -571,6 +560,7 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-bastion.md](QUEUE-bastion.md) (about 70%): Termix live with SSO, the bastion key on every host; left, an alert for an unmerged Termix release, then Docker, Kubernetes and cloud.
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (about 60%): SNMPv3 and syslog from the switch and the firewall; left, the switch's syslog parsing, alerts once real lines are seen, and CloudGen's MIB later.
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (about 40%): the wall display's share link works; left, the dashboard on the screen, the deploy template and run (the owner), and more tiles.
+- [QUEUE-test-gaps.md](QUEUE-test-gaps.md) (about 40%): six scripts' gaps closed and two real misses fixed; left, single functions in tested scripts, then 14 scripts with no test.
 
 The percentages are estimates as of 2026-10-31, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
