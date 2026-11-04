@@ -27,7 +27,7 @@ spec:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 160Mi
+                    memory: 96Mi
                   limits:
                     cpu: 500m
                     memory: 512Mi
@@ -41,8 +41,8 @@ spec:
               - name: goldmane
                 resources:
                   requests:
-                    cpu: 60m
-                    memory: 224Mi
+                    cpu: 50m
+                    memory: 160Mi
                   limits:
                     cpu: 1000m
                     memory: 512Mi
@@ -55,8 +55,8 @@ spec:
               - name: calico-node
                 resources:
                   requests:
-                    cpu: 80m
-                    memory: 256Mi
+                    cpu: 50m
+                    memory: 160Mi
                   limits:
                     cpu: 1000m
                     memory: 512Mi
@@ -69,7 +69,7 @@ spec:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 192Mi
+                    memory: 96Mi
                   limits:
                     cpu: 500m
                     memory: 512Mi
@@ -81,10 +81,10 @@ spec:
               - name: calico-kube-controllers
                 resources:
                   requests:
-                    cpu: 20m
-                    memory: 160Mi
+                    cpu: 10m
+                    memory: 128Mi
                   limits:
-                    cpu: 500m
+                    cpu: 1000m
                     memory: 512Mi
       csiNodeDriverDaemonSet:
         spec:
@@ -175,8 +175,8 @@ spec:
                     memory: 256Mi
     resources:
       requests:
-        cpu: 20m
-        memory: 416Mi
+        cpu: 10m
+        memory: 288Mi
       limits:
         cpu: 1000m
         memory: 896Mi

@@ -224,6 +224,13 @@ Queries (Prometheus, `kube-prometheus-stack`):
       Init containers that run once at start have none: babybuddy's check-db-ready and mealie's
       wait-for-db take their namespace's defaults; the Bitwarden CLI's fetch-cli gets nothing
       (external-secrets has no LimitRange).
+      The platform, done (#574): memory by the tier basis, mostly lower (Calico, cert-manager,
+      External Secrets, democratic-csi, MetalLB, the Flux controllers); the MariaDB operator's
+      controller 192Mi in 512Mi and cert controller 96Mi in 256Mi (88% and 94% of their limits);
+      Traefik 256Mi (critical: the peak rule); calico-kube-controllers' CPU limit 1000m
+      (throttled 12%). CPU requests kept where a comment says others wait on them (the webhooks,
+      the CloudNativePG operator and Barman plugin, the Cloudflare connector, Mosquitto, both
+      Traefiks, and now Flux's controllers).
       Nobody holds this: the session that made the 4.2-day pass was closed on 2026-10-18. Its
       per-container figures are in the batches' pull requests (#57, #58, #60, #62, #63, #64).
       Where things stood that evening, for comparison: memory requests 77% of the nodes'

@@ -27,7 +27,7 @@ spec:
     # Requests and limits by QUEUE-resource-limits.md's rules, in place of the
     # chart's 100m and 200Mi.
     resources:
-      requests: {cpu: 10m, memory: 128Mi}
+      requests: {cpu: 10m, memory: 64Mi}
       limits: {cpu: 500m, memory: 512Mi}
     # The kubelets' serving certificates are self-signed.
     args:

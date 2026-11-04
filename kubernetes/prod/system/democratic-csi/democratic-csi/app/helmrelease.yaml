@@ -89,7 +89,7 @@ spec:
         # The drivers' and the registrar's 1000m CPU: throttled in a third to
         # three quarters of periods at 500m (QUEUE-resource-limits.md's rules).
         resources:
-          requests: {cpu: 10m, memory: 128Mi}
+          requests: {cpu: 10m, memory: 96Mi}
           limits: {cpu: 1000m, memory: 512Mi}
       externalAttacher:
         resources: &sidecar
@@ -99,7 +99,7 @@ spec:
         resources: *sidecar
       externalResizer:
         resources:
-          requests: {cpu: 10m, memory: 96Mi}
+          requests: {cpu: 10m, memory: 64Mi}
           limits: {cpu: 500m, memory: 256Mi}
       externalSnapshotter:
         resources: *sidecar
@@ -123,7 +123,7 @@ spec:
         iscsiDirHostPath: /var/iscsi
         iscsiDirHostPathType: ""
         resources:
-          requests: {cpu: 20m, memory: 192Mi}
+          requests: {cpu: 20m, memory: 96Mi}
           limits: {cpu: 1000m, memory: 512Mi}
       driverRegistrar:
         resources:

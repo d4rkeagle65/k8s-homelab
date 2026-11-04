@@ -10,7 +10,7 @@ apiServer:
           containers:
           - name: calico-apiserver
             resources:
-              requests: {cpu: 10m, memory: 160Mi}
+              requests: {cpu: 10m, memory: 96Mi}
               limits: {cpu: 500m, memory: 512Mi}
 goldmane:
   enabled: true
@@ -21,7 +21,7 @@ goldmane:
           containers:
           - name: goldmane
             resources:
-              requests: {cpu: 60m, memory: 224Mi}
+              requests: {cpu: 50m, memory: 160Mi}
               limits: {cpu: 1000m, memory: 512Mi}
 installation:
   calicoNodeDaemonSet:
@@ -31,7 +31,7 @@ installation:
           containers:
           - name: calico-node
             resources:
-              requests: {cpu: 80m, memory: 256Mi}
+              requests: {cpu: 50m, memory: 160Mi}
               limits: {cpu: 1000m, memory: 512Mi}
   typhaDeployment:
     spec:
@@ -40,7 +40,7 @@ installation:
           containers:
           - name: calico-typha
             resources:
-              requests: {cpu: 10m, memory: 192Mi}
+              requests: {cpu: 10m, memory: 96Mi}
               limits: {cpu: 500m, memory: 512Mi}
   calicoKubeControllersDeployment:
     spec:
@@ -49,8 +49,8 @@ installation:
           containers:
           - name: calico-kube-controllers
             resources:
-              requests: {cpu: 20m, memory: 160Mi}
-              limits: {cpu: 500m, memory: 512Mi}
+              requests: {cpu: 10m, memory: 128Mi}
+              limits: {cpu: 1000m, memory: 512Mi}
   csiNodeDriverDaemonSet:
     spec:
       template:
@@ -127,7 +127,7 @@ whisker:
               limits: {cpu: 500m, memory: 256Mi}
 # The operator itself.
 resources:
-  requests: {cpu: 20m, memory: 416Mi}
+  requests: {cpu: 10m, memory: 288Mi}
   limits: {cpu: 1000m, memory: 896Mi}
 # Where the operator may run: control planes, and a node whose network isn't up yet, since
 # installing that network is its job. Not every taint, the chart's default: a node shutting
