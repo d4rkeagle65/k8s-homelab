@@ -21,10 +21,15 @@ which smooths short bursts, hence the generous CPU limits.
 - **Memory request, by tier** (the owner, 2026-11-03: 1.2 x peak everywhere came to 104% of
   the workers' allocatable, and no worker's loss would fit):
   - `homelab-critical` and the stores (PostgreSQL, MariaDB, CouchDB, Redis, Elasticsearch,
-    Prometheus, Loki): 1.2 x the peak over the history, at least 64Mi, rounded up to 32Mi.
+    Loki): 1.2 x the peak over the history, at least 64Mi, rounded up to 32Mi. Prometheus is
+    on the next rule (the owner, 2026-11-04): two replicas at its compaction peaks took 3.9
+    GiB that no worker's loss could spare, and its limit holds the peaks.
   - Everything else: 1.2 x the 7-day 95th percentile of the working set, same floor and
     rounding. Where the working-set peak is 1.5 x the RSS peak or more (page cache: the media
     apps, Immich's server), the lower of the two figures.
+  - Count a native sidecar's request (an init container with `restartPolicy: Always`, the
+    Barman plugin's): Kubernetes adds it to the pod's, and leaving it out understated the
+    workers by 6.8 GiB on 2026-11-04.
   - Checked each pass: every worker up, the workers' requests under about 80% of allocatable;
     any one worker lost, what must move fits the other three's free room once `homelab-low`
     pods are preempted. The 2026-11-03 figures: 78%, and losing the 19 GiB worker leaves
