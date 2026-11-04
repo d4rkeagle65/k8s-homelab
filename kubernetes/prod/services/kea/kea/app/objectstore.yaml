@@ -31,5 +31,5 @@ spec:
       value: when_required
     # The Barman sidecar in each instance pod, by QUEUE-resource-limits.md's rules.
     resources:
-      requests: {cpu: 10m, memory: 96Mi}
-      limits: {cpu: 500m, memory: 256Mi}
+      requests: {cpu: 10m, memory: 160Mi}
+      limits: {cpu: 500m, memory: 288Mi}

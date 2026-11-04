@@ -246,6 +246,16 @@ Queries (Prometheus, `kube-prometheus-stack`):
       after the re-measure's in-place restarts took Authentik down for about 3.5 minutes: all 15
       (`kubernetes/CLAUDE.md`; `test_replicated_databases_switch_over` holds new ones to it).
       rreading-glasses-db has one instance and restarts in place either way
+- [ ] The databases (#577), merged last: once #572-#575 are applied and prometheus-kps-1 is off
+      w05a (the owner agreed, 2026-11-04). Every Cluster on the peak rule: Immich's 736Mi (a
+      609Mi peak; its 1.5Gi limit stays for upgrades), Zammad's 416Mi, Kept's 352Mi, n8n's
+      256Mi, the small ones 160-224Mi, Whisparr's and Linkwarden's and ManicTime's lower;
+      rreading-glasses-db's CPU 120m to 20m; the two MariaDBs 288Mi. The Barman sidecar's
+      resources in the seven ObjectStores without them (babybuddy, kept, linkwarden, mealie,
+      media, n8n, termix) and Zammad's, Kea's and Immich's raised: 1.2 x the 14-day peak, 2 x
+      peak (at least 256Mi) for the limit. Each restarts its namespace's instances; the
+      replicated ones switch over. Read after: every Cluster healthy, `pg_stat_archiver`
+      archiving, each app ready.
 - [ ] The owner: whether the 1000m CPU cap rises. It was set when two of three workers had 2
       cores; the four workers now have 3, 4, 4 and 6 (the control planes 2). At the cap and
       throttled on 2026-10-18: democratic-csi's drivers 66-79% of periods, Renovate 47%,
