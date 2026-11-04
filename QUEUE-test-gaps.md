@@ -43,16 +43,19 @@ env-var miss beside `valueFrom` (#567); `talos/gen-config.py` (#569); `netbox_se
 tree (#576).
 
 **Batch A, single functions in tested scripts:**
-- [ ] `scripts/limitrange_jobs.py`: `peaks`, `hook_jobs`, `main`
-- [ ] `docker/kea/ha_exporter.py`: `collect`
-- [ ] `scripts/k8s_backup/filetracker.py`: `_prune_empty_dirs`, `_hash_file`
-- [ ] `scripts/k8s_backup/varsub.py`: `load_settings`
-- [ ] `scripts/keyvault_facts.py`: `choices`
-- [ ] `scripts/semaphore_variable_groups.py`: `put`
-- [ ] `scripts/k8s_backup/cli.py`: `_activate_pre_commit_hook`, `_check_tools`
-- [ ] `scripts/k8s_backup/secretscan.py`: `classify_ip_purpose`, `build_ip_context`,
-      `_ip_in_metallb_range`
-- [ ] `scripts/k8s_backup/capture.py`: `_summarize_ip_inventory`
+- [x] `scripts/limitrange_jobs.py`: `peaks`, `hook_jobs`, `main` (10 of 10; 9 targeted)
+- [x] `docker/kea/ha_exporter.py`: `collect` and its pages (8 of 9; left: `log_message`; 3 targeted)
+- [x] `scripts/k8s_backup/filetracker.py`: the whole tracker (8 of 8; 6 targeted)
+- [x] `scripts/k8s_backup/varsub.py`: `load_settings` (22 of 22)
+- [x] `scripts/keyvault_facts.py`: `choices` (38 of 38; 3 targeted)
+- [x] `scripts/semaphore_variable_groups.py`: `put` removed, uncalled since #502 and #535
+- [x] `scripts/k8s_backup/cli.py`: `_activate_pre_commit_hook`, `_check_tools` (left: argument
+      parsing, the report's printing, `main`; 3 targeted)
+- [x] `scripts/k8s_backup/secretscan.py`: the IP purposes, and a self-test for the
+      high-confidence shapes, which only other files' tests had reached (19 of 19; 3 targeted)
+- [x] `scripts/k8s_backup/capture.py`: `_summarize_ip_inventory` (2 targeted); and
+      `_collect_ip_inventory` now reads every document, as the IP inventory left out every
+      multi-document file
 
 **Batch B, the cluster's own scripts with no test:**
 - [ ] `kubernetes/prod/system/monitoring/garage-backup-exporter/app/garage-backup-exporter.py`

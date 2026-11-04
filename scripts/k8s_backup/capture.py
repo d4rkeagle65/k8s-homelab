@@ -901,10 +901,12 @@ def _collect_ip_inventory(root: Path, ip_context: dict, warnings: list[str] | No
     unreadable: list[str] = []
     for path in sorted(root.glob("kubernetes/**/*.yaml")):
         try:
-            data = yamlio.read_yaml_file(path)
+            data = yamlio.read_yaml_documents(path)  # every document: a file may hold several
         except Exception as e:  # any parse failure: the file is named below, not dropped silently
             unreadable.append(f"{path.relative_to(root).as_posix()} ({type(e).__name__})")
             continue
+        if len(data) == 1:
+            data = data[0]  # field paths as they always were for a file of one document
         if not data:
             continue
         rel = path.relative_to(root).as_posix()

@@ -180,3 +180,64 @@ def test_lease_totals_without_an_answer_say_only_that():
     text = m.metrics(m.ha_status(HEALTHY), None)
     assert "kea_stats_api_up 0" in text and "kea_dhcp4_assigned_addresses" not in text
     assert "kea_ha_normal 1" in text
+
+
+# --- collect and the two pages, with Kea's answers stood in for -------------------------------
+
+import threading
+import urllib.request as _request
+from http.server import ThreadingHTTPServer
+
+
+def _kea(monkeypatch, status=HEALTHY, statistics=STATISTICS):
+    """command() answering each command from the given arguments; None is Kea not answering."""
+    def command(url, credentials_file, name):
+        given = {"status-get": status, "statistic-get-all": statistics}[name]
+        if given is None:
+            raise m.Unanswered(f"{name}: no answer")
+        return given
+    monkeypatch.setattr(m, "command", command)
+
+
+def test_collect_reads_both_and_each_failure_alone(monkeypatch):
+    _kea(monkeypatch)
+    status, leases, error = m.collect()
+    assert status["normal"] is True and leases == {"assigned": 44, "total": 264} and error is None
+    _kea(monkeypatch, status=None)
+    status, leases, error = m.collect()
+    assert status is None and leases == {"assigned": 44, "total": 264} and error == "status-get: no answer"
+    _kea(monkeypatch, statistics=None)
+    status, leases, error = m.collect()
+    assert status["normal"] is True and leases is None and error is None
+
+
+@pytest.fixture
+def served():
+    server = ThreadingHTTPServer(("127.0.0.1", 0), m.Handler)
+    threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+
+    def get(path):
+        try:
+            with _request.urlopen(base + path, timeout=5) as r:
+                return r.status, r.headers["Content-Type"], r.read().decode()
+        except urllib.error.HTTPError as e:
+            return e.code, e.headers["Content-Type"], e.read().decode()
+    yield get
+    server.shutdown()
+    server.server_close()
+
+
+def test_the_pages_serve_metrics_status_and_503_without_ha(monkeypatch, served):
+    _kea(monkeypatch)
+    code, kind, body = served("/metrics")
+    assert (code, kind) == (200, "text/plain; version=0.0.4") and "kea_ha_normal 1" in body
+    code, kind, body = served("/status")
+    assert (code, kind) == (200, "application/json")
+    assert json.loads(body)["leases"] == {"assigned": 44, "total": 264} and json.loads(body)["normal"] is True
+    _kea(monkeypatch, status=None)
+    code, _, body = served("/status")
+    assert code == 503 and json.loads(body) == {"error": "status-get: no answer"}
+    code, _, body = served("/metrics")
+    assert code == 200 and "kea_ha_api_up 0" in body, "Prometheus still gets an answer it can alert on"
+    assert served("/other")[0] == 404

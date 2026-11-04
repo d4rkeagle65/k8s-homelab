@@ -156,13 +156,6 @@ class KeyVault:
             self.cache[name] = body["value"]
         return self.cache[name]
 
-    def put(self, name: str, value: str) -> int:
-        """Set the secret; Key Vault's status (403 when this identity may only read)."""
-        self.cache.pop(name, None)
-        status, _ = http("PUT", f"{self.url}/secrets/{urllib.parse.quote(name)}?api-version=7.4",
-                         {"Authorization": f"Bearer {self.token}"}, {"value": value})
-        return status
-
 
 def resolve(spec: dict, vault: KeyVault):
     if "keyvault" in spec:

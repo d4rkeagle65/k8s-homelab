@@ -48,3 +48,51 @@ def test_sibling_output_directory_is_accepted():
     # A directory beside scripts/ is allowed too: it's neither inside
     # scripts/ nor an ancestor of it.
     _check_output_is_safe(_SCRIPT_SOURCE_DIR.parent / "homelab")
+
+
+# --- the commit hook it turns on, and the tools it asks for ---------------------------------------
+
+import subprocess
+
+from k8s_backup import cli
+
+
+def _hooks_path(repo):
+    r = subprocess.run(["git", "-C", str(repo), "config", "--get", "core.hooksPath"], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+@pytest.fixture
+def repo(tmp_path):
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    return tmp_path
+
+
+def test_the_shipped_hook_is_turned_on_in_a_repo_that_has_none(repo, capsys):
+    cli._activate_pre_commit_hook(repo, dry_run=False)
+    assert _hooks_path(repo) == ".githooks"
+    assert "core.hooksPath set to .githooks" in capsys.readouterr().out
+
+
+def test_another_hooks_path_is_left_alone(repo, capsys):
+    subprocess.run(["git", "-C", str(repo), "config", "core.hooksPath", "my-hooks"], check=True)
+    cli._activate_pre_commit_hook(repo, dry_run=False)
+    assert _hooks_path(repo) == "my-hooks"
+    assert "leaving it alone" in capsys.readouterr().out
+
+
+def test_a_dry_run_or_a_folder_that_isnt_a_repo_changes_nothing(repo, tmp_path_factory):
+    cli._activate_pre_commit_hook(repo, dry_run=True)
+    assert _hooks_path(repo) is None
+    plain = tmp_path_factory.mktemp("plain")
+    cli._activate_pre_commit_hook(plain, dry_run=False)
+    assert not (plain / ".git").exists()
+
+
+@pytest.mark.parametrize("subcommand, wanted", [("capture", ["kubectl", "helm"]), ("all", ["kubectl", "helm"]),
+                                                ("generate", [])])
+def test_only_what_reads_the_cluster_needs_its_tools(monkeypatch, subcommand, wanted):
+    asked = []
+    monkeypatch.setattr(cli, "require_tool", lambda tool, hint: asked.append(tool))
+    cli._check_tools(subcommand)
+    assert asked == wanted
