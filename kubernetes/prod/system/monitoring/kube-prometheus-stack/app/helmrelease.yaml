@@ -133,7 +133,7 @@ spec:
 
     prometheusOperator:
       resources:
-        requests: {cpu: 20m, memory: 128Mi}
+        requests: {cpu: 10m, memory: 64Mi}
         limits: {cpu: 500m, memory: 512Mi}
       # The config-reloader sidecar in each Prometheus and Alertmanager pod.
       prometheusConfigReloader:
@@ -157,7 +157,7 @@ spec:
         retentionSize: 18GB
         # CPU limit as a database's: compactions are its busiest minutes.
         resources:
-          requests: {cpu: 100m, memory: 2432Mi}
+          requests: {cpu: 70m, memory: 4384Mi}
           limits: {cpu: 1000m, memory: 5Gi}
         # nas-iscsi: each replica's own LUN on the NAS, so the constant writes
         # miss the hosts' SSDs and the volume follows its pod to any Talos node.
@@ -258,7 +258,7 @@ spec:
         podAntiAffinity: hard
         retention: 120h
         resources:
-          requests: {cpu: 10m, memory: 64Mi}
+          requests: {cpu: 10m, memory: 96Mi}
           limits: {cpu: 500m, memory: 512Mi}
         # On nas-iscsi, preferring Talos nodes, for the same reasons as
         # Prometheus's storage above.
@@ -281,7 +281,7 @@ spec:
 
     kube-state-metrics:
       resources:
-        requests: {cpu: 10m, memory: 256Mi}
+        requests: {cpu: 10m, memory: 128Mi}
         limits: {cpu: 500m, memory: 640Mi}
       # Each namespace's category (apps, services, system) as
       # kube_namespace_labels{label_homelab_local_category}, for the Resources
@@ -757,8 +757,8 @@ spec:
       deploymentStrategy:
         type: Recreate
       resources:
-        requests: {cpu: 20m, memory: 640Mi}
-        limits: {cpu: 500m, memory: 1408Mi}
+        requests: {cpu: 90m, memory: 1216Mi}
+        limits: {cpu: 500m, memory: 1920Mi}
       # Its init containers (the data folder's owner, the grafana.com dashboards).
       initChownData:
         resources:
@@ -785,10 +785,11 @@ spec:
       # Dashboards in ConfigMaps labelled grafana_dashboard, from any
       # namespace, so a chart can ship its own (CloudNativePG's does).
       sidecar:
-        # The dashboards and data sources sidecars (peaks about 94Mi, 44m).
+        # The dashboards and data sources sidecars (peaks about 96Mi, 42m). CPU limit
+        # 1000m: the dashboards sidecar was throttled in 12% of periods at 500m.
         resources:
-          requests: {cpu: 20m, memory: 128Mi}
-          limits: {cpu: 500m, memory: 256Mi}
+          requests: {cpu: 10m, memory: 128Mi}
+          limits: {cpu: 1000m, memory: 256Mi}
         dashboards:
           searchNamespace: ALL
           # A ConfigMap's grafana_folder annotation names its folder

@@ -106,15 +106,15 @@ spec:
       - name: data
         mountPath: /var/loki
       resources:
-        requests: {cpu: 50m, memory: 384Mi}
-        limits: {cpu: 500m, memory: 1Gi}
+        requests: {cpu: 120m, memory: 448Mi}
+        limits: {cpu: 1000m, memory: 1Gi}
 
     # The rules sidecar (peaks about 89Mi, 30m).
     sidecar:
       rules:
         folder: /rules/fake
       resources:
-        requests: {cpu: 30m, memory: 128Mi}
+        requests: {cpu: 10m, memory: 96Mi}
         limits: {cpu: 500m, memory: 256Mi}
 
     # Single binary: none of the scalable mode's components, caches or test

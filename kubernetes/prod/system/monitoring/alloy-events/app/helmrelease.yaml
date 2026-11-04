@@ -38,7 +38,7 @@ spec:
       # it enables experimental components, and changes none of the stable ones.
       stabilityLevel: experimental
       resources:
-        requests: {cpu: 10m, memory: 128Mi}
+        requests: {cpu: 10m, memory: 96Mi}
         limits: {cpu: 500m, memory: 512Mi}
       configMap:
         content: |
