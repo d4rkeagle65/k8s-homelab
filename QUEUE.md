@@ -110,6 +110,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
     deprox01 has 12 GiB, so deprox01 and deprox02 down leaves it nowhere.
   - The critical tier's stateless pods fit on any two surviving workers once lower tiers are
     preempted. Meeting the two-host rule in full needs more host memory than the hosts have.
+  - **No host takes more RAM** (`dmidecode`, task 1578, 2026-11-04): each is at its board's
+    stated maximum (the Precision 3420 4 x 16 GB of 64; the OptiPlex 5050 Micro, ProDesk 600 G2
+    Mini and ThinkCentre M910x 2 x 16 GB of 32; the Elite 8300 USDT 2 x 8 GB DDR3 of 16), and no
+    report found has 2 x 32 GB working in the three DDR4 minis. More memory means replacing a
+    host; the Elite 8300 (16 GB, DDR3) is the one to replace first.
+  - **Docker VM 1 to 9 GiB** (the owner, 2026-11-04): VM 107's memory in NetBox (9216 MB), the
+    guests sync's pull request, an OpenTofu apply, then a restart of the VM, all the owner's
+    (it takes Semaphore, NetBox and this session's container down while it restarts).
 
 - **Monitoring Staged hosts without alerts** (from `old-queues/QUEUE-netbox-status.md`): the
   status standard says a Staged device or VM is scraped but raises no alerts. Prometheus's
