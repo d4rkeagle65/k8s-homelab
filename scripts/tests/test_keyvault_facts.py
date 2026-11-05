@@ -609,3 +609,27 @@ def test_the_ntp_view_is_the_prefixes_tagged_for_it_as_json(monkeypatch, tmp_pat
     fake = Fake({"NTP": '["192.0.2.0/24"]'}, prefixes=[p, prefix(2, "198.51.100.0/24")])
     rc, out = go(monkeypatch, tmp_path, capsys, fake, {"NTP": "{view: proxmox_ntp_serve_networks}"})
     assert rc == 0 and "NTP: agrees (view proxmox_ntp_serve_networks)" in out
+
+
+def test_a_name_the_choices_offer_is_not_reported_missing(monkeypatch, tmp_path, capsys):
+    rc, out = go(monkeypatch, tmp_path, capsys, Fake({}, choices=["A"]), {"A": "{take: address}"})
+    assert "choices lack" not in out
+
+
+def test_choices_netbox_wont_give_stop_the_run(monkeypatch, tmp_path, capsys):
+    fake = Fake({}, choices=["A"])
+    real = fake.http
+
+    def refuses_choices(method, url, headers=None, body=None, **kw):
+        if "/extras/custom-field-choice-sets/" in url:
+            return 500, None
+        return real(method, url, headers, body, **kw)
+
+    fake.http = refuses_choices
+    rc, out = go(monkeypatch, tmp_path, capsys, fake, {"A": "{take: address}"})
+    assert rc == 1 and "stopped: NetBox answered HTTP 500 for keyvault_secrets's choices" in out
+
+
+def test_a_field_without_a_choice_set_offers_none(monkeypatch, tmp_path, capsys):
+    nb = m.NetBox.__new__(m.NetBox)
+    assert nb.choices({"name": m.FIELD, "choice_set": None}) is None

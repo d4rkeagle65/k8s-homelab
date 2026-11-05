@@ -246,11 +246,12 @@ def sync_seerr(want: dict) -> None:
             cur = have.get(name)
             if cur is None:
                 print(f"seerr {kind} {name}: {'would add' if DRY_RUN else 'adding'}")
-                if not DRY_RUN:
-                    status, _ = http("POST", f"{base}/{kind}", hdr, wanted)
-                    if status not in (200, 201):
-                        FAILED.append(f"seerr {kind} {name}: POST answered {status}")
-                        continue
+                if DRY_RUN:
+                    continue
+                status, _ = http("POST", f"{base}/{kind}", hdr, wanted)
+                if status not in (200, 201):
+                    FAILED.append(f"seerr {kind} {name}: POST answered {status}")
+                    continue
             else:
                 changes = diffs(cur, wanted)
                 report("seerr", changes, cur, f"{kind} {name}")

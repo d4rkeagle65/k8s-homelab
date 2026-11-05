@@ -83,3 +83,29 @@ def test_the_ip_inventory_names_a_manifest_it_couldnt_parse(tmp_path):
     rows = capture._collect_ip_inventory(tmp_path, {}, warnings)
     assert any(r.get("file", r.get("path", "")) == "kubernetes/good.yaml" or "good.yaml" in str(r) for r in rows)
     assert any("kubernetes/bad.yaml" in w for w in warnings)
+
+
+def test_the_ip_summary_is_one_row_per_address_public_first():
+    rows = [{"ip": "192.0.2.5", "classification": "private", "occurrences": 2, "file": "a.yaml"},
+            {"ip": "192.0.2.5", "classification": "private", "occurrences": 3, "file": "b.yaml"},
+            {"ip": "198.51.100.1", "classification": "public", "occurrences": 1, "file": "a.yaml"},
+            {"ip": "192.0.2.1", "classification": "private", "occurrences": 1, "file": "c.yaml"}]
+    assert capture._summarize_ip_inventory(rows) == [
+        {"ip": "198.51.100.1", "classification": "public", "occurrences": 1},
+        {"ip": "192.0.2.1", "classification": "private", "occurrences": 1},
+        {"ip": "192.0.2.5", "classification": "private", "occurrences": 5}]
+
+
+def test_the_ip_inventory_reads_every_document_and_names_what_it_cant_parse(tmp_path):
+    (tmp_path / "kubernetes").mkdir()
+    (tmp_path / "kubernetes/one.yaml").write_text("spec:\n  clusterIP: 192.0.2.7\n", encoding="utf-8")
+    (tmp_path / "kubernetes/two.yaml").write_text(
+        "kind: A\nspec: {nfs: {server: 192.0.2.8}}\n---\nkind: B\nspec: {dns: 192.0.2.9}\n", encoding="utf-8")
+    (tmp_path / "kubernetes/bad.yaml").write_text("a: [unclosed\n", encoding="utf-8")
+    warnings = []
+    rows = capture._collect_ip_inventory(tmp_path, {}, warnings)
+    by_ip = {r["ip"]: r for r in rows}
+    assert set(by_ip) == {"192.0.2.7", "192.0.2.8", "192.0.2.9"}
+    assert by_ip["192.0.2.7"]["field_paths"] == "spec.clusterIP", "a one-document file keeps its paths"
+    assert by_ip["192.0.2.9"]["file"] == "kubernetes/two.yaml"
+    assert warnings and "kubernetes/bad.yaml" in warnings[0]

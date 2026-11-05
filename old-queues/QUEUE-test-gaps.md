@@ -43,34 +43,43 @@ env-var miss beside `valueFrom` (#567); `talos/gen-config.py` (#569); `netbox_se
 tree (#576).
 
 **Batch A, single functions in tested scripts:**
-- [ ] `scripts/limitrange_jobs.py`: `peaks`, `hook_jobs`, `main`
-- [ ] `docker/kea/ha_exporter.py`: `collect`
-- [ ] `scripts/k8s_backup/filetracker.py`: `_prune_empty_dirs`, `_hash_file`
-- [ ] `scripts/k8s_backup/varsub.py`: `load_settings`
-- [ ] `scripts/keyvault_facts.py`: `choices`
-- [ ] `scripts/semaphore_variable_groups.py`: `put`
-- [ ] `scripts/k8s_backup/cli.py`: `_activate_pre_commit_hook`, `_check_tools`
-- [ ] `scripts/k8s_backup/secretscan.py`: `classify_ip_purpose`, `build_ip_context`,
-      `_ip_in_metallb_range`
-- [ ] `scripts/k8s_backup/capture.py`: `_summarize_ip_inventory`
+- [x] `scripts/limitrange_jobs.py`: `peaks`, `hook_jobs`, `main` (10 of 10; 9 targeted)
+- [x] `docker/kea/ha_exporter.py`: `collect` and its pages (8 of 9; left: `log_message`; 3 targeted)
+- [x] `scripts/k8s_backup/filetracker.py`: the whole tracker (8 of 8; 6 targeted)
+- [x] `scripts/k8s_backup/varsub.py`: `load_settings` (22 of 22)
+- [x] `scripts/keyvault_facts.py`: `choices` (38 of 38; 3 targeted)
+- [x] `scripts/semaphore_variable_groups.py`: `put` removed, uncalled since #502 and #535
+- [x] `scripts/k8s_backup/cli.py`: `_activate_pre_commit_hook`, `_check_tools` (left: argument
+      parsing, the report's printing, `main`; 3 targeted)
+- [x] `scripts/k8s_backup/secretscan.py`: the IP purposes, and a self-test for the
+      high-confidence shapes, which only other files' tests had reached (19 of 19; 3 targeted)
+- [x] `scripts/k8s_backup/capture.py`: `_summarize_ip_inventory` (2 targeted); and
+      `_collect_ip_inventory` now reads every document, as the IP inventory left out every
+      multi-document file
 
 **Batch B, the cluster's own scripts with no test:**
-- [ ] `kubernetes/prod/system/monitoring/garage-backup-exporter/app/garage-backup-exporter.py`
-- [ ] `kubernetes/prod/services/renovate/renovate/app/config/report-to-metrics.py`
-- [ ] `kubernetes/prod/apps/media/media-sync/app/sync/media-sync.py`
-- [ ] `kubernetes/prod/apps/grimmory/grimmory/app/sync/grimmory-sync.py`
-- [ ] `kubernetes/prod/apps/grimmory/grimmory/app/authors/grimmory-authors.py`
-- [ ] `kubernetes/prod/apps/grimmory/grimmory/app/relink/grimmory-relink.py`
-- [ ] `kubernetes/prod/apps/media/rreading-glasses/app/repair/rreading-glasses-repair.py`
+- [x] `kubernetes/prod/system/monitoring/garage-backup-exporter/app/garage-backup-exporter.py` (10 of 13;
+      left: the refresh loop, its handler, `log_message`; 8 targeted, the signature pinned)
+- [x] `kubernetes/prod/services/renovate/renovate/app/config/report-to-metrics.py` (4 of 4; 5 targeted)
+- [x] `kubernetes/prod/apps/media/media-sync/app/sync/media-sync.py` (14 of 15, left: `http`; 10
+      targeted); a dry run failed whenever Seerr lacked a listed server: fixed
+- [x] `kubernetes/prod/apps/grimmory/grimmory/app/sync/grimmory-sync.py` (16 of 17, left: `call`; 11 targeted)
+- [x] `kubernetes/prod/apps/grimmory/grimmory/app/authors/grimmory-authors.py` (3 of 4, left: `call`; 5 targeted)
+- [x] `kubernetes/prod/apps/grimmory/grimmory/app/relink/grimmory-relink.py` (4 of 4; 15 targeted; its SQL
+      on SQLite through a pymysql stand-in)
+- [x] `kubernetes/prod/apps/media/rreading-glasses/app/repair/rreading-glasses-repair.py` (17 of 18, left:
+      `http`; 20 targeted, and the start's budget check, an equivalent: the first work's check
+      stops the run the same way)
 
 **Batch C, the Docker host's and Ansible's scripts with no test:**
-- [ ] `docker/kea/tools/dnsmasq_to_kea.py`
-- [ ] `docker/kea/tools/import_leases.py`
-- [ ] `ansible/files/dns-answers.py`
-- [ ] `ansible/files/proxmox-backup-metrics.py`
-- [ ] `ansible/inventory_plugins/netbox_fallback.py`
-- [ ] `ansible/callback_plugins/homelab_progress.py`
-- [ ] `docker/netbox/patch_topology_views.py`
+- [x] `docker/kea/tools/dnsmasq_to_kea.py` (17 of 17; 15 targeted)
+- [x] `docker/kea/tools/import_leases.py` (2 of 2; 4 targeted)
+- [x] `ansible/files/dns-answers.py` (3 of 3; 6 targeted)
+- [x] `ansible/files/proxmox-backup-metrics.py` (9 of 9; 11 targeted)
+- [x] `ansible/inventory_plugins/netbox_fallback.py` (4 of 4; 8 targeted; Ansible and the
+      collection stood in for)
+- [x] `ansible/callback_plugins/homelab_progress.py` (9 of 9; 9 targeted; Ansible stood in for)
+- [x] `docker/netbox/patch_topology_views.py` (1 of 1; 4 targeted)
 
 ## Resuming
 
@@ -87,6 +96,8 @@ a row in its README.
 
 ## Checked, came back negative
 
+- `dnsmasq_to_kea.py` converts each case of a full dnsmasq setup as dnsmasq and Kea define it:
+  every expected value written from their meanings first, and all 31 matched.
 - The 57 tracked multi-document YAML files the hygiene scans had skipped scan clean (#562).
 - The wider env-var check finds only two values in the tree, both true/false switches in
   Termix's deployment (#567).
