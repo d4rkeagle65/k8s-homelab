@@ -58,13 +58,18 @@ tree (#576).
       multi-document file
 
 **Batch B, the cluster's own scripts with no test:**
-- [ ] `kubernetes/prod/system/monitoring/garage-backup-exporter/app/garage-backup-exporter.py`
-- [ ] `kubernetes/prod/services/renovate/renovate/app/config/report-to-metrics.py`
-- [ ] `kubernetes/prod/apps/media/media-sync/app/sync/media-sync.py`
-- [ ] `kubernetes/prod/apps/grimmory/grimmory/app/sync/grimmory-sync.py`
-- [ ] `kubernetes/prod/apps/grimmory/grimmory/app/authors/grimmory-authors.py`
-- [ ] `kubernetes/prod/apps/grimmory/grimmory/app/relink/grimmory-relink.py`
-- [ ] `kubernetes/prod/apps/media/rreading-glasses/app/repair/rreading-glasses-repair.py`
+- [x] `kubernetes/prod/system/monitoring/garage-backup-exporter/app/garage-backup-exporter.py` (10 of 13;
+      left: the refresh loop, its handler, `log_message`; 8 targeted, the signature pinned)
+- [x] `kubernetes/prod/services/renovate/renovate/app/config/report-to-metrics.py` (4 of 4; 5 targeted)
+- [x] `kubernetes/prod/apps/media/media-sync/app/sync/media-sync.py` (14 of 15, left: `http`; 10
+      targeted); a dry run failed whenever Seerr lacked a listed server: fixed
+- [x] `kubernetes/prod/apps/grimmory/grimmory/app/sync/grimmory-sync.py` (16 of 17, left: `call`; 11 targeted)
+- [x] `kubernetes/prod/apps/grimmory/grimmory/app/authors/grimmory-authors.py` (3 of 4, left: `call`; 5 targeted)
+- [x] `kubernetes/prod/apps/grimmory/grimmory/app/relink/grimmory-relink.py` (4 of 4; 15 targeted; its SQL
+      on SQLite through a pymysql stand-in)
+- [x] `kubernetes/prod/apps/media/rreading-glasses/app/repair/rreading-glasses-repair.py` (17 of 18, left:
+      `http`; 20 targeted, and the start's budget check, an equivalent: the first work's check
+      stops the run the same way)
 
 **Batch C, the Docker host's and Ansible's scripts with no test:**
 - [ ] `docker/kea/tools/dnsmasq_to_kea.py`
