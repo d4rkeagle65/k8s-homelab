@@ -326,6 +326,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Cleanup
 
+- **`docker/kea/tools/import_leases.py` reads its files in the locale's encoding**
+  (`read_text()` with no `encoding=`, for the credentials file and the leases list): on Windows
+  a non-ASCII byte in either reads wrong. One argument each; left for the next change to
+  `docker/kea/`, since any change there makes Dockhand redeploy Kea, restarting DHCP.
+
 - **YAML the hygiene scans can't parse is skipped without a word**
   (`scripts/tests/test_secrets_hygiene.py`, each scan's `except Exception: continue`): three
   tracked files hold tags the safe loader refuses (Home Assistant's `configuration.yaml`,
@@ -393,9 +398,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   stops creating it, and Databasus stops dumping it (it still did on 2026-10-21).
 
 ## Later
-
-- **Script logic no test checks**: the mutation sweep's gaps, worked through in
-  [QUEUE-test-gaps.md](QUEUE-test-gaps.md).
 
 - **Key Vault per app, with workload identity, so `cluster-secrets` can retire** (the owner,
   2026-10-24): today one service principal reads the whole vault, and the `azure-keyvault`
@@ -560,7 +562,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - [QUEUE-bastion.md](QUEUE-bastion.md) (about 70%): Termix live with SSO, the bastion key on every host; left, an alert for an unmerged Termix release, then Docker, Kubernetes and cloud.
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (about 60%): SNMPv3 and syslog from the switch and the firewall; left, the switch's syslog parsing, alerts once real lines are seen, and CloudGen's MIB later.
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (about 40%): the wall display's share link works; left, the dashboard on the screen, the deploy template and run (the owner), and more tiles.
-- [QUEUE-test-gaps.md](QUEUE-test-gaps.md) (about 75%): the tested scripts and the cluster's untested ones done, four real misses fixed; left, the Docker host's and Ansible's 7 scripts.
 
 The percentages are estimates as of 2026-10-31, from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at

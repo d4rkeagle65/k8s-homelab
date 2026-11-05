@@ -72,13 +72,14 @@ tree (#576).
       stops the run the same way)
 
 **Batch C, the Docker host's and Ansible's scripts with no test:**
-- [ ] `docker/kea/tools/dnsmasq_to_kea.py`
-- [ ] `docker/kea/tools/import_leases.py`
-- [ ] `ansible/files/dns-answers.py`
-- [ ] `ansible/files/proxmox-backup-metrics.py`
-- [ ] `ansible/inventory_plugins/netbox_fallback.py`
-- [ ] `ansible/callback_plugins/homelab_progress.py`
-- [ ] `docker/netbox/patch_topology_views.py`
+- [x] `docker/kea/tools/dnsmasq_to_kea.py` (17 of 17; 15 targeted)
+- [x] `docker/kea/tools/import_leases.py` (2 of 2; 4 targeted)
+- [x] `ansible/files/dns-answers.py` (3 of 3; 6 targeted)
+- [x] `ansible/files/proxmox-backup-metrics.py` (9 of 9; 11 targeted)
+- [x] `ansible/inventory_plugins/netbox_fallback.py` (4 of 4; 8 targeted; Ansible and the
+      collection stood in for)
+- [x] `ansible/callback_plugins/homelab_progress.py` (9 of 9; 9 targeted; Ansible stood in for)
+- [x] `docker/netbox/patch_topology_views.py` (1 of 1; 4 targeted)
 
 ## Resuming
 
@@ -95,6 +96,8 @@ a row in its README.
 
 ## Checked, came back negative
 
+- `dnsmasq_to_kea.py` converts each case of a full dnsmasq setup as dnsmasq and Kea define it:
+  every expected value written from their meanings first, and all 31 matched.
 - The 57 tracked multi-document YAML files the hygiene scans had skipped scan clean (#562).
 - The wider env-var check finds only two values in the tree, both true/false switches in
   Termix's deployment (#567).
