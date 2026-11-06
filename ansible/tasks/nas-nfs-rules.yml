@@ -1,0 +1,92 @@
+# The NFS rules of the share the Proxmox hosts mount (syn-nfs): one per host in the
+# inventory's `proxmox` group, its client the host's address (ansible_host, NetBox's primary,
+# the Management address), with synology_nfs_rule's options. Off until synology_proxmox_share
+# names the share (the Synology's config context). DSM keeps the rules itself and rewrites
+# /etc/exports from them, so they're read and saved through its web API (synowebapi), not the
+# file.
+#
+# It only adds: a rule whose client isn't a Proxmox host is reported and left, so a host on
+# its way out (Decommissioning, which nothing touches) keeps its access until removed by hand.
+# The whole list is saved at once (DSM's save replaces it), then read back: every rule that
+# was there and every host's must be in it, or the run fails, printing the list it had.
+# Check mode reports what it would add and saves nothing.
+
+- name: The Proxmox hosts' NFS share
+  when: synology_proxmox_share | default('') | length > 0
+  vars:
+    nfs_share: "{{ synology_proxmox_share }}"
+    nfs_rule: "{{ synology_nfs_rule | default({'privilege': 'rw', 'root_squash': 'admin', 'async': true, 'crossmnt': false, 'insecure': false, 'security_flavor': {'sys': true, 'kerberos': false, 'kerberos_integrity': false, 'kerberos_privacy': false}}) }}"
+    nfs_hosts: "{{ groups['proxmox'] | default([]) | sort }}"
+    nfs_wanted: "{{ nfs_hosts | map('extract', hostvars, 'ansible_host') | map('regex_replace', '/.*$', '') | list }}"
+  block:
+    - name: Every Proxmox host has an address
+      ansible.builtin.assert:
+        that: nfs_wanted | select('match', '^[0-9]+(\\.[0-9]+){3}$') | list | length == nfs_hosts | length
+        fail_msg: "A Proxmox host has no IPv4 address in the inventory: {{ dict(nfs_hosts | zip(nfs_wanted)) }}"
+        quiet: true
+
+    - name: Read the share's NFS rules
+      ansible.builtin.raw: |
+        export PATH={{ nas_path }}
+        synowebapi --exec api=SYNO.Core.FileServ.NFS.SharePrivilege method=load version=1 share_name='"{{ nfs_share }}"' 2>/dev/null | sed -n '/^{/,$p'
+      become: true
+      register: nfs_load
+      changed_when: false
+      check_mode: false
+
+    - name: Work out the rules to add
+      ansible.builtin.set_fact:
+        nfs_have: "{{ (nfs_load.stdout | from_json).data.rule }}"
+        nfs_ok: "{{ (nfs_load.stdout | from_json).success | default(false) }}"
+
+    - name: DSM answered for the share
+      ansible.builtin.assert:
+        that: nfs_ok | bool
+        fail_msg: "DSM's NFS API didn't answer for {{ nfs_share }}: {{ nfs_load.stdout | truncate(300) }}"
+        quiet: true
+
+    - name: Report the share's rules
+      ansible.builtin.debug:
+        msg: >-
+          {{ nfs_share }}: {{ nfs_have | length }} rule(s);
+          {{ 'every Proxmox host has one' if nfs_add | length == 0 else 'to add: ' ~ (nfs_add | join(', ')) }}{{
+          '' if nfs_extra | length == 0 else '; not a Proxmox host, left: ' ~ (nfs_extra | join(', ')) }}
+      vars:
+        nfs_add: "{{ nfs_wanted | difference(nfs_have | map(attribute='client') | list) }}"
+        nfs_extra: "{{ nfs_have | map(attribute='client') | difference(nfs_wanted) | list }}"
+
+    - name: Add each missing host's rule
+      vars:
+        nfs_add: "{{ nfs_wanted | difference(nfs_have | map(attribute='client') | list) }}"
+      when: nfs_add | length > 0 and not ansible_check_mode
+      block:
+        - name: The list with them
+          ansible.builtin.set_fact:
+            nfs_new: "{{ (nfs_new | default(nfs_have)) + [nfs_rule | combine({'client': item})] }}"
+          loop: "{{ nfs_add }}"
+
+        - name: Save the list with them
+          ansible.builtin.raw: |
+            export PATH={{ nas_path }}
+            synowebapi --exec api=SYNO.Core.FileServ.NFS.SharePrivilege method=save version=1 share_name='"{{ nfs_share }}"' rule={{ nfs_new | to_json | quote }} 2>/dev/null | sed -n '/^{/,$p'
+          become: true
+          register: nfs_save
+
+        - name: Read them back
+          ansible.builtin.raw: |
+            export PATH={{ nas_path }}
+            synowebapi --exec api=SYNO.Core.FileServ.NFS.SharePrivilege method=load version=1 share_name='"{{ nfs_share }}"' 2>/dev/null | sed -n '/^{/,$p'
+          become: true
+          register: nfs_after
+          changed_when: false
+
+        - name: Every rule that was there, and every host's, is in it
+          ansible.builtin.assert:
+            that: >-
+              (nfs_have | map(attribute='client') | list + nfs_wanted)
+              | difference((nfs_after.stdout | from_json).data.rule | map(attribute='client') | list)
+              | length == 0
+            fail_msg: >-
+              The saved list lacks a rule (save said: {{ nfs_save.stdout | truncate(200) }}).
+              The list before, to restore by hand: {{ nfs_have | to_json }}
+            quiet: true

@@ -42,7 +42,9 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   - "Setting: Proxmox Hosts" (tasks 1624-1626, 2026-11-06) has set the ARC cap, the ACME
     certificate and lldpd, and stops at the snippets folder: the Synology's NFS export
     `proxmox_drives` lists each host's Management address, and not this one's, so `syn-nfs`
-    can't mount. The owner adds it there (DSM, the share's NFS permissions), then the run again:
+    can't mount. "Baseline: Synology NAS" now adds a rule for each Proxmox host (this PR): once
+    merged, `synology_proxmox_share: proxmox_drives` in the Synology's local context, its dry
+    run, its real run (the owner's), then this run again:
     its remaining steps write the NTP server file and remove the installer's NAT bridge, whose
     name `vmbr9` is a retired VLAN's (the owner chose removal). `nas_block: false` in its local
     context: no LUN of its own, as `nas-block` leaves the hosts. The inventory caches NetBox for
