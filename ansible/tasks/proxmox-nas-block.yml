@@ -29,7 +29,10 @@
     nb_iscsi: "{{ nas_block_iscsi_storage | default('nas-iscsi') }}"
     nb_init: "{{ nas_block_initialise | default(false) | bool }}"
     nb_hosts: "{{ groups['proxmox'] | reject('in', groups['proxmox'] | map('extract', hostvars) | selectattr('nas_block', 'defined') | rejectattr('nas_block', 'truthy') | map(attribute='inventory_hostname') | list) | list }}"
-    nb_nodes: "{{ groups['proxmox'] | reject('in', groups['proxmox'] | map('extract', hostvars) | selectattr('nas_block', 'defined') | rejectattr('nas_block', 'truthy') | map(attribute='inventory_hostname') | list) | map('extract', hostvars, 'pve_node') | join(',') }}"
+    # A host this run doesn't target has no pve_node (proxmox-guests.yml sets it for the
+    # targets): its inventory name, which is its Proxmox node name.
+    nb_nodes: >-
+      {%- for h in groups['proxmox'] | reject('in', groups['proxmox'] | map('extract', hostvars) | selectattr('nas_block', 'defined') | rejectattr('nas_block', 'truthy') | map(attribute='inventory_hostname') | list) -%}{{ hostvars[h].pve_node | default(h) }}{{ '' if loop.last else ',' }}{%- endfor -%}
 
 # A misspelt setting (nas_block_initialize) would otherwise be ignored in silence.
 - name: Every nas_block_ setting is one this knows
