@@ -39,9 +39,12 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   deprox02. The installer's NAT bridge is `vmbr9`; the file before is in
   `/root/net-backup-20261106-145550` on the host. Both NICs are USB (it has no onboard Ethernet).
   Left, in order:
-  - The owner: both addresses in NetBox on hpprox03 (`vmbr0`, `vmbr1`), Management primary.
-  - The default route to Management (`gateway` on `vmbr0`) and off `wlp2s0`, once the inventory
-    reaches it on Management; Wi-Fi kept as a way in.
+  NetBox holds its interfaces as deprox02's are (`nic0` with its VLAN subinterfaces bridged into
+  `vmbr2`-`vmbr8`, `nic1` into `vmbr1`), both addresses, and Management as its primary, so the
+  inventory reaches it there (task 1607, 2026-11-06).
+  - The default route to Management (`gateway` on `vmbr0`, deprox02's) and off `wlp2s0`, Wi-Fi's
+    address kept as a way in; the run checks the gateway, DNS and the Debian mirror before it
+    keeps the change. Its script is written; running it waits on the owner's go-ahead.
   - Then as planned: the tag `proxmox`, the hsn-prod cluster (`pvecm add`, the owner's),
     `host_exporters_defer` and `host_alloy_defer` removed, the baseline, status Active. Its
     worker's `local-db` disk 48 GB, not 128 (the others use about 9 GB of theirs).
