@@ -7,10 +7,18 @@ An AiMOR 10" Wi-Fi photo frame, rebuilt as a kiosk that shows ImmichFrame
 whose `docs/allwinner-a33-pf1007l.md` is the full guide; this page records what this frame runs
 and the order to set it up again. Its address, MAC and name are in NetBox and Kea, never here.
 
-**Kiosk app:** the frame now runs the **native ImmichFrame Android app** (`com.immichframe.immichframe`)
-as its kiosk, set as the watchdog's monitored package (`watchdog/package`) - not the Home HQ WebView
-the sections below describe. Those Home HQ sections record the earlier web-page kiosk and are kept
-pending a fuller rewrite; the settings guard below is for the native app.
+**What displays now is the native ImmichFrame Android app** (`com.immichframe.immichframe`), set as the
+Android Home app (a preferred `HOME` activity, picked from the "Select a Home app" chooser) and pointed at
+the in-cluster ImmichFrame server in its own settings (which hold the server address and an access secret).
+It supersedes the **Home HQ WebView** kiosk that the "Setting it up again", "Home HQ patch" and command-listener
+sections below still describe: Home HQ is installed and still launched at boot (`frame-boot.conf` `KIOSK=` was
+left pointing at it), but it lingers behind the native app, which stays in front as the Home app. The watchdog
+and the settings guard both act on the native app.
+
+**Home Assistant control is currently broken.** The `picture_frame_*` scripts POST to Home HQ's command
+listener on TCP 8766, which does not run under the native app, so they no longer reach the frame; re-establishing
+frame control is open work. The native-app install itself (sideloading the APK, setting it as Home) is not yet
+written down here - only its effect on what runs is reflected below.
 
 ## How it is set up
 
@@ -19,13 +27,13 @@ pending a fuller rewrite; the settings guard below is for the native app.
 | ADB | Over Wi-Fi on port 5555 (`persist.adb.tcp.port=5555`, so it survives reboots). It runs as root with no authentication. |
 | Vendor apps | Disabled: `com.efercro.os.aimor` (the stock launcher, which keeps an unencrypted connection a vendor server can run root commands through), `com.DeviceTest`, `com.yhk.qeota` (the vendor updater). |
 | WebView | 106.0.5249.126 (the stock 44 can't run ImmichFrame's page). |
-| Launchers | Home HQ (`com.wesbos.homehq`, upstream's `dashboard/kiosk`) is the Home app, so it starts at boot; Rootless Launcher stays installed as the way back to Settings. Firefox is installed, unused. |
-| Kiosk page | Home HQ's saved URL is ImmichFrame's address. |
-| Boot fixes | Upstream's `scripts/pf1007l-boot` (`install.sh apply`): `MAC` (a fixed Wi-Fi MAC, made from the serial number), `NTP_SERVER` (a local time server), `WIFI_DEFER=1`, `POWER_FIX=1` (it runs on a charger above 500 mA), `IGNORE_IPV6_RA=1`, `KIOSK` set to Home HQ, `ADB_ALLOW` empty. |
+| Launchers | The native ImmichFrame app (`com.immichframe.immichframe`) is the Home app (preferred `HOME`), so it stays in front. Home HQ (`com.wesbos.homehq`, upstream's `dashboard/kiosk`) is still installed and still launched at boot but lingers behind. Rootless Launcher stays installed as the way back to Settings. Firefox is installed, unused. |
+| Kiosk display | The native ImmichFrame app, configured in its own settings with the ImmichFrame server address and an access secret. (Home HQ's saved URL - the same address as a web page - drove the earlier kiosk.) |
+| Boot fixes | Upstream's `scripts/pf1007l-boot` (`install.sh apply`): `MAC` (a fixed Wi-Fi MAC, made from the serial number), `NTP_SERVER` (a local time server), `WIFI_DEFER=1`, `POWER_FIX=1` (it runs on a charger above 500 mA), `IGNORE_IPV6_RA=1`, `KIOSK` set to Home HQ (now stale - the native app is the Home app and takes over), `ADB_ALLOW` empty. |
 | SSH | Dropbear on port 22, key-only, for root; the key allowed is the Termix bastion's (`bastion_ssh_keys`), in `/system/etc/dropbear/authorized_keys`, and Termix reaches it through NetBox (below). |
-| Watchdog | `watchdog/watchdog.sh`, started at boot: reboots the frame when Home HQ is dead or stuck (below). |
+| Watchdog | `watchdog/watchdog.sh`, started at boot: reboots the frame when the kiosk app (the native ImmichFrame app, per `watchdog/package`) is dead or stuck (below). |
 | Settings guard | `settings-guard/settings-guard.sh`, started at boot: when the native app's settings screen opens (a stray up/down swipe), sends BACK to return to the slideshow (below). |
-| Home Assistant | Controls it over HTTP, not ADB: scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` call Home HQ's command listener (below). `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
+| Home Assistant | **Not working under the native app.** Scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` POST to Home HQ's command listener on TCP 8766 (below), which does not run under the native app, so they no longer reach the frame. `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
 
 ## Setting it up again
 
