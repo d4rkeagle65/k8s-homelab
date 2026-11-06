@@ -40,7 +40,7 @@ spec:
     # install with an unpinned installer instead.
     initContainers:
       - name: flux-plugin
-        image: alpine:3.24.2
+        image: alpine:3.24.3
         command:
           - sh
           - -ec
