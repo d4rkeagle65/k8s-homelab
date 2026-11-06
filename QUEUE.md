@@ -39,14 +39,16 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   way in, and without those rules its replies to Production bypassed the firewall. NetBox holds
   its interfaces and addresses, Management primary, the `proxmox` tag and the hsn-prod cluster.
   Left, in order:
-  - **The installer's NAT bridge is named `vmbr9`, a retired VLAN's bridge** (`retired_interfaces`
-    in `proxmox-setting.yml`), so a real "Setting: Proxmox Hosts" run deletes it (dry run, task
-    1623). No guest uses it: remove it, or rename it outside the retired names, before that run.
-  - "Setting: Proxmox Hosts" for real (the owner's): the ARC cap for boots, lldpd, the NTP
-    server file. A run naming this host alone fails until #582 merges; every other host's dry run
-    changes nothing.
-  - "Baseline: Debian Hosts" for real (the owner's): its dry run (task 1621) starts node-exporter
-    on Management and the backup collector. Then status Active.
+  - "Setting: Proxmox Hosts" (tasks 1624-1626, 2026-11-06) has set the ARC cap, the ACME
+    certificate and lldpd, and stops at the snippets folder: the Synology's NFS export
+    `proxmox_drives` lists each host's Management address, and not this one's, so `syn-nfs`
+    can't mount. The owner adds it there (DSM, the share's NFS permissions), then the run again:
+    its remaining steps write the NTP server file and remove the installer's NAT bridge, whose
+    name `vmbr9` is a retired VLAN's (the owner chose removal). `nas_block: false` in its local
+    context: no LUN of its own, as `nas-block` leaves the hosts. The inventory caches NetBox for
+    300 s, so a run within five minutes of a NetBox edit reads the old values.
+  - Done 2026-11-06: "Baseline: Debian Hosts" (task 1628; node-exporter on Management, the
+    SMART, NVMe and backup collectors) and status Active.
   - Its network config is hand-made (`/etc/network/interfaces`): nothing in Ansible holds it.
   - Its worker and control plane through OpenTofu, the worker's `local-db` disk 48 GB, not 128
     (the others use about 9 GB of theirs).
