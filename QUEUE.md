@@ -30,24 +30,26 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
     public (`IMMICH_POSTGRES_SUPERUSER_USERNAME`, `OBSIDIAN_COUCHDB_ADMINUSERNAME`). Keep them
     or drop them.
 
-- **The HP laptop (hpprox03, 64 GB, a 256 GB NVMe) joins as the sixth Proxmox host**, for
-  the host-loss rule above. Its wired networks are up beside Wi-Fi (tasks 1603-1606,
-  2026-11-06), laid out as deprox02: `nic0` (the ASIX USB adapter, 1 GbE) the trunk, with
-  Management untagged on `vmbr0` and VLANs 3, 6, 7, 8 on `vmbr2`, `vmbr6`, `vmbr7`, `vmbr8`
-  (each seen tagged on it); `nic1` (the Realtek RTL8156, 2.5 GbE) the 2.5G network on `vmbr1`.
-  Its address on each is the next in the hosts' range after hpprox02's, and both answer
-  deprox02. The installer's NAT bridge is `vmbr9`; the file before is in
-  `/root/net-backup-20261106-145550` on the host. Both NICs are USB (it has no onboard Ethernet).
+- **The HP laptop (hpprox03, 64 GB, a 256 GB NVMe) is the sixth Proxmox host** (joined
+  2026-11-06: six votes, quorate), for the host-loss rule above. Its wired networks are laid out
+  as deprox02's (`nic0`, the ASIX USB adapter, 1 GbE, the trunk: Management untagged on `vmbr0`,
+  VLANs 3, 6, 7, 8 bridged; `nic1`, the Realtek RTL8156, 2.5 GbE, the 2.5G network on `vmbr1`),
+  its default route is Management's, and source routing (tables 250 and 227, `post-up` lines
+  the owner added) answers each address from its own network: Wi-Fi stays on Production as a
+  way in, and without those rules its replies to Production bypassed the firewall. NetBox holds
+  its interfaces and addresses, Management primary, the `proxmox` tag and the hsn-prod cluster.
   Left, in order:
-  NetBox holds its interfaces as deprox02's are (`nic0` with its VLAN subinterfaces bridged into
-  `vmbr2`-`vmbr8`, `nic1` into `vmbr1`), both addresses, and Management as its primary, so the
-  inventory reaches it there (task 1607, 2026-11-06).
-  - The default route to Management (`gateway` on `vmbr0`, deprox02's) and off `wlp2s0`, Wi-Fi's
-    address kept as a way in; the run checks the gateway, DNS and the Debian mirror before it
-    keeps the change. Its script is written; running it waits on the owner's go-ahead.
-  - Then as planned: the tag `proxmox`, the hsn-prod cluster (`pvecm add`, the owner's),
-    `host_exporters_defer` and `host_alloy_defer` removed, the baseline, status Active. Its
-    worker's `local-db` disk 48 GB, not 128 (the others use about 9 GB of theirs).
+  - **The installer's NAT bridge is named `vmbr9`, a retired VLAN's bridge** (`retired_interfaces`
+    in `proxmox-setting.yml`), so a real "Setting: Proxmox Hosts" run deletes it (dry run, task
+    1623). No guest uses it: remove it, or rename it outside the retired names, before that run.
+  - "Setting: Proxmox Hosts" for real (the owner's): the ARC cap for boots, lldpd, the NTP
+    server file. A run naming this host alone fails until #582 merges; every other host's dry run
+    changes nothing.
+  - "Baseline: Debian Hosts" for real (the owner's): its dry run (task 1621) starts node-exporter
+    on Management and the backup collector. Then status Active.
+  - Its network config is hand-made (`/etc/network/interfaces`): nothing in Ansible holds it.
+  - Its worker and control plane through OpenTofu, the worker's `local-db` disk 48 GB, not 128
+    (the others use about 9 GB of theirs).
 
 - **Delete the old single-version Hyper Backup copy on the TerraMaster** (2026-10-22): the
   cancelled first run of the single-version `k8s-to-tnas` task left `k8sData_synology/` in the
@@ -96,6 +98,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **leprox01's second corosync link (the 2.5G network) has been down since 2026-10-25**: no host
+  answers it on that network, though its port has carrier, so it runs on one link, and nothing
+  alerted (245 link-down events in its corosync log). Check its 2.5G port's VLAN and cable, then
+  `corosync-cfgtool -s` there; an alert on a corosync link down is its own item.
+
 - **Host-loss capacity, by the owner's rule (2026-11-04):** any one Proxmox host down for a
   rolling restart (`proxmox-reboot.yml`) without an issue; any two down, and `homelab-critical`
   and Docker VM 1 stay up. Measured 2026-11-04 (worker requests with native sidecars, after
@@ -116,6 +123,8 @@ Semaphore, with the first VM's reboot on 2026-10-22).
     critical is the owner's call (the media apps' are on `homelab-critical` today).
   - **Two hosts, Docker VM 1:** HA needs a surviving host with its memory free: today only
     deprox01 has 12 GiB, so deprox01 and deprox02 down leaves it nowhere.
+    Its HA rule (`infra-vms`, `/etc/pve/ha/rules.cfg`) allows only deprox02 and deprox01, so
+    the laptop's room counts once the rule lists it too (the owner's, in Proxmox).
   - The critical tier's stateless pods fit on any two surviving workers once lower tiers are
     preempted. Meeting the two-host rule in full needs more host memory than the hosts have.
   - **No host takes more RAM** (`dmidecode`, task 1578, 2026-11-04): each is at its board's
