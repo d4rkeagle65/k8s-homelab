@@ -39,18 +39,13 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
   way in, and without those rules its replies to Production bypassed the firewall. NetBox holds
   its interfaces and addresses, Management primary, the `proxmox` tag and the hsn-prod cluster.
   Left, in order:
-  - "Setting: Proxmox Hosts" (tasks 1624-1626, 2026-11-06) has set the ARC cap, the ACME
-    certificate and lldpd, and stops at the snippets folder: the Synology's NFS export
-    `proxmox_drives` lists each host's Management address, and not this one's, so `syn-nfs`
-    can't mount. "Baseline: Synology NAS" now adds a rule for each Proxmox host (this PR): once
-    merged, `synology_proxmox_share: proxmox_drives` in the Synology's local context, its dry
-    run, its real run (the owner's), then this run again:
-    its remaining steps write the NTP server file and remove the installer's NAT bridge, whose
-    name `vmbr9` is a retired VLAN's (the owner chose removal). `nas_block: false` in its local
-    context: no LUN of its own, as `nas-block` leaves the hosts. The inventory caches NetBox for
-    300 s, so a run within five minutes of a NetBox edit reads the old values.
-  - Done 2026-11-06: "Baseline: Debian Hosts" (task 1628; node-exporter on Management, the
-    SMART, NVMe and backup collectors) and status Active.
+  - Done 2026-11-06/07: "Baseline: Debian Hosts" (task 1628), status Active, "Setting: Proxmox
+    Hosts" (task 1640: the ARC cap, the ACME certificate, lldpd, the NTP server file, and the
+    installer's NAT bridge removed, its nftables table and file after it, task 1642). `syn-nfs`
+    mounts: the Synology baseline gave it an NFS rule (task 1638, `synology_proxmox_share` in the
+    Synology's local context). `nas_block: false` in its local context: no LUN of its own, as
+    `nas-block` leaves the hosts. The inventory caches NetBox for 300 s, so a run within five
+    minutes of a NetBox edit reads the old values.
   - Its network config is hand-made (`/etc/network/interfaces`): nothing in Ansible holds it.
   - Its worker and control plane through OpenTofu, the worker's `local-db` disk 48 GB, not 128
     (the others use about 9 GB of theirs).
