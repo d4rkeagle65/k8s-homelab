@@ -572,14 +572,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 ## Working queue files
 
 - [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 95%): the bridge is gone and every source tickets through n8n; left, a real Databasus notification and a container down past its hold, read back.
-- [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 85%): requests and limits on every container; left, the week-long recheck, the Docker VM's containers, Immich's server and the CPU cap (the owner's).
+- [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 90%): requests and limits on every container; the week-long recheck merged (#572-#577); left, the databases read back after #577, the Docker VM's containers, ManicTime's priority class and the CPU cap (the owner's).
 - [QUEUE-kept.md](QUEUE-kept.md) (about 80%): Kept deployed and backed up; left, the owner's first account and recovery kit, then a restore test of `kept-db`.
 - [QUEUE-tailscale.md](QUEUE-tailscale.md) (about 75%): the policy applied and the exporter live; left, the travel router's new tag (the owner) and its old one dropped, and a second subnet router later.
 - [QUEUE-bastion.md](QUEUE-bastion.md) (about 70%): Termix live with SSO, the bastion key on every host; left, an alert for an unmerged Termix release, then Docker, Kubernetes and cloud.
 - [QUEUE-network-monitoring.md](QUEUE-network-monitoring.md) (about 60%): SNMPv3 and syslog from the switch and the firewall; left, the switch's syslog parsing, alerts once real lines are seen, and CloudGen's MIB later.
 - [QUEUE-kiosk.md](QUEUE-kiosk.md) (about 40%): the wall display's share link works; left, the dashboard on the screen, the deploy template and run (the owner), and more tiles.
 
-The percentages are estimates as of 2026-10-31, from each file's checklist weighed by the
+The percentages are estimates as of 2026-10-31 (resource-limits 2026-11-07), from each file's checklist weighed by the
 size of what's left; update one when its file changes. A long job gets a `QUEUE-<task>.md` at
 the repo root; `CLAUDE.md` says when. A
 finished one moves to `old-queues/`, whose README indexes what each settled and which checks

@@ -190,7 +190,8 @@ Queries (Prometheus, `kube-prometheus-stack`):
       - [ ] ManicTime's server to `homelab-low`: its chart (the owner's helm-charts repository)
         has no priority class value and generate has no post-renderer, so it waits on the
         owner's choice of the two. Its request is lowered (this PR).
-      - [ ] The other apps; the platform and monitoring; the databases.
+      - [x] The other apps (#573), the platform (#574) and monitoring (#575); the databases are
+        their own item below.
       The plan as first written: (Prometheus's history starts 2026-10-14
       16:48). The 2026-10-18 pass (each batch's "Re-measured" above) had 4.2 days and only
       raised, so this one:

@@ -50,8 +50,8 @@ status, started at boot.
       metrics, its SNMP having no storage). The exporter is live (2026-10-27): all five apps
       read (wall_source_up 1). The denser Wall (#432): 30 panels in 24 rows, every query
       run against Prometheus. Left: read on the wall's screen.
-- [ ] 4. Signed in once on the laptop as `wall-display`; the screen read back from a photo or
-      the owner's word; then the screen-off timer seen to work overnight.
+- [ ] 4. The screen read back from a photo or the owner's word (the share link, no sign-in);
+      then the screen-off timer seen to work overnight.
 
 ## Resuming
 
