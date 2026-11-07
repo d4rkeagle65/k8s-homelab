@@ -10,7 +10,10 @@ def _tree(root, files):
     for rel, text in files.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        # newline="" so "\n" is written literally on Windows too (text mode would make it
+        # "\r\n", and the tracker compares bytes) -- fixtures stay identical across platforms.
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
 
 
 def _owns_generated(rel):
