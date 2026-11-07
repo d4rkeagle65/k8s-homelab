@@ -533,6 +533,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   dashboard read Kea's own counts from `kea-ha-exporter` instead (`docker/kea/README.md`), so
   nothing here reads Stork's figures now. Left: an upstream report to Stork, before anything is
   built on its metrics again.
+- **Kea LFC off for Stork's Leases List: verify the fill, watch file growth** (set 2026-11-07):
+  `docker/kea/kea-dhcp4.conf` now has `lfc-interval: 0`, so Stork's agent, which snoops only the
+  one live `kea-leases4.csv`, sees every lease rather than the slice written since the hourly
+  compaction (the bulk otherwise sits in `kea-leases4.csv.2`, which the agent never reads). Left:
+  after the deploy, redeploy `kea-standby` too (its folder didn't change, so its webhook won't
+  fire; it fetches the conf from `main` on redeploy), then confirm the list reaches all of subnet
+  107. With no LFC the file grows append-only (Kea de-dupes on load), so if it bloats, move the
+  lease backend to PostgreSQL (the reservations' database already) or put LFC back and accept the
+  partial list.
 - **Immich's storage-template migration fails for some files** (found 2026-10-22: 19 failures
   beside 42 successes in 12 hours of its log, after the OneDrive import): read why before the
   duplicate review. Left, those files stay where they were uploaded, outside the template's

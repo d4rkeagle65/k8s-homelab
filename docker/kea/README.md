@@ -203,6 +203,11 @@ The **DHCP > Leases List** page needs the agent to collect lease data, which it
 does not by default: `STORK_AGENT_ENABLE_LEASE_TRACKING=true` (set in
 `compose.yaml`) turns it on. It requires Kea's memfile lease backend, which this
 setup uses; the collection interval is under **Configuration > Settings** in Stork.
+The agent collects by snooping the one live lease file (`kea-leases4.csv`), so
+LFC is off (`kea-dhcp4.conf`, `lfc-interval: 0`): with it on, the hourly
+compaction rotates most leases into `kea-leases4.csv.2`, which the agent never
+reads, and the list shows only the slice written since the last compaction.
+**DHCP > Leases Search**, which queries Kea's API live, is unaffected either way.
 
 ### 4. Move the reservations into the database
 
