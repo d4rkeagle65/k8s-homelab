@@ -199,6 +199,11 @@ Open `http://<api address>:8080`, log in as `admin`/`admin` and set a new
 password. The agent registers itself on start: approve it under **Services
 > Machines** (check its token fingerprint), and Kea appears.
 
+The **DHCP > Leases List** page needs the agent to collect lease data, which it
+does not by default: `STORK_AGENT_ENABLE_LEASE_TRACKING=true` (set in
+`compose.yaml`) turns it on. It requires Kea's memfile lease backend, which this
+setup uses; the collection interval is under **Configuration > Settings** in Stork.
+
 ### 4. Move the reservations into the database
 
 For each reservation in the site file: `reservation-add` with

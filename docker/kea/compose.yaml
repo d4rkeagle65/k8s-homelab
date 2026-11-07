@@ -169,6 +169,9 @@ services:
       STORK_AGENT_SERVER_URL: http://stork-server:8080
       STORK_AGENT_HOST: kea-dhcp4
       STORK_AGENT_PORT: "8080"
+      # Collect lease data so Stork's DHCP > Leases List is populated; the agent
+      # does not by default. It needs Kea's memfile lease backend, which this uses.
+      STORK_AGENT_ENABLE_LEASE_TRACKING: "true"
     volumes:
     - ./kea-dhcp4.conf:/etc/kea/kea-dhcp4.conf:ro
     - /opt/kea/site:/etc/kea/site:ro
