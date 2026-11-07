@@ -7,6 +7,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import sys
 import time
 import types
@@ -93,7 +94,8 @@ def test_an_answer_is_kept_as_the_last_good_copy(plugin):
     saved = json.loads(plugin.copy.read_text(encoding="utf-8"))
     assert saved["answers"] == {URLS[0]: [{"name": "pve1"}], URLS[1]: [{"address": "192.0.2.5/24"}]}
     assert abs(saved["saved_at"] - time.time()) < 60
-    assert oct(plugin.copy.stat().st_mode & 0o777) == "0o600"
+    if os.name != "nt":  # Windows can't set POSIX file modes; the 0o600 intent holds on the Linux host
+        assert oct(plugin.copy.stat().st_mode & 0o777) == "0o600"
     assert plugin.warnings == []
 
 

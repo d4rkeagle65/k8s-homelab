@@ -118,7 +118,8 @@ def test_main_writes_the_file_whole_with_success(host, tmp_path, monkeypatch, ca
     assert "proxmox_backup_collector_success 1" in text
     assert text.count("# TYPE proxmox_backup_guest_covered gauge") == 1, "each family together"
     assert 'proxmox_backup_guest_covered{vmid="101",guest="web",type="qemu"} 1' in text
-    assert oct(os.stat(out).st_mode & 0o777) == "0o644"
+    if os.name != "nt":  # Windows can't set POSIX file modes; the 0o644 intent holds on the Linux host
+        assert oct(os.stat(out).st_mode & 0o777) == "0o644"
     assert [p.name for p in tmp_path.iterdir()] == ["proxmox_backup.prom"], "no temporary file left"
 
 

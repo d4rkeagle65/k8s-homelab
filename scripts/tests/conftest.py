@@ -9,6 +9,7 @@ conftest.py), not the current working directory, so it works either way.
 from __future__ import annotations
 
 import copy
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -27,7 +28,27 @@ def repo_root() -> Path:
 
 @pytest.fixture(scope="session")
 def all_files(repo_root: Path) -> list[Path]:
-    """Every tracked-by-convention file in the repo, excluding .git."""
+    """Every git-tracked file in the repo (staged files included), via
+    `git ls-files`. Untracked and .gitignored files are excluded on purpose:
+    these checks vet what gets COMMITTED, and .gitignore owns the exclusion
+    list (root CLAUDE.md: "Select files through git"). A .gitignored local file
+    (e.g. a devices/*/secrets.yaml, or the kubernetes/.local/ store) is not
+    committed, so it is not tested.
+
+    Falls back to a filesystem walk only when git isn't available -- then it
+    scans everything, and the per-test .local/.gitignore filters still apply.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(repo_root), "ls-files", "-z"],
+            capture_output=True, check=True,
+        ).stdout
+        tracked = [repo_root / rel for rel in out.decode("utf-8").split("\0") if rel]
+        files = [p for p in tracked if p.is_file()]
+        if files:
+            return files
+    except (OSError, UnicodeDecodeError, subprocess.CalledProcessError):
+        pass
     return [
         p
         for p in repo_root.rglob("*")
