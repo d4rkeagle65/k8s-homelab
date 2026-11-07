@@ -154,6 +154,31 @@ credentials file Kea reads (`docker/kea/README.md`).
    docker exec claude-code sh -c 'curl -s -u "$(cat ~/.kea-api)" -H "Content-Type: application/json" -d "{\"command\": \"version-get\"}" http://127.0.0.1:8000/'
    ```
 
+### Semaphore API token
+
+`~/.semaphore-token` holds an API token of the Semaphore user the sessions act as, and
+`~/.semaphore-url` Semaphore's address, `https://semaphore.<your domain>` (its private
+route: from this container the host's management address doesn't reach it,
+`docker/CLAUDE.md`). `scripts/semaphore_run.py` reads both; the `semaphore` skill
+(`.claude/skills/semaphore/`) says how sessions use it. A token of its own (Semaphore's
+API Tokens page, signed in as that user) can be revoked without touching the PC's.
+
+1. On the PC, copy the token to the clipboard from wherever you keep it.
+
+2. On the host, save both, then test them (a list of templates means they work):
+
+   ```sh
+   docker exec -it claude-code save-secret .semaphore-token
+   ```
+
+   ```sh
+   docker exec -it claude-code save-secret .semaphore-url
+   ```
+
+   ```sh
+   docker exec -u claude claude-code sh -c 'cd ~/k8s-homelab && python3 scripts/semaphore_run.py templates'
+   ```
+
 ### Key Vault sign-in
 
 The `k8s-homelab-claude-code` service principal, with "Key Vault Secrets User" on

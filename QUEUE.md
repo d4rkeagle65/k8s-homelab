@@ -13,6 +13,13 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **Semaphore's address for the sessions** (2026-11-07): `scripts/semaphore_run.py` (the
+  `semaphore` skill) reads `~/.semaphore-url` beside `~/.semaphore-token`. On the Docker host's
+  Claude, save the address and run its test (`docker/claude-code/README.md`, "Semaphore API
+  token"); on the PC, the same two files in the home folder, or `SEMAPHORE_URL` and
+  `SEMAPHORE_TOKEN`. Until then the script refuses, naming what's missing. Its first real run
+  checks what the tests only fake: that Semaphore stores `params.dry_run` and the survey values
+  as sent.
 - **Key Vault's copy outside Azure** (`scripts/keyvault-secrets.ps1 -Export`): a first export
   opens with `-Read` (the owner, 2026-10-31). Left: once the secrets' reorganisation in another
   session settles, a fresh export, then `-Import` of it without `-Apply` against the same vault,
