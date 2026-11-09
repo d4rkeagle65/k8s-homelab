@@ -15,10 +15,12 @@ sections below still describe: Home HQ is installed and still launched at boot (
 left pointing at it), but it lingers behind the native app, which stays in front as the Home app. The watchdog
 and the settings guard both act on the native app.
 
-**Home Assistant control is currently broken.** The `picture_frame_*` scripts POST to Home HQ's command
-listener on TCP 8766, which does not run under the native app, so they no longer reach the frame; re-establishing
-frame control is open work. The native-app install itself (sideloading the APK, setting it as Home) is not yet
-written down here - only its effect on what runs is reflected below.
+**Home Assistant control is partly broken.** The `picture_frame_*` scripts POST to Home HQ's command
+listener on TCP 8766, which is still running (Home HQ lingers in the background, listening on IPv6), so
+`mute` and `reboot` - global actions - still work. But `next`/`back`/`pause` send key presses to Home HQ's
+own now-hidden WebView, not the native app in front, so those three no longer change the slideshow;
+restoring full control is open work. The native-app install itself (sideloading the APK, setting it as Home)
+is not yet written down here - only its effect on what runs is reflected below.
 
 ## How it is set up
 
@@ -33,7 +35,7 @@ written down here - only its effect on what runs is reflected below.
 | SSH | Dropbear on port 22, key-only, for root; the key allowed is the Termix bastion's (`bastion_ssh_keys`), in `/system/etc/dropbear/authorized_keys`, and Termix reaches it through NetBox (below). |
 | Watchdog | `watchdog/watchdog.sh`, started at boot: reboots the frame when the kiosk app (the native ImmichFrame app, per `watchdog/package`) is dead or stuck (below). |
 | Settings guard | `settings-guard/settings-guard.sh`, started at boot: when the native app's settings screen opens (a stray up/down swipe), sends BACK to return to the slideshow (below). |
-| Home Assistant | **Not working under the native app.** Scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` POST to Home HQ's command listener on TCP 8766 (below), which does not run under the native app, so they no longer reach the frame. `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
+| Home Assistant | **Partly working.** Scripts `picture_frame_next`, `_back`, `_pause`, `_mute` and `_reboot` POST to Home HQ's TCP 8766 listener (below), which still runs: `_mute` and `_reboot` (global) work, but `_next`/`_back`/`_pause` key Home HQ's hidden WebView, not the native app in front, so they don't change the slideshow. `ha_iot_setup.py` doesn't add it: Home Assistant's ADB library gets one connection from this firmware's adbd, which then stops answering anyone. |
 
 ## Setting it up again
 
