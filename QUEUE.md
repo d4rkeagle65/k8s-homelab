@@ -124,6 +124,14 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   - **Two hosts, etcd:** three control planes on deprox01, leprox01 and hpprox02, so any two of
     those lose quorum. Surviving any two needs five, one per host (deprox02 and hpprox01 have
     none), which deprox02 has no memory for.
+    **A Lenovo ThinkPad L13 Yoga (Gen 1, i5-10210U, 8 GB soldered) as a seventh Proxmox host
+    for the fifth control plane** (the owner, 2026-11-09), instead of hpprox01, which then keeps
+    its free memory for w06a or HA room: a 4 GB control plane and nothing else, and a seventh
+    vote. Its NVMe is nearly new (0% used, 100% spare, 2.25 TB written, no media errors); a
+    control plane writes about 24 GB a day. Left: how it connects (one USB NIC as the trunk with
+    a single corosync ring, or a two-NIC dock for both), then the HP laptop's steps (NetBox
+    Staged, the network, `pvecm add`, the baseline and settings), its memtest and lockup
+    watchdog, and the battery's charge limit (`charge_control_end_threshold`).
   - **Two hosts, databases:** every CloudNativePG cluster has two instances on local disk, so 8
     of the 10 host pairs leave some cluster with none (rreading-glasses-db has one instance).
     Three instances on three hosts for each database that must stay up; which ones are
