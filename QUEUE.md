@@ -213,8 +213,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   and quotes from the login variables; if not, toggle Third-Party Compatibility with the plugs
   online. The "livcor" Kasa device is off, so each run spends 90 s on it and ends in error. The cloud integrations (Tuya, VeSync, Whirlpool;
   HACS' Alexa Media Player, Govee Cloud Integration, Hatch, eufy) take the owner's logins in
-  the UI; a later run places their devices that carry a MAC. Then pin the HACS add-ons in the
-  repo (offered, its own pull request). The son's-room ceiling fan doesn't work: look into it.
+  the UI; a later run places their devices that carry a MAC. The HACS add-ons update themselves
+  on Sundays at 4:00 and HA restarts if one did (`automation hacs_updates` in configuration.yaml,
+  the owner's choice on 2026-11-10 over pinning them); a big version change waits, named in the
+  phones' message, for the owner to install from HACS. After the first Sunday with an update,
+  read back the message, the add-on's new version and HA up again. The son's-room ceiling fan doesn't work: look into it.
   Revoke the token in ~/.ha-token when this is done. Attended run 1354 (2026-10-26): the bedroom Fire Stick took the
   ADB connection but its prompt never showed (asleep or off its input), the living-room Fire TV
   and the Samsung TV were off the network; the next attended run with each TV on and showing. Eufy (2026-10-26): the eufy-sdk bridge (`kubernetes/prod/apps/homeassistant/eufy-bridge/`)
