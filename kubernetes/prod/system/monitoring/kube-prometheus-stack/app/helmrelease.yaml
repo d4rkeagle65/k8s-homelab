@@ -155,9 +155,12 @@ spec:
         evaluationInterval: 60s
         retention: 15d
         retentionSize: 18GB
-        # CPU limit as a database's: compactions are its busiest minutes.
+        # CPU limit as a database's: compactions are its busiest minutes. Memory
+        # requested at 1.2 x its 7-day 95th percentile, not the critical tier's peak:
+        # the peaks (3.6Gi) are compactions and restarts, inside the 5Gi limit, and
+        # two replicas at the peak rule left no worker's loss fitting.
         resources:
-          requests: {cpu: 70m, memory: 4384Mi}
+          requests: {cpu: 70m, memory: 2432Mi}
           limits: {cpu: 1000m, memory: 5Gi}
         # nas-iscsi: each replica's own LUN on the NAS, so the constant writes
         # miss the hosts' SSDs and the volume follows its pod to any Talos node.
