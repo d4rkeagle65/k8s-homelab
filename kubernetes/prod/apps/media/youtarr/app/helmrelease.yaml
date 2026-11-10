@@ -39,7 +39,7 @@ spec:
             # Pinned by version and digest.
             image:
               repository: dialmaster/youtarr
-              tag: v1.89.0@sha256:171dd050b4d667a3ec8811b0ee23c7a7d8831efb4d289a356f0f634a02ceb834
+              tag: v1.91.0@sha256:822179ec033d6238a3bb6c086392adbfadd4baf6f33fbdcbe1468ec5e8294fa5
             env:
               TZ: ${TIMEZONE}
               LOG_LEVEL: info
