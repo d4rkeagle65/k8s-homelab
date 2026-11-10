@@ -52,9 +52,11 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
     scraped it. A new Proxmox host needs both; nothing derives them from NetBox's devices yet.
   - **It locked up 2026-11-08** (a hard hang, nothing logged; an NMI of unknown reason 3c the
     day before, no machine-check or thermal event). 64 GB on a board whose firmware says 32:
-    memtest86+ from its boot menu before it holds a worker and a control plane; then the
-    lockup detectors set to panic, `kernel.panic`, and the `sp5100_tco` watchdog so a hang
-    reboots it. Its CPU temperature isn't visible (`k10temp` shows nothing).
+    memtest86+ from its boot menu before it holds a worker and a control plane. Its hang
+    recovery is in "Setting: Proxmox Hosts" (this PR): once merged, `proxmox_lockup_reboot:
+    true` and `proxmox_watchdog_module: sp5100_tco` in its local context (the owner loaded
+    `sp5100_tco` by hand, 2026-11-10: it initializes, a 60-second heartbeat), the run, then a
+    reboot for the watchdog. Its CPU temperature isn't visible (`k10temp` shows nothing).
   - Its worker and control plane through OpenTofu, the worker's `local-db` disk 48 GB, not 128
     (the others use about 9 GB of theirs).
 
