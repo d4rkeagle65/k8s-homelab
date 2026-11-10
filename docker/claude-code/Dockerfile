@@ -13,7 +13,7 @@
 FROM debian:trixie-slim
 
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VERSION=1.36.5
+ARG KUBECTL_VERSION=1.37.2
 # renovate: datasource=github-releases depName=fluxcd/flux2
 ARG FLUX_VERSION=2.9.6
 # renovate: datasource=github-releases depName=helm/helm
