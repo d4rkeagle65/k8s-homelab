@@ -93,6 +93,73 @@ automation laundry:
             The {{ 'washer' if 'washer' in trigger.entity_id else 'dryer' }} finished after
             {{ ((as_timestamp(trigger.to_state.last_changed) - as_timestamp(trigger.from_state.last_changed)) / 60) | round(0) | int }} minutes.
 
+# HACS' integrations and cards update themselves early on Sunday, and Home Assistant restarts
+# only when one did. A big version change waits for the owner: a new first number (the second
+# under 1.0, where minor versions break things), or a version that isn't numbers, such as a
+# commit. A date version (2026.10.2) changes its first number every year, so it updates. Home
+# Assistant itself is pinned in deployment-homeassistant.yaml and updates through Renovate's
+# pull requests. The phones get the list, as the laundry's message does.
+automation hacs_updates:
+  - id: hacs_weekly_updates
+    alias: HACS weekly updates
+    mode: single
+    triggers:
+      - trigger: time
+        at: "04:00:00"
+    conditions:
+      - condition: time
+        weekday: sun
+    variables:
+      pending: >-
+        {%- set ns = namespace(safe=[], held=[]) -%}
+        {%- for e in integration_entities('hacs') | select('match', 'update\\.') if is_state(e, 'on') -%}
+          {%- set a = state_attr(e, 'installed_version') -%}
+          {%- set b = state_attr(e, 'latest_version') -%}
+          {%- set pa = ((a or '') | regex_replace('^v', '')).split('.') -%}
+          {%- set pb = ((b or '') | regex_replace('^v', '')).split('.') -%}
+          {%- set numeric = pa | count > 1 and pb | count > 1 and pa[0] | int(-1) >= 0 and pb[0] | int(-1) >= 0 -%}
+          {%- set safe = numeric and (pa[0] | int >= 2000 or (pa[0] == pb[0] and (pa[0] | int > 0 or pa[1] == pb[1]))) -%}
+          {%- set item = {'entity': e, 'name': state_attr(e, 'friendly_name') | regex_replace('(?i) update$', ''), 'from': a, 'to': b} -%}
+          {%- if safe -%}{%- set ns.safe = ns.safe + [item] -%}{%- else -%}{%- set ns.held = ns.held + [item] -%}{%- endif -%}
+        {%- endfor -%}
+        {{ {'safe': ns.safe, 'held': ns.held} }}
+    actions:
+      - condition: template
+        value_template: "{{ (pending.safe + pending.held) | count > 0 }}"
+      - repeat:
+          for_each: "{{ pending.safe }}"
+          sequence:
+            - action: update.install
+              target:
+                entity_id: "{{ repeat.item.entity }}"
+              continue_on_error: true
+      # Installed means HACS now reports the new version, not that the call returned.
+      - variables:
+          result: >-
+            {%- set ns = namespace(done=[], failed=[]) -%}
+            {%- for i in pending.safe -%}
+              {%- if state_attr(i.entity, 'installed_version') == i.to -%}{%- set ns.done = ns.done + [i] -%}
+              {%- else -%}{%- set ns.failed = ns.failed + [i] -%}{%- endif -%}
+            {%- endfor -%}
+            {{ {'done': ns.done, 'failed': ns.failed} }}
+      - action: notify.send_message
+        target:
+          entity_id: "{{ integration_entities('mobile_app') | select('match', 'notify\\.') | list }}"
+        data:
+          title: HACS updates
+          message: >-
+            {%- macro list(items) -%}{%- for i in items -%}{{ i.name }} {{ i.from }} → {{ i.to }}{{ ', ' if not loop.last }}{%- endfor -%}{%- endmacro -%}
+            {%- if result.done %}Updated, restarting Home Assistant: {{ list(result.done) }}.{% endif %}
+            {%- if result.failed %} Didn't install: {{ list(result.failed) }}.{% endif %}
+            {%- if pending.held %} Waiting for you: {{ list(pending.held) }}.{% endif %}
+      - if:
+          - condition: template
+            value_template: "{{ result.done | count > 0 }}"
+        then:
+          # Time for the message to leave before the restart.
+          - delay: "00:00:10"
+          - action: homeassistant.restart
+
 # The living-room picture frame (devices/picture-frame/): commands to its Home HQ,
 # which turns them into the page's own keys (Right, Left, Space), its mute toggle or
 # a reboot. The token comes from the Deployment's environment.
