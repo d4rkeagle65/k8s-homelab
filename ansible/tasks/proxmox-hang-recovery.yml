@@ -1,0 +1,111 @@
+# A host that hangs reboots by itself instead of waiting for someone to power it off. Per
+# host, off until its config context (NetBox) turns it on:
+#
+# - proxmox_lockup_reboot: true: the kernel's lockup detectors (on by default) panic instead
+#   of only logging, and a panic reboots after proxmox_panic_seconds (default 10). A sysctl.d
+#   file, applied now and read back. Turned off, the file goes and the next boot is back to
+#   the kernel's defaults (the running values stay until then; the report says so).
+# - proxmox_watchdog_module: a hardware watchdog driver for watchdog-mux, Proxmox's own
+#   watchdog daemon, in place of softdog, so a freeze the kernel can't see still resets the
+#   machine (sp5100_tco on AMD, iTCO_wdt on Intel). /etc/default/pve-ha-manager, which
+#   watchdog-mux reads at boot, so it takes effect at the next reboot; the report names the
+#   watchdog in use until then. Check the driver first: `modprobe <module>`, and dmesg must
+#   say it initialized (a disabled one says "Watchdog hardware is disabled").
+#
+# Every run reports both, set or not.
+
+- name: Work out the hang settings
+  ansible.builtin.set_fact:
+    hang_lockup: "{{ proxmox_lockup_reboot | default(false) | bool }}"
+    hang_panic: "{{ proxmox_panic_seconds | default(10) | int }}"
+    hang_wd: "{{ proxmox_watchdog_module | default('') | trim }}"
+
+- name: The watchdog driver exists
+  ansible.builtin.command:
+    argv: [/usr/sbin/modinfo, -n, "{{ hang_wd }}"]
+  register: hang_modinfo
+  changed_when: false
+  check_mode: false
+  failed_when: false
+  when: hang_wd | length > 0
+
+- name: The watchdog driver is one this kernel has
+  ansible.builtin.assert:
+    that: hang_modinfo.rc == 0
+    fail_msg: "{{ inventory_hostname }}: no kernel module {{ hang_wd }} (proxmox_watchdog_module)."
+    quiet: true
+  when: hang_wd | length > 0
+
+- name: Lockups panic and a panic reboots
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/90-hang-reboot.conf
+    content: |
+      # From ansible/tasks/proxmox-hang-recovery.yml (proxmox_lockup_reboot).
+      kernel.softlockup_panic = 1
+      kernel.hardlockup_panic = 1
+      kernel.panic = {{ hang_panic }}
+    owner: root
+    group: root
+    mode: "0644"
+  register: hang_sysctl_file
+  when: hang_lockup
+
+- name: No lockup reboot where it's off
+  ansible.builtin.file:
+    path: /etc/sysctl.d/90-hang-reboot.conf
+    state: absent
+  register: hang_sysctl_gone
+  when: not hang_lockup
+
+- name: Apply them now
+  ansible.builtin.command:
+    argv: [/usr/sbin/sysctl, -p, /etc/sysctl.d/90-hang-reboot.conf]
+  when: hang_lockup and hang_sysctl_file is changed
+
+- name: Read the running values
+  ansible.builtin.command:
+    argv: [/usr/sbin/sysctl, -n, kernel.softlockup_panic, kernel.hardlockup_panic, kernel.panic]
+  register: hang_sysctl_now
+  changed_when: false
+  check_mode: false
+
+- name: The running values are the file's
+  ansible.builtin.assert:
+    that: hang_sysctl_now.stdout_lines | map('trim') | list == ['1', '1', hang_panic | string]
+    fail_msg: >-
+      {{ inventory_hostname }}: running softlockup_panic, hardlockup_panic, panic are
+      {{ hang_sysctl_now.stdout_lines | join(', ') }}; wanted 1, 1, {{ hang_panic }}.
+    quiet: true
+  when: hang_lockup and not ansible_check_mode
+
+- name: watchdog-mux's watchdog
+  ansible.builtin.lineinfile:
+    path: /etc/default/pve-ha-manager
+    regexp: '^WATCHDOG_MODULE='
+    line: "WATCHDOG_MODULE={{ hang_wd }}"
+    state: "{{ 'present' if hang_wd | length > 0 else 'absent' }}"
+    create: "{{ hang_wd | length > 0 }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: hang_wd_file
+
+- name: Read the watchdog in use
+  ansible.builtin.command:
+    argv: [cat, /sys/class/watchdog/watchdog0/identity]
+  register: hang_wd_now
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Report the hang recovery
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}:
+      lockup reboot {{ ('on, after ' ~ hang_panic ~ ' s') if hang_lockup else 'off' }}
+      (running softlockup_panic, hardlockup_panic, panic:
+      {{ hang_sysctl_now.stdout_lines | join(', ') }}{{
+      '; the running values stay until a reboot' if (hang_sysctl_gone is changed) else '' }});
+      watchdog {{ hang_wd or 'softdog (no proxmox_watchdog_module)' }}, in use now:
+      {{ hang_wd_now.stdout | trim or 'unknown' }}{{
+      '; it switches at the next reboot' if hang_wd | length > 0 and 'Software' in hang_wd_now.stdout else '' }}.

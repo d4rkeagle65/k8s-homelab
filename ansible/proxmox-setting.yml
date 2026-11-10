@@ -39,6 +39,10 @@
 # sending each interface's name as its port ID (/etc/lldpd.d/port.conf), read
 # back from lldpd.
 #
+# A hung host reboots by itself (tasks/proxmox-hang-recovery.yml), per host and off until
+# its config context sets proxmox_lockup_reboot (lockups panic, a panic reboots) or
+# proxmox_watchdog_module (a hardware watchdog for watchdog-mux, from the next boot).
+#
 # Cloud-init snippets (tasks/proxmox-snippets.yml): files/docker-vm-vendor-data.yaml
 # onto the shared syn-nfs storage, once, for OpenTofu's Docker VMs to name.
 #
@@ -188,6 +192,9 @@
 
     - name: LLDP
       ansible.builtin.include_tasks: tasks/proxmox-lldpd.yml
+
+    - name: Rebooting a hung host
+      ansible.builtin.include_tasks: tasks/proxmox-hang-recovery.yml
 
     - name: Cloud-init snippets on the shared storage
       ansible.builtin.include_tasks: tasks/proxmox-snippets.yml
