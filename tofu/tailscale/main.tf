@@ -51,7 +51,9 @@ resource "tailscale_tailnet_settings" "this" {
   users_role_allowed_to_join_external_tailnet = "admin"
   network_flow_logging_on                     = false
   posture_identity_collection_on              = true
-  https_enabled                               = false
+  # On for Tailscale Funnel (ManicTime's public HTTPS endpoint) and MagicDNS
+  # HTTPS certificates; see docker/tailscale and QUEUE.md.
+  https_enabled                               = true
   regional_routing_on                         = false
   acls_externally_managed_on                  = true
   acls_external_link                          = "https://github.com/d4rkeagle65/k8s-homelab/blob/main/tofu/tailscale/policy.tf"
