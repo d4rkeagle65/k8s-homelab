@@ -1,7 +1,7 @@
 # SQLite for a consistent copy of a live database, 7-Zip for the encrypted
 # archive, rclone for Garage. backup.sh is the whole job (compose.yaml says what
 # it does).
-FROM alpine:3.22
+FROM alpine:3.24
 
 RUN apk add --no-cache sqlite 7zip rclone \
  && { command -v 7z >/dev/null || ln -s "$(command -v 7zz)" /usr/local/bin/7z; } \
