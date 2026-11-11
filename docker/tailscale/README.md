@@ -135,3 +135,47 @@ down for the minute or two it takes: do it from the LAN.
 
 To roll back: stop this stack, point the two firewall routes back at the
 old node, and start Tailscale there again.
+
+## ManicTime over Funnel
+
+`TS_SERVE_CONFIG` turns this node into a Tailscale Funnel endpoint for ManicTime
+Server, so clients that can't run Tailscale (a laptop, a Windows 365 VM) reach
+it at a public HTTPS URL. The node terminates the public TLS with its tailnet
+certificate and reverse-proxies to ManicTime's isolated ingress / WAF
+(`https://manictime.<domain>`); the WAF and ManicTime's own OAuth2 bearer-token
+login are the gate.
+
+The config lives in `/config/serve.json`, written into the `tailscale-serve`
+volume at each deploy by the `tailscale-serve-config` init service (a compose
+`configs:` file can be lost on recreate; see `docker/CLAUDE.md`). It funnels
+`:443` and proxies `/` to the backend. `${TS_CERT_DOMAIN}` is left literal in the
+file for `containerboot` to expand to this node's FQDN
+(`<node>.<tailnet>.ts.net`) at runtime; `${BASE_DOMAIN}` is filled in at deploy.
+
+**Prerequisites, in `tofu/tailscale` (apply before deploying this):**
+
+1. `policy.tf` grants `tag:subnet-router` the `funnel` node attribute.
+2. `main.tf` sets `https_enabled = true` (the tailnet's HTTPS certificates).
+
+Apply the tailscale OpenTofu plan and confirm in the admin console that HTTPS
+certificates are on. Without both, `containerboot` can't enable Funnel and the
+serve config stays inactive (the subnet router keeps running regardless).
+
+The node also has to reach the backend: it resolves `manictime.<domain>` through
+Pi-hole to the isolated ingress, which is on the production network this host's
+prod leg sits on, so it reaches it at layer 2. If a sync won't connect, check
+from the host with `docker exec tailscale wget -qSO- https://manictime.<domain>`
+and, if it fails, flag a firewall allow.
+
+**Deploying is a brief tailnet blip** — a redeploy recreates the `tailscale`
+container, so the subnet router restarts for a minute. Merge the stack's pull
+request **from the LAN**, as for the cutover above.
+
+Verify after deploy:
+
+```sh
+docker exec tailscale tailscale serve status   # shows the funnel on :443
+```
+
+Then point a ManicTime client at `https://<node>.<tailnet>.ts.net` and sync. The
+public Funnel URL is that node FQDN; `tailscale serve status` prints it.
