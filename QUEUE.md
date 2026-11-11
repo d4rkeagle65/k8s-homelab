@@ -376,10 +376,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
     `https://manictime.${BASE_DOMAIN}`. Merging it redeploys the tailscale stack (a brief
     tailnet blip -- merge from the LAN).
   Owner steps, in order: (1) merge the WAF+tofu PR; (2) run the Semaphore "Setting: Tailscale
-  (OpenTofu)" plan (template 33), confirm it only adds the `funnel` nodeAttr and sets
-  `https_enabled = true` (left `false` in git before this), then apply it -- the ACL/settings
-  apply is owner-run; (3) confirm in the admin console that HTTPS certificates are on (the
-  Funnel prerequisite I could not read live); (4) merge the docker/tailscale PR from the LAN.
+  (OpenTofu)" apply (template 33) -- it grants `tag:subnet-router` the `funnel` nodeAttr (done,
+  task 1694); the OpenTofu OAuth client can't toggle `httpsEnabled` (Tailscale gates it to a
+  human admin), so (3) enable "HTTPS Certificates" in the admin console (DNS page) by hand --
+  `tofu/tailscale` sets `https_enabled = true` with `ignore_changes` so applies stop retrying
+  it; then (4) merge the docker/tailscale PR from the LAN.
   Left after that:
   - Read back: the `manictime-waf` pod Ready (watch it come up -- the container runs as the
     image's non-root `nginx` user with all capabilities dropped; if that keeps it from

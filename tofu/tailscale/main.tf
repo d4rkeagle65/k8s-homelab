@@ -52,9 +52,20 @@ resource "tailscale_tailnet_settings" "this" {
   network_flow_logging_on                     = false
   posture_identity_collection_on              = true
   # On for Tailscale Funnel (ManicTime's public HTTPS endpoint) and MagicDNS
-  # HTTPS certificates; see docker/tailscale and QUEUE.md.
+  # HTTPS certificates. The OpenTofu OAuth client can't toggle httpsEnabled --
+  # Tailscale gates it to a human admin ("calling actor does not have enough
+  # permissions", #591 tasks 1694/1695), and the client even reads it back as
+  # false -- so the owner enables it in the admin console (DNS page) and the
+  # ignore_changes below keeps a failed PATCH from aborting every apply. The
+  # value here documents the intended state. See docker/tailscale and QUEUE.md.
   https_enabled                               = true
   regional_routing_on                         = false
   acls_externally_managed_on                  = true
   acls_external_link                          = "https://github.com/d4rkeagle65/k8s-homelab/blob/main/tofu/tailscale/policy.tf"
+
+  # httpsEnabled is owner-managed in the console (see above): never let tofu try
+  # to change it, or the whole tailscale apply fails on a permission error.
+  lifecycle {
+    ignore_changes = [https_enabled]
+  }
 }
