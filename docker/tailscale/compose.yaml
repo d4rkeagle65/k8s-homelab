@@ -3,6 +3,12 @@
 # so it routes with the host's own interfaces and /dev/net/tun. Its node key
 # lives in /opt/tailscale, so the auth key is only used on the first start.
 #
+# It also publishes ManicTime's server over Tailscale Funnel (TS_SERVE_CONFIG,
+# below): clients that can't run Tailscale reach it at a public HTTPS URL that
+# this node reverse-proxies to ManicTime's isolated ingress / WAF. Funnel needs
+# the funnel node attribute and the tailnet's HTTPS certificates, both in
+# tofu/tailscale; see README.md.
+#
 # Variables, from Key Vault (references in .env); the TS_* names under
 # environment: are Tailscale's own:
 #   TAILSCALE_AUTH_KEY  an auth key (Settings > Keys), or an OAuth client's
@@ -15,6 +21,8 @@
 #                       tags tailscale-route-home, written to Key Vault by the facts
 #                       sync (scripts/keyvault_views/tailscale_routes.py), the same
 #                       tag tofu/tailscale's policy approves
+#   BASE_DOMAIN         the domain: the Funnel serve config proxies to
+#                       https://manictime.<domain> (ManicTime's isolated ingress)
 #
 # It registers with tag:subnet-router, the tag tofu/tailscale/policy.tf owns and
 # approves routes for. A tagged node's key never expires.
@@ -32,6 +40,40 @@
 # that interface. The host needs that routing, IP forwarding, and its
 # management-address rules after Tailscale's own; see README.md.
 services:
+  # Writes the Tailscale Serve/Funnel config into the tailscale-serve volume at
+  # each deploy. A compose `configs:` file can be lost when a container is
+  # recreated, so an init service writes it instead (docker/CLAUDE.md,
+  # garage/compose.yaml). $${TS_CERT_DOMAIN} is left literal for the tailscale
+  # container to expand to this node's FQDN; ${BASE_DOMAIN} is substituted now.
+  tailscale-serve-config:
+    image: busybox:1.38.0
+    restart: "no"
+    # A one-shot: Dockhand would otherwise ticket its clean exit as a crash.
+    labels:
+      dockhand.notify: "false"
+    environment:
+      SERVE_JSON: |
+        {
+          "TCP": { "443": { "HTTPS": true } },
+          "Web": {
+            "$${TS_CERT_DOMAIN}:443": {
+              "Handlers": { "/": { "Proxy": "https://manictime.${BASE_DOMAIN}" } }
+            }
+          },
+          "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": true }
+        }
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      [ -n "$$SERVE_JSON" ] || { echo "SERVE_JSON is empty"; exit 1; }
+      printf '%s' "$$SERVE_JSON" > /config/serve.json
+      grep -q '"AllowFunnel"' /config/serve.json
+      echo "serve.json written: $$(wc -c < /config/serve.json) bytes"
+    volumes:
+    - tailscale-serve:/config
+
   tailscale:
     mem_limit: 512m
     image: tailscale/tailscale:v1.104.1
@@ -43,8 +85,15 @@ services:
     - NET_RAW
     devices:
     - /dev/net/tun:/dev/net/tun
+    depends_on:
+      tailscale-serve-config:
+        condition: service_completed_successfully
     volumes:
     - /opt/tailscale:/var/lib/tailscale
+    # containerboot reads TS_SERVE_CONFIG from here and expands ${TS_CERT_DOMAIN}
+    # in it at runtime. Mount the directory, not the single file, or updates
+    # aren't detected.
+    - tailscale-serve:/config:ro
     environment:
       TS_AUTHKEY: ${TAILSCALE_AUTH_KEY}
       TS_AUTH_ONCE: "true"
@@ -60,3 +109,12 @@ services:
       TS_TAILSCALED_EXTRA_ARGS: --port=41641
       # The host keeps using Pi-hole; don't let MagicDNS take over its DNS.
       TS_ACCEPT_DNS: "false"
+      # Tailscale Funnel: expose ManicTime publicly on :443 and reverse-proxy it
+      # to its isolated ingress / WAF. The config is in the tailscale-serve
+      # volume (tailscale-serve-config above); containerboot expands
+      # ${TS_CERT_DOMAIN} in it. Serve's proxy forwards the client's Host header
+      # unchanged, which the WAF Ingress's catch-all rule handles.
+      TS_SERVE_CONFIG: /config/serve.json
+
+volumes:
+  tailscale-serve:
