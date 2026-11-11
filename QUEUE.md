@@ -361,47 +361,16 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   host by the primary's stack) has to be built on the second Docker VM first. Until then Stork
   sees only the primary.
 
-- **ManicTime over Tailscale Funnel, behind a self-hosted WAF** (2026-11-11): the ManicTime
-  desktop client on a laptop and a Windows 365 VM (neither can run Tailscale) reaches the
-  server over a public Funnel HTTPS endpoint, fronted by an OWASP CRS WAF, without widening
-  ManicTime's isolation beyond that one endpoint. Delivered as two pull requests:
-  - **WAF + tailnet policy** (kubernetes + tofu): a `manictime-waf` release
-    (`owasp/modsecurity-crs`, ModSecurity v3 on nginx) in the request path -- traefik-isolated
-    Ingress -> `manictime-waf` -> `manictime-server:8080` -- with the chart's own Ingress off
-    (`manictime-server` `ingress.enabled: false`); and `tofu/tailscale` grants
-    `tag:subnet-router` the `funnel` node attribute and turns on the tailnet's HTTPS
-    certificates (`main.tf` `https_enabled`). Merging it routes LAN clients through the WAF in
-    **DetectionOnly** (it blocks nothing yet); no tailnet disruption.
-  - **Funnel serve config** (docker/tailscale): adds `TS_SERVE_CONFIG` funnelling :443 to
-    `https://manictime.${BASE_DOMAIN}`. Merging it redeploys the tailscale stack (a brief
-    tailnet blip -- merge from the LAN).
-  Owner steps, in order: (1) merge the WAF+tofu PR; (2) run the Semaphore "Setting: Tailscale
-  (OpenTofu)" apply (template 33) -- it grants `tag:subnet-router` the `funnel` nodeAttr (done,
-  task 1694); the OpenTofu OAuth client can't toggle `httpsEnabled` (Tailscale gates it to a
-  human admin), so (3) enable "HTTPS Certificates" in the admin console (DNS page) by hand --
-  `tofu/tailscale` sets `https_enabled = true` with `ignore_changes` so applies stop retrying
-  it; then (4) merge the docker/tailscale PR from the LAN.
-  Left after that:
-  - Read back: the `manictime-waf` pod Ready (watch it come up -- the container runs as the
-    image's non-root `nginx` user with all capabilities dropped; if that keeps it from
-    starting, relax the securityContext); a ManicTime client set to the Funnel URL
-    (`https://<node>.<tailnet>.ts.net`) signs in and fully syncs, including one large sync (no
-    hard cap -- `MODSEC_REQ_BODY_LIMIT_ACTION` is `ProcessPartial`).
-  - Confirm the Docker host reaches the isolated ingress: `ISOLATED_INGRESS_IP` is on the
-    production network the host's prod leg sits on, so it should reach it at layer 2 (no
-    subnet-router hop); if a sync won't connect, check with
-    `docker exec tailscale wget -qSO- https://manictime.${BASE_DOMAIN}` on the host and flag a
-    firewall allow.
-  - **Switch the WAF to blocking:** review the ModSecurity audit log (the pod's stdout, JSON)
-    against that real sync, add any CRS exclusions needed, then set `MODSEC_RULE_ENGINE` to
-    `On` in `manictime-waf/app/deployment.yaml`. Until then CRS detects but blocks nothing, so
-    a public endpoint is exposed with only ManicTime's own OAuth2 bearer-token login enforcing.
-  - Serve's reverse proxy forwards the client's `<node>.<tailnet>.ts.net` Host header unchanged,
-    so the WAF Ingress has a hostless catch-all rule beside the `manictime.${BASE_DOMAIN}` one;
-    if traefik-isolated ever serves a second host, revisit that.
-  - The WAF is one replica (a restart is a brief ManicTime outage on the LAN and funnel paths);
-    its resources are a first pass -- resize after a week (QUEUE-resource-limits.md), and
-    decide on a second replica.
+- **ManicTime over Tailscale Funnel, behind a self-hosted WAF** (`QUEUE-manictime-waf.md`,
+  2026-11-11): the ManicTime client on a laptop and a Windows 365 VM (neither can run
+  Tailscale) reaches the server over a public Funnel endpoint, fronted by a WAF with a GUI.
+  Live now: the funnel (#592) and an in-cluster OWASP CRS `manictime-waf` release (#591,
+  DetectionOnly). **In progress: the WAF moves to BunkerWeb as a Docker stack** on the funnel's
+  VM (`docker/bunkerweb/`, PR #1 here) -- a GUI to tune false positives, and off the
+  memory-constrained cluster. Next: PR #2 repoints the funnel at the local WAF (from the LAN)
+  and adds its Dockhand webhook; PR #3 retires the in-cluster CRS release and re-enables
+  `manictime-server`'s own Ingress; then review hits in the UI and flip to blocking. Owner
+  steps, the new Key Vault secrets, and the done-when are in `QUEUE-manictime-waf.md`.
 
 ## Cleanup
 

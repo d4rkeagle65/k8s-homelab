@@ -1,0 +1,101 @@
+# BunkerWeb (open-source WAF) on the Docker host, deployed by Dockhand from this
+# folder (a Git stack), not by Flux. It fronts ManicTime's public Tailscale
+# Funnel endpoint: the funnel (docker/tailscale) terminates TLS and reverse-
+# proxies to this WAF on 127.0.0.1:8080; the WAF inspects the request and
+# reverse-proxies it on to ManicTime's isolated ingress (manictime.<domain>).
+# LAN clients still reach ManicTime directly at that ingress, un-WAF'd -- only
+# the public funnel path passes through here, so this replaces the in-cluster
+# manictime-waf release (QUEUE-manictime-waf.md).
+#
+# The all-in-one image bundles the BunkerWeb instance, the scheduler, the web UI
+# and an embedded Redis in one container, with a SQLite config database under
+# /data (the bw-storage volume). One container keeps it light on the host.
+#
+# It starts in ModSecurity DetectionOnly: every CRS rule is evaluated and logged
+# but nothing is blocked. After a real client sync, review the hits in the web
+# UI, add exclusions, then set MODSECURITY_SEC_RULE_ENGINE to On
+# (QUEUE-manictime-waf.md).
+#
+# Both published ports are on loopback: the funnel reaches :8080 from the host's
+# own network namespace (docker/CLAUDE.md), and the plaintext admin UI on :7000
+# stays off the LAN -- reach it over an SSH tunnel for first-run setup until it
+# is fronted properly (QUEUE-manictime-waf.md).
+#
+# Variables, from Key Vault (references in .env):
+#   BASE_DOMAIN                 the domain: the WAF reverse-proxies to
+#                               manictime.<domain> and sends that as the upstream
+#                               Host header and TLS SNI
+#   TAILSCALE_FUNNEL_HOST       the subnet-router node's public MagicDNS FQDN
+#                               (<node>.<tailnet>.ts.net): the Host the funnel
+#                               forwards unchanged, so it is the WAF's SERVER_NAME
+#   BUNKERWEB_UI_ADMIN_USERNAME, BUNKERWEB_UI_ADMIN_PASSWORD
+#                               the web UI's admin login (password policy: a
+#                               lowercase, an uppercase, a digit and a special
+#                               character; at most 72 bytes)
+services:
+  bunkerweb:
+    mem_limit: 1536m
+    image: bunkerity/bunkerweb-all-in-one:1.6.17
+    container_name: bunkerweb
+    restart: unless-stopped
+    ports:
+    # The funnel (host network namespace) reaches the WAF here; loopback only.
+    - 127.0.0.1:8080:8080
+    # The web UI; loopback only (plaintext) -- reach it over an SSH tunnel.
+    - 127.0.0.1:7000:7000
+    volumes:
+    - bw-storage:/data
+    environment:
+      # --- One reverse-proxy site ------------------------------------------
+      # Non-multisite: a single site, so settings apply without a SERVER_NAME
+      # prefix. The funnel forwards the client's <node>.<tailnet>.ts.net Host
+      # unchanged (Tailscale serve sets r.Out.Host = r.In.Host), so the WAF must
+      # answer for exactly that name or its default server drops the request.
+      MULTISITE: "no"
+      SERVER_NAME: ${TAILSCALE_FUNNEL_HOST}
+
+      # --- Listen on plain HTTP only; the funnel already terminated TLS ------
+      HTTP_PORT: "8080"
+      HTTPS_PORT: ""                       # empty disables HTTPS listening
+      AUTO_REDIRECT_HTTP_TO_HTTPS: "no"    # default yes; we serve over HTTP
+      REDIRECT_HTTP_TO_HTTPS: "no"
+      AUTO_LETS_ENCRYPT: "no"
+
+      # --- Reverse proxy on to ManicTime's isolated ingress ----------------
+      USE_REVERSE_PROXY: "yes"
+      REVERSE_PROXY_HOST: https://manictime.${BASE_DOMAIN}
+      REVERSE_PROXY_URL: /
+      # Send the cluster a clean Host (manictime.<domain>, not the ts.net name)
+      # so traefik-isolated routes it, and the matching SNI so it serves the
+      # manictime certificate. This is why retiring the in-cluster CRS WAF needs
+      # no hostless catch-all Ingress rule.
+      REVERSE_PROXY_CUSTOM_HOST: manictime.${BASE_DOMAIN}
+      REVERSE_PROXY_SSL_SNI: "yes"
+      REVERSE_PROXY_SSL_SNI_NAME: manictime.${BASE_DOMAIN}
+      # The upstream is a trusted in-home ingress with a public Let's Encrypt
+      # cert; skip chain verification rather than mount a CA bundle.
+      REVERSE_PROXY_SSL_VERIFY: "no"
+      # ManicTime syncs are long; don't cut one off mid-stream (default 60s).
+      REVERSE_PROXY_CONNECT_TIMEOUT: 60s
+      REVERSE_PROXY_READ_TIMEOUT: 3600s
+      REVERSE_PROXY_SEND_TIMEOUT: 3600s
+
+      # --- WAF engine: review first, block later ---------------------------
+      USE_MODSECURITY: "yes"
+      MODSECURITY_SEC_RULE_ENGINE: DetectionOnly
+      # ManicTime syncs are large POST bodies. Don't hard-cap at nginx
+      # (MAX_CLIENT_SIZE 0 = no limit); inspect the first 128 MiB in ModSecurity
+      # and pass the rest uninspected rather than reject it (ProcessPartial);
+      # raise the non-file-body limit (default 131072) so a JSON sync body isn't
+      # rejected with 400. The server's own OAuth2 login is the real gate.
+      MAX_CLIENT_SIZE: "0"
+      MODSECURITY_SEC_REQUEST_BODY_LIMIT: "134217728"
+      MODSECURITY_SEC_REQUEST_BODY_LIMIT_ACTION: ProcessPartial
+      MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "134217728"
+
+      # --- Web UI admin login (seeded on first run) ------------------------
+      ADMIN_USERNAME: ${BUNKERWEB_UI_ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${BUNKERWEB_UI_ADMIN_PASSWORD}
+
+volumes:
+  bw-storage:
