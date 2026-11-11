@@ -111,6 +111,16 @@ locals {
       }],
     )
 
+    # Tailscale Funnel: let the subnet router publish a public HTTPS endpoint
+    # (ManicTime over Funnel, QUEUE.md). Needs the tailnet's HTTPS certificates
+    # on (main.tf, https_enabled) and a serve config on the node (docker/tailscale).
+    nodeAttrs = [
+      {
+        target = ["tag:subnet-router"]
+        attr   = ["funnel"]
+      },
+    ]
+
     ssh = [
       { action = "check", src = ["autogroup:member"], dst = ["autogroup:self"], users = ["autogroup:nonroot", "root"] },
       { action = "accept", src = ["autogroup:admin"], dst = ["tag:travel-router", "tag:dev-travelrouter"], users = ["autogroup:nonroot", "root"] },

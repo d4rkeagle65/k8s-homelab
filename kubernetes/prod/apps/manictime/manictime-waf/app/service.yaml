@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: manictime-waf
+  labels:
+    app.kubernetes.io/name: manictime-waf
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: manictime-waf
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http

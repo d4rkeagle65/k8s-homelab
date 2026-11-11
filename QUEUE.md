@@ -361,6 +361,47 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   host by the primary's stack) has to be built on the second Docker VM first. Until then Stork
   sees only the primary.
 
+- **ManicTime over Tailscale Funnel, behind a self-hosted WAF** (2026-11-11): the ManicTime
+  desktop client on a laptop and a Windows 365 VM (neither can run Tailscale) reaches the
+  server over a public Funnel HTTPS endpoint, fronted by an OWASP CRS WAF, without widening
+  ManicTime's isolation beyond that one endpoint. Delivered as two pull requests:
+  - **WAF + tailnet policy** (kubernetes + tofu): a `manictime-waf` release
+    (`owasp/modsecurity-crs`, ModSecurity v3 on nginx) in the request path -- traefik-isolated
+    Ingress -> `manictime-waf` -> `manictime-server:8080` -- with the chart's own Ingress off
+    (`manictime-server` `ingress.enabled: false`); and `tofu/tailscale` grants
+    `tag:subnet-router` the `funnel` node attribute and turns on the tailnet's HTTPS
+    certificates (`main.tf` `https_enabled`). Merging it routes LAN clients through the WAF in
+    **DetectionOnly** (it blocks nothing yet); no tailnet disruption.
+  - **Funnel serve config** (docker/tailscale): adds `TS_SERVE_CONFIG` funnelling :443 to
+    `https://manictime.${BASE_DOMAIN}`. Merging it redeploys the tailscale stack (a brief
+    tailnet blip -- merge from the LAN).
+  Owner steps, in order: (1) merge the WAF+tofu PR; (2) run the Semaphore "Setting: Tailscale
+  (OpenTofu)" plan (template 33), confirm it only adds the `funnel` nodeAttr and sets
+  `https_enabled = true` (left `false` in git before this), then apply it -- the ACL/settings
+  apply is owner-run; (3) confirm in the admin console that HTTPS certificates are on (the
+  Funnel prerequisite I could not read live); (4) merge the docker/tailscale PR from the LAN.
+  Left after that:
+  - Read back: the `manictime-waf` pod Ready (watch it come up -- the container runs as the
+    image's non-root `nginx` user with all capabilities dropped; if that keeps it from
+    starting, relax the securityContext); a ManicTime client set to the Funnel URL
+    (`https://<node>.<tailnet>.ts.net`) signs in and fully syncs, including one large sync (no
+    hard cap -- `MODSEC_REQ_BODY_LIMIT_ACTION` is `ProcessPartial`).
+  - Confirm the Docker host reaches the isolated ingress: `ISOLATED_INGRESS_IP` is on the
+    production network the host's prod leg sits on, so it should reach it at layer 2 (no
+    subnet-router hop); if a sync won't connect, check with
+    `docker exec tailscale wget -qSO- https://manictime.${BASE_DOMAIN}` on the host and flag a
+    firewall allow.
+  - **Switch the WAF to blocking:** review the ModSecurity audit log (the pod's stdout, JSON)
+    against that real sync, add any CRS exclusions needed, then set `MODSEC_RULE_ENGINE` to
+    `On` in `manictime-waf/app/deployment.yaml`. Until then CRS detects but blocks nothing, so
+    a public endpoint is exposed with only ManicTime's own OAuth2 bearer-token login enforcing.
+  - Serve's reverse proxy forwards the client's `<node>.<tailnet>.ts.net` Host header unchanged,
+    so the WAF Ingress has a hostless catch-all rule beside the `manictime.${BASE_DOMAIN}` one;
+    if traefik-isolated ever serves a second host, revisit that.
+  - The WAF is one replica (a restart is a brief ManicTime outage on the LAN and funnel paths);
+    its resources are a first pass -- resize after a week (QUEUE-resource-limits.md), and
+    decide on a second replica.
+
 ## Cleanup
 
 - **`docker/kea/tools/import_leases.py` reads its files in the locale's encoding**
