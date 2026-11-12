@@ -87,6 +87,13 @@ services:
       # --- WAF engine: review first, block later ---------------------------
       USE_MODSECURITY: "yes"
       MODSECURITY_SEC_RULE_ENGINE: DetectionOnly
+      # ManicTime's API uses a custom content type (application/vnd.manictime.*).
+      # CRS rule 920420 only permits a fixed list of content types and would 403
+      # every ManicTime request once blocking is on (it logs a warning in
+      # DetectionOnly now). This custom modsec-crs rule (loaded before CRS) drops
+      # 920420 for that content type only, keeping the allow-list for everything
+      # else. CUSTOM_CONF_MODSEC_CRS_<name> is read only at container (re)create.
+      CUSTOM_CONF_MODSEC_CRS_manictime_content_type: 'SecRule REQUEST_HEADERS:Content-Type "@beginsWith application/vnd.manictime" "id:1900001,phase:1,t:lowercase,nolog,pass,ctl:ruleRemoveById=920420"'
       # ManicTime syncs are large POST bodies. Don't hard-cap at nginx
       # (MAX_CLIENT_SIZE 0 = no limit); inspect the first 128 MiB in ModSecurity
       # and pass the rest uninspected rather than reject it (ProcessPartial);
