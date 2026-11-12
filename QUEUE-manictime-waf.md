@@ -51,7 +51,7 @@ itself (new stack; no webhook yet). Owner steps are in `docker/bunkerweb/README.
 create the three Key Vault secrets, create + deploy the Dockhand stack, reach the UI over an
 SSH tunnel, verify the WAF proxies to ManicTime on the LAN.
 
-**PR #2 — repoint the funnel** (`docker/tailscale/`, DONE in this branch): the serve config
+**PR #2 — repoint the funnel** (`docker/tailscale/`, merged #599): the serve config
 `Proxy` now points at `http://127.0.0.1:8080` (the local BunkerWeb WAF) instead of
 `https://manictime.${BASE_DOMAIN}`; comments and the stack README updated, and the now-unused
 `BASE_DOMAIN` dropped from the stack's `.env`. The Host is answered by BunkerWeb's
@@ -62,13 +62,12 @@ SSH tunnel, verify the WAF proxies to ManicTime on the LAN.
 - Verify: a ManicTime client set to the funnel URL signs in and fully syncs, including one
   large sync (no hard cap); the WAF logs the sync in its UI.
 
-**PR #2b — the Dockhand webhook** (`dockhand-webhooks`, pending the stack ID): add a
-`dockhand-bunkerweb` Provider + Alert to
+**PR #2b — the Dockhand webhook** (`dockhand-webhooks`, DONE in this branch): a
+`dockhand-bunkerweb` Provider + Alert in
 `kubernetes/prod/system/external-services/dockhand-webhooks/app/webhooks.yaml`, address
-`http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/<ID>/webhook` with the Dockhand stack ID the
-owner got creating the stack, and the owner turns the git webhook on in Dockhand. Until then,
-`docker/bunkerweb/` changes are redeployed by hand. Split out because the ID only exists once
-the stack is created.
+`http://${DOCKHAND_ADDRESS}:3000/api/git/stacks/19/webhook`. After merge, the owner turns the
+git webhook on for the `bunkerweb` stack in Dockhand; then `docker/bunkerweb/` changes
+redeploy on merge (until then they are redeployed by hand).
 
 **PR #3 — retire the in-cluster CRS WAF** (`kubernetes/`):
 - Delete `kubernetes/prod/apps/manictime/manictime-waf/` (the whole release folder).
