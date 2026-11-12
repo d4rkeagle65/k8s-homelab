@@ -390,13 +390,13 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 - **ManicTime over Tailscale Funnel, behind a self-hosted WAF** (`QUEUE-manictime-waf.md`,
   2026-11-11): the ManicTime client on a laptop and a Windows 365 VM (neither can run
   Tailscale) reaches the server over a public Funnel endpoint, fronted by a WAF with a GUI.
-  Live now: the funnel (#592) and an in-cluster OWASP CRS `manictime-waf` release (#591,
-  DetectionOnly). **In progress: the WAF moves to BunkerWeb as a Docker stack** on the funnel's
-  VM (`docker/bunkerweb/`, PR #1 here) -- a GUI to tune false positives, and off the
-  memory-constrained cluster. Next: PR #2 repoints the funnel at the local WAF (from the LAN)
-  and adds its Dockhand webhook; PR #3 retires the in-cluster CRS release and re-enables
-  `manictime-server`'s own Ingress; then review hits in the UI and flip to blocking. Owner
-  steps, the new Key Vault secrets, and the done-when are in `QUEUE-manictime-waf.md`.
+  Built and deployed: a **BunkerWeb Docker stack** on the funnel's VM (`docker/bunkerweb/`,
+  DetectionOnly, UI reachable, off the memory-constrained cluster), the funnel repointed at it
+  (#599, confirmed by `tailscale serve status`), and the in-cluster CRS `manictime-waf` release
+  retired with `manictime-server`'s own Ingress re-enabled (this branch). Left: the owner
+  enables the `bunkerweb` Dockhand webhook (#601), confirms a full ManicTime client sync over
+  the funnel, then reviews hits in the UI and flips the WAF to blocking
+  (`MODSECURITY_SEC_RULE_ENGINE: On`). Detail in `QUEUE-manictime-waf.md`.
 
 ## Cleanup
 

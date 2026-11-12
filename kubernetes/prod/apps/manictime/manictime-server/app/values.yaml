@@ -4,11 +4,21 @@ env:
 image:
   repository: manictime/manictimeserver
   tag: 2026.2.4
-# The host is served by the manictime-waf release (a hand-written Ingress ->
-# the OWASP CRS WAF -> this server). The chart's own Ingress is off so the two
-# don't both claim manictime.${BASE_DOMAIN}.
+# Serves LAN clients on the isolated VLAN directly. The public funnel path is
+# WAF'd by the Docker-host BunkerWeb stack (docker/bunkerweb), not in-cluster.
 ingress:
-  enabled: false
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+  className: traefik-isolated
+  enabled: true
+  hosts:
+  - host: manictime.${BASE_DOMAIN}
+    paths:
+    - /
+  tls:
+  - hosts:
+    - manictime.${BASE_DOMAIN}
+    secretName: manictime-tls
 persistence:
   enabled: true
   mountPath: /app/Data

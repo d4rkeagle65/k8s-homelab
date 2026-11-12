@@ -34,14 +34,15 @@ inspection, which a forward-auth check could not do, and ManicTime has no OIDC).
 
 ## Current live state (what is already in the cluster / tailnet)
 
-- `manictime-waf` CRS release: live, DetectionOnly, LAN path returns 200 through it (#591).
-- `manictime-server` chart Ingress: off (`ingress.enabled: false`, #591); the host is served
-  by `manictime-waf`'s hand-written Ingress, which has a `manictime.<domain>` rule and a
-  hostless catch-all for the funnel's forwarded Host.
-- Funnel: `TS_SERVE_CONFIG` proxies `:443` to `https://manictime.${BASE_DOMAIN}` (#592).
-  `tag:subnet-router` has the `funnel` nodeAttr (tofu task 1694); the tailnet's HTTPS
-  certificates are on (owner enabled by hand; tofu `ignore_changes` on `https_enabled`, #593).
-- Public funnel end-to-end has NOT been verified by a real client sync yet.
+- BunkerWeb stack: deployed on the funnel VM, DetectionOnly, UI reachable; the setup wizard is
+  skipped (#594, #598, #600).
+- Funnel: proxies `:443` to the local BunkerWeb on `http://127.0.0.1:8080` (#599, confirmed by
+  `tailscale serve status`); `tag:subnet-router` has the `funnel` nodeAttr and the tailnet's
+  HTTPS certs are on (#591/#593). BunkerWeb -> ManicTime confirmed (curl 200); a full client
+  sync still pending.
+- `manictime-waf` CRS release: still live (DetectionOnly) until PR #3 below merges — the public
+  path currently runs two WAFs in series (BunkerWeb, then the in-cluster CRS).
+- Webhook for the `bunkerweb` stack: PR #601 (stack 19), plus the owner enabling it in Dockhand.
 
 ## Rollout — three PRs, each verified before the next
 
@@ -69,18 +70,17 @@ SSH tunnel, verify the WAF proxies to ManicTime on the LAN.
 git webhook on for the `bunkerweb` stack in Dockhand; then `docker/bunkerweb/` changes
 redeploy on merge (until then they are redeployed by hand).
 
-**PR #3 — retire the in-cluster CRS WAF** (`kubernetes/`):
-- Delete `kubernetes/prod/apps/manictime/manictime-waf/` (the whole release folder).
-- Re-enable the `manictime-server` chart's own Ingress: in
-  `kubernetes/prod/apps/manictime/manictime-server/app/values.yaml` set `ingress.enabled: true`
-  and restore its host rule (`manictime.${BASE_DOMAIN}`, ingressClass `traefik-isolated`, tls
-  `manictime-tls`, cluster-issuer `cloudflare-letsencrypt`) — see the pre-#591 values in git
-  history (`git log -p` on that file). No hostless catch-all is needed: BunkerWeb now sends a
-  clean Host upstream.
-- Remove `manictime-waf` from any kustomization that lists it; run
-  `python scripts/backup.py generate` from the repo root and commit the result.
-- Verify: LAN clients and the funnel path both still reach ManicTime (now
-  funnel -> BunkerWeb -> traefik-isolated -> manictime-server).
+**PR #3 — retire the in-cluster CRS WAF** (`kubernetes/`, DONE in this branch): deleted the
+`manictime-waf/` release folder and re-enabled the `manictime-server` chart's own Ingress
+(`ingress.enabled: true`, host `manictime.${BASE_DOMAIN}`, class `traefik-isolated`, tls
+`manictime-tls`, cluster-issuer `cloudflare-letsencrypt`); `generate` dropped `manictime-waf`
+from the namespace kustomization and rebuilt the HelmRelease. No hostless catch-all is needed —
+BunkerWeb sends a clean Host upstream.
+- Merging prunes the CRS WAF Deployment/Service/Ingress and applies the chart Ingress, so the
+  public path becomes funnel -> BunkerWeb -> traefik-isolated -> manictime-server, and LAN
+  clients go traefik-isolated -> manictime-server directly (no in-cluster WAF).
+- Verify after merge: LAN clients and the funnel path both still reach ManicTime; the
+  `manictime-waf` pod is gone.
 
 **After PR #3 — switch to blocking**: review the WAF hits in the BunkerWeb UI against the real
 sync, add exclusions, set `MODSECURITY_SEC_RULE_ENGINE: On` in `docker/bunkerweb/compose.yaml`,

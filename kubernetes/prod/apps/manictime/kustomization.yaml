@@ -6,5 +6,4 @@ resources:
 - manictime-backup/ks.yaml
 - manictime-extras/ks.yaml
 - manictime-server/ks.yaml
-- manictime-waf/ks.yaml
 - namespace.yaml
