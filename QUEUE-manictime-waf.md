@@ -83,7 +83,10 @@ redeploy.
 ## New Key Vault secrets (owner creates in `kv-hsn-1`)
 
 - `TAILSCALE-FUNNEL-HOST` — the node's public MagicDNS FQDN `<node>.<tailnet>.ts.net`.
-- `BUNKERWEB-UI-ADMIN-USERNAME`, `BUNKERWEB-UI-ADMIN-PASSWORD` — the web UI admin login.
+- `BUNKERWEB-UI-ADMIN-PASSWORD` — the web UI admin password.
+
+The UI admin username reuses the shared `OWNER_USERNAME` (`OWNER-USERNAME`) secret, not a
+new one.
 
 ## Known follow-ups / open points
 

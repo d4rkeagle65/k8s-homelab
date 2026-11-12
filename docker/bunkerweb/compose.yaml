@@ -28,10 +28,11 @@
 #   TAILSCALE_FUNNEL_HOST       the subnet-router node's public MagicDNS FQDN
 #                               (<node>.<tailnet>.ts.net): the Host the funnel
 #                               forwards unchanged, so it is the WAF's SERVER_NAME
-#   BUNKERWEB_UI_ADMIN_USERNAME, BUNKERWEB_UI_ADMIN_PASSWORD
-#                               the web UI's admin login (password policy: a
-#                               lowercase, an uppercase, a digit and a special
-#                               character; at most 72 bytes)
+#   OWNER_USERNAME              the web UI admin username (the shared owner fact,
+#                               reused rather than a per-app secret)
+#   BUNKERWEB_UI_ADMIN_PASSWORD the web UI admin password (policy: a lowercase, an
+#                               uppercase, a digit and a special character; at
+#                               most 72 bytes)
 services:
   bunkerweb:
     mem_limit: 1536m
@@ -94,7 +95,7 @@ services:
       MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "134217728"
 
       # --- Web UI admin login (seeded on first run) ------------------------
-      ADMIN_USERNAME: ${BUNKERWEB_UI_ADMIN_USERNAME}
+      ADMIN_USERNAME: ${OWNER_USERNAME}
       ADMIN_PASSWORD: ${BUNKERWEB_UI_ADMIN_PASSWORD}
 
 volumes:

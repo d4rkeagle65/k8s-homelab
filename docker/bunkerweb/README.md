@@ -45,11 +45,10 @@ to `main` redeploy it through its webhook (added in the funnel-repoint PR).
 1. **Create the Key Vault secrets** (`kv-hsn-1`), one per `.env` reference:
    - `TAILSCALE-FUNNEL-HOST` — the node's public MagicDNS FQDN,
      `<node>.<tailnet>.ts.net` (the same URL the ManicTime client points at).
-   - `BUNKERWEB-UI-ADMIN-USERNAME` — the web UI admin login.
-   - `BUNKERWEB-UI-ADMIN-PASSWORD` — its password (a lowercase, an uppercase, a
-     digit and a special character; at most 72 bytes).
+   - `BUNKERWEB-UI-ADMIN-PASSWORD` — the web UI admin password (a lowercase, an
+     uppercase, a digit and a special character; at most 72 bytes).
 
-   `BASE-DOMAIN` already exists.
+   `BASE-DOMAIN` and `OWNER-USERNAME` (the UI admin username) already exist.
 2. **Create the stack in Dockhand** from this folder (`docker/bunkerweb/`), with
    the Azure Key Vault secret provider bound and its selector empty
    (docker/CLAUDE.md). Deploy it. Dockhand resolves the `.env` references at
