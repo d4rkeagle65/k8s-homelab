@@ -72,16 +72,27 @@ RUN arch="$(dpkg --print-architecture)" && cd /tmp && \
     curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" \
         | grep " ${tofu}\$" | sha256sum -c - && \
     tar -xzf "${tofu}" -C /usr/local/bin tofu && \
+    rm -f /tmp/kubectl /tmp/*.tar.gz
+
+# PowerShell for scripts/*.ps1, best-effort in its own layer so it can't mask a
+# failure above. Its release hashes.sha256 is UTF-16 with CRLF, so it's decoded
+# (tr strips the NULs and CRs) before the checksum check; grep -a keeps grep in
+# text mode past the byte-order mark. A download or checksum failure warns and
+# leaves pwsh out rather than failing the image - scripts/*.ps1 can't be checked
+# in it then - while kubectl/flux/helm/tofu above stay fatal on a bad checksum.
+RUN arch="$(dpkg --print-architecture)" && cd /tmp && \
     pwsh_arch="$([ "${arch}" = amd64 ] && echo x64 || echo "${arch}")" && \
     pwsh="powershell-${PWSH_VERSION}-linux-${pwsh_arch}.tar.gz" && \
-    curl -fsSLO "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/${pwsh}" && \
-    curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/hashes.sha256" \
-        | grep " \*${pwsh}\$" | sed 's/ \*/  /' | sha256sum -c - && \
-    install -d /opt/microsoft/powershell && \
-    tar -xzf "${pwsh}" -C /opt/microsoft/powershell && \
-    chmod 0755 /opt/microsoft/powershell/pwsh && \
-    ln -s /opt/microsoft/powershell/pwsh /usr/local/bin/pwsh && \
-    rm -f /tmp/kubectl /tmp/*.tar.gz
+    { curl -fsSLO "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/${pwsh}" && \
+        curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/hashes.sha256" \
+            | tr -d '\000\r' | grep -a " \*${pwsh}\$" | sed 's/ \*/  /' | sha256sum -c - && \
+        install -d /opt/microsoft/powershell && \
+        tar -xzf "${pwsh}" -C /opt/microsoft/powershell && \
+        chmod 0755 /opt/microsoft/powershell/pwsh && \
+        ln -s /opt/microsoft/powershell/pwsh /usr/local/bin/pwsh && \
+        echo "PowerShell ${PWSH_VERSION} installed."; } || \
+    echo "WARNING: PowerShell ${PWSH_VERSION} not installed (download or checksum verification failed); scripts/*.ps1 cannot be checked in this image." >&2; \
+    rm -f /tmp/*.tar.gz
 
 # Python packages for scripts/: the same as scripts/requirements.txt and
 # scripts/requirements-test.txt; and ansible-core.
