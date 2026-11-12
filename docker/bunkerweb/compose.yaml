@@ -94,9 +94,15 @@ services:
       MODSECURITY_SEC_REQUEST_BODY_LIMIT_ACTION: ProcessPartial
       MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "134217728"
 
-      # --- Web UI admin login (seeded on first run) ------------------------
+      # --- Web UI admin login ----------------------------------------------
+      # Seeding the admin credentials provisions the admin and skips the first-
+      # run setup wizard, so the UI never asks for (and binds itself to) a server
+      # name and stays reachable directly on :7000. OVERRIDE_ADMIN_CREDS makes
+      # Key Vault the source of truth: the login is reset from these on every
+      # (re)deploy, so change it in Key Vault, not in the UI.
       ADMIN_USERNAME: ${OWNER_USERNAME}
       ADMIN_PASSWORD: ${BUNKERWEB_UI_ADMIN_PASSWORD}
+      OVERRIDE_ADMIN_CREDS: "yes"
 
 volumes:
   bw-storage:

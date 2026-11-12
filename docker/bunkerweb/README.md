@@ -55,8 +55,24 @@ to `main` redeploy it through its webhook (added in the funnel-repoint PR).
    deploy.
 3. **Reach the UI over an SSH tunnel** (it is published on loopback only):
    `ssh -L 7000:127.0.0.1:7000 <the VM>`, then open `http://127.0.0.1:7000`.
-   Complete first-run setup if prompted (`/setup`); log in with the admin
-   credentials above.
+   The admin is seeded from the environment and the setup wizard is skipped
+   (`OVERRIDE_ADMIN_CREDS`), so just log in with `OWNER_USERNAME` and the
+   `BUNKERWEB-UI-ADMIN-PASSWORD`. **Don't set a UI server name in a wizard:**
+   BunkerWeb would then serve the UI only at that hostname and redirect `:7000`
+   to it (see "Locked out" below).
+
+**Locked out of the UI** (it redirects `:7000` to a hostname that doesn't
+resolve, from an earlier wizard run): the UI server name lives in the
+`bw-storage` volume's database and env can't override it, so reset it — that
+volume holds only UI/WAF state here, nothing you can't recreate:
+
+```sh
+docker rm -f bunkerweb
+docker volume rm $(docker volume ls -q | grep bw-storage)   # confirm the name first
+```
+
+Then redeploy in Dockhand. With the admin seeded from env the wizard is skipped,
+no server name is set, and `:7000` works.
 
 ## Verify (owner)
 
