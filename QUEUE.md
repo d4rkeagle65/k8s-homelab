@@ -107,23 +107,25 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **The core switch (TP-Link TL-SG3428 v2.0) is a single point of failure, and only
-  up/down monitored** (full outage 2026-11-11, ~20:00 EDT): its forwarding wedged at 19:58
-  - the firewall's WAN uplink lost link and one AP dropped the same second, then internal
-  hosts flooded the firewall (SYN-cookie defense, IPS "port scan" alarms on the prod VLAN)
-  and its event table filled; the whole homelab and the internet were down until the switch
-  was power-cycled (WAN back ~20:48). Root cause couldn't be found: the switch ships no
-  syslog, has only an up/down probe (`probe/monitoring/switch-02|04`: no CPU, per-port
-  error/discard/broadcast or STP telemetry), and the reboot cleared its RAM log. Left:
-  - check the switch's log for ~19:58 (the Omada controller if it's adopted, else the web
+- **The core switch (TP-Link TL-SG3428 v2.0) is a single point of failure; owner follow-ups
+  from the 2026-11-11 outage** (~20:00 EDT): core-switch port `gi 1/0/21` (the firewall's
+  WAN-uplink path, by timing) lost link at 20:00, and the firewall's WAN and one AP dropped
+  with it; internal access was lost too, and a power-cycle of the switch restored it
+  (~20:36-20:56). The switch's SNMP stayed responsive with clean if_mib counters - no
+  broadcast storm, no errors/discards - so a loop/storm is ruled out. CPU/memory telemetry is
+  now scraped and alerted (PR #596: the `tplink_sysmonitor` module and `CoreSwitchCPUHigh`,
+  verified live on firmware 2.0.11); SNMP-down, port-down, interface-down and interface-error
+  alerts already existed. Left, all owner/switch-side:
+  - check the switch's own log for ~20:00 (the Omada controller if it's adopted, else the web
     UI log, and only if it was saving to flash);
-  - verify loop protection is on (RSTP/MSTP on every port, plus Loopback Detection with an
-    auto-recovery action) - a loop/broadcast storm is the classic cause of forwarding
-    wedged while management still answers SNMP;
-  - send its syslog to `alloy-syslog` and enable a full SNMP walk (CPU and per-port
-    counters), per QUEUE-network-monitoring.md;
-  - alert on the WAN uplink down and on the switch's SNMP going unreachable.
-  Until then a switch wedge is invisible until something downstream breaks.
+  - give the uplink ports (esp. the WAN-uplink port) a description, so `CoreSwitchPortDown`
+    (it fires only for a port with an `ifAlias`) covers them;
+  - verify loop protection (RSTP/MSTP + Loopback Detection) and consider a firmware update
+    (2.0.11 is mid-2023);
+  - ship the switch's syslog to `alloy-syslog` (QUEUE-network-monitoring.md).
+  Note: `FirewallInterfaceDown` likely fired for the WAN port at 19:58 but couldn't be
+  delivered - the alert path runs over the internet that was down; an out-of-band channel is
+  a separate consideration.
 - **Confirm the old dnsmasq DHCP server is decommissioned and clients aren't caching its
   server-id** (found during the 2026-11-11 outage): clients across VLANs were still
   unicast-renewing to the old dnsmasq addresses, not Kea, and the firewall's default-deny
