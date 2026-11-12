@@ -107,6 +107,30 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **The core switch (TP-Link TL-SG3428 v2.0) is a single point of failure, and only
+  up/down monitored** (full outage 2026-11-11, ~20:00 EDT): its forwarding wedged at 19:58
+  - the firewall's WAN uplink lost link and one AP dropped the same second, then internal
+  hosts flooded the firewall (SYN-cookie defense, IPS "port scan" alarms on the prod VLAN)
+  and its event table filled; the whole homelab and the internet were down until the switch
+  was power-cycled (WAN back ~20:48). Root cause couldn't be found: the switch ships no
+  syslog, has only an up/down probe (`probe/monitoring/switch-02|04`: no CPU, per-port
+  error/discard/broadcast or STP telemetry), and the reboot cleared its RAM log. Left:
+  - check the switch's log for ~19:58 (the Omada controller if it's adopted, else the web
+    UI log, and only if it was saving to flash);
+  - verify loop protection is on (RSTP/MSTP on every port, plus Loopback Detection with an
+    auto-recovery action) - a loop/broadcast storm is the classic cause of forwarding
+    wedged while management still answers SNMP;
+  - send its syslog to `alloy-syslog` and enable a full SNMP walk (CPU and per-port
+    counters), per QUEUE-network-monitoring.md;
+  - alert on the WAN uplink down and on the switch's SNMP going unreachable.
+  Until then a switch wedge is invisible until something downstream breaks.
+- **Confirm the old dnsmasq DHCP server is decommissioned and clients aren't caching its
+  server-id** (found during the 2026-11-11 outage): clients across VLANs were still
+  unicast-renewing to the old dnsmasq addresses, not Kea, and the firewall's default-deny
+  dropped them; they recover only by falling back to broadcast -> relay -> Kea
+  (`docker/kea/README.md` phase-1 step 6, "Move one VLAN at a time"). If a client keeps the
+  stale server-id, its renewals fail silently until a rebind. Verify dnsmasq is off and
+  every VLAN has fully cut over to Kea.
 - **leprox01's second corosync link (the 2.5G network) has been down since 2026-10-25**: no host
   answers it on that network, though its port has carrier, so it runs on one link, and nothing
   alerted (245 link-down events in its corosync log). Check its 2.5G port's VLAN and cable, then
