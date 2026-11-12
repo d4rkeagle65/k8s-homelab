@@ -17,21 +17,31 @@ repo="${REPO_DIR:-$HOME/k8s-homelab}"
 prefix="${REMOTE_CONTROL_NAME:-homelab}"
 self="$(readlink -f "$0")"
 
+# Lane lifecycle events (a lane coming up, Claude exiting and restarting, a lane
+# skipped) go to a small file in /tmp that the supervisor relays to the
+# container's stdout with tail, so `docker logs` and Loki see them. A lane runs
+# inside tmux, whose panes never reach stdout, so it writes events to the file
+# rather than its own stdout. Logging never fails a lane (errors are ignored).
+events="/tmp/claude-events.log"
+log() { printf '%s [%s] %s\n' "$(date -u +%FT%TZ)" "${LANE_NAME:-supervisor}" "$*" >> "$events" 2>/dev/null || true; }
+
 # Run one lane's Claude Code, again whenever it exits. Claude Code keeps each
 # folder's conversations in ~/.claude/projects/, in a folder named after the
 # path with every character other than a letter or digit turned into "-". If
 # there are any (a restart, or one copied in from another machine), continue
 # the newest; otherwise start a new one.
 if [ "${1:-}" = "--lane" ]; then
-    dir="$2" rc_name="$3"
+    dir="$2" rc_name="$3" LANE_NAME="$3"
     cd "$dir"
     project="$HOME/.claude/projects/$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
+    log "lane up in $dir"
     while true; do
         args=(--remote-control "$rc_name")
         if compgen -G "$project/*.jsonl" >/dev/null; then
             args=(--continue "${args[@]}")
         fi
-        claude "${args[@]}" || true
+        rc=0; claude "${args[@]}" || rc=$?
+        log "claude exited (status $rc); restarting in 10s"
         echo "Claude Code exited; starting it again in 10 seconds (Ctrl-c to stop this lane)."
         sleep 10
     done
@@ -43,6 +53,13 @@ fi
 # The repo's pre-commit hook (runs scripts/tests before each commit).
 git -C "$repo" config core.hooksPath .githooks
 
+# Relay lane events to the container's stdout (docker logs / Loki) for the
+# container's life: truncate the file, then follow it. Killed on stop (below).
+: > "$events"
+tail -n +1 -F "$events" 2>/dev/null &
+tail_pid=$!
+log "container starting; lanes: Main ${CLAUDE_LANES:-}"
+
 # A lane's worktree, made on first use with nothing checked out (its process
 # makes a branch per change), plus the empty .github the structure test
 # expects, which a new worktree lacks. The commit hook's word list needs no
@@ -52,12 +69,12 @@ ensure_lane() {
     local dir="$1"
     if [ ! -e "$dir" ]; then
         git -C "$repo" fetch --quiet origin ||
-            echo "lane $dir: fetch failed; using the last fetched main"
+            log "lane $dir: fetch failed; using the last fetched main"
         git -C "$repo" worktree add --quiet --detach "$dir" origin/main || return 1
     fi
     # Its own worktree's top, not just a folder inside the clone's.
     if [ "$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" != "$(cd "$dir" && pwd -P)" ]; then
-        echo "lane $dir: exists but isn't a git worktree; skipped"
+        log "lane $dir: exists but isn't a git worktree; skipped"
         return 1
     fi
     mkdir -p "$dir/.github"
@@ -72,7 +89,7 @@ main_window=$(tmux new-session -d -P -F '#{window_id}' -s claude -x 240 -y 60 \
     -n "$main" -c "$repo" "$self" --lane "$repo" "$main")
 for lane in ${CLAUDE_LANES:-}; do
     if ! [[ "$lane" =~ ^[A-Za-z0-9-]+$ ]]; then
-        echo "lane '$lane': only letters, digits and - are allowed; skipped"
+        log "lane '$lane': only letters, digits and - are allowed; skipped"
         continue
     fi
     dir="$repo/.claude/worktrees/$lane"
@@ -84,7 +101,7 @@ done
 tmux select-window -t "$main_window"
 
 # On docker stop, end the session cleanly instead of waiting to be killed.
-trap 'tmux kill-server 2>/dev/null || true; exit 0' TERM INT
+trap 'log "stopping"; tmux kill-server 2>/dev/null || true; kill "$tail_pid" 2>/dev/null || true; exit 0' TERM INT
 while tmux has-session -t claude 2>/dev/null; do
     sleep 15 &
     wait $!
