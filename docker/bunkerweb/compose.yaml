@@ -96,6 +96,11 @@ services:
       MODSECURITY_SEC_REQUEST_BODY_LIMIT: "134217728"
       MODSECURITY_SEC_REQUEST_BODY_LIMIT_ACTION: ProcessPartial
       MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "134217728"
+      # ManicTime's API uploads screenshots with PUT (and deletes with DELETE);
+      # BunkerWeb's method whitelist defaults to GET|POST|HEAD|QUERY and 405s the
+      # rest -- a separate check from ModSecurity, so DetectionOnly doesn't cover
+      # it. Allow the REST methods the client uses.
+      ALLOWED_METHODS: "GET|POST|HEAD|PUT|DELETE|PATCH"
 
       # --- Public funnel arrives on loopback: disable IP-keyed throttles ---
       # The Funnel reverse-proxies to this WAF from 127.0.0.1 and forwards no
