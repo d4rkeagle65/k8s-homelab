@@ -94,6 +94,19 @@ services:
       MODSECURITY_SEC_REQUEST_BODY_LIMIT_ACTION: ProcessPartial
       MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "134217728"
 
+      # --- Public funnel arrives on loopback: disable IP-keyed throttles ---
+      # The Funnel reverse-proxies to this WAF from 127.0.0.1 and forwards no
+      # client IP, so every request shares one bucket. BunkerWeb's per-IP request
+      # limit (LIMIT_REQ, default 2r/s) then 429s a ManicTime sync's burst, and
+      # bad-behavior (which counts 429) would ban 127.0.0.1 for a day, cutting
+      # off ALL funnel traffic. These can't tell clients apart here, so they only
+      # break the one app; ModSecurity/CRS (payload inspection) and ManicTime's
+      # own OAuth2 login are the real gate. To get per-client limits back, carry
+      # the client IP via Tailscale Funnel's PROXY-protocol option + USE_REAL_IP.
+      USE_LIMIT_REQ: "no"
+      USE_LIMIT_CONN: "no"
+      USE_BAD_BEHAVIOR: "no"
+
       # --- Web UI admin login ----------------------------------------------
       # Seeding the admin credentials provisions the admin and skips the first-
       # run setup wizard, so the UI never asks for (and binds itself to) a server

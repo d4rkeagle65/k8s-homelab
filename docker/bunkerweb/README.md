@@ -36,6 +36,11 @@ public funnel path is inspected, which is the only path that needs it.
   nothing until reviewed, and a large ManicTime sync is never hard-capped
   (`ProcessPartial`, no-files limit raised). See the comments in
   `compose.yaml`.
+- **IP-keyed throttles off** (`USE_LIMIT_REQ` / `USE_LIMIT_CONN` /
+  `USE_BAD_BEHAVIOR` = `no`): the funnel reaches the WAF from `127.0.0.1` with no
+  client IP, so per-IP rate/connection limits and bad-behavior bans collapse all
+  traffic into one bucket — they 429 a sync and can ban the loopback. CRS and the
+  app's OAuth2 are the real protection.
 
 ## First deploy (owner)
 
