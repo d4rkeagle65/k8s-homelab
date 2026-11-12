@@ -97,15 +97,34 @@ new one.
 
 ## Known follow-ups / open points
 
+- **ManicTime advertises its URL from the request Host** (the client "Next" / `GetClientSettings`
+  12007): ManicTime builds the URL it hands clients from the request and only trusts forwarded
+  headers from proxies it lists (loopback by default). Fix (PR-2): BunkerWeb sends the funnel
+  Host upstream (`REVERSE_PROXY_CUSTOM_HOST: ${TAILSCALE_FUNNEL_HOST}`, SNI still
+  manictime.<domain>); the `manictime-server` ingress routes `${TAILSCALE_FUNNEL_HOST}` (TLS stays
+  manictime.<domain>, since the funnel name is Tailscale's domain); and
+  `settings.extra.web.reverseProxy.networks: ["*"]` trusts traefik so X-Forwarded-Host/Proto are
+  honoured. **Seed-once gotcha:** the chart's init container writes `ManicTimeServerSettings.json`
+  only if absent, so an existing deployment does NOT pick up the new `web.reverseProxy` until the
+  file is reset on the PVC and the pod restarts:
+
+  ```sh
+  kubectl -n manictime exec deploy/manictime-server -- rm -f /app/Data/ManicTimeServerSettings.json
+  kubectl -n manictime rollout restart deploy/manictime-server
+  ```
+
 - **UI exposure**: PR #1 publishes the UI on loopback only (plaintext), reached over SSH. A
   permanent LAN exposure — the repo's pattern is a Traefik `external-services` private route
   (`websecure` + `private-networks` middleware, HTTPS via cert-manager) at
   `bunkerweb.${BASE_DOMAIN}`, pointing at the VM's eth1 address:7000 — is a separate additive
   change once the owner decides. BunkerWeb's own admin login is the auth either way.
-- **Real client IP**: the funnel reaches the WAF from 127.0.0.1, so by default every request
-  looks like it comes from loopback. Harmless in DetectionOnly. Before blocking, confirm which
-  header (if any) the funnel sends and, if useful, set `USE_REAL_IP` / `REAL_IP_FROM` /
-  `REAL_IP_HEADER`; don't trust a client-supplied header the funnel passes through.
+- **Real client IP / per-client limits**: the funnel reaches the WAF from 127.0.0.1 and
+  forwards no client-IP header, so BunkerWeb's IP-keyed throttles (`USE_LIMIT_REQ`,
+  `USE_LIMIT_CONN`, `USE_BAD_BEHAVIOR`) are disabled — at 2r/s they 429'd a real sync and
+  bad-behavior would ban the loopback for a day. To restore per-client limiting, carry the
+  client IP with Tailscale Funnel's PROXY-protocol option + `USE_PROXY_PROTOCOL: "yes"` and
+  `REAL_IP_HEADER: proxy_protocol`, then re-enable the limits (verify the exact Funnel flag
+  first).
 - **mem_limit** is a first pass (1536m); resize after a week of cAdvisor data
   (QUEUE-resource-limits.md), and watch for an OOM during a very large sync (ModSecurity
   buffers the inspected body in memory).

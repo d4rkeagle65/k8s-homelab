@@ -66,11 +66,14 @@ services:
       USE_REVERSE_PROXY: "yes"
       REVERSE_PROXY_HOST: https://manictime.${BASE_DOMAIN}
       REVERSE_PROXY_URL: /
-      # Send the cluster a clean Host (manictime.<domain>, not the ts.net name)
-      # so traefik-isolated routes it, and the matching SNI so it serves the
-      # manictime certificate. This is why retiring the in-cluster CRS WAF needs
-      # no hostless catch-all Ingress rule.
-      REVERSE_PROXY_CUSTOM_HOST: manictime.${BASE_DOMAIN}
+      # Send the FUNNEL host upstream, not manictime.<domain>: ManicTime builds
+      # the URL it advertises back to clients from this Host, so it must be the
+      # public funnel name or the client is handed an unresolvable internal URL
+      # (ManicTime reverse-proxy "wrong URLs" problem). traefik-isolated has a
+      # routing rule for ${TAILSCALE_FUNNEL_HOST} (manictime-server values.yaml),
+      # and trusts the forwarded headers via settings.extra.web.reverseProxy.
+      # SNI stays manictime.<domain> so traefik still serves the manictime cert.
+      REVERSE_PROXY_CUSTOM_HOST: ${TAILSCALE_FUNNEL_HOST}
       REVERSE_PROXY_SSL_SNI: "yes"
       REVERSE_PROXY_SSL_SNI_NAME: manictime.${BASE_DOMAIN}
       # The upstream is a trusted in-home ingress with a public Let's Encrypt
@@ -89,6 +92,13 @@ services:
       # as "true".
       USE_MODSECURITY: "yes"
       MODSECURITY_SEC_RULE_ENGINE: "On"
+      # ManicTime's API uses a custom content type (application/vnd.manictime.*).
+      # CRS rule 920420 only permits a fixed list of content types and would 403
+      # every ManicTime request under blocking. This custom modsec-crs rule
+      # (loaded before CRS) drops 920420 for that content type only, keeping the
+      # allow-list for everything else. CUSTOM_CONF_MODSEC_CRS_<name> is read only
+      # at container (re)create.
+      CUSTOM_CONF_MODSEC_CRS_manictime_content_type: 'SecRule REQUEST_HEADERS:Content-Type "@beginsWith application/vnd.manictime" "id:1900001,phase:1,t:lowercase,nolog,pass,ctl:ruleRemoveById=920420"'
       # ManicTime syncs are large POST bodies. Don't hard-cap at nginx
       # (MAX_CLIENT_SIZE 0 = no limit); inspect the first 128 MiB in ModSecurity
       # and pass the rest uninspected rather than reject it (ProcessPartial);
@@ -98,6 +108,24 @@ services:
       MODSECURITY_SEC_REQUEST_BODY_LIMIT: "134217728"
       MODSECURITY_SEC_REQUEST_BODY_LIMIT_ACTION: ProcessPartial
       MODSECURITY_REQ_BODY_NO_FILES_LIMIT: "134217728"
+      # ManicTime's API uploads screenshots with PUT (and deletes with DELETE);
+      # BunkerWeb's method whitelist defaults to GET|POST|HEAD|QUERY and 405s the
+      # rest -- a separate check from ModSecurity, so DetectionOnly doesn't cover
+      # it. Allow the REST methods the client uses.
+      ALLOWED_METHODS: "GET|POST|HEAD|PUT|DELETE|PATCH"
+
+      # --- Public funnel arrives on loopback: disable IP-keyed throttles ---
+      # The Funnel reverse-proxies to this WAF from 127.0.0.1 and forwards no
+      # client IP, so every request shares one bucket. BunkerWeb's per-IP request
+      # limit (LIMIT_REQ, default 2r/s) then 429s a ManicTime sync's burst, and
+      # bad-behavior (which counts 429) would ban 127.0.0.1 for a day, cutting
+      # off ALL funnel traffic. These can't tell clients apart here, so they only
+      # break the one app; ModSecurity/CRS (payload inspection) and ManicTime's
+      # own OAuth2 login are the real gate. To get per-client limits back, carry
+      # the client IP via Tailscale Funnel's PROXY-protocol option + USE_REAL_IP.
+      USE_LIMIT_REQ: "no"
+      USE_LIMIT_CONN: "no"
+      USE_BAD_BEHAVIOR: "no"
 
       # --- Web UI admin login ----------------------------------------------
       # Seeding the admin credentials provisions the admin and skips the first-
