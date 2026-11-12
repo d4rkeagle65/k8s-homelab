@@ -154,6 +154,44 @@ spec:
               type: DisplayString
             - labels: []
               labelname: laIndex
+        # TP-Link's private MIB (tplink-sysMonitor.mib), verified on the TL-SG3428's firmware
+        # 2.0.11: control-plane CPU (5s/1min/5min) and memory, as percentages, per stack unit.
+        # if_mib alone can't show a control-plane hang (the 2026-11-11 outage); this can.
+        tplink_sysmonitor:
+          walk:
+          - 1.3.6.1.4.1.11863.6.4.1.1.1.1.2
+          - 1.3.6.1.4.1.11863.6.4.1.1.1.1.3
+          - 1.3.6.1.4.1.11863.6.4.1.1.1.1.4
+          - 1.3.6.1.4.1.11863.6.4.1.2.1.1.2
+          metrics:
+          - name: tpSysMonitorCpu5Seconds
+            oid: 1.3.6.1.4.1.11863.6.4.1.1.1.1.2
+            type: gauge
+            help: CPU utilization over the last 5 seconds, percent - 1.3.6.1.4.1.11863.6.4.1.1.1.1.2
+            indexes:
+            - labelname: tpSysMonitorUnit
+              type: gauge
+          - name: tpSysMonitorCpu1Minute
+            oid: 1.3.6.1.4.1.11863.6.4.1.1.1.1.3
+            type: gauge
+            help: CPU utilization over the last 1 minute, percent - 1.3.6.1.4.1.11863.6.4.1.1.1.1.3
+            indexes:
+            - labelname: tpSysMonitorUnit
+              type: gauge
+          - name: tpSysMonitorCpu5Minutes
+            oid: 1.3.6.1.4.1.11863.6.4.1.1.1.1.4
+            type: gauge
+            help: CPU utilization over the last 5 minutes, percent - 1.3.6.1.4.1.11863.6.4.1.1.1.1.4
+            indexes:
+            - labelname: tpSysMonitorUnit
+              type: gauge
+          - name: tpSysMonitorMemoryUtilization
+            oid: 1.3.6.1.4.1.11863.6.4.1.2.1.1.2
+            type: gauge
+            help: Memory utilization, percent - 1.3.6.1.4.1.11863.6.4.1.2.1.1.2
+            indexes:
+            - labelname: tpSysMonitorUnit
+              type: gauge
     extraArgs:
     - --config.file=/etc/snmp_exporter/snmp.yml
     - --config.expand-environment-variables
@@ -204,7 +242,7 @@ spec:
       # without SNMP; their uplinks are ports here.
       - name: switch-core
         target: ${SWITCH_CORE_ADDRESS}
-        module: [system, if_mib]
+        module: [system, if_mib, tplink_sysmonitor]
         auth: [homelab_v3_des]
         additionalMetricsRelabels:
           switch: core

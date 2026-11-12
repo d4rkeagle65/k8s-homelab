@@ -331,6 +331,17 @@ spec:
         description: >-
           Its port states and traffic aren't being read. The switch may be down, or its SNMPv3
           user no longer matches Key Vault's SNMP-V3-* secrets.
+    - alert: CoreSwitchCPUHigh
+      expr: max(tpSysMonitorCpu5Minutes{switch="core"}) > 85
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: The core switch's CPU has been over 85% for 15 minutes.
+        description: >-
+          The TL-SG3428's 5-minute control-plane CPU is {{ $value }}%. Sustained high CPU can
+          wedge its forwarding (the 2026-11-11 outage): look for a loop or broadcast storm
+          (NetworkInterfaceErrors, the ports' broadcast counters) and read the switch's log.
     - alert: FirewallSNMPDown
       expr: max(up{job="firewall-snmp"}) == 0 or absent(up{job="firewall-snmp"})
       for: 15m
