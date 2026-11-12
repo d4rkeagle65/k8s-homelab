@@ -96,6 +96,22 @@ new one.
 
 ## Known follow-ups / open points
 
+- **ManicTime advertises its URL from the request Host** (the client "Next" / `GetClientSettings`
+  12007): ManicTime builds the URL it hands clients from the request and only trusts forwarded
+  headers from proxies it lists (loopback by default). Fix (PR-2): BunkerWeb sends the funnel
+  Host upstream (`REVERSE_PROXY_CUSTOM_HOST: ${TAILSCALE_FUNNEL_HOST}`, SNI still
+  manictime.<domain>); the `manictime-server` ingress routes `${TAILSCALE_FUNNEL_HOST}` (TLS stays
+  manictime.<domain>, since the funnel name is Tailscale's domain); and
+  `settings.extra.web.reverseProxy.networks: ["*"]` trusts traefik so X-Forwarded-Host/Proto are
+  honoured. **Seed-once gotcha:** the chart's init container writes `ManicTimeServerSettings.json`
+  only if absent, so an existing deployment does NOT pick up the new `web.reverseProxy` until the
+  file is reset on the PVC and the pod restarts:
+
+  ```sh
+  kubectl -n manictime exec deploy/manictime-server -- rm -f /app/Data/ManicTimeServerSettings.json
+  kubectl -n manictime rollout restart deploy/manictime-server
+  ```
+
 - **UI exposure**: PR #1 publishes the UI on loopback only (plaintext), reached over SSH. A
   permanent LAN exposure — the repo's pattern is a Traefik `external-services` private route
   (`websecure` + `private-networks` middleware, HTTPS via cert-manager) at
