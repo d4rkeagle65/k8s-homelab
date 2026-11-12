@@ -5,9 +5,10 @@
 #
 # It also publishes ManicTime's server over Tailscale Funnel (TS_SERVE_CONFIG,
 # below): clients that can't run Tailscale reach it at a public HTTPS URL that
-# this node reverse-proxies to ManicTime's isolated ingress / WAF. Funnel needs
-# the funnel node attribute and the tailnet's HTTPS certificates, both in
-# tofu/tailscale; see README.md.
+# this node reverse-proxies to the local BunkerWeb WAF (docker/bunkerweb, on
+# 127.0.0.1:8080), which inspects the request and forwards it to ManicTime's
+# isolated ingress. Funnel needs the funnel node attribute and the tailnet's
+# HTTPS certificates, both in tofu/tailscale; see README.md.
 #
 # Variables, from Key Vault (references in .env); the TS_* names under
 # environment: are Tailscale's own:
@@ -21,8 +22,6 @@
 #                       tags tailscale-route-home, written to Key Vault by the facts
 #                       sync (scripts/keyvault_views/tailscale_routes.py), the same
 #                       tag tofu/tailscale's policy approves
-#   BASE_DOMAIN         the domain: the Funnel serve config proxies to
-#                       https://manictime.<domain> (ManicTime's isolated ingress)
 #
 # It registers with tag:subnet-router, the tag tofu/tailscale/policy.tf owns and
 # approves routes for. A tagged node's key never expires.
@@ -44,7 +43,7 @@ services:
   # each deploy. A compose `configs:` file can be lost when a container is
   # recreated, so an init service writes it instead (docker/CLAUDE.md,
   # garage/compose.yaml). $${TS_CERT_DOMAIN} is left literal for the tailscale
-  # container to expand to this node's FQDN; ${BASE_DOMAIN} is substituted now.
+  # container to expand to this node's FQDN at runtime.
   tailscale-serve-config:
     image: busybox:1.38.0
     restart: "no"
@@ -57,7 +56,7 @@ services:
           "TCP": { "443": { "HTTPS": true } },
           "Web": {
             "$${TS_CERT_DOMAIN}:443": {
-              "Handlers": { "/": { "Proxy": "https://manictime.${BASE_DOMAIN}" } }
+              "Handlers": { "/": { "Proxy": "http://127.0.0.1:8080" } }
             }
           },
           "AllowFunnel": { "$${TS_CERT_DOMAIN}:443": true }
@@ -110,10 +109,10 @@ services:
       # The host keeps using Pi-hole; don't let MagicDNS take over its DNS.
       TS_ACCEPT_DNS: "false"
       # Tailscale Funnel: expose ManicTime publicly on :443 and reverse-proxy it
-      # to its isolated ingress / WAF. The config is in the tailscale-serve
-      # volume (tailscale-serve-config above); containerboot expands
-      # ${TS_CERT_DOMAIN} in it. Serve's proxy forwards the client's Host header
-      # unchanged, which the WAF Ingress's catch-all rule handles.
+      # to the local BunkerWeb WAF on 127.0.0.1:8080 (docker/bunkerweb). The
+      # config is in the tailscale-serve volume (tailscale-serve-config above);
+      # containerboot expands ${TS_CERT_DOMAIN} in it. Serve's proxy forwards the
+      # client's Host header unchanged, which BunkerWeb answers for (SERVER_NAME).
       TS_SERVE_CONFIG: /config/serve.json
 
 volumes:

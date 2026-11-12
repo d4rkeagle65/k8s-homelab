@@ -141,16 +141,17 @@ old node, and start Tailscale there again.
 `TS_SERVE_CONFIG` turns this node into a Tailscale Funnel endpoint for ManicTime
 Server, so clients that can't run Tailscale (a laptop, a Windows 365 VM) reach
 it at a public HTTPS URL. The node terminates the public TLS with its tailnet
-certificate and reverse-proxies to ManicTime's isolated ingress / WAF
-(`https://manictime.<domain>`); the WAF and ManicTime's own OAuth2 bearer-token
-login are the gate.
+certificate and reverse-proxies to the local BunkerWeb WAF on `127.0.0.1:8080`
+(`docker/bunkerweb`), which inspects the request and forwards it to ManicTime's
+isolated ingress. The WAF and ManicTime's own OAuth2 bearer-token login are the
+gate.
 
 The config lives in `/config/serve.json`, written into the `tailscale-serve`
 volume at each deploy by the `tailscale-serve-config` init service (a compose
 `configs:` file can be lost on recreate; see `docker/CLAUDE.md`). It funnels
-`:443` and proxies `/` to the backend. `${TS_CERT_DOMAIN}` is left literal in the
-file for `containerboot` to expand to this node's FQDN
-(`<node>.<tailnet>.ts.net`) at runtime; `${BASE_DOMAIN}` is filled in at deploy.
+`:443` and proxies `/` to `http://127.0.0.1:8080`. `${TS_CERT_DOMAIN}` is left
+literal in the file for `containerboot` to expand to this node's FQDN
+(`<node>.<tailnet>.ts.net`) at runtime.
 
 **Prerequisites, in `tofu/tailscale` (apply before deploying this):**
 
@@ -161,11 +162,10 @@ Apply the tailscale OpenTofu plan and confirm in the admin console that HTTPS
 certificates are on. Without both, `containerboot` can't enable Funnel and the
 serve config stays inactive (the subnet router keeps running regardless).
 
-The node also has to reach the backend: it resolves `manictime.<domain>` through
-Pi-hole to the isolated ingress, which is on the production network this host's
-prod leg sits on, so it reaches it at layer 2. If a sync won't connect, check
-from the host with `docker exec tailscale wget -qSO- https://manictime.<domain>`
-and, if it fails, flag a firewall allow.
+The backend is local — BunkerWeb on this host's loopback — so the node reaches
+it directly; BunkerWeb in turn reaches ManicTime's isolated ingress (see
+`docker/bunkerweb/README.md`). **BunkerWeb must be deployed and listening on
+`127.0.0.1:8080` before this repoint**, or the funnel has nothing to proxy to.
 
 **Deploying is a brief tailnet blip** — a redeploy recreates the `tailscale`
 container, so the subnet router restarts for a minute. Merge the stack's pull
