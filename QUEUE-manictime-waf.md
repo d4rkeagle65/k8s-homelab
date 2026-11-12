@@ -82,9 +82,10 @@ BunkerWeb sends a clean Host upstream.
 - Verify after merge: LAN clients and the funnel path both still reach ManicTime; the
   `manictime-waf` pod is gone.
 
-**After PR #3 — switch to blocking**: review the WAF hits in the BunkerWeb UI against the real
-sync, add exclusions, set `MODSECURITY_SEC_RULE_ENGINE: On` in `docker/bunkerweb/compose.yaml`,
-redeploy.
+**Switch to blocking** (prepared, merge after review): sets `MODSECURITY_SEC_RULE_ENGINE: "On"`
+in `docker/bunkerweb/compose.yaml`. Merge only after reviewing the DetectionOnly hits from a
+real sync in the UI and adding any needed CRS exclusions; it redeploys via the webhook (or by
+hand). Flipping before that review risks blocking legitimate sync traffic.
 
 ## New Key Vault secrets (owner creates in `kv-hsn-1`)
 

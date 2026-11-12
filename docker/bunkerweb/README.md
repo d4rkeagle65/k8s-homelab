@@ -83,13 +83,12 @@ no server name is set, and `:7000` works.
   configured. Until the funnel is repointed (next PR), no live traffic reaches
   it yet.
 
-## Switch to blocking
+## Blocking mode
 
-After a real client sync has passed through (funnel repointed), review the hits
-in the UI (**Reports** / **Logs**), add exclusions for any false positives, then
-set `MODSECURITY_SEC_RULE_ENGINE` to `On` in `compose.yaml` and redeploy. Until
-then the WAF detects but blocks nothing, so the public endpoint is guarded only
-by ManicTime's own OAuth2 bearer-token login.
+`MODSECURITY_SEC_RULE_ENGINE` is `On`: the WAF enforces CRS rules. It ran in
+DetectionOnly first so the hits from a real sync could be reviewed in the UI
+(**Reports** / **Logs**); if a legitimate request trips a rule, add a CRS
+exclusion in the UI (or narrow the rule) rather than returning to DetectionOnly.
 
 The rollout sequence, the in-cluster CRS WAF this replaces, and what is left are
 in [`QUEUE-manictime-waf.md`](../../QUEUE-manictime-waf.md).
