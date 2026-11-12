@@ -66,11 +66,14 @@ services:
       USE_REVERSE_PROXY: "yes"
       REVERSE_PROXY_HOST: https://manictime.${BASE_DOMAIN}
       REVERSE_PROXY_URL: /
-      # Send the cluster a clean Host (manictime.<domain>, not the ts.net name)
-      # so traefik-isolated routes it, and the matching SNI so it serves the
-      # manictime certificate. This is why retiring the in-cluster CRS WAF needs
-      # no hostless catch-all Ingress rule.
-      REVERSE_PROXY_CUSTOM_HOST: manictime.${BASE_DOMAIN}
+      # Send the FUNNEL host upstream, not manictime.<domain>: ManicTime builds
+      # the URL it advertises back to clients from this Host, so it must be the
+      # public funnel name or the client is handed an unresolvable internal URL
+      # (ManicTime reverse-proxy "wrong URLs" problem). traefik-isolated has a
+      # routing rule for ${TAILSCALE_FUNNEL_HOST} (manictime-server values.yaml),
+      # and trusts the forwarded headers via settings.extra.web.reverseProxy.
+      # SNI stays manictime.<domain> so traefik still serves the manictime cert.
+      REVERSE_PROXY_CUSTOM_HOST: ${TAILSCALE_FUNNEL_HOST}
       REVERSE_PROXY_SSL_SNI: "yes"
       REVERSE_PROXY_SSL_SNI_NAME: manictime.${BASE_DOMAIN}
       # The upstream is a trusted in-home ingress with a public Let's Encrypt

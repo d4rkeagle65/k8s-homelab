@@ -31,6 +31,9 @@ spec:
       - host: manictime.${BASE_DOMAIN}
         paths:
         - /
+      - host: ${TAILSCALE_FUNNEL_HOST}
+        paths:
+        - /
       tls:
       - hosts:
         - manictime.${BASE_DOMAIN}
@@ -67,6 +70,10 @@ spec:
       extra:
         automaticVersionCheck:
           enabled: false
+        web:
+          reverseProxy:
+            networks:
+            - "*"
       seed: true
   commonMetadata:
     labels:
