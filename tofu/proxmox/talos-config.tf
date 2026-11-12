@@ -21,7 +21,7 @@ locals {
   # The cluster's Kubernetes version: raised in a commit, then
   # ansible/kubernetes-update.yml, then this job (that playbook says why in
   # that order).
-  kubernetes_version = "1.36.5"
+  kubernetes_version = "1.37.2"
 
   # The Talos nodes, by VMID: their role and size from NetBox, through the
   # generated netbox-guests.json (scripts/netbox_guests.py, a pull request from
