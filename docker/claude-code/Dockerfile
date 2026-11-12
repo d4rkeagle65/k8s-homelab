@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Claude Code plus the tools this repo's work needs: git, kubectl, flux,
 # helm, OpenTofu, the GitHub CLI, Python for scripts/ and its tests,
 # PowerShell for scripts/*.ps1, and Ansible for checking ansible/.
@@ -10,22 +11,18 @@
 # only formats and validates (tofu init -backend=false). Ansible here only
 # parses and checks the playbooks (--syntax-check, a raw task's quoting);
 # Semaphore runs them.
+#
+# Each tool is its own layer with its version ARG right before it, so a Renovate
+# bump re-runs only that tool's layer and never the apt layer above. Downloads
+# land in a BuildKit cache mount at /dl keyed by their versioned filename, so a
+# rebuild - even `--no-cache`, which keeps cache mounts - re-fetches only the
+# tools whose version changed and takes the rest from the cache. Checksums are
+# verified on every build, cached file or fresh. (Clear a bad cache entry, which
+# is rare, with `docker builder prune`.)
 FROM debian:trixie-slim
 
-# renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VERSION=1.36.5
-# renovate: datasource=github-releases depName=fluxcd/flux2
-ARG FLUX_VERSION=2.9.6
-# renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=4.3.1
-# renovate: datasource=github-releases depName=opentofu/opentofu
-ARG TOFU_VERSION=1.11.0
-# renovate: datasource=github-releases depName=PowerShell/PowerShell
-ARG PWSH_VERSION=7.6.9
 # Claude Code's release channel: stable (about a week old) or latest.
 ARG CLAUDE_CODE_CHANNEL=stable
-# The owner of /opt/claude-code/home on the host.
-ARG UID=1000
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -52,56 +49,84 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends claude-code gh && \
     rm -rf /var/lib/apt/lists/*
 
-# kubectl, flux, helm and tofu, each checked against its published checksum.
-RUN arch="$(dpkg --print-architecture)" && cd /tmp && \
-    curl -fsSLO "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" && \
-    echo "$(curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl.sha256")  kubectl" \
-        | sha256sum -c - && \
-    install -m 0755 kubectl /usr/local/bin/kubectl && \
-    flux="flux_${FLUX_VERSION}_linux_${arch}.tar.gz" && \
-    curl -fsSLO "https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}/${flux}" && \
-    curl -fsSL "https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}/flux_${FLUX_VERSION}_checksums.txt" \
-        | grep " ${flux}\$" | sha256sum -c - && \
-    tar -xzf "${flux}" -C /usr/local/bin flux && \
-    helm="helm-v${HELM_VERSION}-linux-${arch}.tar.gz" && \
-    curl -fsSLO "https://get.helm.sh/${helm}" && \
-    curl -fsSL "https://get.helm.sh/${helm}.sha256sum" | sha256sum -c - && \
-    tar -xzf "${helm}" --strip-components=1 -C /usr/local/bin "linux-${arch}/helm" && \
-    tofu="tofu_${TOFU_VERSION}_linux_${arch}.tar.gz" && \
-    curl -fsSLO "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/${tofu}" && \
-    curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" \
-        | grep " ${tofu}\$" | sha256sum -c - && \
-    tar -xzf "${tofu}" -C /usr/local/bin tofu && \
-    rm -f /tmp/kubectl /tmp/*.tar.gz
+# kubectl: the raw binary and its .sha256 (which holds only the hash).
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
+ARG KUBECTL_VERSION=1.36.5
+RUN --mount=type=cache,target=/dl,sharing=locked \
+    arch="$(dpkg --print-architecture)" && cd /dl && \
+    base="https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}" && \
+    f="kubectl-${KUBECTL_VERSION}-${arch}" && \
+    { [ -s "$f" ] || { curl -fsSL -o "$f.part" "$base/kubectl" && mv -f "$f.part" "$f"; }; } && \
+    echo "$(curl -fsSL "$base/kubectl.sha256")  $f" | sha256sum -c - && \
+    install -m 0755 "$f" /usr/local/bin/kubectl
 
-# PowerShell for scripts/*.ps1, best-effort in its own layer so it can't mask a
-# failure above. Its release hashes.sha256 is UTF-16 with CRLF, so it's decoded
-# (tr strips the NULs and CRs) before the checksum check; grep -a keeps grep in
-# text mode past the byte-order mark. A download or checksum failure warns and
-# leaves pwsh out rather than failing the image - scripts/*.ps1 can't be checked
-# in it then - while kubectl/flux/helm/tofu above stay fatal on a bad checksum.
-RUN arch="$(dpkg --print-architecture)" && cd /tmp && \
-    pwsh_arch="$([ "${arch}" = amd64 ] && echo x64 || echo "${arch}")" && \
-    pwsh="powershell-${PWSH_VERSION}-linux-${pwsh_arch}.tar.gz" && \
-    { curl -fsSLO "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/${pwsh}" && \
-        curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/hashes.sha256" \
-            | tr -d '\000\r' | grep -a " \*${pwsh}\$" | sed 's/ \*/  /' | sha256sum -c - && \
+# flux
+# renovate: datasource=github-releases depName=fluxcd/flux2
+ARG FLUX_VERSION=2.9.6
+RUN --mount=type=cache,target=/dl,sharing=locked \
+    arch="$(dpkg --print-architecture)" && cd /dl && \
+    f="flux_${FLUX_VERSION}_linux_${arch}.tar.gz" && \
+    rel="https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}" && \
+    { [ -s "$f" ] || { curl -fsSL -o "$f.part" "$rel/${f}" && mv -f "$f.part" "$f"; }; } && \
+    curl -fsSL "$rel/flux_${FLUX_VERSION}_checksums.txt" | grep " ${f}\$" | sha256sum -c - && \
+    tar -xzf "${f}" -C /usr/local/bin flux
+
+# helm
+# renovate: datasource=github-releases depName=helm/helm
+ARG HELM_VERSION=4.3.1
+RUN --mount=type=cache,target=/dl,sharing=locked \
+    arch="$(dpkg --print-architecture)" && cd /dl && \
+    f="helm-v${HELM_VERSION}-linux-${arch}.tar.gz" && \
+    { [ -s "$f" ] || { curl -fsSL -o "$f.part" "https://get.helm.sh/${f}" && mv -f "$f.part" "$f"; }; } && \
+    curl -fsSL "https://get.helm.sh/${f}.sha256sum" | sha256sum -c - && \
+    tar -xzf "${f}" --strip-components=1 -C /usr/local/bin "linux-${arch}/helm"
+
+# OpenTofu
+# renovate: datasource=github-releases depName=opentofu/opentofu
+ARG TOFU_VERSION=1.11.0
+RUN --mount=type=cache,target=/dl,sharing=locked \
+    arch="$(dpkg --print-architecture)" && cd /dl && \
+    f="tofu_${TOFU_VERSION}_linux_${arch}.tar.gz" && \
+    rel="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}" && \
+    { [ -s "$f" ] || { curl -fsSL -o "$f.part" "$rel/${f}" && mv -f "$f.part" "$f"; }; } && \
+    curl -fsSL "$rel/tofu_${TOFU_VERSION}_SHA256SUMS" | grep " ${f}\$" | sha256sum -c - && \
+    tar -xzf "${f}" -C /usr/local/bin tofu
+
+# PowerShell for scripts/*.ps1, best-effort in its own layer: a download or
+# checksum failure warns and leaves pwsh out rather than failing the image
+# (scripts/*.ps1 can't be checked in it then), while the tools above stay fatal
+# on a bad checksum. Its hashes.sha256 is UTF-16 with CRLF, so it's decoded
+# (tr strips the NULs and CRs) before the check; grep -a keeps grep in text mode
+# past the byte-order mark.
+# renovate: datasource=github-releases depName=PowerShell/PowerShell
+ARG PWSH_VERSION=7.6.9
+RUN --mount=type=cache,target=/dl,sharing=locked \
+    arch="$(dpkg --print-architecture)" && cd /dl && \
+    pa="$([ "${arch}" = amd64 ] && echo x64 || echo "${arch}")" && \
+    f="powershell-${PWSH_VERSION}-linux-${pa}.tar.gz" && \
+    rel="https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}" && \
+    { { [ -s "$f" ] || { curl -fsSL -o "$f.part" "$rel/${f}" && mv -f "$f.part" "$f"; }; } && \
+        curl -fsSL "$rel/hashes.sha256" \
+            | tr -d '\000\r' | grep -a " \*${f}\$" | sed 's/ \*/  /' | sha256sum -c - && \
         install -d /opt/microsoft/powershell && \
-        tar -xzf "${pwsh}" -C /opt/microsoft/powershell && \
+        tar -xzf "${f}" -C /opt/microsoft/powershell && \
         chmod 0755 /opt/microsoft/powershell/pwsh && \
         ln -s /opt/microsoft/powershell/pwsh /usr/local/bin/pwsh && \
         echo "PowerShell ${PWSH_VERSION} installed."; } || \
-    echo "WARNING: PowerShell ${PWSH_VERSION} not installed (download or checksum verification failed); scripts/*.ps1 cannot be checked in this image." >&2; \
-    rm -f /tmp/*.tar.gz
+    echo "WARNING: PowerShell ${PWSH_VERSION} not installed (download or checksum verification failed); scripts/*.ps1 cannot be checked in this image." >&2
 
 # Python packages for scripts/: the same as scripts/requirements.txt and
-# scripts/requirements-test.txt; and ansible-core.
-RUN python3 -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir 'ruamel.yaml>=0.18' 'pytest>=8.0' 'ansible-core>=2.19'
+# scripts/requirements-test.txt; and ansible-core. pip's download cache is a
+# BuildKit cache mount, so a rebuild reuses the wheels instead of re-fetching.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install 'ruamel.yaml>=0.18' 'pytest>=8.0' 'ansible-core>=2.19'
 
 # Start-up, kubeconfig and credential helpers (see README.md).
 COPY bin/ /usr/local/bin/
 
+# The owner of /opt/claude-code/home on the host.
+ARG UID=1000
 RUN useradd --uid "${UID}" --create-home --shell /bin/bash claude
 USER claude
 WORKDIR /home/claude
