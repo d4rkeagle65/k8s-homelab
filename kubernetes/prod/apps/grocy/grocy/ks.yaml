@@ -1,0 +1,30 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: grocy
+  namespace: flux-system
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: grocy
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  path: ./kubernetes/prod/apps/grocy/grocy/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  targetNamespace: grocy
+  # Core types only (no operator CRDs); the Traefik middlewares and the
+  # Authentik outpost it references resolve at runtime.
+  dependsOn: []
+  postBuild:
+    substituteFrom:
+    - kind: ConfigMap
+      name: cluster-settings
+      optional: true
+    - kind: Secret
+      name: cluster-secrets
+      optional: true
