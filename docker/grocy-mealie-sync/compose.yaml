@@ -1,0 +1,56 @@
+# grocy-mealie-sync (HarmEllis/grocy-mealie-sync): keeps Grocy's stock and
+# Mealie's shopping list in step. Deployed by Dockhand from this folder (a Git
+# stack), not by Flux. Each variable is a Key Vault reference in .env, which
+# Dockhand resolves at each deploy.
+#
+# It reaches both apps over their Traefik ingress URLs on the LAN:
+#   Grocy  at grocy.<domain>  - uses /api, the one Grocy route NOT behind
+#          Authentik forward-auth, so an API-key client like this works.
+#   Mealie at mealie.<domain> - Mealie's own API-token auth.
+# Sync (name-matched products/units): Grocy stock below its minimum goes onto
+# the Mealie shopping list; checking an item off in Mealie books the purchase
+# into Grocy's stock and clears it from Grocy's list.
+#
+# Its own web UI (the product-mapping wizard) is on port 3000, published on the
+# host's main-network address and loopback; AUTH_SECRET turns on its login.
+# State is SQLite in the grocy-mealie-sync-data volume.
+#
+# Setup, and the Key Vault secrets to create first: README.md.
+#
+# Variables, from Key Vault:
+#   DOCKER_VM_1_PROD_ADDRESS       the host's main-network address (the web UI's)
+#   BASE_DOMAIN                    the domain; grocy.<domain>/mealie.<domain> built from it
+#   TIMEZONE                       the container's timezone
+#   GROCY_API_KEY                  a Grocy API key (Grocy > Manage API keys)
+#   MEALIE_API_TOKEN               a Mealie API token (Mealie > User Settings > API Tokens)
+#   GROCY_MEALIE_SYNC_AUTH_SECRET  the web UI's auth secret (openssl rand -base64 32)
+services:
+  grocy-mealie-sync:
+    mem_limit: 256m
+    image: ghcr.io/harmellis/grocy-mealie-sync:1.15.0
+    container_name: grocy-mealie-sync
+    restart: unless-stopped
+    ports:
+    # The host's main-network address (LAN) and loopback, never the management one.
+    - ${DOCKER_VM_1_PROD_ADDRESS}:3000:3000
+    - 127.0.0.1:3000:3000
+    volumes:
+    - grocy-mealie-sync-data:/app/data
+    environment:
+      TZ: ${TIMEZONE}
+      GROCY_URL: https://grocy.${BASE_DOMAIN}
+      GROCY_API_KEY: ${GROCY_API_KEY}
+      MEALIE_URL: https://mealie.${BASE_DOMAIN}
+      MEALIE_API_TOKEN: ${MEALIE_API_TOKEN}
+      AUTH_SECRET: ${GROCY_MEALIE_SYNC_AUTH_SECRET}
+      POLL_INTERVAL_SECONDS: "60"
+      PRODUCT_SYNC_INTERVAL_HOURS: "6"
+      DATABASE_PATH: ./data/sync.db
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+volumes:
+  grocy-mealie-sync-data:
