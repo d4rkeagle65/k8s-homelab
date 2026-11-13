@@ -1,0 +1,76 @@
+# Grocy (LinuxServer image): one PHP container with SQLite, so no separate
+# database. One replica, Recreate (single RWO data volume). Login is Authentik
+# forward-auth: Traefik's authentik middleware authenticates, then Grocy's
+# ReverseProxyAuthMiddleware trusts the X-authentik-username header it passes
+# (GROCY_* env, verified against grocy's config-dist.php). Traefik strips any
+# client-supplied X-authentik-* header, so the trusted header can't be spoofed;
+# /api is a separate, auth-free Ingress where Grocy's own API keys apply, so
+# companions (Barcode Buddy, Penny) still work. Pinned to a PHP 8.5.12+ image
+# (CVE-2026-109618/109619, "php2shell"); keep it LAN/VPN-only.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grocy
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: grocy
+  template:
+    metadata:
+      labels:
+        app: grocy
+    spec:
+      containers:
+      - name: grocy
+        image: lscr.io/linuxserver/grocy:v4.7.1-ls346
+        ports:
+        - name: http
+          containerPort: 80
+        env:
+        # The LinuxServer entrypoint starts as root, chowns /config to this
+        # user, then drops to it.
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: ${TIMEZONE}
+        # Reverse-proxy (header) SSO: trust the username Authentik's forward-auth
+        # passes. USE_ENV false = read the HTTP request header by this name
+        # (grocy middleware/Auth/ReverseProxyAuthMiddleware.php).
+        - name: GROCY_AUTH_CLASS
+          value: 'Grocy\Middleware\Auth\ReverseProxyAuthMiddleware'
+        - name: GROCY_REVERSE_PROXY_AUTH_HEADER
+          value: X-authentik-username
+        - name: GROCY_REVERSE_PROXY_AUTH_USE_ENV
+          value: "false"
+        # TCP probes: with reverse-proxy auth on, an HTTP GET without the header
+        # is rejected, so there's no unauthenticated HTTP path to probe.
+        readinessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 15
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 10m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        volumeMounts:
+        - name: data
+          mountPath: /config
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: grocy-data

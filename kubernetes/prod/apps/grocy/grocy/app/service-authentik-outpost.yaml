@@ -1,0 +1,22 @@
+# Routes /outpost.goauthentik.io on the Grocy host to Authentik's embedded
+# proxy outpost, so Traefik's authentik forward-auth middleware works (as
+# babybuddy/headlamp do). The outpost's provider list is in the blueprint
+# mesh-mini.yaml.
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: authentik-outpost
+  name: authentik-outpost
+  namespace: grocy
+spec:
+  externalName: ak-outpost-default-proxy-outpost.authentik.svc.${CLUSTER_DOMAIN}
+  ports:
+  - name: 9000-9000
+    port: 9000
+    protocol: TCP
+    targetPort: 9000
+  selector:
+    app: authentik-outpost
+  sessionAffinity: None
+  type: ExternalName
