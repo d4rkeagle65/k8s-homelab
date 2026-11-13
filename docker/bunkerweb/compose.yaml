@@ -84,6 +84,17 @@ services:
       REVERSE_PROXY_READ_TIMEOUT: 3600s
       REVERSE_PROXY_SEND_TIMEOUT: 3600s
 
+      # --- Pass upstream errors through (ManicTime is a JSON API) -----------
+      # ManicTime returns real HTTP errors with meaningful bodies/headers -- a
+      # 401 with Www-Authenticate drives the desktop client's OAuth handshake.
+      # BunkerWeb otherwise intercepts a default set of codes (incl. 401, 403,
+      # 404, 405) and replaces the body with its own HTML error page, which the
+      # API client can't parse ("Unexpected character <" deserializing the 401).
+      # Empty = intercept nothing, so the upstream's real response reaches the
+      # client; the WAF still blocks (a bare 403/444), just without the styled
+      # page. Read only at container (re)create.
+      INTERCEPTED_ERROR_CODES: ""
+
       # --- WAF engine: blocking --------------------------------------------
       # Blocking: CRS rules are enforced (ran DetectionOnly first so a real
       # sync's hits could be reviewed). If a legitimate request trips a rule,
