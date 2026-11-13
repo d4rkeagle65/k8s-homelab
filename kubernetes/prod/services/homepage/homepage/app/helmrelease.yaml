@@ -486,6 +486,13 @@ spec:
                       version: 2
                       url: http://mealie.mealie.svc.${CLUSTER_DOMAIN}:9000
                       key: "{{ "{{HOMEPAGE_VAR_MEALIE_KEY}}" }}"
+                - Grocy:
+                    icon: grocy.png
+                    href: https://grocy.${BASE_DOMAIN}
+                    description: Groceries and household
+                    namespace: grocy
+                    app: grocy
+                    podSelector: app=grocy
                 - Linkwarden:
                     icon: linkwarden.png
                     href: https://linkwarden${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
