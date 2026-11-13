@@ -116,8 +116,8 @@ Read before changing anything:
   is pushed straight to `main`, since Flux applies none of them; any other file makes it a PR.
 - **On Semaphore I start only runs that change nothing; the owner asks for each that does.**
   Mine: dry runs, OpenTofu plans (then rejected), read-only "Tool: Run Command" checks and
-  the NetBox sync. A dry run goes in the task's `"params": {"dry_run": true}`: a top-level
-  `dry_run` is ignored, and the task runs for real. Never mine unless the owner asks for that
+  the NetBox sync, each started with `scripts/semaphore_run.py` (the `semaphore` skill), which
+  puts a dry run in `"params"`: a top-level `dry_run` is ignored. Never mine unless the owner asks for that
   run, even inside approved work: confirming an OpenTofu apply, a template that changes hosts,
   or a physical Proxmox host's reboot (the reboot template, an upgrade that reboots, a command).
 
