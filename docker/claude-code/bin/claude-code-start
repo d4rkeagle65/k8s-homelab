@@ -29,16 +29,22 @@ log() { printf '%s [%s] %s\n' "$(date -u +%FT%TZ)" "${LANE_NAME:-supervisor}" "$
 # folder's conversations in ~/.claude/projects/, in a folder named after the
 # path with every character other than a letter or digit turned into "-". If
 # there are any (a restart, or one copied in from another machine), continue
-# the newest; otherwise start a new one.
+# the newest; otherwise start a new one and name its Remote Control session.
+#
+# --remote-control goes on the first start only. Continuing a conversation
+# reconnects the Remote Control session recorded in it, keeping its id and
+# name; passing --remote-control again re-registers that id, which the server
+# answers with HTTP 403, so the lane would run with Remote Control off.
 if [ "${1:-}" = "--lane" ]; then
     dir="$2" rc_name="$3" LANE_NAME="$3"
     cd "$dir"
     project="$HOME/.claude/projects/$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
     log "lane up in $dir"
     while true; do
-        args=(--remote-control "$rc_name")
         if compgen -G "$project/*.jsonl" >/dev/null; then
-            args=(--continue "${args[@]}")
+            args=(--continue)
+        else
+            args=(--remote-control "$rc_name")
         fi
         rc=0; claude "${args[@]}" || rc=$?
         log "claude exited (status $rc); restarting in 10s"
