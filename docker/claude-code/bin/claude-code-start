@@ -29,7 +29,9 @@ log() { printf '%s [%s] %s\n' "$(date -u +%FT%TZ)" "${LANE_NAME:-supervisor}" "$
 # folder's conversations in ~/.claude/projects/, in a folder named after the
 # path with every character other than a letter or digit turned into "-". If
 # there are any (a restart, or one copied in from another machine), continue
-# the newest; otherwise start a new one.
+# the newest; otherwise start a new one. A continued conversation is forked
+# (--fork-session): Remote Control won't register its old session ID again (an
+# HTTP 403), so it goes on under a new ID with its history.
 if [ "${1:-}" = "--lane" ]; then
     dir="$2" rc_name="$3" LANE_NAME="$3"
     cd "$dir"
@@ -38,7 +40,7 @@ if [ "${1:-}" = "--lane" ]; then
     while true; do
         args=(--remote-control "$rc_name")
         if compgen -G "$project/*.jsonl" >/dev/null; then
-            args=(--continue "${args[@]}")
+            args=(--continue --fork-session "${args[@]}")
         fi
         rc=0; claude "${args[@]}" || rc=$?
         log "claude exited (status $rc); restarting in 10s"

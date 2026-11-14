@@ -234,7 +234,9 @@ Claude Code keeps each conversation in `~/.claude/projects/<folder>/` as
 or digit turned into `-`: on the PC it's under `%USERPROFILE%\.claude\projects\`
 and ends in `-k8s-homelab`; here it's `-home-claude-k8s-homelab`. The
 `memory` folder beside the conversations holds Claude's notes on the
-project. On start, the container continues the newest conversation there.
+project. On start, the container continues the newest conversation there,
+forked under a new session ID (`--fork-session`): Remote Control refuses to
+register a conversation's old ID again (HTTP 403).
 
 1. End the conversation on the PC first, so the two copies don't drift
    apart.
