@@ -109,7 +109,11 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 - **The Claude Code stack moves to one container per lane** (this PR, `docker/claude-code/`):
   each lane is its own service with its own `mem_limit` and clone, so a lane that spikes is
-  killed alone instead of OOM-ing the others (the VM has no swap). The lanes share the home
+  killed alone instead of OOM-ing the others (the VM has no swap). Ships five lanes (`main`,
+  `netbox` and spare `lane3`–`lane5`) at `mem_limit: 2g` each: their sum is 10 GB on a swapless
+  VM, so the owner checks `free -h` has room (or lowers a limit) before running them all at
+  once. A lane is renamed in the list once at claude.ai (no `compose.yaml` edit); its first
+  name comes from the lane id, or an optional second word in `command`. The lanes share the home
   `/opt/claude-code/home` (login, settings, `~/.claude.json`, each lane's conversations) and
   read their infra credentials from `/opt/claude-code/creds`, mounted read-only, so no lane can
   change them; they're managed on the host (README.md, Credentials). The reconnect fix carries

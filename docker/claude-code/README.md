@@ -14,7 +14,15 @@ is a service in `compose.yaml`: its name appears in three places a comment marks
 (the service key, `container_name` and `command`). A lane is named
 `<REMOTE_CONTROL_NAME> - <Lane>` at claude.ai/code, in the Claude app and on its
 tmux window, with the lane capitalised: `k8s-homelab - Docker - Main`,
-`k8s-homelab - Docker - Netbox`.
+`k8s-homelab - Docker - Netbox`. The stack ships `main`, `netbox` and three spare
+lanes (`lane3`–`lane5`) to fill as work needs them.
+
+That name is only what a lane first registers under. **To rename a lane in your
+list, rename it once at claude.ai**: the web-set name syncs back to the CLI and
+survives restarts and auto-titling, with no change to `compose.yaml`. To set a
+different name from the start instead, add it as a second word in the lane's
+`command` (`command: [lane3, Research]` → `… - Research`, while the clone stays
+`~/lane3`).
 
 Attach to a lane:
 
@@ -36,8 +44,9 @@ own without taking the others down. Raise the host's memory, or lower a limit,
 before adding lanes.
 
 **Adding a lane:** copy a service block in `compose.yaml`, change the name in the
-three marked places, give it a `mem_limit` the host has room for, and redeploy.
-Its clone and Remote Control session appear on its first start.
+three marked places (optionally add a display name as a second word in
+`command`), give it a `mem_limit` the host has room for, and redeploy. Its clone
+and Remote Control session appear on its first start.
 
 The lanes share one home folder, `/opt/claude-code/home` on the host: the login,
 settings, `~/.claude.json` and each lane's conversations (kept apart by the

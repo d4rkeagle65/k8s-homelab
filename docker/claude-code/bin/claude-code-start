@@ -63,9 +63,13 @@ if ! [[ "$lane" =~ ^[A-Za-z0-9-]+$ ]]; then
     exit 2
 fi
 dir="$HOME/$lane"
-# Its Remote Control name, "<prefix> - <Lane>" (the name capitalised), so lanes
-# are told apart at claude.ai/code and in the Claude app.
-rc_name="$prefix - ${lane^}"
+# Its Remote Control name, "<prefix> - <display>", so lanes are told apart at
+# claude.ai/code and in the Claude app. The display name is the lane's optional
+# second argument (compose.yaml command:, e.g. [l3, Research]); without one it's
+# the lane name capitalised. Either way this only sets the name a lane first
+# registers under: rename a lane once at claude.ai to lock it (README.md, Lanes).
+display="${2:-${lane^}}"
+rc_name="$prefix - $display"
 
 # Link each read-only credential from /opt/creds into its usual ~/ path (the
 # repo's scripts read ~/.proxmox-token, ~/.kube/config and so on). The link
