@@ -107,18 +107,22 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **The Claude Code container's lanes lost Remote Control on restart** (fixed this PR,
-  `docker/claude-code/bin/claude-code-start`): a resumed lane ran `claude --continue
-  --remote-control "<name>"`, and re-registering the resumed session's id returns HTTP 403, so
-  the lane ran with Remote Control off while direct tmux chat still worked. Latent until the
-  weekly cache-less rebuild bumped Claude Code to a version that enforces it. Fixed by passing
-  `--remote-control` on the first start only and resuming with `--continue` alone (verified
-  live on 2.1.311: resume reconnects Remote Control under the same id and name, across repeated
-  restarts). Left: the owner redeploys the stack (no cache-less rebuild needed) and confirms
-  each lane shows online at claude.ai/code after a restart; if a lane's display name drifted
-  while it was disconnected, rename it once from claude.ai (a web-set name syncs to the CLI and
-  survives auto-titling). Supersedes PR #615 (`--fork-session`), to be closed unmerged: forking
-  starts a new session id each restart, fragmenting the lane's history.
+- **The Claude Code stack moves to one container per lane** (this PR, `docker/claude-code/`):
+  each lane is its own service with its own `mem_limit` and clone, so a lane that spikes is
+  killed alone instead of OOM-ing the others (the VM has no swap). The lanes share the home
+  `/opt/claude-code/home` (login, settings, `~/.claude.json`, each lane's conversations) and
+  read their infra credentials from `/opt/claude-code/creds`, mounted read-only, so no lane can
+  change them; they're managed on the host (README.md, Credentials). The reconnect fix carries
+  forward unchanged (`--remote-control` on the first start only, `--continue` on a restart:
+  re-registering a resumed session's id returns HTTP 403, which otherwise runs the lane with
+  Remote Control off; verified live on 2.1.311). Left, the owner's, in README.md's "Migrating
+  from one container": create `/opt/claude-code/creds`, move the credential files into it,
+  redeploy (each lane re-clones to `~/<lane>`, so the old clone's conversations don't carry
+  over), then attach to each lane, confirm it shows online at claude.ai/code, and rename it once
+  from claude.ai to lock its display name (a web-set name syncs to the CLI and survives
+  auto-titling). A credential change is now a host-side edit in the credentials shell, not a
+  `docker exec` into a lane. Supersedes PR #615 (`--fork-session`), to be closed unmerged:
+  forking starts a new session id each restart, fragmenting the lane's history.
 
 - **The core switch (TP-Link TL-SG3428 v2.0) is a single point of failure; owner follow-ups
   from the 2026-11-11 outage** (~20:00 EDT): core-switch port `gi 1/0/21` (the firewall's

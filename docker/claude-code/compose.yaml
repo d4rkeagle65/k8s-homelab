@@ -1,21 +1,29 @@
-# Claude Code on the Docker host, with Remote Control on: a session that
-# claude.ai/code and the Claude app can reach without the PC, and that
-# doesn't go down with the cluster it works on. Deployed by Dockhand from
-# this folder (a Git stack). Claude Code runs in a tmux session inside the
-# container, a window per lane (README.md, Lanes): attach with
-# `docker exec -it claude-code tmux attach -t claude`.
+# Claude Code on the Docker host, with Remote Control on: sessions that
+# claude.ai/code and the Claude app can reach without the PC, and that don't go
+# down with the cluster they work on. Deployed by Dockhand from this folder (a
+# Git stack).
 #
-# Everything it keeps is in /opt/claude-code/home on the host (its home
-# folder): its login, settings and conversations (~/.claude, ~/.claude.json),
-# the repo clone, and the credentials it works with (~/.kube/config, the
-# Proxmox and Kea API credentials, the GitHub CLI's token), none of them in
-# git or in Dockhand; README.md says how each one gets there. Its Key Vault
-# sign-in is the exception: Key Vault holds it, and Dockhand puts it in the
-# environment (below).
+# One container per lane (README.md, Lanes), all in this stack. A lane is one
+# Claude Code process working in its own clone of this repo, with its own memory
+# limit, so a lane that spikes can't take the others down (the VM has no swap).
+# Each runs a tmux session named "claude" (one window): attach with
+#   docker exec -it claude-code-<lane> tmux attach -t claude
 #
-# Host networking: it only makes outbound connections, and this way it
-# reaches the cluster, the management network and the tailnet exactly as
-# the host does. It has no access to Docker itself.
+# The lanes share one home folder on the host, /opt/claude-code/home: the login,
+# settings, ~/.claude.json and each lane's conversations (kept apart by the
+# clone's path). The infra credentials they work with live in
+# /opt/claude-code/creds and are mounted read-only, so no lane can change them;
+# they're managed on the host (README.md, Credentials). The Key Vault sign-in is
+# the exception: Key Vault holds it and Dockhand puts it in the environment.
+#
+# Host networking: outbound only, reaching the cluster, the management network
+# and the tailnet exactly as the host does; no access to Docker itself.
+#
+# Adding a lane: copy a service block, change the name in the three places a
+# comment marks (the service key, container_name and command), give it a
+# mem_limit the host has room for, and redeploy. Its Remote Control name is
+# "<REMOTE_CONTROL_NAME> - <Lane>" with the name capitalised, e.g.
+# "k8s-homelab - Docker - Main".
 #
 # Variables, from Key Vault (references in .env):
 #   ENTRA_CLAUDE_CODE_CLIENT_ID, ENTRA_CLAUDE_CODE_CLIENT_SECRET
@@ -23,30 +31,44 @@
 #              Secrets User": it reads every secret, and writes none)
 #   ENTRA_TENANT_ID  its tenant
 # Optional, blank in .env:
-#   REPO_URL   the repo it clones on the first start; this repo by default
+#   REPO_URL   the repo each lane clones on its first start; this repo by default
 services:
-  claude-code:
-    mem_limit: 4g
+  claude-code-main:            # lane name (1/3)
+    build: .
     # Built here from the Dockerfile, which holds the versions; never pulled,
     # since no registry has it.
-    build: .
     image: homelab/claude-code:local
     pull_policy: build
-    container_name: claude-code
+    container_name: claude-code-main   # lane name (2/3)
     network_mode: host
     init: true
     restart: unless-stopped
-    environment:
+    # Per lane, a few times one Claude Code process's peak: the VM has no swap,
+    # and their sum must fit the host (README.md, Lanes).
+    mem_limit: 2g
+    command: [main]            # lane name (3/3)
+    environment: &environment
       REPO_URL: ${REPO_URL:-https://github.com/d4rkeagle65/k8s-homelab.git}
-      # Each lane's Remote Control name is "<this> - <Lane>": the clone is Main.
       REMOTE_CONTROL_NAME: k8s-homelab - Docker
-      # The lanes besides Main, space-separated: each a worktree at
-      # .claude/worktrees/<name> with a Claude Code process of its own.
-      CLAUDE_LANES: netbox
       # Key Vault's sign-in, under the names the Azure tools and
       # scripts/keyvault_copy.py read.
       AZURE_CLIENT_ID: ${ENTRA_CLAUDE_CODE_CLIENT_ID}
       AZURE_CLIENT_SECRET: ${ENTRA_CLAUDE_CODE_CLIENT_SECRET}
       AZURE_TENANT_ID: ${ENTRA_TENANT_ID}
-    volumes:
+    volumes: &volumes
+    # The shared home (read-write), and the infra credentials (read-only): the
+    # same for every lane.
     - /opt/claude-code/home:/home/claude
+    - /opt/claude-code/creds:/opt/creds:ro
+  claude-code-netbox:          # lane name (1/3)
+    build: .
+    image: homelab/claude-code:local
+    pull_policy: build
+    container_name: claude-code-netbox # lane name (2/3)
+    network_mode: host
+    init: true
+    restart: unless-stopped
+    mem_limit: 2g
+    command: [netbox]          # lane name (3/3)
+    environment: *environment
+    volumes: *volumes

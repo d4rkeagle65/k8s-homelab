@@ -1,41 +1,44 @@
 #!/bin/bash
-# The container's start-up: clone the repo on the first start, then run one
-# Claude Code process per lane, each with Remote Control on, in its own window
-# of a tmux session named "claude". A lane is a folder a process works in and
-# switches branches in, one branch per change (README.md, Lanes): the clone
-# itself is the "Main" lane, and each name in CLAUDE_LANES is a git worktree
-# at .claude/worktrees/<name>, made here if it's missing. Other worktrees
-# (Claude Code makes its own there) get no process. A lane's process that
-# exits starts again, continuing its last conversation; the container runs
-# until it's stopped.
+# One container per lane. This script is the image's entrypoint (Dockerfile
+# ENTRYPOINT ["claude-code-start"]); compose passes the lane's short name as the
+# argument (compose.yaml `command:`), e.g. `main` or `netbox`.
 #
-# Attach with: docker exec -it claude-code tmux attach -t claude
-# Ctrl-b then a window's number switches lanes; Ctrl-b then d detaches.
+# A lane is one Claude Code process with Remote Control on, working in its own
+# clone of this repo at ~/<lane> and making a branch per change (README.md,
+# Lanes). It runs in a tmux session named "claude" (one window) so you can
+# attach: docker exec -it claude-code-<lane> tmux attach -t claude
+# Ctrl-b then d detaches; Ctrl-c in the window stops the lane until it restarts.
+#
+# All lanes share the home folder /home/claude (the login, settings,
+# ~/.claude.json and each lane's conversations, kept apart by the clone's path),
+# and read the infra credentials from /opt/creds, mounted read-only (README.md,
+# Credentials): start-up links them into their usual ~/ paths so the repo's
+# scripts find them, and no lane can change them.
 set -euo pipefail
 
-repo="${REPO_DIR:-$HOME/k8s-homelab}"
 prefix="${REMOTE_CONTROL_NAME:-homelab}"
 self="$(readlink -f "$0")"
+creds="${CREDS_DIR:-/opt/creds}"
 
-# Lane lifecycle events (a lane coming up, Claude exiting and restarting, a lane
-# skipped) go to a small file in /tmp that the supervisor relays to the
-# container's stdout with tail, so `docker logs` and Loki see them. A lane runs
-# inside tmux, whose panes never reach stdout, so it writes events to the file
-# rather than its own stdout. Logging never fails a lane (errors are ignored).
+# Lane lifecycle events (a lane coming up, Claude exiting and restarting) go to a
+# small file in /tmp that the supervisor relays to the container's stdout with
+# tail, so `docker logs` and Loki see them. A lane runs inside tmux, whose panes
+# never reach stdout, so it writes events to the file rather than its own stdout.
+# Logging never fails a lane (errors are ignored).
 events="/tmp/claude-events.log"
 log() { printf '%s [%s] %s\n' "$(date -u +%FT%TZ)" "${LANE_NAME:-supervisor}" "$*" >> "$events" 2>/dev/null || true; }
 
-# Run one lane's Claude Code, again whenever it exits. Claude Code keeps each
-# folder's conversations in ~/.claude/projects/, in a folder named after the
-# path with every character other than a letter or digit turned into "-". If
-# there are any (a restart, or one copied in from another machine), continue
-# the newest; otherwise start a new one and name its Remote Control session.
+# Run this lane's Claude Code, again whenever it exits. Claude Code keeps each
+# folder's conversations in ~/.claude/projects/, in a folder named after the path
+# with every character other than a letter or digit turned into "-". If there are
+# any (a restart, or one copied in from another machine), continue the newest;
+# otherwise start a new one and name its Remote Control session.
 #
 # --remote-control goes on the first start only. Continuing a conversation
-# reconnects the Remote Control session recorded in it, keeping its id and
-# name; passing --remote-control again re-registers that id, which the server
-# answers with HTTP 403, so the lane would run with Remote Control off.
-if [ "${1:-}" = "--lane" ]; then
+# reconnects the Remote Control session recorded in it, keeping its id and name;
+# passing --remote-control again re-registers that id, which the server answers
+# with HTTP 403, so the lane would run with Remote Control off.
+if [ "${1:-}" = "--run" ]; then
     dir="$2" rc_name="$3" LANE_NAME="$3"
     cd "$dir"
     project="$HOME/.claude/projects/$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
@@ -53,58 +56,47 @@ if [ "${1:-}" = "--lane" ]; then
     done
 fi
 
-if [ ! -d "$repo/.git" ]; then
-    git clone --quiet "${REPO_URL:?REPO_URL is not set}" "$repo"
+# --- supervisor: this container's one lane, named by the argument ---
+lane="${1:?no lane name given (compose.yaml command:)}"
+if ! [[ "$lane" =~ ^[A-Za-z0-9-]+$ ]]; then
+    echo "lane '$lane': only letters, digits and - are allowed" >&2
+    exit 2
 fi
-# The repo's pre-commit hook (runs scripts/tests before each commit).
-git -C "$repo" config core.hooksPath .githooks
+dir="$HOME/$lane"
+# Its Remote Control name, "<prefix> - <Lane>" (the name capitalised), so lanes
+# are told apart at claude.ai/code and in the Claude app.
+rc_name="$prefix - ${lane^}"
+
+# Link each read-only credential from /opt/creds into its usual ~/ path (the
+# repo's scripts read ~/.proxmox-token, ~/.kube/config and so on). The link
+# overwrites a stale real file from an earlier layout; a credential the host
+# doesn't have is simply not linked. The targets stay read-only: a lane reads
+# them, never writes them (README.md, Credentials).
+if [ -d "$creds" ]; then
+    while IFS= read -r rel; do
+        rel="${rel#./}"
+        mkdir -p "$HOME/$(dirname "$rel")"
+        ln -sf "$creds/$rel" "$HOME/$rel"
+    done < <(cd "$creds" && find . -type f 2>/dev/null)
+fi
+
+# Clone this lane's own copy on first start (each lane clones separately, so
+# parallel first starts don't race on one repo), then set the repo's hooks (the
+# pre-commit hook runs scripts/tests before each commit).
+if [ ! -d "$dir/.git" ]; then
+    git clone --quiet "${REPO_URL:?REPO_URL is not set}" "$dir"
+fi
+git -C "$dir" config core.hooksPath .githooks
 
 # Relay lane events to the container's stdout (docker logs / Loki) for the
 # container's life: truncate the file, then follow it. Killed on stop (below).
 : > "$events"
 tail -n +1 -F "$events" 2>/dev/null &
 tail_pid=$!
-log "container starting; lanes: Main ${CLAUDE_LANES:-}"
+log "container starting; lane $lane ($rc_name)"
 
-# A lane's worktree, made on first use with nothing checked out (its process
-# makes a branch per change), plus the empty .github the structure test
-# expects, which a new worktree lacks. The commit hook's word list needs no
-# copy: it's the clone's, in the git folder every lane shares. A lane that
-# can't be made is reported and skipped, not fatal: the other lanes still start.
-ensure_lane() {
-    local dir="$1"
-    if [ ! -e "$dir" ]; then
-        git -C "$repo" fetch --quiet origin ||
-            log "lane $dir: fetch failed; using the last fetched main"
-        git -C "$repo" worktree add --quiet --detach "$dir" origin/main || return 1
-    fi
-    # Its own worktree's top, not just a folder inside the clone's.
-    if [ "$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" != "$(cd "$dir" && pwd -P)" ]; then
-        log "lane $dir: exists but isn't a git worktree; skipped"
-        return 1
-    fi
-    mkdir -p "$dir/.github"
-}
-
-# One tmux window per lane, each named as its Remote Control session is, so
-# they're told apart at claude.ai/code and in the Claude app: the clone first,
-# as "<prefix> - Main", then each lane in CLAUDE_LANES as "<prefix> - <Lane>"
-# (its folder name with a capital first letter).
-main="$prefix - Main"
-main_window=$(tmux new-session -d -P -F '#{window_id}' -s claude -x 240 -y 60 \
-    -n "$main" -c "$repo" "$self" --lane "$repo" "$main")
-for lane in ${CLAUDE_LANES:-}; do
-    if ! [[ "$lane" =~ ^[A-Za-z0-9-]+$ ]]; then
-        log "lane '$lane': only letters, digits and - are allowed; skipped"
-        continue
-    fi
-    dir="$repo/.claude/worktrees/$lane"
-    ensure_lane "$dir" || continue
-    title="$prefix - ${lane^}"
-    tmux new-window -t claude -n "$title" -c "$dir" \
-        "$self" --lane "$dir" "$title"
-done
-tmux select-window -t "$main_window"
+tmux new-session -d -s claude -x 240 -y 60 -n "$rc_name" -c "$dir" \
+    "$self" --run "$dir" "$rc_name"
 
 # On docker stop, end the session cleanly instead of waiting to be killed.
 trap 'log "stopping"; tmux kill-server 2>/dev/null || true; kill "$tail_pid" 2>/dev/null || true; exit 0' TERM INT
