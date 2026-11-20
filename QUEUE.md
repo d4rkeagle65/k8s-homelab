@@ -51,8 +51,8 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
     2026-11-09, after a lockup went unalerted: without the `proxmox-hosts` one Prometheus never
     scraped it. A new Proxmox host needs both; nothing derives them from NetBox's devices yet.
   - **It locked up 2026-11-08** (a hard hang, nothing logged; an NMI of unknown reason 3c the
-    day before, no machine-check or thermal event). 64 GB on a board whose firmware says 32:
-    memtest86+ from its boot menu before it holds a worker and a control plane. Its hang
+    day before, no machine-check or thermal event). memtest86+ passed (2026-11-20), so the
+    64 GB on a board whose firmware claims 32 is not the cause. Its hang
     recovery is in "Setting: Proxmox Hosts" (this PR): once merged, `proxmox_lockup_reboot:
     true` and `proxmox_watchdog_module: sp5100_tco` in its local context (the owner loaded
     `sp5100_tco` by hand, 2026-11-10: it initializes, a 60-second heartbeat), the run, then a
