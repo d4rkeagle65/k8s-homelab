@@ -10,7 +10,7 @@ spec:
   chart:
     spec:
       chart: authentik
-      version: 2026.8.4
+      version: 2026.8.5
       sourceRef:
         kind: HelmRepository
         name: authentik
@@ -60,7 +60,7 @@ spec:
       image:
         pullPolicy: IfNotPresent
         repository: ghcr.io/goauthentik/server
-        tag: 2026.8.5
+        tag: 2026.8.6
     server:
       metrics:
         enabled: true

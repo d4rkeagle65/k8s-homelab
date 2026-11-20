@@ -5,7 +5,7 @@
 release: authentik
 namespace: authentik
 chart: authentik
-chartVersion: 2026.8.4
+chartVersion: 2026.8.5
 appVersion: 2026.5.6
 revision: 41
 status: deployed
