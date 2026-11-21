@@ -28,6 +28,50 @@ creds="${CREDS_DIR:-/opt/creds}"
 events="/tmp/claude-events.log"
 log() { printf '%s [%s] %s\n' "$(date -u +%FT%TZ)" "${LANE_NAME:-supervisor}" "$*" >> "$events" 2>/dev/null || true; }
 
+# Pre-trust a lane's clone folder so Claude Code never stops at the interactive
+# "Do you trust the files in this folder?" prompt on a fresh clone (README.md,
+# Lanes). Folder trust lives only in the shared ~/.claude.json, at
+# projects["<path>"].hasTrustDialogAccepted; Claude Code 2.1 has no settings key,
+# env var or flag for it. The lanes share one ~/.claude.json, so the update is
+# serialized across containers with flock and merged with jq, never a blind
+# overwrite that would drop another lane's entry. It's skipped when the folder is
+# already trusted, so a redeploy writes nothing and can't race a running lane's
+# own writes to the file; a real write happens only on a first deploy (before any
+# lane has cloned, so no Claude process is running yet) or when a brand-new lane
+# first starts. A failure here just leaves the prompt in place, as before; it
+# never stops the lane. Prints its result to stdout (docker logs), not the events
+# file, which isn't set up yet when this runs.
+trust_folder() {
+    local path="$1" cfg="$HOME/.claude.json" lock="$HOME/.claude.json.trust.lock"
+    command -v jq >/dev/null 2>&1 || { echo "folder trust: jq missing; left to the prompt"; return 0; }
+    if [ -f "$cfg" ] && jq -e --arg p "$path" \
+            '.projects[$p].hasTrustDialogAccepted == true' "$cfg" >/dev/null 2>&1; then
+        return 0
+    fi
+    (
+        set +e
+        flock -w 30 9 || { echo "folder trust: config lock busy; left to the prompt"; exit 0; }
+        cur='{}'
+        if [ -f "$cfg" ] && ! cur="$(jq -e . "$cfg" 2>/dev/null)"; then
+            echo "folder trust: ~/.claude.json is not valid JSON; left to the prompt"; exit 0
+        fi
+        tmp="$(mktemp "$cfg.XXXXXX" 2>/dev/null)" || exit 0
+        if printf '%s' "$cur" | jq --arg p "$path" \
+                '.projects[$p].hasTrustDialogAccepted = true' > "$tmp" 2>/dev/null; then
+            mv -f "$tmp" "$cfg" 2>/dev/null || rm -f "$tmp"
+        else
+            rm -f "$tmp"
+        fi
+        exit 0
+    ) 9>"$lock"
+    if jq -e --arg p "$path" '.projects[$p].hasTrustDialogAccepted == true' "$cfg" >/dev/null 2>&1; then
+        echo "folder trust: $path is trusted"
+    else
+        echo "folder trust: not confirmed for $path; the prompt may appear"
+    fi
+    return 0
+}
+
 # Run this lane's Claude Code, again whenever it exits. Claude Code keeps each
 # folder's conversations in ~/.claude/projects/, in a folder named after the path
 # with every character other than a letter or digit turned into "-". If there are
@@ -70,6 +114,11 @@ dir="$HOME/$lane"
 # registers under: rename a lane once at claude.ai to lock it (README.md, Lanes).
 display="${2:-${lane^}}"
 rc_name="$prefix - $display"
+
+# Trust this lane's clone before anything runs in it (trust_folder, above). Done
+# before the clone: on a cold deploy every lane is trusted before any Claude
+# process starts and could write the shared ~/.claude.json.
+trust_folder "$(realpath -m "$dir" 2>/dev/null || printf '%s' "$dir")"
 
 # Link each read-only credential from /opt/creds into its usual ~/ path (the
 # repo's scripts read ~/.proxmox-token, ~/.kube/config and so on). The link

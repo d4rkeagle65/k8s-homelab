@@ -48,6 +48,10 @@ three marked places (optionally add a display name as a second word in
 `command`), give it a `mem_limit` the host has room for, and redeploy. Its clone
 and Remote Control session appear on its first start.
 
+Each lane trusts its own clone folder automatically on start, so Claude Code
+never stops at the "trust this folder?" prompt (`bin/claude-code-start`,
+`trust_folder`).
+
 The lanes share one home folder, `/opt/claude-code/home` on the host: the login,
 settings, `~/.claude.json` and each lane's conversations (kept apart by the
 clone's path). The infra credentials they work with live in
@@ -98,14 +102,14 @@ one container** below first.
    key). It shows a link: open it on any device, approve, and paste the code it
    gives you back into the terminal. The login is in the shared home, so this
    signs in every lane.
-4. Trust the folder when it asks.
-5. The session appears as `k8s-homelab - Docker - Main` at claude.ai/code and in
+4. The session appears as `k8s-homelab - Docker - Main` at claude.ai/code and in
    the Claude app. From now on every start reconnects it by itself. **Rename it
    once from claude.ai** to lock its display name: a web-set name syncs to the
    CLI and survives Claude's auto-titling (a name set only in the CLI does not).
-6. Detach with **Ctrl-b**, then **d**. Attach to each other lane
-   (`claude-code-netbox`, …) once to trust its folder and rename its session the
-   same way; the login is already shared.
+5. Detach with **Ctrl-b**, then **d**. Rename each other lane's session
+   (`k8s-homelab - Docker - Netbox`, …) once from claude.ai the same way; the
+   login is shared and each lane trusts its own folder on start, so there's
+   nothing else to set up per lane.
 
 ## Credentials
 
@@ -303,8 +307,8 @@ a read-only folder. Once, on the host as root:
    credentials; the old `~/k8s-homelab` clone and the lanes' earlier
    conversations stay in the home but aren't used (the clone path changed). Each
    lane comes up at a new Remote Control session.
-3. Attach to each lane, trust its folder, confirm it shows online at
-   claude.ai/code, and rename it once from claude.ai to lock its name (**Deploy
+3. Each lane comes up trusting its own folder; confirm each shows online at
+   claude.ai/code and rename it once from claude.ai to lock its name (**Deploy
    and log in**).
 
 The old home's leftover clones and backed-up conversations can be deleted once
