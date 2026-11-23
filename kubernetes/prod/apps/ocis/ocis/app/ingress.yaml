@@ -1,0 +1,52 @@
+# oCIS UI, WebDAV and sync, all under /: private networks only (LAN, cluster, tailnet).
+# No Cloudflare tunnel route, so it isn't reachable from the internet; sync clients work
+# on-network or over Tailscale. oCIS does its own OIDC against Authentik, so there's no
+# forward-auth middleware here.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ocis
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: ocis${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ocis
+            port:
+              number: 9200
+  tls:
+  - hosts:
+    - ocis${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    secretName: ocis-tls
+---
+# Plain http:// redirects to https:// (the route above listens on websecure only, and the
+# Cloudflare tunnel has no route for this host).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ocis-http-redirect
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: traefik_redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: ocis${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ocis
+            port:
+              number: 9200
