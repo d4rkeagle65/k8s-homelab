@@ -57,6 +57,12 @@ spec:
           value: /var/lib/ocis
         - name: OCIS_LOG_LEVEL
           value: info
+        # `ocis init` prompts interactively ("configure with certificate checking
+        # disabled?") unless OCIS_INSECURE is set, which hangs the initContainer. true
+        # also lets oCIS skip TLS verification on its internal service calls; it's
+        # single-binary behind Traefik, which holds the only real (LAN-only) cert.
+        - name: OCIS_INSECURE
+          value: "true"
         volumeMounts:
         - name: config
           mountPath: /etc/ocis
@@ -76,6 +82,9 @@ spec:
           value: info
         - name: OCIS_BASE_DATA_PATH
           value: /var/lib/ocis
+        # Skip TLS verification on oCIS's internal service calls (see the initContainer).
+        - name: OCIS_INSECURE
+          value: "true"
         # Traefik terminates TLS; oCIS's proxy serves plain HTTP on 9200.
         - name: PROXY_TLS
           value: "false"
