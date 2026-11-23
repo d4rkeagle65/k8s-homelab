@@ -59,7 +59,10 @@ Each lane also **re-registers Remote Control on every start**, so it comes back
 online after a redeploy — which recreates the container and drops the Remote
 Control session recorded in its conversation, leaving `claude --continue` nothing
 live to reconnect. This is `remoteControlAtStartup` in the shared settings, set on
-start (`bin/claude-code-start`, `ensure_remote_control_at_startup`).
+start (`bin/claude-code-start`, `ensure_remote_control_at_startup`). A re-registered
+session gets an auto-generated name, so `CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX`
+(set per lane in `bin/claude-code-start`) makes that name carry the lane's name;
+rename a lane once at claude.ai (above) to lock an exact one.
 
 The lanes share one home folder, `/opt/claude-code/home` on the host: the login,
 settings, `~/.claude.json` and each lane's conversations (kept apart by the

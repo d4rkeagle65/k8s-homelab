@@ -127,9 +127,15 @@ ensure_remote_control_at_startup() {
 # come up offline. --remote-control "$rc_name" still goes on a brand-new lane's
 # first start, to set the session's display name; it is not passed on a resume,
 # where re-registering a still-live id returns HTTP 403 and would run with Remote
-# Control off.
+# Control off. A resume re-registers under an auto-generated name (the setting
+# doesn't reuse the recorded one), so CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX
+# (set below) makes that name carry the lane's name instead of a random host-based
+# one; rename a lane once at claude.ai to lock an exact name.
 if [ "${1:-}" = "--run" ]; then
     dir="$2" rc_name="$3" LANE_NAME="$3"
+    # Shape the auto-generated name a resume registers under, so it carries the
+    # lane's name rather than a random host-based one (see the note above).
+    export CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX="$rc_name"
     cd "$dir"
     project="$HOME/.claude/projects/$(printf '%s' "$dir" | sed 's/[^A-Za-z0-9]/-/g')"
     log "lane up in $dir"
