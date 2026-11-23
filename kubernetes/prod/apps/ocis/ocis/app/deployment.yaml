@@ -101,9 +101,15 @@ spec:
           value: https://auth.${BASE_DOMAIN}/application/o/ocis/
         - name: WEB_OIDC_CLIENT_ID
           value: ocis-web
-        # oCIS proxies the IdP's .well-known so the web client discovers it through oCIS.
+        # PROXY_OIDC_REWRITE_WELLKNOWN makes oCIS serve the IdP's OIDC metadata at its OWN
+        # /.well-known endpoint; WEB_OIDC_METADATA_URL then points the browser there, so
+        # discovery is same-origin. Without this the web app fetches metadata cross-origin
+        # from Authentik, which fails in the browser ("trouble connecting to the login
+        # service") before login even starts.
         - name: PROXY_OIDC_REWRITE_WELLKNOWN
           value: "true"
+        - name: WEB_OIDC_METADATA_URL
+          value: https://ocis${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/.well-known/openid-configuration
         # Authentik access tokens are opaque, not JWT; verify via the userinfo endpoint.
         - name: PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD
           value: none
