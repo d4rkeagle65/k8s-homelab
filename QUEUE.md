@@ -258,23 +258,19 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
   fix), then the playbook changed to match (pin names first, or wait through the reboot)
   before a run on cotedeprox02. Nothing on them needs keeping.
-- **Gameyfin, the game library manager** (2026-11-23, PR #625, deployed): `.handwritten` app
-  `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs 2.7.1), LAN-only (Traefik
-  private), CloudNativePG `gameyfin-db`. Done: `/volume1/media/games` created on the NAS and the
-  read-only library mount works; the DB is healthy and **PostgreSQL is proven** — Liquibase
+- **Gameyfin, the game library manager** (2026-11-23, PRs #625 and #627, deployed and Ready):
+  `.handwritten` app `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs 2.7.1),
+  LAN-only (Traefik private), CloudNativePG `gameyfin-db`. Running 1/1 on PostgreSQL (Liquibase
   applied all 17 changesets to `gameyfin-db`'s `public` schema, so the `SPRING_DATASOURCE_*`
-  override works and the H2 fallback in `db.yaml`'s header is NOT needed. Left:
-  - **PR #627 (APP_KEY):** Gameyfin rejected the 44-char generated key ("Invalid AES key length")
-    and crash-looped; #627 sets the generator to 32 chars. After it merges, the `CreatedOnce`
-    Secret must be deleted so it regenerates: `kubectl delete secret -n gameyfin gameyfin-app-key`.
-  - Then read back: pod Ready, `/actuator/health` green (port 8081), UI at
-    `gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}`, WAL archiving in `pg_stat_archiver`, nightly
-    backup in `cnpg-backups`.
-  - First-run, in the UI: bootstrap the local admin, add `/library` as a library and confirm a
-    scan sees the games, then wire Authentik OIDC — Gameyfin exposes no OIDC env, so it's
-    configured in its admin UI, not by a blueprint/env path like Linkwarden's.
+  override works and the H2 fallback in `db.yaml`'s header is NOT needed); `/library` mounts the
+  NAS games folder read-only; TLS issued, ingress up. Left, all owner first-run in the UI:
+  - bootstrap the local admin, copy games into `/volume1/media/games` on the NAS, add `/library`
+    as a library and confirm a scan sees them (the folder is empty so far);
+  - wire Authentik OIDC — Gameyfin exposes no OIDC env, so it's configured in its admin UI, not by
+    a blueprint/env path like Linkwarden's.
   - Note: the image is a floating `:2` tag (no pinned `x.y.z` published), so Renovate can't track
-    it as-is.
+    it as-is. APP_KEY must stay a valid AES key length (the generator is 32 chars;
+    `externalsecret-app-key.yaml` says why).
 - **ImmichFrame beside Immich** (2026-10-28): `kubernetes/prod/apps/immich/immichframe/`, videos
   with sound, private route only. Its two Key Vault variables are in `cluster-secrets` (#443).
   After the app's pull request merges, read back: the pod Ready, the init container's log says "seeded",
