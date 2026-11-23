@@ -125,12 +125,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   Verified after a redeploy (#621 merged 2026-11-23): both lanes return ONLINE, so the
   headless-after-redeploy gap is closed. But `remoteControlAtStartup` registers a fresh session
   with an auto-generated (hostname-based) name, not the lane's display name, so the lanes now
-  show under auto names, not `Main`/`Netbox`. Left: rename each once at claude.ai to its display
-  name and confirm the name survives the next redeploy (the "rename once" path below); if it
-  doesn't stick, set a per-lane session-name prefix (`CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX`)
-  in `bin/claude-code-start` so names are deterministic across redeploys. Also watch whether an
-  in-container restart (a lane-process crash) spawns another auto-named session instead of
-  reconnecting. Left, the owner's, in README.md's "Migrating
+  show under auto names, not `Main`/`Netbox`. A per-lane session-name prefix
+  (`CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX`, set in `bin/claude-code-start`) now makes a
+  re-registered session carry the lane's name (this follow-up PR). Left to verify on the next
+  redeploy: each lane's session name carries its lane name (exact, or the prefix plus an auto
+  suffix), then rename each once at claude.ai to lock an exact name (the "rename once" path
+  below). Also watch whether an in-container restart (a lane-process crash) spawns another
+  auto-named session instead of reconnecting; if so, the durable name needs the marker route (an
+  exact `--remote-control` name on a recreated container, at the cost of resuming the
+  conversation). Left, the owner's, in README.md's "Migrating
   from one container": create `/opt/claude-code/creds`, move the credential files into it,
   redeploy (each lane re-clones to `~/<lane>`, so the old clone's conversations don't carry
   over), then attach to each lane, confirm it shows online at claude.ai/code, and rename it once
