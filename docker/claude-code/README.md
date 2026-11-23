@@ -55,6 +55,12 @@ Each lane trusts its own clone folder automatically on start, so Claude Code
 never stops at the "trust this folder?" prompt (`bin/claude-code-start`,
 `trust_folder`).
 
+Each lane also **re-registers Remote Control on every start**, so it comes back
+online after a redeploy — which recreates the container and drops the Remote
+Control session recorded in its conversation, leaving `claude --continue` nothing
+live to reconnect. This is `remoteControlAtStartup` in the shared settings, set on
+start (`bin/claude-code-start`, `ensure_remote_control_at_startup`).
+
 The lanes share one home folder, `/opt/claude-code/home` on the host: the login,
 settings, `~/.claude.json` and each lane's conversations (kept apart by the
 clone's path). The infra credentials they work with live in

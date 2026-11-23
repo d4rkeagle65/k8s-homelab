@@ -72,16 +72,62 @@ trust_folder() {
     return 0
 }
 
+# Turn on remoteControlAtStartup in the shared user settings so every lane
+# re-establishes its Remote Control session on each start. A redeploy recreates
+# the container, which drops the Remote Control session recorded in the lane's
+# conversation; `claude --continue` only reconnects a session the server still
+# has, so without this a lane comes up offline after a redeploy. The setting is
+# user-level (a project or local setting is ignored). The lanes share one
+# settings.json, so the update is serialized across containers with flock and
+# merged with jq, never a blind overwrite that would drop another lane's keys.
+# It's skipped when already set, so a redeploy writes nothing and can't race a
+# running lane. A failure here just leaves the setting as it was; it never stops
+# the lane. Prints its result to stdout (docker logs), not the events file, which
+# isn't set up yet when this runs.
+ensure_remote_control_at_startup() {
+    local cfg="$HOME/.claude/settings.json" lock="$HOME/.claude/.settings.rc.lock"
+    command -v jq >/dev/null 2>&1 || { echo "remote control: jq missing; remoteControlAtStartup left unset"; return 0; }
+    mkdir -p "$HOME/.claude" 2>/dev/null || true
+    if [ -f "$cfg" ] && jq -e '.remoteControlAtStartup == true' "$cfg" >/dev/null 2>&1; then
+        return 0
+    fi
+    (
+        set +e
+        flock -w 30 9 || { echo "remote control: settings lock busy; remoteControlAtStartup left unset"; exit 0; }
+        cur='{}'
+        if [ -f "$cfg" ] && ! cur="$(jq -e . "$cfg" 2>/dev/null)"; then
+            echo "remote control: settings.json is not valid JSON; remoteControlAtStartup left unset"; exit 0
+        fi
+        tmp="$(mktemp "$cfg.XXXXXX" 2>/dev/null)" || exit 0
+        if printf '%s' "$cur" | jq '.remoteControlAtStartup = true' > "$tmp" 2>/dev/null; then
+            mv -f "$tmp" "$cfg" 2>/dev/null || rm -f "$tmp"
+        else
+            rm -f "$tmp"
+        fi
+        exit 0
+    ) 9>"$lock"
+    if jq -e '.remoteControlAtStartup == true' "$cfg" >/dev/null 2>&1; then
+        echo "remote control: remoteControlAtStartup is on"
+    else
+        echo "remote control: remoteControlAtStartup not confirmed; a lane may stay offline after a redeploy"
+    fi
+    return 0
+}
+
 # Run this lane's Claude Code, again whenever it exits. Claude Code keeps each
 # folder's conversations in ~/.claude/projects/, in a folder named after the path
 # with every character other than a letter or digit turned into "-". If there are
-# any (a restart, or one copied in from another machine), continue the newest;
-# otherwise start a new one and name its Remote Control session.
+# any (a restart, a redeploy, or one copied in from another machine), continue the
+# newest; otherwise start a new one and name its Remote Control session.
 #
-# --remote-control goes on the first start only. Continuing a conversation
-# reconnects the Remote Control session recorded in it, keeping its id and name;
-# passing --remote-control again re-registers that id, which the server answers
-# with HTTP 403, so the lane would run with Remote Control off.
+# Remote Control is re-established on every start by remoteControlAtStartup in the
+# shared settings (ensure_remote_control_at_startup, above): a redeploy recreates
+# the container and drops the Remote Control session recorded in the conversation,
+# so `claude --continue` alone has nothing live to reconnect and the lane would
+# come up offline. --remote-control "$rc_name" still goes on a brand-new lane's
+# first start, to set the session's display name; it is not passed on a resume,
+# where re-registering a still-live id returns HTTP 403 and would run with Remote
+# Control off.
 if [ "${1:-}" = "--run" ]; then
     dir="$2" rc_name="$3" LANE_NAME="$3"
     cd "$dir"
@@ -119,6 +165,10 @@ rc_name="$prefix - $display"
 # before the clone: on a cold deploy every lane is trusted before any Claude
 # process starts and could write the shared ~/.claude.json.
 trust_folder "$(realpath -m "$dir" 2>/dev/null || printf '%s' "$dir")"
+
+# Turn on remoteControlAtStartup once, so this lane re-registers Remote Control on
+# every start and comes back online after a redeploy (ensure_remote_control_at_startup).
+ensure_remote_control_at_startup
 
 # Link each read-only credential from /opt/creds into its usual ~/ path (the
 # repo's scripts read ~/.proxmox-token, ~/.kube/config and so on). The link

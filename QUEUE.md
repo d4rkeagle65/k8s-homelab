@@ -116,10 +116,17 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   name comes from the lane id, or an optional second word in `command`. The lanes share the home
   `/opt/claude-code/home` (login, settings, `~/.claude.json`, each lane's conversations) and
   read their infra credentials from `/opt/claude-code/creds`, mounted read-only, so no lane can
-  change them; they're managed on the host (README.md, Credentials). The reconnect fix carries
-  forward unchanged (`--remote-control` on the first start only, `--continue` on a restart:
-  re-registering a resumed session's id returns HTTP 403, which otherwise runs the lane with
-  Remote Control off; verified live on 2.1.311). Left, the owner's, in README.md's "Migrating
+  change them; they're managed on the host (README.md, Credentials). Remote Control is re-established
+  on every start by `remoteControlAtStartup` in the shared settings
+  (`ensure_remote_control_at_startup`), so a lane returns online after a redeploy, which
+  recreates the container and drops the session recorded in the conversation; `--remote-control`
+  still names a brand-new lane on its first start, and `--continue` resumes without
+  re-registering a live id (the HTTP 403, verified live on 2.1.311 for an in-container restart).
+  Left to verify (this follow-up PR, the owner's): after a Dockhand redeploy of `claude-code`,
+  `main` and `netbox` return online in the session list with their names intact; if the setting
+  doesn't re-establish Remote Control on a `--continue` resume, the fallback is `/remote-control`
+  sent into each lane's tmux after resume, or a container-ephemeral marker that forces
+  re-registration on a recreated container. Left, the owner's, in README.md's "Migrating
   from one container": create `/opt/claude-code/creds`, move the credential files into it,
   redeploy (each lane re-clones to `~/<lane>`, so the old clone's conversations don't carry
   over), then attach to each lane, confirm it shows online at claude.ai/code, and rename it once
