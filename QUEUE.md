@@ -128,6 +128,17 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   `docker exec` into a lane. Supersedes PR #615 (`--fork-session`), to be closed unmerged:
   forking starts a new session id each restart, fragmenting the lane's history.
 
+- **Lanes auto-trust their clone folder** (this PR, `docker/claude-code/bin/claude-code-start`,
+  `trust_folder`): on start each lane seeds its own clone path in the shared `~/.claude.json`
+  (`projects["<path>"].hasTrustDialogAccepted`, the only place Claude Code 2.1 records folder
+  trust - there's no settings key, env var or flag), so a lane no longer stops at the "trust
+  this folder?" prompt on a fresh clone. The write is `flock`-serialized across containers and
+  `jq`-merged, and skipped when already trusted, so a redeploy writes nothing and can't race a
+  running lane; a real write happens only on a first deploy (before any lane has cloned) or a
+  brand-new lane's first start. Residual: a brand-new lane added while others are running can,
+  rarely, race that lane's own config write and prompt once - attach to it once to trust it.
+  README.md ("Deploy and log in", "Migrating") no longer has a manual per-folder trust step.
+
 - **The core switch (TP-Link TL-SG3428 v2.0) is a single point of failure; owner follow-ups
   from the 2026-11-11 outage** (~20:00 EDT): core-switch port `gi 1/0/21` (the firewall's
   WAN-uplink path, by timing) lost link at 20:00, and the firewall's WAN and one AP dropped
