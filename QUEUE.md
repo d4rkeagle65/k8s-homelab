@@ -109,10 +109,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 - **The Claude Code stack moves to one container per lane** (this PR, `docker/claude-code/`):
   each lane is its own service with its own `mem_limit` and clone, so a lane that spikes is
-  killed alone instead of OOM-ing the others (the VM has no swap). Ships five lanes (`main`,
-  `netbox` and spare `lane3`–`lane5`) at `mem_limit: 2g` each: their sum is 10 GB on a swapless
-  VM, so the owner checks `free -h` has room (or lowers a limit) before running them all at
-  once. A lane is renamed in the list once at claude.ai (no `compose.yaml` edit); its first
+  killed alone instead of OOM-ing the others (the VM has no swap). Runs `main` and `netbox` at
+  `mem_limit: 2g` each; the three spare lanes (`lane3`–`lane5`) are parked (commented out in
+  `compose.yaml`) because the VM OOM-killed lanes when all five ran at once beside NetBox, Kea
+  and its other stacks - re-add one only with host headroom (the RAM items below). A lane is renamed in the list once at claude.ai (no `compose.yaml` edit); its first
   name comes from the lane id, or an optional second word in `command`. The lanes share the home
   `/opt/claude-code/home` (login, settings, `~/.claude.json`, each lane's conversations) and
   read their infra credentials from `/opt/claude-code/creds`, mounted read-only, so no lane can
@@ -127,17 +127,6 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   auto-titling). A credential change is now a host-side edit in the credentials shell, not a
   `docker exec` into a lane. Supersedes PR #615 (`--fork-session`), to be closed unmerged:
   forking starts a new session id each restart, fragmenting the lane's history.
-
-- **Lanes auto-trust their clone folder** (this PR, `docker/claude-code/bin/claude-code-start`,
-  `trust_folder`): on start each lane seeds its own clone path in the shared `~/.claude.json`
-  (`projects["<path>"].hasTrustDialogAccepted`, the only place Claude Code 2.1 records folder
-  trust - there's no settings key, env var or flag), so a lane no longer stops at the "trust
-  this folder?" prompt on a fresh clone. The write is `flock`-serialized across containers and
-  `jq`-merged, and skipped when already trusted, so a redeploy writes nothing and can't race a
-  running lane; a real write happens only on a first deploy (before any lane has cloned) or a
-  brand-new lane's first start. Residual: a brand-new lane added while others are running can,
-  rarely, race that lane's own config write and prompt once - attach to it once to trust it.
-  README.md ("Deploy and log in", "Migrating") no longer has a manual per-folder trust step.
 
 - **The core switch (TP-Link TL-SG3428 v2.0) is a single point of failure; owner follow-ups
   from the 2026-11-11 outage** (~20:00 EDT): core-switch port `gi 1/0/21` (the firewall's

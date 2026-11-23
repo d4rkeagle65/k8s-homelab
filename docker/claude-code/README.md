@@ -14,8 +14,11 @@ is a service in `compose.yaml`: its name appears in three places a comment marks
 (the service key, `container_name` and `command`). A lane is named
 `<REMOTE_CONTROL_NAME> - <Lane>` at claude.ai/code, in the Claude app and on its
 tmux window, with the lane capitalised: `k8s-homelab - Docker - Main`,
-`k8s-homelab - Docker - Netbox`. The stack ships `main`, `netbox` and three spare
-lanes (`lane3`–`lane5`) to fill as work needs them.
+`k8s-homelab - Docker - Netbox`. The stack runs two lanes, `main` and `netbox`.
+The three spare lanes (`lane3`–`lane5`) are **parked** — commented out in
+`compose.yaml` — because the VM OOM-killed lanes when all five ran at once beside
+NetBox, Kea and its other stacks; uncomment one (below, **Adding a lane**) only
+when the host has headroom.
 
 That name is only what a lane first registers under. **To rename a lane in your
 list, rename it once at claude.ai**: the web-set name syncs back to the CLI and
