@@ -258,23 +258,23 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
   fix), then the playbook changed to match (pin names first, or wait through the reboot)
   before a run on cotedeprox02. Nothing on them needs keeping.
-- **Gameyfin, the game library manager** (2026-11-23, PR #625): new `.handwritten` app
-  `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2`, LAN-only (Traefik private),
-  CloudNativePG `gameyfin-db`. Owner, before it schedules: create `/volume1/media/games` on the
-  NAS readable by `MEDIA_PUID:999` (a missing subPath is made as root, which Gameyfin can't
-  read). After merge, read back: **(1)** the pod's first-boot log — Liquibase applying
-  `db.changelog-master.yaml` against PostgreSQL with no error. Gameyfin ships on embedded H2 and
-  its Postgres support is undocumented, so the HelmRelease overrides `SPRING_DATASOURCE_*`
-  (driver class included); if Liquibase fails on the Postgres dialect, use the H2 fallback in
-  `db.yaml`'s header (drop the datasource env, `db.yaml`, `objectstore.yaml`,
-  `scheduledbackup-db.yaml`, `secret-cnpg-backup-s3.yaml`, the `cnpg` `dependsOn` and the
-  `data=database` label; H2 then lives in `/opt/gameyfin/db` on `gameyfin-data`). **(2)** pod
-  Ready, `/actuator/health` green, UI at `gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}`, WAL
-  archiving in `pg_stat_archiver`, nightly backup in `cnpg-backups`. **(3)** bootstrap the local
-  admin, add `/library` as a library and confirm a scan sees the games, then wire Authentik OIDC
-  in Gameyfin's admin UI — it exposes no OIDC env, so there's no blueprint/env path like
-  Linkwarden's. Note: the image is a floating `:2` tag (no pinned `x.y.z` published), so Renovate
-  can't track it as-is.
+- **Gameyfin, the game library manager** (2026-11-23, PR #625, deployed): `.handwritten` app
+  `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs 2.7.1), LAN-only (Traefik
+  private), CloudNativePG `gameyfin-db`. Done: `/volume1/media/games` created on the NAS and the
+  read-only library mount works; the DB is healthy and **PostgreSQL is proven** — Liquibase
+  applied all 17 changesets to `gameyfin-db`'s `public` schema, so the `SPRING_DATASOURCE_*`
+  override works and the H2 fallback in `db.yaml`'s header is NOT needed. Left:
+  - **PR #627 (APP_KEY):** Gameyfin rejected the 44-char generated key ("Invalid AES key length")
+    and crash-looped; #627 sets the generator to 32 chars. After it merges, the `CreatedOnce`
+    Secret must be deleted so it regenerates: `kubectl delete secret -n gameyfin gameyfin-app-key`.
+  - Then read back: pod Ready, `/actuator/health` green (port 8081), UI at
+    `gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}`, WAL archiving in `pg_stat_archiver`, nightly
+    backup in `cnpg-backups`.
+  - First-run, in the UI: bootstrap the local admin, add `/library` as a library and confirm a
+    scan sees the games, then wire Authentik OIDC — Gameyfin exposes no OIDC env, so it's
+    configured in its admin UI, not by a blueprint/env path like Linkwarden's.
+  - Note: the image is a floating `:2` tag (no pinned `x.y.z` published), so Renovate can't track
+    it as-is.
 - **ImmichFrame beside Immich** (2026-10-28): `kubernetes/prod/apps/immich/immichframe/`, videos
   with sound, private route only. Its two Key Vault variables are in `cluster-secrets` (#443).
   After the app's pull request merges, read back: the pod Ready, the init container's log says "seeded",
