@@ -221,6 +221,9 @@ spec:
                 - Grimmory:
                     - icon: sh-grimmory.png
                       href: https://grimmory${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                - Gameyfin:
+                    - icon: gameyfin.png
+                      href: https://gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                 - Kept:
                     - icon: mdi-package-variant-closed
                       href: https://kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
@@ -544,6 +547,13 @@ spec:
                     namespace: grocy
                     app: grocy
                     podSelector: app=grocy
+                - Gameyfin:
+                    icon: gameyfin.png
+                    href: https://gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Game library
+                    namespace: gameyfin
+                    app: gameyfin
+                    podSelector: app.kubernetes.io/name=gameyfin
                 - Immich Power Tools:
                     icon: immich.png
                     href: https://immichpt.${BASE_DOMAIN}
