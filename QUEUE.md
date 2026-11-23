@@ -127,10 +127,12 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   with an auto-generated (hostname-based) name, not the lane's display name, so the lanes now
   show under auto names, not `Main`/`Netbox`. A per-lane session-name prefix
   (`CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX`, set in `bin/claude-code-start`) now makes a
-  re-registered session carry the lane's name (this follow-up PR). Left to verify on the next
-  redeploy: each lane's session name carries its lane name (exact, or the prefix plus an auto
-  suffix), then rename each once at claude.ai to lock an exact name (the "rename once" path
-  below). Also watch whether an in-container restart (a lane-process crash) spawns another
+  re-registered session carry the lane's name (#622). As of 2026-11-23 both lanes show ONLINE
+  with their correct names (`Main`, `Netbox`), but on the same session ids as the earlier
+  auto-named ones - a rename/reconnect, not yet a fresh-registration test of the prefix. Left to
+  verify on the next redeploy that recreates the sessions: each lane comes up carrying its lane
+  name (exact, or the prefix plus an auto suffix); rename each once at claude.ai to lock an exact
+  name (the "rename once" path below). Also watch whether an in-container restart (a lane-process crash) spawns another
   auto-named session instead of reconnecting; if so, the durable name needs the marker route (an
   exact `--remote-control` name on a recreated container, at the cost of resuming the
   conversation). Left, the owner's, in README.md's "Migrating
