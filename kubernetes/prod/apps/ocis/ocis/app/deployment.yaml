@@ -55,6 +55,11 @@ spec:
           value: https://ocis${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
         - name: OCIS_BASE_DATA_PATH
           value: /var/lib/ocis
+        # Pin the config dir to /etc/ocis. Without this, OCIS_BASE_DATA_PATH drags
+        # `ocis init`'s ocis.yaml onto the data volume, but `ocis server` reads config
+        # from /etc/ocis, so it can't find the generated jwt_secret and crash-loops.
+        - name: OCIS_CONFIG_DIR
+          value: /etc/ocis
         - name: OCIS_LOG_LEVEL
           value: info
         # `ocis init` prompts interactively ("configure with certificate checking
@@ -82,6 +87,9 @@ spec:
           value: info
         - name: OCIS_BASE_DATA_PATH
           value: /var/lib/ocis
+        # Read config from /etc/ocis, where the initContainer wrote it (see there).
+        - name: OCIS_CONFIG_DIR
+          value: /etc/ocis
         # Skip TLS verification on oCIS's internal service calls (see the initContainer).
         - name: OCIS_INSECURE
           value: "true"
