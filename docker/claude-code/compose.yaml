@@ -77,40 +77,46 @@ services:
     command: [netbox]          # lane name (3/3)
     environment: *environment
     volumes: *volumes
-  # Spare lanes: generic names for now, renamed at claude.ai when they get a job.
-  claude-code-lane3:           # lane name (1/3)
-    build: .
-    image: homelab/claude-code:local
-    pull_policy: build
-    container_name: claude-code-lane3  # lane name (2/3)
-    network_mode: host
-    init: true
-    restart: unless-stopped
-    mem_limit: 2g
-    command: [lane3]           # lane name (3/3)
-    environment: *environment
-    volumes: *volumes
-  claude-code-lane4:           # lane name (1/3)
-    build: .
-    image: homelab/claude-code:local
-    pull_policy: build
-    container_name: claude-code-lane4  # lane name (2/3)
-    network_mode: host
-    init: true
-    restart: unless-stopped
-    mem_limit: 2g
-    command: [lane4]           # lane name (3/3)
-    environment: *environment
-    volumes: *volumes
-  claude-code-lane5:           # lane name (1/3)
-    build: .
-    image: homelab/claude-code:local
-    pull_policy: build
-    container_name: claude-code-lane5  # lane name (2/3)
-    network_mode: host
-    init: true
-    restart: unless-stopped
-    mem_limit: 2g
-    command: [lane5]           # lane name (3/3)
-    environment: *environment
-    volumes: *volumes
+  # Spare lanes lane3-lane5 are PARKED (commented out). The Docker host has no swap
+  # and not enough RAM for five lanes beside NetBox, Kea and the other stacks on it:
+  # running all five at once OOM-killed them, so the stack runs main + netbox only.
+  # To bring a spare back once the host has headroom (QUEUE.md's RAM notes; the
+  # hosts are at their physical ceiling), uncomment its block below ("Adding a lane"
+  # above covers a brand-new one), and keep the running lanes' mem_limits summing
+  # well under the host's RAM (free -h).
+  # claude-code-lane3:           # lane name (1/3)
+  #   build: .
+  #   image: homelab/claude-code:local
+  #   pull_policy: build
+  #   container_name: claude-code-lane3  # lane name (2/3)
+  #   network_mode: host
+  #   init: true
+  #   restart: unless-stopped
+  #   mem_limit: 2g
+  #   command: [lane3]           # lane name (3/3)
+  #   environment: *environment
+  #   volumes: *volumes
+  # claude-code-lane4:           # lane name (1/3)
+  #   build: .
+  #   image: homelab/claude-code:local
+  #   pull_policy: build
+  #   container_name: claude-code-lane4  # lane name (2/3)
+  #   network_mode: host
+  #   init: true
+  #   restart: unless-stopped
+  #   mem_limit: 2g
+  #   command: [lane4]           # lane name (3/3)
+  #   environment: *environment
+  #   volumes: *volumes
+  # claude-code-lane5:           # lane name (1/3)
+  #   build: .
+  #   image: homelab/claude-code:local
+  #   pull_policy: build
+  #   container_name: claude-code-lane5  # lane name (2/3)
+  #   network_mode: host
+  #   init: true
+  #   restart: unless-stopped
+  #   mem_limit: 2g
+  #   command: [lane5]           # lane name (3/3)
+  #   environment: *environment
+  #   volumes: *volumes
