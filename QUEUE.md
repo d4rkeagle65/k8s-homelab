@@ -107,6 +107,33 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
+- **oCIS (ownCloud Infinite Scale) first login and admin bootstrap** (this PR,
+  `kubernetes/prod/apps/ocis/`): deployed as a single `owncloud/ocis:8.2.3` container, file data
+  on `nas-iscsi` (decomposedfs needs xattrs, which NFS lacks), Authentik OIDC (public client
+  `ocis-web`, blueprint `ocis.yaml` in `authentik-extras`), LAN/VPN-only (no tunnel). Left, in
+  order, verified against the live cluster:
+  - The owner adds their Authentik user to **oCIS Users** (or **oCIS Admins**); membership is
+    UI-set, so until then the policy binding denies every login.
+  - First sign-in auto-provisions the account (`PROXY_AUTOPROVISION_ACCOUNTS`, keyed on
+    `preferred_username`; needs `GRAPH_LDAP_SERVER_WRITE_ENABLED`, which is set). Confirm it
+    works on 8.2.3; if the version rejects it, drop the `PROXY_AUTOPROVISION_*` env and create
+    users in the oCIS admin UI instead.
+  - **Admin role:** oCIS's default role driver gives every provisioned user the plain User
+    role, so no one can administer it until the first user is promoted. Promote with the admin
+    account `ocis init` printed to the `ocis-init` initContainer log on first start (also in
+    `/etc/ocis/ocis.yaml` on the `ocis-config` volume). Longer term, decide whether to assign
+    admin from an Authentik group via the OIDC role driver (needs a `roles` claim mapping and an
+    oCIS role-assignment config) instead of a one-off promotion.
+  - Confirm a file upload lands on `ocis-data` and survives a pod restart, and that
+    `ocis.${BASE_DOMAIN}` is unreachable through the Cloudflare tunnel.
+  - Right-size `ocis-data` (50Gi) and the container `mem_limit`/requests (req 512Mi, limit 1Gi)
+    from cAdvisor once there's real use; oCIS idles well under 1Gi but spikes on sync.
+  - Some OIDC env came from the 8.2/9.0 docs, one (`PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=none`,
+    for Authentik's opaque access tokens) from a homelab blog; if web-UI OIDC discovery breaks,
+    set `WEB_OIDC_METADATA_URL` explicitly rather than relying on `PROXY_OIDC_REWRITE_WELLKNOWN`.
+  - `scripts/k8s_backup/secretscan.py` gained `"none"` to `_NOT_A_CREDENTIAL` (a value of the
+    literal word "none" is never a secret; the `*_VERIFY_METHOD=none` env tripped the check).
+
 - **The Claude Code stack moves to one container per lane** (this PR, `docker/claude-code/`):
   each lane is its own service with its own `mem_limit` and clone, so a lane that spikes is
   killed alone instead of OOM-ing the others (the VM has no swap). Ships five lanes (`main`,

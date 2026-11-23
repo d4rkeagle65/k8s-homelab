@@ -147,7 +147,7 @@ def find_high_entropy_strings(obj, path: str = "") -> list[tuple[str, str]]:
 
 # An env var's value that holds no credential whatever its name says: empty, or a
 # switch (ALLOW_PASSWORD_LOGIN: "false").
-_NOT_A_CREDENTIAL = {"", "true", "false"}
+_NOT_A_CREDENTIAL = {"", "true", "false", "none"}
 
 
 def _looks_like_env_var_list(val: list) -> bool:
