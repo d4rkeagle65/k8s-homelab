@@ -1,0 +1,16 @@
+# Binds the games-library PV above. Prune-protected: the PV is Retain and holds the only copy
+# of the library layout's mount.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gameyfin-games
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: ""
+  volumeName: gameyfin-games-nfs
+  resources:
+    requests:
+      storage: 10Ti

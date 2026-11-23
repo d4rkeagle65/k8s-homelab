@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- secret-cnpg-backup-s3.yaml
+- objectstore.yaml
+- db.yaml
+- scheduledbackup-db.yaml
+- pvc-data.yaml
+- pv-games.yaml
+- pvc-games.yaml
+- externalsecret-app-key.yaml
+- helmrelease.yaml

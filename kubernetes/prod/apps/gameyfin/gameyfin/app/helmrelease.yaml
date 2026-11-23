@@ -1,0 +1,155 @@
+# Gameyfin, a self-hosted game library manager (gameyfin.org). A Spring Boot (Java) app: the web
+# UI is on 8080, the Actuator (health probes) on 8081. Login is through Authentik - Gameyfin
+# exposes no OIDC env/properties, so the OIDC provider is added in Gameyfin's admin UI against
+# the Authentik application, not wired by env as Linkwarden is (a local admin is bootstrapped on
+# first run). Reachable on the private networks through Traefik only; no Cloudflare tunnel.
+#
+# Database: Gameyfin ships on embedded H2 and its PostgreSQL support is undocumented upstream
+# (the Postgres driver is on the classpath, but the official compose example never wires the app
+# to Postgres). We override Spring's datasource at the gameyfin-db CloudNativePG Cluster below.
+# THE FIRST-BOOT LOG IS THE PROOF: watch for Liquibase applying db.changelog-master.yaml against
+# PostgreSQL with no error (ddl-auto is validate, so Liquibase owns schema creation). If it fails
+# on the Postgres dialect, fall back to embedded H2 on the data PVC: drop the three datasource
+# env vars, db.yaml, objectstore.yaml, scheduledbackup-db.yaml and secret-cnpg-backup-s3.yaml,
+# the cnpg dependsOn in ks.yaml, and the database=... namespace label - H2 then lives in
+# /opt/gameyfin/db on gameyfin-data.
+#
+# Storage: the whole working directory /opt/gameyfin is the data PVC (per upstream's compose,
+# the app binary lives elsewhere in the image); the games library is a separate read-only NFS
+# mount at /library, which the admin UI is pointed at.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gameyfin
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: gameyfin
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 5.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
+      # Gameyfin starts as root (tini/gosu), remaps to PUID:PGID and chowns its dirs; fsGroup
+      # matches PGID so the NFS mounts are group-owned to the same gid as the media files.
+      securityContext:
+        fsGroup: 999
+    controllers:
+      gameyfin:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # Only a floating v2 major tag is published upstream; no pinned x.y.z was found.
+              repository: ghcr.io/gameyfin/gameyfin
+              tag: "2"
+            env:
+              TZ: ${TIMEZONE}
+              # Read the media share as the media user so the read-only games mount is readable.
+              PUID: ${MEDIA_PUID}
+              PGID: "999"
+              # Only used for links in notification emails and the first-run log line.
+              APP_URL: https://gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+              APP_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: gameyfin-app-key
+                    key: APP_KEY
+              # Point Spring at the CloudNativePG Cluster. application.yml pins the H2 driver, so
+              # the driver class is overridden too. See the file header on the unverified path.
+              SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+              SPRING_DATASOURCE_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: gameyfin-db-app
+                    key: jdbc-uri
+              SPRING_DATASOURCE_USERNAME:
+                valueFrom:
+                  secretKeyRef:
+                    name: gameyfin-db-app
+                    key: username
+              SPRING_DATASOURCE_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: gameyfin-db-app
+                    key: password
+            probes:
+              startup: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /actuator/health
+                    port: 8081
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+              liveness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /actuator/health/liveness
+                    port: 8081
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /actuator/health/readiness
+                    port: 8081
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            # Java heap is capped at -Xmx512m; the limit leaves room for metaspace, direct
+            # buffers, jemalloc and native threads (upstream's recommended minimum is ~1 GiB).
+            resources:
+              requests: {cpu: 20m, memory: 768Mi}
+              limits: {cpu: 1000m, memory: 1280Mi}
+    service:
+      gameyfin:
+        controller: gameyfin
+        ports:
+          http:
+            port: 8080
+    ingress:
+      gameyfin:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+          - host: gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: gameyfin
+                  port: http
+        tls:
+          - secretName: gameyfin-tls
+            hosts:
+              - gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      # The whole working directory: image/metadata store, backups, plugins, logs.
+      data:
+        existingClaim: gameyfin-data
+        globalMounts:
+          - path: /opt/gameyfin
+      # The games library, read-only; the admin UI points a library at /library.
+      games:
+        existingClaim: gameyfin-games
+        globalMounts:
+          - path: /library
+            readOnly: true
