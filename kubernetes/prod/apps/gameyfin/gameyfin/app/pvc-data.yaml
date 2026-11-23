@@ -1,0 +1,15 @@
+# Gameyfin's working directory (/opt/gameyfin): image/metadata store (data/), backups/,
+# plugins and logs, on the NAS. The library itself is a separate read-only mount (pvc-games).
+# With PostgreSQL the embedded H2 db/ goes unused.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gameyfin-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 20Gi

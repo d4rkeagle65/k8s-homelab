@@ -5,6 +5,7 @@ kind: Kustomization
 resources:
 - babybuddy
 - emby
+- gameyfin
 - grimmory
 - grocy
 - homeassistant
