@@ -96,6 +96,10 @@ spec:
         # Traefik terminates TLS; oCIS's proxy serves plain HTTP on 9200.
         - name: PROXY_TLS
           value: "false"
+        # Custom CSP (configmap-csp.yaml) that allows the web UI to reach Authentik;
+        # the built-in default blocks the token-exchange fetch and login loops.
+        - name: PROXY_CSP_CONFIG_FILE_LOCATION
+          value: /etc/ocis-csp/csp.yaml
         # External IdP: Authentik. The trailing slash matches Authentik's issuer exactly.
         - name: OCIS_OIDC_ISSUER
           value: https://auth.${BASE_DOMAIN}/application/o/ocis/
@@ -151,6 +155,9 @@ spec:
           mountPath: /etc/ocis
         - name: data
           mountPath: /var/lib/ocis
+        - name: csp
+          mountPath: /etc/ocis-csp
+          readOnly: true
       volumes:
       - name: config
         persistentVolumeClaim:
@@ -158,3 +165,6 @@ spec:
       - name: data
         persistentVolumeClaim:
           claimName: ocis-data
+      - name: csp
+        configMap:
+          name: ocis-csp
