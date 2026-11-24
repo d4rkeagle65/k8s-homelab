@@ -1,0 +1,16 @@
+# A base backup of Nextcloud's database every night at 02:45 (CloudNativePG's
+# schedule has a seconds field first), and one as soon as this is applied. The WAL
+# archive between base backups covers every change in the retention window.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: nextcloud-db-nightly
+spec:
+  schedule: "0 45 2 * * *"
+  immediate: true
+  backupOwnerReference: self
+  cluster:
+    name: nextcloud-db
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

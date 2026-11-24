@@ -1,0 +1,18 @@
+# Nextcloud's /var/www/html: the app code (rsynced in by the image on start/upgrade),
+# config/, and the data/ directory (uploaded files). NFS is fine - Nextcloud keeps file
+# metadata in Postgres and uses Redis for locking, so it doesn't need xattrs. RWO and a
+# single replica (the image's install/upgrade is single-writer); the cron sidecar shares
+# this volume within the same pod. Prune-protected: it holds the files.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nextcloud-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 50Gi
