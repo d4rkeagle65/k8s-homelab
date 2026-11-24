@@ -9,4 +9,5 @@ resources:
 - pv-games.yaml
 - pvc-games.yaml
 - externalsecret-app-key.yaml
+- externalsecret-oidc-client.yaml
 - helmrelease.yaml

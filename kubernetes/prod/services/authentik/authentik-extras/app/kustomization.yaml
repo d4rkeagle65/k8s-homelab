@@ -6,6 +6,7 @@ resources:
 - certificate-ldap-authentik.yaml
 - cluster-authentik-db.yaml
 - configmap-authentik-blueprints.yaml
+- externalsecret-authentik-gameyfin-client.yaml
 - externalsecret-authentik-grafana-client.yaml
 - externalsecret-authentik-grimmory-client.yaml
 - externalsecret-authentik-homepage-client.yaml
@@ -20,6 +21,7 @@ resources:
 - secret-authentik-secret-key.yaml
 - secret-authentik-semaphore-oidc.yaml
 - secret-authentik-stork-oidc.yaml
+- secretstore-gameyfin.yaml
 - secretstore-grimmory.yaml
 - secretstore-homepage.yaml
 - secretstore-kept.yaml
