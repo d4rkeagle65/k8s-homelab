@@ -107,32 +107,29 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Next
 
-- **oCIS (ownCloud Infinite Scale) first login and admin bootstrap** (this PR,
-  `kubernetes/prod/apps/ocis/`): deployed as a single `owncloud/ocis:8.2.3` container, file data
-  on `nas-iscsi` (decomposedfs needs xattrs, which NFS lacks), Authentik OIDC (public client
-  `ocis-web`, blueprint `ocis.yaml` in `authentik-extras`), LAN/VPN-only (no tunnel). Left, in
-  order, verified against the live cluster:
-  - The owner adds their Authentik user to **oCIS Users** (or **oCIS Admins**); membership is
-    UI-set, so until then the policy binding denies every login.
-  - First sign-in auto-provisions the account (`PROXY_AUTOPROVISION_ACCOUNTS`, keyed on
-    `preferred_username`; needs `GRAPH_LDAP_SERVER_WRITE_ENABLED`, which is set). Confirm it
-    works on 8.2.3; if the version rejects it, drop the `PROXY_AUTOPROVISION_*` env and create
-    users in the oCIS admin UI instead.
-  - **Admin role:** oCIS's default role driver gives every provisioned user the plain User
-    role, so no one can administer it until the first user is promoted. Promote with the admin
-    account `ocis init` printed to the `ocis-init` initContainer log on first start (also in
-    `/etc/ocis/ocis.yaml` on the `ocis-config` volume). Longer term, decide whether to assign
-    admin from an Authentik group via the OIDC role driver (needs a `roles` claim mapping and an
-    oCIS role-assignment config) instead of a one-off promotion.
-  - Confirm a file upload lands on `ocis-data` and survives a pod restart, and that
-    `ocis.${BASE_DOMAIN}` is unreachable through the Cloudflare tunnel.
-  - Right-size `ocis-data` (50Gi) and the container `mem_limit`/requests (req 512Mi, limit 1Gi)
-    from cAdvisor once there's real use; oCIS idles well under 1Gi but spikes on sync.
-  - Some OIDC env came from the 8.2/9.0 docs, one (`PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=none`,
-    for Authentik's opaque access tokens) from a homelab blog; if web-UI OIDC discovery breaks,
-    set `WEB_OIDC_METADATA_URL` explicitly rather than relying on `PROXY_OIDC_REWRITE_WELLKNOWN`.
-  - `scripts/k8s_backup/secretscan.py` gained `"none"` to `_NOT_A_CREDENTIAL` (a value of the
-    literal word "none" is never a secret; the `*_VERIFY_METHOD=none` env tripped the check).
+- **Nextcloud first login and OIDC verification** (`kubernetes/prod/apps/nextcloud/`, PR #634):
+  `nextcloud:35.0.3-apache` + CloudNativePG (`nextcloud-db`) + a dedicated Redis, LAN/VPN-only,
+  local admin plus Authentik OIDC via `user_oidc` (blueprint `nextcloud.yaml` in
+  `authentik-extras`). oCIS was replaced by this (torn down #633). Left, verified live:
+  - The Authentik `nextcloud` blueprint reads `!Env NEXTCLOUD_OIDC_CLIENT_SECRET`; it only
+    applies after the worker restarts with that env (values.yaml). A blueprint that reads a new
+    env fails its first apply and isn't retried — re-apply once the restarted worker is up.
+  - Confirm the `occ` setup hook (`configmap-nextcloud.yaml`) actually ran: Redis cache/locking
+    set, `trusted_proxies` = `10.229.0.0/16`, cron mode, and the `Authentik` user_oidc provider
+    created. The exact `user_oidc:provider` **attribute-mapping flags weren't pinned** (research
+    gap) — confirm login maps uid/email/displayname correctly via `occ user_oidc:provider
+    --help`; add `--mapping-*` to the hook if the defaults are wrong.
+  - Owner adds their Authentik user to **Nextcloud Users/Admins** and tests the OIDC login
+    button; local admin stays reachable at `/login?direct=1` (password in `nextcloud-secrets`).
+  - Confirm `cloud.${BASE_DOMAIN}` is not reachable through the Cloudflare tunnel.
+  - Right-size `nextcloud-data` (50Gi) and the app `mem_limit`/requests from cAdvisor after use.
+- **OnlyOffice for Nextcloud** (follow-up): in-browser document editing with best MS-format
+  fidelity (Collabora is the LibreOffice-engine alternative). Cloud M365 / Office-for-the-web
+  can't be used (Microsoft gates WOPI behind its Cloud Storage Partner Program). Separate
+  Deployment + the Nextcloud connector app; scope when wanted.
+- **Expose Nextcloud through the Cloudflare tunnel?** (follow-up): decide whether off-LAN
+  desktop/mobile sync is wanted; if so add a `cloudflare-tunnel` Ingress straight to the
+  `nextcloud` Service (the `Nextcloud Users/Admins` binding + Nextcloud auth are then the gate).
 
 - **The Claude Code stack moves to one container per lane** (this PR, `docker/claude-code/`):
   each lane is its own service with its own `mem_limit` and clone, so a lane that spikes is
