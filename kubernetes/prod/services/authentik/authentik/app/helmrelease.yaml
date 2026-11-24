@@ -140,6 +140,11 @@ spec:
           secretKeyRef:
             key: client-secret
             name: authentik-linkwarden-client
+      - name: GAMEYFIN_OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: client-secret
+            name: authentik-gameyfin-client
       - name: NETBOX_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:
