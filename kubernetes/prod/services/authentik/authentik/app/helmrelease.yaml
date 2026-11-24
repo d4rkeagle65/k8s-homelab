@@ -140,6 +140,11 @@ spec:
           secretKeyRef:
             key: client-secret
             name: authentik-linkwarden-client
+      - name: NEXTCLOUD_OIDC_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: client-secret
+            name: authentik-nextcloud-client
       - name: GAMEYFIN_OIDC_CLIENT_SECRET
         valueFrom:
           secretKeyRef:

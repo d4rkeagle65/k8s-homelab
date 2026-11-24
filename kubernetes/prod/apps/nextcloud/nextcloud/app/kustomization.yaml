@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- secret-cnpg-backup-s3.yaml
+- externalsecret-db.yaml
+- externalsecret-oidc-client.yaml
+- externalsecret-app-secrets.yaml
+- objectstore.yaml
+- db.yaml
+- scheduledbackup-db.yaml
+- redis.yaml
+- pvc.yaml
+- configmap-nextcloud.yaml
+- deployment.yaml
+- service.yaml
+- ingress.yaml

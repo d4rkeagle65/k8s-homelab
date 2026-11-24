@@ -1,0 +1,61 @@
+# A dedicated single Redis for Nextcloud's distributed cache and transactional file
+# locking (important on NFS). Not HA - a restart just clears the cache and resets
+# locks, harmless for one Nextcloud - so this is simpler than wiring the shared
+# redis-ha Sentinel into Nextcloud's config.php. Password from nextcloud-secrets.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud-redis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nextcloud-redis
+  template:
+    metadata:
+      labels:
+        app: nextcloud-redis
+    spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        runAsNonRoot: true
+      containers:
+      - name: redis
+        image: redis:7.4.1-alpine
+        command: ["sh", "-c", "exec redis-server --requirepass \"$${REDIS_HOST_PASSWORD}\" --save \"\" --appendonly no --maxmemory 192mb --maxmemory-policy allkeys-lru"]
+        env:
+        - name: REDIS_HOST_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-secrets
+              key: REDIS_HOST_PASSWORD
+        ports:
+        - name: redis
+          containerPort: 6379
+        readinessProbe:
+          tcpSocket:
+            port: redis
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud-redis
+spec:
+  selector:
+    app: nextcloud-redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis

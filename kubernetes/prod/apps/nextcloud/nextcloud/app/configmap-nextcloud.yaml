@@ -1,0 +1,40 @@
+# Post-install / post-upgrade hook the nextcloud image runs (as www-data) after it
+# installs or upgrades. It configures the bits the image's env vars don't cover:
+# Redis cache + file locking, the reverse-proxy trust, cron background jobs, and the
+# Authentik OIDC provider (user_oidc). It's idempotent - occ set/provider are
+# upserts - so it's safe to re-run on every upgrade. Shell env refs are written as
+# $${VAR} so Flux leaves them for the container; ${BASE_DOMAIN} is a Flux variable.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nextcloud-hooks
+data:
+  setup.sh: |
+    #!/bin/sh
+    occ="php /var/www/html/occ"
+
+    # Redis: distributed cache + transactional file locking (needed on NFS).
+    $$occ config:system:set memcache.local --value='\OC\Memcache\APCu'
+    $$occ config:system:set memcache.distributed --value='\OC\Memcache\Redis'
+    $$occ config:system:set memcache.locking --value='\OC\Memcache\Redis'
+    $$occ config:system:set redis host --value='nextcloud-redis'
+    $$occ config:system:set redis port --type=integer --value=6379
+    $$occ config:system:set redis password --value="$${REDIS_HOST_PASSWORD}"
+
+    # Trust the in-cluster reverse proxy (Traefik reaches us from the pod network),
+    # run background jobs via cron (the sidecar), and give the nightly jobs a window.
+    $$occ config:system:set trusted_proxies 0 --value='10.229.0.0/16'
+    $$occ config:system:set maintenance_window_start --type=integer --value=1
+    $$occ background:cron
+
+    # Authentik OIDC via user_oidc. Non-fatal (|| true) so a transient App Store or
+    # IdP hiccup doesn't block the pod; re-runs on the next upgrade.
+    $$occ app:install user_oidc || $$occ app:enable user_oidc || true
+    $$occ user_oidc:provider Authentik \
+      --clientid='nextcloud' \
+      --clientsecret="$${NEXTCLOUD_OIDC_CLIENT_SECRET}" \
+      --discoveryuri="https://auth.${BASE_DOMAIN}/application/o/nextcloud/.well-known/openid-configuration" \
+      --scope='openid email profile' || true
+    # One provider -> the login page offers the Authentik button; the local admin can
+    # still sign in at /login?direct=1.
+    $$occ config:app:set --type=string --value=0 user_oidc allow_multiple_user_backends || true

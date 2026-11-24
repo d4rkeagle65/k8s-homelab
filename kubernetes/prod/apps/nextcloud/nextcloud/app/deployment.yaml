@@ -1,0 +1,147 @@
+# Nextcloud (official apache image). One replica, Recreate: /var/www/html is a single
+# RWO volume and the image's install/upgrade is single-writer. The main container runs
+# as root (the entrypoint rsyncs the code in and chowns to www-data, then Apache drops
+# to www-data) - that's baseline-PSA-allowed. A cron sidecar runs background jobs every
+# 5 minutes against the shared volume (so no CronJob needing an RWX volume).
+#
+# Login: local admin (NEXTCLOUD_ADMIN_* at first install; password in nextcloud-secrets,
+# reachable at /login?direct=1) plus Authentik OIDC (configmap-nextcloud.yaml's hook).
+# Behind Traefik (TLS terminated): OVERWRITE*/TRUSTED_PROXIES make Nextcloud build https
+# URLs and trust the pod-network proxy.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nextcloud
+  template:
+    metadata:
+      labels:
+        app: nextcloud
+    spec:
+      securityContext:
+        fsGroup: 33
+      containers:
+      - name: nextcloud
+        image: nextcloud:35.0.3-apache
+        ports:
+        - name: http
+          containerPort: 80
+        env:
+        - name: POSTGRES_HOST
+          value: nextcloud-db-rw
+        - name: POSTGRES_DB
+          value: nextcloud
+        - name: POSTGRES_USER
+          value: nextcloud
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-db-app
+              key: POSTGRES_PASSWORD
+        - name: NEXTCLOUD_ADMIN_USER
+          value: admin
+        - name: NEXTCLOUD_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-secrets
+              key: NEXTCLOUD_ADMIN_PASSWORD
+        - name: NEXTCLOUD_TRUSTED_DOMAINS
+          value: cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        - name: OVERWRITEPROTOCOL
+          value: https
+        - name: OVERWRITEHOST
+          value: cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        - name: OVERWRITECLIURL
+          value: https://cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        - name: APACHE_DISABLE_REWRITE_IP
+          value: "1"
+        - name: TRUSTED_PROXIES
+          value: 10.229.0.0/16
+        - name: REDIS_HOST
+          value: nextcloud-redis
+        - name: REDIS_HOST_PORT
+          value: "6379"
+        - name: REDIS_HOST_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-secrets
+              key: REDIS_HOST_PASSWORD
+        # Read by the OIDC setup hook (configmap-nextcloud.yaml).
+        - name: NEXTCLOUD_OIDC_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-oidc-client
+              key: NEXTCLOUD_OIDC_CLIENT_SECRET
+        - name: PHP_MEMORY_LIMIT
+          value: 1G
+        - name: PHP_UPLOAD_LIMIT
+          value: 10G
+        # Apache body limit defaults to 1 GiB; 0 = unlimited so PHP_UPLOAD_LIMIT governs.
+        - name: APACHE_BODY_LIMIT
+          value: "0"
+        startupProbe:
+          httpGet:
+            path: /status.php
+            port: http
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /status.php
+            port: http
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /status.php
+            port: http
+          periodSeconds: 30
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: "2"
+            memory: 1536Mi
+        volumeMounts:
+        - name: data
+          mountPath: /var/www/html
+        - name: hooks
+          mountPath: /docker-entrypoint-hooks.d/post-installation
+        - name: hooks
+          mountPath: /docker-entrypoint-hooks.d/post-upgrade
+      # Background jobs every 5 minutes (Nextcloud's recommended cron mode). Runs as
+      # www-data; shares the app volume. `|| true` so it no-ops until the main
+      # container has populated /var/www/html on first start.
+      - name: cron
+        image: nextcloud:35.0.3-apache
+        command: ["sh", "-c", "while true; do php -f /var/www/html/cron.php || true; sleep 300; done"]
+        securityContext:
+          runAsUser: 33
+          runAsGroup: 33
+          runAsNonRoot: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: data
+          mountPath: /var/www/html
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: nextcloud-data
+      - name: hooks
+        configMap:
+          name: nextcloud-hooks
+          defaultMode: 0555
