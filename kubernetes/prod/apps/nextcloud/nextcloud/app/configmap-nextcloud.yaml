@@ -1,9 +1,12 @@
-# Post-install / post-upgrade hook the nextcloud image runs (as www-data) after it
-# installs or upgrades. It configures the bits the image's env vars don't cover:
-# Redis cache + file locking, the reverse-proxy trust, cron background jobs, and the
-# Authentik OIDC provider (user_oidc). It's idempotent - occ set/provider are
-# upserts - so it's safe to re-run on every upgrade. Shell env refs are written as
-# $${VAR} so Flux leaves them for the container; ${BASE_DOMAIN} is a Flux variable.
+# before-starting hook the nextcloud image runs (as www-data) on every start, after
+# install/upgrade and before Apache. It configures what the image's env vars don't (or
+# only apply at first install): the trusted domain, Redis cache + file locking, the
+# reverse-proxy trust, allowing server-side requests to the private-IP IdP, cron
+# background jobs, and the Authentik OIDC provider (user_oidc). Everything is an
+# idempotent occ upsert, so running it every start is safe and lets config changes
+# (like a hostname change) take effect on a pod restart. Shell env refs are written as
+# $${VAR} so Flux leaves them for the container; ${SUBDOMAIN_SUFFIX}/${BASE_DOMAIN} are
+# Flux variables.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,6 +15,10 @@ data:
   setup.sh: |
     #!/bin/sh
     occ="php /var/www/html/occ"
+
+    # The access hostname. NEXTCLOUD_TRUSTED_DOMAINS only applies at first install, so
+    # set it here too (and so a rename takes effect on restart).
+    $$occ config:system:set trusted_domains 0 --value='nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}'
 
     # Redis: distributed cache + transactional file locking (needed on NFS).
     $$occ config:system:set memcache.local --value='\OC\Memcache\APCu'
@@ -27,8 +34,14 @@ data:
     $$occ config:system:set maintenance_window_start --type=integer --value=1
     $$occ background:cron
 
+    # Let Nextcloud's server-side HTTP client reach the IdP: auth.${BASE_DOMAIN} resolves
+    # to a private (in-cluster Traefik) address, which Nextcloud blocks by default -
+    # that's the "Could not reach the OpenID Connect provider" error from user_oidc.
+    $$occ config:system:set allow_local_remote_servers --type=boolean --value=true
+    $$occ config:system:set user_oidc httpclient.allowlocal --type=boolean --value=true
+
     # Authentik OIDC via user_oidc. Non-fatal (|| true) so a transient App Store or
-    # IdP hiccup doesn't block the pod; re-runs on the next upgrade.
+    # IdP hiccup doesn't block the pod.
     $$occ app:install user_oidc || $$occ app:enable user_oidc || true
     $$occ user_oidc:provider Authentik \
       --clientid='nextcloud' \

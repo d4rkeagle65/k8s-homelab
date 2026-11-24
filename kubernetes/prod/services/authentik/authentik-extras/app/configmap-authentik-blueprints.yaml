@@ -993,7 +993,7 @@ data:
         - refresh_token
         redirect_uris:
         - matching_mode: strict
-          url: https://cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/apps/user_oidc/code
+          url: https://nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/apps/user_oidc/code
         authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
         invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
         signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
@@ -1010,7 +1010,7 @@ data:
       attrs:
         name: Nextcloud
         provider: !KeyOf provider
-        meta_launch_url: https://cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        meta_launch_url: https://nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
         meta_description: Files, calendar, contacts, and more
         policy_engine_mode: any
     - model: authentik_policies.policybinding

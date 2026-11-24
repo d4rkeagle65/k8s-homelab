@@ -52,13 +52,13 @@ spec:
               name: nextcloud-secrets
               key: NEXTCLOUD_ADMIN_PASSWORD
         - name: NEXTCLOUD_TRUSTED_DOMAINS
-          value: cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+          value: nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
         - name: OVERWRITEPROTOCOL
           value: https
         - name: OVERWRITEHOST
-          value: cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+          value: nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
         - name: OVERWRITECLIURL
-          value: https://cloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+          value: https://nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
         - name: APACHE_DISABLE_REWRITE_IP
           value: "1"
         - name: TRUSTED_PROXIES
@@ -113,10 +113,10 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /var/www/html
+        # before-starting runs on every start (after any install/upgrade, before
+        # Apache), so config changes apply on a pod restart - not only at first install.
         - name: hooks
-          mountPath: /docker-entrypoint-hooks.d/post-installation
-        - name: hooks
-          mountPath: /docker-entrypoint-hooks.d/post-upgrade
+          mountPath: /docker-entrypoint-hooks.d/before-starting
       # Background jobs every 5 minutes (Nextcloud's recommended cron mode). Runs as
       # www-data; shares the app volume. `|| true` so it no-ops until the main
       # container has populated /var/www/html on first start.
