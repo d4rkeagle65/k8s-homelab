@@ -915,6 +915,11 @@ data:
         grant_types:
         - authorization_code
         - refresh_token
+        # ROPC (password grant) for the disabled-by-default `claude` test account below:
+        # lets Claude Code fetch a token headlessly to test oCIS's API. Additive - the
+        # normal authorization_code browser flow is unchanged. Remove this line with the
+        # claude user when oCIS debugging is done.
+        - password
         redirect_uris:
         - matching_mode: strict
           url: https://ocis${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/
@@ -953,6 +958,21 @@ data:
         order: 1
       attrs:
         group: !KeyOf users
+    # A disabled-by-default test identity for Claude Code to drive oCIS logins
+    # (browser-driven and ROPC). `state: created` makes it once, inactive; the owner
+    # flips is_active in the UI to approve a test session and the worker never reverts
+    # that (create-only). Member of oCIS Users only. Its password is set out of band
+    # (never in git). Delete this entry and the `password` grant above when done.
+    - model: authentik_core.user
+      state: created
+      identifiers:
+        username: claude
+      attrs:
+        name: Claude Code (test)
+        is_active: false
+        path: users
+        groups:
+        - !KeyOf users
 kind: ConfigMap
 metadata:
   name: authentik-blueprints
