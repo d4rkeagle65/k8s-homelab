@@ -258,16 +258,23 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
   fix), then the playbook changed to match (pin names first, or wait through the reboot)
   before a run on cotedeprox02. Nothing on them needs keeping.
-- **Gameyfin, the game library manager** (2026-11-23, PRs #625 and #627, deployed and Ready):
+- **Gameyfin, the game library manager** (2026-11-23, PRs #625/#627 deployed, #629/#630 open):
   `.handwritten` app `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs 2.7.1),
   LAN-only (Traefik private), CloudNativePG `gameyfin-db`. Running 1/1 on PostgreSQL (Liquibase
   applied all 17 changesets to `gameyfin-db`'s `public` schema, so the `SPRING_DATASOURCE_*`
   override works and the H2 fallback in `db.yaml`'s header is NOT needed); `/library` mounts the
-  NAS games folder read-only; TLS issued, ingress up. Left, all owner first-run in the UI:
-  - bootstrap the local admin, copy games into `/volume1/media/games` on the NAS, add `/library`
-    as a library and confirm a scan sees them (the folder is empty so far);
-  - wire Authentik OIDC — Gameyfin exposes no OIDC env, so it's configured in its admin UI, not by
-    a blueprint/env path like Linkwarden's.
+  NAS games folder read-only; TLS issued, ingress up. Left:
+  - **#629 (homepage):** a Gameyfin tile and quick link; after merge, check it shows on the page.
+  - **#630 (Authentik OIDC blueprint):** puts the provider/application/role-mapping in git. The
+    blueprint reads a new worker env (`GAMEYFIN_OIDC_CLIENT_SECRET`), so per `kubernetes/CLAUDE.md`
+    its first apply can fail before the worker restarts — re-apply once the worker is up. Then,
+    owner in **Gameyfin → Administration → Security**: enable SSO, issuer
+    `https://auth.${BASE_DOMAIN}/application/o/gameyfin/` (Auto-populate), client id `gameyfin`,
+    client secret from `kubectl get secret -n gameyfin gameyfin-oidc-client -o
+    jsonpath='{.data.AUTHENTIK_CLIENT_SECRET}' | base64 -d`; add users to the Gameyfin Admins/Users
+    groups. Gameyfin can't be configured for OIDC from git (no env/API), so that paste is manual.
+  - First-run: bootstrap the local admin, copy games into `/volume1/media/games` on the NAS, add
+    `/library` as a library and confirm a scan sees them (the folder is empty so far).
   - Note: the image is a floating `:2` tag (no pinned `x.y.z` published), so Renovate can't track
     it as-is. APP_KEY must stay a valid AES key length (the generator is 32 chars;
     `externalsecret-app-key.yaml` says why).
