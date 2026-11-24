@@ -1,0 +1,52 @@
+# oCIS's Content Security Policy. This reproduces oCIS 8.2's built-in default
+# (captured from the live content-security-policy header) and adds the Authentik
+# origin to connect-src and frame-src. Without it the web UI's oidc-client can't
+# fetch() Authentik's token endpoint (the browser blocks it as a CSP violation),
+# so login gets the authorization code but never exchanges it and loops. The file
+# replaces the default wholesale, so every directive must be present. Mounted at
+# /etc/ocis-csp/csp.yaml (PROXY_CSP_CONFIG_FILE_LOCATION in deployment.yaml).
+# connect-src = the token-exchange fetch; frame-src = the silent-renewal iframe.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ocis-csp
+data:
+  csp.yaml: |
+    directives:
+      child-src:
+        - "'self'"
+      connect-src:
+        - "'self'"
+        - "blob:"
+        - "https://raw.githubusercontent.com/owncloud/awesome-ocis/"
+        - "https://auth.${BASE_DOMAIN}"
+      default-src:
+        - "'none'"
+      font-src:
+        - "'self'"
+        - "data:"
+      frame-ancestors:
+        - "'self'"
+      frame-src:
+        - "'self'"
+        - "blob:"
+        - "https://embed.diagrams.net/"
+        - "https://auth.${BASE_DOMAIN}"
+      img-src:
+        - "'self'"
+        - "data:"
+        - "blob:"
+        - "https://raw.githubusercontent.com/owncloud/awesome-ocis/"
+      manifest-src:
+        - "'self'"
+      media-src:
+        - "'self'"
+      object-src:
+        - "'self'"
+        - "blob:"
+      script-src:
+        - "'self'"
+        - "'unsafe-inline'"
+      style-src:
+        - "'self'"
+        - "'unsafe-inline'"
