@@ -547,6 +547,13 @@ spec:
                     namespace: grocy
                     app: grocy
                     podSelector: app=grocy
+                - Nextcloud:
+                    icon: nextcloud.png
+                    href: https://nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: Files, calendar and contacts
+                    namespace: nextcloud
+                    app: nextcloud
+                    podSelector: app=nextcloud
                 - Gameyfin:
                     icon: gameyfin.png
                     href: https://gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
