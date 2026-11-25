@@ -51,7 +51,7 @@ RUN apt-get update && \
 
 # kubectl: the raw binary and its .sha256 (which holds only the hash).
 # renovate: datasource=github-releases depName=kubernetes/kubernetes
-ARG KUBECTL_VERSION=1.36.5
+ARG KUBECTL_VERSION=1.37.2
 RUN --mount=type=cache,target=/dl,sharing=locked \
     arch="$(dpkg --print-architecture)" && cd /dl && \
     base="https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}" && \
