@@ -2,6 +2,15 @@ auth: true
 authKey: auth
 existingSecret: redis-ha-auth
 hardAntiAffinity: true
+# redis_exporter sidecar + its ServiceMonitor, so Prometheus scrapes Redis
+# (keyspace, memory, clients, replication). mem/cpu by QUEUE-resource-limits.md.
+exporter:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 96Mi}
 image:
   repository: public.ecr.aws/docker/library/redis
   tag: 8.2.4-alpine

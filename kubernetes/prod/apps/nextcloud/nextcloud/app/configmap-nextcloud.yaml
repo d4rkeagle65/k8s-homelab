@@ -34,6 +34,10 @@ data:
     $$occ config:system:set maintenance_window_start --type=integer --value=1
     $$occ background:cron
 
+    # serverinfo API token for the Prometheus exporter (exporter.yaml reads the same
+    # value from nextcloud-secrets); lets it scrape without an admin login.
+    $$occ config:app:set serverinfo token --value="$${NEXTCLOUD_SERVERINFO_TOKEN}"
+
     # Let Nextcloud's server-side HTTP client reach the IdP: auth.${BASE_DOMAIN} resolves
     # to a private (in-cluster Traefik) address, which Nextcloud blocks by default -
     # that's the "Could not reach the OpenID Connect provider" error from user_oidc.

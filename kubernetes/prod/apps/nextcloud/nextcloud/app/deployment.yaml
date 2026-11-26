@@ -78,6 +78,12 @@ spec:
             secretKeyRef:
               name: nextcloud-oidc-client
               key: NEXTCLOUD_OIDC_CLIENT_SECRET
+        # Read by the serverinfo-token line in the setup hook (for the exporter).
+        - name: NEXTCLOUD_SERVERINFO_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-secrets
+              key: NEXTCLOUD_SERVERINFO_TOKEN
         - name: PHP_MEMORY_LIMIT
           value: 1G
         - name: PHP_UPLOAD_LIMIT

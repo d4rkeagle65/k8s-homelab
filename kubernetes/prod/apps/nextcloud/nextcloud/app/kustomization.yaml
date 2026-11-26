@@ -12,5 +12,6 @@ resources:
 - pvc.yaml
 - configmap-nextcloud.yaml
 - deployment.yaml
+- exporter.yaml
 - service.yaml
 - ingress.yaml

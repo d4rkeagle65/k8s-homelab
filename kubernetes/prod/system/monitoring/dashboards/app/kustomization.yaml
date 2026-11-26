@@ -30,12 +30,27 @@ configMapGenerator:
   files:
   - json/apps/media-exportarr.json
   - json/apps/qbittorrent.json
+  - json/apps/nextcloud.json
   options:
     disableNameSuffixHash: true
     labels:
       grafana_dashboard: "1"
     annotations:
       grafana_folder: Apps
+# CloudNativePG's own (cloudnative-pg/grafana-dashboards, cluster) and the
+# redis_exporter's (oliver006/redis_exporter, contrib), datasource pinned to the
+# fixed prometheus uid. CNPG instances are scraped by the cnpg-instances
+# PodMonitor; Redis by the redis-ha chart's exporter ServiceMonitor.
+- name: dashboards-databases
+  files:
+  - json/databases/cloudnativepg.json
+  - json/databases/redis.json
+  options:
+    disableNameSuffixHash: true
+    labels:
+      grafana_dashboard: "1"
+    annotations:
+      grafana_folder: Databases
 # Garage's own (script/telemetry, main-v1).
 - name: dashboards-storage
   files:

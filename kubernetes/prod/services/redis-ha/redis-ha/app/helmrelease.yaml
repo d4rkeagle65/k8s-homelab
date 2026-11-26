@@ -20,6 +20,17 @@ spec:
     authKey: auth
     existingSecret: redis-ha-auth
     hardAntiAffinity: true
+    exporter:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 96Mi
     image:
       repository: public.ecr.aws/docker/library/redis
       tag: 8.2.4-alpine
