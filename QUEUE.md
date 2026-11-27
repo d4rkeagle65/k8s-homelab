@@ -255,6 +255,26 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
   fix), then the playbook changed to match (pin names first, or wait through the reboot)
   before a run on cotedeprox02. Nothing on them needs keeping.
+- **RomM, the ROM manager** (2026-11-27, PR #645): new `.handwritten` app
+  `kubernetes/prod/apps/romm/`, `ghcr.io/rommapp/romm:5.0.0` (full image: EmulatorJS + embedded
+  Valkey), LAN-only (Traefik private), CloudNativePG `romm-db` (`ROMM_DB_DRIVER=postgresql`),
+  Authentik OIDC by env (the `romm` blueprint; roles are managed in RomM's UI, NOT from the claim,
+  so SSO can't demote the admin). ROMs at `/romm/library/roms` = `/volume1/media/games/roms` (RW);
+  hashing off (`configmap-config.yaml`) for ~1.5Gi memory. The same PR repoints **Gameyfin**'s
+  library `/volume1/media/games` → `/volume1/media/games/pc`. Owner, before/at rollout:
+  - On the NAS under `/volume1/media/games`: create `pc/` (owned `MEDIA_PUID:999`) and move
+    Gameyfin's PC games into it; create `roms/` with per-platform subfolders, **group 999,
+    group-writable, setgid (`chmod 2775`)** so RomM (uid 1000 + supplementary group 999) can RW it.
+  - Recreate the PVs (paths/modes are immutable): for Gameyfin scale to 0, delete
+    `pvc/gameyfin-games` + `pv/gameyfin-games-nfs`, reconcile source + the `gameyfin` and `romm`
+    kustomizations + the gameyfin helmrelease; restart `deploy/authentik-worker` so the `romm`
+    blueprint applies (it reads a new worker env).
+  - Read back: RomM pod's Alembic migrations apply on PostgreSQL (the first-boot risk); add
+    yourself to the `RomM Users` Authentik group; bootstrap a local admin then SSO-link by email;
+    add platforms under `roms/{platform}` and scan. Metadata providers (IGDB/ScreenScraper/...)
+    deferred — their keys go in Key Vault when chosen. Notes: `ROMM_AUTH_SECRET_KEY` is a
+    64-char generated secret (if RomM needs strict hex, swap to a Key Vault `openssl rand -hex 32`;
+    `externalsecret-auth.yaml` says so); image pinned `5.0.0` (verify it's current).
 - **Gameyfin, the game library manager** (2026-11-23, PRs #625/#627/#629/#630/#638 merged, #641
   open): `.handwritten` app `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs
   2.7.1), LAN-only (Traefik private), CloudNativePG `gameyfin-db`, Authentik OIDC (blueprint, matched
