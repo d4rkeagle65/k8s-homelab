@@ -721,6 +721,10 @@ Semaphore, with the first VM's reboot on 2026-10-22).
 
 ## Working queue files
 
+- [QUEUE-authentik-blueprints.md](QUEUE-authentik-blueprints.md) (about 10%): convert the 8
+  still-UI-made Authentik apps to git blueprints, preserving OIDC secrets via Key Vault; configs
+  extracted. Left, all of it: the owner's 4 Key Vault secrets, the cluster-secrets PR, then the
+  OIDC conversions (immich/vaultwarden/home-assistant/babybuddy-mcp) and the proxy/LDAP ones.
 - [QUEUE-n8n-zammad.md](QUEUE-n8n-zammad.md) (about 95%): the bridge is gone and every source tickets through n8n; left, a real Databasus notification and a container down past its hold, read back.
 - [QUEUE-resource-limits.md](QUEUE-resource-limits.md) (about 90%): requests and limits on every container; the week-long recheck merged (#572-#577); left, the databases read back after #577, the Docker VM's containers, ManicTime's priority class and the CPU cap (the owner's).
 - [QUEUE-kept.md](QUEUE-kept.md) (about 80%): Kept deployed and backed up; left, the owner's first account and recovery kit, then a restore test of `kept-db`.
