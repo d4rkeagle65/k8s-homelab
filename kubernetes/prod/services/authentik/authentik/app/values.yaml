@@ -127,6 +127,21 @@ worker:
       secretKeyRef:
         key: client-secret
         name: authentik-immich-oidc
+  - name: HOMEASSISTANT_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-homeassistant-oidc
+  - name: VAULTWARDEN_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-vaultwarden-oidc
+  - name: BABYBUDDY_MCP_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-babybuddy-mcp-oidc
   - name: LINKWARDEN_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:

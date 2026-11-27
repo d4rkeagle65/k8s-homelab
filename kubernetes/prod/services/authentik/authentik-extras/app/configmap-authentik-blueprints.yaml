@@ -1097,6 +1097,157 @@ data:
         order: 0
       attrs:
         group: !KeyOf users
+  home-assistant.yaml: |
+    # Authentik blueprint for Home Assistant's OIDC login, converted from the UI-made
+    # provider (QUEUE-authentik-blueprints.md). Secret preserved via Key Vault
+    # (HOMEASSISTANT_OIDC_CLIENT_SECRET). Explicit-consent flow, matching the live
+    # provider. Members of Home Assistant Users may log in; membership is set in the UI.
+    version: 1
+    metadata:
+      name: Home Assistant
+    entries:
+    - model: authentik_core.group
+      id: users
+      identifiers:
+        name: Home Assistant Users
+    - model: authentik_providers_oauth2.oauth2provider
+      id: provider
+      identifiers:
+        name: Provider for Home Assistant
+      attrs:
+        client_type: confidential
+        client_id: a38VmDpBxh75rwBEodXrnw7jcglYvJSiBA2YcDUb
+        client_secret: !Env HOMEASSISTANT_OIDC_CLIENT_SECRET
+        grant_types:
+        - authorization_code
+        - refresh_token
+        redirect_uris:
+        - matching_mode: strict
+          url: https://homeassistant.${BASE_DOMAIN}/auth/oidc/callback
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+        signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+        property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        sub_mode: hashed_user_id
+        issuer_mode: per_provider
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: home-assistant
+      attrs:
+        name: Home Assistant
+        provider: !KeyOf provider
+        meta_launch_url: https://homeassistant.${BASE_DOMAIN}
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 0
+      attrs:
+        group: !KeyOf users
+  vaultwarden.yaml: |
+    # Authentik blueprint for Vaultwarden's OIDC login, converted from the UI-made
+    # provider. Secret preserved via Key Vault (VAULTWARDEN_OIDC_CLIENT_SECRET). Uses a
+    # custom "Vaultwarden Email Scope" returning email_verified:true (Authentik's default
+    # email scope returns false, which Vaultwarden rejects). Members of Vaultwarden Users
+    # may log in; membership is set in the UI.
+    version: 1
+    metadata:
+      name: Vaultwarden
+    entries:
+    - model: authentik_core.group
+      id: users
+      identifiers:
+        name: Vaultwarden Users
+    - model: authentik_providers_oauth2.scopemapping
+      id: email_scope
+      identifiers:
+        name: Vaultwarden Email Scope
+      attrs:
+        scope_name: email
+        expression: 'return {"email": request.user.email, "email_verified": True}'
+    - model: authentik_providers_oauth2.oauth2provider
+      id: provider
+      identifiers:
+        name: Provider for Vaultwarden
+      attrs:
+        client_type: confidential
+        client_id: WLBGCpvXfKSsYAXyctP7Klvgx9PHfkKLavDCdO9F
+        client_secret: !Env VAULTWARDEN_OIDC_CLIENT_SECRET
+        grant_types:
+        - authorization_code
+        - refresh_token
+        redirect_uris:
+        - matching_mode: strict
+          url: https://vaultwarden.${BASE_DOMAIN}/identity/connect/oidc-signin
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+        signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+        property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !KeyOf email_scope
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-offline_access]]
+        sub_mode: hashed_user_id
+        issuer_mode: per_provider
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: vaultwarden
+      attrs:
+        name: Vaultwarden
+        provider: !KeyOf provider
+        meta_launch_url: https://vaultwarden.${BASE_DOMAIN}
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 0
+      attrs:
+        group: !KeyOf users
+  babybuddy-mcp.yaml: |
+    # Authentik blueprint for the Baby Buddy MCP OIDC client, converted from the UI-made
+    # provider. Secret preserved via Key Vault (BABYBUDDY_MCP_OIDC_CLIENT_SECRET). No
+    # policy binding, matching the live app.
+    version: 1
+    metadata:
+      name: babybuddy-mcp
+    entries:
+    - model: authentik_providers_oauth2.oauth2provider
+      id: provider
+      identifiers:
+        name: babybuddy-mcp
+      attrs:
+        client_type: confidential
+        client_id: 5FZnqav1fEnSpP1M4x9sqcXKIRulih37njOPhggF
+        client_secret: !Env BABYBUDDY_MCP_OIDC_CLIENT_SECRET
+        grant_types:
+        - authorization_code
+        - refresh_token
+        redirect_uris:
+        - matching_mode: strict
+          url: https://bb-mcp.${BASE_DOMAIN}/auth/callback
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+        signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+        property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, goauthentik.io/providers/oauth2/scope-profile]]
+        sub_mode: hashed_user_id
+        issuer_mode: per_provider
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: babybuddy-mcp
+      attrs:
+        name: babybuddy-mcp
+        provider: !KeyOf provider
+        meta_launch_url: https://bb-mcp.${BASE_DOMAIN}
+        policy_engine_mode: any
 kind: ConfigMap
 metadata:
   name: authentik-blueprints
