@@ -61,6 +61,8 @@ StrictRatchets = true
 Packages = [
     { Name = "ruamel.yaml", Minimum = "0.18" },
     { Name = "pytest", Minimum = "8.0" },
+    # claude-whatsapp.py's SDK; the pod installs its own pinned copy (requirements.txt).
+    { Name = "anthropic", Minimum = "2.14" },
 ]
 # Native tools, checked from each target Python: Arguments make the tool print its version and
 # exit. A tool gets no input and TimeoutSeconds (default 30) to answer, then is stopped and

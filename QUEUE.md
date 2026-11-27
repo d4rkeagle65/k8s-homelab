@@ -13,6 +13,35 @@ Outstanding work on the cluster and on this repo, roughly in the order worth doi
 
 ## Waiting on the owner
 
+- **Claude over WhatsApp** (`kubernetes/prod/apps/claude-whatsapp/`): a webhook that answers
+  WhatsApp messages from the allowed numbers with Claude's reply, so Gemini on Android Auto can
+  talk to Claude ("message Claude on WhatsApp"). Written and tested (`test_claude_whatsapp.py`),
+  not deployed. Left, in order:
+  - **Key Vault**, each with `./scripts/keyvault-secrets.ps1 <NAME> -New -Raw`; the
+    ExternalSecret (`externalsecret.yaml`) says what each is, and the pod waits until all six
+    exist. `ANTHROPIC_CLAUDE_WHATSAPP_API_KEY`: a Claude Console key of its own (API use is
+    billed apart from a Claude subscription). From a Meta app (developers.facebook.com, type
+    Business, WhatsApp added): `META_CLAUDE_WHATSAPP_APP_SECRET` (App settings, Basic),
+    `META_CLAUDE_WHATSAPP_PHONE_NUMBER_ID` (WhatsApp, API Setup: the sending number's ID), and
+    `META_CLAUDE_WHATSAPP_ACCESS_TOKEN`, a system user's permanent token with
+    `whatsapp_business_messaging` (API Setup's token expires in a day).
+    `META_CLAUDE_WHATSAPP_VERIFY_TOKEN` with `-Generate 32 -Clipboard`.
+    `CLAUDE_WHATSAPP_ALLOWED_NUMBERS`: who it answers, with country code, split by commas.
+    With Meta's test number, each of those numbers is also added as a recipient in API Setup,
+    or Meta refuses the replies (error 131030).
+  - **Merge**, then: `kubectl -n claude-whatsapp get externalsecret,pods` shows `SecretSynced`
+    and the pod Ready, its log a "listening on 8080" line.
+  - **Meta's webhook** (WhatsApp, Configuration): callback
+    `https://claude-whatsapp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/webhook`, the verify token from
+    Key Vault, then subscribe the `messages` field. The pod logs "subscription check passed".
+  - **Check the tunnel route is /webhook only**: `/healthz` on that host should not reach the
+    pod (it answers only inside the cluster). The controller turning the Ingress path into a
+    tunnel path rule is unverified; if it doesn't, the bot still refuses any unsigned POST.
+  - **On the phone:** save the sending number as a contact named Claude, message it, then try
+    it through Android Auto. Gemini reading WhatsApp replies aloud in the car is untested.
+  - **This PC:** `py -3 -m pip install anthropic` for the environment suites
+    (`test-prerequisites`, `test-import-preflight`), which list it from `test_config.toml`.
+
 - **Key Vault's copy outside Azure** (`scripts/keyvault-secrets.ps1 -Export`): a first export
   opens with `-Read` (the owner, 2026-10-31). Left: once the secrets' reorganisation in another
   session settles, a fresh export, then `-Import` of it without `-Apply` against the same vault,

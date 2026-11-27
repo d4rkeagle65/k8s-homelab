@@ -1,0 +1,20 @@
+# Meta's deliveries from the internet: the Cloudflare tunnel straight to the bot's
+# Service, not through Traefik (the tunnel arrives on port 80; kubernetes/CLAUDE.md), and
+# only /webhook. Meta's signature on each POST is what keeps strangers out.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: claude-whatsapp-cloudflared
+spec:
+  ingressClassName: cloudflare-tunnel
+  rules:
+  - host: claude-whatsapp${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    http:
+      paths:
+      - path: /webhook
+        pathType: Prefix
+        backend:
+          service:
+            name: claude-whatsapp
+            port:
+              number: 8080
