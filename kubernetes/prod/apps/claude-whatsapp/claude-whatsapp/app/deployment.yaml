@@ -1,0 +1,103 @@
+# Claude over WhatsApp (claude-whatsapp.py; its docstring says what it does and what it
+# refuses). One replica, replaced rather than rolled: conversations live in its memory,
+# and with two pods up a retried delivery reaching the other one would be answered twice.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-whatsapp
+  labels:
+    app.kubernetes.io/name: claude-whatsapp
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: claude-whatsapp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: claude-whatsapp
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      # The Claude SDK and what it needs, exactly as requirements.txt pins them (Renovate
+      # moves them), and wheels only, so nothing is compiled at start.
+      - name: deps
+        image: python:3.15.1-alpine
+        command: [pip, install, --quiet, --no-cache-dir, --disable-pip-version-check, --only-binary=:all:,
+                  --target, /deps, -r, /app/requirements.txt]
+        env:
+        - {name: HOME, value: /tmp}
+        resources:
+          requests: {cpu: 10m, memory: 64Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+        securityContext: &container-security
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+        - {name: app, mountPath: /app, readOnly: true}
+        - {name: deps, mountPath: /deps}
+        - {name: tmp, mountPath: /tmp}
+      containers:
+      - name: claude-whatsapp
+        image: python:3.15.1-alpine
+        command: [python, -u, /app/claude-whatsapp.py]
+        env:
+        - {name: PYTHONPATH, value: /deps}
+        - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+        - {name: TIMEZONE, value: "${TIMEZONE}"}
+        - {name: BOT_MODEL, value: claude-opus-5-5}
+        # Low effort answers sooner, which matters more in the car than depth does.
+        - {name: BOT_EFFORT, value: low}
+        # Web searches per reply; 0 turns searching off.
+        - {name: WEB_SEARCH_MAX_USES, value: "3"}
+        - {name: GRAPH_API_VERSION, value: v26.0}
+        - {name: IDLE_MINUTES, value: "30"}
+        - {name: MAX_TURNS, value: "40"}
+        envFrom:
+        - secretRef:
+            name: claude-whatsapp
+        ports:
+        - {name: http, containerPort: 8080}
+        readinessProbe:
+          httpGet: {path: /healthz, port: http}
+          periodSeconds: 30
+        livenessProbe:
+          httpGet: {path: /healthz, port: http}
+          periodSeconds: 60
+        resources:
+          requests: {cpu: 10m, memory: 96Mi}
+          limits: {cpu: 500m, memory: 256Mi}
+        securityContext: *container-security
+        volumeMounts:
+        - {name: app, mountPath: /app, readOnly: true}
+        - {name: deps, mountPath: /deps, readOnly: true}
+      volumes:
+      - name: app
+        configMap:
+          name: claude-whatsapp
+      - name: deps
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claude-whatsapp
+  labels:
+    app.kubernetes.io/name: claude-whatsapp
+spec:
+  selector:
+    app.kubernetes.io/name: claude-whatsapp
+  ports:
+  - {name: http, port: 8080, targetPort: http}

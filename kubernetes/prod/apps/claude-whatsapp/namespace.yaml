@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    homelab.local/category: apps
+    homelab.local/data: stateless
+    homelab.local/exposure: internet
+    homelab.local/keyvault: allowed
+    # No login: Meta's signature on each delivery and the allowed numbers decide who is
+    # answered (claude-whatsapp.py).
+    homelab.local/login: none
+    pod-security.kubernetes.io/enforce: restricted
+  name: claude-whatsapp
+spec:
+  finalizers:
+  - kubernetes

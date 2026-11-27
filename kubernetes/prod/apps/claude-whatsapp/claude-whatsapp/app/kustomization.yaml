@@ -1,0 +1,16 @@
+# Claude over WhatsApp: Meta's WhatsApp Cloud API delivers messages from the internet
+# through the Cloudflare tunnel, and claude-whatsapp.py answers each with Claude's reply.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- externalsecret.yaml
+- networkpolicy.yaml
+- deployment.yaml
+- ingress-cloudflared.yaml
+configMapGenerator:
+# The bot and the packages it runs on; the name's hash suffix rolls the pod on a change
+# to either.
+- name: claude-whatsapp
+  files:
+  - claude-whatsapp.py
+  - requirements.txt
