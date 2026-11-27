@@ -255,15 +255,24 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
   fix), then the playbook changed to match (pin names first, or wait through the reboot)
   before a run on cotedeprox02. Nothing on them needs keeping.
-- **Gameyfin, the game library manager** (2026-11-23, PRs #625/#627/#629/#630/#638, all merged):
-  `.handwritten` app `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs 2.7.1),
-  LAN-only (Traefik private), CloudNativePG `gameyfin-db`, Authentik OIDC (blueprint; login working,
-  matched by **email**), homepage tile, `/library` = `/volume1/media/games` read-write. Left, owner
-  first-run in the UI: add a library at `/library`, enable a metadata plugin (Administration →
-  Plugins; until then the scheduled scan logs "At least one metadata plugin must be enabled"), copy
-  games into `/volume1/media/games`, and scan. Operational notes: OIDC settings load at startup, so
-  **restart the deployment after changing them** (`kubectl rollout restart deploy/gameyfin -n
-  gameyfin`); the image is a floating `:2` tag (no pinned `x.y.z`), so Renovate can't track it.
+- **Gameyfin, the game library manager** (2026-11-23, PRs #625/#627/#629/#630/#638 merged, #641
+  open): `.handwritten` app `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs
+  2.7.1), LAN-only (Traefik private), CloudNativePG `gameyfin-db`, Authentik OIDC (blueprint, matched
+  by **email**), homepage tile, `/library` = `/volume1/media/games` read-write. Left:
+  - **#641 (superadmin role):** the OIDC `roles` claim REPLACES the account's roles each login, so
+    the Admins→`GAMEYFIN_ADMIN` mapping demoted the bootstrap superadmin and Gameyfin forced the
+    setup wizard. #641 adds a `Gameyfin Superadmins` group → `GAMEYFIN_SUPERADMIN`. After merge:
+    reconcile + restart the authentik worker so the blueprint reapplies, add the owner to `Gameyfin
+    Superadmins`, and promote the existing account (`update user_roles set roles='SUPERADMIN' where
+    user_id=1`) to clear the setup gate. Don't SSO-login until the group is set or it re-demotes.
+  - First-run in the UI: add a library at `/library`, enable a metadata plugin (Administration →
+    Plugins; until then the scheduled scan logs "At least one metadata plugin must be enabled"),
+    copy games into `/volume1/media/games`, and scan.
+  - Operational notes: OIDC settings (and the roles the claim grants) load at login/startup, so
+    **restart the deployment after changing OIDC settings** (`kubectl rollout restart
+    deploy/gameyfin -n gameyfin`); an OIDC login overwrites the account's username with the
+    `preferred_username` claim (here the owner's email) and replaces its roles from the claim; the
+    image is a floating `:2` tag (no pinned `x.y.z`), so Renovate can't track it.
 - **ImmichFrame beside Immich** (2026-10-28): `kubernetes/prod/apps/immich/immichframe/`, videos
   with sound, private route only. Its two Key Vault variables are in `cluster-secrets` (#443).
   After the app's pull request merges, read back: the pod Ready, the init container's log says "seeded",
