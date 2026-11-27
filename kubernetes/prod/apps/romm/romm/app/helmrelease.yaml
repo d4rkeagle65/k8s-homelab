@@ -167,10 +167,12 @@ spec:
           romm:
             app:
               - path: /romm/library/roms
-      # config.yml (hashing off), read-only over the writable config dir.
+      # config.yml (hashing off), read-only over the writable config dir. `name` references the
+      # existing romm-config ConfigMap (configmap-config.yaml); `identifier` would instead expect
+      # a chart-managed one under values.configMaps.
       config-file:
         type: configMap
-        identifier: romm-config
+        name: romm-config
         advancedMounts:
           romm:
             app:
