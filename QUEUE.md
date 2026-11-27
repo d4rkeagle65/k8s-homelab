@@ -255,26 +255,15 @@ Semaphore, with the first VM's reboot on 2026-10-22).
   under the new kernel is the usual cause, `proxmox-network-interface-pinning generate` the
   fix), then the playbook changed to match (pin names first, or wait through the reboot)
   before a run on cotedeprox02. Nothing on them needs keeping.
-- **Gameyfin, the game library manager** (2026-11-23, PRs #625/#627 deployed, #629/#630 open):
+- **Gameyfin, the game library manager** (2026-11-23, PRs #625/#627/#629/#630/#638, all merged):
   `.handwritten` app `kubernetes/prod/apps/gameyfin/`, `ghcr.io/gameyfin/gameyfin:2` (runs 2.7.1),
-  LAN-only (Traefik private), CloudNativePG `gameyfin-db`. Running 1/1 on PostgreSQL (Liquibase
-  applied all 17 changesets to `gameyfin-db`'s `public` schema, so the `SPRING_DATASOURCE_*`
-  override works and the H2 fallback in `db.yaml`'s header is NOT needed); `/library` mounts the
-  NAS games folder read-only; TLS issued, ingress up. Left:
-  - **#629 (homepage):** a Gameyfin tile and quick link; after merge, check it shows on the page.
-  - **#630 (Authentik OIDC blueprint):** puts the provider/application/role-mapping in git. The
-    blueprint reads a new worker env (`GAMEYFIN_OIDC_CLIENT_SECRET`), so per `kubernetes/CLAUDE.md`
-    its first apply can fail before the worker restarts — re-apply once the worker is up. Then,
-    owner in **Gameyfin → Administration → Security**: enable SSO, issuer
-    `https://auth.${BASE_DOMAIN}/application/o/gameyfin/` (Auto-populate), client id `gameyfin`,
-    client secret from `kubectl get secret -n gameyfin gameyfin-oidc-client -o
-    jsonpath='{.data.AUTHENTIK_CLIENT_SECRET}' | base64 -d`; add users to the Gameyfin Admins/Users
-    groups. Gameyfin can't be configured for OIDC from git (no env/API), so that paste is manual.
-  - First-run: bootstrap the local admin, copy games into `/volume1/media/games` on the NAS, add
-    `/library` as a library and confirm a scan sees them (the folder is empty so far).
-  - Note: the image is a floating `:2` tag (no pinned `x.y.z` published), so Renovate can't track
-    it as-is. APP_KEY must stay a valid AES key length (the generator is 32 chars;
-    `externalsecret-app-key.yaml` says why).
+  LAN-only (Traefik private), CloudNativePG `gameyfin-db`, Authentik OIDC (blueprint; login working,
+  matched by **email**), homepage tile, `/library` = `/volume1/media/games` read-write. Left, owner
+  first-run in the UI: add a library at `/library`, enable a metadata plugin (Administration →
+  Plugins; until then the scheduled scan logs "At least one metadata plugin must be enabled"), copy
+  games into `/volume1/media/games`, and scan. Operational notes: OIDC settings load at startup, so
+  **restart the deployment after changing them** (`kubectl rollout restart deploy/gameyfin -n
+  gameyfin`); the image is a floating `:2` tag (no pinned `x.y.z`), so Renovate can't track it.
 - **ImmichFrame beside Immich** (2026-10-28): `kubernetes/prod/apps/immich/immichframe/`, videos
   with sound, private route only. Its two Key Vault variables are in `cluster-secrets` (#443).
   After the app's pull request merges, read back: the pod Ready, the init container's log says "seeded",
