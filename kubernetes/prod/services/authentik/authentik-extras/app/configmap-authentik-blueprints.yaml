@@ -1248,6 +1248,136 @@ data:
         provider: !KeyOf provider
         meta_launch_url: https://bb-mcp.${BASE_DOMAIN}
         policy_engine_mode: any
+  baby-buddy.yaml: |
+    # Authentik blueprint for Baby Buddy's forward-auth (proxy) provider, converted from
+    # the UI (QUEUE-authentik-blueprints.md). Proxy providers have no client secret. It
+    # stays on the default-proxy-outpost (membership not managed here). No policy binding,
+    # matching the live app. Baby Buddy's OIDC MCP client is the separate babybuddy-mcp
+    # blueprint.
+    version: 1
+    metadata:
+      name: BabyBuddy
+    entries:
+    - model: authentik_providers_proxy.proxyprovider
+      id: provider
+      identifiers:
+        name: babybuddy-proxy
+      attrs:
+        mode: forward_single
+        external_host: https://bb.${BASE_DOMAIN}
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: baby-buddy
+      attrs:
+        name: BabyBuddy
+        provider: !KeyOf provider
+        meta_launch_url: https://bb.${BASE_DOMAIN}
+        policy_engine_mode: any
+  termix-gate.yaml: |
+    # Authentik blueprint for the Termix forward-auth gate (proxy). On the
+    # default-proxy-outpost (membership not managed here). Members of Termix Admins pass.
+    version: 1
+    metadata:
+      name: Termix (gate)
+    entries:
+    - model: authentik_providers_proxy.proxyprovider
+      id: provider
+      identifiers:
+        name: Provider for Termix gate
+      attrs:
+        mode: forward_single
+        external_host: https://termix.${BASE_DOMAIN}
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: termix-gate
+      attrs:
+        name: Termix (gate)
+        provider: !KeyOf provider
+        meta_launch_url: https://termix.${BASE_DOMAIN}
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 0
+      attrs:
+        group: !Find [authentik_core.group, [name, Termix Admins]]
+  termix-remote-gate.yaml: |
+    # Authentik blueprint for the Termix remote forward-auth gate (proxy). On the
+    # default-proxy-outpost (membership not managed here). Members of Termix Admins pass.
+    version: 1
+    metadata:
+      name: Termix (remote gate)
+    entries:
+    - model: authentik_providers_proxy.proxyprovider
+      id: provider
+      identifiers:
+        name: Provider for Termix remote gate
+      attrs:
+        mode: forward_single
+        external_host: https://termix-remote.${BASE_DOMAIN}
+        authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+        invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: termix-remote-gate
+      attrs:
+        name: Termix (remote gate)
+        provider: !KeyOf provider
+        meta_launch_url: https://termix-remote.${BASE_DOMAIN}
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 0
+      attrs:
+        group: !Find [authentik_core.group, [name, Termix Admins]]
+  emby.yaml: |
+    # Authentik blueprint for Emby's LDAP provider, converted from the UI. Emby
+    # authenticates against the Authentik LDAP outpost (membership not managed here).
+    # LDAP providers have no client secret. Members of Emby Users may authenticate.
+    version: 1
+    metadata:
+      name: Emby
+    entries:
+    - model: authentik_core.group
+      id: users
+      identifiers:
+        name: Emby Users
+    - model: authentik_providers_ldap.ldapprovider
+      id: provider
+      identifiers:
+        name: Provider for Emby
+      attrs:
+        base_dn: DC=ldap,DC=goauthentik,DC=io
+        bind_mode: direct
+        search_mode: direct
+        mfa_support: false
+        uid_start_number: 2000
+        gid_start_number: 4000
+        tls_server_name: ldap.auth.${BASE_DOMAIN}
+        certificate: !Find [authentik_crypto.certificatekeypair, [name, ldap-authentik]]
+        authorization_flow: !Find [authentik_flows.flow, [slug, authentication-ldap]]
+    - model: authentik_core.application
+      id: application
+      identifiers:
+        slug: emby
+      attrs:
+        name: Emby
+        provider: !KeyOf provider
+        policy_engine_mode: any
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 0
+      attrs:
+        group: !KeyOf users
 kind: ConfigMap
 metadata:
   name: authentik-blueprints
