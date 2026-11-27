@@ -1,8 +1,9 @@
-# The games library on the NAS media share, read-only. A PV of gameyfin's own (the shared
-# synmedia-nfs PVC is scoped to the media namespace), bound one-to-one to pvc-games below.
-# Create /volume1/media/games on the NAS first, readable by MEDIA_PUID:999 (the kubelet makes a
-# missing path as root, which Gameyfin then can't read). Gameyfin's admin UI points a library
-# at the mount path (/library).
+# The games library on the NAS media share. A PV of gameyfin's own (the shared synmedia-nfs PVC
+# is scoped to the media namespace), bound one-to-one to pvc-games below. Read-write: Gameyfin
+# refuses a library whose directory isn't writable (it writes metadata/images alongside the
+# games), so this cannot be mounted read-only. Create /volume1/media/games on the NAS first,
+# writable by MEDIA_PUID:999 (the kubelet makes a missing path as root, which Gameyfin then
+# can't use). Gameyfin's admin UI points a library at the mount path (/library).
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -11,7 +12,7 @@ spec:
   capacity:
     storage: 10Ti
   accessModes:
-    - ReadOnlyMany
+    - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   storageClassName: ""
   claimRef:
@@ -25,4 +26,3 @@ spec:
     - hard
     - timeo=600
     - retrans=2
-    - ro
