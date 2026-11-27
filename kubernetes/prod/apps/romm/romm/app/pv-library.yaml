@@ -1,0 +1,29 @@
+# The ROM library on the NAS media share, at /volume1/media/games/roms, read-write. A PV of
+# romm's own (the shared synmedia-nfs PVC is scoped to the media namespace), bound one-to-one to
+# pvc-library. It is mounted at /romm/library/roms, so RomM's default layout finds games at
+# roms/{platform}/{game}. Create /volume1/media/games/roms on the NAS group-owned 999 (the media
+# group) with group-write and the setgid bit, so RomM (uid 1000 + supplementary group 999, see
+# helmrelease.yaml) can read and write it and new files stay in group 999. Platform subfolder
+# names must match RomM's platform slugs (case-insensitive).
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: romm-library-nfs
+spec:
+  capacity:
+    storage: 10Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  claimRef:
+    name: romm-library
+    namespace: romm
+  nfs:
+    server: ${NFS_SERVER}
+    path: /volume1/media/games/roms
+  mountOptions:
+    - nfsvers=3
+    - hard
+    - timeo=600
+    - retrans=2

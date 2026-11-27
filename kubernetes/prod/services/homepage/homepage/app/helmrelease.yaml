@@ -224,6 +224,9 @@ spec:
                 - Gameyfin:
                     - icon: gameyfin.png
                       href: https://gameyfin${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                - RomM:
+                    - icon: romm.png
+                      href: https://romm${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
                 - Kept:
                     - icon: mdi-package-variant-closed
                       href: https://kept${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
@@ -561,6 +564,13 @@ spec:
                     namespace: gameyfin
                     app: gameyfin
                     podSelector: app.kubernetes.io/name=gameyfin
+                - RomM:
+                    icon: romm.png
+                    href: https://romm${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+                    description: ROM library and player
+                    namespace: romm
+                    app: romm
+                    podSelector: app.kubernetes.io/name=romm
                 - Immich Power Tools:
                     icon: immich.png
                     href: https://immichpt.${BASE_DOMAIN}

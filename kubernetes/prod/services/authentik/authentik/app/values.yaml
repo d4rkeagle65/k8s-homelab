@@ -157,6 +157,11 @@ worker:
       secretKeyRef:
         key: client-secret
         name: authentik-gameyfin-client
+  - name: ROMM_OIDC_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        key: client-secret
+        name: authentik-romm-client
   - name: NETBOX_OIDC_CLIENT_SECRET
     valueFrom:
       secretKeyRef:

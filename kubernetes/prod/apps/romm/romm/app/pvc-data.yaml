@@ -1,0 +1,16 @@
+# RomM's own data on the NAS: /romm/resources (artwork), /romm/assets (saves, states,
+# screenshots), /romm/config, /romm/library's root (so bios/ is writable) and /redis-data (the
+# embedded Valkey's persistence). The ROM files themselves are a separate read-write mount
+# (pv-library). Mounted by subPath from this one claim; see helmrelease.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: romm-data
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: nfs-retain-rwo
+  resources:
+    requests:
+      storage: 20Gi

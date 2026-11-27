@@ -1,0 +1,179 @@
+# RomM, a self-hosted ROM manager and in-browser player (github.com/rommapp/romm). The "full"
+# image bundles EmulatorJS/js-dos (in-browser play) and an embedded Valkey, so no separate Redis
+# is needed - only /redis-data is persisted. Web UI on 8080. Reachable on the private networks
+# through Traefik only (no Cloudflare tunnel); login through Authentik (the romm blueprint in
+# authentik-extras) over OIDC, which RomM reads from env (OIDC_*). A local admin is bootstrapped
+# on first run and kept (DISABLE_USERPASS_LOGIN=false); SSO links to it by email. Roles are NOT
+# taken from the OIDC claim (no OIDC_CLAIM_ROLES) - they're managed in RomM's own UI - so an SSO
+# login can't demote the admin.
+#
+# Database: PostgreSQL (ROMM_DB_DRIVER=postgresql) on the romm-db CloudNativePG Cluster; RomM runs
+# Alembic migrations on first boot (watch the pod log that they apply on PostgreSQL).
+#
+# Storage: RomM's own data (artwork, saves/states, config, the embedded Valkey, and the library
+# root so bios/ is writable) is the romm-data PVC by subPath; the ROM files are a separate
+# read-write NFS mount at /romm/library/roms (/volume1/media/games/roms on the NAS). Hashing is
+# off via configmap-config.yaml to keep memory ~1.5Gi.
+#
+# RomM runs as uid 1000 (no PUID override), with supplementary group 999 so it can read/write the
+# media-group-owned ROM folder. enableServiceLinks is false: with it on, RomM's bundled nginx
+# refuses to start ("invalid host in tcp://<ip>:8080 of the listen directive").
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: romm
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/part-of: romm
+      homelab.local/category: apps
+      homelab.local/env: prod
+      homelab.local/managed-by: hand
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 5.3.0
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    defaultPodOptions:
+      enableServiceLinks: false
+      priorityClassName: homelab-important
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        # The media group, so the ROM folder (group 999, setgid) is read-write.
+        supplementalGroups: [999]
+    controllers:
+      romm:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              # The "full" image carries EmulatorJS/js-dos and the embedded Valkey.
+              repository: ghcr.io/rommapp/romm
+              tag: "5.0.0"
+            env:
+              TZ: ${TIMEZONE}
+              ROMM_BASE_URL: https://romm${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+              ROMM_PORT: "8080"
+              ROMM_DB_DRIVER: postgresql
+              DB_HOST:
+                valueFrom: {secretKeyRef: {name: romm-db-app, key: host}}
+              DB_PORT:
+                valueFrom: {secretKeyRef: {name: romm-db-app, key: port}}
+              DB_NAME:
+                valueFrom: {secretKeyRef: {name: romm-db-app, key: dbname}}
+              DB_USER:
+                valueFrom: {secretKeyRef: {name: romm-db-app, key: username}}
+              DB_PASSWD:
+                valueFrom: {secretKeyRef: {name: romm-db-app, key: password}}
+              ROMM_AUTH_SECRET_KEY:
+                valueFrom: {secretKeyRef: {name: romm-auth, key: ROMM_AUTH_SECRET_KEY}}
+              # Authentik OIDC. The provider/application are the romm blueprint. RomM's callback
+              # is the literal /api/oauth/openid; OIDC_SERVER_APPLICATION_URL is the per-app URL.
+              OIDC_ENABLED: "true"
+              OIDC_PROVIDER: authentik
+              OIDC_CLIENT_ID: romm
+              OIDC_REDIRECT_URI: https://romm${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}/api/oauth/openid
+              OIDC_SERVER_APPLICATION_URL: https://auth.${BASE_DOMAIN}/application/o/romm
+              OIDC_CLIENT_SECRET:
+                valueFrom: {secretKeyRef: {name: romm-oidc-client, key: AUTHENTIK_CLIENT_SECRET}}
+              # Keep a local admin reachable at /login (don't lock out on an OIDC misconfig).
+              DISABLE_USERPASS_LOGIN: "false"
+            probes:
+              startup: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8080
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 30
+              liveness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8080
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                <<: *probe
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8080
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            # Hashing is off (configmap-config.yaml), so a scan fits well under this limit;
+            # a hash-heavy scan would want far more (upstream suggests up to 4Gi).
+            resources:
+              requests: {cpu: 50m, memory: 768Mi}
+              limits: {cpu: 2000m, memory: 1536Mi}
+    service:
+      romm:
+        controller: romm
+        ports:
+          http:
+            port: 8080
+    ingress:
+      romm:
+        className: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: cloudflare-letsencrypt
+          traefik.ingress.kubernetes.io/router.entrypoints: websecure
+          traefik.ingress.kubernetes.io/router.middlewares: traefik_private-networks@kubernetescrd
+        hosts:
+          - host: romm${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: romm
+                  port: http
+        tls:
+          - secretName: romm-tls
+            hosts:
+              - romm${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+    persistence:
+      # RomM's own data, by subPath from one claim.
+      data:
+        existingClaim: romm-data
+        advancedMounts:
+          romm:
+            app:
+              - path: /romm/resources
+                subPath: resources
+              - path: /romm/assets
+                subPath: assets
+              - path: /romm/config
+                subPath: config
+              - path: /redis-data
+                subPath: redis-data
+              - path: /romm/library
+                subPath: library
+      # The ROM files, read-write, overlaid at the roms/ subdir of the library root.
+      library:
+        existingClaim: romm-library
+        advancedMounts:
+          romm:
+            app:
+              - path: /romm/library/roms
+      # config.yml (hashing off), read-only over the writable config dir.
+      config-file:
+        type: configMap
+        identifier: romm-config
+        advancedMounts:
+          romm:
+            app:
+              - path: /romm/config/config.yml
+                subPath: config.yml
+                readOnly: true

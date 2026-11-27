@@ -1,0 +1,15 @@
+# Binds the ROM-library PV above. Prune-protected: the PV is Retain and holds the NAS mount.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: romm-library
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: romm-library-nfs
+  resources:
+    requests:
+      storage: 10Ti
