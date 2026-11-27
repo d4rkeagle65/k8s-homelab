@@ -58,14 +58,21 @@ data:
     # Authentik blueprint: Gameyfin's OIDC login. The client secret is the worker's
     # GAMEYFIN_OIDC_CLIENT_SECRET env var, from the authentik-gameyfin-client Secret; the same
     # value is pasted into Gameyfin's Administration > Security page by hand (Gameyfin has no OIDC
-    # env or API). Gameyfin reads a `roles` claim and honours GAMEYFIN_ADMIN / GAMEYFIN_USER: the
-    # roles scope mapping below sets it from group membership, and Gameyfin requests the `roles`
-    # scope by default. Members of Gameyfin Admins or Gameyfin Users may log in; membership is set
-    # in the UI. The redirect path is the literal /login/oauth2/code/oidc.
+    # env or API). Gameyfin reads a `roles` claim and honours GAMEYFIN_SUPERADMIN /
+    # GAMEYFIN_ADMIN / GAMEYFIN_USER; the claim REPLACES the account's roles on every login, so a
+    # member of only Gameyfin Admins is set to ADMIN (not superadmin) - the first/primary admin
+    # must be in Gameyfin Superadmins, or Gameyfin loses its superadmin and forces the setup
+    # wizard. The roles scope mapping below sets the role from group membership (superadmin wins),
+    # and Gameyfin requests the `roles` scope by default. Members of any of the three groups may
+    # log in; membership is set in the UI. The redirect path is the literal /login/oauth2/code/oidc.
     version: 1
     metadata:
       name: Gameyfin
     entries:
+    - model: authentik_core.group
+      id: superadmins
+      identifiers:
+        name: Gameyfin Superadmins
     - model: authentik_core.group
       id: admins
       identifiers:
@@ -82,6 +89,8 @@ data:
         scope_name: roles
         description: Gameyfin roles from group membership
         expression: |
+          if ak_is_group_member(request.user, name="Gameyfin Superadmins"):
+              return {"roles": ["GAMEYFIN_SUPERADMIN"]}
           if ak_is_group_member(request.user, name="Gameyfin Admins"):
               return {"roles": ["GAMEYFIN_ADMIN"]}
           return {"roles": ["GAMEYFIN_USER"]}
@@ -124,11 +133,17 @@ data:
         target: !KeyOf application
         order: 0
       attrs:
-        group: !KeyOf admins
+        group: !KeyOf superadmins
     - model: authentik_policies.policybinding
       identifiers:
         target: !KeyOf application
         order: 1
+      attrs:
+        group: !KeyOf admins
+    - model: authentik_policies.policybinding
+      identifiers:
+        target: !KeyOf application
+        order: 2
       attrs:
         group: !KeyOf users
   grafana.yaml: |
