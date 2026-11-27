@@ -1,0 +1,82 @@
+# Prometheus exporter for Nextcloud (xperimental/nextcloud-exporter): scrapes the
+# serverinfo API (users, files, shares, app updates, DB size) using the serverinfo
+# token the setup hook sets. Reaches Nextcloud through Traefik at its real hostname so
+# the request passes Nextcloud's trusted-domains check. The ServiceMonitor is
+# auto-discovered by the kube-prometheus-stack Prometheus.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nextcloud-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nextcloud-exporter
+  template:
+    metadata:
+      labels:
+        app: nextcloud-exporter
+    spec:
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: exporter
+        image: ghcr.io/xperimental/nextcloud-exporter:0.9.2
+        env:
+        - name: NEXTCLOUD_SERVER
+          value: https://nextcloud${SUBDOMAIN_SUFFIX}.${BASE_DOMAIN}
+        - name: NEXTCLOUD_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: nextcloud-secrets
+              key: NEXTCLOUD_SERVERINFO_TOKEN
+        ports:
+        - name: metrics
+          containerPort: 9205
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nextcloud-exporter
+  labels:
+    app: nextcloud-exporter
+spec:
+  selector:
+    app: nextcloud-exporter
+  ports:
+  - name: metrics
+    port: 9205
+    targetPort: metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nextcloud-exporter
+spec:
+  selector:
+    matchLabels:
+      app: nextcloud-exporter
+  endpoints:
+  - port: metrics
+    interval: 60s
