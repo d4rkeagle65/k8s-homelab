@@ -17,6 +17,7 @@ resources:
 - externalsecret-authentik-termix-oidc.yaml
 - ingress-authentik-cloudflared.yaml
 - secret-authentik-dockhand-oidc.yaml
+- secret-authentik-immich-oidc.yaml
 - secret-authentik-netbox-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml
 - secret-authentik-secret-key.yaml
