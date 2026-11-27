@@ -16,13 +16,16 @@ resources:
 - externalsecret-authentik-organizr-client.yaml
 - externalsecret-authentik-termix-oidc.yaml
 - ingress-authentik-cloudflared.yaml
+- secret-authentik-babybuddy-mcp-oidc.yaml
 - secret-authentik-dockhand-oidc.yaml
+- secret-authentik-homeassistant-oidc.yaml
 - secret-authentik-immich-oidc.yaml
 - secret-authentik-netbox-oidc.yaml
 - secret-authentik-secret-bootstrap.yaml
 - secret-authentik-secret-key.yaml
 - secret-authentik-semaphore-oidc.yaml
 - secret-authentik-stork-oidc.yaml
+- secret-authentik-vaultwarden-oidc.yaml
 - secretstore-gameyfin.yaml
 - secretstore-grimmory.yaml
 - secretstore-homepage.yaml
