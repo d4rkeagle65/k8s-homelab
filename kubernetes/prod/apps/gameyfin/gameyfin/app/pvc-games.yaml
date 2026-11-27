@@ -8,7 +8,7 @@ metadata:
     kustomize.toolkit.fluxcd.io/prune: disabled
 spec:
   accessModes:
-    - ReadOnlyMany
+    - ReadWriteMany
   storageClassName: ""
   volumeName: gameyfin-games-nfs
   resources:

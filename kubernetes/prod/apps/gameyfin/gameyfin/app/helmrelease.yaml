@@ -15,8 +15,9 @@
 # /opt/gameyfin/db on gameyfin-data.
 #
 # Storage: the whole working directory /opt/gameyfin is the data PVC (per upstream's compose,
-# the app binary lives elsewhere in the image); the games library is a separate read-only NFS
-# mount at /library, which the admin UI is pointed at.
+# the app binary lives elsewhere in the image); the games library is a separate NFS mount at
+# /library, which the admin UI is pointed at. The library mount is read-write: Gameyfin refuses
+# a library whose directory isn't writable (it writes metadata/images alongside the games).
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -147,9 +148,9 @@ spec:
         existingClaim: gameyfin-data
         globalMounts:
           - path: /opt/gameyfin
-      # The games library, read-only; the admin UI points a library at /library.
+      # The games library; the admin UI points a library at /library. Read-write (Gameyfin
+      # requires a writable library directory).
       games:
         existingClaim: gameyfin-games
         globalMounts:
           - path: /library
-            readOnly: true
