@@ -14,6 +14,7 @@ resources:
 - externalsecret-authentik-linkwarden-client.yaml
 - externalsecret-authentik-nextcloud-client.yaml
 - externalsecret-authentik-organizr-client.yaml
+- externalsecret-authentik-romm-client.yaml
 - externalsecret-authentik-termix-oidc.yaml
 - ingress-authentik-cloudflared.yaml
 - secret-authentik-babybuddy-mcp-oidc.yaml
@@ -34,4 +35,5 @@ resources:
 - secretstore-monitoring.yaml
 - secretstore-nextcloud.yaml
 - secretstore-organizr.yaml
+- secretstore-romm.yaml
 - serviceaccount-authentik-oidc-reader.yaml

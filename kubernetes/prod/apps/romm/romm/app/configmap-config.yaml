@@ -1,0 +1,12 @@
+# RomM reads /romm/config/config.yml. Hashing is turned off (the owner's choice): scans run far
+# lighter on memory (~1.5Gi limit), at the cost of hash-based matching (RetroAchievements,
+# Hasheous, PlayMatch). Name-based metadata matching still works. Turn it back on by removing
+# skip_hash_calculation (or setting it false) and raising the container memory limit.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: romm-config
+data:
+  config.yml: |
+    filesystem:
+      skip_hash_calculation: true
